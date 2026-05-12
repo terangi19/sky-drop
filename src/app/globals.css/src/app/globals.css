@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+:root {
+  --background: #000000;
+  --foreground: #ffffff;
+  --card: rgba(0, 0, 0, 0.4);
+  --card-border: rgba(255, 255, 255, 0.1);
+  --muted: #a1a1aa;
+  --soft-card: #18181b;
+}
+
+:root.light {
+  --background: #f5f7fb;
+  --foreground: #111827;
+  --card: #ffffff;
+  --card-border: rgba(0, 0, 0, 0.1);
+  --muted: #6b7280;
+  --soft-card: #e5e7eb;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  transition: background 0.3s ease, color 0.3s ease;
+}
