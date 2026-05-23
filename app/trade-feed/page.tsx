@@ -414,7 +414,7 @@ export default function TradeFeedPage() {
     return sorted.map(([world, count]) => ({
       world, label: WORLDS.find((w) => w.id === world)?.label || world,
       icon: WORLDS.find((w) => w.id === world)?.icon || "🌐", count,
-      change: count > 0 ? "+" + Math.min(count, 25) + "%" : "0%",
+      change: count > 0 ? "+" + count + "%" : "0%",
     }));
   }, [posts]);
 
@@ -449,7 +449,7 @@ export default function TradeFeedPage() {
     return items;
   }, [posts, selectedWorld, selectedFilter, selectedType, search, showMyTrades, showImagesOnly, minPrice, maxPrice, user?.email, sortBy, statusFilter]);
 
-  const onlineCount = posts.length > 50 ? 50 + Math.floor(posts.length * 0.3) : Math.floor(Math.random() * 30) + 10;
+  const onlineCount = posts.length;
   const viewerCount = Math.floor(posts.length * 0.15) + 1;
   const activeWorldColor = selectedWorld.length === 1 ? WORLDS.find((w) => w.id === selectedWorld[0])?.color || "from-sky-400" : "from-red-400";
   const activeWorldGlow = selectedWorld.length === 1 ? WORLDS.find((w) => w.id === selectedWorld[0])?.glow || "" : "";
@@ -743,7 +743,7 @@ export default function TradeFeedPage() {
                   const isHot = hotPosts.includes(post);
                   const worldData = WORLDS.find((w) => w.id === post.world);
                   const stats = sellerReviewStats[post.sellerEmail || ""];
-                  const postViews = post.views || Math.floor(Math.random() * 5) + 1;
+                  const postViews = post.views || 0;
                   const imgs = post.images || (post.image ? [post.image] : []);
 
                   return (

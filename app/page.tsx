@@ -126,12 +126,6 @@ function timeAgo(seconds: number): string {
   return `${Math.floor(diff / 604800)}w ago`;
 }
 
-function watcherCount(id: string): number {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) hash = ((hash << 5) - hash) + id.charCodeAt(i);
-  return Math.abs(hash % 90) + 10;
-}
-
 function getRecentlyViewed(): any[] {
   try {
     return JSON.parse(localStorage.getItem("recentlyViewed") || "[]");
@@ -559,7 +553,7 @@ export default function Home() {
       }
 
       if (sortBy === "trending") {
-        filtered.sort((a, b) => watcherCount(b.id) - watcherCount(a.id));
+        filtered.sort((a: any, b: any) => (Number(b.views) || 0) - (Number(a.views) || 0));
       }
 
       return filtered;
@@ -931,7 +925,7 @@ export default function Home() {
             <p className="text-[13px] font-bold uppercase tracking-[0.22em] text-[var(--foreground)]">🔥 Hot This Week</p>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {[...listings].filter(l => l.status !== "sold").sort((a, b) => watcherCount(b.id) - watcherCount(a.id)).slice(0, 6).map((item) => (
+            {[...listings].filter(l => l.status !== "sold").slice(0, 6).map((item) => (
               <div key={item.id} onClick={() => { saveRecentlyViewed(item); router.push(`/post/listing/${item.id}`); }}
                 className="group shrink-0 w-56 cursor-pointer rounded-xl border border-zinc-800/40 bg-zinc-900/50 p-3 transition-all duration-200 hover:border-orange-500/30 hover:-translate-y-0.5">
                 {item.images?.[0] || item.imageUrl || item.image ? (
@@ -940,7 +934,7 @@ export default function Home() {
                   <div className="h-20 w-full rounded-lg bg-gradient-to-br from-orange-500/10 via-red-500/10 to-amber-500/10 flex items-center justify-center text-xs text-[var(--muted)]">SD</div>
                 )}
                 <p className="mt-2 truncate text-sm font-bold text-[var(--foreground)]">{item.title}</p>
-                <p className="mt-0.5 text-sm font-black text-orange-400">${item.price} <span className="text-[10px] text-[var(--muted)]">· 👁 {watcherCount(item.id)}</span></p>
+                <p className="mt-0.5 text-sm font-black text-orange-400">${item.price} <span className="text-[10px] text-[var(--muted)]">· 👁 {(item as any).views || 0}</span></p>
               </div>
             ))}
           </div>
@@ -996,7 +990,7 @@ onClick={() => router.push(`/post/listing/${item.id}`)}
                 )}
                  <p className="mt-2.5 truncate text-[15px] font-bold text-[var(--foreground)]">{item.title}</p>
                  <p className="mt-0.5 text-base font-black" style={{ color: "var(--foreground)" }}>${item.price}</p>
-                 <p className="mt-1 text-[10px] text-[var(--muted)]">👁 {watcherCount(item.id)} views</p>
+                  <p className="mt-1 text-[10px] text-[var(--muted)]">👁 {(item as any).views || 0} views</p>
               </div>
             ))}
           </div>
@@ -1204,7 +1198,7 @@ onClick={() => router.push(`/post/listing/${item.id}`)}
                     {item.createdAt?.seconds && <span>{timeAgo(item.createdAt.seconds)}</span>}
                     {item.pickupAvailable && <span>📍 Pickup</span>}
                     {item.shippingAvailable && <span>📦 Shipping</span>}
-                    <span className="ml-auto">👁 {watcherCount(item.id)}</span>
+                    <span className="ml-auto">👁 {(item as any).views || 0}</span>
                   </div>
 
                     <div className="mt-3 flex gap-2">

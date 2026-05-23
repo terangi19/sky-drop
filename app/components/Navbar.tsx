@@ -229,14 +229,26 @@ export default function Navbar() {
           >
             <div className="relative w-10 h-10 md:w-12 md:h-12 flex-shrink-0">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" className="w-full h-full">
-                {/* Parachute - clean, iconic silhouette */}
-                <path d="M16 2C8.5 2 2.5 7.8 2 15h28C29.5 7.8 23.5 2 16 2z"
-                  fill="none" stroke="#38bdf8" strokeWidth="1.8" strokeLinejoin="round"/>
-                <path d="M4 15L16 30M28 15L16 30M16 15v15"
+                {/* Parachute canopy */}
+                <path d="M2 10C2 5.5 8 2 16 2s14 3.5 14 8"
                   fill="none" stroke="#38bdf8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                {/* Small detail cross on canopy */}
-                <path d="M10 9c2-1.5 4-2 6-2s4 0.5 6 2"
-                  fill="none" stroke="#38bdf8" strokeWidth="1" opacity="0.4" strokeLinecap="round"/>
+                <path d="M2 10c0 1 0.5 2 1 3"
+                  fill="none" stroke="#38bdf8" strokeWidth="1.2" strokeLinecap="round"/>
+                <path d="M30 10c0 1-0.5 2-1 3"
+                  fill="none" stroke="#38bdf8" strokeWidth="1.2" strokeLinecap="round"/>
+                {/* Parachute strings */}
+                <path d="M7 12c2-0.5 5-1 9-1s7 0.5 9 1"
+                  fill="none" stroke="#38bdf8" strokeWidth="0.8" opacity="0.5" strokeLinecap="round"/>
+                <line x1="7" y1="12" x2="10" y2="18" stroke="#38bdf8" strokeWidth="0.8" opacity="0.5"/>
+                <line x1="25" y1="12" x2="22" y2="18" stroke="#38bdf8" strokeWidth="0.8" opacity="0.5"/>
+                <line x1="16" y1="12" x2="16" y2="18" stroke="#38bdf8" strokeWidth="0.8" opacity="0.5"/>
+                {/* Falling box */}
+                <rect x="10" y="18" width="12" height="10" rx="1.5" ry="1.5"
+                  fill="none" stroke="#38bdf8" strokeWidth="1.8" strokeLinejoin="round"/>
+                {/* Box lid line */}
+                <line x1="10" y1="21" x2="22" y2="21" stroke="#38bdf8" strokeWidth="1.2" opacity="0.6"/>
+                {/* Box highlight */}
+                <path d="M12 23h3" stroke="#38bdf8" strokeWidth="0.8" opacity="0.4" strokeLinecap="round"/>
               </svg>
             </div>
             <div className="flex flex-col leading-tight">

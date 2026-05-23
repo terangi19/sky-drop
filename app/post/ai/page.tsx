@@ -186,7 +186,7 @@ export default function AIPostPage() {
       }
       await addDoc(collection(db, "listings"), {
         title, description, price: String(saleType === "auction" ? startingBid : price), category, condition, location,
-        imageUrl: images[0] || "", images, sellerEmail: user.email, sellerId: user.uid, createdAt: serverTimestamp(),
+        imageUrl: images[0] || "", images, sellerEmail: user.email, sellerUsername: user.email?.split("@")[0] || "User", sellerId: user.uid, createdAt: serverTimestamp(),
         pickupAvailable, shippingAvailable, pickupArea,
         shippingFee: shippingAvailable && shippingFee ? Number(shippingFee) : null,
         freeShipping: shippingAvailable ? freeShipping : false,
