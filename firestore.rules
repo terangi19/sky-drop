@@ -68,7 +68,7 @@ service cloud.firestore {
       allow read: if true;
       allow create: if request.auth != null;
       allow delete: if request.auth != null
-        && (resource.data.sellerEmail == request.auth.token.email || resource.data.sellerEmail == "bot@skydrop.nz");
+        && resource.data.sellerEmail == request.auth.token.email;
     }
 
     // Typing indicators: anyone authenticated can read/write for their conversations

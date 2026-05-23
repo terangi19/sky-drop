@@ -199,7 +199,7 @@ export default function TradeFeedPage() {
   useEffect(() => {
     if (posts.length === 0) return;
     const latest = posts[0];
-    if (latest && latest.sellerUsername !== "TradeBot" && latest.createdAt && (Date.now() / 1000 - latest.createdAt.seconds) < 10) {
+    if (latest && latest.createdAt && (Date.now() / 1000 - latest.createdAt.seconds) < 10) {
       const id = ++eventId.current;
       const worldName = WORLDS.find((w) => w.id === latest.world)?.label || "";
       setLiveEvents((prev) => [{ id, icon: "📢", text: `${latest.title} posted${worldName ? ` in ${worldName}` : ""}`, world: latest.world }, ...prev].slice(0, 6));

@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "./components/AuthProvider";
-import { BotProvider } from "./components/BotProvider";
 import { RouteGuard } from "./components/RouteGuard";
 import VerificationBanner from "./components/VerificationBanner";
 import ToastContainer from "./components/Toast";
@@ -73,7 +72,7 @@ export default function RootLayout({
             })();
           `,
         }} />
-        <AuthProvider><VerificationBanner /><BotProvider><RouteGuard>{children}<Footer /><DropIndicator /><Spotlight /><ScrollToTop /></RouteGuard></BotProvider><ToastContainer /></AuthProvider>
+        <AuthProvider><VerificationBanner /><RouteGuard>{children}<Footer /><DropIndicator /><Spotlight /><ScrollToTop /></RouteGuard><ToastContainer /></AuthProvider>
       </body>
     </html>
   );

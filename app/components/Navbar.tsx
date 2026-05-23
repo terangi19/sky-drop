@@ -261,7 +261,6 @@ export default function Navbar() {
               <Link href="/purchases" className="transition hover:text-sky-400">Purchases</Link>
               <Link href="/sales" className="transition hover:text-sky-400">Sales</Link>
               <Link href="/watchlist" className="transition hover:text-sky-400">Watchlist</Link>
-              <Link href="/bot" className="transition hover:text-sky-400">Trade Bot</Link>
               <Link href="/post/ai" className="transition hover:text-sky-400">Quick Post</Link>
             </nav>
           )}
@@ -297,7 +296,6 @@ export default function Navbar() {
                 <Link href="/purchases" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Purchases</Link>
                 <Link href="/sales" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Sales</Link>
                 <Link href="/watchlist" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Watchlist</Link>
-                <Link href="/bot" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Trade Bot</Link>
                 <Link href="/post/ai" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Quick Post</Link>
                 <div className="my-2 border-t border-zinc-800" />
                 <Link href="/profile" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Profile</Link>
