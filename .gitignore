@@ -1,12 +1,13 @@
 node_modules
 .next
+next-env.d.ts
 .env.local
+
 .env
 .env.development.local
 .env.test.local
 .env.production.local
 *.log
-.next
 out
 dist
 functions/lib

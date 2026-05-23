@@ -73,8 +73,8 @@ body {
 :root.light .border-zinc-700\/40 { border-color: rgba(0, 0, 0, 0.07) !important; }
 :root.light .border-zinc-700\/30 { border-color: rgba(0, 0, 0, 0.05) !important; }
 :root.light .border-white\/10 { border-color: rgba(0, 0, 0, 0.08) !important; }
-:root.light .text-zinc-700 { color: #d1d5db !important; }
-:root.light .text-zinc-800 { color: #e8eaee !important; }
+:root.light .text-zinc-700 { color: #4b5563 !important; }
+:root.light .text-zinc-800 { color: #374151 !important; }
 
 /* ── NAVBAR LIGHT MODE ── */
 :root.light header {
