@@ -11,11 +11,6 @@
   "dependencies": {
     "@stripe/react-stripe-js": "^6.4.0",
     "@stripe/stripe-js": "^9.6.0",
-    "@tensorflow-models/coco-ssd": "^2.2.3",
-    "@tensorflow/tfjs-backend-webgl": "^4.22.0",
-    "@tensorflow/tfjs-converter": "^4.22.0",
-    "@tensorflow/tfjs-core": "^4.22.0",
-    "@xenova/transformers": "^2.17.2",
     "canvas-confetti": "^1.9.4",
     "firebase": "^10.12.2",
     "lucide-react": "^1.14.0",
@@ -23,8 +18,7 @@
     "nodemailer": "^8.0.7",
     "react": "18.2.0",
     "react-dom": "18.2.0",
-    "stripe": "^22.1.1",
-    "ultralytics": "^1.1.1"
+    "stripe": "^22.1.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

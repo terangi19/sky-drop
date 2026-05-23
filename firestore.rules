@@ -94,6 +94,14 @@ service cloud.firestore {
       allow update: if request.auth != null;
     }
 
+    // Trade Shouts: world chat messages — anyone authenticated can read/write
+    match /tradeShouts/{shoutId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow delete: if request.auth != null
+        && resource.data.by == request.auth.token.email;
+    }
+
     // Sponsored Drops: paid listings in the drop queue
     match /sponsoredDrops/{docId} {
       allow read: if true;
