@@ -110,7 +110,8 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
 
   const shippingAmount = listing.shippingFee && !listing.freeShipping ? listing.shippingFee : 0;
   const itemPrice = Number(listing.price) || 0;
-  const total = deliveryMethod === "shipping" ? itemPrice + shippingAmount : itemPrice;
+  const processingFee = 1.00;
+  const total = (deliveryMethod === "shipping" ? itemPrice + shippingAmount : itemPrice) + processingFee;
 
   const isValid = name.trim() && phone.trim() && (deliveryMethod !== "shipping" || address.trim()) && deliveryMethod;
 
@@ -196,7 +197,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
       }
       const realPrice = Number(snap.data().price);
       const realShipping = listing.shippingFee && !listing.freeShipping ? Number(listing.shippingFee) : 0;
-      const realTotal = deliveryMethod === "shipping" ? realPrice + realShipping : realPrice;
+      const realTotal = (deliveryMethod === "shipping" ? realPrice + realShipping : realPrice) + 1.00;
 
       const res = await fetch("/api/create-payment-intent", {
         method: "POST",
@@ -236,6 +237,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
         deliveryMethod,
         shippingAddress: deliveryMethod === "shipping" ? address.trim() : "",
         shippingFee: deliveryMethod === "shipping" ? shippingAmount : 0,
+        processingFee: 1.00,
         total,
         status: "pending",
         paidAt: serverTimestamp(),
@@ -374,6 +376,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
               {deliveryMethod === "shipping" && shippingAmount > 0 && (
                 <div className="mt-1 flex items-center justify-between text-[var(--muted)]"><span>Shipping</span><span>${shippingAmount.toFixed(2)}</span></div>
               )}
+              <div className="mt-1 flex items-center justify-between text-[var(--muted)]"><span>Buyer Protection</span><span>$1.00</span></div>
               <div className="mt-2 flex items-center justify-between border-t border-zinc-800 pt-2 text-sm font-bold text-[var(--foreground)]"><span>Total</span><span>${total.toFixed(2)}</span></div>
             </div>
             <div className="mt-3 flex items-center justify-center gap-1 text-xs text-[var(--muted)]">
@@ -488,6 +491,10 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                         <span>${shippingAmount.toFixed(2)}</span>
                       </div>
                     )}
+                    <div className="mt-1 flex items-center justify-between text-[var(--muted)]">
+                      <span>Buyer Protection</span>
+                      <span>$1.00</span>
+                    </div>
                     <div className="mt-2 flex items-center justify-between border-t border-zinc-800 pt-2 text-sm font-bold text-[var(--foreground)]">
                       <span>Total</span>
                       <span>${total.toFixed(2)}</span>
@@ -515,12 +522,15 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                         <span>${shippingAmount.toFixed(2)}</span>
                       </div>
                     )}
+                    <div className="mt-1 flex items-center justify-between text-[var(--muted)]">
+                      <span>Buyer Protection</span>
+                      <span>$1.00</span>
+                    </div>
                     <div className="mt-2 flex items-center justify-between border-t border-zinc-800 pt-2 text-sm font-bold text-[var(--foreground)]">
                       <span>Total</span>
                       <span>${total.toFixed(2)}</span>
                     </div>
                   </div>
-
                   <Elements stripe={stripePromise} options={{ clientSecret }}>
                     <PaymentForm total={total} listingId={listing.id} title={listing.title} price={String(total)} buyerEmail={buyerEmail} onSuccess={handlePaymentSuccess} onBack={resetToForm} />
                   </Elements>

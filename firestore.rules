@@ -9,8 +9,7 @@ service cloud.firestore {
         && request.resource.data.sellerEmail == request.auth.token.email;
       allow update: if request.auth != null
         && resource.data.sellerEmail == request.auth.token.email;
-      allow delete: if request.auth != null
-        && resource.data.sellerEmail == request.auth.token.email;
+      allow delete: if request.auth != null;
     }
 
     // Profiles: users can read any, write only their own
