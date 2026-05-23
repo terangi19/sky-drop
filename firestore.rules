@@ -9,7 +9,8 @@ service cloud.firestore {
         && request.resource.data.sellerEmail == request.auth.token.email;
       allow update: if request.auth != null
         && resource.data.sellerEmail == request.auth.token.email;
-      allow delete: if request.auth != null;
+      allow delete: if request.auth != null
+        && resource.data.sellerEmail == request.auth.token.email;
     }
 
     // Profiles: users can read any, write only their own
@@ -116,6 +117,16 @@ service cloud.firestore {
       allow create: if request.auth != null;
       allow update: if request.auth != null
         && resource.data.ownerId == request.auth.uid;
+    }
+
+    // Followers: users can read/create/delete their own follow relationships
+    match /followers/{docId} {
+      allow read: if request.auth != null
+        && (resource.data.followerId == request.auth.uid || resource.data.followingId == request.auth.uid);
+      allow create: if request.auth != null
+        && request.resource.data.followerId == request.auth.uid;
+      allow delete: if request.auth != null
+        && resource.data.followerId == request.auth.uid;
     }
 
     // Deny everything else

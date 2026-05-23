@@ -107,15 +107,6 @@ const trendingCategories = [
   { emoji: "⚽", name: "Sports" },
 ];
 
-const tradeMessages = [
-  { icon: "🔥", text: "Popular items selling fast" },
-  { icon: "💬", text: "New messages in your inbox" },
-  { icon: "⭐", text: "Top rated sellers this week" },
-  { icon: "📦", text: "Items near you" },
-  { icon: "🏷️", text: "Price drops just listed" },
-  { icon: "👀", text: "Recently viewed items updated" },
-];
-
 function timeAgo(seconds: number): string {
   const now = Math.floor(Date.now() / 1000);
   const diff = now - seconds;
@@ -175,7 +166,6 @@ export default function Home() {
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
-  const [liveToasts, setLiveToasts] = useState<Array<{id: number; icon: string; text: string}>>([]);
   const [authReady, setAuthReady] = useState(false);
   const [sellerReviewStats, setSellerReviewStats] = useState<Record<string, { avg: number; count: number }>>({});
   const [savedSearches, setSavedSearches] = useState<Array<{query: string; category: string; label: string}>>([]);
@@ -289,24 +279,6 @@ export default function Home() {
       setSellerReviewStats(stats);
     };
     if (listings.length > 0) fetchReviewStats();
-
-    const timeouts: NodeJS.Timeout[] = [];
-    let toastIndex = 0;
-    const interval = setInterval(() => {
-      const real = listings.filter((l) => l.title);
-      if (real.length > 0) {
-        const item = real[toastIndex % real.length];
-        toastIndex++;
-        const id = Date.now() + Math.random();
-        setLiveToasts(prev => [...prev.slice(-1), { id, icon: "📦", text: `"${item.title}" just listed` }]);
-        const t = setTimeout(() => { setLiveToasts(prev => prev.filter(t => t.id !== id)); }, 5000);
-        timeouts.push(t);
-      }
-    }, 8000);
-    return () => {
-      clearInterval(interval);
-      timeouts.forEach(clearTimeout);
-    };
   }, []);
 
   // Infinite scroll via IntersectionObserver
@@ -895,23 +867,6 @@ export default function Home() {
                 </button>
               </div>
             )}
-
-            {/* LIVE TRADE PULSE */}
-            <div className="mt-4 flex items-center justify-center gap-2 h-7 overflow-hidden">
-              {liveToasts.map((toast) => (
-                <div
-                  key={toast.id}
-                  className="flex items-center gap-1.5 shrink-0 rounded-full bg-zinc-800/70 border border-zinc-700/25 px-3 py-1 text-[11px] text-[var(--foreground)]"
-                  style={{
-                    animation: 'toastIn 0.35s ease-out, toastOut 0.35s ease-in 4.6s forwards',
-                  }}
-                >
-                  <span>{toast.icon}</span>
-                  <span>{toast.text}</span>
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                </div>
-              ))}
-            </div>
 
             </div>
           </div>

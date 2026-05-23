@@ -91,7 +91,7 @@ export default function AIPostPage() {
         setModelReady(true);
       } catch (err) {
         clearTimeout(timeout);
-        console.error("Load error:", err);
+        console.warn("AI model unavailable:", err);
         setModelReady(true);
       }
     }

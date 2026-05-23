@@ -15,6 +15,12 @@ const PROTECTED_ROUTES = [
   "/trade-feed",
   "/reports",
   "/reviews",
+  "/dashboard",
+  "/purchases",
+  "/sales",
+  "/my-listings",
+  "/admin",
+  "/checkout",
 ];
 
 export function RouteGuard({ children }: { children: React.ReactNode }) {

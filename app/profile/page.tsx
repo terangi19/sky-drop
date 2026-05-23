@@ -557,7 +557,7 @@ const [stripeConnecting, setStripeConnecting] = useState(false);
   }
 
   const initial = (username || user?.email?.split("@")[0] || "U").charAt(0).toUpperCase();
-  const memberDate = profile.memberSince?.toDate().toLocaleDateString("en-NZ", { year: "numeric", month: "short" }) || "2025";
+  const memberDate = profile.memberSince?.toDate().toLocaleDateString("en-NZ", { year: "numeric", month: "short" }) || "2026";
   const avatarUrl = profile.photoURL;
   const bannerUrl = profile.bannerURL;
 

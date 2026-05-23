@@ -7,7 +7,7 @@ import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import CheckoutModal from "../components/CheckoutModal";
 import PromoteModal from "../components/PromoteModal";
-import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from "firebase/firestore";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth, db, storage } from "../lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -218,6 +218,23 @@ export default function TradeFeedPage() {
     });
     return () => unsub();
   }, [selectedWorld]);
+
+  // Shoutbox auto-clear every 5 minutes
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const q = query(collection(db, "tradeShouts"), limit(100));
+        const snap = await getDocs(q);
+        if (snap.empty) return;
+        const batch = writeBatch(db);
+        snap.docs.forEach((d) => batch.delete(doc(db, "tradeShouts", d.id)));
+        await batch.commit();
+      } catch (e) {
+        console.error("Shoutbox auto-clear failed:", e);
+      }
+    }, 300000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Auto-scroll shoutbox to bottom
   useEffect(() => {
@@ -449,8 +466,6 @@ export default function TradeFeedPage() {
     return items;
   }, [posts, selectedWorld, selectedFilter, selectedType, search, showMyTrades, showImagesOnly, minPrice, maxPrice, user?.email, sortBy, statusFilter]);
 
-  const onlineCount = posts.length;
-  const viewerCount = Math.floor(posts.length * 0.15) + 1;
   const activeWorldColor = selectedWorld.length === 1 ? WORLDS.find((w) => w.id === selectedWorld[0])?.color || "from-sky-400" : "from-red-400";
   const activeWorldGlow = selectedWorld.length === 1 ? WORLDS.find((w) => w.id === selectedWorld[0])?.glow || "" : "";
 
@@ -470,9 +485,7 @@ export default function TradeFeedPage() {
               <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
               <span className={`bg-gradient-to-r ${activeWorldColor} to-transparent bg-clip-text text-[10px] font-bold uppercase tracking-widest text-transparent`}>Live</span>
             </div>
-            <span className="text-[11px] text-[var(--muted)]">{onlineCount} online</span>
-            <span className="text-[11px] text-[var(--muted)]">· {posts.length} trades</span>
-            <span className="text-[11px] text-[var(--muted)]">· 👁 {viewerCount} viewing</span>
+            <span className="text-[11px] text-[var(--muted)]">{posts.length} trades</span>
           </div>
 
           {/* Live event ticker */}
@@ -977,14 +990,6 @@ export default function TradeFeedPage() {
                 <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               </div>
               <div className="grid grid-cols-2 gap-2.5">
-                <div className="rounded-lg bg-zinc-800/30 px-3.5 py-2.5">
-                  <p className="text-xs text-[var(--muted)]">🟢 Online</p>
-                  <p className="mt-0.5 text-lg font-black text-emerald-400">{onlineCount}</p>
-                </div>
-                <div className="rounded-lg bg-zinc-800/30 px-3.5 py-2.5">
-                  <p className="text-xs text-[var(--muted)]">👁 Viewing</p>
-                  <p className="mt-0.5 text-lg font-black text-[var(--foreground)]">{viewerCount}</p>
-                </div>
                 <div className="rounded-lg bg-zinc-800/30 px-3.5 py-2.5">
                   <p className="text-xs text-[var(--muted)]">📊 In view</p>
                   <p className="mt-0.5 text-lg font-black text-sky-400">{filteredPosts.length}</p>

@@ -264,7 +264,6 @@ export default function Navbar() {
           {/* NAV */}
           {user && (
             <nav className="hidden md:flex items-center gap-5 text-sm font-medium text-[var(--foreground)]">
-              <Link href="/list-list" className="transition hover:text-sky-400">My Listings</Link>
               <Link href="/trade-feed" className="flex items-center gap-1.5 transition hover:text-sky-400">
                 <span className="font-bold">Live Trade</span>
                 <span className="flex h-1.5 w-1.5 rounded-full bg-red-500/80" />
@@ -274,6 +273,7 @@ export default function Navbar() {
               <Link href="/sales" className="transition hover:text-sky-400">Sales</Link>
               <Link href="/watchlist" className="transition hover:text-sky-400">Watchlist</Link>
               <Link href="/post/ai" className="transition hover:text-sky-400">Quick Post</Link>
+              <Link href="/list-list" className="transition hover:text-sky-400">My Listings</Link>
             </nav>
           )}
 
@@ -309,6 +309,7 @@ export default function Navbar() {
                 <Link href="/sales" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Sales</Link>
                 <Link href="/watchlist" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Watchlist</Link>
                 <Link href="/post/ai" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Quick Post</Link>
+                <Link href="/list-list" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>My Listings</Link>
                 <div className="my-2 border-t border-zinc-800" />
                 <Link href="/profile" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Profile</Link>
                 <button onClick={() => { handleLogout(); setMobileMenuOpen(false); }} className="w-full rounded-lg px-3 py-2 text-left text-sm font-bold text-red-400 hover:bg-zinc-800/60">Logout</button>

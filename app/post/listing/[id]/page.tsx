@@ -10,7 +10,7 @@ import CheckoutModal from "../../../components/CheckoutModal";
 import PromoteModal from "../../../components/PromoteModal";
 import { showToast } from "../../../components/Toast";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { addDoc, collection, doc, getDoc, getDocs, increment, query, serverTimestamp, updateDoc, where, Timestamp, setDoc } from "firebase/firestore";
+import { addDoc, collection, doc, getDoc, getDocs, increment, query, runTransaction, serverTimestamp, updateDoc, where, Timestamp, setDoc } from "firebase/firestore";
 import { auth, db } from "../../../lib/firebase";
 import { detectScam } from "../../../lib/scamdetection";
 import { calculateTrustScore } from "../../../lib/trustscore";
@@ -322,22 +322,58 @@ export default function ListingPage() {
   async function submitBid() {
     if (!bidAmount || !user?.email || !listing) return;
     const amount = Number(bidAmount);
-    const minBid = listing.currentBid || listing.startingBid || 0;
-    if (amount <= minBid) {
-      showToast("Bid must be higher than $" + minBid, "info");
-      return;
-    }
+    if (amount <= 0) { showToast("Enter a valid bid", "info"); return; }
+
     try {
-      const { updateDoc, doc } = await import("firebase/firestore");
-      await updateDoc(doc(db, "listings", listing.id), {
-        currentBid: amount,
-        bidCount: (listing.bidCount || 0) + 1,
-        highestBidder: user.email,
+      await runTransaction(db, async (transaction) => {
+        const ref = doc(db, "listings", listing.id);
+        const snap = await transaction.get(ref);
+        if (!snap.exists()) { showToast("Listing not found", "error"); return; }
+
+        const current = snap.data();
+        const minBid = current.currentBid || current.startingBid || 0;
+
+        if (current.auctionEndsAt && current.auctionEndsAt.toMillis() < Date.now()) {
+          showToast("Auction has ended", "info");
+          return;
+        }
+        if (current.soldTo || current.status === "sold") {
+          showToast("Listing is no longer available", "info");
+          return;
+        }
+        if (amount <= minBid) {
+          showToast("Bid must be higher than $" + minBid, "info");
+          return;
+        }
+
+        transaction.update(ref, {
+          currentBid: amount,
+          bidCount: (current.bidCount || 0) + 1,
+          highestBidder: user.email,
+        });
       });
+
       setShowBidModal(false);
       setBidAmount("");
       showToast("Bid placed!", "success");
-    } catch (e) { console.error(e); }
+
+      try {
+        const { createNotification } = await import("../../../lib/notifications");
+        await createNotification({
+          targetEmail: listing.sellerEmail || "",
+          fromEmail: user.email,
+          type: "bid",
+          title: "New bid on your listing",
+          message: `${user.email} bid $${amount} on "${listing.title}"`,
+          listingId: listing.id,
+          listingTitle: listing.title,
+          listingImage: listing.images?.[0] || listing.imageUrl,
+        });
+      } catch (_) {}
+    } catch (e) {
+      console.error(e);
+      showToast("Failed to place bid. Try again.", "error");
+    }
   }
 
   if (loading) {

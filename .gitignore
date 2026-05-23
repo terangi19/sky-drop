@@ -9,3 +9,8 @@ node_modules
 *.log
 out
 dist
+
+# Playwright
+playwright-report/
+test-results/
+next-env.d.ts
