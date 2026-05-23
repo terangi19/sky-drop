@@ -1,136 +1,190 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
+import { useEffect, useMemo, useState } from "react";
+import { onAuthStateChanged, User } from "firebase/auth";
+import { collection, deleteDoc, doc, getDocs, onSnapshot, query, setDoc, Timestamp, where } from "firebase/firestore";
+import { auth, db } from "../lib/firebase";
+import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
-import ThemeToggle from "../components/ThemeToggle";
 
 export default function BlockedPage() {
-  const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
+  const [user, setUser] = useState<User | null>(null);
+  const [blockedUsers, setBlockedUsers] = useState<{ uid: string; email: string }[]>([]);
   const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [clearConfirm, setClearConfirm] = useState(false);
 
   useEffect(() => {
-    const saved = JSON.parse(
-      localStorage.getItem("blockedUsers") || "[]"
-    );
-
-    setBlockedUsers(saved);
+    const unsub = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsub();
   }, []);
 
-  function blockUser() {
+  // Live snapshot of blocked users
+  useEffect(() => {
+    if (!user?.uid) { setLoading(false); return; }
+    const q = query(collection(db, "users", user.uid, "blocked"));
+    const unsub = onSnapshot(q, (snap) => {
+      const items = snap.docs.map((d) => ({
+        uid: d.id,
+        email: (d.data().blockedEmail as string) || d.id,
+      }));
+      setBlockedUsers(items);
+      setLoading(false);
+    });
+    return () => unsub();
+  }, [user?.uid]);
+
+  async function blockUser() {
     const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) { alert("Enter an email."); return; }
+    if (blockedUsers.some((b) => b.email === cleanEmail)) { alert("User already blocked."); return; }
 
-    if (!cleanEmail) {
-      alert("Enter an email.");
-      return;
-    }
+    // Look up the user's UID by email
+    let uid = cleanEmail;
+    try {
+      const snap = await getDocs(query(collection(db, "profiles"), where("email", "==", cleanEmail)));
+      if (!snap.empty) uid = snap.docs[0].id;
+    } catch {}
 
-    if (blockedUsers.includes(cleanEmail)) {
-      alert("User already blocked.");
-      return;
-    }
-
-    const updated = [...blockedUsers, cleanEmail];
-
-    setBlockedUsers(updated);
-    localStorage.setItem("blockedUsers", JSON.stringify(updated));
+    const ref = doc(db, "users", user!.uid, "blocked", uid);
+    await setDoc(ref, { blockedUid: uid, blockedEmail: cleanEmail, createdAt: Timestamp.now() });
     setEmail("");
-
-    alert("User blocked.");
   }
 
-  function unblockUser(userEmail: string) {
-    const updated = blockedUsers.filter((item) => item !== userEmail);
+  async function unblockUser(uid: string) {
+    await deleteDoc(doc(db, "users", user!.uid, "blocked", uid));
+  }
 
-    setBlockedUsers(updated);
-    localStorage.setItem("blockedUsers", JSON.stringify(updated));
+  async function clearAll() {
+    for (const b of blockedUsers) {
+      try { await deleteDoc(doc(db, "users", user!.uid, "blocked", b.uid)); } catch {}
+    }
+    setClearConfirm(false);
+  }
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return blockedUsers;
+    const q = search.toLowerCase();
+    return blockedUsers.filter((b) => b.email.toLowerCase().includes(q));
+  }, [blockedUsers, search]);
+
+  if (loading) {
+    return (
+      <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+        <Background /><Navbar />
+        <div className="relative z-10 mx-auto max-w-3xl px-6 py-12">
+          <div className="space-y-3">
+            {[1,2,3].map((i) => (
+              <div key={i} className="h-16 rounded-xl bg-zinc-900/60 border border-zinc-800/50 animate-pulse" />
+            ))}
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (!user) {
+    return (
+      <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+        <Background /><Navbar />
+        <div className="relative z-10 flex flex-col items-center justify-center py-40">
+          <p className="text-xl text-[var(--muted)]">Log in to manage blocked users.</p>
+          <Link href="/login" className="mt-6 rounded-xl bg-sky-500 px-8 py-3 font-bold text-[var(--foreground)] hover:bg-sky-400">Log In</Link>
+        </div>
+      </main>
+    );
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)] transition-colors duration-300">
-      <Background />
-      <Navbar />
-      <ThemeToggle />
+    <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+      <Background /><Navbar />
 
-      <section className="relative z-10 mx-auto max-w-5xl px-6 py-12">
-        <div className="mb-10">
-          <h1 className="text-5xl font-black text-red-500">
-            Block Users
-          </h1>
+      <div className="relative z-10 mx-auto max-w-3xl px-6 py-12">
+        <Link href="/" className="inline-flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-[var(--foreground)] transition hover:border-zinc-700 hover:bg-zinc-800/60 mb-4">
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+          Back
+        </Link>
 
-          <p className="mt-3 text-[var(--muted)]">
-            Block scammers, spam, or unwanted users.
-          </p>
-        </div>
+        <h1 className="text-2xl font-black text-[var(--foreground)]">Blocked Users</h1>
+        <p className="mt-1 text-sm text-[var(--muted)]">Blocked users can't message you or interact with your listings.</p>
 
-        <div className="rounded-[40px] border border-[var(--card-border)] bg-[var(--card)] p-8 shadow-2xl backdrop-blur-xl">
-          <h2 className="text-3xl font-black">
-            Add Block
-          </h2>
-
-          <div className="mt-6 flex gap-4">
+        {/* Add block */}
+        <div className="mt-6 rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
+          <p className="text-xs font-bold uppercase tracking-wider text-[var(--muted)]">Block a user</p>
+          <div className="mt-3 flex gap-2">
             <input
-              type="email"
-              placeholder="User email..."
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="flex-1 rounded-2xl border border-[var(--card-border)] bg-[var(--soft-card)] px-5 py-4 text-[var(--foreground)] outline-none transition focus:border-red-500"
+              type="email" placeholder="Enter email address..."
+              value={email} onChange={(e) => setEmail(e.target.value)}
+              className="flex-1 rounded-lg border border-zinc-800 bg-zinc-800/50 px-3.5 py-2.5 text-sm text-[var(--foreground)] outline-none focus:border-sky-500 placeholder:text-[var(--muted)]"
             />
-
-            <button
-              onClick={blockUser}
-              className="rounded-2xl bg-red-500 px-8 py-4 font-black text-white transition hover:bg-red-400"
-            >
+            <button onClick={blockUser}
+              className="rounded-lg bg-red-500 px-5 py-2.5 text-sm font-bold text-[var(--foreground)] hover:bg-red-400">
               Block
             </button>
           </div>
         </div>
 
-        <div className="mt-12">
-          <h2 className="text-4xl font-black">
-            Blocked Users
-          </h2>
+        {/* Blocked list */}
+        <div className="mt-8">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-bold uppercase tracking-wider text-[var(--muted)]">Blocked ({blockedUsers.length})</p>
+            <div className="flex items-center gap-2">
+              <input
+                type="text" placeholder="Search blocked..."
+                value={search} onChange={(e) => setSearch(e.target.value)}
+                className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-1.5 text-xs outline-none focus:border-sky-500 w-48"
+              />
+              {blockedUsers.length > 0 && (
+                <button onClick={() => setClearConfirm(true)}
+                  className="rounded-lg border border-red-500/20 px-3 py-1.5 text-[10px] font-bold text-red-400 transition hover:bg-red-500/10">
+                  Clear all
+                </button>
+              )}
+            </div>
+          </div>
 
-          <div className="mt-8 grid gap-4">
-            {blockedUsers.length === 0 ? (
-              <div className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-10 text-center shadow-2xl">
-                <div className="mb-4 text-6xl">🛡️</div>
-
-                <h2 className="text-3xl font-black">
-                  No blocked users
-                </h2>
-
-                <p className="mt-3 text-[var(--muted)]">
-                  Blocked users will appear here.
-                </p>
-              </div>
-            ) : (
-              blockedUsers.map((userEmail) => (
-                <div
-                  key={userEmail}
-                  className="flex items-center justify-between rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-xl"
-                >
-                  <div>
-                    <p className="font-black">{userEmail}</p>
-
-                    <p className="mt-1 text-sm text-[var(--muted)]">
-                      This user is blocked on this device.
-                    </p>
+          {filtered.length === 0 ? (
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-8 text-center">
+              <p className="text-2xl mb-2">🛡️</p>
+              <p className="text-sm text-[var(--muted)]">{blockedUsers.length === 0 ? "No blocked users yet." : "No results match your search."}</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {filtered.map((b) => (
+                <div key={b.uid} className="flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 transition hover:border-zinc-700">
+                  <div className="min-w-0 flex-1">
+                    <Link href={`/seller/${b.email}`} className="truncate text-sm font-bold text-[var(--foreground)] hover:text-sky-400 transition-colors">
+                      {b.email}
+                    </Link>
+                    <p className="text-[10px] text-[var(--muted)]">Synced across all devices</p>
                   </div>
-
-                  <button
-                    onClick={() => unblockUser(userEmail)}
-                    className="rounded-2xl border border-red-500/30 px-5 py-3 font-bold text-red-500 transition hover:bg-red-500/10"
-                  >
+                  <button onClick={() => unblockUser(b.uid)}
+                    className="shrink-0 rounded-lg border border-red-500/30 px-4 py-2 text-xs font-bold text-red-400 transition hover:bg-red-500/10">
                     Unblock
                   </button>
                 </div>
-              ))
-            )}
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {clearConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setClearConfirm(false)}>
+          <div className="mx-4 w-full max-w-sm rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-black text-[var(--foreground)]">Unblock all users?</h3>
+            <p className="mt-2 text-sm text-[var(--muted)]">This will unblock all {blockedUsers.length} users.</p>
+            <div className="mt-5 flex gap-3">
+              <button onClick={() => setClearConfirm(false)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700">Cancel</button>
+              <button onClick={clearAll} className="flex-1 rounded-xl bg-red-500 py-3 text-sm font-bold text-white hover:bg-red-400">Unblock All</button>
+            </div>
           </div>
         </div>
-      </section>
+      )}
     </main>
   );
 }

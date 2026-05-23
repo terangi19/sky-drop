@@ -1,37 +1,319 @@
 @import "tailwindcss";
 
 :root {
-  --background: #000000;
+  --background: #0a0a0f;
   --foreground: #ffffff;
   --card: rgba(0, 0, 0, 0.4);
   --card-border: rgba(255, 255, 255, 0.1);
   --muted: #a1a1aa;
   --soft-card: #18181b;
+  --soft-card-border: rgba(255, 255, 255, 0.06);
+  --nav-bg: rgba(0, 0, 0, 0.9);
+  --input-bg: rgba(24, 24, 27, 0.8);
+  --input-border: rgba(255, 255, 255, 0.1);
+  --pill-bg: rgba(24, 24, 27, 0.5);
+  --pill-text: #a1a1aa;
+  --card-shadow: none;
+  --glow-blue: rgba(14, 165, 233, 0.06);
+  --text-secondary: #a1a1aa;
 }
 
 :root.light {
   --background: #f5f7fb;
   --foreground: #111827;
   --card: #ffffff;
-  --card-border: rgba(0, 0, 0, 0.1);
+  --card-border: rgba(0, 0, 0, 0.08);
   --muted: #6b7280;
-  --soft-card: #e5e7eb;
+  --soft-card: #f0f2f5;
+  --soft-card-border: rgba(0, 0, 0, 0.06);
+  --nav-bg: rgba(255, 255, 255, 0.92);
+  --input-bg: #ffffff;
+  --input-border: rgba(0, 0, 0, 0.12);
+  --pill-bg: #e8eaee;
+  --pill-text: #4b5563;
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --glow-blue: rgba(14, 165, 233, 0.04);
+  --text-secondary: #6b7280;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
-  transition:
-    background 0.3s ease,
-    color 0.3s ease;
+  transition: background 0.3s ease, color 0.3s ease;
 }
 
-/* FIX WHITE INPUT BORDERS */
-input,
-textarea,
-button,
-select {
-  outline: none;
-  box-shadow: none;
+/* ── LIGHT MODE GLOBAL OVERRIDES ── */
+:root.light .bg-zinc-950 { background-color: #ffffff !important; }
+:root.light .bg-zinc-900 { background-color: #f8f9fc !important; }
+:root.light .bg-zinc-900\/80 { background-color: rgba(248, 249, 252, 0.8) !important; }
+:root.light .bg-zinc-900\/70 { background-color: rgba(248, 249, 252, 0.7) !important; }
+:root.light .bg-zinc-900\/60 { background-color: rgba(248, 249, 252, 0.6) !important; }
+:root.light .bg-zinc-900\/50 { background-color: rgba(248, 249, 252, 0.5) !important; }
+:root.light .bg-zinc-900\/40 { background-color: rgba(248, 249, 252, 0.4) !important; }
+:root.light .bg-zinc-900\/30 { background-color: rgba(248, 249, 252, 0.3) !important; }
+:root.light .bg-zinc-800 { background-color: #e8eaee !important; }
+:root.light .bg-zinc-800\/80 { background-color: rgba(232, 234, 238, 0.8) !important; }
+:root.light .bg-zinc-800\/60 { background-color: rgba(232, 234, 238, 0.6) !important; }
+:root.light .bg-zinc-800\/50 { background-color: rgba(232, 234, 238, 0.5) !important; }
+:root.light .bg-zinc-800\/40 { background-color: rgba(232, 234, 238, 0.4) !important; }
+:root.light .bg-zinc-700 { background-color: #d1d5db !important; }
+:root.light .bg-zinc-700\/50 { background-color: rgba(209, 213, 219, 0.5) !important; }
+:root.light .bg-black\/40 { background-color: rgba(248, 249, 252, 0.7) !important; }
+:root.light .bg-black\/60 { background-color: #f0f2f5 !important; }
+:root.light .border-zinc-800 { border-color: rgba(0, 0, 0, 0.1) !important; }
+:root.light .border-zinc-800\/50 { border-color: rgba(0, 0, 0, 0.06) !important; }
+:root.light .border-zinc-800\/30 { border-color: rgba(0, 0, 0, 0.05) !important; }
+:root.light .border-zinc-700 { border-color: rgba(0, 0, 0, 0.12) !important; }
+:root.light .border-zinc-700\/50 { border-color: rgba(0, 0, 0, 0.08) !important; }
+:root.light .border-zinc-700\/40 { border-color: rgba(0, 0, 0, 0.07) !important; }
+:root.light .border-zinc-700\/30 { border-color: rgba(0, 0, 0, 0.05) !important; }
+:root.light .border-white\/10 { border-color: rgba(0, 0, 0, 0.08) !important; }
+:root.light .text-zinc-700 { color: #d1d5db !important; }
+:root.light .text-zinc-800 { color: #e8eaee !important; }
+
+/* ── NAVBAR LIGHT MODE ── */
+:root.light header {
+  border-bottom-color: rgba(0, 0, 0, 0.08) !important;
+  background: rgba(255, 255, 255, 0.95) !important;
 }
+
+/* ── CARD SHADOWS FOR LIGHT MODE ── */
+:root.light .rounded-xl,
+:root.light .rounded-2xl,
+:root.light .rounded-3xl,
+:root.light .rounded-\[40px\] {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), 0 1px 3px rgba(0, 0, 0, 0.02) !important;
+}
+
+:root.light .shadow-2xl,
+:root.light .shadow-xl,
+:root.light .shadow-lg {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 2px 6px rgba(0, 0, 0, 0.03) !important;
+}
+
+/* ── HERO / SEARCH LIGHT MODE ── */
+:root.light .bg-gradient-to-b {
+  background: #ffffff !important;
+}
+
+:root.light input,
+:root.light textarea,
+:root.light select {
+  background-color: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.12) !important;
+  color: #111827 !important;
+}
+
+:root.light input::placeholder,
+:root.light textarea::placeholder {
+  color: #9ca3af !important;
+}
+
+/* ── BUTTONS ── */
+:root.light .bg-sky-500 {
+  background-color: #0ea5e9 !important;
+  color: #ffffff !important;
+}
+
+:root.light .bg-sky-500\/10 {
+  background-color: rgba(14, 165, 233, 0.08) !important;
+}
+
+:root.light .bg-sky-500\/20 {
+  background-color: rgba(14, 165, 233, 0.15) !important;
+}
+
+/* ── PILLS / CHIPS ── */
+:root.light .rounded-full.bg-zinc-800,
+:root.light span.rounded-full.bg-zinc-800 {
+  background-color: #e8eaee !important;
+  color: #4b5563 !important;
+}
+
+:root.light .bg-zinc-800\/60.rounded-full,
+:root.light [class*="rounded-full"].bg-zinc-800 {
+  background-color: #e8eaee !important;
+  color: #4b5563 !important;
+}
+
+/* ── SPECIFIC CONTEXT OVERRIDES ── */
+:root.light .bg-\[var\(--soft-card\)\] {
+  background-color: #f0f2f5 !important;
+}
+
+:root.light .bg-\[var\(--card\)\] {
+  background-color: #ffffff !important;
+}
+
+/* ── BORDER RADIUS CARDS IN HERO ── */
+:root.light section > .rounded-3xl.border {
+  background: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* ── SELLER TRUST CARDS ── */
+:root.light .bg-zinc-800\/20 {
+  background-color: rgba(232, 234, 238, 0.3) !important;
+}
+
+/* ── OFFER CARDS ── */
+:root.light .bg-amber-500\/10 { background-color: rgba(245, 158, 11, 0.08) !important; }
+:root.light .bg-amber-500\/5 { background-color: rgba(245, 158, 11, 0.04) !important; }
+:root.light .bg-emerald-500\/10 { background-color: rgba(16, 185, 129, 0.08) !important; }
+:root.light .bg-red-500\/10 { background-color: rgba(239, 68, 68, 0.08) !important; }
+:root.light .bg-red-900\/20 { background-color: rgba(239, 68, 68, 0.06) !important; }
+
+/* ── MESSAGE BUBBLES ── */
+:root.light .bg-sky-500\/15 {
+  background-color: rgba(14, 165, 233, 0.1) !important;
+}
+
+/* ── TOGGLE BUTTON ── */
+:root.light .bg-black\/60 {
+  background-color: #f0f2f5 !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+/* ── FOOTER / BOTTOM BARS ── */
+:root.light .border-t.border-zinc-800 {
+  border-top-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* ── SCROLLBAR LIGHT MODE ── */
+:root.light .scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+/* ── FADE IN TRANSITION ── */
+.fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── IMAGE FADE LOADING ── */
+.fade-in-image {
+  animation: fadeInImage 0.4s ease-in-out;
+}
+
+@keyframes fadeInImage {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ── SHIMMER LOADING ── */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ── NOT VERIFIED BREATHING GLOW ── */
+@keyframes breathe-red {
+  0%, 100% { box-shadow: 0 0 6px rgba(239, 68, 68, 0.15), 0 0 12px rgba(239, 68, 68, 0.05); }
+  50% { box-shadow: 0 0 14px rgba(239, 68, 68, 0.3), 0 0 28px rgba(239, 68, 68, 0.1); }
+}
+
+@keyframes breathe-red-border {
+  0%, 100% { border-color: rgba(239, 68, 68, 0.15); }
+  50% { border-color: rgba(239, 68, 68, 0.35); }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-breathe-red {
+  animation: breathe-red 3s ease-in-out infinite;
+}
+
+.animate-breathe-border {
+  animation: breathe-red-border 3s ease-in-out infinite;
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.25s ease-out;
+}
+
+@keyframes breathe-glow {
+  0%, 100% { box-shadow: 0 0 4px rgba(239, 68, 68, 0.2); }
+  50% { box-shadow: 0 0 14px rgba(239, 68, 68, 0.5), 0 0 28px rgba(239, 68, 68, 0.15); }
+}
+
+.animate-breathe-glow {
+  animation: breathe-glow 2.5s ease-in-out infinite;
+}
+
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-8px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.animate-slide-down {
+  animation: slide-down 0.2s ease-out;
+}
+
+@keyframes blue-glow-pulse {
+  0%, 100% { box-shadow: 0 0 0 rgba(56, 189, 248, 0); }
+  50% { box-shadow: 0 0 12px rgba(56, 189, 248, 0.08); }
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes toastOut {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(-6px) scale(0.95); }
+}
+
+/* ── BACKGROUND DRIFT ANIMATIONS ── */
+@keyframes drift-slow {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(30px, -20px); }
+}
+@keyframes drift-slower {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-20px, 30px); }
+}
+@keyframes drift-slowest {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(15px, 15px); }
+}
+.animate-drift-slow { animation: drift-slow 18s ease-in-out infinite; }
+.animate-drift-slower { animation: drift-slower 22s ease-in-out infinite; }
+.animate-drift-slowest { animation: drift-slowest 26s ease-in-out infinite; }
+
+/* ── CONFETTI PARTICLE ANIMATION ── */
+@keyframes confetti-particle {
+  0% { opacity: 1; transform: translateY(0) rotate(0deg) scale(1); }
+  100% { opacity: 0; transform: translateY(-60px) rotate(720deg) scale(0.3); }
+}
+.animate-confetti-particle {
+  animation: confetti-particle 0.8s ease-out forwards;
+}
+
+/* ── CUSTOM SCROLLBAR ── */
+.scrollbar-thin::-webkit-scrollbar { width: 4px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); border-radius: 999px; }
+.scrollbar-thin::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.15); }
+.scrollbar-none::-webkit-scrollbar { display: none; }
+.scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }

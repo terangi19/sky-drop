@@ -1,0 +1,119 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Listings: anyone can read, only authenticated sellers can create/update
+    match /listings/{listingId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.sellerEmail == request.auth.token.email;
+      allow update: if request.auth != null
+        && resource.data.sellerEmail == request.auth.token.email;
+      allow delete: if request.auth != null
+        && resource.data.sellerEmail == request.auth.token.email;
+    }
+
+    // Profiles: users can read any, write only their own
+    match /profiles/{profileId} {
+      allow read: if true;
+      allow create, update: if request.auth != null
+        && request.resource.data.email == request.auth.token.email;
+    }
+
+    // Messages: participants can read/write
+    match /messages/{messageId} {
+      allow read: if request.auth != null
+        && resource.data.participants != null
+        && request.auth.token.email in resource.data.participants;
+      allow create: if request.auth != null
+        && request.resource.data.participants != null
+        && request.auth.token.email in request.resource.data.participants;
+    }
+
+    // Purchases: buyer and seller can read
+    match /purchases/{purchaseId} {
+      allow read: if request.auth != null
+        && (resource.data.buyerEmail == request.auth.token.email
+          || resource.data.sellerEmail == request.auth.token.email);
+      allow create: if request.auth != null;
+      allow update: if request.auth != null
+        && (resource.data.buyerEmail == request.auth.token.email
+          || resource.data.sellerEmail == request.auth.token.email);
+    }
+
+    // Notifications: only target user can read, system creates via functions
+    match /notifications/{notificationId} {
+      allow read: if request.auth != null
+        && resource.data.targetEmail == request.auth.token.email;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null
+        && resource.data.targetEmail == request.auth.token.email;
+    }
+
+    // Reviews: anyone can read, authenticated users can create
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+    }
+
+    // Reports: only admin can read, authenticated users can create
+    match /reports/{reportId} {
+      allow create: if request.auth != null;
+      allow read: if request.auth != null
+        && request.auth.token.email == "rangitr16@gmail.com";
+    }
+
+    // Trade posts: anyone can read, authenticated users can create/delete their own
+    match /tradePosts/{postId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow delete: if request.auth != null
+        && (resource.data.sellerEmail == request.auth.token.email || resource.data.sellerEmail == "bot@skydrop.nz");
+    }
+
+    // Typing indicators: anyone authenticated can read/write for their conversations
+    match /typing/{typingId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Conversations: participants can read/write
+    match /conversations/{conversationId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Users subcollections: only the user can access their own data
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null
+        && request.auth.uid == userId;
+    }
+
+    // Drops: anyone can read, authenticated users can create/update
+    match /drops/{dropId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+    }
+
+    // Sponsored Drops: paid listings in the drop queue
+    match /sponsoredDrops/{docId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.sellerEmail == request.auth.token.email;
+      allow update: if request.auth != null;
+    }
+
+    // Drop Tokens: owner can read and update
+    match /dropTokens/{tokenId} {
+      allow read: if request.auth != null
+        && resource.data.ownerId == request.auth.uid;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null
+        && resource.data.ownerId == request.auth.uid;
+    }
+
+    // Deny everything else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

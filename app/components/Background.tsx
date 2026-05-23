@@ -1,35 +1,36 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 export default function Background() {
+  const [isLight, setIsLight] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsLight(document.documentElement.classList.contains("light"));
+    check();
+    const observer = new MutationObserver(check);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+
+  if (isLight) {
+    return (
+      <div className="fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute inset-0 bg-[#f5f7fb]" />
+        <div className="absolute top-[-30%] left-[-15%] h-[80%] w-[80%] rounded-full bg-sky-400/8 blur-[150px]" />
+        <div className="absolute bottom-[-20%] right-[-15%] h-[70%] w-[70%] rounded-full bg-blue-500/10 blur-[140px]" />
+        <div className="absolute top-[40%] left-[30%] h-[40%] w-[40%] rounded-full bg-cyan-400/5 blur-[100px]" />
+      </div>
+    );
+  }
 
   return (
-    <div className="pointer-events-none fixed inset-0 overflow-hidden">
-
-      {/* BASE */}
-      <div className="absolute inset-0 bg-[#0d1014]" />
-
-      {/* SOFT TOP LIGHT */}
-      <div className="absolute inset-x-0 top-0 h-[300px] bg-gradient-to-b from-sky-500/[0.03] to-transparent" />
-
-      {/* LEFT AMBIENT */}
-      <div className="absolute left-[-200px] top-[120px] h-[420px] w-[420px] rounded-full bg-sky-500/[0.025] blur-[140px]" />
-
-      {/* RIGHT AMBIENT */}
-      <div className="absolute right-[-200px] top-[260px] h-[420px] w-[420px] rounded-full bg-white/[0.015] blur-[160px]" />
-
-      {/* SOFT NOISE */}
-      <div
-        className="absolute inset-0 opacity-[0.015]"
-        style={{
-          backgroundImage:
-            "radial-gradient(rgba(255,255,255,0.5) 0.5px, transparent 0.5px)",
-          backgroundSize: "26px 26px",
-        }}
-      />
-
-      {/* VIGNETTE */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_10%,rgba(0,0,0,0.45)_100%)]" />
-
+    <div className="fixed inset-0 -z-10 overflow-hidden">
+      <div className="absolute inset-0 bg-[#0a0a0f]" />
+      <div className="absolute top-[-20%] left-[-10%] h-[60%] w-[60%] rounded-full bg-sky-500/3 blur-[120px] animate-drift-slow" />
+      <div className="absolute bottom-[-15%] right-[-10%] h-[50%] w-[50%] rounded-full bg-violet-500/3 blur-[100px] animate-drift-slower" />
+      <div className="absolute top-[30%] right-[20%] h-[30%] w-[30%] rounded-full bg-cyan-400/2 blur-[80px] animate-drift-slowest" />
+      <div className="absolute top-[-5%] right-[40%] h-[20%] w-[20%] rounded-full bg-amber-500/2 blur-[60px] animate-drift-slow" />
     </div>
   );
 }

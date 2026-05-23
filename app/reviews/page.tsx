@@ -25,12 +25,27 @@ import {
 
 import { auth, db } from "../lib/firebase";
 
+interface Review {
+  id: string;
+  rating: number;
+  comment?: string;
+  sellerId?: string;
+  sellerEmail?: string;
+  buyerEmail?: string;
+  reviewer?: string;
+  listingId?: string;
+  listingTitle?: string;
+  reviewText?: string;
+  createdAt?: any;
+  [key: string]: unknown;
+}
+
 export default function ReviewsPage() {
   const [user, setUser] =
     useState<User | null>(null);
 
   const [reviews, setReviews] =
-    useState<any[]>([]);
+    useState<Review[]>([]);
 
   const [sellerEmail, setSellerEmail] =
     useState("");
@@ -68,10 +83,10 @@ export default function ReviewsPage() {
               (doc) => ({
                 id: doc.id,
                 ...doc.data(),
-              })
+              } as any)
             );
 
-          setReviews(items);
+          setReviews(items as any);
         }
       );
 
@@ -216,7 +231,7 @@ export default function ReviewsPage() {
               onClick={
                 submitReview
               }
-              className="rounded-2xl bg-sky-500 px-8 py-4 font-black text-white transition hover:bg-sky-400"
+              className="rounded-2xl bg-sky-500 px-8 py-4 font-black text-[var(--foreground)] transition hover:bg-sky-400"
             >
               Submit Review
             </button>
@@ -231,7 +246,7 @@ export default function ReviewsPage() {
 
           <div className="mt-8 grid gap-6">
             {reviews.length === 0 ? (
-              <div className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-10 text-center shadow-2xl">
+              <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-10 text-center shadow-2xl">
                 <div className="mb-4 text-6xl">
                   ⭐
                 </div>
@@ -247,7 +262,7 @@ export default function ReviewsPage() {
                     key={
                       review.id
                     }
-                    className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-8 shadow-2xl backdrop-blur-xl"
+                    className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-8 shadow-2xl backdrop-blur-xl"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-4">
                       <div>
@@ -257,7 +272,7 @@ export default function ReviewsPage() {
                           }
                         </h2>
 
-                        <p className="mt-1 text-sm text-zinc-500">
+                        <p className="mt-1 text-sm text-[var(--muted)]">
                           Reviewed by{" "}
                           {
                             review.reviewer

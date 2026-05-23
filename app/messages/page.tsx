@@ -1,518 +1,1234 @@
 "use client";
-
-import { useEffect, useState } from "react";
-
+import { Suspense, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import ThemeToggle from "../components/ThemeToggle";
-
 import {
   addDoc,
   collection,
   doc,
+  getDoc,
   getDocs,
+  limit,
   onSnapshot,
-  orderBy,
   query,
   serverTimestamp,
+  updateDoc,
   where,
+  setDoc,
+  deleteDoc,
 } from "firebase/firestore";
-
 import {
   onAuthStateChanged,
   User,
 } from "firebase/auth";
-
-import { auth, db } from "../lib/firebase";
-
-export default function MessagesPage() {
-  const [user, setUser] =
-    useState<User | null>(null);
-
-  const [messages, setMessages] =
-    useState<any[]>([]);
-
-  const [message, setMessage] =
-    useState("");
-
-  const [chatUser, setChatUser] =
-    useState("");
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [blockedUsers, setBlockedUsers] =
-    useState<string[]>([]);
-
-  const [usernames, setUsernames] =
-    useState<
-      Record<string, string>
-    >({});
-
-  useEffect(() => {
-    const savedBlocked =
-      JSON.parse(
-        localStorage.getItem(
-          "blockedUsers"
-        ) || "[]"
-      );
-
-    setBlockedUsers(
-      savedBlocked
-    );
-  }, []);
-
-  useEffect(() => {
-    const unsubscribeAuth =
-      onAuthStateChanged(
-        auth,
-        (currentUser) => {
-          setUser(currentUser);
-        }
-      );
-
-    return () => unsubscribeAuth();
-  }, []);
-
-  async function fetchUsername(
-    email: string
-  ) {
-    if (
-      usernames[email]
-    )
-      return;
-
-    try {
-      const profileQuery =
-        query(
-          collection(
-            db,
-            "profiles"
-          ),
-          where(
-            "email",
-            "==",
-            email
-          )
-        );
-
-      const snapshot =
-        await getDocs(
-          profileQuery
-        );
-
-      if (
-        !snapshot.empty
-      ) {
-        const username =
-          snapshot.docs[0].data()
-            .username;
-
-        setUsernames(
-          (
-            prev
-          ) => ({
-            ...prev,
-            [email]:
-              username,
-          })
-        );
-      }
-    } catch (error) {
-      console.error(error);
-    }
+import { auth, db, storage } from "../lib/firebase";
+import { detectScam } from "../lib/scamdetection";
+import { calculateTrustScore } from "../lib/trustscore";
+import { showToast } from "../components/Toast";
+import { createNotification } from "../lib/notifications";
+// Feature 8: Expanded risky keywords
+const RISKY_KEYWORDS = [
+  "pay outside", "bank transfer only", "crypto", "gift card",
+  "whatsapp", "telegram", "friends and family", "urgent payment",
+];
+function containsRiskyKeywords(text: string): string | null {
+  const lower = text.toLowerCase();
+  for (const kw of RISKY_KEYWORDS) {
+    if (lower.includes(kw)) return kw;
   }
-
-  useEffect(() => {
-    if (!user?.email) return;
-
-    const messagesQuery = query(
-      collection(db, "messages"),
-      where(
-        "participants",
-        "array-contains",
-        user.email
-      ),
-      orderBy("createdAt", "desc")
-    );
-
-    const unsubscribe =
-      onSnapshot(
-        messagesQuery,
-        async (
-          snapshot
-        ) => {
-          const items =
-            snapshot.docs
-              .map((doc) => ({
-                id: doc.id,
-                ...doc.data(),
-              }))
-              .filter(
-                (
-                  msg: any
-                ) => {
-                  const otherUser =
-                    msg.participants?.find(
-                      (
-                        participant: string
-                      ) =>
-                        participant !==
-                        user.email
-                    );
-
-                  return !blockedUsers.includes(
-                    otherUser
-                  );
-                }
-              );
-
-          setMessages(items);
-
-          // FETCH USERNAMES
-          for (const msg of items) {
-            await fetchUsername(
-              msg.sender
-            );
-
-            await fetchUsername(
-              msg.receiver
-            );
-          }
-
-          setLoading(false);
-        }
-      );
-
-    return () => unsubscribe();
-  }, [
-    user,
-    blockedUsers,
-  ]);
-
-  async function sendMessage() {
-    if (!message.trim())
-      return;
-
-    if (!user?.email) {
-      alert(
-        "You must be logged in."
-      );
-
-      return;
-    }
-
-    if (
-      !chatUser.trim()
-    ) {
-      alert(
-        "Select a conversation."
-      );
-
-      return;
-    }
-
-    if (
-      blockedUsers.includes(
-        chatUser
-      )
-    ) {
-      alert(
-        "This user is blocked."
-      );
-
-      return;
-    }
-
-    try {
-      await addDoc(
-        collection(
-          db,
-          "messages"
-        ),
-        {
-          text: message,
-          sender:
-            user.email,
-          receiver:
-            chatUser,
-          participants: [
-            user.email,
-            chatUser,
-          ],
-          createdAt:
-            serverTimestamp(),
-        }
-      );
-
-      setMessage("");
-    } catch (error) {
-      console.error(error);
-
-      alert(
-        "Failed to send message."
-      );
-    }
+  return null;
+}
+function formatTime(timestamp: any) {
+  if (!timestamp?.seconds) return "";
+  const date = new Date(timestamp.seconds * 1000);
+  const now = new Date();
+  if (date.toDateString() === now.toDateString()) {
+    return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   }
-
-  const conversationMap =
-    new Map();
-
-  messages.forEach(
-    (msg: any) => {
-      const otherUser =
-        msg.participants?.find(
-          (
-            participant: string
-          ) =>
-            participant !==
-            user?.email
-        );
-
-      if (
-        otherUser &&
-        !conversationMap.has(
-          otherUser
-        )
-      ) {
-        conversationMap.set(
-          otherUser,
-          msg
-        );
-      }
-    }
-  );
-
-  const conversations =
-    Array.from(
-      conversationMap.entries()
-    );
-
-  const filteredMessages =
-    messages
-      .filter((msg: any) =>
-        msg.participants?.includes(
-          chatUser
-        )
-      )
-      .reverse();
-
-  function formatTime(
-    timestamp: any
-  ) {
-    if (
-      !timestamp?.seconds
-    )
-      return "";
-
-    const date =
-      new Date(
-        timestamp.seconds *
-          1000
-      );
-
-    return date.toLocaleTimeString(
-      [],
-      {
-        hour: "numeric",
-        minute: "2-digit",
-      }
-    );
-  }
-
-  function getDisplayName(
-    email: string
-  ) {
-    return (
-      usernames[email] ||
-      email
-    );
-  }
-
+  return date.toLocaleDateString([], { month: "short", day: "numeric" });
+}
+function formatFullTime(timestamp: any) {
+  if (!timestamp?.seconds) return "";
+  return new Date(timestamp.seconds * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+export default function MessagesPageWrapper() {
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)] transition-colors duration-300">
+    <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
       <Background />
-
       <Navbar />
-
       <ThemeToggle />
+      <Suspense fallback={<div className="flex h-full items-center justify-center p-12"><span className="text-[var(--muted)]">Loading...</span></div>}>
+        <MessagesPage />
+      </Suspense>
+    </main>
+  );
+}
+function getSearchParam(key: string): string | null {
+  if (typeof window === "undefined") return null;
+  try { return new URLSearchParams(window.location.search).get(key); } catch { return null; }
+}
+function MessagesPage() {
+  const [user, setUser] = useState<User | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [message, setMessage] = useState("");
+  const [chatUser, setChatUser] = useState("");
+  const [chatListingId, setChatListingId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
+  const [usernames, setUsernames] = useState<Record<string, string>>({});
+  const [scamWarning, setScamWarning] = useState(false);
+  const [pendingMessage, setPendingMessage] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeFilter, setActiveFilter] = useState<string>("all");
+  // Typing
+  const [otherTyping, setOtherTyping] = useState(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [showMenu, setShowMenu] = useState(false);
+  const [mobileView, setMobileView] = useState<"list" | "chat">("list");
+  const [unreadMap, setUnreadMap] = useState<Record<string, boolean>>({});
+  const [conversationUnread, setConversationUnread] = useState<Record<string, number>>({});
+  const [listingCard, setListingCard] = useState<any>(null);
+  const seenBatchRef = useRef<Set<string>>(new Set());
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  // Feature 3: Seller verification
+  const [sellerProfile, setSellerProfile] = useState<any>(null);
+  const [sellerTrust, setSellerTrust] = useState<{ score: number; level: string } | null>(null);
+  // Feature 4: Profile quick preview
+  const [showProfilePreview, setShowProfilePreview] = useState(false);
+  const profilePreviewRef = useRef<HTMLDivElement>(null);
+  // Feature 7: Image sending
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showSafetyWarning, setShowSafetyWarning] = useState(false);
+  const [riskyKeyword, setRiskyKeyword] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState("");
+  const [showClearAll, setShowClearAll] = useState(false);
+  const typingDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const lastMessageTime = useRef(0);
+  // â€”â€” Effects â€”â€”
+  // Auth listener
+  useEffect(() => {
+    let mounted = true;
+    const unsub = onAuthStateChanged(auth, (currentUser) => {
+      if (!mounted) return;
+      setUser(currentUser);
+      setAuthReady(true);
+    });
+    return () => { mounted = false; unsub(); };
+  }, []);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("blockedUsers") || "[]");
+      setBlockedUsers(saved);
+    } catch {}
+  }, []);
+  // Sync blocked users from Firestore when authenticated
+  useEffect(() => {
+    if (!user?.uid) return;
+    const fetchBlocked = async () => {
+      try {
+        const q = query(collection(db, "users", user.uid, "blocked"), where("blocked", "==", true));
+        const snap = await getDocs(q);
+        const emails = snap.docs.map((d) => d.id);
+        if (emails.length > 0) {
+          setBlockedUsers(emails);
+          localStorage.setItem("blockedUsers", JSON.stringify(emails));
+        }
+      } catch (e) {
+        console.error("Failed to fetch blocked users:", e);
+      }
+    };
+    fetchBlocked();
+  }, [user?.uid]);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+  useEffect(() => {
+    const conversationId = getSearchParam("conversation");
+    if (conversationId && user?.email) {
+      getDoc(doc(db, "conversations", conversationId)).then((snap) => {
+        if (!snap.exists()) return;
+        const data = snap.data();
+        const other = data.participants?.find((p: string) => p !== user.email);
+        if (other) {
+          setChatUser(other);
+          setChatListingId(data.listingId || null);
+          if (data.listingId) fetchListingData(data.listingId);
+          if (isMobile) setMobileView("chat");
+        }
+      }).catch(() => {});
+      return;
+    }
+    const param = getSearchParam("user");
+    if (param) {
+      setChatUser(param);
+      setChatListingId(getSearchParam("listing") || null);
+      if (isMobile) setMobileView("chat");
+    }
+  }, [isMobile, user?.email]);
+  // Fetch seller profile + trust score
+  useEffect(() => {
+    if (!chatUser) { setSellerProfile(null); setSellerTrust(null); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const snap = await getDocs(query(collection(db, "profiles"), where("email", "==", chatUser)));
+        if (!snap.empty && !cancelled) {
+          const data = snap.docs[0].data();
+          setSellerProfile({ id: snap.docs[0].id, ...data });
+          const trust = calculateTrustScore(data as any);
+          setSellerTrust({ score: trust.score, level: trust.score >= 80 ? "Trusted" : trust.score >= 50 ? "Established" : "New" });
+        } else if (!cancelled) {
+          setSellerProfile(null);
+        }
+      } catch (e) { console.error("Failed to fetch seller profile:", e); }
+    })();
+    return () => { cancelled = true; };
+  }, [chatUser]);
+  // Close profile preview on outside click
+  useEffect(() => {
+    if (!showProfilePreview) return;
+    const handler = (e: MouseEvent) => {
+      if (profilePreviewRef.current && !profilePreviewRef.current.contains(e.target as Node)) {
+        setShowProfilePreview(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showProfilePreview]);
+  // Fetch listing data
+  async function fetchListingData(listingId: string) {
+    try {
+      const snap = await getDoc(doc(db, "listings", listingId));
+      if (snap.exists()) {
+        setListingCard({ id: snap.id, ...snap.data() });
+      }
+    } catch (e) { console.error("Failed to fetch listing data:", e); }
+  }
+  useEffect(() => {
+    if (chatListingId) {
+      fetchListingData(chatListingId);
+      const msgWithListing = messages.find((m: any) => m.listingId === chatListingId && m.listingImage);
+      if (msgWithListing && !listingCard) {
+        setListingCard({
+          id: chatListingId,
+          title: msgWithListing.listingTitle,
+          image: msgWithListing.listingImage,
+          price: msgWithListing.listingPrice,
+        });
+      }
+    } else {
+      setListingCard(null);
+    }
+  }, [chatListingId, messages]);
+  // Typing listener
+  useEffect(() => {
+    if (!chatUser || !user?.email) { setOtherTyping(false); return; }
+    const typingRef = doc(db, "typing", `${user.email}_${chatUser}_${chatListingId || "general"}`);
+    const unsub = onSnapshot(typingRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.typing && data.user !== user.email) {
+          setOtherTyping(true);
+          if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+          typingTimeoutRef.current = setTimeout(() => setOtherTyping(false), 3000);
+        } else {
+          setOtherTyping(false);
+        }
+      }
+    });
+    return () => { unsub(); if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current); };
+  }, [chatUser, user, chatListingId]);
+  // Mark as read
+  useEffect(() => {
+    if (!chatUser || !user?.email) return;
+    const relevant = messages.filter((m: any) => {
+      if (!m.participants?.includes(chatUser)) return false;
+      if (chatListingId) return m.listingId === chatListingId;
+      return !m.listingId;
+    });
+    const unreadMsgs = relevant.filter((m: any) => m.sender !== user.email && !m.read && !seenBatchRef.current.has(m.id));
+    for (const msg of unreadMsgs) {
+      seenBatchRef.current.add(msg.id);
+      updateDoc(doc(db, "messages", msg.id), { read: true, readAt: serverTimestamp() }).catch(() => {});
+    }
+  }, [chatUser, user, messages, chatListingId]);
+  // Fetch usernames
+  async function fetchUsername(email: string) {
+    if (usernames[email] || !email) return;
+    try {
+      const snap = await getDocs(query(collection(db, "profiles"), where("email", "==", email)));
+      if (!snap.empty) {
+        setUsernames((prev) => ({ ...prev, [email]: snap.docs[0].data().username }));
+      }
+    } catch (e) { console.error("Failed to fetch username:", e); }
+  }
+  // Main messages listener
+  useEffect(() => {
+    if (!user?.email) {
+      setMessages([]);
+      setLoading(false);
+      return;
+    }
+    let mounted = true;
+    const msgQuery = query(collection(db, "messages"), where("participants", "array-contains", user.email), limit(100));
 
-      <section className="relative z-10 mx-auto flex max-w-7xl px-6 py-12">
-        <div className="flex h-[750px] w-full overflow-hidden rounded-[40px] border border-[var(--card-border)] bg-[var(--card)] shadow-2xl backdrop-blur-xl">
-          {/* SIDEBAR */}
-          <div className="flex w-[340px] flex-col border-r border-[var(--card-border)]">
-            <div className="border-b border-[var(--card-border)] p-6">
-              <h1 className="text-3xl font-black text-sky-400">
-                Inbox
-              </h1>
+    getDocs(msgQuery).then((snap) => {
+      if (!mounted) return;
+      const items = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((msg: any) => {
+        const other = msg.participants?.find((p: string) => p !== user.email);
+        return other && !blockedUsers.includes(other);
+      });
+      items.sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
+      setDebugInfo(`${items.length} loaded`);
+      setMessages(items);
+      setLoading(false);
+      items.forEach((msg: any) => { fetchUsername(msg.sender); fetchUsername(msg.receiver); });
+    }).catch((e: any) => {
+      setDebugInfo(`Error: ${e.message}`);
+      if (mounted) setLoading(false);
+    });
 
-              <p className="mt-2 text-sm text-[var(--muted)]">
-                Marketplace conversations.
-              </p>
+    const unsub = onSnapshot(msgQuery, (snap) => {
+      if (!mounted) return;
+      const items = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((msg: any) => {
+        const other = msg.participants?.find((p: string) => p !== user.email);
+        return other && !blockedUsers.includes(other);
+      });
+      items.sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
+      setMessages(items);
+      setLoading(false);
+    }, (err) => { setDebugInfo(`Error: ${err.message}`); if (mounted) setLoading(false); });
+
+    return () => { mounted = false; unsub(); };
+  }, [user?.email, blockedUsers]);
+    // Unread map
+    useEffect(() => {
+      const map: Record<string, number> = {};
+      const raw: Record<string, boolean> = {};
+      messages.forEach((msg: any) => {
+        if (msg.sender !== user?.email && !msg.read) {
+          const other = msg.participants?.find((p: string) => p !== user?.email);
+          const key = `${other}||${msg.listingId || ""}`;
+          map[key] = (map[key] || 0) + 1;
+          raw[msg.id] = true;
+        }
+      });
+      setConversationUnread(map);
+      setUnreadMap(raw);
+    }, [messages, user?.email]);
+    // Compute filteredMessages for chat view
+    const filteredMessages = messages
+      .filter((msg: any) => {
+        if (!msg.participants?.includes(chatUser)) return false;
+        if (chatListingId) return msg.listingId === chatListingId;
+        return !msg.listingId;
+      })
+      .reverse();
+    // Auto-scroll
+    useEffect(() => {
+      if (chatEndRef.current && filteredMessages.length > 0) {
+        chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+      }
+    }, [filteredMessages.length, otherTyping]);
+    // â€”â€” Functions â€”â€”
+    async function emitTyping(typing: boolean) {
+      if (!chatUser || !user?.email) return;
+      try {
+        await setDoc(doc(db, "typing", `${user.email}_${chatUser}_${chatListingId || "general"}`), { typing, user: user.email, at: serverTimestamp() });
+      } catch (e) { console.error("Failed to emit typing:", e); }
+    }
+  // Feature 7: Image sending
+  function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => { setImagePreview(ev.target?.result as string); };
+    reader.readAsDataURL(file);
+  }
+  async function sendImageMessage() {
+    if (!imagePreview || !user?.email || !chatUser) return;
+    const activeListingTitle = chatListingId ? messages.find((m: any) => m.listingId === chatListingId && m.listingTitle)?.listingTitle : null;
+    try {
+      const { ref, uploadBytes, getDownloadURL } = await import("firebase/storage");
+      const blob = await (await fetch(imagePreview)).blob();
+      const storageRef = ref(storage, `chat_images/${user.uid}/${Date.now()}.jpg`);
+      const snap = await uploadBytes(storageRef, blob);
+      const imageUrl = await getDownloadURL(snap.ref);
+      await addDoc(collection(db, "messages"), {
+        type: "image",
+        imageUrl,
+        text: "",
+        sender: user.email,
+        receiver: chatUser,
+        participants: [user.email, chatUser],
+        ...(chatListingId ? { listingId: chatListingId, listingTitle: activeListingTitle || null } : {}),
+        createdAt: serverTimestamp(),
+      });
+      createNotification({
+        targetEmail: chatUser,
+        fromEmail: user.email,
+        type: "message",
+        title: "New image from " + (user.email?.split("@")[0] || "someone"),
+        message: "Sent an image",
+        listingId: chatListingId || undefined,
+        listingTitle: activeListingTitle || undefined,
+      });
+      setImagePreview(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    } catch (e) { console.error(e); }
+  }
+  // Send text message
+  async function sendMessage(skipSafety = false) {
+    if (!message.trim()) return;
+    if (!user?.email) { showToast("Please log in first", "info"); return; }
+    if (!chatUser.trim()) { showToast("Select a conversation", "info"); return; }
+    if (blockedUsers.includes(chatUser)) { showToast("This user is blocked", "error"); return; }
+    if (Date.now() - lastMessageTime.current < 2000) {
+      showToast("Please wait before sending another message", "info");
+      return;
+    }
+    lastMessageTime.current = Date.now();
+    if (!skipSafety) {
+      const result = detectScam(message);
+      if (result.isScam && !pendingMessage) { setPendingMessage(message); setScamWarning(true); return; }
+      const kw = containsRiskyKeywords(message);
+      if (kw) { setRiskyKeyword(kw); setShowSafetyWarning(true); return; }
+    }
+    const activeListingTitle = listingCard?.title || null;
+    const activeListingImage = listingCard?.images?.[0] || listingCard?.image || listingCard?.imageUrl || null;
+    const activeListingPrice = listingCard?.price || null;
+    try {
+      // Optimistic update - show message instantly
+      const tempId = "temp_" + Date.now();
+      const optimisticMsg = {
+        id: tempId,
+        text: message,
+        sender: user.email,
+        receiver: chatUser,
+        participants: [user.email, chatUser],
+        ...(chatListingId ? { listingId: chatListingId, listingTitle: activeListingTitle, listingImage: activeListingImage, listingPrice: activeListingPrice } : {}),
+        createdAt: { seconds: Math.floor(Date.now() / 1000) },
+      };
+      setMessages((prev) => [optimisticMsg, ...prev]);
+      setMessage("");
+      // Auto-scroll after optimistic update
+      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+
+      await addDoc(collection(db, "messages"), {
+        text: message,
+        sender: user.email,
+        receiver: chatUser,
+        participants: [user.email, chatUser],
+        ...(chatListingId ? { listingId: chatListingId, listingTitle: activeListingTitle, listingImage: activeListingImage, listingPrice: activeListingPrice } : {}),
+        createdAt: serverTimestamp(),
+      });
+      createNotification({
+        targetEmail: chatUser,
+        fromEmail: user.email,
+        type: "message",
+        title: "New message from " + (user.email?.split("@")[0] || "someone"),
+        message: message.length > 100 ? message.slice(0, 100) + "..." : message,
+        listingId: chatListingId || undefined,
+        listingTitle: activeListingTitle || undefined,
+        listingImage: activeListingImage || undefined,
+      });
+      await emitTyping(false);
+    } catch (e) { console.error(e); showToast("Failed to send", "error"); }
+  }
+  async function sendPendingMessage() {
+    if (!pendingMessage || !user?.email || !chatUser) return;
+    setScamWarning(false);
+    setMessage("");
+    try {
+      await addDoc(collection(db, "messages"), { text: pendingMessage, sender: user.email, receiver: chatUser, participants: [user.email, chatUser], createdAt: serverTimestamp() });
+      createNotification({
+        targetEmail: chatUser,
+        fromEmail: user.email,
+        type: "message",
+        title: "New message from " + (user.email?.split("@")[0] || "someone"),
+        message: pendingMessage.length > 100 ? pendingMessage.slice(0, 100) + "..." : pendingMessage,
+      });
+    } catch (e) { console.error(e); }
+    setPendingMessage("");
+  }
+  function blockUser(email: string) {
+    const updated = [...blockedUsers, email];
+    setBlockedUsers(updated);
+    localStorage.setItem("blockedUsers", JSON.stringify(updated));
+    setShowMenu(false);
+  }
+  async function reportUser(email: string) {
+    if (!user?.email) return;
+    const cooldownKey = `report_cooldown_user_${email}`;
+    const last = localStorage.getItem(cooldownKey);
+    if (last && Date.now() - Number(last) < 86400000) { showToast("Already reported", "info"); setShowMenu(false); return; }
+    try {
+      await addDoc(collection(db, "reports"), { reportedUserEmail: email, reporterUserEmail: user.email, type: "user", status: "pending", createdAt: serverTimestamp(), description: "Reported from messages" });
+      localStorage.setItem(cooldownKey, String(Date.now()));
+      showToast("User reported", "success");
+    } catch (e) { console.error(e); }
+    setShowMenu(false);
+  }
+  async function clearConversation() {
+    if (!chatUser || !user?.email) return;
+    try {
+      const archived = JSON.parse(localStorage.getItem("archivedConversations") || "[]");
+      if (!archived.includes(chatUser)) {
+        archived.push(chatUser);
+        localStorage.setItem("archivedConversations", JSON.stringify(archived));
+      }
+      // Mark messages as read for Navbar badge
+      const dismissed = JSON.parse(localStorage.getItem("dismissedNotifications") || "[]");
+      const relevant = messages.filter((m: any) => { const other = m.participants?.find((p: string) => p !== user.email); return other === chatUser; });
+      for (const msg of relevant) {
+        if (!dismissed.includes(msg.id)) dismissed.push(msg.id);
+        updateDoc(doc(db, "messages", msg.id), { read: true }).catch(() => {});
+      }
+      localStorage.setItem("dismissedNotifications", JSON.stringify(dismissed));
+    } catch {}
+    setShowMenu(false); setChatUser(""); setChatListingId(null);
+  }
+  async function clearAllMessages() {
+    if (!user?.email) return;
+    try {
+      const allParticipants = [...new Set(messages.map((m: any) => m.participants?.find((p: string) => p !== user?.email)).filter(Boolean))];
+      const archived = JSON.parse(localStorage.getItem("archivedConversations") || "[]");
+      const dismissed = JSON.parse(localStorage.getItem("dismissedNotifications") || "[]");
+      for (const msg of messages) {
+        if (!dismissed.includes(msg.id)) dismissed.push(msg.id);
+        updateDoc(doc(db, "messages", msg.id), { read: true }).catch(() => {});
+      }
+      for (const p of allParticipants) {
+        if (!archived.includes(p)) archived.push(p);
+      }
+      localStorage.setItem("archivedConversations", JSON.stringify(archived));
+      localStorage.setItem("dismissedNotifications", JSON.stringify(dismissed));
+    } catch {}
+    setShowClearAll(false);
+    setChatUser("");
+    setChatListingId(null);
+  }
+  // Feature 3: Offer system with status
+  async function sendOffer(type: string, amount?: string) {
+    if (!user?.email || !chatUser) return;
+    try {
+      const msgRef = await addDoc(collection(db, "messages"), {
+        type: "offer",
+        offerType: type,
+        offerAmount: amount || null,
+        offerStatus: type === "make" ? "pending" : type === "accept" ? "accepted" : type === "decline" ? "declined" : "countered",
+        text: type === "make" ? `Offer: $${amount || "?"}` : type === "accept" ? "Offer accepted" : type === "decline" ? "Offer declined" : "Counter offer",
+        sender: user.email,
+        receiver: chatUser,
+        participants: [user.email, chatUser],
+        listingId: chatListingId,
+        listingTitle: listingCard?.title || null,
+        createdAt: serverTimestamp(),
+      });
+      // When offer is accepted by seller, auto-create a purchase record
+      if (type === "accept" && chatListingId && amount) {
+        try {
+          await addDoc(collection(db, "purchases"), {
+            listingId: chatListingId,
+            listingTitle: listingCard?.title || "",
+            listingPrice: listingCard?.price || amount,
+            listingImage: listingCard?.images?.[0] || listingCard?.image || listingCard?.imageUrl || "",
+            sellerEmail: user.email,
+            buyerEmail: chatUser,
+            buyerName: chatUser.split("@")[0] || "",
+            deliveryMethod: "pickup",
+            total: Number(amount),
+            status: "seller_confirming",
+            createdAt: serverTimestamp(),
+          });
+        } catch (e2) { console.error("Failed to create purchase from offer:", e2); }
+        try {
+          const { updateDoc, doc: fd, getDoc } = await import("firebase/firestore");
+          if (chatListingId) {
+            const snap = await getDoc(fd(db, "listings", chatListingId));
+            if (snap.exists()) await updateDoc(fd(db, "listings", chatListingId), { status: "sold" });
+          }
+        } catch (e3) { console.error("Failed to mark listing as sold:", e3); }
+      }
+      createNotification({
+        targetEmail: chatUser,
+        fromEmail: user.email,
+        type: "offer",
+        title: type === "accept" ? "Offer accepted!" : type === "make" ? "New offer received" : type === "decline" ? "Offer declined" : "Counter offer",
+        message: `$${amount || ""} — ${listingCard?.title || "a listing"}`,
+        listingId: chatListingId || undefined,
+        listingTitle: listingCard?.title || undefined,
+        listingImage: listingCard?.images?.[0] || listingCard?.image || listingCard?.imageUrl || undefined,
+      });
+    } catch (e) { console.error(e); }
+  }
+  const [offerAmount, setOfferAmount] = useState("");
+  const [showOfferInput, setShowOfferInput] = useState(false);
+  // â€”â€” Computed values â€”â€”
+  const conversationMap = new Map<string, any>();
+  messages.forEach((msg: any) => {
+    const otherUser = msg.participants?.find((p: string) => p !== user?.email);
+    if (otherUser) {
+      const key = `${otherUser}||${msg.listingId || ""}`;
+      if (!conversationMap.has(key)) {
+        conversationMap.set(key, { participant: otherUser, listingId: msg.listingId || null, listingTitle: msg.listingTitle || null, msg });
+      }
+    }
+  });
+  let conversations = Array.from(conversationMap.entries());
+  if (searchQuery.trim()) {
+    const q = searchQuery.toLowerCase();
+    conversations = conversations.filter(([_, c]) => {
+      const name = getDisplayName(c.participant).toLowerCase();
+      const title = (c.listingTitle || "").toLowerCase();
+      const text = (c.msg.text || "").toLowerCase();
+      return name.includes(q) || title.includes(q) || text.includes(q);
+    });
+  }
+  if (activeFilter !== "all") {
+    conversations = conversations.filter(([_, c]) => {
+      const otherMsgs = messages.filter((m: any) => { const other = m.participants?.find((p: string) => p !== user?.email); return other === c.participant; });
+      if (activeFilter === "unread") return otherMsgs.some((m: any) => m.sender !== user?.email && !m.read);
+      if (activeFilter === "offers") return otherMsgs.some((m: any) => m.type === "offer");
+      if (activeFilter === "buying") return otherMsgs.some((m: any) => m.receiver === user?.email);
+      if (activeFilter === "selling") return otherMsgs.some((m: any) => m.sender === user?.email);
+      return true;
+    });
+  }
+  // Archive filtering removed — all conversations shown by default
+  function getDisplayName(email: string) { return usernames[email] || email; }
+  const filterTabs = [
+    { id: "all", label: "All" }, { id: "unread", label: "Unread" },
+    { id: "offers", label: "Offers" }, { id: "buying", label: "Buying" },
+    { id: "selling", label: "Selling" }, { id: "archived", label: "Archived" },
+  ];
+  const isOwnListing = listingCard?.sellerEmail === user?.email;
+  const [hasPurchaseInChat, setHasPurchaseInChat] = useState(false);
+  useEffect(() => {
+    if (!chatUser || !user?.email) { setHasPurchaseInChat(false); return; }
+    let mounted = true;
+    (async () => {
+      try {
+        const snap = await getDocs(query(collection(db, "purchases"), where("listingId", "==", chatListingId || "")));
+        const matched = snap.docs.find((d) => {
+          const data = d.data();
+          return (data.sellerEmail === user.email && data.buyerEmail === chatUser) || (data.buyerEmail === user.email && data.sellerEmail === chatUser);
+        });
+        if (matched && mounted) setHasPurchaseInChat(true);
+        else if (mounted) setHasPurchaseInChat(false);
+      } catch { if (mounted) setHasPurchaseInChat(false); }
+    })();
+    return () => { mounted = false; };
+  }, [chatUser, chatListingId, user?.email]);
+  // â€”â€” Render â€”â€”
+  return (
+    <>
+      {/* Scam Warning Modal */}
+      {scamWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => { setScamWarning(false); setPendingMessage(""); }}>
+          <div className="mx-4 w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-black text-[var(--foreground)]">&#9888;&#65039; Safety Warning</h3>
+              <button onClick={() => { setScamWarning(false); setPendingMessage(""); }} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
             </div>
-
-            <div className="flex-1 overflow-y-auto">
-              {loading ? (
-                <div className="p-6 text-zinc-500">
-                  Loading...
-                </div>
-              ) : conversations.length ===
-                0 ? (
-                <div className="p-6 text-sm text-zinc-500">
-                  No conversations yet.
-                </div>
-              ) : (
-                conversations.map(
-                  ([
-                    participant,
-                    msg,
-                  ]: any) => (
-                    <button
-                      key={
-                        participant
-                      }
-                      onClick={() =>
-                        setChatUser(
-                          participant
-                        )
-                      }
-                      className={`flex w-full flex-col border-b border-[var(--card-border)] px-6 py-5 text-left transition hover:bg-sky-500/10 ${
-                        chatUser ===
-                        participant
-                          ? "bg-sky-500/10"
-                          : ""
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="truncate font-black">
-                          {getDisplayName(
-                            participant
-                          )}
-                        </span>
-
-                        <span className="text-xs text-zinc-500">
-                          {formatTime(
-                            msg.createdAt
-                          )}
-                        </span>
-                      </div>
-
-                      <p className="mt-2 line-clamp-1 text-sm text-zinc-500">
-                        {
-                          msg.text
-                        }
-                      </p>
-                    </button>
-                  )
-                )
-              )}
-            </div>
-          </div>
-
-          {/* CHAT AREA */}
-          <div className="flex flex-1 flex-col">
-            <div className="border-b border-[var(--card-border)] p-6">
-              <h2 className="text-2xl font-black">
-                {chatUser
-                  ? getDisplayName(
-                      chatUser
-                    )
-                  : "Select Conversation"}
-              </h2>
-            </div>
-
-            <div className="flex-1 space-y-4 overflow-y-auto p-6">
-              {filteredMessages.length ===
-              0 ? (
-                <div className="flex h-full flex-col items-center justify-center text-center">
-                  <div className="mb-4 text-6xl">
-                    💬
-                  </div>
-
-                  <h2 className="text-3xl font-black">
-                    No messages
-                  </h2>
-                </div>
-              ) : (
-                filteredMessages.map(
-                  (msg: any) => {
-                    const isOwnMessage =
-                      user?.email ===
-                      msg.sender;
-
-                    return (
-                      <div
-                        key={
-                          msg.id
-                        }
-                        className={`flex ${
-                          isOwnMessage
-                            ? "justify-end"
-                            : "justify-start"
-                        }`}
-                      >
-                        <div
-                          className={`max-w-[75%] rounded-3xl px-5 py-4 shadow-lg ${
-                            isOwnMessage
-                              ? "bg-sky-500 text-white"
-                              : "bg-[var(--soft-card)] text-[var(--foreground)]"
-                          }`}
-                        >
-                          <div className="mb-2 flex items-center justify-between gap-4">
-                            <p className="text-xs font-bold opacity-70">
-                              {getDisplayName(
-                                msg.sender
-                              )}
-                            </p>
-
-                            <span className="text-xs opacity-70">
-                              {formatTime(
-                                msg.createdAt
-                              )}
-                            </span>
-                          </div>
-
-                          <p className="break-words text-lg">
-                            {
-                              msg.text
-                            }
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  }
-                )
-              )}
-            </div>
-
-            {/* INPUT */}
-            <div className="border-t border-[var(--card-border)] p-5">
-              <div className="flex gap-4">
-                <input
-                  type="text"
-                  placeholder="Type a message..."
-                  value={message}
-                  onChange={(e) =>
-                    setMessage(
-                      e.target.value
-                    )
-                  }
-                  className="flex-1 rounded-2xl border border-[var(--card-border)] bg-[var(--soft-card)] px-5 py-4 text-[var(--foreground)] outline-none transition focus:border-sky-400"
-                />
-
-                <button
-                  onClick={
-                    sendMessage
-                  }
-                  className="rounded-2xl bg-sky-500 px-8 py-4 font-black text-white transition hover:bg-sky-400"
-                >
-                  Send
-                </button>
-              </div>
+            <p className="mt-2 text-sm text-[var(--foreground)]">Your message contains words associated with suspicious activity. Be careful â€” legitimate buyers and sellers use Sky Drop messaging and secure payments.</p>
+            <div className="mt-4 flex gap-3">
+              <button onClick={() => { setScamWarning(false); setPendingMessage(""); }} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700">Edit Message</button>
+              <button onClick={sendPendingMessage} className="flex flex-1 items-center justify-center rounded-xl bg-amber-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-amber-400">Send Anyway</button>
             </div>
           </div>
         </div>
+      )}
+      {/* Risky keyword warning */}
+      {showSafetyWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setShowSafetyWarning(false)}>
+          <div className="mx-4 w-full max-w-md rounded-2xl border border-amber-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-black text-amber-400">&#9888;&#65039; Payment Safety</h3>
+              <button onClick={() => setShowSafetyWarning(false)} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
+            </div>
+            <p className="mt-2 text-sm text-[var(--foreground)]">Your message mentions &ldquo;{riskyKeyword}&rdquo; â€” this is a common sign of off-platform transactions. Keep all payments and communication inside Sky Drop for buyer protection.</p>
+            <div className="mt-4 flex gap-3">
+              <button onClick={() => setShowSafetyWarning(false)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700">Edit Message</button>
+              <button onClick={() => { setShowSafetyWarning(false); sendMessage(true); }} className="flex flex-1 items-center justify-center rounded-xl bg-amber-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-amber-400">Send Anyway</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Clear all confirmation */}
+      {showClearAll && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setShowClearAll(false)}>
+          <div className="mx-4 w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-black text-[var(--foreground)]">Clear all messages?</h3>
+              <button onClick={() => setShowClearAll(false)} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
+            </div>
+            <p className="mt-2 text-sm text-[var(--muted)]">Archive all {messages.length} conversations? Messages are preserved and can be viewed later.</p>
+            <div className="mt-4 flex gap-3">
+              <button onClick={() => setShowClearAll(false)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700">Cancel</button>
+              <button onClick={clearAllMessages} className="flex flex-1 items-center justify-center rounded-xl bg-zinc-600 py-3 text-sm font-bold text-white hover:bg-zinc-500">Archive All</button>
+            </div>
+          </div>
+        </div>
+      )}
+      <section className="relative z-10 mx-auto flex max-w-7xl px-6 py-12">
+        <div className="flex h-[750px] w-full overflow-hidden rounded-[40px] border border-[var(--card-border)] bg-[var(--card)] shadow-2xl backdrop-blur-xl">
+          {/* SIDEBAR */}
+          <div className={`flex w-[340px] flex-col border-r border-[var(--card-border)] ${isMobile && mobileView === "chat" ? "hidden" : "flex"} ${isMobile ? "w-full" : ""}`}>
+            <div className="border-b border-[var(--card-border)] p-5">
+              <div className="flex items-center justify-between">
+                <h1 className="text-2xl font-black text-sky-400">Inbox</h1>
+                <div className="flex items-center gap-2">
+                  {messages.length > 0 && (
+                    <button onClick={() => setShowClearAll(true)} className="text-[10px] text-[var(--muted)] underline decoration-white/[0.1] underline-offset-2 transition hover:text-red-400 hover:decoration-red-400/30">
+                      Clear all
+                    </button>
+                  )}
+                  <span className="text-[11px] text-[var(--muted)]">{conversations.length} chats Â· {messages.length} msgs</span>
+                </div>
+              </div>
+              <div className="relative mt-3">
+                <svg className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input type="text" placeholder="Search conversations..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] py-2.5 pl-9 pr-4 text-[13px] text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-500" />
+              </div>
+              <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1">
+                {filterTabs.map((tab) => (
+                  <button key={tab.id} onClick={() => setActiveFilter(tab.id)}
+                    className={`whitespace-nowrap rounded-lg px-2.5 py-2 text-[10px] font-bold uppercase tracking-wider transition ${activeFilter === tab.id ? "bg-sky-500/20 text-sky-400" : "text-[var(--muted)] hover:text-[var(--foreground)]"}`}>
+                    {tab.label}
+                    {tab.id === "unread" && Object.keys(unreadMap).length > 0 && (
+                      <span className="ml-1.5 inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-red-500 px-1 text-[8px] font-bold text-white">
+                        {Object.keys(unreadMap).length > 9 ? "9+" : Object.keys(unreadMap).length}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto scrollbar-thin">
+              {loading ? (
+                <div className="p-6 text-center text-[13px] text-[var(--muted)]">Loading...</div>
+              ) : conversations.length === 0 ? (
+                <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.04]">
+                    <svg className="h-5 w-5 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                    </svg>
+                  </div>
+                  <p className="mt-4 text-[13px] font-medium text-[var(--foreground)]">No conversations yet</p>
+                  <p className="mt-1 text-[11px] text-[var(--muted)]">Messages about listings will appear here.</p>
+                </div>
+              ) : (
+                conversations.map(([key, convo]: any) => {
+                  const unreadCount = conversationUnread[key] || 0;
+                  const hasOffer = messages.some((m: any) => { const other = m.participants?.find((p: string) => p !== user?.email); return other === convo.participant && m.type === "offer"; });
+                  return (
+                    <button key={key}
+                      onClick={() => { setChatUser(convo.participant); setChatListingId(convo.listingId); if (isMobile) setMobileView("chat"); }}
+                      className={`flex w-full items-start gap-3 border-b border-[var(--card-border)] px-4 py-3.5 text-left transition hover:bg-sky-500/5 ${chatUser === convo.participant && chatListingId === convo.listingId ? "bg-sky-500/10" : ""}`}>
+                      {/* Thumbnail */}
+                      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-zinc-800">
+                        {convo.msg.listingImage ? (
+                          <img src={convo.msg.listingImage} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-sm text-[var(--muted)]">
+                            {getDisplayName(convo.participant)?.[0]?.toUpperCase?.() || "?"}
+                          </div>
+                        )}
+                      </div>
+                      {/* Content */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className={`truncate text-[13px] ${unreadCount > 0 ? "font-bold" : "font-medium"} text-[var(--foreground)]`}>
+                            {getDisplayName(convo.participant)}
+                          </span>
+                          <span className="shrink-0 text-[10px] text-[var(--muted)]">{formatTime(convo.msg.createdAt)}</span>
+                        </div>
+                        <p className={`mt-0.5 truncate text-[11px] ${unreadCount > 0 ? "font-medium text-[var(--foreground)]" : "text-[var(--muted)]"}`}>
+                          {convo.msg.text || (convo.msg.type === "image" ? "ðŸ“· Photo" : convo.msg.type === "offer" ? `ðŸ’° Offer: $${convo.msg.offerAmount || ""}` : convo.msg.type === "purchase" ? "ðŸ›’ Purchase request" : "")}
+                        </p>
+                        {convo.listingTitle && (
+                          <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-[8px] font-medium text-sky-400 truncate max-w-full">{convo.listingTitle}</span>
+                        )}
+                      </div>
+                      {/* Unread badge */}
+                      {unreadCount > 0 && (
+                        <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[8px] font-bold text-white shrink-0 mt-0.5">
+                          {unreadCount > 9 ? "9+" : unreadCount}
+                        </span>
+                      )}
+                      {/* Unarchive button */}
+                      {activeFilter === "archived" && (
+                        <button onClick={(e) => {
+                          e.stopPropagation();
+                          try {
+                            const archived = JSON.parse(localStorage.getItem("archivedConversations") || "[]");
+                            const updated = archived.filter((p: string) => p !== convo.participant);
+                            localStorage.setItem("archivedConversations", JSON.stringify(updated));
+                            window.location.reload();
+                          } catch {}
+                        }} className="shrink-0 rounded-md border border-zinc-700 px-2 py-1 text-[9px] font-bold text-[var(--foreground)] hover:border-zinc-600 mt-0.5">
+                          Unarchive
+                        </button>
+                      )}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+          {/* CHAT AREA */}
+          <div className={`flex flex-1 flex-col ${isMobile && mobileView === "list" ? "hidden" : "flex"}`}>
+            {/* Chat header */}
+            <div className="flex items-center justify-between border-b border-[var(--card-border)] px-5 py-3">
+              <div className="flex items-center gap-3 min-w-0">
+                {isMobile && (
+                  <button onClick={() => setMobileView("list")} className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-white/[0.05] hover:text-[var(--foreground)]">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                )}
+                {chatUser ? (
+                  <>
+                    {/* Feature 4: Clickable avatar for profile preview */}
+                    <div className="relative">
+                      <button onClick={() => setShowProfilePreview(!showProfilePreview)}
+                        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-sky-500/20 text-[13px] font-bold text-sky-400 transition hover:bg-sky-500/30">
+                        {getDisplayName(chatUser)[0].toUpperCase()}
+                      </button>
+                      {/* Profile preview popover */}
+                      {showProfilePreview && (
+                        <div ref={profilePreviewRef} className="absolute left-0 top-12 z-50 w-56 overflow-hidden rounded-2xl border border-white/[0.06] bg-[#111318]/95 shadow-2xl backdrop-blur-xl"
+                          onClick={(e) => e.stopPropagation()}>
+                          <div className="p-4 text-center">
+                            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-sky-500/20 text-[16px] font-bold text-sky-400">
+                              {getDisplayName(chatUser)[0].toUpperCase()}
+                            </div>
+                            <p className="mt-2 text-[13px] font-bold text-[var(--foreground)]">{getDisplayName(chatUser)}</p>
+                            {sellerProfile && (
+                              <>
+                                <p className="mt-0.5 text-[10px] text-[var(--muted)]">
+                                  {sellerProfile.verified && <span className="text-sky-400">Verified &#10003;</span>}
+                                  {sellerProfile.trustedSeller && <span className="ml-1 text-emerald-400">Trusted</span>}
+                                </p>
+                                <p className="mt-1 text-[11px] text-[var(--muted)]">{sellerProfile.sales || 0} sales</p>
+                                {sellerProfile.memberSince && (
+                                  <p className="text-[10px] text-[var(--muted)]">Member since {new Date(sellerProfile.memberSince.seconds * 1000).getFullYear()}</p>
+                                )}
+                              </>
+                            )}
+                            <Link href={`/seller/${chatUser}`} onClick={() => setShowProfilePreview(false)}
+                              className="mt-3 inline-block w-full rounded-xl bg-sky-500 py-2 text-[11px] font-bold text-white transition hover:bg-sky-400">
+                              View Profile
+                            </Link>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <h2 className="truncate text-[15px] font-bold text-[var(--foreground)]">{getDisplayName(chatUser)}</h2>
+                      {/* Feature 3: Seller verification */}
+                      {sellerTrust && (
+                        <p className="text-[10px] text-[var(--muted)]">
+                          {sellerProfile?.verified && <span className="text-sky-400">Verified &#10003;</span>}
+                          {sellerTrust && <> &#8226; {sellerTrust.score}% Trust</>}
+                          {listingCard?.replyTime && <> &#8226; Replies in {listingCard.replyTime}m</>}
+                        </p>
+                      )}
+                      {otherTyping && (
+                        <span className="flex items-center gap-1 text-[11px] text-sky-400">
+                          Typing
+                          <span className="flex gap-0.5">
+                            <span className="h-1 w-1 animate-bounce rounded-full bg-sky-400" style={{ animationDelay: "0ms" }} />
+                            <span className="h-1 w-1 animate-bounce rounded-full bg-sky-400" style={{ animationDelay: "150ms" }} />
+                            <span className="h-1 w-1 animate-bounce rounded-full bg-sky-400" style={{ animationDelay: "300ms" }} />
+                          </span>
+                        </span>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <h2 className="text-[15px] font-bold text-[var(--foreground)]">Select Conversation</h2>
+                )}
+              </div>
+              {/* Options menu */}
+              {chatUser && (
+                <div className="relative">
+                  <button onClick={() => setShowMenu(!showMenu)} className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-white/[0.05] hover:text-[var(--foreground)]">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v.01M12 12v.01M12 19v.01" />
+                    </svg>
+                  </button>
+                  {showMenu && (
+                    <div className="absolute right-0 top-10 z-40 w-48 overflow-hidden rounded-xl border border-white/[0.06] bg-[#111318]/95 shadow-2xl backdrop-blur-xl">
+                      <button onClick={() => reportUser(chatUser)} className="flex w-full items-center gap-2 px-4 py-3 text-left text-[12px] text-[var(--foreground)] hover:bg-white/[0.05]">
+                        <svg className="h-3.5 w-3.5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg>
+                        Report user
+                      </button>
+                      <button onClick={() => blockUser(chatUser)} className="flex w-full items-center gap-2 px-4 py-3 text-left text-[12px] text-[var(--foreground)] hover:bg-white/[0.05]">
+                        <svg className="h-3.5 w-3.5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                        Block user
+                      </button>
+                      <button onClick={clearConversation} className="flex w-full items-center gap-2 px-4 py-3 text-left text-[12px] text-[var(--foreground)] hover:bg-white/[0.05]">
+                        <svg className="h-3.5 w-3.5 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        Archive conversation
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            {/* Empty state */}
+            {!chatUser ? (
+              <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-sky-500/10">
+                  <svg className="h-7 w-7 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                </div>
+                <h3 className="mt-5 text-xl font-bold text-[var(--foreground)]">Select a conversation</h3>
+                <p className="mt-2 max-w-xs text-[13px] text-[var(--muted)]">Choose a conversation from the left to start trading. All your marketplace messages live here.</p>
+              </div>
+            ) : (
+              <>
+                {/* Messages area */}
+                <div ref={messagesContainerRef} className="flex-1 overflow-y-auto scrollbar-thin px-5 py-4">
+                  {/* Listing context card â€” purchase order header */}
+                  {listingCard && hasPurchaseInChat && (
+                    <div className="mb-3 overflow-hidden rounded-2xl border border-sky-500/10 bg-zinc-900/80">
+                      <div className="flex items-center gap-3 p-3">
+                        {listingCard.image && (
+                          <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-zinc-800">
+                            <img src={listingCard.image} alt="" className="h-full w-full object-cover"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[13px] font-bold text-[var(--foreground)]">{listingCard.title || "Listing"}</p>
+                          <p className="text-[12px] font-black text-sky-400">${listingCard.price}</p>
+                          <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[10px] text-[var(--muted)]">
+                            <span className="text-emerald-400">Purchased âœ“</span>
+                          </div>
+                        </div>
+                        <Link href={`/purchases`}
+                          className="shrink-0 rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white text-center transition hover:bg-sky-400">
+                          View Order
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+                  {/* Listing context card â€” no purchase */}
+                  {listingCard && !hasPurchaseInChat && (
+                    <div className="mb-3 overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--soft-card)]">
+                      <div className="flex items-center gap-4 p-4">
+                        {listingCard.image && (
+                          <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl bg-zinc-800">
+                            <img src={listingCard.image} alt={listingCard.title || ""} className="h-full w-full object-cover"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[13px] font-bold text-[var(--foreground)]">{listingCard.title || "Listing"}</p>
+                          {listingCard.price && <p className="mt-0.5 text-[15px] font-black text-sky-400">${listingCard.price}</p>}
+                          <span className="mt-1 inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-medium text-emerald-400">Active</span>
+                        </div>
+                        <Link href={`/post/listing/${listingCard.id}`} className="flex-shrink-0 rounded-xl bg-sky-500 px-4 py-2 text-[11px] font-bold text-white transition hover:bg-sky-400">
+                          View Listing
+                        </Link>
+                      </div>
+                      <div className="flex gap-2 border-t border-[var(--card-border)] px-4 py-2.5">
+                        {!isOwnListing && (
+                          <>
+                            <Link href={`/post/listing/${listingCard.id}`}
+                              className="flex-1 rounded-lg bg-sky-500 py-2 text-center text-[11px] font-bold text-white transition hover:bg-sky-400">
+                              Buy Now
+                            </Link>
+                            <button onClick={() => setShowOfferInput(true)}
+                              className="flex-1 rounded-lg border border-sky-500/30 py-2 text-[11px] font-bold text-sky-400 transition hover:bg-sky-500/10">
+                              Make Offer
+                            </button>
+                          </>
+                        )}
+                        <button onClick={() => {
+                          try {
+                            const w = JSON.parse(localStorage.getItem("watchlist") || "[]");
+                            if (!w.includes(listingCard.id)) { w.push(listingCard.id); localStorage.setItem("watchlist", JSON.stringify(w)); }
+                          } catch {}
+                        }} className={`flex-1 rounded-lg py-2 text-[11px] font-bold transition ${isOwnListing ? "bg-zinc-700 text-[var(--muted)]" : "border border-zinc-600 text-[var(--muted)] hover:bg-white/[0.05]"}`}>
+                          {isOwnListing ? "Your Listing" : "Save"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {/* Messages */}
+                  {filteredMessages.length === 0 ? (
+                    <div className="flex h-full flex-col items-center justify-center text-center">
+                      <div className="mb-3 text-4xl">ðŸ’¬</div>
+                      <h3 className="text-lg font-bold text-[var(--foreground)]">No messages yet</h3>
+                      <p className="mt-1 text-[12px] text-[var(--muted)]">Send a message to start the conversation.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {filteredMessages.map((msg: any) => {
+                        const isOwn = user?.email === msg.sender;
+                        // Offer card
+                        if (msg.type === "offer") {
+                          const statusColors: Record<string, string> = {
+                            pending: "text-amber-400 border-amber-500/20 bg-amber-500/10",
+                            accepted: "text-emerald-400 border-emerald-500/20 bg-emerald-500/10",
+                            declined: "text-red-400 border-red-500/20 bg-red-500/10",
+                            countered: "text-sky-400 border-sky-500/20 bg-sky-500/10",
+                          };
+                          const statusColor = statusColors[msg.offerStatus || "pending"] || statusColors.pending;
+                          return (
+                            <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
+                              <div className={`w-[280px] overflow-hidden rounded-2xl border ${statusColor}`}>
+                                <div className="p-4">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-[15px]">ðŸ’°</span>
+                                      <span className="text-[12px] font-bold text-[var(--foreground)]">Offer</span>
+                                    </div>
+                                    {/* Status badge */}
+                                    <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+                                      msg.offerStatus === "accepted" ? "bg-emerald-500/20 text-emerald-400" :
+                                      msg.offerStatus === "declined" ? "bg-red-500/20 text-red-400" :
+                                      msg.offerStatus === "countered" ? "bg-sky-500/20 text-sky-400" :
+                                      "bg-amber-500/20 text-amber-400"
+                                    }`}>
+                                      {msg.offerStatus || "pending"}
+                                    </span>
+                                  </div>
+                                  {msg.offerAmount && (
+                                    <p className="mt-2 text-xl font-black text-sky-400">${msg.offerAmount}</p>
+                                  )}
+                                  {msg.listingTitle && (
+                                    <p className="mt-1 text-[10px] text-[var(--muted)] truncate">{msg.listingTitle}</p>
+                                  )}
+                                  <p className="mt-0.5 text-[9px] text-[var(--muted)]">{formatTime(msg.createdAt)}</p>
+                                  {/* Action buttons â€” only on received pending offers */}
+                                  {!isOwn && msg.offerStatus === "pending" && (
+                                    <div className="mt-3 flex gap-1.5">
+                                      <button onClick={() => sendOffer("accept", msg.offerAmount)} className="flex-1 rounded-lg bg-emerald-500 py-2.5 text-[10px] font-bold text-white transition hover:bg-emerald-400">Accept</button>
+                                      <button onClick={() => sendOffer("decline")} className="flex-1 rounded-lg bg-zinc-700 py-2.5 text-[10px] font-bold text-[var(--foreground)] transition hover:bg-zinc-600">Decline</button>
+                                      <button onClick={() => sendOffer("counter", msg.offerAmount)} className="flex-1 rounded-lg bg-amber-500 py-2.5 text-[10px] font-bold text-white transition hover:bg-amber-400">Counter</button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+                        // Order/confirmation card
+                        if (msg.type === "order") {
+                          const orderStatusBadge: Record<string, { label: string; color: string }> = {
+                            paid: { label: "Payment Confirmed", color: "text-emerald-400 border-emerald-500/20 bg-emerald-500/10" },
+                            awaiting_seller: { label: "Awaiting Seller", color: "text-amber-400 border-amber-500/20 bg-amber-500/10" },
+                            pickup_arranged: { label: "Pickup Arranged", color: "text-sky-400 border-sky-500/20 bg-sky-500/10" },
+                            shipped: { label: "Shipped", color: "text-violet-400 border-violet-500/20 bg-violet-500/10" },
+                            delivered: { label: "Delivered", color: "text-emerald-400 border-emerald-500/20 bg-emerald-500/10" },
+                            completed: { label: "Completed", color: "text-green-400 border-green-500/20 bg-green-500/10" },
+                            disputed: { label: "Disputed", color: "text-red-400 border-red-500/20 bg-red-500/10" },
+                          };
+                          const badge = orderStatusBadge[msg.orderStatus || "paid"] || orderStatusBadge.paid;
+                          return (
+                            <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
+                              <div className="w-[320px]">
+                                <div className={`rounded-2xl border ${badge.color}`}>
+                                  <div className="p-4">
+                                    <div className="flex items-center justify-between mb-3">
+                                      <div className="flex items-center gap-2">
+                                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/20">
+                                          <svg className="h-3.5 w-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                          </svg>
+                                        </div>
+                                        <span className="text-[13px] font-bold text-[var(--foreground)]">Payment Confirmed</span>
+                                      </div>
+                                      <span className={`rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${badge.color}`}>
+                                        {badge.label}
+                                      </span>
+                                    </div>
+                                    <div className="rounded-xl bg-white/[0.04] p-3 space-y-2">
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-[11px] text-[var(--muted)]">Item</span>
+                                        <span className="text-[12px] font-medium text-[var(--foreground)] truncate ml-2">{msg.listingTitle || "Listing"}</span>
+                                      </div>
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-[11px] text-[var(--muted)]">Amount</span>
+                                        <span className="text-[15px] font-black text-emerald-400">${msg.listingPrice || "â€”"}</span>
+                                      </div>
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-[11px] text-[var(--muted)]">Status</span>
+                                        <span className={`text-[11px] font-semibold ${badge.color.split(" ")[0]}`}>
+                                          {msg.orderStatus === "paid" ? "Awaiting seller response" : badge.label}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="mt-3 flex items-center justify-between">
+                                      <span className="text-[9px] text-[var(--muted)]">{formatFullTime(msg.createdAt) || formatTime(msg.createdAt)}</span>
+                                      {msg.sender === "system" && (
+                                        <span className="text-[8px] uppercase tracking-wider text-[var(--muted)]">Auto-confirmed</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+                        // Image message
+                        if (msg.type === "image") {
+                          return (
+                            <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
+                              <div className="max-w-[75%]">
+                                <div className={`overflow-hidden rounded-2xl ${isOwn ? "rounded-br-md" : "rounded-bl-md"} shadow-lg`}>
+                                  {(msg.imageUrl || msg.imageData) && (
+                                    <img src={msg.imageUrl || msg.imageData} alt="Shared image" className="max-h-64 w-full object-cover"
+                                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                                  )}
+                                  {msg.text && <p className="px-4 py-2 text-[13px]">{msg.text}</p>}
+                                  <div className={`flex items-center justify-end gap-1 px-4 pb-2 ${isOwn ? "" : ""}`}>
+                                    <span className={`text-[9px] ${isOwn ? "text-white/60" : "text-[var(--muted)]"}`}>{formatFullTime(msg.createdAt) || formatTime(msg.createdAt)}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+                        // Order event (system message)
+                        if (msg.type === "order_event") {
+                          return (
+                            <div key={msg.id} className="flex justify-center">
+                              <div className="w-full max-w-sm rounded-xl border border-sky-500/10 bg-sky-500/5 px-4 py-3 my-2">
+                                <div className="flex items-center gap-2 mb-1.5">
+                                  <span className="text-sm">📦</span>
+                                  <span className="text-[11px] font-bold text-sky-400">Order Event</span>
+                                </div>
+                                <p className="text-xs text-[var(--foreground)] leading-relaxed">{msg.text}</p>
+                                {msg.shippingAddress && (
+                                  <div className="mt-2 rounded-lg bg-zinc-800/30 px-3 py-2 text-[10px] text-[var(--muted)]">
+                                    <p>Shipping to:</p>
+                                    <p className="text-[var(--foreground)]">{msg.buyerName}</p>
+                                    <p className="text-[var(--foreground)]">{msg.shippingAddress}</p>
+                                    {msg.buyerPhone && <p className="text-[var(--foreground)]">📞 {msg.buyerPhone}</p>}
+                                  </div>
+                                )}
+                                {msg.deliveryMethod === "pickup" && (
+                                  <p className="mt-1 text-[10px] text-[var(--muted)]">📍 Pickup — arrange with seller</p>
+                                )}
+                                <p className="mt-1 text-[8px] text-[var(--muted)] text-right">{formatTime(msg.createdAt)}</p>
+                              </div>
+                            </div>
+                          );
+                        }
+                        // Text message
+                        return (
+                          <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
+                            <div className="max-w-[75%]">
+                              <div className={`rounded-2xl px-4 py-2.5 text-[14px] ${isOwn ? "rounded-br-md bg-sky-500/15 text-[var(--foreground)]" : "rounded-bl-md bg-zinc-800/60 text-[var(--foreground)]"}`}>
+                                {!isOwn && (() => { const check = detectScam(msg.text || ""); return check.isScam ? (
+                                  <span className="mb-1.5 inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[9px] font-bold text-red-400" title={`Flagged: ${check.keywords.join(", ")}`}>&#9888;&#65039; Caution</span>
+                                ) : null; })()}
+                                {!isOwn && containsRiskyKeywords(msg.text || "") && (
+                                  <span className="mb-1.5 inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[9px] font-bold text-amber-400">&#9888;&#65039; Off-platform mention</span>
+                                )}
+                                <p className="break-words whitespace-pre-line text-[14px] leading-relaxed">{msg.text}</p>
+                                {/* Status + timestamp */}
+                                <div className="mt-1.5 flex items-center justify-end gap-1">
+                                  <span className={`text-[9px] ${isOwn ? "text-white/60" : "text-[var(--muted)]"}`}>{formatTime(msg.createdAt)}</span>
+                                  {isOwn && (
+                                    <span className="text-[10px]">
+                                      {msg.read ? (
+                                        <svg className="h-3 w-3 text-white/70" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 7.5l-12 12L5 13l1.5-1.5 5 5 10.5-10.5L23.5 7.5zM17.5 7.5l-6 6-1.5-1.5 6-6 1.5 1.5z" /></svg>
+                                      ) : (
+                                        <svg className="h-3 w-3 text-white/50" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" /></svg>
+                                      )}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <div ref={chatEndRef} />
+                    </div>
+                  )}
+                </div>
+                {/* Safety warning above input */}
+                <div className="border-t border-[var(--card-border)] px-5 pt-2.5 pb-0">
+                  <p className="text-[9px] text-[var(--muted)] text-center">&#128274; Stay safe: keep payments and communication inside Sky Drop.</p>
+                </div>
+                {/* Input area */}
+                <div className="px-5 py-2.5">
+                  {/* Image preview */}
+                  {imagePreview && (
+                    <div className="mb-2 flex items-center gap-3 rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] p-2">
+                      <img src={imagePreview} alt="Preview" className="h-12 w-12 rounded-lg object-cover" />
+                      <span className="flex-1 text-[11px] text-[var(--muted)] truncate">Image ready to send</span>
+                      <button onClick={() => { setImagePreview(null); if (fileInputRef.current) fileInputRef.current.value = ""; }} className="text-[11px] text-red-400 hover:text-red-300">Remove</button>
+                      <button onClick={sendImageMessage} className="rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white hover:bg-sky-400">Send</button>
+                    </div>
+                  )}
+                  {/* Offer input */}
+                  {showOfferInput && (
+                    <div className="mb-2 flex items-center gap-2">
+                      <input type="number" placeholder="Offer amount..." value={offerAmount} onChange={(e) => setOfferAmount(e.target.value)}
+                        className="flex-1 rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] px-4 py-2 text-[13px] text-[var(--foreground)] outline-none transition focus:border-sky-400" />
+                      <button onClick={() => { sendOffer("make", offerAmount); setShowOfferInput(false); setOfferAmount(""); }} className="rounded-xl bg-emerald-500 px-4 py-2 text-[11px] font-bold text-white hover:bg-emerald-400">Send Offer</button>
+                      <button onClick={() => setShowOfferInput(false)} className="rounded-xl bg-zinc-700 px-4 py-2 text-[11px] font-bold text-[var(--foreground)] hover:bg-zinc-600">Cancel</button>
+                    </div>
+                  )}
+                  <div className="flex gap-2.5">
+                    {/* Image attach button */}
+                    <button onClick={() => fileInputRef.current?.click()}
+                      className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--muted)] transition hover:border-sky-400 hover:text-sky-400">
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </button>
+                    <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
+                    {/* Offer button */}
+                    <button onClick={() => setShowOfferInput(!showOfferInput)}
+                      className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--muted)] transition hover:border-sky-400 hover:text-sky-400">
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </button>
+                    <input type="text" placeholder="Type a message..." value={message}
+                      onChange={(e) => {
+                        setMessage(e.target.value);
+                        if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current);
+                        typingDebounceRef.current = setTimeout(() => emitTyping(e.target.value.length > 0), 400);
+                      }}
+                      onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                      className="flex-1 rounded-2xl border border-[var(--card-border)] bg-[var(--soft-card)] px-4 py-3 text-[14px] text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-400" />
+                    <button onClick={() => sendMessage()} className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-sky-500 text-white transition hover:bg-sky-400">
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M12 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       </section>
-    </main>
+    </>
   );
 }

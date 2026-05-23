@@ -9,35 +9,32 @@ export default function NotificationBell({
   count = 0,
   onClick,
 }: NotificationBellProps) {
+  const hasNotifications = count > 0;
 
   return (
     <button
       onClick={onClick}
-      className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.04] bg-[#111318]/90 transition hover:bg-white/[0.05]"
+      className={`relative flex h-9 w-9 items-center justify-center rounded-lg transition ${hasNotifications ? "bg-zinc-800/80 animate-breathe-glow" : "bg-zinc-800/50 hover:bg-zinc-700/50"}`}
     >
-
-      {/* ICON */}
       <svg
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
         strokeWidth="2"
-        className="h-4 w-4 text-zinc-400"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={`h-4 w-4 ${hasNotifications ? "text-[var(--foreground)]" : "text-zinc-400"}`}
       >
-        <path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5" />
-        <path d="M10 21a2 2 0 0 0 4 0" />
+        <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+        <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
       </svg>
 
-      {/* COUNT */}
-      {count > 0 && (
-        <div className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-sky-500 px-1 text-[10px] font-medium text-white">
-
-          {count}
-
-        </div>
+      {hasNotifications && (
+        <span className="absolute -right-1.5 -top-1.5 flex min-w-[18px] h-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-[var(--foreground)] ring-2 ring-zinc-900">
+          {count > 9 ? "9+" : count}
+        </span>
       )}
-
     </button>
   );
 }

@@ -21,13 +21,13 @@ export default function OnlineCount({
 
       <div className="flex items-center gap-1">
 
-        <span className="text-[12px] font-medium text-white">
+        <span className="text-[12px] font-medium text-[var(--foreground)]">
 
           {count}
 
         </span>
 
-        <span className="text-[11px] text-zinc-500">
+        <span className="text-[11px] text-[var(--muted)]">
 
           online
 

@@ -22,9 +22,28 @@ import {
 
 import { db, auth } from "../../lib/firebase";
 
+interface Listing {
+  id: string;
+  title: string;
+  price: string;
+  description?: string;
+  category?: string;
+  image?: string;
+  location?: string;
+  condition?: string;
+  imageUrl?: string;
+  images?: string[];
+  sellerEmail?: string;
+  sellerUsername?: string;
+  acceptOffers?: boolean;
+  status?: string;
+  createdAt?: any;
+  [key: string]: unknown;
+}
+
 export default function ListingPage() {
   const [listings, setListings] =
-    useState<any[]>([]);
+    useState<Listing[]>([]);
 
   const [favorites, setFavorites] =
     useState<string[]>([]);
@@ -65,19 +84,21 @@ export default function ListingPage() {
         (snapshot) => {
 
           const items =
-            snapshot.docs.map((doc) => ({
-              id: doc.id,
-              ...doc.data(),
-            }));
+            snapshot.docs
+              .map((doc) => ({
+                id: doc.id,
+                ...doc.data(),
+              } as any))
+              .filter((l: any) => l.sellerEmail !== user?.email);
 
-          setListings(items);
+          setListings(items as any);
 
           setLoading(false);
         }
       );
 
     return () => unsubscribe();
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (!user) {
@@ -183,6 +204,12 @@ export default function ListingPage() {
 
     if (!confirmDelete) return;
 
+    const item = listings.find((l: any) => l.id === id);
+    if (!item || item.sellerEmail !== user?.email) {
+      alert("You can only delete your own listings");
+      return;
+    }
+
     try {
 
       await deleteDoc(
@@ -249,7 +276,7 @@ export default function ListingPage() {
     });
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-black text-white">
+    <main className="relative min-h-screen overflow-hidden bg-black text-[var(--foreground)]">
 
       <Background />
       <Navbar />
@@ -260,7 +287,7 @@ export default function ListingPage() {
           Live Listings
         </h1>
 
-        <p className="mt-3 text-zinc-400">
+        <p className="mt-3 text-[var(--foreground)]">
           Browse real items posted on Sky Drop.
         </p>
 
@@ -276,7 +303,7 @@ export default function ListingPage() {
                 e.target.value
               )
             }
-            className="flex-1 rounded-2xl border border-white/10 bg-black/40 px-5 py-4 text-white outline-none backdrop-blur-xl focus:border-sky-400"
+            className="flex-1 rounded-2xl border border-white/10 bg-black/40 px-5 py-4 text-[var(--foreground)] outline-none backdrop-blur-xl focus:border-sky-400"
           />
 
           <select
@@ -286,7 +313,7 @@ export default function ListingPage() {
                 e.target.value
               )
             }
-            className="rounded-2xl border border-white/10 bg-black/40 px-5 py-4 text-white outline-none backdrop-blur-xl focus:border-sky-400"
+            className="rounded-2xl border border-white/10 bg-black/40 px-5 py-4 text-[var(--foreground)] outline-none backdrop-blur-xl focus:border-sky-400"
           >
 
             {categories.map(
@@ -308,7 +335,7 @@ export default function ListingPage() {
 
         {loading && (
 
-          <p className="mt-10 text-zinc-500">
+          <p className="mt-10 text-[var(--muted)]">
             Loading listings...
           </p>
 
@@ -319,11 +346,11 @@ export default function ListingPage() {
 
           <div className="mt-10 rounded-3xl border border-white/10 bg-black/40 p-8 text-center">
 
-            <h2 className="text-2xl font-bold text-white">
+            <h2 className="text-2xl font-bold text-[var(--foreground)]">
               No listings found
             </h2>
 
-            <p className="mt-2 text-zinc-400">
+            <p className="mt-2 text-[var(--foreground)]">
               Try another search or category.
             </p>
 
@@ -360,19 +387,17 @@ export default function ListingPage() {
                 </button>
 
                 {/* IMAGE */}
-                {item.imageUrl ? (
+                {item.images?.[0] || item.imageUrl || item.image ? (
 
                   <img
-                    src={
-                      item.imageUrl
-                    }
+                    src={item.images?.[0] || item.imageUrl || item.image || ""}
                     alt={item.title}
                     className="h-52 w-full rounded-2xl object-cover"
                   />
 
                 ) : (
 
-                  <div className="flex h-52 items-center justify-center rounded-2xl bg-zinc-900 text-zinc-600">
+                  <div className="flex h-52 items-center justify-center rounded-2xl bg-zinc-900 text-[var(--muted)]">
                     No Image Yet
                   </div>
 
@@ -387,7 +412,7 @@ export default function ListingPage() {
 
                   </span>
 
-                  <span className="text-sm text-zinc-500">
+                  <span className="text-sm text-[var(--muted)]">
 
                     {item.location}
 
@@ -401,7 +426,7 @@ export default function ListingPage() {
 
                 </h2>
 
-                <p className="mt-2 line-clamp-3 text-sm leading-6 text-zinc-400">
+                <p className="mt-2 line-clamp-3 text-sm leading-6 text-[var(--foreground)]">
 
                   {item.description}
 
@@ -415,14 +440,13 @@ export default function ListingPage() {
 
                 <div className="mt-4 border-t border-white/10 pt-4">
 
-                  <p className="text-xs text-zinc-500">
+                  <p className="text-xs text-[var(--muted)]">
                     Seller
                   </p>
 
-                  <p className="truncate text-sm text-zinc-300">
+                  <p className="truncate text-sm text-[var(--foreground)]">
 
-                    {item.sellerEmail ||
-                      "Unknown seller"}
+                    {item.sellerEmail === user?.email ? "You" : (item.sellerEmail || "Unknown seller")}
 
                   </p>
 
@@ -432,21 +456,23 @@ export default function ListingPage() {
 
                   <a
                     href={`/post/listing/${item.id}`}
-                    className="flex-1 rounded-2xl bg-sky-500 px-4 py-3 text-center font-bold text-white transition hover:bg-sky-400"
+                    className="flex-1 rounded-2xl bg-sky-500 px-4 py-3 text-center font-bold text-[var(--foreground)] transition hover:bg-sky-400"
                   >
                     View
                   </a>
 
+                  {user?.email === item.sellerEmail && (
                   <button
                     onClick={() =>
                       handleDelete(
                         item.id
                       )
                     }
-                    className="rounded-2xl bg-red-600 px-5 py-3 font-black text-white transition hover:bg-red-500"
+                    className="rounded-2xl bg-red-600 px-5 py-3 font-black text-[var(--foreground)] transition hover:bg-red-500"
                   >
                     X
                   </button>
+                  )}
 
                 </div>
 

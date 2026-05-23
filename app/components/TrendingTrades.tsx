@@ -24,13 +24,13 @@ export default function TrendingTrades({
       {/* HEADER */}
       <div className="mb-4">
 
-        <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-zinc-500">
+        <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-[var(--muted)]">
 
           Trending Listings
 
         </p>
 
-        <h2 className="mt-1 text-[18px] font-semibold tracking-tight text-white">
+        <h2 className="mt-1 text-[18px] font-semibold tracking-tight text-[var(--foreground)]">
 
           Popular Right Now
 
@@ -75,13 +75,13 @@ export default function TrendingTrades({
               {/* CONTENT */}
               <div className="min-w-0 flex-1">
 
-                <h3 className="line-clamp-1 text-[13px] font-medium text-white">
+                <h3 className="line-clamp-1 text-[13px] font-medium text-[var(--foreground)]">
 
                   {post.title}
 
                 </h3>
 
-                <div className="mt-1 flex items-center gap-2 text-[10px] text-zinc-500">
+                <div className="mt-1 flex items-center gap-2 text-[10px] text-[var(--muted)]">
 
                   <span>
                     @{post.sellerUsername}
@@ -104,7 +104,7 @@ export default function TrendingTrades({
               {/* PRICE */}
               <div className="text-right">
 
-                <p className="text-[13px] font-semibold text-white">
+                <p className="text-[13px] font-semibold text-[var(--foreground)]">
 
                   {post.price
                     ? `$${post.price}`

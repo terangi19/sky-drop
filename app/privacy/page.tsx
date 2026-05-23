@@ -1,0 +1,84 @@
+"use client";
+
+import Link from "next/link";
+import Navbar from "../components/Navbar";
+import Background from "../components/Background";
+import ThemeToggle from "../components/ThemeToggle";
+
+const sections = [
+  {
+    title: "Information We Collect",
+    content:
+      "We collect information you give us, like your name, email address, phone number, and profile details when you create an account or list an item. We also collect data automatically, including your IP address, browser type, device info, and how you use the site. If you chat with other users, those messages are stored so we can facilitate communication and resolve disputes.",
+  },
+  {
+    title: "How We Use It",
+    content:
+      "We use your information to run Sky Drop — showing listings, processing transactions, sending notifications, and helping buyers and sellers connect. We also use it to improve the platform, detect fraud, enforce our terms, and send occasional service-related emails. We never sell your personal information.",
+  },
+  {
+    title: "Data Sharing",
+    content:
+      "We share your information with other Sky Drop users only as needed for transactions — for example, your username and contact details are visible to someone you're buying from or selling to. We may share data with trusted service providers who help us run the platform (payment processors, hosting, analytics), and with law enforcement if required by New Zealand law.",
+  },
+  {
+    title: "Cookies",
+    content:
+      "We use cookies and similar technologies to keep you logged in, remember your preferences, and understand how the site is used. You can control cookies through your browser settings, but disabling them may affect how Sky Drop works. We also use local storage on your device to save your theme preference and recently viewed items.",
+  },
+  {
+    title: "Your Rights",
+    content:
+      "Under the Privacy Act 2020, you have the right to access and correct your personal information held by Sky Drop. You can update your profile details anytime in your account settings. If you want a copy of your data or to request deletion, contact us and we'll respond within 20 working days.",
+  },
+  {
+    title: "Contact",
+    content:
+      "If you have questions about this policy or your privacy, reach out to us at support@skydrop.nz. We're based in New Zealand and all data is stored and processed in accordance with New Zealand privacy law.",
+  },
+];
+
+export default function PrivacyPage() {
+  return (
+    <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)] transition-colors duration-300">
+      <Background />
+      <Navbar />
+      <ThemeToggle />
+
+      <section className="relative z-10 mx-auto max-w-3xl px-6 py-12">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-[var(--foreground)] transition hover:border-zinc-700 hover:bg-zinc-800/60"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          Back
+        </Link>
+
+        <div className="mt-8">
+          <p className="text-xs uppercase tracking-wider text-[var(--muted)]">Privacy</p>
+          <h1 className="mt-1 text-2xl font-black text-[var(--foreground)]">Privacy Policy</h1>
+        </div>
+
+        <div className="mt-8 space-y-6">
+          {sections.map((section) => (
+            <div
+              key={section.title}
+              className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-6"
+            >
+              <h2 className="text-base font-black text-[var(--foreground)]">{section.title}</h2>
+              <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">{section.content}</p>
+            </div>
+          ))}
+        </div>
+
+        <p className="mt-8 text-center text-xs text-[var(--muted)]">
+          Last updated: May 2026
+        </p>
+      </section>
+
+
+    </main>
+  );
+}

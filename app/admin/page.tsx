@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import ThemeToggle from "../components/ThemeToggle";
+import { useRouter } from "next/navigation";
 
 import {
   collection,
@@ -35,6 +36,9 @@ export default function AdminPage() {
   const [loading, setLoading] =
     useState(true);
 
+  const [checking, setChecking] = useState(true);
+  const router = useRouter();
+
   // ADMIN EMAILS
   const adminEmails = [
     "rangitr16@gmail.com",
@@ -51,6 +55,17 @@ export default function AdminPage() {
 
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        router.replace("/login");
+      } else {
+        setChecking(false);
+      }
+    });
+    return () => unsub();
+  }, [router]);
 
   useEffect(() => {
     const reportsQuery = query(
@@ -110,6 +125,8 @@ export default function AdminPage() {
       );
     }
   }
+
+  if (checking) return <main className="flex min-h-screen items-center justify-center bg-[var(--background)]"><p className="text-sm text-[var(--muted)]">Checking...</p></main>;
 
   // ACCESS CHECK
   const isAdmin =
@@ -171,7 +188,7 @@ export default function AdminPage() {
           </div>
 
           <div className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] px-8 py-6 shadow-xl">
-            <p className="text-sm text-zinc-500">
+            <p className="text-sm text-[var(--muted)]">
               Total Reports
             </p>
 
@@ -184,8 +201,8 @@ export default function AdminPage() {
         {/* STATS */}
         <div className="mb-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-xl">
-            <p className="text-sm text-zinc-500">
-              Reports
+            <p className="text-sm text-[var(--muted)]">
+              Total Reports
             </p>
 
             <h2 className="mt-3 text-4xl font-black text-red-400">
@@ -193,18 +210,28 @@ export default function AdminPage() {
             </h2>
           </div>
 
-          <div className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-xl">
-            <p className="text-sm text-zinc-500">
+          <div className="rounded-3xl border border-amber-500/20 bg-[var(--card)] p-6 shadow-xl">
+            <p className="text-sm text-[var(--muted)]">
+              Pending
+            </p>
+
+            <h2 className="mt-3 text-4xl font-black text-amber-400">
+              {reports.filter(r => !r.status || r.status === "pending").length}
+            </h2>
+          </div>
+
+          <a href="/admin/reports" className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-xl transition hover:border-sky-500/40 hover:shadow-[0_0_20px_rgba(14,165,233,0.1)]">
+            <p className="text-sm text-[var(--muted)]">
               Moderation
             </p>
 
             <h2 className="mt-3 text-4xl font-black text-yellow-400">
-              Active
+              Active →
             </h2>
-          </div>
+          </a>
 
           <div className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-xl">
-            <p className="text-sm text-zinc-500">
+            <p className="text-sm text-[var(--muted)]">
               Platform Status
             </p>
 
@@ -214,7 +241,7 @@ export default function AdminPage() {
           </div>
 
           <div className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-xl">
-            <p className="text-sm text-zinc-500">
+            <p className="text-sm text-[var(--muted)]">
               Safety System
             </p>
 
@@ -258,11 +285,11 @@ export default function AdminPage() {
                   <div className="flex flex-wrap items-center justify-between gap-4">
                     <div>
                       <h2 className="text-2xl font-black text-red-400">
-                        {report.reportedUser}
+                        {report.reportedUserEmail || report.reportedUser || "Unknown"}
                       </h2>
 
-                      <p className="mt-1 text-sm text-zinc-500">
-                        Reported by {report.reporter}
+                      <p className="mt-1 text-sm text-[var(--muted)]">
+                        Reported by {report.reporterUserEmail || report.reporterEmail || report.reporter || "Unknown"}
                       </p>
                     </div>
 
@@ -280,14 +307,14 @@ export default function AdminPage() {
                       onClick={() =>
                         deleteReport(report.id)
                       }
-                      className="rounded-2xl bg-red-500 px-6 py-3 font-black text-white transition hover:bg-red-400"
+                      className="rounded-2xl bg-red-500 px-6 py-3 font-black text-[var(--foreground)] transition hover:bg-red-400"
                     >
                       Remove Report
                     </button>
 
                     <a
                       href={`/seller/${encodeURIComponent(
-                        report.reportedUser
+                        report.reportedUserEmail || report.reportedUser || ""
                       )}`}
                       className="rounded-2xl border border-[var(--card-border)] px-6 py-3 font-black transition hover:border-sky-400 hover:text-sky-400"
                     >

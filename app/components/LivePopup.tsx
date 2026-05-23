@@ -46,19 +46,19 @@ export default function LivePopup({
         {/* CONTENT */}
         <div className="min-w-0">
 
-          <p className="text-[11px] text-zinc-500">
+          <p className="text-[11px] text-[var(--muted)]">
 
             New listing posted
 
           </p>
 
-          <p className="mt-0.5 line-clamp-1 text-[13px] font-medium text-white">
+          <p className="mt-0.5 line-clamp-1 text-[13px] font-medium text-[var(--foreground)]">
 
             {latestTrade.title}
 
           </p>
 
-          <p className="mt-0.5 text-[11px] text-zinc-500">
+          <p className="mt-0.5 text-[11px] text-[var(--muted)]">
 
             @{latestTrade.sellerUsername}
 

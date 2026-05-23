@@ -1,0 +1,572 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { addDoc, collection, doc, getDoc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import stripePromise from "../lib/stripe-client";
+import { db } from "../lib/firebase";
+import { createNotification } from "../lib/notifications";
+import AnimatedCheckmark from "./AnimatedCheckmark";
+import { playConfetti, playSuccess } from "../lib/sounds";
+
+interface ListingData {
+  id: string;
+  title: string;
+  price: string;
+  images?: string[];
+  imageUrl?: string;
+  image?: string;
+  sellerEmail?: string;
+  sellerUsername?: string;
+  pickupAvailable?: boolean;
+  shippingAvailable?: boolean;
+  pickupArea?: string;
+  shippingFee?: number | null;
+  freeShipping?: boolean;
+  stockQuantity?: number;
+}
+
+interface CheckoutModalProps {
+  listing: ListingData;
+  buyerEmail: string;
+  onClose: () => void;
+  collectionName?: string;
+}
+
+type DeliveryMethod = "pickup" | "shipping" | null;
+type Step = "form" | "card" | "processing" | "share_address" | "success";
+
+function PaymentForm({ total, listingId, title, price, buyerEmail, onSuccess, onBack }: {
+  total: number; listingId: string; title: string; price: string; buyerEmail: string; onSuccess: () => void; onBack: () => void;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [error, setError] = useState("");
+
+  async function handlePay(e: React.FormEvent) {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+    setError("");
+
+    const { error: submitError } = await stripe.confirmPayment({
+      elements,
+      confirmParams: {
+        return_url: `${window.location.origin}/checkout/success?listingId=${encodeURIComponent(listingId)}&title=${encodeURIComponent(title)}&price=${encodeURIComponent(price)}&buyerEmail=${encodeURIComponent(buyerEmail)}`,
+      },
+      redirect: "if_required",
+    });
+
+    if (submitError) {
+      setError("Payment failed. Please try another payment method or try again.");
+    } else {
+      onSuccess();
+    }
+  }
+
+  return (
+    <form onSubmit={handlePay} className="space-y-3">
+      <PaymentElement />
+      {error && (
+        <div className="rounded-lg border border-red-800/40 bg-red-900/20 p-3 text-xs text-red-400">
+          {error}
+        </div>
+      )}
+      <button
+        type="submit"
+        disabled={!stripe}
+        className="w-full rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-sky-400 disabled:opacity-50"
+      >
+        Pay ${total.toFixed(2)}
+      </button>
+      <button
+        type="button"
+        onClick={onBack}
+        className="w-full rounded-xl border border-zinc-700 py-3 text-sm font-bold text-[var(--muted)] transition hover:border-zinc-600 hover:text-[var(--foreground)]"
+      >
+        Cancel
+      </button>
+    </form>
+  );
+}
+
+export default function CheckoutModal({ listing, buyerEmail, onClose, collectionName = "listings" }: CheckoutModalProps) {
+  const router = useRouter();
+  const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>(() => {
+    if (listing.pickupAvailable && !listing.shippingAvailable) return "pickup";
+    if (listing.shippingAvailable && !listing.pickupAvailable) return "shipping";
+    return null;
+  });
+
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+  const [step, setStep] = useState<Step>("form");
+  const [clientSecret, setClientSecret] = useState("");
+  const [intentError, setIntentError] = useState("");
+  const [orderId, setOrderId] = useState("");
+  const [showConfetti, setShowConfetti] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  const shippingAmount = listing.shippingFee && !listing.freeShipping ? listing.shippingFee : 0;
+  const itemPrice = Number(listing.price) || 0;
+  const total = deliveryMethod === "shipping" ? itemPrice + shippingAmount : itemPrice;
+
+  const isValid = name.trim() && phone.trim() && (deliveryMethod !== "shipping" || address.trim()) && deliveryMethod;
+
+  // Restore body scroll on unmount
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
+
+  // ESC key closes modal
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") safeClose();
+    }
+    window.addEventListener("keydown", onKeyDown);
+  }, []);
+
+  useEffect(() => {
+    if (step === "success") {
+      playSuccess();
+      setShowConfetti(true);
+      const t = setTimeout(() => setShowConfetti(false), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [step]);
+
+  // Auto-fill saved info + shipping address from profile
+  useEffect(() => {
+    (async () => {
+      try {
+        // Load from localStorage checkout history
+        const saved = localStorage.getItem("checkoutInfo");
+        if (saved) {
+          const info = JSON.parse(saved);
+          if (info.name) setName(info.name);
+          if (info.phone) setPhone(info.phone);
+        }
+        // Load saved shipping address from Firestore profile
+        if (buyerEmail) {
+          const { getDocs, query, collection, where } = await import("firebase/firestore");
+          const { db } = await import("../lib/firebase");
+          const snap = await getDocs(query(collection(db, "profiles"), where("email", "==", buyerEmail)));
+          if (!snap.empty) {
+            const data = snap.docs[0].data();
+            if (data.shippingName && !name) setName(data.shippingName);
+            if (data.shippingPhone && !phone) setPhone(data.shippingPhone);
+            const parts = [data.shippingAddress, data.shippingCity, data.shippingPostcode, data.shippingCountry].filter(Boolean);
+            if (parts.length > 0 && !address) setAddress(parts.join(", "));
+          }
+        }
+      } catch {}
+    })();
+  }, [buyerEmail]);
+
+  function safeClose() {
+    document.body.style.overflow = "";
+    onClose();
+  }
+
+  function resetToForm() {
+    setStep("form");
+    setClientSecret("");
+    setIntentError("");
+  }
+
+  async function handleContinue() {
+    if (!isValid || step !== "form") return;
+    if (listing.stockQuantity !== undefined && listing.stockQuantity <= 0) {
+      alert("This item is out of stock.");
+      setStep("form");
+      return;
+    }
+    setStep("card");
+    setIntentError("");
+
+    try {
+      // Verify the real price from Firestore
+      const snap = await getDoc(doc(db, collectionName, listing.id));
+      if (!snap.exists()) {
+        setIntentError("Listing not found.");
+        setStep("form");
+        return;
+      }
+      const realPrice = Number(snap.data().price);
+      const realShipping = listing.shippingFee && !listing.freeShipping ? Number(listing.shippingFee) : 0;
+      const realTotal = deliveryMethod === "shipping" ? realPrice + realShipping : realPrice;
+
+      const res = await fetch("/api/create-payment-intent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: listing.title,
+          price: String(realTotal),
+          listingId: listing.id,
+          imageUrl: listing.images?.[0] || listing.imageUrl || listing.image || "",
+        }),
+      });
+      const data = await res.json();
+      if (data.clientSecret) {
+        setClientSecret(data.clientSecret);
+      } else {
+        setIntentError(data.error || "Payment initialization failed. Please try again.");
+        setStep("form");
+      }
+    } catch (e: any) {
+      setIntentError("Could not connect to payment server. Please try again.");
+      setStep("form");
+    }
+  }
+
+  async function handlePaymentSuccess() {
+    setStep("processing");
+    try {
+      const purchaseRef = await addDoc(collection(db, "purchases"), {
+        listingId: listing.id,
+        listingTitle: listing.title,
+        listingPrice: listing.price,
+        listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
+        sellerEmail: listing.sellerEmail,
+        buyerEmail,
+        buyerName: name.trim(),
+        buyerPhone: phone.trim(),
+        deliveryMethod,
+        shippingAddress: deliveryMethod === "shipping" ? address.trim() : "",
+        shippingFee: deliveryMethod === "shipping" ? shippingAmount : 0,
+        total,
+        status: "pending",
+        paidAt: serverTimestamp(),
+        createdAt: serverTimestamp(),
+      });
+
+      await createNotification({
+        type: "purchase",
+        targetEmail: listing.sellerEmail,
+        fromEmail: buyerEmail,
+        title: "Your item sold! 🎉",
+        message: `${name.trim()} just purchased "${listing.title}" for $${listing.price}. Check your sales page to confirm and ship.`,
+        listingId: listing.id,
+        listingTitle: listing.title,
+        listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
+        total,
+      });
+
+      try {
+        await updateDoc(doc(db, collectionName, listing.id), { status: "sold" });
+      } catch (e) { console.error("Failed to mark listing as sold:", e); }
+
+      setOrderId(purchaseRef.id);
+      try {
+        localStorage.setItem("checkoutInfo", JSON.stringify({ name: name.trim(), phone: phone.trim() }));
+      } catch {}
+
+      setStep("share_address");
+    } catch (e) {
+      console.error("Purchase record failed:", e);
+      setStep("share_address");
+    }
+  }
+
+  async function handleSendAddress() {
+    const shippingMsg = deliveryMethod === "shipping"
+      ? `Hi, please ship to:\n\n${address.trim()}\n\n${phone.trim() ? `Contact: ${phone.trim()}\n\n` : ""}Thanks!`
+      : "Hi, I'd like to arrange pickup for this item. Thanks!";
+
+    await addDoc(collection(db, "messages"), {
+      type: "text",
+      text: shippingMsg,
+      sender: buyerEmail,
+      receiver: listing.sellerEmail,
+      participants: [buyerEmail, listing.sellerEmail],
+      listingId: listing.id,
+      read: false,
+      createdAt: serverTimestamp(),
+    });
+
+    setStep("success");
+  }
+
+  const imageSrc = listing.images?.[0] || listing.imageUrl || listing.image || "";
+
+  return (
+    <div
+      className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4"
+      onClick={safeClose}
+    >
+      <div
+        ref={modalRef}
+        className={`w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl overflow-hidden transition-all duration-300 ${
+          step === "success" || step === "share_address" ? "max-w-sm" : ""
+        }`}
+        onClick={(e) => e.stopPropagation()}
+        style={{ animation: "slideUp 0.25s ease-out" }}
+      >
+        {step === "share_address" ? (
+          <div className="flex flex-col px-6 py-8 text-center">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-sky-500/20">
+              <svg className="h-7 w-7 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 2H4a2 2 0 00-2 2v4m0 0v8a2 2 0 002 2h4m0 0h4m0 0h4a2 2 0 002-2V10m0 0V4a2 2 0 00-2-2h-4m-4 0v4m0 0h4" />
+              </svg>
+            </div>
+            <h2 className="mt-4 text-lg font-black text-[var(--foreground)]">Payment Successful</h2>
+            {orderId && <p className="mt-1 text-xs text-[var(--muted)]">Order #{orderId.slice(-6).toUpperCase()}</p>}
+
+            <div className="mt-4 text-left">
+              <p className="mb-2 text-xs text-[var(--muted)]">
+                {deliveryMethod === "shipping"
+                  ? "Share your shipping address with the seller?"
+                  : "Let the seller know you'd like to arrange pickup?"}
+              </p>
+              <div className="rounded-lg bg-zinc-900/60 px-4 py-3 text-xs space-y-1">
+                <p className="font-bold text-[var(--foreground)]">{name.trim()}</p>
+                {phone.trim() && <p className="text-[var(--muted)]">📞 {phone.trim()}</p>}
+                {deliveryMethod === "shipping" && address.trim() && (
+                  <p className="text-[var(--muted)]">📍 {address.trim()}</p>
+                )}
+                {deliveryMethod === "shipping" && (
+                  <p className="pt-1 text-[10px] text-[var(--muted)]">Only shared if you send below.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-5 flex gap-2">
+              <button
+                onClick={() => setStep("success")}
+                className="flex-1 rounded-xl border border-zinc-700 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-zinc-800"
+              >
+                Skip
+              </button>
+              <button
+                onClick={handleSendAddress}
+                className="flex-1 rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-sky-400"
+              >
+                {deliveryMethod === "shipping" ? "Send Address" : "Send Message"}
+              </button>
+            </div>
+          </div>
+        ) : step === "success" ? (
+          <div className="flex flex-col px-6 py-8 text-center relative overflow-hidden">
+            {showConfetti && (
+              <div className="absolute inset-0 z-50 pointer-events-none">
+                {Array.from({ length: 30 }).map((_, i) => (
+                  <div key={i} className="absolute h-2 w-2 rounded-full animate-confetti-particle"
+                    style={{
+                      left: `${Math.random() * 100}%`,
+                      top: `${Math.random() * 100}%`,
+                      background: ["#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ef4444", "#ec4899"][Math.floor(Math.random() * 6)],
+                      animationDelay: `${Math.random() * 0.5}s`,
+                      animationDuration: `${0.6 + Math.random() * 0.8}s`,
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/20">
+              <AnimatedCheckmark />
+            </div>
+            <h2 className="mt-4 text-lg font-black text-[var(--foreground)]">Payment Successful</h2>
+            {orderId && <p className="mt-1 text-xs text-[var(--muted)]">Order #{orderId.slice(-6).toUpperCase()}</p>}
+            <div className="mt-4 rounded-lg bg-zinc-900/40 px-4 py-3 text-left text-xs">
+              <div className="flex items-center justify-between text-[var(--muted)]"><span>Item</span><span>${itemPrice.toFixed(2)}</span></div>
+              {deliveryMethod === "shipping" && shippingAmount > 0 && (
+                <div className="mt-1 flex items-center justify-between text-[var(--muted)]"><span>Shipping</span><span>${shippingAmount.toFixed(2)}</span></div>
+              )}
+              <div className="mt-2 flex items-center justify-between border-t border-zinc-800 pt-2 text-sm font-bold text-[var(--foreground)]"><span>Total</span><span>${total.toFixed(2)}</span></div>
+            </div>
+            <div className="mt-3 flex items-center justify-center gap-1 text-xs text-[var(--muted)]">
+              <span className="text-emerald-400">✓</span>
+              <span>Seller has been notified</span>
+            </div>
+            <button
+              onClick={() => router.push(`/messages?user=${encodeURIComponent(listing.sellerEmail || "")}&listing=${listing.id}&purchased=1`)}
+              className="mt-5 w-full rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-sky-400"
+            >
+              View Conversation
+            </button>
+            <button
+              onClick={safeClose}
+              className="mt-2 w-full rounded-xl border border-zinc-700 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-zinc-800"
+            >
+              Done
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+              <h2 className="text-sm font-bold text-[var(--foreground)]">
+                {step === "card" ? "Enter Card Details" : "Complete Purchase"}
+              </h2>
+              <button onClick={safeClose} className="p-2 text-[var(--muted)] transition hover:text-[var(--foreground)]">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3 border-b border-zinc-800/50 px-4 py-3">
+              {imageSrc && (
+                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-zinc-800">
+                  <img src={imageSrc} alt="" className="h-full w-full object-cover" />
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-bold text-[var(--foreground)]">{listing.title}</p>
+                <p className="text-xs text-[var(--muted)]">${listing.price}</p>
+              </div>
+            </div>
+
+            <div className="space-y-4 overflow-y-auto px-4 py-4 max-h-[60vh]">
+              {step === "form" && (
+                <>
+                  {(listing.pickupAvailable && listing.shippingAvailable) && (
+                    <div>
+                      <label className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-[var(--muted)]">Delivery</label>
+                      <div className="space-y-1.5">
+                        {listing.pickupAvailable && (
+                          <button
+                            onClick={() => setDeliveryMethod("pickup")}
+                            className={`flex w-full items-center gap-3 rounded-lg border px-3.5 py-3 text-left text-sm transition ${
+                              deliveryMethod === "pickup"
+                                ? "border-sky-500/40 bg-sky-500/10 text-[var(--foreground)]"
+                                : "border-zinc-800 bg-zinc-900/60 text-[var(--muted)] hover:border-zinc-700"
+                            }`}
+                          >
+                            <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
+                              deliveryMethod === "pickup" ? "border-sky-500 bg-sky-500" : "border-zinc-600"
+                            }`}>
+                              {deliveryMethod === "pickup" && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+                            </span>
+                            <span>📍 Pickup{listing.pickupArea ? ` — ${listing.pickupArea}` : ""}</span>
+                          </button>
+                        )}
+                        {listing.shippingAvailable && (
+                          <button
+                            onClick={() => setDeliveryMethod("shipping")}
+                            className={`flex w-full items-center gap-3 rounded-lg border px-3.5 py-3 text-left text-sm transition ${
+                              deliveryMethod === "shipping"
+                                ? "border-sky-500/40 bg-sky-500/10 text-[var(--foreground)]"
+                                : "border-zinc-800 bg-zinc-900/60 text-[var(--muted)] hover:border-zinc-700"
+                            }`}
+                          >
+                            <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
+                              deliveryMethod === "shipping" ? "border-sky-500 bg-sky-500" : "border-zinc-600"
+                            }`}>
+                              {deliveryMethod === "shipping" && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+                            </span>
+                            <span>{listing.freeShipping ? "Free shipping" : listing.shippingFee ? `Shipping — $${listing.shippingFee}` : "Shipping"}</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-[var(--muted)]">Your details</label>
+                    <div className="space-y-2">
+                      <input type="text" placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)}
+                        className="w-full rounded-lg border border-zinc-800 bg-zinc-900/60 px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-500/40" />
+                      <input type="tel" placeholder="Phone number" value={phone} onChange={(e) => setPhone(e.target.value)}
+                        className="w-full rounded-lg border border-zinc-800 bg-zinc-900/60 px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-500/40" />
+                      {deliveryMethod === "shipping" && (
+                        <input type="text" placeholder="Shipping address" value={address} onChange={(e) => setAddress(e.target.value)}
+                          className="w-full rounded-lg border border-zinc-800 bg-zinc-900/60 px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-500/40" />
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg bg-zinc-900/40 px-3.5 py-3 text-xs">
+                    <div className="flex items-center justify-between text-[var(--muted)]">
+                      <span>Item</span>
+                      <span>${itemPrice.toFixed(2)}</span>
+                    </div>
+                    {deliveryMethod === "shipping" && shippingAmount > 0 && (
+                      <div className="mt-1 flex items-center justify-between text-[var(--muted)]">
+                        <span>Shipping</span>
+                        <span>${shippingAmount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="mt-2 flex items-center justify-between border-t border-zinc-800 pt-2 text-sm font-bold text-[var(--foreground)]">
+                      <span>Total</span>
+                      <span>${total.toFixed(2)}</span>
+                    </div>
+                  </div>
+
+                  {intentError && (
+                    <div className="rounded-lg border border-red-800/40 bg-red-900/20 p-3 text-xs text-red-400">
+                      {intentError}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {step === "card" && clientSecret && (
+                <div>
+                  <div className="rounded-lg bg-zinc-900/40 px-3.5 py-3 mb-4 text-xs">
+                    <div className="flex items-center justify-between text-[var(--muted)]">
+                      <span>Item</span>
+                      <span>${itemPrice.toFixed(2)}</span>
+                    </div>
+                    {deliveryMethod === "shipping" && shippingAmount > 0 && (
+                      <div className="mt-1 flex items-center justify-between text-[var(--muted)]">
+                        <span>Shipping</span>
+                        <span>${shippingAmount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="mt-2 flex items-center justify-between border-t border-zinc-800 pt-2 text-sm font-bold text-[var(--foreground)]">
+                      <span>Total</span>
+                      <span>${total.toFixed(2)}</span>
+                    </div>
+                  </div>
+
+                  <Elements stripe={stripePromise} options={{ clientSecret }}>
+                    <PaymentForm total={total} listingId={listing.id} title={listing.title} price={String(total)} buyerEmail={buyerEmail} onSuccess={handlePaymentSuccess} onBack={resetToForm} />
+                  </Elements>
+                </div>
+              )}
+            </div>
+
+            {step === "form" && (
+              <div className="sticky bottom-0 border-t border-zinc-800 bg-zinc-950 px-4 py-3 flex gap-2">
+                <button
+                  onClick={safeClose}
+                  className="rounded-xl border border-zinc-700 px-4 py-3 text-sm font-bold text-[var(--muted)] transition hover:border-zinc-600 hover:text-[var(--foreground)]"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleContinue}
+                  disabled={!isValid}
+                  className="flex-1 rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-sky-400 disabled:opacity-50"
+                >
+                  Continue — ${total.toFixed(2)}
+                </button>
+              </div>
+            )}
+
+            {step === "processing" && (
+              <div className="sticky bottom-0 border-t border-zinc-800 bg-zinc-950 px-4 py-3">
+                <div className="flex items-center justify-center gap-2 py-3 text-sm text-[var(--muted)]">
+                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Finalizing...
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      <style jsx>{`
+        @keyframes slideUp {
+          from { transform: translateY(100%); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+      `}</style>
+    </div>
+  );
+}

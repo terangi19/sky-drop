@@ -19,7 +19,7 @@ export default function TradeTicker({
 
         <div className="mr-2 h-2 w-2 rounded-full bg-emerald-400" />
 
-        <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">
+        <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--muted)]">
 
           Live Marketplace Activity
 
@@ -65,13 +65,13 @@ export default function TradeTicker({
                 {/* CONTENT */}
                 <div className="min-w-0">
 
-                  <p className="line-clamp-1 text-[12px] font-medium text-white">
+                  <p className="line-clamp-1 text-[12px] font-medium text-[var(--foreground)]">
 
                     {trade.title}
 
                   </p>
 
-                  <p className="text-[10px] text-zinc-500">
+                  <p className="text-[10px] text-[var(--muted)]">
 
                     @{trade.sellerUsername}
 
@@ -80,7 +80,7 @@ export default function TradeTicker({
                 </div>
 
                 {/* PRICE */}
-                <div className="text-[12px] font-medium text-white">
+                <div className="text-[12px] font-medium text-[var(--foreground)]">
 
                   {trade.price
                     ? `$${trade.price}`

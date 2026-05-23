@@ -56,13 +56,13 @@ export default function TradeComposer({
         {/* LEFT */}
         <div>
 
-          <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-zinc-500">
+          <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-[var(--muted)]">
 
             Post Trade
 
           </p>
 
-          <h2 className="mt-1 text-[30px] font-bold tracking-tight text-white">
+          <h2 className="mt-1 text-[30px] font-bold tracking-tight text-[var(--foreground)]">
 
             Live Trade Feed
 
@@ -86,7 +86,7 @@ export default function TradeComposer({
                 className={`rounded-xl px-4 py-2 text-[12px] font-medium transition-all duration-200 ${
                   type === tradeType
                     ? "bg-sky-500 text-white"
-                    : "bg-white/[0.04] text-zinc-400 hover:bg-white/[0.07] hover:text-white"
+                    : "bg-white/[0.04] text-[var(--muted)] hover:bg-white/[0.07] hover:text-[var(--foreground)]"
                 }`}
               >
 
@@ -120,7 +120,7 @@ export default function TradeComposer({
             )
           }
           placeholder="Listing title"
-          className="h-12 rounded-xl border border-white/[0.04] bg-[#181b22] px-4 text-[14px] text-white outline-none placeholder:text-zinc-600 focus:border-white/[0.08]"
+          className="h-12 rounded-xl border border-white/[0.04] bg-[#181b22] px-4 text-[14px] text-[var(--foreground)] outline-none placeholder:text-zinc-600 focus:border-white/[0.08]"
         />
 
         {/* PRICE / BUDGET */}
@@ -139,7 +139,7 @@ export default function TradeComposer({
                 ? "Budget"
                 : "Price"
             }
-            className="h-12 rounded-xl border border-white/[0.04] bg-[#181b22] px-4 text-[14px] text-white outline-none placeholder:text-zinc-600 focus:border-white/[0.08]"
+            className="h-12 rounded-xl border border-white/[0.04] bg-[#181b22] px-4 text-[14px] text-[var(--foreground)] outline-none placeholder:text-zinc-600 focus:border-white/[0.08]"
           />
 
         )}
@@ -158,7 +158,7 @@ export default function TradeComposer({
           }
           placeholder="Describe your trade..."
           rows={4}
-          className="w-full resize-none rounded-xl border border-white/[0.04] bg-[#181b22] px-4 py-4 text-[14px] text-white outline-none placeholder:text-zinc-600 focus:border-white/[0.08]"
+          className="w-full resize-none rounded-xl border border-white/[0.04] bg-[#181b22] px-4 py-4 text-[14px] text-[var(--foreground)] outline-none placeholder:text-zinc-600 focus:border-white/[0.08]"
         />
 
       </div>
@@ -166,7 +166,7 @@ export default function TradeComposer({
       {/* FOOTER */}
       <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 
-        <p className="text-[12px] text-zinc-500">
+        <p className="text-[12px] text-[var(--muted)]">
 
           Trades appear instantly in the live marketplace feed.
 
@@ -175,7 +175,7 @@ export default function TradeComposer({
         <button
           onClick={postTrade}
           disabled={posting}
-          className="rounded-xl bg-sky-500 px-5 py-3 text-[13px] font-medium text-white transition hover:bg-sky-400 disabled:opacity-50"
+          className="rounded-xl bg-sky-500 px-5 py-3 text-[13px] font-medium text-[var(--foreground)] transition hover:bg-sky-400 disabled:opacity-50"
         >
 
           {posting

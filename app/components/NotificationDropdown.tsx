@@ -1,122 +1,272 @@
 "use client";
 
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import Link from "next/link";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  limit,
+} from "firebase/firestore";
+import { db } from "../lib/firebase";
+
+type NotificationItem = {
+  id: string;
+  sender: string;
+  senderEmail: string;
+  listingTitle: string;
+  listingId: string;
+  type: string;
+  time: string;
+  href: string;
+  unread: boolean;
+};
+
 type NotificationDropdownProps = {
-  notifications?: any[];
+  notifications?: NotificationItem[];
+  onClose?: () => void;
+  onMarkSeen?: (id: string) => void;
+};
+
+const TYPE_META: Record<
+  string,
+  { icon: string; color: string }
+> = {
+  message: {
+    icon: "\uD83D\uDCAC",
+    color: "bg-sky-500/20",
+  },
+  offer: {
+    icon: "\uD83D\uDCB0",
+    color: "bg-amber-500/20",
+  },
+  sold: {
+    icon: "\u2705",
+    color: "bg-emerald-500/20",
+  },
+  verification: {
+    icon: "\uD83D\uDD10",
+    color: "bg-violet-500/20",
+  },
+  warning: {
+    icon: "\u26A0\uFE0F",
+    color: "bg-red-500/20",
+  },
+  watchlist: {
+    icon: "\u2B50",
+    color: "bg-yellow-500/20",
+  },
 };
 
 export default function NotificationDropdown({
   notifications = [],
+  onClose,
+  onMarkSeen,
 }: NotificationDropdownProps) {
+  const [usernames, setUsernames] =
+    useState<Record<string, string>>({});
+  const fetchRef = useRef<number>(0);
+
+  useEffect(() => {
+    const emails = [
+      ...new Set(
+        notifications
+          .map((n) => n.senderEmail)
+          .filter(Boolean)
+      ),
+    ];
+    if (emails.length === 0) return;
+    const id = ++fetchRef.current;
+    const timer = setTimeout(async () => {
+      const batch = emails.slice(0, 10);
+      try {
+        const snap = await getDocs(
+          query(collection(db, "profiles"), where("email", "in", batch))
+        );
+        if (id !== fetchRef.current) return;
+        const map: Record<string, string> = {};
+        snap.forEach((d) => {
+          const data = d.data();
+          const email = data.email;
+          if (email) map[email] = data.username || data.displayName || "";
+        });
+        setUsernames((prev) => ({ ...prev, ...map }));
+      } catch (e) { console.error("Failed to fetch usernames:", e); }
+    }, 300);
+    return () => { clearTimeout(timer); };
+  }, [notifications]);
+
+  function handleClearAll() {
+    notifications.forEach((n) =>
+      onMarkSeen?.(n.id)
+    );
+    onClose?.();
+  }
 
   return (
-    <div className="absolute right-0 top-[58px] z-50 w-[340px] overflow-hidden rounded-2xl border border-white/[0.05] bg-[#111318]/95 shadow-2xl backdrop-blur-xl">
-
+    <div className="absolute right-0 top-[58px] z-50 w-[340px] overflow-hidden rounded-2xl border border-white/[0.05] bg-[#111318]/95 shadow-2xl backdrop-blur-xl animate-slide-down">
       {/* HEADER */}
       <div className="flex items-center justify-between border-b border-white/[0.04] px-4 py-3">
-
         <div>
-
-          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">
-
+          <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--muted)]">
             Notifications
-
           </p>
-
-          <h2 className="mt-1 text-[16px] font-semibold text-white">
-
+          <h2 className="mt-0.5 text-[15px] font-semibold text-[var(--foreground)]">
             Activity
-
           </h2>
-
         </div>
-
-        <button className="text-[11px] text-zinc-500 transition hover:text-white">
-
-          Clear
-
-        </button>
-
+        {notifications.length > 0 && (
+          <button
+            onClick={handleClearAll}
+            className="rounded-lg px-2.5 py-1 text-[10px] font-medium text-[var(--muted)] transition hover:bg-white/[0.04] hover:text-[var(--foreground)]"
+          >
+            Clear all
+          </button>
+        )}
       </div>
 
       {/* LIST */}
-      <div className="max-h-[420px] overflow-y-auto">
-
+      <div className="max-h-[420px] overflow-y-auto scrollbar-thin">
         {notifications.length === 0 ? (
-
-          <div className="flex flex-col items-center justify-center px-6 py-10 text-center">
-
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.04]">
-
-              <span className="text-zinc-500">
-
-                •
-
-              </span>
-
+          <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.06]">
+              <svg
+                className="h-5 w-5 text-[var(--muted)]"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0"
+                />
+              </svg>
             </div>
-
-            <p className="mt-4 text-[13px] font-medium text-white">
-
-              No notifications yet
-
+            <p className="mt-4 text-[13px] font-medium text-[var(--foreground)]">
+              No new activity
             </p>
-
-            <p className="mt-1 text-[11px] text-zinc-500">
-
-              Marketplace activity will appear here.
-
+            <p className="mt-1 text-[11px] text-[var(--muted)]">
+              Messages, offers, and updates will appear here.
             </p>
-
           </div>
-
         ) : (
-
-          <div className="p-2">
-
+          <div className="py-1.5">
             {notifications.map(
-              (
-                notification,
-                index
-              ) => (
+              (notification, index) => {
+                const typeMeta =
+                  TYPE_META[
+                    notification.type
+                  ] || TYPE_META.message;
+                const username =
+                  usernames[
+                    notification
+                      .senderEmail
+                  ] || "";
+                const displaySender =
+                  username ||
+                  notification.senderEmail?.split(
+                    "@"
+                  )[0] ||
+                  "Unknown";
+                const isUnread =
+                  notification.unread;
 
-                <div
-                  key={index}
-                  className="flex gap-3 rounded-xl p-3 transition hover:bg-white/[0.04]"
-                >
+                return (
+                  <Link
+                    key={
+                      notification.id
+                        ? `${notification.id}-${index}`
+                        : `notif-${index}`
+                    }
+                    href={
+                      notification.href
+                    }
+                    onClick={() => {
+                      onMarkSeen?.(
+                        notification.id
+                      );
+                      onClose?.();
+                    }}
+                    className={`relative mx-1.5 mb-0.5 flex items-start gap-3 rounded-xl px-3 py-2.5 transition-all duration-200 ${
+                      isUnread
+                        ? "border border-sky-500/10 bg-sky-500/[0.06] hover:border-sky-500/20 hover:bg-sky-500/[0.1]"
+                        : "border border-transparent hover:border-white/[0.06] hover:bg-white/[0.03]"
+                    }`}
+                  >
+                    {/* AVATAR + TYPE BADGE */}
+                    <div className="relative flex-shrink-0">
+                      <div
+                        className={`flex h-9 w-9 items-center justify-center rounded-xl text-[11px] font-medium text-[var(--foreground)] ${typeMeta.color}`}
+                      >
+                        {notification.sender?.[0]?.toUpperCase() ||
+                          "?"}
+                      </div>
+                      <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#111318] text-[7px] leading-none ring-1 ring-white/[0.06]">
+                        {typeMeta.icon}
+                      </span>
+                    </div>
 
-                  {/* AVATAR */}
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500 text-[12px] font-medium text-white">
+                    {/* CONTENT */}
+                    <div className="min-w-0 flex-1">
+                      {notification.listingTitle ? (
+                        <p className="truncate text-[13px] font-semibold text-[var(--foreground)]">
+                          {
+                            notification.listingTitle
+                          }
+                        </p>
+                      ) : (
+                        <p className="text-[12px] font-medium text-[var(--foreground)]">
+                          {displaySender}
+                        </p>
+                      )}
+                      <div className="mt-0.5 flex items-center gap-1.5">
+                        {notification.listingTitle ? (
+                          <p className="truncate text-[11px] text-[var(--muted)]">
+                            by {displaySender}
+                          </p>
+                        ) : (
+                          <p className="text-[11px] text-[var(--muted)]">
+                            {notification.type === "offer"
+                              ? "Made an offer"
+                              : "Sent a message"}
+                          </p>
+                        )}
+                        {notification.type ===
+                          "offer" && (
+                          <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[8px] font-medium text-amber-400">
+                            Offer
+                          </span>
+                        )}
+                        {notification.type ===
+                          "sold" && (
+                          <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[8px] font-medium text-emerald-400">
+                            Sold
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-0.5 text-[10px] text-[var(--muted)]">
+                        {notification.time}
+                      </p>
+                    </div>
 
-                    {notification.user?.[0] || "S"}
-
-                  </div>
-
-                  {/* CONTENT */}
-                  <div className="min-w-0 flex-1">
-
-                    <p className="text-[12px] text-white">
-
-                      {notification.message}
-
-                    </p>
-
-                    <p className="mt-1 text-[10px] text-zinc-500">
-
-                      {notification.time || "Now"}
-
-                    </p>
-
-                  </div>
-
-                </div>
-              )
+                    {/* UNREAD DOT */}
+                    {isUnread && (
+                      <span className="absolute right-2.5 top-3 h-1.5 w-1.5 rounded-full bg-sky-400 animate-pulse-dot" />
+                    )}
+                  </Link>
+                );
+              }
             )}
-
           </div>
         )}
-
       </div>
-
     </div>
   );
 }

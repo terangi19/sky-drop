@@ -5,6 +5,9 @@ import {
   useState,
 } from "react";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
 import {
   onAuthStateChanged,
   signOut,
@@ -14,6 +17,13 @@ import {
 import {
   doc,
   getDoc,
+  updateDoc,
+  collection,
+  query,
+  where,
+  onSnapshot,
+  orderBy,
+  limit,
 } from "firebase/firestore";
 
 import {
@@ -25,6 +35,7 @@ import NotificationBell from "./NotificationBell";
 import NotificationDropdown from "./NotificationDropdown";
 
 export default function Navbar() {
+  const pathname = usePathname();
   const [user, setUser] =
     useState<User | null>(
       null
@@ -35,30 +46,43 @@ export default function Navbar() {
 
   const [
     notificationCount,
-  ] = useState(3);
+    setNotificationCount,
+  ] = useState(0);
 
   const [
     showNotifications,
     setShowNotifications,
   ] = useState(false);
 
-  const [notifications] =
-    useState([
-      {
-        id: 1,
-        text: "🔥 New Gaming trade posted",
-      },
+  const [notifications, setNotifications] =
+    useState<any[]>([]);
 
-      {
-        id: 2,
-        text: "🚗 Supra parts added in Cars",
-      },
+  const [dismissedIds, setDismissedIds] =
+    useState<Set<string>>(new Set());
 
-      {
-        id: 3,
-        text: "💬 New message received",
-      },
-    ]);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [dropTokenCount, setDropTokenCount] = useState(0);
+
+  function loadDismissed(): Set<string> {
+    try {
+      const raw = localStorage.getItem("dismissedNotifications");
+      return new Set<string>(raw ? JSON.parse(raw) : []);
+    } catch { return new Set<string>(); }
+  }
+
+  function markSeen(id: string) {
+    const next = new Set(dismissedIds);
+    next.add(id);
+    setDismissedIds(next);
+    try {
+      localStorage.setItem("dismissedNotifications", JSON.stringify([...next]));
+    } catch {}
+    updateDoc(doc(db, "notifications", id), { read: true }).catch(() => {});
+  }
+
+  useEffect(() => {
+    setDismissedIds(loadDismissed());
+  }, []);
 
   useEffect(() => {
     const unsubscribe =
@@ -109,67 +133,202 @@ export default function Navbar() {
       unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (!user?.uid) return;
+    const q = query(collection(db, "dropTokens"), where("ownerId", "==", user.uid), where("status", "==", "available"));
+    const unsub = onSnapshot(q, (snap) => setDropTokenCount(snap.docs.length));
+    return () => unsub();
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!user?.email) return;
+
+    const all: any[] = [];
+    let msgDone = false;
+    let purchaseDone = false;
+
+    function merge() {
+      if (!msgDone || !purchaseDone) return;
+      const dismissed = loadDismissed();
+      const filtered = all.filter((n: any) => !dismissed.has(n.id));
+      filtered.sort((a, b) => {
+        const ta = a.time === "Now" ? Date.now() : new Date(a.time).getTime();
+        const tb = b.time === "Now" ? Date.now() : new Date(b.time).getTime();
+        return tb - ta;
+      });
+      const merged = filtered.slice(0, 10);
+      setNotifications(merged);
+      setNotificationCount(merged.filter((n) => n.unread).length);
+    }
+
+    const dismissed = loadDismissed();
+    const msgQ = query(collection(db, "messages"), where("participants", "array-contains", user.email), limit(20));
+    const unsub1 = onSnapshot(msgQ, (snap) => {
+      all.length = 0;
+      const items = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() } as any))
+        .filter((msg: any) => {
+          const isTarget = msg.receiver ? msg.receiver === user.email : msg.sender !== user.email;
+          return isTarget && !msg.read && !dismissed.has(msg.id);
+        });
+      for (const msg of items.slice(0, 5)) {
+        all.push({
+          id: msg.id,
+          sender: msg.sender,
+          senderEmail: msg.sender,
+          listingTitle: msg.listingTitle || "",
+          listingId: msg.listingId || "",
+          type: msg.offer ? (msg.offerStatus === "accepted" ? "sold" : "offer") : "message",
+          time: msg.createdAt?.toDate ? msg.createdAt.toDate().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Now",
+          href: `/messages?user=${encodeURIComponent(msg.sender || "")}&listing=${encodeURIComponent(msg.listingId || "")}`,
+          unread: !msg.read,
+        });
+      }
+      msgDone = true;
+      merge();
+    }, (err) => { console.error("Msg notification error:", err); msgDone = true; merge(); });
+
+    const purchaseQ = query(collection(db, "notifications"), where("targetEmail", "==", user.email), where("read", "==", false));
+    const unsub2 = onSnapshot(purchaseQ, (snap) => {
+      const items = snap.docs.map((d) => ({ id: d.id, ...d.data() } as any));
+      for (const n of items) {
+        all.push({
+          id: n.id,
+          sender: n.fromName || n.fromEmail,
+          senderEmail: n.fromEmail,
+          listingTitle: n.listingTitle || "",
+          listingId: n.listingId || "",
+          type: "purchase",
+          time: n.createdAt?.toDate ? n.createdAt.toDate().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Now",
+          href: `/messages?user=${encodeURIComponent(n.fromEmail || "")}&listing=${encodeURIComponent(n.listingId || "")}`,
+          unread: true,
+        });
+      }
+      purchaseDone = true;
+      merge();
+    }, (err) => console.error("Purchase notification error:", err));
+
+    return () => { unsub1(); unsub2(); };
+  }, [user]);
+
+  const msgCount = notifications.filter((n) => n.type === "message" || n.type === "offer").length;
+  const activityCount = notifications.filter((n) => n.type !== "message" && n.type !== "offer" && !dismissedIds.has(n.id)).length;
+
   async function handleLogout() {
     await signOut(auth);
   }
 
   return (
-    <header className="sticky top-0 z-[9999] border-b border-white/10 bg-black/90 backdrop-blur-xl">
-      <div className="flex h-24 items-center justify-between px-6">
+    <header className="relative sticky top-0 z-[9999] border-b border-white/10 backdrop-blur-xl" style={{ backgroundColor: "var(--nav-bg)" }}>
+      <div className="flex h-16 md:h-24 items-center justify-between px-6">
 
-        {/* LEFT */}
-        <a
-          href="/"
-          className="flex items-center gap-4"
-        >
-          <div>
-            <h1 className="text-4xl font-black text-white">
-              <span className="text-sky-400">
-                SKY
-              </span>{" "}
-              DROP
-            </h1>
-
-            <p className="text-sm text-zinc-400">
-              Marketplace
-            </p>
-          </div>
-        </a>
+         {/* LEFT */}
+          <Link
+            href="/"
+            className="flex items-center gap-3 transition-transform duration-200 hover:scale-[1.02]"
+          >
+            <div className="relative w-10 h-10 md:w-12 md:h-12 flex-shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" className="w-full h-full">
+                {/* Parachute - clean, iconic silhouette */}
+                <path d="M16 2C8.5 2 2.5 7.8 2 15h28C29.5 7.8 23.5 2 16 2z"
+                  fill="none" stroke="#38bdf8" strokeWidth="1.8" strokeLinejoin="round"/>
+                <path d="M4 15L16 30M28 15L16 30M16 15v15"
+                  fill="none" stroke="#38bdf8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                {/* Small detail cross on canopy */}
+                <path d="M10 9c2-1.5 4-2 6-2s4 0.5 6 2"
+                  fill="none" stroke="#38bdf8" strokeWidth="1" opacity="0.4" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <div className="flex flex-col leading-tight">
+              <span className="text-lg md:text-2xl font-black tracking-tight" style={{ color: "var(--foreground)" }}>
+                SKY<span className="text-sky-400">DROP</span>
+              </span>
+            </div>
+          </Link>
 
         {/* RIGHT SIDE */}
         <div className="flex items-center gap-5">
 
           {/* NAV */}
           {user && (
-            <nav className="flex items-center gap-6 text-sm font-bold text-white">
-              <a
-                href="/list-list"
-                className="transition hover:text-sky-400"
-              >
-                Listings
-              </a>
-
-              <a
-                href="/favorites"
-                className="transition hover:text-sky-400"
-              >
-                Favorites
-              </a>
-
-              <a
-                href="/messages"
-                className="transition hover:text-sky-400"
-              >
-                Messages
-              </a>
-
-              <a
-                href="/trade-feed"
-                className="transition hover:text-sky-400"
-              >
-                Trade Feed
-              </a>
+            <nav className="hidden md:flex items-center gap-5 text-sm font-medium text-[var(--foreground)]">
+              <Link href="/list-list" className="transition hover:text-sky-400">My Listings</Link>
+              <Link href="/trade-feed" className="flex items-center gap-1.5 transition hover:text-sky-400">
+                <span className="font-bold">Live Trade</span>
+                <span className="flex h-1.5 w-1.5 rounded-full bg-red-500/80" />
+              </Link>
+              <Link href="/dashboard" className="transition hover:text-sky-400">Dashboard</Link>
+              <Link href="/purchases" className="transition hover:text-sky-400">Purchases</Link>
+              <Link href="/sales" className="transition hover:text-sky-400">Sales</Link>
+              <Link href="/watchlist" className="transition hover:text-sky-400">Watchlist</Link>
+              <Link href="/bot" className="transition hover:text-sky-400">Trade Bot</Link>
+              <Link href="/post/ai" className="transition hover:text-sky-400">Quick Post</Link>
             </nav>
+          )}
+
+          {/* HAMBURGER BUTTON */}
+          {user && (
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-800/50 text-[var(--foreground)]"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                {mobileMenuOpen ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                )}
+              </svg>
+            </button>
+          )}
+
+          {/* MOBILE DROPDOWN */}
+          {user && mobileMenuOpen && (
+            <div className="absolute top-full left-0 right-0 z-50 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur-xl md:hidden">
+              <div className="flex flex-col gap-1 px-6 py-4">
+                <Link href="/trade-feed" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>
+                    <span className="flex items-center gap-1.5">
+                      <span>Live Trade</span>
+                      <span className="flex h-2 w-2 rounded-full bg-red-500" />
+                    </span>
+                </Link>
+                <Link href="/list-list" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>My Listings</Link>
+                <Link href="/dashboard" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Dashboard</Link>
+                <Link href="/purchases" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Purchases</Link>
+                <Link href="/sales" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Sales</Link>
+                <Link href="/watchlist" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Watchlist</Link>
+                <Link href="/bot" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Trade Bot</Link>
+                <Link href="/post/ai" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Quick Post</Link>
+                <div className="my-2 border-t border-zinc-800" />
+                <Link href="/profile" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Profile</Link>
+                <button onClick={() => { handleLogout(); setMobileMenuOpen(false); }} className="w-full rounded-lg px-3 py-2 text-left text-sm font-bold text-red-400 hover:bg-zinc-800/60">Logout</button>
+              </div>
+            </div>
+          )}
+
+          {/* INBOX */}
+          {user && (
+            <Link
+              href="/messages"
+              className="relative flex h-9 w-9 items-center justify-center rounded-lg transition hover:bg-zinc-800/50"
+            >
+              <svg className="h-4 w-4 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+              {msgCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-sky-500 px-1 text-[8px] font-bold text-white">
+                  {msgCount > 9 ? "9+" : msgCount}
+                </span>
+              )}
+            </Link>
+          )}
+
+          {/* DROP TOKENS */}
+          {user && dropTokenCount > 0 && (
+            <Link href="/dashboard" className="relative flex h-9 w-9 items-center justify-center rounded-lg transition hover:bg-zinc-800/50" title="Drop Tokens">
+              <span className="text-sm">🎁</span>
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-amber-500 px-1 text-[8px] font-bold text-black">{dropTokenCount}</span>
+            </Link>
           )}
 
           {/* NOTIFICATIONS */}
@@ -184,9 +343,7 @@ export default function Navbar() {
                 className="cursor-pointer"
               >
                 <NotificationBell
-                  count={
-                    notificationCount
-                  }
+                  count={activityCount}
                 />
               </div>
 
@@ -195,6 +352,8 @@ export default function Navbar() {
                   notifications={
                     notifications
                   }
+                  onClose={() => setShowNotifications(false)}
+                  onMarkSeen={markSeen}
                 />
               )}
             </div>
@@ -203,40 +362,62 @@ export default function Navbar() {
           {/* PROFILE */}
           {user ? (
             <>
-              <a
+              <Link
                 href="/profile"
-                className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-bold text-white transition hover:border-sky-400 hover:text-sky-400"
+                className="hidden md:inline-flex rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 font-bold text-[var(--foreground)] transition hover:border-sky-400 hover:text-sky-400"
               >
-                {username ||
-                  "Profile"}
-              </a>
-
-              <a
-                href="/post"
-                className="rounded-2xl bg-sky-500 px-6 py-3 font-bold text-white transition hover:bg-sky-400"
-              >
-                Sell
-              </a>
+                {username || user?.email?.split("@")[0] || "Profile"}
+              </Link>
 
               <button
-                onClick={
-                  handleLogout
-                }
-                className="rounded-2xl border border-white/10 px-6 py-3 font-bold text-white transition hover:border-red-500 hover:text-red-400"
+                onClick={handleLogout}
+                className="hidden md:inline-flex rounded-2xl border border-white/10 px-5 py-2.5 font-bold text-[var(--foreground)] transition hover:border-red-500 hover:text-red-400"
               >
                 Logout
               </button>
             </>
           ) : (
-            <a
-              href="/lib/auth"
-              className="rounded-2xl bg-sky-500 px-6 py-3 font-bold text-white transition hover:bg-sky-400"
+            <Link
+              href="/login"
+              className="rounded-2xl bg-sky-500 px-5 py-2.5 font-bold text-[var(--foreground)] transition hover:bg-sky-400"
             >
               Login
-            </a>
+            </Link>
           )}
         </div>
       </div>
+      {/* Fixed bottom nav — mobile only */}
+      {user && (
+        <nav className="fixed bottom-0 left-0 right-0 z-[9999] border-t border-white/10 backdrop-blur-xl md:hidden" style={{ backgroundColor: "var(--nav-bg)" }}>
+          <div className="flex items-center justify-around py-2 px-1">
+            {[
+              { href: "/", label: "Home", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
+              { href: "/trade-feed", label: "Trade", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
+              { href: "/messages", label: "Inbox", icon: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" },
+              { href: "/post", label: "Sell", icon: "M12 4v16m8-8H4" },
+              { href: "/profile", label: "Profile", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
+            ].map((item) => (
+              <Link key={item.href} href={item.href}
+                className={`relative flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition ${
+                  pathname === item.href ? "text-sky-400" : "text-[var(--muted)]"
+                }`}
+              >
+                {item.href === "/messages" && msgCount > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-sky-500 px-1 text-[8px] font-bold text-white">
+                    {msgCount > 9 ? "9+" : msgCount}
+                  </span>
+                )}
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
+                </svg>
+                <span className="text-[9px] font-medium">{item.label}</span>
+              </Link>
+            ))}
+          </div>
+        </nav>
+      )}
+      {/* Add padding to main content so bottom nav doesn't overlap */}
+      {user && <style jsx global>{`main { padding-bottom: 64px; } @media (min-width: 768px) { main { padding-bottom: 0; } }`}</style>}
     </header>
   );
-} 
+}

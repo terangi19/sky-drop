@@ -1,6 +1,15 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "./components/AuthProvider";
+import { BotProvider } from "./components/BotProvider";
+import { RouteGuard } from "./components/RouteGuard";
+import VerificationBanner from "./components/VerificationBanner";
+import ToastContainer from "./components/Toast";
+import Footer from "./components/Footer";
+import DropIndicator from "./components/DropIndicator";
+import Spotlight from "./components/Spotlight";
+import ScrollToTop from "./components/ScrollToTop";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,8 +22,35 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Sky Drop",
-  description: "Sky Drop Marketplace",
+  title: {
+    default: "Sky Drop — NZ Marketplace",
+    template: "%s — Sky Drop",
+  },
+  description: "New Zealand's community marketplace. Buy and sell cars, tech, gaming, fashion and more. Free to list, secure payments, built for Kiwis.",
+  metadataBase: new URL("https://skydrop.nz"),
+  openGraph: {
+    type: "website",
+    siteName: "Sky Drop",
+    title: "Sky Drop — NZ Marketplace",
+    description: "New Zealand's community marketplace. Buy and sell cars, tech, gaming, fashion and more.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Sky Drop — NZ Marketplace",
+    description: "New Zealand's community marketplace.",
+  },
+  icons: [
+    {
+      rel: "icon",
+      type: "image/svg+xml",
+      url: "/favicon.svg"
+    },
+    {
+      rel: "icon",
+      type: "image/x-icon",
+      url: "/favicon.ico"
+    }
+  ],
 };
 
 export default function RootLayout({
@@ -27,8 +63,17 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
     >
-      <body className="min-h-full flex flex-col">
-        {children}
+      <body className="min-h-full flex flex-col bg-[var(--background)] text-[var(--foreground)]">
+        <script dangerouslySetInnerHTML={{
+          __html: `
+            (function(){
+              window.addEventListener('pagehide', function() {
+                fetch('/', {keepalive: true, method: 'HEAD'}).catch(function(){});
+              });
+            })();
+          `,
+        }} />
+        <AuthProvider><VerificationBanner /><BotProvider><RouteGuard>{children}<Footer /><DropIndicator /><Spotlight /><ScrollToTop /></RouteGuard></BotProvider><ToastContainer /></AuthProvider>
       </body>
     </html>
   );

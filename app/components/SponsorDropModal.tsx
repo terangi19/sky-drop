@@ -1,0 +1,144 @@
+"use client";
+
+import { useState } from "react";
+import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import stripePromise from "../lib/stripe-client";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "../lib/firebase";
+import { showToast } from "./Toast";
+
+interface SponsorDropModalProps {
+  listing: { id: string; title: string; price?: string; images?: string[]; image?: string; imageUrl?: string };
+  sellerEmail: string;
+  userId: string;
+  onClose: () => void;
+}
+
+function PaymentForm({ listingId, listingTitle, sellerEmail, userId, targetPage, onSuccess }: {
+  listingId: string; listingTitle: string; sellerEmail: string; userId: string; targetPage: string; onSuccess: () => void;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [error, setError] = useState("");
+
+  async function handlePay(e: React.FormEvent) {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+    setError("");
+
+    const { error: submitError } = await stripe.confirmPayment({
+      elements,
+      confirmParams: { return_url: `${window.location.origin}/dashboard` },
+      redirect: "if_required",
+    });
+
+    if (submitError) {
+      setError("Payment failed. Try again.");
+    } else {
+      try {
+        await addDoc(collection(db, "sponsoredDrops"), {
+          listingId,
+          listingTitle,
+          sellerEmail,
+          sellerUid: userId,
+          targetPage,
+          status: "pending",
+          paid: true,
+          createdAt: serverTimestamp(),
+        });
+        for (let i = 0; i < 2; i++) {
+          await addDoc(collection(db, "dropTokens"), {
+            ownerId: userId,
+            ownerEmail: sellerEmail,
+            originDropId: "sponsor_reward",
+            status: "available",
+            createdAt: serverTimestamp(),
+          });
+        }
+        onSuccess();
+      } catch {
+        setError("Failed to activate sponsorship.");
+      }
+    }
+  }
+
+  return (
+    <form onSubmit={handlePay} className="space-y-3">
+      <PaymentElement />
+      {error && <p className="text-xs text-red-400">{error}</p>}
+      <button type="submit" disabled={!stripe}
+        className="w-full rounded-xl bg-amber-500 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-amber-400 disabled:opacity-50">
+        Pay $5.00 — Sponsor Drop
+      </button>
+    </form>
+  );
+}
+
+
+
+export default function SponsorDropModal({ listing, sellerEmail, userId, onClose }: SponsorDropModalProps) {
+  const [step, setStep] = useState<"confirm" | "card" | "success">("confirm");
+  const [clientSecret, setClientSecret] = useState("");
+
+  const imageSrc = listing.images?.[0] || listing.imageUrl || listing.image || "";
+  const targetPage = `/post/listing/${listing.id}`;
+
+  async function handleStart() {
+    setStep("card");
+    try {
+      const res = await fetch("/api/sponsor-drop", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ listingId: listing.id, listingTitle: listing.title, sellerEmail, targetPage }),
+      });
+      const data = await res.json();
+      if (data.clientSecret) setClientSecret(data.clientSecret);
+      else { setStep("confirm"); alert("Payment service unavailable."); }
+    } catch { setStep("confirm"); alert("Could not connect."); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4" onClick={onClose}>
+      <div className="w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        {step === "success" ? (
+          <div className="flex flex-col items-center px-6 py-10 text-center animate-fade-in-up">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/20 text-2xl">🎁</div>
+            <h2 className="mt-4 text-lg font-black text-[var(--foreground)]">Drop Sponsored!</h2>
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              Your listing will appear as the next drop target. Users will be directed to your page to find the 🎁.
+            </p>
+            <button onClick={onClose} className="mt-6 w-full rounded-xl bg-amber-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-amber-400">Done</button>
+          </div>
+        ) : step === "card" && clientSecret ? (
+          <div className="p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold">🎁 Sponsor a Drop</h2>
+              <button onClick={onClose} className="text-[var(--muted)] hover:text-[var(--foreground)]">✕</button>
+            </div>
+            <Elements stripe={stripePromise} options={{ clientSecret }}>
+              <PaymentForm listingId={listing.id} listingTitle={listing.title} sellerEmail={sellerEmail} userId={userId} targetPage={targetPage} onSuccess={() => setStep("success")} />
+            </Elements>
+          </div>
+        ) : (
+          <div className="p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold">🎁 Sponsor a Drop</h2>
+              <button onClick={onClose} className="text-[var(--muted)] hover:text-[var(--foreground)]">✕</button>
+            </div>
+            <div className="flex items-center gap-3 rounded-lg bg-zinc-900/40 p-3 text-xs">
+              {imageSrc && <div className="h-10 w-10 shrink-0 rounded-lg bg-zinc-800 overflow-hidden"><img src={imageSrc} className="h-full w-full object-cover" /></div>}
+              <div className="min-w-0 flex-1"><p className="truncate font-bold">{listing.title}</p>{listing.price && <p className="text-[var(--muted)]">${listing.price}</p>}</div>
+            </div>
+            <div className="rounded-lg bg-amber-500/5 border border-amber-500/20 px-4 py-3 text-xs space-y-1">
+              <p className="font-bold text-amber-400">🎁 $5 for one drop placement</p>
+              <p className="text-[var(--muted)]">Your listing becomes the next drop target. Users hunting for the 🎁 will be sent directly to your page.</p>
+            </div>
+            <button onClick={handleStart} className="w-full rounded-xl bg-amber-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-amber-400">
+              Sponsor Now — $5
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

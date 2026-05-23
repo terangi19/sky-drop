@@ -80,25 +80,19 @@ export default function ReportsPage() {
 
   async function submitReport() {
     if (!user?.email) {
-      alert(
-        "You must be logged in."
-      );
-
+      alert("You must be logged in.");
       return;
     }
-
-    if (
-      !reportedUser.trim() ||
-      !reason.trim() ||
-      !details.trim()
-    ) {
-      alert(
-        "Fill all fields."
-      );
-
+    if (!reportedUser.trim() || !reason.trim() || !details.trim()) {
+      alert("Fill all fields.");
       return;
     }
-
+    const cooldownKey = `report_cooldown_${reportedUser.trim()}`;
+    const lastReport = localStorage.getItem(cooldownKey);
+    if (lastReport && Date.now() - Number(lastReport) < 300000) {
+      alert("Please wait 5 minutes between reports.");
+      return;
+    }
     try {
       await addDoc(
         collection(db, "reports"),
@@ -113,6 +107,7 @@ export default function ReportsPage() {
         }
       );
 
+      localStorage.setItem(cooldownKey, String(Date.now()));
       setReportedUser("");
       setReason("");
       setDetails("");
@@ -220,7 +215,7 @@ export default function ReportsPage() {
               onClick={
                 submitReport
               }
-              className="rounded-2xl bg-red-500 px-8 py-4 font-black text-white transition hover:bg-red-400"
+              className="rounded-2xl bg-red-500 px-8 py-4 font-black text-[var(--foreground)] transition hover:bg-red-400"
             >
               Submit Report
             </button>
@@ -262,7 +257,7 @@ export default function ReportsPage() {
                           }
                         </h2>
 
-                        <p className="mt-1 text-sm text-zinc-500">
+                        <p className="mt-1 text-sm text-[var(--muted)]">
                           Reported by{" "}
                           {
                             report.reporter

@@ -1,14 +1,18 @@
 export function detectScam(text: string) {
-  const lowerText =
-    text.toLowerCase();
+  const lowerText = text.toLowerCase();
 
   const scamKeywords = [
-    "telegram",
-    "whatsapp only",
-    "crypto only",
-    "wire transfer",
     "bank transfer only",
-    "gift cards",
+    "crypto only",
+    "pay outside",
+    "whatsapp",
+    "telegram",
+    "gift card",
+    "urgent payment",
+    "friends and family",
+    "shipping agent",
+    "wire transfer",
+    "cashapp",
     "western union",
     "send money first",
     "pay before viewing",
@@ -16,23 +20,15 @@ export function detectScam(text: string) {
     "too good to be true",
     "dm privately",
     "no refunds",
-    "cashapp",
-    "paypal friends and family",
   ];
 
-  const foundKeywords =
-    scamKeywords.filter(
-      (keyword) =>
-        lowerText.includes(
-          keyword
-        )
-    );
+  const foundKeywords = scamKeywords.filter((keyword) => lowerText.includes(keyword));
+
+  const severity = foundKeywords.length >= 3 ? "high" : foundKeywords.length >= 1 ? "medium" : "low";
 
   return {
-    isScam:
-      foundKeywords.length > 0,
-
-    keywords:
-      foundKeywords,
+    isScam: foundKeywords.length > 0,
+    keywords: foundKeywords,
+    severity,
   };
 }
