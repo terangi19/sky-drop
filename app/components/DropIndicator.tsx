@@ -104,8 +104,7 @@ export default function DropIndicator() {
 
   useEffect(() => {
     refreshDrop();
-    const interval = setInterval(refreshDrop, 3000);
-    return () => clearInterval(interval);
+    return () => {};
   }, []);
 
   useEffect(() => {

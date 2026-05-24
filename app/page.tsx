@@ -57,6 +57,9 @@ interface Listing {
   location?: string;
   acceptOffers?: boolean;
   expiresAt?: Timestamp;
+  saleType?: string;
+  currentBid?: number;
+  startingBid?: number;
   [key: string]: unknown;
 }
 
@@ -163,8 +166,6 @@ export default function Home() {
   const [offerAmount, setOfferAmount] = useState("");
 
   const lastOfferTime = useRef(0);
-  const [minPrice, setMinPrice] = useState("");
-  const [maxPrice, setMaxPrice] = useState("");
   const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
   const [authReady, setAuthReady] = useState(false);
   const [sellerReviewStats, setSellerReviewStats] = useState<Record<string, { avg: number; count: number }>>({});
@@ -172,6 +173,16 @@ export default function Home() {
   const [showSaveSearch, setShowSaveSearch] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<Listing | null>(null);
   const [promoteItem, setPromoteItem] = useState<any>(null);
+
+  const activeCategories = useMemo(() => {
+    const counts: Record<string, number> = {};
+    const top3 = new Set(["Cars", "Tech", "Gaming"]);
+    for (const l of listings) {
+      const cat = l.category;
+      if (cat) counts[cat] = (counts[cat] || 0) + 1;
+    }
+    return trendingCategories.filter((c) => top3.has(c.name) || (counts[c.name] || 0) > 0);
+  }, [listings]);
   const [animatedCount, setAnimatedCount] = useState(0);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -460,13 +471,9 @@ export default function Home() {
               item.location ===
                 selectedRegion;
 
-            const matchesPrice =
-              (!minPrice || Number(item.price) >= Number(minPrice)) &&
-              (!maxPrice || Number(item.price) <= Number(maxPrice));
-
             const isSold = item.status === "sold";
 
-            const isVisible = matchesPrice && (search === "" || matchesSearch) && (selectedCategory === "All" || matchesCategory) && (selectedCondition === "All" || matchesCondition) && (selectedRegion === "All" || matchesRegion);
+            const isVisible = (search === "" || matchesSearch) && (selectedCategory === "All" || matchesCategory) && (selectedCondition === "All" || matchesCondition) && (selectedRegion === "All" || matchesRegion);
 
             return isVisible;
 
@@ -537,8 +544,6 @@ export default function Home() {
       selectedCondition,
       selectedRegion,
       sortBy,
-      minPrice,
-      maxPrice,
     ]);
 
   // Animate listing count
@@ -636,17 +641,14 @@ export default function Home() {
         <div className="rounded-3xl border border-zinc-800/30 bg-gradient-to-b from-zinc-900/60 to-zinc-900/10 backdrop-blur-sm overflow-hidden shadow-[0_0_120px_rgba(14,165,233,0.08)]">
 
           {/* LIVE BAR */}
-          <div className="flex items-center justify-between px-8 py-2.5 text-[13px] text-[var(--muted)] border-b border-zinc-800/20">
-            <span className="flex items-center gap-1.5 font-medium">
-              <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-              124 online
-            </span>
-            <span className="flex items-center gap-1.5 text-[var(--muted)] truncate mx-2">
-              🔥 Tesla Model 3 · MacBook Pro · PlayStation 5
-            </span>
-            <span className="hidden sm:flex items-center gap-1 shrink-0 text-[var(--muted)]">
-              📍 Hot in Auckland
-            </span>
+          <div className="flex items-center justify-center px-8 py-2.5 text-[13px] text-[var(--muted)] border-b border-zinc-800/20">
+            {(() => {
+              const top = [...listings].filter((l: any) => (l.views || 0) > 0 || (l.bidCount || 0) > 0).sort((a: any, b: any) => (b.views || 0) + (b.bidCount || 0) - (a.views || 0) - (a.bidCount || 0)).slice(0, 3);
+              if (top.length > 0) {
+                return <span className="truncate">🔥 {top.map((l: any) => l.title).join(" · ")}</span>;
+              }
+              return <span className="text-[var(--muted)]">🔥 Trending listings</span>;
+            })()}
           </div>
 
           <div className="px-8 py-6">
@@ -674,78 +676,16 @@ export default function Home() {
                      onChange={(e) => setSearch(e.target.value)}
                     className="flex-1 rounded-l-xl bg-transparent px-6 py-3.5 text-[16px] text-[var(--foreground)] outline-none placeholder:text-[var(--foreground)]"
                   />
-                  <button
-                    onClick={() => setShowSaveSearch(!showSaveSearch)}
-                    className="shrink-0 border-l border-zinc-700/30 px-4 py-3.5 text-[13px] text-[var(--muted)] transition hover:text-[var(--foreground)]"
-                    title="Save current search"
-                  >
-                    🔖
-                  </button>
                   <button onClick={() => searchRef.current?.focus()} className="shrink-0 rounded-r-xl bg-sky-500 px-8 py-3.5 text-[14px] font-bold text-[var(--foreground)] transition-all duration-200 hover:bg-sky-400 active:scale-[0.98]">
                     Search
                   </button>
                 </div>
-
-                {/* Save search dialog */}
-                {showSaveSearch && (
-                  <div className="mt-2 flex items-center gap-2">
-                    <input
-                      type="text"
-                      id="saveSearchLabel"
-                      placeholder="Name this search..."
-                      className="flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-sky-500"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          const input = e.currentTarget;
-                          const label = input.value.trim();
-                          if (label) {
-                            const updated = [...savedSearches, { query: search, category: selectedCategory, label }].slice(-6);
-                            setSavedSearches(updated);
-                            localStorage.setItem("savedSearches", JSON.stringify(updated));
-                            input.value = "";
-                            setShowSaveSearch(false);
-                          }
-                        }
-                      }}
-                    />
-                    <button
-                      onClick={() => setShowSaveSearch(false)}
-                      className="text-xs text-[var(--muted)] hover:text-[var(--foreground)]"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                )}
-
-                {/* Saved search pills */}
-                {savedSearches.length > 0 && (
-                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    {savedSearches.map((s, i) => (
-                      <div key={i} className="group flex items-center gap-1 rounded-lg bg-zinc-800/60 px-2.5 py-1 text-[11px] text-[var(--foreground)] cursor-pointer transition hover:bg-zinc-700/60"
-                        onClick={() => { setSearch(s.query); setSelectedCategory(s.category); }}
-                      >
-                        🔖 {s.label}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const updated = savedSearches.filter((_, j) => j !== i);
-                            setSavedSearches(updated);
-                            localStorage.setItem("savedSearches", JSON.stringify(updated));
-                          }}
-                          className="ml-0.5 text-[9px] text-[var(--muted)] opacity-0 transition group-hover:opacity-100 hover:text-red-400"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
 
             {/* BROWSE CATEGORIES */}
             <div className="mt-5">
               <p className="text-center text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--muted)] mb-3">Browse Categories</p>
-              <div className="grid grid-cols-4 sm:grid-cols-7 gap-2 max-w-xl mx-auto">
+              <div className="flex flex-wrap justify-center gap-2">
                 <button
                   onClick={() => setSelectedCategory("All")}
                   className={`flex flex-col items-center gap-1.5 rounded-xl border p-3 transition-all duration-200 ${
@@ -757,7 +697,7 @@ export default function Home() {
                   <span className="text-lg">✨</span>
                   <span className="text-[10px] font-bold">All</span>
                 </button>
-                {trendingCategories.map((cat) => (
+                {activeCategories.map((cat) => (
                   <button
                     key={cat.name}
                     onClick={() => setSelectedCategory(cat.name)}
@@ -805,25 +745,6 @@ export default function Home() {
                 ))}
               </select>
 
-              <div className="flex items-center gap-1.5">
-                <span className="text-[12px] text-[var(--muted)]">$</span>
-                <input
-                  type="number"
-                  placeholder="Min"
-                  value={minPrice}
-                  onChange={(e) => setMinPrice(e.target.value)}
-                  className="w-16 rounded-md border border-zinc-700/40 bg-zinc-900/80 px-2 py-1.5 text-[13px] text-[var(--foreground)] outline-none placeholder:text-[var(--muted)]"
-                />
-                <span className="text-[12px] text-[var(--muted)]">–</span>
-                <input
-                  type="number"
-                  placeholder="Max"
-                  value={maxPrice}
-                  onChange={(e) => setMaxPrice(e.target.value)}
-                  className="w-16 rounded-md border border-zinc-700/40 bg-zinc-900/80 px-2 py-1.5 text-[13px] text-[var(--foreground)] outline-none placeholder:text-[var(--muted)]"
-                />
-              </div>
-
               <select
                 value={sortBy}
                 onChange={(e) =>
@@ -847,7 +768,6 @@ export default function Home() {
               selectedCategory !== "All" ||
               selectedCondition !== "All" ||
               selectedRegion !== "All" ||
-              minPrice || maxPrice ||
               search
             ) && (
               <div className="mt-3 flex justify-center">
@@ -856,8 +776,6 @@ export default function Home() {
                     setSelectedCategory("All");
                     setSelectedCondition("All");
                     setSelectedRegion("All");
-                    setMinPrice("");
-                    setMaxPrice("");
                     setSearch("");
                     setSortBy("newest");
                   }}
@@ -913,39 +831,6 @@ export default function Home() {
                 )}
                 <p className="mt-2 truncate text-xs font-bold text-[var(--foreground)]">{item.title}</p>
                 <p className="text-xs font-bold text-emerald-400">Sold · ${item.price}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* RECENTLY VIEWED */}
-      {recentlyViewed.length > 0 && (
-        <section className="relative z-10 mx-auto max-w-[1800px] px-4 pb-1.5">
-          <div className="relative mb-3 pt-2">
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-zinc-700/50 to-transparent" />
-            <p className="text-[13px] font-bold uppercase tracking-[0.22em] text-[var(--foreground)]">Recently Viewed</p>
-          </div>
-           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-             {recentlyViewed.map((item) => (
-               <div
-                 key={item.id}
-onClick={() => router.push(`/post/listing/${item.id}`)}
-                     className="group shrink-0 w-56 rounded-xl border border-zinc-700/60 bg-zinc-900/80 p-3 cursor-pointer hover:border-sky-500/40 hover:-translate-y-0.5 hover:shadow-[0_8px_25px_rgba(0,0,0,0.25)] transition-all duration-300"
-                >
-                {item.images?.[0] || item.imageUrl || item.image ? (
-                    <img src={item.images?.[0] || item.imageUrl || item.image || ""} alt="" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).src = ""; (e.target as HTMLImageElement).classList.add("hidden"); }} className="h-20 w-full rounded-lg object-cover" />
-                ) : (
-                    <div className="h-20 w-full rounded-lg bg-gradient-to-br from-sky-500/15 via-violet-500/15 to-purple-600/15 flex items-center justify-center text-[var(--foreground)] text-xs">
-                        <div className="text-center">
-                            <div className="text-xl font-bold mb-0.5">SD</div>
-                            <div className="text-xs">Sky Drop</div>
-                        </div>
-                    </div>
-                )}
-                 <p className="mt-2.5 truncate text-[15px] font-bold text-[var(--foreground)]">{item.title}</p>
-                 <p className="mt-0.5 text-base font-black" style={{ color: "var(--foreground)" }}>${item.price}</p>
-                  <p className="mt-1 text-[10px] text-[var(--muted)]">👁 {(item as any).views || 0} views</p>
               </div>
             ))}
           </div>
@@ -1013,7 +898,7 @@ onClick={() => router.push(`/post/listing/${item.id}`)}
                 Try adjusting your filters.
               </p>
               <button
-                onClick={() => { setSelectedCategory("All"); setSelectedCondition("All"); setSelectedRegion("All"); setMinPrice(""); setMaxPrice(""); setSearch(""); }}
+                onClick={() => { setSelectedCategory("All"); setSelectedCondition("All"); setSelectedRegion("All"); setSearch(""); }}
                 className="mt-3 text-xs text-sky-400 hover:underline"
               >
                 Clear all filters
@@ -1146,6 +1031,9 @@ onClick={() => router.push(`/post/listing/${item.id}`)}
 
                    <p className="mt-3 text-2xl font-black tracking-tight text-[var(--foreground)]">
                      ${item.price}
+                     {(item.saleType === "auction" || item.saleType === "auction_buy_now") && (
+                       <span className="ml-2 text-base font-bold text-amber-400">Bid: ${item.currentBid || item.startingBid || 0}</span>
+                     )}
                    </p>
 
                    <div className="mt-3 flex items-center gap-3 text-[12px] text-[var(--muted)]/70">
@@ -1161,12 +1049,23 @@ onClick={() => router.push(`/post/listing/${item.id}`)}
                       {user && user.email !== item.sellerEmail && (
                         <>
                           {(item.category === "Cars" || item.category === "Property") && item.acceptOffers ? (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setOfferListing(item); setShowOfferModal(true); }}
-                              className="flex-1 rounded-md border border-sky-500/25 bg-sky-500/5 py-2.5 text-[12px] font-semibold text-sky-400/70 transition-all duration-150 hover:bg-sky-500/15 hover:text-sky-400 hover:border-sky-500/40 hover:shadow-[0_0_14px_rgba(14,165,233,0.12)] active:scale-95"
-                            >
-                              Make Offer
-                            </button>
+                            <>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setOfferListing(item); setShowOfferModal(true); }}
+                                className="flex-1 rounded-md border border-sky-500/25 bg-sky-500/5 py-2.5 text-[12px] font-semibold text-sky-400/70 transition-all duration-150 hover:bg-sky-500/15 hover:text-sky-400 hover:border-sky-500/40 hover:shadow-[0_0_14px_rgba(14,165,233,0.12)] active:scale-95"
+                              >
+                                Make Offer
+                              </button>
+                              {(item.saleType === "auction" || item.saleType === "auction_buy_now") && (
+                                <Link
+                                  href={`/post/listing/${item.id}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="flex flex-1 items-center justify-center rounded-md border border-amber-500/30 bg-amber-500/10 py-2.5 text-[12px] font-semibold text-amber-400/70 transition-all duration-150 hover:bg-amber-500/20 hover:text-amber-400 hover:border-amber-500/50 hover:shadow-[0_0_14px_rgba(245,158,11,0.12)] active:scale-95"
+                                >
+                                  Bid Now
+                                </Link>
+                              )}
+                            </>
                           ) : (
                             <>
                               <button
@@ -1175,6 +1074,15 @@ onClick={() => router.push(`/post/listing/${item.id}`)}
                               >
                                 Buy Now
                               </button>
+                              {(item.saleType === "auction" || item.saleType === "auction_buy_now") && (
+                                <Link
+                                  href={`/post/listing/${item.id}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="flex flex-1 items-center justify-center rounded-md border border-amber-500/30 bg-amber-500/10 py-2.5 text-[12px] font-semibold text-amber-400/70 transition-all duration-150 hover:bg-amber-500/20 hover:text-amber-400 hover:border-amber-500/50 hover:shadow-[0_0_14px_rgba(245,158,11,0.12)] active:scale-95"
+                                >
+                                  Bid Now
+                                </Link>
+                              )}
                               {item.acceptOffers && (
                                 <Link
                                   href="#"
@@ -1209,7 +1117,7 @@ onClick={() => router.push(`/post/listing/${item.id}`)}
                           📈 Boost
                         </button>
                         <Link
-                          href={`/post/edit/${item.id}`}
+                          href={`/post/ai?edit=${item.id}`}
                           onClick={(e) => e.stopPropagation()}
                            className="rounded-md bg-sky-500/10 px-4 py-2.5 text-[12px] font-semibold text-sky-400 transition-all duration-150 hover:bg-sky-500/20 active:scale-95"
                          >
@@ -1308,6 +1216,39 @@ onClick={() => router.push(`/post/listing/${item.id}`)}
           listing={promoteItem}
           onClose={() => setPromoteItem(null)}
         />
+      )}
+
+      {/* RECENTLY VIEWED */}
+      {recentlyViewed.length > 0 && (
+        <section className="relative z-10 mx-auto max-w-[1800px] px-4 pb-1.5">
+          <div className="relative mb-3 pt-2">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-zinc-700/50 to-transparent" />
+            <p className="text-[13px] font-bold uppercase tracking-[0.22em] text-[var(--foreground)]">Recently Viewed</p>
+          </div>
+           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+             {recentlyViewed.map((item) => (
+               <div
+                 key={item.id}
+onClick={() => router.push(`/post/listing/${item.id}`)}
+                     className="group shrink-0 w-56 rounded-xl border border-zinc-700/60 bg-zinc-900/80 p-3 cursor-pointer hover:border-sky-500/40 hover:-translate-y-0.5 hover:shadow-[0_8px_25px_rgba(0,0,0,0.25)] transition-all duration-300"
+                >
+                {item.images?.[0] || item.imageUrl || item.image ? (
+                    <img src={item.images?.[0] || item.imageUrl || item.image || ""} alt="" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).src = ""; (e.target as HTMLImageElement).classList.add("hidden"); }} className="h-20 w-full rounded-lg object-cover" />
+                ) : (
+                    <div className="h-20 w-full rounded-lg bg-gradient-to-br from-sky-500/15 via-violet-500/15 to-purple-600/15 flex items-center justify-center text-[var(--foreground)] text-xs">
+                        <div className="text-center">
+                            <div className="text-xl font-bold mb-0.5">SD</div>
+                            <div className="text-xs">Sky Drop</div>
+                        </div>
+                    </div>
+                )}
+                 <p className="mt-2.5 truncate text-[15px] font-bold text-[var(--foreground)]">{item.title}</p>
+                 <p className="mt-0.5 text-base font-black" style={{ color: "var(--foreground)" }}>${item.price}</p>
+                  <p className="mt-1 text-[10px] text-[var(--muted)]">👁 {(item as any).views || 0} views</p>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {/* Scroll-to-top */}

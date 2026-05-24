@@ -10,7 +10,19 @@ import CheckoutModal from "../../../components/CheckoutModal";
 import PromoteModal from "../../../components/PromoteModal";
 import { showToast } from "../../../components/Toast";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { addDoc, collection, doc, getDoc, getDocs, increment, query, runTransaction, serverTimestamp, updateDoc, where, Timestamp, setDoc } from "firebase/firestore";
+import { addDoc, collection, doc, getDoc, getDocs, increment, onSnapshot, query, runTransaction, serverTimestamp, updateDoc, where, Timestamp, setDoc } from "firebase/firestore";
+
+function getBidIncrement(price: number): number {
+  if (price < 50) return 1;
+  if (price < 100) return 2;
+  if (price < 500) return 5;
+  if (price < 1000) return 10;
+  return 50;
+}
+
+function getMinimumNextBid(price: number): number {
+  return Math.floor(price) + getBidIncrement(Math.floor(price));
+}
 import { auth, db } from "../../../lib/firebase";
 import { detectScam } from "../../../lib/scamdetection";
 import { calculateTrustScore } from "../../../lib/trustscore";
@@ -55,6 +67,8 @@ interface Listing {
   reservePrice?: number;
   auctionEndsAt?: { seconds: number } | any;
   currentBid?: number;
+  currentMaxBid?: number;
+  secondMaxBid?: number;
   bidCount?: number;
   highestBidder?: string;
   expiresAt?: Timestamp;
@@ -96,6 +110,7 @@ export default function ListingPage() {
   const [userPurchased, setUserPurchased] = useState(false);
   const [sellerReviewData, setSellerReviewData] = useState<{ avg: number; count: number } | null>(null);
   const [bidAmount, setBidAmount] = useState("");
+  const [autoBidEnabled, setAutoBidEnabled] = useState(true);
   const [showBidModal, setShowBidModal] = useState(false);
   const [sellerListings, setSellerListings] = useState<any[]>([]);
 
@@ -120,33 +135,31 @@ export default function ListingPage() {
 
   useEffect(() => {
     let mounted = true;
-    async function fetchListing() {
-      try {
-        const docRef = doc(db, "listings", listingId);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          if (!mounted) return;
-          const data: any = { id: docSnap.id, ...docSnap.data() };
-          setListing(data);
-
-          const sellerEmail = data.sellerEmail as string | undefined;
-          if (sellerEmail) {
-            const profileSnap = await getDocs(query(collection(db, "profiles"), where("email", "==", sellerEmail)));
-            if (!profileSnap.empty && mounted) {
-              setSellerProfile(profileSnap.docs[0].data() as SellerProfile);
-            }
-
-            const reportsSnap = await getDocs(query(collection(db, "reports"), where("reportedUserEmail", "==", sellerEmail), where("status", "==", "pending")));
-            if (mounted) setSellerReportsCount(reportsSnap.size);
-          }
-        }
-      } catch (error) {
-        console.error(error);
-      }
+    const docRef = doc(db, "listings", listingId);
+    const unsub = onSnapshot(docRef, (snap) => {
+      if (!snap.exists()) return;
+      if (!mounted) return;
+      const data: any = { id: snap.id, ...snap.data() };
+      setListing(data);
+      setLoading(false);
+    }, (error) => {
+      console.error(error);
       if (mounted) setLoading(false);
-    }
-    fetchListing();
-    return () => { mounted = false; };
+    });
+
+    getDoc(docRef).then((snap) => {
+      if (!snap.exists() || !mounted) return;
+      const sellerEmail = snap.data().sellerEmail as string | undefined;
+      if (!sellerEmail) return;
+      getDocs(query(collection(db, "profiles"), where("email", "==", sellerEmail))).then((profileSnap) => {
+        if (!profileSnap.empty && mounted) setSellerProfile(profileSnap.docs[0].data() as SellerProfile);
+      }).catch(() => {});
+      getDocs(query(collection(db, "reports"), where("reportedUserEmail", "==", sellerEmail), where("status", "==", "pending"))).then((reportsSnap) => {
+        if (mounted) setSellerReportsCount(reportsSnap.size);
+      }).catch(() => {});
+    }).catch(() => {});
+
+    return () => { mounted = false; unsub(); };
   }, [listingId]);
 
   useEffect(() => {
@@ -324,38 +337,119 @@ export default function ListingPage() {
     const amount = Number(bidAmount);
     if (amount <= 0) { showToast("Enter a valid bid", "info"); return; }
 
+    if (!autoBidEnabled) {
+      try {
+        await runTransaction(db, async (transaction) => {
+          const ref = doc(db, "listings", listing.id);
+          const snap = await transaction.get(ref);
+          if (!snap.exists()) throw new Error("Listing not found");
+          const current = snap.data();
+          const currentBid = current.currentBid || current.startingBid || 0;
+          const minNext = getMinimumNextBid(currentBid);
+          if (current.auctionEndsAt && current.auctionEndsAt.toMillis() < Date.now()) throw new Error("Auction has ended");
+          if (current.soldTo || current.status === "sold") throw new Error("Listing is no longer available");
+          if (amount < minNext) throw new Error("Minimum bid is $" + minNext);
+          transaction.update(ref, {
+            currentBid: amount,
+            highestBidder: user.email,
+            bidCount: (current.bidCount || 0) + 1,
+          });
+        });
+        setShowBidModal(false);
+        setBidAmount("");
+        showToast("Bid placed!", "success");
+      } catch (e: any) {
+        console.error(e);
+        showToast(e.message || "Failed to place bid", "error");
+      }
+      return;
+    }
+
+    const newMax = amount;
+    let changes: any = {};
+    let outbidUser: string | null = null;
+
     try {
       await runTransaction(db, async (transaction) => {
         const ref = doc(db, "listings", listing.id);
         const snap = await transaction.get(ref);
-        if (!snap.exists()) { showToast("Listing not found", "error"); return; }
+        if (!snap.exists()) throw new Error("Listing not found");
 
         const current = snap.data();
-        const minBid = current.currentBid || current.startingBid || 0;
+        const startingBid = current.startingBid || 0;
 
-        if (current.auctionEndsAt && current.auctionEndsAt.toMillis() < Date.now()) {
-          showToast("Auction has ended", "info");
-          return;
-        }
-        if (current.soldTo || current.status === "sold") {
-          showToast("Listing is no longer available", "info");
-          return;
-        }
-        if (amount <= minBid) {
-          showToast("Bid must be higher than $" + minBid, "info");
-          return;
+        if (current.auctionEndsAt && current.auctionEndsAt.toMillis() < Date.now())
+          throw new Error("Auction has ended");
+        if (current.soldTo || current.status === "sold")
+          throw new Error("Listing is no longer available");
+
+        const currentBid = current.currentBid || startingBid;
+        const currentMaxBid = current.currentMaxBid || 0;
+        const secondMaxBid = current.secondMaxBid || 0;
+
+        if (!current.highestBidder) {
+          if (newMax < startingBid)
+            throw new Error("Bid must be at least $" + startingBid);
+          changes = {
+            currentBid: startingBid,
+            currentMaxBid: newMax,
+            secondMaxBid: 0,
+            highestBidder: user.email,
+            bidCount: (current.bidCount || 0) + 1,
+          };
+        } else if (current.highestBidder === user.email) {
+          if (newMax <= currentMaxBid)
+            throw new Error("Your max bid is already $" + currentMaxBid + " or higher");
+          changes = { currentMaxBid: newMax };
+        } else {
+          const minNext = getMinimumNextBid(currentBid);
+          if (newMax < minNext)
+            throw new Error("Minimum bid is $" + minNext);
+
+          if (newMax > currentMaxBid) {
+            const inc = getBidIncrement(currentBid);
+            const newPrice = Math.min(newMax, currentMaxBid + inc);
+            outbidUser = current.highestBidder;
+            changes = {
+              currentBid: newPrice,
+              currentMaxBid: newMax,
+              secondMaxBid: Math.max(secondMaxBid, currentMaxBid),
+              highestBidder: user.email,
+              bidCount: (current.bidCount || 0) + 1,
+            };
+          } else if (newMax > secondMaxBid) {
+            const inc = getBidIncrement(currentBid);
+            const newPrice = Math.min(currentMaxBid, newMax + inc);
+            if (newPrice > currentBid) {
+              changes = {
+                currentBid: newPrice,
+                secondMaxBid: newMax,
+                bidCount: (current.bidCount || 0) + 1,
+              };
+            } else {
+              throw new Error("Bid too low to change current price");
+            }
+          } else {
+            throw new Error("Bid must be at least $" + getMinimumNextBid(secondMaxBid));
+          }
         }
 
-        transaction.update(ref, {
-          currentBid: amount,
-          bidCount: (current.bidCount || 0) + 1,
-          highestBidder: user.email,
-        });
+        if (current.auctionEndsAt) {
+          const msLeft = current.auctionEndsAt.toMillis() - Date.now();
+          if (msLeft > 0 && msLeft < 300000) {
+            const newEnd = new Date(Date.now() + 300000);
+            changes.auctionEndsAt = Timestamp.fromDate(newEnd);
+            changes.auctionExtended = true;
+          }
+        }
+
+        transaction.update(ref, changes);
       });
 
+      setListing((prev) => prev ? { ...prev, ...changes } : prev);
       setShowBidModal(false);
       setBidAmount("");
-      showToast("Bid placed!", "success");
+      showToast("Auto bid placed!", "success");
 
       try {
         const { createNotification } = await import("../../../lib/notifications");
@@ -364,15 +458,31 @@ export default function ListingPage() {
           fromEmail: user.email,
           type: "bid",
           title: "New bid on your listing",
-          message: `${user.email} bid $${amount} on "${listing.title}"`,
+          message: `${user.email} bid $${newMax} on "${listing.title}"`,
           listingId: listing.id,
           listingTitle: listing.title,
           listingImage: listing.images?.[0] || listing.imageUrl,
         });
       } catch (_) {}
-    } catch (e) {
+
+      if (outbidUser && outbidUser !== listing.sellerEmail) {
+        try {
+          const { createNotification } = await import("../../../lib/notifications");
+          await createNotification({
+            targetEmail: outbidUser,
+            fromEmail: user.email,
+            type: "outbid",
+            title: "You've been outbid!",
+            message: `You were outbid on "${listing.title}"`,
+            listingId: listing.id,
+            listingTitle: listing.title,
+            listingImage: listing.images?.[0] || listing.imageUrl,
+          });
+        } catch (_) {}
+      }
+    } catch (e: any) {
       console.error(e);
-      showToast("Failed to place bid. Try again.", "error");
+      showToast(e.message || "Failed to place auto bid", "error");
     }
   }
 
@@ -676,6 +786,12 @@ export default function ListingPage() {
                     </span>
                   )}
                 </div>
+                {user?.email === listing.highestBidder && (
+                  <div className="text-[10px] text-emerald-400">✓ You're winning</div>
+                )}
+                {user && listing.bidCount > 0 && user.email !== listing.highestBidder && user.email !== listing.sellerEmail && (
+                  <div className="text-[10px] text-amber-400">You've been outbid</div>
+                )}
                 {listing.auctionEndsAt && (
                   <div className="text-[10px] text-[var(--muted)]">Ends in {Math.max(0, Math.floor((new Date(listing.auctionEndsAt.seconds * 1000).getTime() - Date.now()) / 3600000))}h</div>
                 )}
@@ -941,19 +1057,27 @@ export default function ListingPage() {
             <h3 className="text-lg font-black text-[var(--foreground)]">Place Bid</h3>
             <p className="mt-1 text-sm text-[var(--muted)]">{listing.title}</p>
             <p className="mt-1 text-xs text-[var(--muted)]">Current bid: ${listing.currentBid || listing.startingBid || 0}</p>
-            {listing.reservePrice && (
+            {listing.reservePrice != null && listing.reservePrice > 0 && (
               <p className="text-xs text-[var(--muted)]">Reserve: ${listing.reservePrice} {listing.currentBid >= listing.reservePrice ? "✅" : ""}</p>
             )}
-            <div className="relative mt-4">
+            <div className="relative mt-3">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg text-[var(--muted)]">$</span>
               <input type="number" value={bidAmount} onChange={(e) => setBidAmount(e.target.value)}
-                placeholder={`${(listing.currentBid || listing.startingBid || 0) + 1}`}
+                placeholder={String(getMinimumNextBid(listing.currentBid || listing.startingBid || 0))}
                 className="w-full rounded-xl border border-zinc-700 bg-zinc-800 py-3.5 pl-9 pr-4 text-lg text-[var(--foreground)] outline-none focus:border-sky-500" />
             </div>
+            <div className="mt-1 text-right text-[9px] text-[var(--muted)]">
+              Min: ${getMinimumNextBid(listing.currentBid || listing.startingBid || 0)}
+            </div>
+            <label className="mt-3 flex cursor-pointer items-center gap-2.5">
+              <input type="checkbox" checked={autoBidEnabled} onChange={(e) => setAutoBidEnabled(e.target.checked)}
+                className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-amber-500 focus:ring-amber-500/30" />
+              <span className="text-xs text-[var(--muted)]">Auto bid <span className="text-[var(--foreground)]">— automatically bid up to this amount if outbid</span></span>
+            </label>
             <div className="mt-5 flex gap-3">
               <button onClick={() => setShowBidModal(false)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700">Cancel</button>
               <button onClick={submitBid} disabled={!bidAmount}
-                className="flex-1 rounded-xl bg-amber-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-amber-400 disabled:opacity-50">Place Bid</button>
+                className="flex-1 rounded-xl bg-amber-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-amber-400 disabled:opacity-50">{autoBidEnabled ? "Auto Bid" : "Place Bid"}</button>
             </div>
           </div>
         </div>

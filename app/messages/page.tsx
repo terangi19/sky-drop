@@ -82,7 +82,6 @@ function MessagesPage() {
   const [scamWarning, setScamWarning] = useState(false);
   const [pendingMessage, setPendingMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilter, setActiveFilter] = useState<string>("all");
   // Typing
   const [otherTyping, setOtherTyping] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -499,20 +498,11 @@ function MessagesPage() {
   }
   async function clearAllMessages() {
     if (!user?.email) return;
-    try {
-      const allParticipants = [...new Set(messages.map((m: any) => m.participants?.find((p: string) => p !== user?.email)).filter(Boolean))];
-      const archived = JSON.parse(localStorage.getItem("archivedConversations") || "[]");
-      const dismissed = JSON.parse(localStorage.getItem("dismissedNotifications") || "[]");
-      for (const msg of messages) {
-        if (!dismissed.includes(msg.id)) dismissed.push(msg.id);
-        updateDoc(doc(db, "messages", msg.id), { read: true }).catch(() => {});
-      }
-      for (const p of allParticipants) {
-        if (!archived.includes(p)) archived.push(p);
-      }
-      localStorage.setItem("archivedConversations", JSON.stringify(archived));
-      localStorage.setItem("dismissedNotifications", JSON.stringify(dismissed));
-    } catch {}
+    if (!confirm("Delete all your messages? This cannot be undone.")) return;
+    const ids = [...new Set(messages.map((m: any) => m.id))];
+    for (const id of ids) {
+      deleteDoc(doc(db, "messages", id)).catch(() => {});
+    }
     setShowClearAll(false);
     setChatUser("");
     setChatListingId(null);
@@ -594,23 +584,7 @@ function MessagesPage() {
       return name.includes(q) || title.includes(q) || text.includes(q);
     });
   }
-  if (activeFilter !== "all") {
-    conversations = conversations.filter(([_, c]) => {
-      const otherMsgs = messages.filter((m: any) => { const other = m.participants?.find((p: string) => p !== user?.email); return other === c.participant; });
-      if (activeFilter === "unread") return otherMsgs.some((m: any) => m.sender !== user?.email && !m.read);
-      if (activeFilter === "offers") return otherMsgs.some((m: any) => m.type === "offer");
-      if (activeFilter === "buying") return otherMsgs.some((m: any) => m.receiver === user?.email);
-      if (activeFilter === "selling") return otherMsgs.some((m: any) => m.sender === user?.email);
-      return true;
-    });
-  }
-  // Archive filtering removed — all conversations shown by default
   function getDisplayName(email: string) { return usernames[email] || email; }
-  const filterTabs = [
-    { id: "all", label: "All" }, { id: "unread", label: "Unread" },
-    { id: "offers", label: "Offers" }, { id: "buying", label: "Buying" },
-    { id: "selling", label: "Selling" }, { id: "archived", label: "Archived" },
-  ];
   const isOwnListing = listingCard?.sellerEmail === user?.email;
   const [hasPurchaseInChat, setHasPurchaseInChat] = useState(false);
   useEffect(() => {
@@ -664,22 +638,6 @@ function MessagesPage() {
           </div>
         </div>
       )}
-      {/* Clear all confirmation */}
-      {showClearAll && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setShowClearAll(false)}>
-          <div className="mx-4 w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-black text-[var(--foreground)]">Clear all messages?</h3>
-              <button onClick={() => setShowClearAll(false)} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
-            </div>
-            <p className="mt-2 text-sm text-[var(--muted)]">Archive all {messages.length} conversations? Messages are preserved and can be viewed later.</p>
-            <div className="mt-4 flex gap-3">
-              <button onClick={() => setShowClearAll(false)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700">Cancel</button>
-              <button onClick={clearAllMessages} className="flex flex-1 items-center justify-center rounded-xl bg-zinc-600 py-3 text-sm font-bold text-white hover:bg-zinc-500">Archive All</button>
-            </div>
-          </div>
-        </div>
-      )}
       <section className="relative z-10 mx-auto flex max-w-7xl px-6 py-12">
         <div className="flex h-[750px] w-full overflow-hidden rounded-[40px] border border-[var(--card-border)] bg-[var(--card)] shadow-2xl backdrop-blur-xl">
           {/* SIDEBAR */}
@@ -687,14 +645,11 @@ function MessagesPage() {
             <div className="border-b border-[var(--card-border)] p-5">
               <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-black text-sky-400">Inbox</h1>
-                <div className="flex items-center gap-2">
-                  {messages.length > 0 && (
-                    <button onClick={() => setShowClearAll(true)} className="text-[10px] text-[var(--muted)] underline decoration-white/[0.1] underline-offset-2 transition hover:text-red-400 hover:decoration-red-400/30">
-                      Clear all
-                    </button>
-                  )}
-                  <span className="text-[11px] text-[var(--muted)]">{conversations.length} chats Â· {messages.length} msgs</span>
-                </div>
+                {messages.length > 0 && (
+                  <button onClick={clearAllMessages} className="text-[10px] text-red-400 underline decoration-red-400/30 underline-offset-2 transition hover:text-red-300 hover:decoration-red-400/60">
+                    Clear all
+                  </button>
+                )}
               </div>
               <div className="relative mt-3">
                 <svg className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -703,19 +658,7 @@ function MessagesPage() {
                 <input type="text" placeholder="Search conversations..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] py-2.5 pl-9 pr-4 text-[13px] text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-500" />
               </div>
-              <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1">
-                {filterTabs.map((tab) => (
-                  <button key={tab.id} onClick={() => setActiveFilter(tab.id)}
-                    className={`whitespace-nowrap rounded-lg px-2.5 py-2 text-[10px] font-bold uppercase tracking-wider transition ${activeFilter === tab.id ? "bg-sky-500/20 text-sky-400" : "text-[var(--muted)] hover:text-[var(--foreground)]"}`}>
-                    {tab.label}
-                    {tab.id === "unread" && Object.keys(unreadMap).length > 0 && (
-                      <span className="ml-1.5 inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-red-500 px-1 text-[8px] font-bold text-white">
-                        {Object.keys(unreadMap).length > 9 ? "9+" : Object.keys(unreadMap).length}
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
+
             </div>
             <div className="flex-1 overflow-y-auto scrollbar-thin">
               {loading ? (
@@ -755,9 +698,10 @@ function MessagesPage() {
                             {getDisplayName(convo.participant)}
                           </span>
                           <span className="shrink-0 text-[10px] text-[var(--muted)]">{formatTime(convo.msg.createdAt)}</span>
+                          {hasOffer && <span className="ml-1 shrink-0 text-[10px]">💰</span>}
                         </div>
                         <p className={`mt-0.5 truncate text-[11px] ${unreadCount > 0 ? "font-medium text-[var(--foreground)]" : "text-[var(--muted)]"}`}>
-                          {convo.msg.text || (convo.msg.type === "image" ? "ðŸ“· Photo" : convo.msg.type === "offer" ? `ðŸ’° Offer: $${convo.msg.offerAmount || ""}` : convo.msg.type === "purchase" ? "ðŸ›’ Purchase request" : "")}
+                          {convo.msg.text || (convo.msg.type === "image" ? "📷 Photo" : convo.msg.type === "offer" ? `💰 Offer: $${convo.msg.offerAmount || ""}` : convo.msg.type === "purchase" ? "🛒 Purchase request" : "")}
                         </p>
                         {convo.listingTitle && (
                           <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-[8px] font-medium text-sky-400 truncate max-w-full">{convo.listingTitle}</span>
@@ -769,20 +713,7 @@ function MessagesPage() {
                           {unreadCount > 9 ? "9+" : unreadCount}
                         </span>
                       )}
-                      {/* Unarchive button */}
-                      {activeFilter === "archived" && (
-                        <button onClick={(e) => {
-                          e.stopPropagation();
-                          try {
-                            const archived = JSON.parse(localStorage.getItem("archivedConversations") || "[]");
-                            const updated = archived.filter((p: string) => p !== convo.participant);
-                            localStorage.setItem("archivedConversations", JSON.stringify(updated));
-                            window.location.reload();
-                          } catch {}
-                        }} className="shrink-0 rounded-md border border-zinc-700 px-2 py-1 text-[9px] font-bold text-[var(--foreground)] hover:border-zinc-600 mt-0.5">
-                          Unarchive
-                        </button>
-                      )}
+
                     </button>
                   );
                 })

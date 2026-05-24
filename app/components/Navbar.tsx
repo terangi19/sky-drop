@@ -268,12 +268,11 @@ export default function Navbar() {
                 <span className="font-bold">Live Trade</span>
                 <span className="flex h-1.5 w-1.5 rounded-full bg-red-500/80" />
               </Link>
-              <Link href="/dashboard" className="transition hover:text-sky-400">Dashboard</Link>
-              <Link href="/purchases" className="transition hover:text-sky-400">Purchases</Link>
-              <Link href="/sales" className="transition hover:text-sky-400">Sales</Link>
-              <Link href="/watchlist" className="transition hover:text-sky-400">Watchlist</Link>
               <Link href="/post/ai" className="transition hover:text-sky-400">Quick Post</Link>
               <Link href="/list-list" className="transition hover:text-sky-400">My Listings</Link>
+              <Link href="/watchlist" className="transition hover:text-sky-400">Watchlist</Link>
+              <Link href="/purchases" className="transition hover:text-sky-400">Purchases</Link>
+              <Link href="/sales" className="transition hover:text-sky-400">Sales</Link>
             </nav>
           )}
 
@@ -303,18 +302,25 @@ export default function Navbar() {
                       <span className="flex h-2 w-2 rounded-full bg-red-500" />
                     </span>
                 </Link>
-                <Link href="/list-list" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>My Listings</Link>
-                <Link href="/dashboard" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Dashboard</Link>
-                <Link href="/purchases" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Purchases</Link>
-                <Link href="/sales" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Sales</Link>
-                <Link href="/watchlist" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Watchlist</Link>
                 <Link href="/post/ai" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Quick Post</Link>
                 <Link href="/list-list" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>My Listings</Link>
+                <Link href="/watchlist" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Watchlist</Link>
+                <Link href="/purchases" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Purchases</Link>
+                <Link href="/sales" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Sales</Link>
                 <div className="my-2 border-t border-zinc-800" />
+                <Link href="/dashboard" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Dashboard</Link>
+                <Link href="/messages" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Messages</Link>
                 <Link href="/profile" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Profile</Link>
                 <button onClick={() => { handleLogout(); setMobileMenuOpen(false); }} className="w-full rounded-lg px-3 py-2 text-left text-sm font-bold text-red-400 hover:bg-zinc-800/60">Logout</button>
               </div>
             </div>
+          )}
+
+          {/* DASHBOARD */}
+          {user && (
+            <Link href="/dashboard" className="hidden md:flex items-center gap-1.5 text-sm font-medium text-[var(--foreground)] transition hover:text-sky-400">
+              Dashboard
+            </Link>
           )}
 
           {/* INBOX */}
@@ -371,6 +377,7 @@ export default function Navbar() {
           )}
 
           {/* PROFILE */}
+          <div className="ml-auto flex items-center gap-5">
           {user ? (
             <>
               <Link
@@ -395,6 +402,7 @@ export default function Navbar() {
               Login
             </Link>
           )}
+          </div>
         </div>
       </div>
       {/* Fixed bottom nav — mobile only */}

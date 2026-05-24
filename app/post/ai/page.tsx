@@ -39,10 +39,10 @@ export default function AIPostPage() {
   const [pickupArea, setPickupArea] = useState("");
   const [shippingFee, setShippingFee] = useState("");
   const [freeShipping, setFreeShipping] = useState(false);
-  const [shipsWithinDays, setShipsWithinDays] = useState("");
   const [saleType, setSaleType] = useState("buy_now");
   const [startingBid, setStartingBid] = useState("");
   const [reservePrice, setReservePrice] = useState("");
+  const [buyNowPrice, setBuyNowPrice] = useState("");
   const [auctionDuration, setAuctionDuration] = useState("3");
   const [stockQuantity, setStockQuantity] = useState("");
   const [expiresIn, setExpiresIn] = useState("14");
@@ -165,9 +165,9 @@ export default function AIPostPage() {
   };
 
   const createListing = async () => {
-    const requiredPrice = saleType === "auction" ? startingBid : price;
+    const requiredPrice = (saleType === "auction" || saleType === "auction_buy_now") ? startingBid : price;
     if (!user?.email || !title || !requiredPrice) {
-      alert(`Please fill in title and ${saleType === "auction" ? "starting bid" : "price"}`);
+      alert(`Please fill in title and ${(saleType === "auction" || saleType === "auction_buy_now") ? "starting bid" : "price"}`);
       return;
     }
     if (!pickupAvailable && !shippingAvailable) {
@@ -185,17 +185,16 @@ export default function AIPostPage() {
         images.push(await getDownloadURL(snap.ref));
       }
       await addDoc(collection(db, "listings"), {
-        title, description, price: String(saleType === "auction" ? startingBid : price), category, condition, location,
+        title, description, price: String(saleType === "auction_buy_now" && buyNowPrice ? buyNowPrice : (saleType === "auction" || saleType === "auction_buy_now") ? startingBid : price), category, condition, location,
         imageUrl: images[0] || "", images, sellerEmail: user.email, sellerUsername: user.email?.split("@")[0] || "User", sellerId: user.uid, createdAt: serverTimestamp(),
         pickupAvailable, shippingAvailable, pickupArea,
         shippingFee: shippingAvailable && shippingFee ? Number(shippingFee) : null,
         freeShipping: shippingAvailable ? freeShipping : false,
-        shipsWithinDays: shipsWithinDays ? Number(shipsWithinDays) : null,
         stockQuantity: stockQuantity ? Number(stockQuantity) : null,
         saleType,
-        startingBid: saleType === "auction" && startingBid ? Number(startingBid) : null,
-        reservePrice: saleType === "auction" && reservePrice ? Number(reservePrice) : null,
-        auctionEndsAt: saleType === "auction" ? new Date(Date.now() + Number(auctionDuration) * 86400000) : null,
+        startingBid: (saleType === "auction" || saleType === "auction_buy_now") && startingBid ? Number(startingBid) : null,
+        reservePrice: (saleType === "auction" || saleType === "auction_buy_now") && reservePrice ? Number(reservePrice) : null,
+        auctionEndsAt: (saleType === "auction" || saleType === "auction_buy_now") ? new Date(Date.now() + Number(auctionDuration) * 86400000) : null,
         expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000),
         currentBid: null, bidCount: 0, highestBidder: null,
       });
@@ -204,8 +203,8 @@ export default function AIPostPage() {
       setLocation(""); setCategory("Other"); setDetected("");
       setPickupAvailable(false); setShippingAvailable(false);
       setPickupArea(""); setShippingFee(""); setFreeShipping(false);
-      setShipsWithinDays(""); setStockQuantity("");
-      setSaleType("buy_now"); setStartingBid(""); setReservePrice(""); setAuctionDuration("3"); setExpiresIn("14");
+      setStockQuantity("");
+      setSaleType("buy_now"); setBuyNowPrice(""); setStartingBid(""); setReservePrice(""); setAuctionDuration("3"); setExpiresIn("14");
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (err) {
       alert("Failed");
@@ -313,13 +312,20 @@ export default function AIPostPage() {
                 <input type="number" value={startingBid} onChange={(e) => setStartingBid(e.target.value)} placeholder="$" className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]" />
               </div>
             )}
+            {saleType === "auction_buy_now" && (
+              <div>
+                <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Buy Now Price <span className="text-[var(--muted)] font-normal">(optional)</span></label>
+                <input type="number" value={buyNowPrice} onChange={(e) => setBuyNowPrice(e.target.value)} placeholder="$"
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]" />
+              </div>
+            )}
             <div>
               <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Location</label>
               <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="City" className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]" />
             </div>
           </div>
 
-          {saleType === "auction" && (
+          {(saleType === "auction" || saleType === "auction_buy_now") && (
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Reserve Price <span className="text-[var(--muted)] font-normal">(optional)</span></label>
@@ -342,10 +348,11 @@ export default function AIPostPage() {
           {/* Sale Type */}
           <div>
             <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Sale Type</label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {[
                 { id: "buy_now", label: "Buy Now" },
                 { id: "auction", label: "Auction" },
+                { id: "auction_buy_now", label: "Auction + Buy Now" },
               ].map((opt) => (
                 <button key={opt.id} type="button" onClick={() => setSaleType(opt.id)}
                   className={`rounded-xl border px-4 py-3 text-xs font-bold text-left transition ${
@@ -379,26 +386,23 @@ export default function AIPostPage() {
                 <span className="text-sm text-[var(--foreground)]">Shipping available</span>
               </label>
               {shippingAvailable && (
-                <div className="ml-7 space-y-2.5">
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                    <input type="number" value={shippingFee} onChange={(e) => setShippingFee(e.target.value)}
-                      placeholder="Shipping fee"
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                  </div>
-                  <label className="flex cursor-pointer items-center gap-2">
-                    <input type="checkbox" checked={freeShipping} onChange={(e) => setFreeShipping(e.target.checked)}
+                <>
+                  <label className="flex cursor-pointer items-center gap-2 ml-7">
+                    <input type="checkbox" checked={freeShipping} onChange={(e) => { setFreeShipping(e.target.checked); if (e.target.checked) setShippingFee(""); }}
                       className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-emerald-500 focus:ring-emerald-500/30" />
                     <span className="text-xs text-[var(--foreground)]">Free shipping</span>
                   </label>
-
-                  <div>
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Ships within (days)</label>
-                    <input type="number" value={shipsWithinDays} onChange={(e) => setShipsWithinDays(e.target.value)}
-                      placeholder="e.g. 3"
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                  </div>
-                </div>
+                  {!freeShipping && (
+                    <div className="ml-7">
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                        <input type="number" value={shippingFee} onChange={(e) => setShippingFee(e.target.value)}
+                          placeholder="Shipping fee"
+                          className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
               <div>
@@ -419,7 +423,7 @@ export default function AIPostPage() {
             </div>
           </div>
 
-          <button onClick={createListing} disabled={loading || (saleType === "auction" ? !startingBid : !price)} className="w-full rounded-xl bg-sky-500 py-4 text-lg font-bold text-[var(--foreground)] hover:bg-sky-400 disabled:opacity-50">
+          <button onClick={createListing} disabled={loading || ((saleType === "auction" || saleType === "auction_buy_now") ? !startingBid : !price)} className="w-full rounded-xl bg-sky-500 py-4 text-lg font-bold text-[var(--foreground)] hover:bg-sky-400 disabled:opacity-50">
             {loading ? "Posting..." : "Post Now"}
           </button>
         </div>

@@ -30,7 +30,7 @@ type NotificationItem = {
 type NotificationDropdownProps = {
   notifications?: NotificationItem[];
   onClose?: () => void;
-  onMarkSeen?: (id: string) => void;
+  onMarkSeen?: (id: string, type?: string) => void;
 };
 
 const TYPE_META: Record<
@@ -103,7 +103,7 @@ export default function NotificationDropdown({
 
   function handleClearAll() {
     notifications.forEach((n) =>
-      onMarkSeen?.(n.id)
+      onMarkSeen?.(n.id, n.type)
     );
     onClose?.();
   }
@@ -190,7 +190,8 @@ export default function NotificationDropdown({
                     }
                     onClick={() => {
                       onMarkSeen?.(
-                        notification.id
+                        notification.id,
+                        notification.type
                       );
                       onClose?.();
                     }}
