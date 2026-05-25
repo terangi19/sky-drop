@@ -258,7 +258,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
           const buyerId = buyerSnap.docs[0]?.id;
           if (sellerId && buyerId) {
             const { autoTransferBadge } = await import("../lib/xpValidation");
-            await autoTransferBadge(sellerId, buyerId, listing.badgeForSale, purchaseRef.id);
+            await autoTransferBadge(sellerId, buyerId, listing.badgeForSale, purchaseRef.id, listing.sellerEmail);
           }
         } catch (e) {
           console.error("Auto badge transfer failed:", e);

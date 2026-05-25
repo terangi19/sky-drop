@@ -1,4 +1,4 @@
-import { collection, deleteDoc, doc, getDoc, getDocs, increment, query, runTransaction, serverTimestamp, setDoc, Timestamp, updateDoc, where } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDoc, getDocs, increment, query, runTransaction, serverTimestamp, setDoc, Timestamp, updateDoc, where, writeBatch } from "firebase/firestore";
 import { db } from "./firebase";
 import { awardXP } from "./xp";
 
@@ -287,7 +287,7 @@ export async function buyerClaimBadge(userId: string, badge: string, purchaseId:
   });
 }
 
-export async function autoTransferBadge(sellerUid: string, buyerUid: string, badge: string, purchaseId: string): Promise<void> {
+export async function autoTransferBadge(sellerUid: string, buyerUid: string, badge: string, purchaseId: string, sellerEmail?: string): Promise<void> {
   const sellerRef = doc(db, "profiles", sellerUid);
   const buyerRef = doc(db, "profiles", buyerUid);
   const purchaseRef = doc(db, "purchases", purchaseId);
@@ -315,6 +315,16 @@ export async function autoTransferBadge(sellerUid: string, buyerUid: string, bad
     status: "delivered",
     deliveredAt: serverTimestamp(),
   });
+
+  // Close any duplicate badge listings from this seller
+  if (sellerEmail) {
+    try {
+      const dupes = await getDocs(query(collection(db, "tradePosts"), where("sellerEmail", "==", sellerEmail), where("badgeForSale", "==", badge), where("status", "==", "live")));
+      const batch = writeBatch(db);
+      dupes.docs.forEach((d) => batch.update(doc(db, "tradePosts", d.id), { status: "sold" }));
+      if (dupes.size > 0) await batch.commit();
+    } catch (e) { console.error("Failed to close duplicate badge listings:", e); }
+  }
 }
 
 export async function getBadgeTransferStatus(purchaseId: string): Promise<{ sellerReleased: boolean; buyerClaimed: boolean }> {

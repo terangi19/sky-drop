@@ -13,6 +13,7 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
@@ -1176,6 +1177,8 @@ const [poaUploading, setPoaUploading] = useState(false);
                             if (!confirm(`${badgeName} Badge\n\n${rarity}Selling transfers your badge to the buyer. This cannot be undone.\n\nAre you sure you want to list it?`)) return;
                             const price = prompt("Enter price ($):", "50");
                             if (!price || isNaN(Number(price)) || Number(price) <= 0) return;
+                            const existing = await getDocs(query(collection(db, "tradePosts"), where("sellerEmail", "==", user!.email), where("badgeForSale", "==", badge), where("status", "==", "live")));
+                            if (!existing.empty) { alert("You already have an active listing for this badge."); return; }
                             const title = badge === "epic" ? "💎 Epic Seller Badge" : "👑 The Five Badge";
                             const ref = await addDoc(collection(db, "tradePosts"), {
                               type: "WTS", title, price, message: badge === "epic" ? "Epic Seller badge for sale." : "👑 The Five badge for sale. Only 5 exist on Sky Drop.",

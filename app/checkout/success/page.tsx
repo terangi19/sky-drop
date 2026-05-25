@@ -73,7 +73,7 @@ function SuccessInner() {
                 paidAt: serverTimestamp(),
                 createdAt: serverTimestamp(),
               });
-              await autoTransferBadge(sellerId, buyerId, badgeForSale, purchaseRef.id);
+              await autoTransferBadge(sellerId, buyerId, badgeForSale, purchaseRef.id, sellerEmail);
             }
           } catch (e) {
             console.error("Auto badge transfer failed:", e);
