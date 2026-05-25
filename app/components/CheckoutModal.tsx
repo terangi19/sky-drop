@@ -41,8 +41,8 @@ interface CheckoutModalProps {
 type DeliveryMethod = "pickup" | "shipping" | "badge" | "digital" | null;
 type Step = "form" | "card" | "processing" | "share_address" | "success";
 
-function PaymentForm({ total, listingId, title, price, buyerEmail, onSuccess, onBack, badgeForSale, sellerEmail, collectionName }: {
-  total: number; listingId: string; title: string; price: string; buyerEmail: string; onSuccess: () => void; onBack: () => void; badgeForSale?: string; sellerEmail?: string; collectionName?: string;
+function PaymentForm({ total, listingId, title, price, buyerEmail, onSuccess, onBack, badgeForSale, sellerEmail, collectionName, type, digitalFileURL, digitalFileName }: {
+  total: number; listingId: string; title: string; price: string; buyerEmail: string; onSuccess: () => void; onBack: () => void; badgeForSale?: string; sellerEmail?: string; collectionName?: string; type?: string; digitalFileURL?: string; digitalFileName?: string;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -56,7 +56,7 @@ function PaymentForm({ total, listingId, title, price, buyerEmail, onSuccess, on
     const { error: submitError } = await stripe.confirmPayment({
       elements,
       confirmParams: {
-        return_url: `${window.location.origin}/checkout/success?listingId=${encodeURIComponent(listingId)}&title=${encodeURIComponent(title)}&price=${encodeURIComponent(price)}&buyerEmail=${encodeURIComponent(buyerEmail)}&collectionName=${encodeURIComponent(collectionName || "listings")}${badgeForSale ? `&badgeForSale=${encodeURIComponent(badgeForSale)}&sellerEmail=${encodeURIComponent(sellerEmail || "")}` : ""}`,
+        return_url: `${window.location.origin}/checkout/success?listingId=${encodeURIComponent(listingId)}&title=${encodeURIComponent(title)}&price=${encodeURIComponent(price)}&buyerEmail=${encodeURIComponent(buyerEmail)}&collectionName=${encodeURIComponent(collectionName || "listings")}${badgeForSale ? `&badgeForSale=${encodeURIComponent(badgeForSale)}&sellerEmail=${encodeURIComponent(sellerEmail || "")}` : ""}${type === "digital" ? `&type=digital&digitalFileURL=${encodeURIComponent(digitalFileURL || "")}&digitalFileName=${encodeURIComponent(digitalFileName || "")}` : ""}`,
       },
       redirect: "if_required",
     });
@@ -575,7 +575,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                     </div>
                   </div>
                   <Elements stripe={stripePromise} options={{ clientSecret }}>
-                    <PaymentForm total={total} listingId={listing.id} title={listing.title} price={String(total)} buyerEmail={buyerEmail} onSuccess={handlePaymentSuccess} onBack={resetToForm} badgeForSale={listing.badgeForSale} sellerEmail={listing.sellerEmail} collectionName={collectionName} />
+                    <PaymentForm total={total} listingId={listing.id} title={listing.title} price={String(total)} buyerEmail={buyerEmail} onSuccess={handlePaymentSuccess} onBack={resetToForm} badgeForSale={listing.badgeForSale} sellerEmail={listing.sellerEmail} collectionName={collectionName} type={listing.type} digitalFileURL={listing.digitalFileURL} digitalFileName={listing.digitalFileName} />
                   </Elements>
                 </div>
               )}

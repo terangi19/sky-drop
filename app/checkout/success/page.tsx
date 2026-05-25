@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp, query, where, getDocs } from "firebase/firestore";
+import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp, Timestamp, query, where, getDocs } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 
 function SuccessInner() {
@@ -19,6 +19,9 @@ function SuccessInner() {
   const buyerEmail = searchParams.get("buyerEmail") || "";
   const badgeForSale = searchParams.get("badgeForSale") || "";
   const collectionName = searchParams.get("collectionName") || "listings";
+  const digitalParam = searchParams.get("type") || "";
+  const digitalFileURL = searchParams.get("digitalFileURL") || "";
+  const digitalFileName = searchParams.get("digitalFileName") || "";
 
   useEffect(() => {
     async function processOrder() {
@@ -77,6 +80,34 @@ function SuccessInner() {
             }
           } catch (e) {
             console.error("Auto badge transfer failed:", e);
+          }
+        }
+
+        // Auto-deliver digital purchase
+        if (digitalParam === "digital" && digitalFileURL && sellerEmail && buyerEmail) {
+          try {
+            await addDoc(collection(db, "purchases"), {
+              listingId,
+              listingTitle: listingData.title || title,
+              listingPrice: listingData.price || price,
+              listingImage: listingData.imageUrl || "",
+              sellerEmail,
+              buyerEmail,
+              buyerName: buyerEmail,
+              deliveryMethod: "digital",
+              digitalFileURL,
+              digitalFileName: digitalFileName || "File",
+              type: "digital",
+              status: "delivered",
+              paidAt: serverTimestamp(),
+              deliveredAt: serverTimestamp(),
+              disputeDeadline: Timestamp.fromMillis(Date.now() + 48 * 3600000),
+              total: Number(listingData.price || price) + 1,
+              processingFee: 1.00,
+              createdAt: serverTimestamp(),
+            });
+          } catch (e) {
+            console.error("Digital purchase create failed:", e);
           }
         }
 
