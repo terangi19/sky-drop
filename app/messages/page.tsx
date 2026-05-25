@@ -26,6 +26,7 @@ import {
 import { auth, db, storage } from "../lib/firebase";
 import { detectScam } from "../lib/scamdetection";
 import { calculateTrustScore } from "../lib/trustscore";
+import { checkImage } from "../lib/nsfw";
 import { showToast } from "../components/Toast";
 import { createNotification } from "../lib/notifications";
 // Feature 8: Expanded risky keywords
@@ -160,7 +161,6 @@ function MessagesPage() {
         if (other) {
           setChatUser(other);
           setChatListingId(data.listingId || null);
-          if (data.listingId) fetchListingData(data.listingId);
           if (isMobile) setMobileView("chat");
         }
       }).catch(() => {});
@@ -203,20 +203,20 @@ function MessagesPage() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [showProfilePreview]);
-  // Fetch listing data
-  async function fetchListingData(listingId: string) {
-    try {
-      const snap = await getDoc(doc(db, "listings", listingId));
+  // Real-time listing data listener
+  useEffect(() => {
+    if (!chatListingId) {
+      setListingCard(null);
+      return;
+    }
+    const unsub = onSnapshot(doc(db, "listings", chatListingId), (snap) => {
       if (snap.exists()) {
         setListingCard({ id: snap.id, ...snap.data() });
       }
-    } catch (e) { console.error("Failed to fetch listing data:", e); }
-  }
-  useEffect(() => {
-    if (chatListingId) {
-      fetchListingData(chatListingId);
+    }, (err) => {
+      console.error("Failed to fetch listing data:", err);
       const msgWithListing = messages.find((m: any) => m.listingId === chatListingId && m.listingImage);
-      if (msgWithListing && !listingCard) {
+      if (msgWithListing) {
         setListingCard({
           id: chatListingId,
           title: msgWithListing.listingTitle,
@@ -224,9 +224,8 @@ function MessagesPage() {
           price: msgWithListing.listingPrice,
         });
       }
-    } else {
-      setListingCard(null);
-    }
+    });
+    return () => unsub();
   }, [chatListingId, messages]);
   // Typing listener
   useEffect(() => {
@@ -353,12 +352,29 @@ function MessagesPage() {
     reader.onload = (ev) => { setImagePreview(ev.target?.result as string); };
     reader.readAsDataURL(file);
   }
+  function dataURLtoBlob(dataUrl: string): Blob {
+    const parts = dataUrl.split(",");
+    const mime = parts[0].match(/:(.*?);/)![1];
+    const bytes = atob(parts[1]);
+    const arr = new Uint8Array(bytes.length);
+    for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+    return new Blob([arr], { type: mime });
+  }
+
   async function sendImageMessage() {
     if (!imagePreview || !user?.email || !chatUser) return;
     const activeListingTitle = chatListingId ? messages.find((m: any) => m.listingId === chatListingId && m.listingTitle)?.listingTitle : null;
     try {
+      const blob = dataURLtoBlob(imagePreview);
+      const file = new File([blob], "chat.jpg", { type: "image/jpeg" });
+      const nsfwResult = await checkImage(file);
+      if (!nsfwResult.safe) {
+        showToast(`Image flagged: ${nsfwResult.reason}`, "error");
+        setImagePreview(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
       const { ref, uploadBytes, getDownloadURL } = await import("firebase/storage");
-      const blob = await (await fetch(imagePreview)).blob();
       const storageRef = ref(storage, `chat_images/${user.uid}/${Date.now()}.jpg`);
       const snap = await uploadBytes(storageRef, blob);
       const imageUrl = await getDownloadURL(snap.ref);
@@ -586,7 +602,18 @@ function MessagesPage() {
   }
   function getDisplayName(email: string) { return usernames[email] || email; }
   const isOwnListing = listingCard?.sellerEmail === user?.email;
+  const isAuction = listingCard?.saleType === "auction" || listingCard?.saleType === "auction_buy_now" || !!listingCard?.auctionEndsAt;
+  const auctionEnded = (() => {
+    if (listingCard?.status === "sold") return true;
+    if (!isAuction || !listingCard?.auctionEndsAt) return false;
+    const endsAt = listingCard.auctionEndsAt;
+    const time = endsAt?.toMillis?.() || endsAt?.seconds * 1000 || new Date(endsAt).getTime();
+    return time < Date.now();
+  })();
+  const isAuctionWinner = auctionEnded && listingCard?.highestBidder === user?.email;
+  const isAuctionSeller = auctionEnded && listingCard?.sellerEmail === user?.email;
   const [hasPurchaseInChat, setHasPurchaseInChat] = useState(false);
+  const [purchaseData, setPurchaseData] = useState<any>(null);
   useEffect(() => {
     if (!chatUser || !user?.email) { setHasPurchaseInChat(false); return; }
     let mounted = true;
@@ -597,9 +624,9 @@ function MessagesPage() {
           const data = d.data();
           return (data.sellerEmail === user.email && data.buyerEmail === chatUser) || (data.buyerEmail === user.email && data.sellerEmail === chatUser);
         });
-        if (matched && mounted) setHasPurchaseInChat(true);
-        else if (mounted) setHasPurchaseInChat(false);
-      } catch { if (mounted) setHasPurchaseInChat(false); }
+        if (matched && mounted) { setHasPurchaseInChat(true); setPurchaseData({ id: matched.id, ...matched.data() }); }
+        else if (mounted) { setHasPurchaseInChat(false); setPurchaseData(null); }
+      } catch { if (mounted) { setHasPurchaseInChat(false); setPurchaseData(null); } }
     })();
     return () => { mounted = false; };
   }, [chatUser, chatListingId, user?.email]);
@@ -754,6 +781,8 @@ function MessagesPage() {
                                 <p className="mt-0.5 text-[10px] text-[var(--muted)]">
                                   {sellerProfile.verified && <span className="text-sky-400">Verified &#10003;</span>}
                                   {sellerProfile.trustedSeller && <span className="ml-1 text-emerald-400">Trusted</span>}
+                                  {sellerProfile.profileBadge === "epic" && <span className="ml-1 text-violet-400 font-bold">💎 Epic</span>}
+                                  {sellerProfile.profileBadge === "legendary" && <span className="ml-1 text-amber-400 font-bold animate-pulse">👑 The Five</span>}
                                 </p>
                                 <p className="mt-1 text-[11px] text-[var(--muted)]">{sellerProfile.sales || 0} sales</p>
                                 {sellerProfile.memberSince && (
@@ -775,6 +804,8 @@ function MessagesPage() {
                       {sellerTrust && (
                         <p className="text-[10px] text-[var(--muted)]">
                           {sellerProfile?.verified && <span className="text-sky-400">Verified &#10003;</span>}
+                          {sellerProfile?.profileBadge === "epic" && <span className="ml-1 text-violet-400 font-bold">💎 Epic</span>}
+                          {sellerProfile?.profileBadge === "legendary" && <span className="ml-1 text-amber-400 font-bold animate-pulse">👑 The Five</span>}
                           {sellerTrust && <> &#8226; {sellerTrust.score}% Trust</>}
                           {listingCard?.replyTime && <> &#8226; Replies in {listingCard.replyTime}m</>}
                         </p>
@@ -837,70 +868,168 @@ function MessagesPage() {
               <>
                 {/* Messages area */}
                 <div ref={messagesContainerRef} className="flex-1 overflow-y-auto scrollbar-thin px-5 py-4">
-                  {/* Listing context card â€” purchase order header */}
+                  {/* Listing context card — purchased */}
                   {listingCard && hasPurchaseInChat && (
-                    <div className="mb-3 overflow-hidden rounded-2xl border border-sky-500/10 bg-zinc-900/80">
+                    <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-zinc-900/60">
                       <div className="flex items-center gap-3 p-3">
                         {listingCard.image && (
-                          <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-zinc-800">
+                          <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-zinc-800">
                             <img src={listingCard.image} alt="" className="h-full w-full object-cover"
                               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                           </div>
                         )}
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[13px] font-bold text-[var(--foreground)]">{listingCard.title || "Listing"}</p>
-                          <p className="text-[12px] font-black text-sky-400">${listingCard.price}</p>
-                          <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[10px] text-[var(--muted)]">
-                            <span className="text-emerald-400">Purchased âœ“</span>
-                          </div>
+                          <p className="text-[12px] font-black text-sky-400">${purchaseData?.total || listingCard.price}</p>
+                          <span className={`text-[10px] ${
+                            purchaseData?.status === "delivered" || purchaseData?.status === "completed" ? "text-emerald-400" :
+                            purchaseData?.status === "shipped" ? "text-sky-400" :
+                            purchaseData?.status === "seller_confirming" ? "text-indigo-400" :
+                            purchaseData?.status === "cancelled" ? "text-red-400" :
+                            "text-amber-400"
+                          }`}>
+                            {purchaseData?.status === "pending" ? "Awaiting seller confirmation" :
+                             purchaseData?.status === "seller_confirming" ? "Confirmed" :
+                             purchaseData?.status === "shipped" ? "Shipped" :
+                             purchaseData?.status === "delivered" ? "Delivered" :
+                             purchaseData?.status === "completed" ? "Completed" :
+                             purchaseData?.status === "cancelled" ? "Cancelled" :
+                             "Purchased"}
+                          </span>
                         </div>
                         <Link href={`/purchases`}
-                          className="shrink-0 rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white text-center transition hover:bg-sky-400">
+                          className="shrink-0 rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white transition hover:bg-sky-400">
                           View Order
                         </Link>
                       </div>
                     </div>
                   )}
-                  {/* Listing context card â€” no purchase */}
-                  {listingCard && !hasPurchaseInChat && (
-                    <div className="mb-3 overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--soft-card)]">
-                      <div className="flex items-center gap-4 p-4">
+                  {/* Listing context card — auction ended */}
+                  {listingCard && !hasPurchaseInChat && auctionEnded && (
+                    <div className={`mb-3 overflow-hidden rounded-2xl border ${
+                      isAuctionWinner ? "border-emerald-500/30 bg-emerald-500/5" : "border-amber-500/10 bg-zinc-900/60"
+                    }`}>
+                      {/* Winner banner */}
+                      {isAuctionWinner && (
+                        <div className="flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600/20 via-emerald-500/30 to-emerald-600/20 px-4 py-3">
+                          <span className="text-lg">🎉</span>
+                          <span className="text-sm font-black tracking-wide text-emerald-300">CONGRATULATIONS! YOU WON</span>
+                          <span className="text-lg">🎉</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-3 p-3">
                         {listingCard.image && (
-                          <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl bg-zinc-800">
+                          <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl bg-zinc-800 shadow-md">
                             <img src={listingCard.image} alt={listingCard.title || ""} className="h-full w-full object-cover"
                               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                           </div>
                         )}
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[13px] font-bold text-[var(--foreground)]">{listingCard.title || "Listing"}</p>
-                          {listingCard.price && <p className="mt-0.5 text-[15px] font-black text-sky-400">${listingCard.price}</p>}
-                          <span className="mt-1 inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-medium text-emerald-400">Active</span>
+                          <p className="text-[15px] font-black text-emerald-400">${listingCard.currentBid || listingCard.price}</p>
+                          <span className={`text-[11px] font-medium ${
+                            isAuctionWinner ? "text-emerald-400" : "text-amber-400"
+                          }`}>
+                            {isAuctionWinner ? "This listing is yours! Arrange pickup or payment below." : isAuctionSeller ? (listingCard.highestBidder ? `${listingCard.highestBidder} won` : "No bids received") : "Auction ended"}
+                          </span>
                         </div>
-                        <Link href={`/post/listing/${listingCard.id}`} className="flex-shrink-0 rounded-xl bg-sky-500 px-4 py-2 text-[11px] font-bold text-white transition hover:bg-sky-400">
+                        <Link href={`/post/listing/${listingCard.id}`}
+                          className={`shrink-0 rounded-xl px-4 py-2.5 text-[11px] font-bold shadow-lg transition hover:opacity-80 ${
+                            isAuctionWinner
+                              ? "bg-gradient-to-r from-emerald-500 to-emerald-400 text-black"
+                              : isAuctionSeller
+                                ? listingCard.highestBidder ? "bg-amber-500 text-black" : "bg-zinc-700 text-[var(--foreground)]"
+                                : "bg-zinc-700 text-[var(--foreground)]"
+                          }`}>
+                          {isAuctionWinner ? (listingCard.saleType === "auction_buy_now" ? "Proceed to Payment" : "Arrange Pickup")
+                            : isAuctionSeller ? (listingCard.highestBidder ? "Awaiting Payment" : "View Listing")
+                            : "View Listing"}
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+                  {/* Listing context card — buy now */}
+                  {listingCard && !hasPurchaseInChat && !auctionEnded && listingCard?.saleType === "buy_now" && (
+                    <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-[var(--soft-card)]/80">
+                      <div className="flex items-center gap-3 p-3">
+                        {listingCard.image && (
+                          <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-zinc-800">
+                            <img src={listingCard.image} alt={listingCard.title || ""} className="h-full w-full object-cover"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[13px] font-bold text-[var(--foreground)]">{listingCard.title || "Listing"}</p>
+                          {listingCard.price && <p className="text-[12px] font-black text-sky-400">${listingCard.price}</p>}
+                        </div>
+                        <Link href={`/post/listing/${listingCard.id}`}
+                          className="shrink-0 rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white transition hover:bg-sky-400">
                           View Listing
                         </Link>
                       </div>
-                      <div className="flex gap-2 border-t border-[var(--card-border)] px-4 py-2.5">
-                        {!isOwnListing && (
-                          <>
-                            <Link href={`/post/listing/${listingCard.id}`}
-                              className="flex-1 rounded-lg bg-sky-500 py-2 text-center text-[11px] font-bold text-white transition hover:bg-sky-400">
-                              Buy Now
-                            </Link>
-                            <button onClick={() => setShowOfferInput(true)}
-                              className="flex-1 rounded-lg border border-sky-500/30 py-2 text-[11px] font-bold text-sky-400 transition hover:bg-sky-500/10">
-                              Make Offer
-                            </button>
-                          </>
+                    </div>
+                  )}
+                  {/* Listing context card — active auction */}
+                  {listingCard && !hasPurchaseInChat && !auctionEnded && isAuction && listingCard?.saleType !== "buy_now" && (
+                    <div className="mb-3 overflow-hidden rounded-2xl border border-amber-500/10 bg-zinc-900/60">
+                      <div className="flex items-center gap-3 p-3">
+                        {listingCard.image && (
+                          <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl bg-zinc-800 shadow-md">
+                            <img src={listingCard.image} alt={listingCard.title || ""} className="h-full w-full object-cover"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                          </div>
                         )}
-                        <button onClick={() => {
-                          try {
-                            const w = JSON.parse(localStorage.getItem("watchlist") || "[]");
-                            if (!w.includes(listingCard.id)) { w.push(listingCard.id); localStorage.setItem("watchlist", JSON.stringify(w)); }
-                          } catch {}
-                        }} className={`flex-1 rounded-lg py-2 text-[11px] font-bold transition ${isOwnListing ? "bg-zinc-700 text-[var(--muted)]" : "border border-zinc-600 text-[var(--muted)] hover:bg-white/[0.05]"}`}>
-                          {isOwnListing ? "Your Listing" : "Save"}
-                        </button>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[13px] font-bold text-[var(--foreground)]">{listingCard.title || "Listing"}</p>
+                          <p className="text-[15px] font-black text-amber-400">${listingCard.currentBid || listingCard.price}</p>
+                          <span className="text-[11px] font-medium text-amber-400/80">Active auction</span>
+                        </div>
+                        <Link href={`/post/listing/${listingCard.id}`}
+                          className="shrink-0 rounded-xl bg-sky-500 px-4 py-2.5 text-[11px] font-bold text-white shadow-lg transition hover:bg-sky-400">
+                          View Listing
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+                  {/* Listing context card — other listing type */}
+                  {listingCard && !hasPurchaseInChat && !auctionEnded && listingCard?.saleType && listingCard?.saleType !== "buy_now" && !isAuction && (
+                    <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-[var(--soft-card)]/80">
+                      <div className="flex items-center gap-3 p-3">
+                        {listingCard.image && (
+                          <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-zinc-800">
+                            <img src={listingCard.image} alt={listingCard.title || ""} className="h-full w-full object-cover"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[13px] font-bold text-[var(--foreground)]">{listingCard.title || "Listing"}</p>
+                          {listingCard.price && <p className="text-[12px] font-black text-sky-400">${listingCard.price}</p>}
+                        </div>
+                        <Link href={`/post/listing/${listingCard.id}`}
+                          className="shrink-0 rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white transition hover:bg-sky-400">
+                          View Listing
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+                  {/* Listing context card — fallback */}
+                  {listingCard && !hasPurchaseInChat && !auctionEnded && !listingCard?.saleType && !isAuction && (
+                    <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-[var(--soft-card)]/80">
+                      <div className="flex items-center gap-3 p-3">
+                        {listingCard.image && (
+                          <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-zinc-800">
+                            <img src={listingCard.image} alt={listingCard.title || ""} className="h-full w-full object-cover"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[13px] font-bold text-[var(--foreground)]">{listingCard.title || "Listing"}</p>
+                          {listingCard.price && <p className="text-[12px] font-black text-[var(--muted)]">${listingCard.price}</p>}
+                        </div>
+                        <Link href={`/post/listing/${listingCard.id}`}
+                          className="shrink-0 rounded-lg bg-zinc-700 px-3 py-1.5 text-[10px] font-bold text-[var(--foreground)] transition hover:bg-zinc-600">
+                          View Listing
+                        </Link>
                       </div>
                     </div>
                   )}
@@ -1133,13 +1262,6 @@ function MessagesPage() {
                       </svg>
                     </button>
                     <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
-                    {/* Offer button */}
-                    <button onClick={() => setShowOfferInput(!showOfferInput)}
-                      className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--muted)] transition hover:border-sky-400 hover:text-sky-400">
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </button>
                     <input type="text" placeholder="Type a message..." value={message}
                       onChange={(e) => {
                         setMessage(e.target.value);

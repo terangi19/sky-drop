@@ -2,8 +2,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Listings: anyone can read, only authenticated sellers can create/update/delete
-    // Bidders may update auction-specific fields on auction listings
     function isSeller() {
       return resource.data.sellerEmail == request.auth.token.email
         || resource.data.sellerId == request.auth.uid;
@@ -12,25 +10,26 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys()
         .hasOnly(['currentBid', 'currentMaxBid', 'secondMaxBid', 'highestBidder', 'bidCount', 'auctionEndsAt', 'auctionExtended']);
     }
+
     match /listings/{listingId} {
       allow read: if true;
       allow create: if request.auth != null
         && request.resource.data.sellerEmail == request.auth.token.email;
       allow update: if request.auth != null
         && (isSeller()
-          || (resource.data.saleType is string && resource.data.saleType.matches('auction.*') && isAuctionBidUpdate()));
-      allow delete: if request.auth != null
-        && isSeller();
+          || (resource.data.saleType is string && resource.data.saleType.matches('auction.*') && isAuctionBidUpdate())
+          || (request.resource.data.status == "sold" && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])));
+      allow delete: if request.auth != null && isSeller();
     }
 
-    // Profiles: users can read any, write only their own
     match /profiles/{profileId} {
       allow read: if true;
       allow create, update: if request.auth != null
-        && request.resource.data.email == request.auth.token.email;
+        && (request.resource.data.email == request.auth.token.email
+          || (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['email'])
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['badges', 'profileBadge'])));
     }
 
-    // Messages: participants can read/write/delete
     match /messages/{messageId} {
       allow read: if request.auth != null
         && resource.data.participants != null
@@ -43,7 +42,6 @@ service cloud.firestore {
         && request.auth.token.email in resource.data.participants;
     }
 
-    // Purchases: buyer and seller can read
     match /purchases/{purchaseId} {
       allow read: if request.auth != null
         && (resource.data.buyerEmail == request.auth.token.email
@@ -54,7 +52,6 @@ service cloud.firestore {
           || resource.data.sellerEmail == request.auth.token.email);
     }
 
-    // Notifications: only target user can read, system creates via functions
     match /notifications/{notificationId} {
       allow read: if request.auth != null
         && resource.data.targetEmail == request.auth.token.email;
@@ -63,51 +60,43 @@ service cloud.firestore {
         && resource.data.targetEmail == request.auth.token.email;
     }
 
-    // Reviews: anyone can read, authenticated users can create
     match /reviews/{reviewId} {
       allow read: if true;
       allow create: if request.auth != null;
     }
 
-    // Reports: only admin can read, authenticated users can create
     match /reports/{reportId} {
       allow create: if request.auth != null;
       allow read: if request.auth != null
         && request.auth.token.email == "rangitr16@gmail.com";
     }
 
-    // Trade posts: anyone can read, authenticated users can create/delete their own
     match /tradePosts/{postId} {
       allow read: if true;
       allow create: if request.auth != null;
+      allow update: if request.auth != null;
       allow delete: if request.auth != null
         && resource.data.sellerEmail == request.auth.token.email;
     }
 
-    // Typing indicators: anyone authenticated can read/write for their conversations
     match /typing/{typingId} {
       allow read, write: if request.auth != null;
     }
 
-    // Conversations: participants can read/write
     match /conversations/{conversationId} {
       allow read, write: if request.auth != null;
     }
 
-    // Users subcollections: only the user can access their own data
     match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null
-        && request.auth.uid == userId;
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Drops: anyone can read, authenticated users can create/update
     match /drops/{dropId} {
       allow read: if true;
       allow create: if request.auth != null;
       allow update: if request.auth != null;
     }
 
-    // Trade Shouts: world chat messages — anyone authenticated can read/write
     match /tradeShouts/{shoutId} {
       allow read: if true;
       allow create: if request.auth != null;
@@ -115,7 +104,6 @@ service cloud.firestore {
         && resource.data.by == request.auth.token.email;
     }
 
-    // Sponsored Drops: paid listings in the drop queue
     match /sponsoredDrops/{docId} {
       allow read: if true;
       allow create: if request.auth != null
@@ -123,16 +111,12 @@ service cloud.firestore {
       allow update: if request.auth != null;
     }
 
-    // Drop Tokens: owner can read and update
     match /dropTokens/{tokenId} {
-      allow read: if request.auth != null
-        && resource.data.ownerId == request.auth.uid;
+      allow read: if request.auth != null && resource.data.ownerId == request.auth.uid;
       allow create: if request.auth != null;
-      allow update: if request.auth != null
-        && resource.data.ownerId == request.auth.uid;
+      allow update: if request.auth != null && resource.data.ownerId == request.auth.uid;
     }
 
-    // Followers: users can read/create/delete their own follow relationships
     match /followers/{docId} {
       allow read: if request.auth != null
         && (resource.data.followerId == request.auth.uid || resource.data.followingId == request.auth.uid);
@@ -142,7 +126,10 @@ service cloud.firestore {
         && resource.data.followerId == request.auth.uid;
     }
 
-    // Deny everything else
+    match /dailyChallenges/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

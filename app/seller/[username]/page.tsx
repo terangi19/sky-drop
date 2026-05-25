@@ -46,6 +46,7 @@ interface ProfileData {
   followers?: number;
   following?: number;
   profileViews?: number;
+  profileBadge?: string;
 }
 
 interface Listing {
@@ -328,6 +329,12 @@ export default function SellerPage() {
                   {profile.topTrader && (
                     <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-400 ring-1 ring-amber-500/25">Top Trader</span>
                   )}
+                  {profile.profileBadge === "epic" && (
+                    <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-[10px] font-bold text-violet-400 ring-1 ring-violet-500/25">💎 Epic</span>
+                  )}
+                  {profile.profileBadge === "legendary" && (
+                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-400 ring-1 ring-amber-500/25 shadow-[0_0_8px_rgba(251,146,60,0.2)] animate-breathe-orange">👑 The Five</span>
+                  )}
                   {!profile.hideOnline && (
                     <span className="flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" /> Online
@@ -346,6 +353,8 @@ export default function SellerPage() {
                   {profile.trustedSeller && <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[9px] font-bold text-emerald-400">Trusted Seller</span>}
                   {profile.fastReply && <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[9px] font-bold text-sky-400">Fast Reply</span>}
                   {profile.phoneVerified && <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[9px] font-bold text-sky-400">Phone ✓</span>}
+                  {profile.profileBadge === "epic" && <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-[9px] font-bold text-violet-400 ring-1 ring-violet-500/25">💎 Epic</span>}
+                  {profile.profileBadge === "legendary" && <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[9px] font-bold text-amber-400 ring-1 ring-amber-500/25 shadow-[0_0_8px_rgba(251,146,60,0.2)] animate-breathe-orange">👑 The Five</span>}
                 </div>
 
                 {/* Stats row */}
@@ -563,6 +572,24 @@ export default function SellerPage() {
                       <div>
                         <p className="text-xs font-bold text-emerald-400">Trusted Trader</p>
                         <p className="text-[10px] text-[var(--muted)]">Elite seller status</p>
+                      </div>
+                    </div>
+                  )}
+                  {profile.profileBadge === "epic" && (
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-500/20 text-[10px]">💎</span>
+                      <div>
+                        <p className="text-xs font-bold text-violet-400">Epic Seller</p>
+                        <p className="text-[10px] text-[var(--muted)]">Earned from Sky Crate</p>
+                      </div>
+                    </div>
+                  )}
+                  {profile.profileBadge === "legendary" && (
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500/20 text-[10px] animate-breathe-orange">👑</span>
+                      <div>
+                        <p className="text-xs font-bold text-amber-400">The Five</p>
+                        <p className="text-[10px] text-[var(--muted)]">Ultimate Sky Crate reward</p>
                       </div>
                     </div>
                   )}

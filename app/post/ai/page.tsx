@@ -9,6 +9,9 @@ import { onAuthStateChanged, User } from "firebase/auth";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { auth, db, storage } from "../../lib/firebase";
+import { createPendingXP, trackListingCreated } from "../../lib/xpValidation";
+import { checkImage } from "../../lib/nsfw";
+import { showToast } from "../../components/Toast";
 
 const objectToCategory: Record<string, string> = {
   "car": "Cars", "truck": "Cars", "bus": "Cars", "motorcycle": "Cars",
@@ -104,6 +107,15 @@ export default function AIPostPage() {
     return () => unsub();
   }, []);
 
+  function dataURLtoBlob(dataUrl: string): Blob {
+    const parts = dataUrl.split(",");
+    const mime = parts[0].match(/:(.*?);/)![1];
+    const bytes = atob(parts[1]);
+    const arr = new Uint8Array(bytes.length);
+    for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+    return new Blob([arr], { type: mime });
+  }
+
   const runDetection = async () => {
     if (!classifierRef.current || !imgRef.current) return;
     
@@ -140,6 +152,15 @@ export default function AIPostPage() {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []).slice(0, 8);
     if (files.length === 0) return;
+
+    for (const file of files) {
+      const nsfwResult = await checkImage(file);
+      if (!nsfwResult.safe) {
+        showToast(`"${file.name}" flagged: ${nsfwResult.reason}. Remove it and try again.`, "error");
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+    }
 
     const newPreviews: string[] = [];
     for (const file of files) {
@@ -178,13 +199,12 @@ export default function AIPostPage() {
     try {
       const images: string[] = [];
       for (let i = 0; i < imageFiles.length; i++) {
-        const res = await fetch(imagePreviews[i]);
-        const blob = await res.blob();
+        const blob = dataURLtoBlob(imagePreviews[i]);
         const storageRef = ref(storage, `listings/${user.uid}/${Date.now()}_${i}.jpg`);
         const snap = await uploadBytes(storageRef, blob);
         images.push(await getDownloadURL(snap.ref));
       }
-      await addDoc(collection(db, "listings"), {
+      const listingRef = await addDoc(collection(db, "listings"), {
         title, description, price: String(saleType === "auction_buy_now" && buyNowPrice ? buyNowPrice : (saleType === "auction" || saleType === "auction_buy_now") ? startingBid : price), category, condition, location,
         imageUrl: images[0] || "", images, sellerEmail: user.email, sellerUsername: user.email?.split("@")[0] || "User", sellerId: user.uid, createdAt: serverTimestamp(),
         pickupAvailable, shippingAvailable, pickupArea,
@@ -198,6 +218,8 @@ export default function AIPostPage() {
         expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000),
         currentBid: null, bidCount: 0, highestBidder: null,
       });
+      createPendingXP(user.uid, "listing", listingRef.id, listingRef.id);
+      trackListingCreated(user.uid, title);
       alert("Listing created!");
       setImagePreviews([]); setImageFiles([]); setTitle(""); setDescription(""); setPrice("");
       setLocation(""); setCategory("Other"); setDetected("");
@@ -207,7 +229,8 @@ export default function AIPostPage() {
       setSaleType("buy_now"); setBuyNowPrice(""); setStartingBid(""); setReservePrice(""); setAuctionDuration("3"); setExpiresIn("14");
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (err) {
-      alert("Failed");
+      console.error("Listing upload error:", err);
+      alert("Failed to create listing — check console for details");
     }
     setLoading(false);
   };
@@ -229,9 +252,7 @@ export default function AIPostPage() {
             <h1 className="text-4xl font-black text-[var(--foreground)]">AI Quick Post</h1>
             <p className="mt-2 text-[var(--muted)]">Free unlimited AI</p>
           </div>
-          <div className={`rounded-xl px-4 py-2 text-sm ${modelReady ? "bg-green-500/20 text-green-400" : "bg-yellow-500/20 text-yellow-400"}`}>
-            {modelReady ? "✓ AI Ready" : "Loading model... (fallback available)"}
-          </div>
+          
         </div>
 
         <div className="mt-6 rounded-xl border border-zinc-800 bg-zinc-900/60 p-6">

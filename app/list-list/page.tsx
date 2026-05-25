@@ -105,7 +105,7 @@ export default function ListListPage() {
           <h1 className="text-4xl font-black tracking-tight text-[var(--foreground)]">
             My Listings
           </h1>
-          <Link href="/post" className="rounded-full bg-sky-500 px-5 py-2.5 text-sm font-bold text-[var(--foreground)] hover:bg-sky-400 transition">
+          <Link href="/post/ai" className="rounded-full bg-sky-500 px-5 py-2.5 text-sm font-bold text-[var(--foreground)] hover:bg-sky-400 transition">
             + New Listing
           </Link>
         </div>
@@ -150,7 +150,7 @@ export default function ListListPage() {
         {!loading && filteredListings.length === 0 && (
           <div className="mt-20 text-center">
             <p className="text-lg text-zinc-500">You haven't created any listings yet.</p>
-            <Link href="/post" className="mt-4 inline-block rounded-full bg-sky-500 px-5 py-2.5 text-sm font-bold text-[var(--foreground)] hover:bg-sky-400 transition">
+            <Link href="/post/ai" className="mt-4 inline-block rounded-full bg-sky-500 px-5 py-2.5 text-sm font-bold text-[var(--foreground)] hover:bg-sky-400 transition">
               + Create Your First Listing
             </Link>
           </div>

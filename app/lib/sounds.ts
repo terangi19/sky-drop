@@ -41,3 +41,11 @@ export function playOffer() {
   playTone(440, 0.1, "sine", 0.06);
   setTimeout(() => playTone(660, 0.15, "sine", 0.06), 120);
 }
+
+export function playLegendary() {
+  playTone(523, 0.15, "sine", 0.08);
+  setTimeout(() => playTone(659, 0.15, "sine", 0.08), 150);
+  setTimeout(() => playTone(784, 0.15, "sine", 0.08), 300);
+  setTimeout(() => playTone(1047, 0.3, "sine", 0.1), 450);
+  setTimeout(() => playTone(1319, 0.5, "triangle", 0.06), 700);
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, Timestamp, updateDoc, where } from "firebase/firestore";
 import { onAuthStateChanged, User } from "firebase/auth";
@@ -19,11 +19,17 @@ export default function DropIndicator() {
   const [claimed, setClaimed] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [nextDropIn, setNextDropIn] = useState("");
-  const [drop, setDrop] = useState<{ active: boolean; targetPage: string | null; claimedBy: string | null; nextDropAt: number | null; sponsoredTitle?: string | null; sponsoredPrice?: string | null; sponsoredImage?: string | null; sponsorSellerEmail?: string | null } | null>(null);
+  const [drop, setDrop] = useState<{ active: boolean; targetPage: string | null; claimedBy: string | null; nextDropAt: number | null; sponsoredId?: string | null; sponsoredTitle?: string | null; sponsoredPrice?: string | null; sponsoredImage?: string | null; sponsorSellerEmail?: string | null } | null>(null);
+  const [dismissedDropId, setDismissedDropId] = useState<string | null>(null);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => setUser(u));
     return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    const id = localStorage.getItem("dismissedDropId");
+    if (id) setDismissedDropId(id);
   }, []);
 
   async function refreshDrop() {
@@ -46,7 +52,7 @@ export default function DropIndicator() {
       const nextAt = data.nextDropAt?.toMillis?.() || 0;
       const active = data.active && expiresAt > now && !data.claimedBy;
 
-      setDrop({ active, targetPage: data.targetPage || null, claimedBy: data.claimedBy || null, nextDropAt: nextAt, sponsoredTitle: data.sponsoredTitle || null, sponsoredPrice: data.sponsoredPrice || null, sponsoredImage: data.sponsoredImage || null, sponsorSellerEmail: data.sponsorSellerEmail || null });
+      setDrop({ active, targetPage: data.targetPage || null, claimedBy: data.claimedBy || null, nextDropAt: nextAt, sponsoredId: data.sponsoredId || null, sponsoredTitle: data.sponsoredTitle || null, sponsoredPrice: data.sponsoredPrice || null, sponsoredImage: data.sponsoredImage || null, sponsorSellerEmail: data.sponsorSellerEmail || null });
 
       if ((!active && !data.claimedBy) || nextAt < now) {
         await generateDrop();
@@ -80,12 +86,14 @@ export default function DropIndicator() {
         }
       }
 
+      const expiresIn = sponsoredId ? 60 * 60 * 1000 : 5 * 60 * 1000;
+
       await setDoc(doc(db, "drops", "active"), {
         active: true,
         targetPage,
         claimedBy: null,
         claimedAt: null,
-        expiresAt: Timestamp.fromMillis(now + 5 * 60 * 1000),
+        expiresAt: Timestamp.fromMillis(now + expiresIn),
         nextDropAt: Timestamp.fromMillis(now + (360 + Math.random() * 120) * 60 * 1000),
         createdAt: Timestamp.fromMillis(now),
         sponsoredId,
@@ -133,7 +141,7 @@ export default function DropIndicator() {
       if (!data.active) throw new Error("Drop is not active");
       if (data.claimedBy) throw new Error("Drop already claimed");
       if (data.expiresAt?.toMillis?.() < Date.now()) throw new Error("Drop expired");
-      if (data.sponsorSellerEmail === user.email) throw new Error("You sponsored this drop — you can't claim it, but you received 2 tokens as a reward!");
+      if (data.sponsorSellerEmail === user.email) throw new Error("You sponsored this drop — your listing is promoted with an orange glow for 3 days plus 2 tokens!");
 
       await updateDoc(dropRef, { claimedBy: user.uid, claimedAt: serverTimestamp(), active: false });
 
@@ -165,6 +173,13 @@ export default function DropIndicator() {
     setClaiming(false);
   }
 
+  function handleDismissHint() {
+    if (drop?.sponsoredId) {
+      localStorage.setItem("dismissedDropId", drop.sponsoredId);
+      setDismissedDropId(drop.sponsoredId);
+    }
+  }
+
   const showTargetPage = drop?.active && !drop?.claimedBy && drop?.targetPage === pathname && user;
   const showActiveHint = drop?.active && !drop?.claimedBy && drop?.targetPage !== pathname;
   const showCountdown = !drop?.active && drop?.nextDropAt;
@@ -176,16 +191,16 @@ export default function DropIndicator() {
           className="fixed bottom-24 right-4 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-lg shadow-lg shadow-orange-500/30 animate-bounce cursor-pointer hover:scale-110 transition-all disabled:opacity-50"
           title="A drop has landed!">🎁</button>
       )}
-      {showActiveHint && drop?.sponsoredTitle ? (
-        <button onClick={() => { if (drop.targetPage) router.push(drop.targetPage); }}
-          className="fixed top-16 right-4 z-[10000] flex items-center gap-2 rounded-full border border-amber-500/30 bg-zinc-950/95 backdrop-blur-xl px-3 py-2 text-xs shadow-lg animate-fade-in-up hover:border-amber-500/60 transition cursor-pointer">
-          {drop.sponsoredImage && <div className="h-7 w-7 shrink-0 overflow-hidden rounded-full border border-zinc-700"><img src={drop.sponsoredImage} className="h-full w-full object-cover" /></div>}
-          <div className="text-left min-w-0">
-            <p className="truncate font-bold text-amber-400">{drop.sponsoredTitle}</p>
+      {showActiveHint && drop?.sponsoredTitle && drop?.sponsoredId !== dismissedDropId ? (
+        <div className="fixed top-16 right-4 z-[10000] flex items-center gap-2 rounded-full border border-orange-500/30 bg-zinc-950/95 backdrop-blur-xl px-3 py-2 text-xs shadow-lg shadow-orange-500/20 animate-breathe-orange transition">
+          {drop.sponsoredImage && <div className="h-7 w-7 shrink-0 overflow-hidden rounded-full border border-orange-500/40"><img src={drop.sponsoredImage} className="h-full w-full object-cover" /></div>}
+          <button onClick={() => { if (drop.targetPage) router.push(drop.targetPage); }} className="text-left min-w-0 cursor-pointer">
+            <p className="truncate font-bold text-orange-300">{drop.sponsoredTitle}</p>
             {drop.sponsoredPrice && <p className="text-[var(--muted)]">${drop.sponsoredPrice}</p>}
-          </div>
-          <span className="shrink-0 rounded-full bg-amber-500/20 px-2 py-0.5 text-[9px] font-bold text-amber-400 animate-pulse">🎁 Claim</span>
-        </button>
+          </button>
+          <span className="shrink-0 rounded-full bg-amber-500/20 px-2 py-0.5 text-[9px] font-bold text-amber-400 animate-pulse">🎁</span>
+          <button onClick={handleDismissHint} className="shrink-0 ml-0.5 rounded-full p-0.5 text-[var(--muted)] hover:text-[var(--foreground)] transition cursor-pointer" title="Dismiss">✕</button>
+        </div>
       ) : showActiveHint && (
         <div className="fixed top-16 right-4 z-[10000] rounded-full border border-amber-500/20 bg-zinc-950/95 backdrop-blur-xl px-4 py-2 text-xs text-amber-400 shadow-lg animate-fade-in-up">
           <span className="mr-1.5">🎁</span>

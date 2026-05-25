@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import stripePromise from "../lib/stripe-client";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, doc, getDoc, serverTimestamp, Timestamp, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { showToast } from "./Toast";
 
@@ -55,6 +55,15 @@ function PaymentForm({ listingId, listingTitle, sellerEmail, userId, targetPage,
             createdAt: serverTimestamp(),
           });
         }
+
+        const listingRef = doc(db, "listings", listingId);
+        const listingSnap = await getDoc(listingRef);
+        const currentPromoted = listingSnap.data()?.promotedUntil?.toMillis?.() || 0;
+        const baseTime = Math.max(Date.now(), currentPromoted);
+        await updateDoc(listingRef, {
+          promotedUntil: Timestamp.fromMillis(baseTime + 3 * 86400000),
+        });
+
         onSuccess();
       } catch {
         setError("Failed to activate sponsorship.");
@@ -105,7 +114,7 @@ export default function SponsorDropModal({ listing, sellerEmail, userId, onClose
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/20 text-2xl">🎁</div>
             <h2 className="mt-4 text-lg font-black text-[var(--foreground)]">Drop Sponsored!</h2>
             <p className="mt-2 text-sm text-[var(--muted)]">
-              Your listing will appear as the next drop target. Users will be directed to your page to find the 🎁.
+              Your listing is now <strong className="text-orange-400">promoted with an orange glow</strong> for 3 days and will appear as the next drop target.
             </p>
             <button onClick={onClose} className="mt-6 w-full rounded-xl bg-amber-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-amber-400">Done</button>
           </div>

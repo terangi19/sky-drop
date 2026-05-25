@@ -7,6 +7,8 @@ import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import ThemeToggle from "../components/ThemeToggle";
 import {
+  addDoc,
+  arrayUnion,
   collection,
   deleteDoc,
   doc,
@@ -14,6 +16,7 @@ import {
   onSnapshot,
   orderBy,
   query,
+  serverTimestamp,
   setDoc,
   Timestamp,
   where,
@@ -30,6 +33,10 @@ import {
 } from "firebase/auth";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { auth, db, storage } from "../lib/firebase";
+import { checkImage } from "../lib/nsfw";
+import { getLevelInfo } from "../lib/xp";
+import { showToast } from "../components/Toast";
+import { useProfile } from "../contexts/ProfileContext";
 
 interface ProfileData {
   username?: string;
@@ -64,6 +71,8 @@ interface ProfileData {
   profileViews?: number;
   phone?: string;
   phoneVerified?: boolean;
+  profileBadge?: string;
+  badges?: string[];
   shippingName?: string;
   shippingPhone?: string;
   shippingAddress?: string;
@@ -71,6 +80,17 @@ interface ProfileData {
   shippingPostcode?: string;
   shippingCountry?: string;
   stripeAccountId?: string;
+  xp?: number;
+  referralCode?: string;
+  referredBy?: string;
+  proofOfAddress?: {
+    status?: string;
+    documentURL?: string;
+    submittedAt?: Timestamp;
+    reviewedAt?: Timestamp;
+    reviewedBy?: string;
+    rejectionReason?: string;
+  };
 }
 
 interface Listing {
@@ -93,6 +113,7 @@ const regions = [
 
 export default function ProfilePage() {
   const router = useRouter();
+  const { setUsername: setContextUsername } = useProfile();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState("");
@@ -142,6 +163,13 @@ const [phoneVerifying, setPhoneVerifying] = useState(false);
 const [followingList, setFollowingList] = useState<{sellerEmail: string; sellerId: string; createdAt: Timestamp}[]>([]);
 const [stripeAccountId, setStripeAccountId] = useState("");
 const [stripeConnecting, setStripeConnecting] = useState(false);
+const [referralCode, setReferralCode] = useState("");
+const [referredBy, setReferredBy] = useState("");
+const [poaStatus, setPoaStatus] = useState("unsubmitted");
+const [poaDocumentURL, setPoaDocumentURL] = useState("");
+const [poaRejectionReason, setPoaRejectionReason] = useState("");
+const [poaFile, setPoaFile] = useState<File | null>(null);
+const [poaUploading, setPoaUploading] = useState(false);
 
   const bannerRef = useRef<HTMLInputElement>(null);
   const avatarRef = useRef<HTMLInputElement>(null);
@@ -185,6 +213,12 @@ const [stripeConnecting, setStripeConnecting] = useState(false);
             setShippingPostcode(data.shippingPostcode || "");
             setShippingCountry(data.shippingCountry || "New Zealand");
             setStripeAccountId(data.stripeAccountId || "");
+            setReferralCode(data.referralCode || "");
+            setReferredBy(data.referredBy || "");
+            const poa = data.proofOfAddress || {};
+            setPoaStatus(poa.status || "unsubmitted");
+            setPoaDocumentURL(poa.documentURL || "");
+            setPoaRejectionReason(poa.rejectionReason || "");
           }
         } catch (e) { console.error(e); }
       }
@@ -303,10 +337,26 @@ const [stripeConnecting, setStripeConnecting] = useState(false);
     return m.slice(0, 3);
   }, [profile, activeListings]);
 
-  // Client-side image resize & data URL (no Firebase Storage needed)
+  function dataURLtoBlob(dataUrl: string): Blob {
+    const parts = dataUrl.split(",");
+    const mime = parts[0].match(/:(.*?);/)![1];
+    const bytes = atob(parts[1]);
+    const arr = new Uint8Array(bytes.length);
+    for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+    return new Blob([arr], { type: mime });
+  }
+
+  function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) => setTimeout(() => reject(new Error("Timed out after " + ms + "ms")), ms)),
+    ]);
+  }
+
   function resizeImage(file: File, maxW: number, maxH: number): Promise<string> {
     return new Promise((resolve, reject) => {
       const img = new Image();
+      img.crossOrigin = "anonymous";
       img.onload = () => {
         let w = img.width, h = img.height;
         if (w > maxW) { h = h * (maxW / w); w = maxW; }
@@ -317,51 +367,62 @@ const [stripeConnecting, setStripeConnecting] = useState(false);
         ctx.drawImage(img, 0, 0, w, h);
         resolve(c.toDataURL("image/jpeg", 0.7));
       };
-      img.onerror = reject;
+      img.onerror = () => reject(new Error("Image failed to load"));
       img.src = URL.createObjectURL(file);
     });
+  }
+
+  async function uploadFileToStorage(
+    file: File,
+    path: string,
+    maxW: number,
+    maxH: number,
+    setProfileField: (url: string) => void,
+  ) {
+    try {
+      setSaving("Processing...");
+      const dataUrl = await withTimeout(resizeImage(file, maxW, maxH), 15000);
+      const blob = dataURLtoBlob(dataUrl);
+      const storageRef = ref(storage, path);
+      const snap = await withTimeout(uploadBytes(storageRef, blob), 30000);
+      const url = await getDownloadURL(snap.ref);
+      await setDoc(doc(db, "profiles", user!.uid), { [path.startsWith("avatars") ? "photoURL" : "bannerURL"]: url }, { merge: true });
+      setProfileField(url);
+      flashSaved();
+    } catch (err: any) {
+      console.error("Upload error:", err);
+      const msg = err?.code === "storage/unauthorized" ? "Permission denied — check your Firebase Storage rules"
+        : err?.code === "storage/bucket-not-found" || err?.message?.includes("bucket") ? "Storage bucket not found — go to Firebase Console → Storage → Get Started"
+        : err?.message?.includes("Timed out") ? "Upload timed out — check Firebase Storage setup"
+        : err?.message?.includes("Image failed") ? "Could not read image file"
+        : `Upload failed: ${err?.message || err}`;
+      setSaving(msg);
+      setTimeout(() => setSaving(""), 4000);
+    }
   }
 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !user) return;
-    try {
-      setSaving("Processing...");
-      const resizedBlob = await resizeImage(file, 400, 400);
-      const res = await fetch(resizedBlob);
-      const blob = await res.blob();
-      const storageRef = ref(storage, `avatars/${user.uid}.jpg`);
-      const snap = await uploadBytes(storageRef, blob);
-      const photoURL = await getDownloadURL(snap.ref);
-      await setDoc(doc(db, "profiles", user.uid), { photoURL }, { merge: true });
-      setProfile((p) => ({ ...p, photoURL }));
-      flashSaved();
-    } catch (err) {
-      console.error("Avatar error:", err);
-      setSaving("Failed to process image");
-      setTimeout(() => setSaving(""), 2000);
+    const nsfwResult = await checkImage(file);
+    if (!nsfwResult.safe) {
+      showToast(`Avatar flagged: ${nsfwResult.reason}`, "error");
+      e.target.value = "";
+      return;
     }
+    await uploadFileToStorage(file, `avatars/${user.uid}.jpg`, 400, 400, (url) => setProfile((p) => ({ ...p, photoURL: url })));
   }
 
   async function handleBannerUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !user) return;
-    try {
-      setSaving("Processing...");
-      const resizedBlob = await resizeImage(file, 1200, 400);
-      const res = await fetch(resizedBlob);
-      const blob = await res.blob();
-      const storageRef = ref(storage, `banners/${user.uid}.jpg`);
-      const snap = await uploadBytes(storageRef, blob);
-      const bannerURL = await getDownloadURL(snap.ref);
-      await setDoc(doc(db, "profiles", user.uid), { bannerURL }, { merge: true });
-      setProfile((p) => ({ ...p, bannerURL }));
-      flashSaved();
-    } catch (err) {
-      console.error("Banner error:", err);
-      setSaving("Failed to process image");
-      setTimeout(() => setSaving(""), 2000);
+    const nsfwResult = await checkImage(file);
+    if (!nsfwResult.safe) {
+      showToast(`Banner flagged: ${nsfwResult.reason}`, "error");
+      e.target.value = "";
+      return;
     }
+    await uploadFileToStorage(file, `banners/${user.uid}.jpg`, 1200, 400, (url) => setProfile((p) => ({ ...p, bannerURL: url })));
   }
 
   function flashSaved() {
@@ -413,6 +474,7 @@ const [stripeConnecting, setStripeConnecting] = useState(false);
         await batch.commit();
       } catch {}
 
+      setContextUsername(username.trim());
       setProfile((p) => ({ ...p, username: username.trim(), displayName: displayName.trim(), bio: bio.trim() }));
       flashSaved();
     } catch {
@@ -561,6 +623,7 @@ const [stripeConnecting, setStripeConnecting] = useState(false);
   const avatarUrl = profile.photoURL;
   const bannerUrl = profile.bannerURL;
 
+  const levelInfo = getLevelInfo(profile.xp || 0);
   const statItems = [
     { icon: "★", label: "Rating", value: (stats.rating / 10).toFixed(1) },
     { icon: "💰", label: "Sales", value: String(stats.sales) },
@@ -688,9 +751,15 @@ const [stripeConnecting, setStripeConnecting] = useState(false);
   Back
 </Link>
               <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-lg sm:text-2xl font-black tracking-tight text-[var(--foreground)]">
-                    {displayName || username || "No Name"}
-                  </h1>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-lg sm:text-2xl font-black tracking-tight text-[var(--foreground)]">
+                      {displayName || username || "No Name"}
+                    </h1>
+                    <span title={`Level ${levelInfo.level} — ${profile.xp || 0} XP`}
+                      className="text-xs font-bold text-[var(--muted)]">
+                      Level {levelInfo.level}
+                    </span>
+                  </div>
                   {profile.verified && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold text-sky-400 ring-1 ring-sky-500/20 shadow-[0_0_10px_rgba(14,165,233,0.1)]">
                       <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
@@ -699,6 +768,9 @@ const [stripeConnecting, setStripeConnecting] = useState(false);
                   )}
                   {profile.topTrader && (
                     <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400 ring-1 ring-amber-500/20">Top Trader</span>
+                  )}
+                  {profile.profileBadge === "epic" && (
+                    <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-bold text-violet-400 ring-1 ring-violet-500/20">💎 Epic</span>
                   )}
                   {!hideOnline && (
                     <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
@@ -716,6 +788,12 @@ const [stripeConnecting, setStripeConnecting] = useState(false);
                   )}
                   {profile.fastReply && (
                     <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-[9px] font-bold text-sky-400">Fast Reply</span>
+                  )}
+                  {profile.profileBadge === "epic" && (
+                    <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[9px] font-bold text-violet-400 ring-1 ring-violet-500/20">💎 Epic</span>
+                  )}
+                  {profile.profileBadge === "legendary" && (
+                    <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[9px] font-bold text-amber-400 ring-1 ring-amber-500/20 shadow-[0_0_8px_rgba(251,146,60,0.2)] animate-breathe-orange">👑 The Five</span>
                   )}
                 </div>
 
@@ -786,6 +864,25 @@ const [stripeConnecting, setStripeConnecting] = useState(false);
                   {saving ? "Saving..." : "Save Profile"}
                 </button>
               </div>
+
+              {/* Referral Code */}
+              {referralCode && (
+                <div className="rounded-xl border border-zinc-800/50 bg-zinc-900/60 p-5 transition-all duration-200 hover:border-zinc-700/50">
+                  <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.15em] text-[var(--muted)]">Referral Code</h2>
+                  <p className="text-[10px] text-[var(--muted)]">Share your code — when someone signs up and completes verification, you both earn rewards!</p>
+                  <div className="mt-3 flex gap-2">
+                    <div className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800/50 px-3 py-2.5 text-sm font-bold tracking-wider text-amber-400 select-all">
+                      {referralCode}
+                    </div>
+                    <button onClick={() => { navigator.clipboard.writeText(referralCode); }} className="rounded-xl bg-sky-500 px-4 py-2.5 text-xs font-bold text-[var(--foreground)] hover:bg-sky-400 transition">
+                      Copy
+                    </button>
+                  </div>
+                  <p className="mt-2 text-[10px] text-[var(--muted)]">
+                    Share: <span className="text-sky-400 select-all">{window?.location?.origin || "https://sky-drop.vercel.app"}/login?ref={referralCode}</span>
+                  </p>
+                </div>
+              )}
 
               {/* Activity Feed */}
               {activity.length > 0 && (
@@ -967,7 +1064,144 @@ const [stripeConnecting, setStripeConnecting] = useState(false);
                     <span className="text-[var(--foreground)]">Account Age</span>
                     <span className="font-bold text-[var(--foreground)]">{memberDate}</span>
                   </div>
+                  {profile.profileBadge === "epic" && (
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-violet-400 font-bold">💎 Epic Seller</span>
+                      <span className="text-violet-400/60 text-[10px]">Earned from Sky Crate</span>
+                    </div>
+                  )}
+                  {profile.profileBadge === "legendary" && (
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-amber-400 font-bold animate-pulse">👑 The Five</span>
+                      <span className="text-amber-400/60 text-[10px]">Ultimate Sky Crate reward</span>
+                    </div>
+                  )}
                 </div>
+              </div>
+
+              {/* Verification */}
+              <div className="rounded-xl border border-zinc-800/50 bg-zinc-900/60 p-5 transition-all duration-200 hover:border-zinc-700/50">
+                <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.15em] text-[var(--muted)]">Verification</h2>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-[var(--foreground)]">📱 Phone</span>
+                    {phoneVerified ? (
+                      <span className="font-bold text-emerald-400">Verified ✓</span>
+                    ) : (
+                      <span className="font-bold text-[var(--muted)]">Not verified</span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-[var(--foreground)]">📄 Proof of Address</span>
+                    {poaStatus === "approved" && <span className="font-bold text-emerald-400">Approved ✓</span>}
+                    {poaStatus === "pending" && <span className="font-bold text-amber-400">Pending review</span>}
+                    {poaStatus === "rejected" && <span className="font-bold text-red-400">Rejected</span>}
+                    {poaStatus === "unsubmitted" && <span className="font-bold text-[var(--muted)]">Not submitted</span>}
+                  </div>
+                  {poaStatus === "rejected" && poaRejectionReason && (
+                    <p className="text-[10px] text-red-400">Reason: {poaRejectionReason}</p>
+                  )}
+                  {poaStatus === "unsubmitted" || poaStatus === "rejected" ? (
+                    <div className="space-y-2">
+                      <p className="text-[10px] text-[var(--muted)]">Upload a photo of a utility bill, bank statement, or official letter with your name and address.</p>
+                      <input type="file" accept="image/*,.pdf" onChange={(e) => setPoaFile(e.target.files?.[0] || null)} className="w-full text-xs text-[var(--muted)] file:mr-2 file:rounded-lg file:border-0 file:bg-sky-500 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-[var(--foreground)] hover:file:bg-sky-400" />
+                      {poaFile && (
+                        <button onClick={async () => {
+                          if (!user?.uid || !poaFile) return;
+                          const nsfwResult = await checkImage(poaFile);
+                          if (!nsfwResult.safe) {
+                            showToast("Document flagged as inappropriate", "error");
+                            setPoaFile(null);
+                            return;
+                          }
+                          setPoaUploading(true);
+                          try {
+                            const { ref, uploadBytes, getDownloadURL } = await import("firebase/storage");
+                            const { storage } = await import("../lib/firebase");
+                            const ext = poaFile.name.split(".").pop();
+                            const path = `proof_of_address/${user.uid}/${Date.now()}.${ext}`;
+                            const storageRef = ref(storage, path);
+                            await uploadBytes(storageRef, poaFile);
+                            const url = await getDownloadURL(storageRef);
+                            await setDoc(doc(db, "profiles", user.uid), {
+                              proofOfAddress: { status: "pending", documentURL: url, submittedAt: Timestamp.now(), reviewedAt: null, reviewedBy: null, rejectionReason: null },
+                            }, { merge: true });
+                            setPoaStatus("pending");
+                            setPoaDocumentURL(url);
+                            setPoaFile(null);
+                          } catch (e) { console.error(e); }
+                          setPoaUploading(false);
+                        }} disabled={poaUploading} className="w-full rounded-xl bg-sky-500 py-2 text-xs font-bold text-[var(--foreground)] hover:bg-sky-400 transition disabled:opacity-50">
+                          {poaUploading ? "Uploading..." : "Submit Document"}
+                        </button>
+                      )}
+                    </div>
+                  ) : poaStatus === "approved" && poaDocumentURL ? (
+                    <a href={poaDocumentURL} target="_blank" rel="noopener noreferrer" className="inline-block text-[10px] text-sky-400 hover:underline">View submitted document →</a>
+                  ) : null}
+                  {referredBy && (
+                    <p className="text-[10px] text-[var(--muted)]">Referred by code: <span className="font-bold text-amber-400">{referredBy}</span></p>
+                  )}
+                </div>
+              </div>
+
+              {/* Collectibles */}
+              <div className="rounded-xl border border-zinc-800/50 bg-zinc-900/60 p-5 transition-all duration-200 hover:border-zinc-700/50">
+                <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.15em] text-[var(--muted)]">🎒 Collectibles</h2>
+                {(!profile.badges || profile.badges.length === 0) ? (
+                  <p className="text-xs text-[var(--muted)]">Open Sky Crates to earn badges!</p>
+                ) : (
+                  <div className="space-y-2">
+                    {profile.badges.map((badge) => (
+                      <label key={badge} className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 transition hover:bg-zinc-800/50" onClick={async () => {
+                        if (!user?.uid) return;
+                        await setDoc(doc(db, "profiles", user.uid), { profileBadge: badge }, { merge: true });
+                        setProfile((p) => ({ ...p, profileBadge: badge }));
+                      }}>
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">{badge === "epic" ? "💎" : "👑"}</span>
+                          <span className={`text-xs font-bold ${badge === "epic" ? "text-violet-400" : "text-amber-400"}`}>
+                            {badge === "epic" ? "Epic Seller" : "The Five"}
+                          </span>
+                        </div>
+                          <div className={`h-4 w-4 rounded-full border-2 ${profile.profileBadge === badge ? (badge === "epic" ? "border-violet-400 bg-violet-400" : "border-amber-400 bg-amber-400") : "border-zinc-600"} transition`}>
+                            {profile.profileBadge === badge && (
+                              <svg className="h-full w-full p-0.5 text-zinc-900" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                            )}
+                          </div>
+                          <button onClick={async (e) => {
+                            e.stopPropagation();
+                            const badgeName = badge === "epic" ? "💎 Epic" : "👑 The Five";
+                            const rarity = badge === "legendary" ? "Only 5 of these exist on Sky Drop. " : "";
+                            if (!confirm(`${badgeName} Badge\n\n${rarity}Selling transfers your badge to the buyer. This cannot be undone.\n\nAre you sure you want to list it?`)) return;
+                            const price = prompt("Enter price ($):", "50");
+                            if (!price || isNaN(Number(price)) || Number(price) <= 0) return;
+                            const title = badge === "epic" ? "💎 Epic Seller Badge" : "👑 The Five Badge";
+                            const ref = await addDoc(collection(db, "tradePosts"), {
+                              type: "WTS", title, price, message: badge === "epic" ? "Epic Seller badge for sale." : "👑 The Five badge for sale. Only 5 exist on Sky Drop.",
+                              sellerEmail: user!.email, sellerUsername: username || user!.email,
+                              badgeForSale: badge, status: "live", saleType: "buy_now",
+                              replies: [], images: [], views: 1, offers: 0,
+                              createdAt: serverTimestamp(),
+                            });
+                            showToast("Badge listed for sale! View it in Trade Feed.", "success");
+                            router.push("/trade-feed");
+                          }} className="shrink-0 rounded-md bg-zinc-800 px-2 py-1 text-[9px] font-bold text-[var(--muted)] transition hover:bg-sky-500/20 hover:text-sky-400">
+                            Sell
+                          </button>
+                      </label>
+                    ))}
+                    {profile.profileBadge && (
+                      <button onClick={async () => {
+                        if (!user?.uid) return;
+                        await setDoc(doc(db, "profiles", user.uid), { profileBadge: "" }, { merge: true });
+                        setProfile((p) => ({ ...p, profileBadge: "" }));
+                      }} className="mt-1 w-full rounded-lg border border-zinc-700/50 py-1.5 text-[10px] font-bold text-[var(--muted)] transition hover:text-red-400 hover:border-red-500/30">
+                        Hide badge
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Following */}

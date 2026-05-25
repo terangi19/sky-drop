@@ -11,11 +11,13 @@ import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot,
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth, db, storage } from "../lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { checkImage } from "../lib/nsfw";
 import { showToast } from "../components/Toast";
 import { checkShout } from "../lib/shoutFilter";
 import confetti from "canvas-confetti";
 import { playOffer, playSuccess, playClick } from "../lib/sounds";
 import { createNotification } from "../lib/notifications";
+import { useProfile } from "../contexts/ProfileContext";
 
 const WORLDS = [
   { id: "all", label: "All Worlds", icon: "🌐", accent: "border-sky-500/20", glow: "shadow-[0_0_12px_rgba(14,165,233,0.06)]", color: "from-sky-400" },
@@ -54,8 +56,8 @@ function getTypePill(type: string) {
 
 export default function TradeFeedPage() {
   const router = useRouter();
+  const { username } = useProfile();
   const [user, setUser] = useState<User | null>(null);
-  const [username, setUsername] = useState("");
   const [posts, setPosts] = useState<any[]>([]);
   const [selectedWorld, setSelectedWorld] = useState<string[]>([]);
   const [selectedFilter, setSelectedFilter] = useState("All Posts");
@@ -98,6 +100,10 @@ export default function TradeFeedPage() {
   const lastShoutTime = useRef(0);
   const lastOfferTime = useRef(0);
   const lastPostTime = useRef(0);
+  const knownSoldIds = useRef(new Set<string>());
+  const knownHotIds = useRef(new Set<string>());
+  const knownShoutCount = useRef(0);
+  const lastClaimUsername = useRef<string | null>(null);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const [pullDistance, setPullDistance] = useState(0);
@@ -152,14 +158,11 @@ export default function TradeFeedPage() {
 
   // Seller review stats
   const [sellerReviewStats, setSellerReviewStats] = useState<Record<string, { avg: number; count: number }>>({});
+  const [sellerBadges, setSellerBadges] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (currentUser) => {
+    const unsub = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      if (currentUser?.uid) {
-        const snap = await getDoc(doc(db, "profiles", currentUser.uid));
-        if (snap.exists()) setUsername(snap.data().username || "");
-      }
     });
     return () => unsub();
   }, []);
@@ -195,6 +198,28 @@ export default function TradeFeedPage() {
     fetchStats();
   }, [posts.length]);
 
+  // Fetch seller profile badges (legendary/epic)
+  useEffect(() => {
+    const uniqueEmails = [...new Set(posts.map((p: any) => p.sellerEmail).filter(Boolean))] as string[];
+    if (uniqueEmails.length === 0) return;
+    const fetchBadges = async () => {
+      const badges: Record<string, string> = {};
+      for (let i = 0; i < uniqueEmails.length; i += 10) {
+        const chunk = uniqueEmails.slice(i, i + 10);
+        try {
+          const snap = await getDocs(query(collection(db, "profiles"), where("email", "in", chunk)));
+          snap.docs.forEach((d) => {
+            const data = d.data();
+            const email = data.email as string;
+            if (data.profileBadge) badges[email] = data.profileBadge as string;
+          });
+        } catch (e) { console.error("Badge fetch error:", e); }
+      }
+      setSellerBadges(badges);
+    };
+    fetchBadges();
+  }, [posts.length]);
+
   // Live event ticker for new posts
   useEffect(() => {
     if (posts.length === 0) return;
@@ -202,10 +227,51 @@ export default function TradeFeedPage() {
     if (latest && latest.createdAt && (Date.now() / 1000 - latest.createdAt.seconds) < 10) {
       const id = ++eventId.current;
       const worldName = WORLDS.find((w) => w.id === latest.world)?.label || "";
-      setLiveEvents((prev) => [{ id, icon: "📢", text: `${latest.title} posted${worldName ? ` in ${worldName}` : ""}`, world: latest.world }, ...prev].slice(0, 6));
-      setTimeout(() => setLiveEvents((prev) => prev.filter((e) => e.id !== id)), 6000);
+      setLiveEvents((prev) => [{ id, icon: "📢", text: `${latest.title} posted${worldName ? ` in ${worldName}` : ""}` }, ...prev].slice(0, 20));
+      setTimeout(() => setLiveEvents((prev) => prev.filter((e) => e.id !== id)), 8000);
     }
   }, [posts.length]);
+
+  // Sold items → live events
+  useEffect(() => {
+    posts.forEach((p: any) => {
+      if (p.status === "sold" && !knownSoldIds.current.has(p.id)) {
+        knownSoldIds.current.add(p.id);
+        const id = ++eventId.current;
+        setLiveEvents((prev) => [{ id, icon: "💰", text: `${p.title} sold` }, ...prev].slice(0, 20));
+        setTimeout(() => setLiveEvents((prev) => prev.filter((e) => e.id !== id)), 8000);
+      }
+    });
+  }, [posts]);
+
+  // Shouts → live events
+  useEffect(() => {
+    if (shouts.length > knownShoutCount.current) {
+      const newShouts = shouts.slice(knownShoutCount.current);
+      knownShoutCount.current = shouts.length;
+      for (const s of newShouts) {
+        const id = ++eventId.current;
+        const name = (s.by || "?").split("@")[0];
+        setLiveEvents((prev) => [{ id, icon: "💬", text: `${name}: "${(s.text || "").slice(0, 60)}"` }, ...prev].slice(0, 20));
+        setTimeout(() => setLiveEvents((prev) => prev.filter((e) => e.id !== id)), 8000);
+      }
+    }
+  }, [shouts]);
+
+  // Legendary badge claims → live events
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, "config", "platform"), (snap) => {
+      const data = snap.data();
+      const claim = data?.lastLegendaryClaim;
+      if (claim?.username && claim.username !== lastClaimUsername.current) {
+        lastClaimUsername.current = claim.username;
+        const id = ++eventId.current;
+        setLiveEvents((prev) => [{ id, icon: "⚡", text: `${claim.username} unlocked 👑 The Five` }, ...prev].slice(0, 20));
+        setTimeout(() => setLiveEvents((prev) => prev.filter((e) => e.id !== id)), 10000);
+      }
+    });
+    return () => unsub();
+  }, []);
 
   // Shouts — real-time world chat
   useEffect(() => {
@@ -299,6 +365,12 @@ export default function TradeFeedPage() {
     try {
       const images: string[] = [];
       for (const file of imageFiles) {
+        const nsfwResult = await checkImage(file);
+        if (!nsfwResult.safe) {
+          showToast(`"${file.name}" flagged: ${nsfwResult.reason}. Remove it and try again.`, "error");
+          setPosting(false);
+          return;
+        }
         const storageRef = ref(storage, `trade_posts/${user.uid}/${Date.now()}_${file.name}`);
         const snap = await uploadBytes(storageRef, file);
         images.push(await getDownloadURL(snap.ref));
@@ -371,8 +443,8 @@ export default function TradeFeedPage() {
       }).catch((err) => console.error("Failed to add notification doc:", err));
       setReplyTexts((prev) => ({ ...prev, [postId]: "" }));
       const id = ++eventId.current;
-      setLiveEvents((prev) => [{ id, icon: "💬", text: `New reply on ${post?.title || "a trade"}`, world: post?.world }, ...prev].slice(0, 6));
-      setTimeout(() => setLiveEvents((prev) => prev.filter((e) => e.id !== id)), 6000);
+      setLiveEvents((prev) => [{ id, icon: "💬", text: `New reply on ${post?.title || "a trade"}` }, ...prev].slice(0, 20));
+      setTimeout(() => setLiveEvents((prev) => prev.filter((e) => e.id !== id)), 8000);
     } catch (e) { console.error(e); }
   }
 
@@ -399,8 +471,8 @@ export default function TradeFeedPage() {
       listingImage: post.images?.[0] || post.image || "",
     });
     const id = ++eventId.current;
-    setLiveEvents((prev) => [{ id, icon: "💰", text: `Offer received on ${post.title}`, world: post.world }, ...prev].slice(0, 6));
-    setTimeout(() => setLiveEvents((prev) => prev.filter((e) => e.id !== id)), 6000);
+    setLiveEvents((prev) => [{ id, icon: "💰", text: `Offer received on ${post.title}` }, ...prev].slice(0, 20));
+    setTimeout(() => setLiveEvents((prev) => prev.filter((e) => e.id !== id)), 8000);
   }
 
   async function toggleWatchlist(post: any) {
@@ -424,6 +496,18 @@ export default function TradeFeedPage() {
     });
   }, [posts]);
 
+  // Trending items → live events
+  useEffect(() => {
+    (hotPosts as any[]).forEach((p: any) => {
+      if (!knownHotIds.current.has(p.id)) {
+        knownHotIds.current.add(p.id);
+        const id = ++eventId.current;
+        setLiveEvents((prev) => [{ id, icon: "🔥", text: `${p.title} is trending` }, ...prev].slice(0, 20));
+        setTimeout(() => setLiveEvents((prev) => prev.filter((e) => e.id !== id)), 8000);
+      }
+    });
+  }, [hotPosts.length]);
+
   const trends = useMemo(() => {
     const counts: Record<string, number> = {};
     posts.forEach((p) => { if (p.world) counts[p.world] = (counts[p.world] || 0) + 1; });
@@ -444,7 +528,8 @@ export default function TradeFeedPage() {
     else if (selectedType === "Trading") items = items.filter((p) => p.type === "Trading");
     if (showMyTrades && user?.email) items = items.filter((p) => p.sellerEmail === user.email);
     if (showImagesOnly) items = items.filter((p) => (p.images?.length > 0) || p.image);
-    if (statusFilter === "active") items = items.filter((p) => p.status === "live" || !p.status);
+    if (statusFilter === "all") items = items.filter((p) => p.status !== "sold" && p.status !== "completed");
+    else if (statusFilter === "active") items = items.filter((p) => p.status === "live" || !p.status);
     else if (statusFilter === "sold") items = items.filter((p) => p.status === "sold");
     else if (statusFilter === "completed") items = items.filter((p) => p.status === "completed");
     if (search.trim()) {
@@ -557,18 +642,7 @@ export default function TradeFeedPage() {
               className="w-14 rounded-lg border border-zinc-800 bg-zinc-800/50 px-2 py-1.5 text-xs outline-none placeholder:text-[var(--muted)] focus:border-sky-500/40" />
           </div>
           <div className="w-px h-5 bg-zinc-800" />
-          <div className="flex gap-1">
-            <button onClick={() => setShowImagesOnly(!showImagesOnly)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${showImagesOnly ? "bg-sky-500/15 text-sky-400" : "bg-zinc-800/50 text-[var(--muted)]"}`}>
-              📷 Images
-            </button>
-            {user && (
-              <button onClick={() => setShowMyTrades(!showMyTrades)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${showMyTrades ? "bg-sky-500/15 text-sky-400" : "bg-zinc-800/50 text-[var(--muted)]"}`}>
-                👤 My Trades
-              </button>
-            )}
-          </div>
+
         </div>
 
         {/* ── MAIN CONTENT ── */}
@@ -584,11 +658,11 @@ export default function TradeFeedPage() {
                 {hotPosts.length > 0 && <span className="text-[10px] font-bold text-orange-400">🔥 {hotPosts.length} hot</span>}
               </div>
               <div className="flex items-center gap-2">
-                {["all", "active", "completed", "sold"].map((s) => (
+                {["all", "active"].map((s) => (
                   <button key={s} onClick={() => setStatusFilter(s)}
                     className={`rounded-lg px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider transition ${
                       statusFilter === s
-                        ? s === "sold" ? "bg-red-500/15 text-red-400" : s === "completed" ? "bg-zinc-500/15 text-zinc-400" : s === "active" ? "bg-emerald-500/15 text-emerald-400" : "bg-sky-500/15 text-sky-400"
+                        ? s === "active" ? "bg-emerald-500/15 text-emerald-400" : "bg-sky-500/15 text-sky-400"
                         : "bg-zinc-800/50 text-[var(--muted)] hover:bg-zinc-800"
                     }`}>{s === "all" ? "All" : s}</button>
                 ))}
@@ -757,6 +831,8 @@ export default function TradeFeedPage() {
                   const worldData = WORLDS.find((w) => w.id === post.world);
                   const stats = sellerReviewStats[post.sellerEmail || ""];
                   const postViews = post.views || 0;
+                  const postOffers = post.offers || 0;
+                  const isPopular = post.promotedUntil?.toMillis?.() > Date.now() || postViews >= 10;
                   const imgs = post.images || (post.image ? [post.image] : []);
 
                   return (
@@ -771,7 +847,7 @@ export default function TradeFeedPage() {
                           touchStartX.current = 0;
                         }}
                         className={`relative flex gap-5 rounded-xl border p-5 transition-all duration-200 cursor-pointer overflow-hidden hover:scale-[1.01] hover:shadow-lg hover:shadow-black/20 ${
-                          isNew ? "border-amber-500/30 bg-amber-500/5 shadow-[0_0_15px_rgba(251,191,36,0.06)] hover:border-amber-500/50" : isHot ? "border-orange-500/20 bg-orange-500/3 hover:border-orange-500/30" : "border-zinc-800 bg-zinc-900/50 hover:border-zinc-700/60"
+                          isNew ? "border-amber-500/30 bg-amber-500/5 shadow-[0_0_15px_rgba(251,191,36,0.06)] hover:border-amber-500/50" : isHot ? "border-orange-500/20 bg-orange-500/3 hover:border-orange-500/30" : isPopular ? "border-orange-500/30 bg-orange-500/[0.04] shadow-[0_0_20px_rgba(251,146,60,0.2)] hover:border-orange-500/50 hover:shadow-[0_0_30px_rgba(251,146,60,0.35)]" : "border-zinc-800 bg-zinc-900/50 hover:border-zinc-700/60"
                         } ${worldData ? worldData.glow : ""}`}
                       >
                         {/* Swipe actions overlay */}
@@ -804,7 +880,7 @@ export default function TradeFeedPage() {
                             <img src={imgs[0]} alt="" className="h-full w-full object-cover transition-transform duration-300 hover:scale-105" />
                           ) : (
                             <div className="flex h-full items-center justify-center text-lg text-[var(--muted)]">
-                              {post.type === "WTB" ? "🛒" : post.type === "Trading" ? "🔄" : "💰"}
+                              {post.badgeForSale === "legendary" ? "👑" : post.badgeForSale === "epic" ? "💎" : post.type === "WTB" ? "🛒" : post.type === "Trading" ? "🔄" : "💰"}
                             </div>
                           )}
                           {imgs.length > 1 && (
@@ -825,6 +901,7 @@ export default function TradeFeedPage() {
                             {post.saleType === "buy_now" && <span className="rounded border border-sky-500/20 bg-sky-500/5 px-1.5 py-0.5 text-[10px] font-bold text-sky-400">Buy Now</span>}
                             {post.saleType === "buy_now_offers" && <span className="rounded border border-emerald-500/20 bg-emerald-500/5 px-1.5 py-0.5 text-[10px] font-bold text-emerald-400">Offers</span>}
                             {post.saleType === "trade" && <span className="rounded border border-violet-500/20 bg-violet-500/5 px-1.5 py-0.5 text-[10px] font-bold text-violet-400">Trade</span>}
+                            {isPopular && <span className="rounded border border-orange-500/20 bg-orange-500/10 px-1.5 py-0.5 text-[10px] font-bold text-orange-400">🔥 Hot</span>}
                             {post.promotedUntil?.toMillis?.() > Date.now() && <span className="rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-400">📈 Promoted</span>}
                             {post.status === "live" && <span className="rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold text-emerald-400">Active</span>}
                             {post.status === "completed" && <span className="rounded border border-zinc-500/20 bg-zinc-500/10 px-1.5 py-0.5 text-[10px] font-bold text-zinc-400">Completed</span>}
@@ -856,11 +933,13 @@ export default function TradeFeedPage() {
                               <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-violet-500 text-[10px] font-bold text-white">
                                 {(post.sellerUsername || post.sellerEmail || "?").charAt(0).toUpperCase()}
                               </div>
-                              <span className="font-medium text-[var(--foreground)]">{post.sellerUsername?.split("@")[0] || post.sellerEmail?.split("@")[0]}</span>
-                              {stats && stats.count > 0 && (
-                                <span className="text-amber-400">{'★'.repeat(Math.min(Math.floor(stats.avg), 5))} {stats.avg.toFixed(1)}</span>
-                              )}
-                            </Link>
+                          <span className="font-medium text-[var(--foreground)]">{post.sellerUsername?.split("@")[0] || post.sellerEmail?.split("@")[0]}</span>
+                          {sellerBadges[post.sellerEmail || ""] === "legendary" && <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold text-amber-400 animate-pulse">👑 The Five</span>}
+                          {sellerBadges[post.sellerEmail || ""] === "epic" && <span className="rounded bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-bold text-violet-400">💎 Epic</span>}
+                          {stats && stats.count > 0 && (
+                            <span className="text-amber-400">{'★'.repeat(Math.min(Math.floor(stats.avg), 5))} {stats.avg.toFixed(1)}</span>
+                          )}
+                        </Link>
                             {post.pickupAvailable && <span>📍 {post.pickupArea || "Pickup"}</span>}
                             {post.shippingAvailable && <span>{post.freeShipping ? "🚚 Free" : `📦 $${post.shippingFee || ""}`}</span>}
                             <span className="text-zinc-700">·</span>
@@ -913,14 +992,6 @@ export default function TradeFeedPage() {
                             <>
                               <button onClick={(e) => { e.stopPropagation(); setPromotePost(post); }}
                                 className="w-full rounded-lg border border-amber-500/30 px-4 py-1.5 text-[10px] font-bold text-amber-400 transition hover:bg-amber-500/10">📈 Promote</button>
-                              {post.status !== "sold" && post.status !== "completed" && (
-                                <div className="flex gap-1 w-full">
-                                  <button onClick={(e) => { e.stopPropagation(); updateTradeStatus(post.id, "completed"); }}
-                                    className="flex-1 rounded-lg border border-zinc-500/30 px-2 py-1.5 text-[9px] font-bold text-zinc-400 transition hover:bg-zinc-500/10">Complete</button>
-                                  <button onClick={(e) => { e.stopPropagation(); updateTradeStatus(post.id, "sold"); }}
-                                    className="flex-1 rounded-lg border border-red-500/30 px-2 py-1.5 text-[9px] font-bold text-red-400 transition hover:bg-red-500/10">Sold</button>
-                                </div>
-                              )}
                               <button onClick={(e) => { e.stopPropagation(); deleteTrade(post.id); }}
                                 className="w-full rounded-lg bg-red-500/10 px-4 py-1.5 text-[10px] font-bold text-red-400 transition hover:bg-red-500/20">Delete</button>
                             </>
@@ -999,31 +1070,47 @@ export default function TradeFeedPage() {
                   <p className="mt-0.5 text-lg font-black text-orange-400">{hotPosts.length}</p>
                 </div>
               </div>
-              <div className="mt-4 space-y-1.5 max-h-32 overflow-y-auto">
+              <div className="mt-3 space-y-0.5 max-h-48 overflow-y-auto scrollbar-thin">
                 {liveEvents.length > 0 ? (
-                  liveEvents.map((ev) => (
-                    <div key={ev.id} className="flex items-center gap-2 rounded-lg bg-zinc-800/20 px-3 py-2 text-sm" style={{ animation: "fadeIn 0.3s ease-out" }}>
-                      <span>{ev.icon}</span>
-                      <span className="truncate text-[var(--foreground)]">{ev.text}</span>
+                  liveEvents.map((ev, idx) => (
+                    <div key={ev.id} className="flex items-start gap-2 py-1 text-xs leading-relaxed animate-[slideIn_0.3s_ease-out]"
+                      style={{ animation: "slideIn 0.3s ease-out", opacity: idx >= liveEvents.length - 3 ? 0.6 : 1 }}>
+                      <span className="shrink-0 mt-0.5">{ev.icon}</span>
+                      <span className="text-[var(--muted)]">{ev.text}</span>
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-[var(--muted)]">Waiting for activity...</p>
+                  <p className="text-xs text-[var(--muted)] italic">Waiting for activity...</p>
                 )}
               </div>
             </div>
 
+
+
             {/* ── TRENDING WORLDS ── */}
             <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 backdrop-blur-xl p-5">
-              <p className="text-sm font-bold text-[var(--foreground)] mb-4">🌍 Trending Worlds</p>
-              <div className="space-y-2.5">
-                {trends.map((t) => (
-                  <div key={t.world} className="flex items-center justify-between cursor-pointer hover:opacity-80" onClick={() => { setSelectedWorld([t.world]); setSelectedFilter("All Posts"); }}>
-                    <div className="flex items-center gap-2"><span>{t.icon}</span><span className="text-sm font-medium text-[var(--foreground)]">{t.label}</span></div>
-                    <div className="flex items-center gap-2"><span className="text-sm text-[var(--muted)]">{t.count}</span><span className="text-xs font-bold text-emerald-400">{t.change}</span></div>
-                  </div>
-                ))}
-                {trends.length === 0 && <p className="text-sm text-[var(--muted)]">No data yet...</p>}
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm font-bold text-[var(--foreground)]">🔥 Trending Worlds</p>
+                <span className="text-[10px] text-[var(--muted)]">By activity</span>
+              </div>
+              <div className="space-y-2">
+                {trends.length > 0 ? (
+                  trends.map((t, i) => (
+                    <div key={t.world} className="flex items-center gap-3 rounded-lg bg-zinc-800/20 px-3.5 py-2.5 transition hover:bg-zinc-800/40">
+                      <span className="text-xl">{t.icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-[var(--foreground)] truncate">{t.label}</p>
+                        <p className="text-[11px] text-[var(--muted)]">{t.count} post{t.count !== 1 ? "s" : ""}</p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400">
+                        {t.change}
+                      </span>
+                      {i === 0 && <span className="text-xs">👑</span>}
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-[var(--muted)] italic py-2 text-center">Not enough data yet...</p>
+                )}
               </div>
             </div>
 
@@ -1090,6 +1177,7 @@ export default function TradeFeedPage() {
           sellerEmail: checkoutPost.sellerEmail, sellerUsername: checkoutPost.sellerUsername,
           pickupAvailable: checkoutPost.pickupAvailable, shippingAvailable: checkoutPost.shippingAvailable,
           pickupArea: checkoutPost.pickupArea, shippingFee: checkoutPost.shippingFee, freeShipping: checkoutPost.freeShipping,
+          badgeForSale: checkoutPost.badgeForSale,
         }} buyerEmail={user.email} onClose={() => setCheckoutPost(null)} />
       )}
       {promotePost && <PromoteModal collectionName="tradePosts" listing={promotePost} onClose={() => setPromotePost(null)} />}

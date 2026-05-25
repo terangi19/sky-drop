@@ -29,14 +29,16 @@ import {
 import { ref, uploadBytes, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { detectScam } from "../lib/scamdetection";
 import { detectSuspiciousPrice } from "../lib/pricedetection";
+import { checkImage } from "../lib/nsfw";
+import { showToast } from "../components/Toast";
+import { createPendingXP, trackListingCreated } from "../lib/xpValidation";
+import { useProfile } from "../contexts/ProfileContext";
 
 export default function PostPage() {
   const router = useRouter();
+  const { username } = useProfile();
   const [user, setUser] =
     useState<User | null>(null);
-
-  const [username, setUsername] =
-    useState("");
 
   const [title, setTitle] =
     useState("");
@@ -105,28 +107,20 @@ export default function PostPage() {
             currentUser?.uid
           ) {
             try {
-              const profileRef =
-                doc(
-                  db,
-                  "profiles",
-                  currentUser.uid
-                );
-
               const profileSnap =
                 await getDoc(
-                  profileRef
+                  doc(
+                    db,
+                    "profiles",
+                    currentUser.uid
+                  )
                 );
 
               if (
                 profileSnap.exists()
               ) {
-                const data = profileSnap.data();
-                setUsername(
-                  data.username ||
-                    ""
-                );
                 setRestricted(
-                  data.restricted === true
+                  profileSnap.data().restricted === true
                 );
               }
             } catch (error) {
@@ -203,6 +197,12 @@ export default function PostPage() {
       setUploadProgress(0);
       setLoading(true);
       for (const file of imageFiles) {
+        const nsfwResult = await checkImage(file);
+        if (!nsfwResult.safe) {
+          showToast(`"${file.name}" flagged: ${nsfwResult.reason}. Remove it and try again.`, "error");
+          setLoading(false);
+          return;
+        }
         const storageRef = ref(storage, `listings/${user.uid}/${Date.now()}_${file.name}`);
         const task = uploadBytesResumable(storageRef, file);
         await new Promise<void>((resolve, reject) => {
@@ -216,7 +216,7 @@ export default function PostPage() {
         });
       }
 
-      await addDoc(collection(db, "listings"), {
+      const listingRef = await addDoc(collection(db, "listings"), {
         title,
         description,
         price: String(price),
@@ -246,6 +246,8 @@ export default function PostPage() {
         bidCount: 0,
         highestBidder: null,
       });
+      createPendingXP(user.uid, "listing", listingRef.id, listingRef.id);
+      trackListingCreated(user.uid, title);
 
       router.push("/");
       return;

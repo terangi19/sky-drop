@@ -3,12 +3,14 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "./components/AuthProvider";
 import { RouteGuard } from "./components/RouteGuard";
+import { ProfileProvider } from "./contexts/ProfileContext";
 import VerificationBanner from "./components/VerificationBanner";
 import ToastContainer from "./components/Toast";
 import Footer from "./components/Footer";
 import DropIndicator from "./components/DropIndicator";
 import Spotlight from "./components/Spotlight";
 import ScrollToTop from "./components/ScrollToTop";
+import LegendaryClaimNotification from "./components/LegendaryClaimNotification";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -72,7 +74,7 @@ export default function RootLayout({
             })();
           `,
         }} />
-        <AuthProvider><VerificationBanner /><RouteGuard>{children}<Footer /><DropIndicator /><Spotlight /><ScrollToTop /></RouteGuard><ToastContainer /></AuthProvider>
+        <AuthProvider><ProfileProvider><VerificationBanner /><RouteGuard>{children}<Footer /><DropIndicator /><Spotlight /><ScrollToTop /></RouteGuard><ToastContainer /><LegendaryClaimNotification /></ProfileProvider></AuthProvider>
       </body>
     </html>
   );

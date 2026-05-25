@@ -90,28 +90,16 @@ export default function DropTokenList({ userId, userEmail }: { userId: string; u
         {available.length === 0 ? (
           <p className="text-xs text-[var(--muted)]">No Drop Tokens yet. Find drops to earn free boosts!</p>
         ) : (
-          <div className="space-y-2">
-            {available.slice(0, 10).map((token) => (
-              <div key={token.id} className="flex items-center justify-between rounded-lg bg-zinc-800/30 px-3 py-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm">🎁</span>
-                  <div>
-                    <p className="text-xs font-bold text-[var(--foreground)]">Drop Token</p>
-                    <p className="text-[9px] text-[var(--muted)]">{token.id.slice(0, 8)}...</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => { setSelectedToken(token.id); setShowPicker(true); }}
-                  className="rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white transition hover:bg-sky-400"
-                >
-                  Use
-                </button>
-              </div>
-            ))}
-            {available.length > 10 && (
-              <p className="text-center text-[10px] text-[var(--muted)]">+{available.length - 10} more</p>
-            )}
-          </div>
+          <button
+            onClick={() => { setSelectedToken(available[0].id); setShowPicker(true); }}
+            className="flex w-full items-center justify-between rounded-lg border border-zinc-700/50 bg-zinc-800/20 px-4 py-3 transition hover:border-sky-500/40 hover:bg-sky-500/5"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🎁</span>
+              <span className="text-sm font-bold text-[var(--foreground)]">Use a Drop Token</span>
+            </div>
+            <span className="rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white transition hover:bg-sky-400">Use</span>
+          </button>
         )}
       </div>
 

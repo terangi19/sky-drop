@@ -16,7 +16,6 @@ import {
 
 import {
   doc,
-  getDoc,
   updateDoc,
   collection,
   query,
@@ -33,16 +32,16 @@ import {
 
 import NotificationBell from "./NotificationBell";
 import NotificationDropdown from "./NotificationDropdown";
+import { useProfile } from "../contexts/ProfileContext";
+
 
 export default function Navbar() {
   const pathname = usePathname();
+  const { username } = useProfile();
   const [user, setUser] =
     useState<User | null>(
       null
     );
-
-  const [username, setUsername] =
-    useState("");
 
   const [
     notificationCount,
@@ -88,44 +87,8 @@ export default function Navbar() {
     const unsubscribe =
       onAuthStateChanged(
         auth,
-        async (
-          currentUser
-        ) => {
-          setUser(
-            currentUser
-          );
-
-          if (
-            currentUser?.uid
-          ) {
-            try {
-              const profileRef =
-                doc(
-                  db,
-                  "profiles",
-                  currentUser.uid
-                );
-
-              const profileSnap =
-                await getDoc(
-                  profileRef
-                );
-
-              if (
-                profileSnap.exists()
-              ) {
-                setUsername(
-                  profileSnap.data()
-                    .username ||
-                    ""
-                );
-              }
-            } catch (error) {
-              console.error(
-                error
-              );
-            }
-          }
+        (currentUser) => {
+          setUser(currentUser);
         }
       );
 
@@ -384,7 +347,7 @@ export default function Navbar() {
                 href="/profile"
                 className="hidden md:inline-flex rounded-2xl border border-white/10 bg-white/5 px-4 py-2.5 font-bold text-[var(--foreground)] transition hover:border-sky-400 hover:text-sky-400"
               >
-                {username || user?.email?.split("@")[0] || "Profile"}
+                {username || "Profile"}
               </Link>
 
               <button
@@ -413,7 +376,7 @@ export default function Navbar() {
               { href: "/", label: "Home", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
               { href: "/trade-feed", label: "Trade", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
               { href: "/messages", label: "Inbox", icon: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" },
-              { href: "/post", label: "Sell", icon: "M12 4v16m8-8H4" },
+              { href: "/post/ai", label: "Sell", icon: "M12 4v16m8-8H4" },
               { href: "/profile", label: "Profile", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
             ].map((item) => (
               <Link key={item.href} href={item.href}
@@ -437,6 +400,7 @@ export default function Navbar() {
       )}
       {/* Add padding to main content so bottom nav doesn't overlap */}
       {user && <style jsx global>{`main { padding-bottom: 64px; } @media (min-width: 768px) { main { padding-bottom: 0; } }`}</style>}
+
     </header>
   );
 }

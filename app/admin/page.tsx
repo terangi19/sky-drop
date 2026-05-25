@@ -14,6 +14,7 @@ import {
   onSnapshot,
   orderBy,
   query,
+  where,
 } from "firebase/firestore";
 
 import {
@@ -37,6 +38,7 @@ export default function AdminPage() {
     useState(true);
 
   const [checking, setChecking] = useState(true);
+  const [pendingVerifications, setPendingVerifications] = useState(0);
   const router = useRouter();
 
   // ADMIN EMAILS
@@ -92,6 +94,12 @@ export default function AdminPage() {
       );
 
     return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const q = query(collection(db, "profiles"), where("proofOfAddress.status", "==", "pending"));
+    const unsub = onSnapshot(q, (snap) => setPendingVerifications(snap.docs.length));
+    return () => unsub();
   }, []);
 
   async function deleteReport(
@@ -249,6 +257,16 @@ export default function AdminPage() {
               Enabled
             </h2>
           </div>
+
+          <a href="/admin/verification" className="rounded-3xl border border-emerald-500/20 bg-[var(--card)] p-6 shadow-xl transition hover:border-emerald-500/40 hover:shadow-[0_0_20px_rgba(16,185,129,0.1)]">
+            <p className="text-sm text-[var(--muted)]">
+              Verification
+            </p>
+
+            <h2 className="mt-3 text-4xl font-black text-emerald-400">
+              {pendingVerifications} pending →
+            </h2>
+          </a>
         </div>
 
         {/* REPORTS */}

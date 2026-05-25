@@ -17,6 +17,8 @@ function SuccessInner() {
   const title = searchParams.get("title") || "Listing";
   const price = searchParams.get("price") || "0";
   const buyerEmail = searchParams.get("buyerEmail") || "";
+  const badgeForSale = searchParams.get("badgeForSale") || "";
+  const collectionName = searchParams.get("collectionName") || "listings";
 
   useEffect(() => {
     async function processOrder() {
@@ -29,7 +31,7 @@ function SuccessInner() {
       }
 
       try {
-        const listingRef = doc(db, "listings", listingId);
+        const listingRef = doc(db, collectionName, listingId);
         const listingSnap = await getDoc(listingRef);
 
         if (!listingSnap.exists()) {
@@ -41,7 +43,42 @@ function SuccessInner() {
         const sellerEmail = listingData.sellerEmail || "";
 
         // Mark listing as sold
-        await updateDoc(listingRef, { status: "sold" });
+        try {
+          await updateDoc(listingRef, { status: "sold" });
+        } catch (e) { console.error("Failed to mark listing as sold:", e); }
+
+        // Auto-transfer badge if applicable
+        if (badgeForSale && sellerEmail && buyerEmail) {
+          try {
+            const { collection, query, where, getDocs } = await import("firebase/firestore");
+            const { autoTransferBadge } = await import("../../lib/xpValidation");
+            const sellerSnap = await getDocs(query(collection(db, "profiles"), where("email", "==", sellerEmail)));
+            const buyerSnap = await getDocs(query(collection(db, "profiles"), where("email", "==", buyerEmail)));
+            const sellerId = sellerSnap.docs[0]?.id;
+            const buyerId = buyerSnap.docs[0]?.id;
+            if (sellerId && buyerId) {
+              const purchaseRef = await addDoc(collection(db, "purchases"), {
+                listingId,
+                listingTitle: listingData.title || title,
+                listingPrice: listingData.price || price,
+                listingImage: listingData.imageUrl || "",
+                sellerEmail,
+                buyerEmail,
+                buyerName: buyerEmail,
+                deliveryMethod: "badge",
+                badgeTransfer: badgeForSale,
+                total: Number(listingData.price || price) + 1,
+                processingFee: 1.00,
+                status: "pending",
+                paidAt: serverTimestamp(),
+                createdAt: serverTimestamp(),
+              });
+              await autoTransferBadge(sellerId, buyerId, badgeForSale, purchaseRef.id);
+            }
+          } catch (e) {
+            console.error("Auto badge transfer failed:", e);
+          }
+        }
 
         // Create order record
         const orderRef = await addDoc(collection(db, "orders"), {

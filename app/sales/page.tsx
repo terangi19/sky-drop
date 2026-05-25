@@ -8,6 +8,8 @@ import { onAuthStateChanged, User } from "firebase/auth";
 import { collection, doc, getDoc, onSnapshot, orderBy, query, updateDoc, where } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 import { createNotification } from "../lib/notifications";
+import { awardXP } from "../lib/xp";
+import { showToast } from "../components/Toast";
 
 interface Purchase {
   id: string;
@@ -26,6 +28,7 @@ interface Purchase {
   status: string;
   paidAt?: any;
   createdAt?: any;
+  badgeTransfer?: string;
 }
 
 const statusStyles: Record<string, string> = {
@@ -115,6 +118,10 @@ export default function SalesPage() {
           }
         } catch (e) { console.error("Payout transfer failed:", e); }
       }
+
+      if (newStatus === "delivered") {
+        await awardXP(user!.uid, 50);
+      }
     } catch (e) {
       console.error("Failed to update status:", e);
     }
@@ -151,7 +158,7 @@ export default function SalesPage() {
         ) : sales.length === 0 ? (
           <div className="mt-12 text-center">
             <p className="text-[var(--muted)]">No sales yet.</p>
-            <Link href="/post" className="mt-2 inline-block text-sm text-sky-400 hover:underline">Create a listing</Link>
+            <Link href="/post/ai" className="mt-2 inline-block text-sm text-sky-400 hover:underline">Create a listing</Link>
           </div>
         ) : (
           <div className="mt-6 space-y-3">
@@ -187,14 +194,14 @@ export default function SalesPage() {
                 </div>
 
                 <div className="flex shrink-0 flex-col gap-1.5">
-                  {nextStatus[s.status] && (
+                  {nextStatus[s.status] ? (
                     <button
                       onClick={() => setConfirmAction({ id: s.id, status: nextStatus[s.status].status, label: nextStatus[s.status].label })}
                       className="rounded-xl bg-sky-500 px-4 py-2 text-[11px] font-bold text-[var(--foreground)] transition hover:bg-sky-400"
                     >
                       {nextStatus[s.status].label}
                     </button>
-                  )}
+                  ) : null}
                   <Link
                     href={`/messages?user=${encodeURIComponent(s.buyerEmail || "")}&listing=${s.listingId}`}
                     className="rounded-xl border border-zinc-700 px-4 py-2 text-[11px] text-[var(--foreground)] transition hover:border-zinc-600 text-center"

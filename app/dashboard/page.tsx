@@ -5,10 +5,14 @@ import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { collection, limit, onSnapshot, query, where } from "firebase/firestore";
+import { collection, doc, limit, onSnapshot, query, where } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 import DropTokenList from "../components/DropTokenList";
 import SponsorDropModal from "../components/SponsorDropModal";
+import LootCrateModal from "../components/LootCrateModal";
+import DailyChallenges from "../components/DailyChallenges";
+import { getLevelInfo } from "../lib/xp";
+import { trackChallenge } from "../lib/challenges";
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -18,11 +22,24 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [showSponsor, setShowSponsor] = useState(false);
   const [sponsorListing, setSponsorListing] = useState<any>(null);
+  const [xp, setXp] = useState(0);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => setUser(u));
     return () => unsub();
   }, []);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    const unsub = onSnapshot(doc(db, "profiles", user.uid), (snap) => {
+      if (snap.exists()) setXp(snap.data().xp || 0);
+    });
+    return () => unsub();
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (user?.uid) trackChallenge(user.uid, "visit_profile").catch(() => {});
+  }, [user?.uid]);
 
   useEffect(() => {
     if (!user?.email) return;
@@ -192,6 +209,17 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* Payout */}
+        <div className="mt-8 rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
+          <h2 className="text-sm font-bold text-[var(--foreground)]">Payouts</h2>
+          <p className="mt-1 text-xs text-[var(--muted)]">Available balance: <span className="font-bold text-sky-400">${stats.totalEarnings.toFixed(2)}</span></p>
+          <p className="text-[10px] text-[var(--muted)]">Set up Stripe Connect in your profile to withdraw funds.</p>
+          <Link href="/profile" className="mt-3 inline-block rounded-lg bg-sky-500 px-4 py-2 text-xs font-bold text-[var(--foreground)] hover:bg-sky-400">Manage Payout Settings</Link>
+        </div>
+
+        {/* Daily Challenges */}
+        {user && <div className="mt-8"><DailyChallenges userId={user.uid} /></div>}
+
         {/* Expiring soon */}
         {expiringSoon.length > 0 && (
           <div className="mt-8">
@@ -244,6 +272,30 @@ export default function DashboardPage() {
         {/* Drop Tokens */}
         {user && <div className="mt-8"><DropTokenList userId={user.uid} userEmail={user.email!} /></div>}
 
+        {/* XP & Level */}
+        {user && (
+          <div className="mt-8 rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-[var(--muted)]">Level {getLevelInfo(xp).level}</p>
+                <p className="text-lg font-black text-[var(--foreground)]">{xp} XP</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-[var(--muted)]">{getLevelInfo(xp).progress}/{getLevelInfo(xp).xpToNext}</p>
+              </div>
+            </div>
+            <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-zinc-800">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-400 transition-all duration-500"
+                style={{ width: `${getLevelInfo(xp).progress}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Sky Crate */}
+        {user && <LootCrateModal userId={user.uid} userEmail={user.email!} onClose={() => {}} inline />}
+
         {/* Sponsor a Drop */}
         {user && listings.length > 0 && (
           <div className="mt-8 rounded-xl border border-amber-500/20 bg-amber-500/5 p-5">
@@ -273,14 +325,6 @@ export default function DashboardPage() {
         {showSponsor && sponsorListing && user && (
           <SponsorDropModal listing={sponsorListing} sellerEmail={user.email!} userId={user.uid} onClose={() => setShowSponsor(false)} />
         )}
-
-        {/* Payout */}
-        <div className="mt-8 rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
-          <h2 className="text-sm font-bold text-[var(--foreground)]">Payouts</h2>
-          <p className="mt-1 text-xs text-[var(--muted)]">Available balance: <span className="font-bold text-sky-400">${stats.totalEarnings.toFixed(2)}</span></p>
-          <p className="text-[10px] text-[var(--muted)]">Set up Stripe Connect in your profile to withdraw funds.</p>
-          <Link href="/profile" className="mt-3 inline-block rounded-lg bg-sky-500 px-4 py-2 text-xs font-bold text-[var(--foreground)] hover:bg-sky-400">Manage Payout Settings</Link>
-        </div>
       </section>
     </main>
   );

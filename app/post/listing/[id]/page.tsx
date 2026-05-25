@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import Navbar from "../../../components/Navbar";
@@ -83,6 +83,7 @@ interface SellerProfile {
   verified?: boolean;
   trustedSeller?: boolean;
   phoneVerified?: boolean;
+  profileBadge?: string;
   [key: string]: unknown;
 }
 
@@ -113,6 +114,7 @@ export default function ListingPage() {
   const [autoBidEnabled, setAutoBidEnabled] = useState(true);
   const [showBidModal, setShowBidModal] = useState(false);
   const [sellerListings, setSellerListings] = useState<any[]>([]);
+  const prevHighestBidderRef = useRef<string | null>(null);
 
   // Auto-open checkout if navigated with ?buy=1
   useEffect(() => {
@@ -173,6 +175,17 @@ export default function ListingPage() {
     })();
     return () => { mounted = false; };
   }, [user?.email, listingId]);
+
+  // Outbid detection
+  useEffect(() => {
+    if (!user?.email || !listing) return;
+    const prev = prevHighestBidderRef.current;
+    const current = listing.highestBidder;
+    if (prev === user.email && current && current !== user.email) {
+      showToast("You've been outbid! 💰", "error");
+    }
+    prevHighestBidderRef.current = current || null;
+  }, [listing?.highestBidder, user?.email, listing]);
 
   useEffect(() => {
     if (!listing?.sellerEmail) return;
@@ -727,6 +740,14 @@ export default function ListingPage() {
                 ) : (
                   <div className="flex h-64 items-center justify-center bg-zinc-700/30 text-[var(--muted)] text-sm">No image</div>
                 )}
+                {listing.description && (
+                  <div className="border-t border-zinc-700/50 px-5 py-4">
+                    <h2 className="mb-2 text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Description</h2>
+                    <div className="text-sm leading-relaxed text-[var(--foreground)] whitespace-pre-wrap">
+                      {listing.description}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })()}
@@ -854,7 +875,7 @@ export default function ListingPage() {
                         Buy Now
                       </button>
                       {(listing.saleType === "auction" || listing.saleType === "auction_buy_now") && user && user.email !== listing.sellerEmail && (
-                        <button onClick={() => setShowBidModal(true)}
+                        <button onClick={() => { setShowBidModal(true); setBidAmount(String(getMinimumNextBid(listing.currentBid || listing.startingBid || 0))); }}
                           className="flex-1 rounded-lg border border-amber-500/40 bg-amber-500/10 py-2.5 text-[13px] font-bold text-amber-400 transition hover:bg-amber-500/20">
                           Bid Now
                         </button>
@@ -936,6 +957,12 @@ export default function ListingPage() {
                       {isNewSeller && (
                         <span className="shrink-0 text-[10px] text-amber-400">New</span>
                       )}
+                      {sellerProfile?.profileBadge === "epic" && (
+                        <span className="shrink-0 text-[10px] text-violet-400 font-bold">💎 Epic</span>
+                      )}
+                      {sellerProfile?.profileBadge === "legendary" && (
+                        <span className="shrink-0 text-[10px] text-amber-400 font-bold animate-pulse">👑 The Five</span>
+                      )}
                     </div>
                     <div className="mt-0.5 flex items-center gap-2 text-[11px] text-[var(--muted)]">
                       <span>{'★'.repeat(sellerStars)}{sellerHasHalf ? '½' : ''} {(sellerStatsData?.avg || 0).toFixed(1)}</span>
@@ -999,23 +1026,6 @@ export default function ListingPage() {
           </div>
         </div>
 
-        {/* ── DESCRIPTION (below main layout) ── */}
-        {listing.description && (
-          <div className="mt-6">
-            <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-[var(--muted)]">Description</h2>
-            <div className="text-sm leading-relaxed text-[var(--foreground)] whitespace-pre-wrap">
-              {listing.description}
-            </div>
-          </div>
-        )}
-
-        {/* SIMILAR LISTINGS */}
-        <div className="mt-8">
-          <h2 className="text-sm font-bold text-[var(--foreground)]">Similar Listings</h2>
-          <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-900/40 px-4 py-6 text-center text-xs text-[var(--muted)]">
-            More items in this category coming soon.
-          </div>
-        </div>
       </section>
 
       {sellerListings.length > 0 && (

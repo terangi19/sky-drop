@@ -8,6 +8,8 @@ import { onAuthStateChanged, User } from "firebase/auth";
 import { addDoc, collection, doc, onSnapshot, orderBy, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 import { createNotification } from "../lib/notifications";
+import { awardXP } from "../lib/xp";
+import { showToast } from "../components/Toast";
 
 interface Purchase {
   id: string;
@@ -27,6 +29,7 @@ interface Purchase {
   paidAt?: any;
   createdAt?: any;
   pickupArea?: string;
+  badgeTransfer?: string;
   freeShipping?: boolean;
   trackingNumber?: string;
   estimatedDays?: number;
@@ -107,12 +110,13 @@ export default function PurchasesPage() {
     }
   }, [purchases]);
 
-  async function updateStatus(id: string, status: string) {
+  async function updateStatus(id: string, status: string, badge?: string) {
     try {
       await updateDoc(doc(db, "purchases", id), { status, deliveredAt: serverTimestamp() });
 
       const purchase = purchases.find((p) => p.id === id);
       if (purchase && status === "delivered") {
+        await awardXP(user!.uid, 25);
         await createNotification({
           targetEmail: purchase.sellerEmail,
           fromEmail: user!.email!,
@@ -166,7 +170,7 @@ export default function PurchasesPage() {
     return items;
   }, [purchases, filter, search, sort]);
 
-  function nextAction(p: Purchase): { label: string; action: string; color: string } | null {
+  function nextAction(p: Purchase): { label: string; action: string; color: string; badge?: string } | null {
     if (p.status === "shipped") return { label: "Confirm Received", action: "delivered", color: "bg-emerald-500" };
     return null;
   }
@@ -434,7 +438,7 @@ export default function PurchasesPage() {
                     )}
                     {action && (
                       <button
-                        onClick={() => updateStatus(p.id, action.action)}
+                        onClick={() => updateStatus(p.id, action.action, (action as any).badge)}
                         className={`ml-auto rounded-lg ${action.color} px-4 py-2 text-[11px] font-bold text-[var(--foreground)] transition hover:brightness-110`}
                       >
                         {action.label}

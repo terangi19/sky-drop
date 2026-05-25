@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useMemo } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { collection, deleteDoc, doc, onSnapshot, orderBy, query } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDoc, onSnapshot, orderBy, query } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
@@ -25,6 +25,7 @@ export default function WatchlistPage() {
   const [user, setUser] = useState<User | null>(null);
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [listingStats, setListingStats] = useState<Record<string, { views: number; bidCount: number }>>({});
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("newest");
   const [clearConfirm, setClearConfirm] = useState(false);
@@ -47,6 +48,38 @@ export default function WatchlistPage() {
     });
     return () => unsub();
   }, []);
+
+  // Fetch views & bidCount for watchlist items
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const map: Record<string, { views: number; bidCount: number }> = {};
+      for (const item of watchlist) {
+        if (!item.id) continue;
+        try {
+          const snap = await getDoc(doc(db, "listings", item.id));
+          if (snap.exists() && !cancelled) {
+            const data = snap.data();
+            map[item.id] = { views: data.views || 0, bidCount: data.bidCount || 0 };
+          }
+        } catch {}
+      }
+      if (!cancelled) setListingStats(map);
+    })();
+    return () => { cancelled = true; };
+  }, [watchlist]);
+
+  const popularIds = useMemo(() => {
+    const entries = Object.entries(listingStats);
+    if (entries.length === 0) return new Set<string>();
+    const maxViews = Math.max(...entries.map(([, s]) => s.views), 1);
+    const maxBids = Math.max(...entries.map(([, s]) => s.bidCount), 1);
+    return new Set(
+      entries
+        .filter(([, s]) => s.views / maxViews + s.bidCount / maxBids >= 0.6)
+        .map(([id]) => id)
+    );
+  }, [listingStats]);
 
   const removeItem = async (id: string, e: React.MouseEvent) => {
     e.preventDefault();
@@ -211,7 +244,11 @@ export default function WatchlistPage() {
                 <Link
                   key={item.id}
                   href={`/post/listing/${item.id}`}
-                  className="group relative block overflow-hidden rounded-xl bg-zinc-900/60 border border-zinc-800/50 transition-all duration-200 hover:-translate-y-1 hover:border-sky-500/30 hover:shadow-[0_8px_25px_rgba(0,0,0,0.2)]"
+                  className={`group relative block overflow-hidden rounded-xl transition-all duration-200 ${
+                    popularIds.has(item.id)
+                      ? "border-orange-500/30 bg-orange-500/[0.04] shadow-[0_0_20px_rgba(251,146,60,0.2)] animate-breathe-orange hover:border-orange-500/50 hover:shadow-[0_0_30px_rgba(251,146,60,0.35)]"
+                      : "bg-zinc-900/60 border border-zinc-800/50 hover:-translate-y-1 hover:border-sky-500/30 hover:shadow-[0_8px_25px_rgba(0,0,0,0.2)]"
+                  }`}
                 >
                   <button
                     onClick={(e) => removeItem(item.id, e)}
@@ -238,6 +275,9 @@ export default function WatchlistPage() {
                       </div>
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                    {popularIds.has(item.id) && (
+                      <span className="absolute top-2 left-2 z-10 rounded-md bg-orange-600/90 px-2 py-0.5 text-[9px] font-bold text-white">🔥 Hot</span>
+                    )}
                     {item.status === "sold" && (
                       <div className="absolute inset-0 flex items-center justify-center bg-black/60">
                         <span className="rounded-md bg-red-600/90 px-3 py-1 text-xs font-black uppercase tracking-wider text-white">Sold</span>

@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import Navbar from "./components/Navbar";
 import Background from "./components/Background";
 import { showToast } from "./components/Toast";
+import { cancelPendingXPByListing, trackListingDeleted } from "./lib/xpValidation";
 
 import {
   onAuthStateChanged,
@@ -169,6 +170,7 @@ export default function Home() {
   const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
   const [authReady, setAuthReady] = useState(false);
   const [sellerReviewStats, setSellerReviewStats] = useState<Record<string, { avg: number; count: number }>>({});
+  const [sellerBadges, setSellerBadges] = useState<Record<string, string>>({});
   const [savedSearches, setSavedSearches] = useState<Array<{query: string; category: string; label: string}>>([]);
   const [showSaveSearch, setShowSaveSearch] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<Listing | null>(null);
@@ -292,6 +294,29 @@ export default function Home() {
     if (listings.length > 0) fetchReviewStats();
   }, []);
 
+  // Fetch seller profile badges (legendary/epic)
+  useEffect(() => {
+    if (listings.length === 0) return;
+    const fetchBadges = async () => {
+      const uniqueEmails = [...new Set(listings.map((l: any) => l.sellerEmail).filter(Boolean))] as string[];
+      if (uniqueEmails.length === 0) return;
+      const badges: Record<string, string> = {};
+      for (let i = 0; i < uniqueEmails.length; i += 10) {
+        const chunk = uniqueEmails.slice(i, i + 10);
+        try {
+          const snap = await getDocs(query(collection(db, "profiles"), where("email", "in", chunk)));
+          snap.docs.forEach((d) => {
+            const data = d.data();
+            const email = data.email as string;
+            if (data.profileBadge) badges[email] = data.profileBadge as string;
+          });
+        } catch (e) { console.error("Badge fetch error:", e); }
+      }
+      setSellerBadges(badges);
+    };
+    fetchBadges();
+  }, [listings.length]);
+
   // Infinite scroll via IntersectionObserver
   useEffect(() => {
     const el = sentinelRef.current;
@@ -323,6 +348,9 @@ export default function Home() {
           id
         )
       );
+
+      cancelPendingXPByListing(user!.uid, id);
+      trackListingDeleted(user!.uid, listing.title || "");
 
       alert(
         "Listing deleted."
@@ -424,6 +452,7 @@ export default function Home() {
           id: item.id, title: item.title, price: item.price, imageUrl: item.imageUrl || item.image || "",
           savedAt: new Date().toISOString(),
         });
+
       }
       showToast("Added to watchlist!");
     }
@@ -592,6 +621,9 @@ export default function Home() {
     setOfferListing(null);
     setOfferAmount("");
   };
+
+  const hotItems = useMemo(() => [...listings].filter(l => l.status !== "sold").slice(0, 6) as any[], [listings]);
+  const hotMaxViews = useMemo(() => Math.max(...hotItems.map((i: any) => i.views || 0), 1), [hotItems]);
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)] transition-colors duration-300">
@@ -798,18 +830,24 @@ export default function Home() {
             <p className="text-[13px] font-bold uppercase tracking-[0.22em] text-[var(--foreground)]">🔥 Hot This Week</p>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {[...listings].filter(l => l.status !== "sold").slice(0, 6).map((item) => (
-              <div key={item.id} onClick={() => { saveRecentlyViewed(item); router.push(`/post/listing/${item.id}`); }}
-                className="group shrink-0 w-56 cursor-pointer rounded-xl border border-zinc-800/40 bg-zinc-900/50 p-3 transition-all duration-200 hover:border-orange-500/30 hover:-translate-y-0.5">
-                {item.images?.[0] || item.imageUrl || item.image ? (
+            {hotItems.map((item: any) => (
+            <div key={item.id} onClick={() => { saveRecentlyViewed(item); router.push(`/post/listing/${item.id}`); }}
+              className={`group shrink-0 w-56 cursor-pointer rounded-xl p-3 transition-all duration-200 ${
+                (item.views || 0) / hotMaxViews >= 0.3 || item.promotedUntil?.toMillis?.() > Date.now() || (item.bidCount || 0) >= 3 || (item.watchlistCount || 0) >= 3
+                  ? "border-orange-500/30 bg-orange-500/[0.04] shadow-[0_0_20px_rgba(251,146,60,0.2)] animate-breathe-orange hover:border-orange-500/50 hover:shadow-[0_0_30px_rgba(251,146,60,0.35)]"
+                  : "border border-zinc-800/40 bg-zinc-900/50 hover:border-orange-500/30 hover:-translate-y-0.5"
+              }`}>
+              {item.images?.[0] || item.imageUrl || item.image ? (
+                <div className="relative">
                   <img src={item.images?.[0] || item.imageUrl || item.image || ""} alt="" loading="lazy" className="h-20 w-full rounded-lg object-cover" />
-                ) : (
-                  <div className="h-20 w-full rounded-lg bg-gradient-to-br from-orange-500/10 via-red-500/10 to-amber-500/10 flex items-center justify-center text-xs text-[var(--muted)]">SD</div>
-                )}
-                <p className="mt-2 truncate text-sm font-bold text-[var(--foreground)]">{item.title}</p>
-                <p className="mt-0.5 text-sm font-black text-orange-400">${item.price} <span className="text-[10px] text-[var(--muted)]">· 👁 {(item as any).views || 0}</span></p>
-              </div>
-            ))}
+                </div>
+              ) : (
+                <div className="h-20 w-full rounded-lg bg-gradient-to-br from-orange-500/10 via-red-500/10 to-amber-500/10 flex items-center justify-center text-xs text-[var(--muted)]">SD</div>
+              )}
+              <p className="mt-2 truncate text-sm font-bold text-[var(--foreground)]">{item.title}</p>
+              <p className="mt-0.5 text-sm font-black text-orange-400">${item.price} <span className="text-[10px] text-[var(--muted)]">· 👁 {(item as any).views || 0}</span></p>
+            </div>
+          ))}
           </div>
         </section>
       )}
@@ -860,27 +898,27 @@ export default function Home() {
 
         </div>
 
-         {loading && (
-           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-             {[1,2,3,4,5,6,7,8,9,10].map((_, i) => (
-               <div key={i} className="relative overflow-hidden rounded-xl bg-zinc-900/60 border border-zinc-800/50">
-                 <div className="aspect-[4/3] w-full bg-gradient-to-r from-zinc-800/50 via-zinc-700/30 to-zinc-800/50 bg-[length:200%_100%] animate-[shimmer_2s_ease-in-out_infinite]"></div>
-                 <div className="p-3 space-y-2.5">
-                   <div className="flex gap-1.5">
-                     <div className="h-4 w-12 rounded-full bg-gradient-to-r from-zinc-800/50 via-zinc-700/30 to-zinc-800/50 bg-[length:200%_100%] animate-[shimmer_2s_ease-in-out_infinite]"></div>
-                     <div className="h-4 w-8 rounded-full bg-gradient-to-r from-zinc-800/50 via-zinc-700/30 to-zinc-800/50 bg-[length:200%_100%] animate-[shimmer_2s_ease-in-out_infinite]"></div>
-                   </div>
-                   <div className="h-5 w-40 bg-gradient-to-r from-zinc-800/50 via-zinc-700/30 to-zinc-800/50 bg-[length:200%_100%] animate-[shimmer_2s_ease-in-out_infinite] rounded"></div>
-                   <div className="h-4 w-28 bg-gradient-to-r from-zinc-800/50 via-zinc-700/30 to-zinc-800/50 bg-[length:200%_100%] animate-[shimmer_2s_ease-in-out_infinite] rounded"></div>
-                   <div className="flex gap-2">
-                     <div className="h-8 flex-1 rounded-md bg-gradient-to-r from-zinc-800/50 via-zinc-700/30 to-zinc-800/50 bg-[length:200%_100%] animate-[shimmer_2s_ease-in-out_infinite]"></div>
-                     <div className="h-8 w-20 rounded-md bg-gradient-to-r from-zinc-800/50 via-zinc-700/30 to-zinc-800/50 bg-[length:200%_100%] animate-[shimmer_2s_ease-in-out_infinite]"></div>
-                   </div>
-                 </div>
+          {loading && (
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {[1,2,3,4,5,6,7,8,9,10].map((_, i) => (
+                <div key={i} className="relative overflow-hidden rounded-xl bg-zinc-900/60 border border-zinc-800/50">
+                  <div className="aspect-[4/3] w-full bg-gradient-to-r from-zinc-800/50 via-zinc-700/30 to-zinc-800/50 bg-[length:200%_100%] animate-[shimmer_2s_ease-in-out_infinite]"></div>
+                  <div className="p-3 space-y-2.5">
+                    <div className="flex gap-1.5">
+                      <div className="h-4 w-12 rounded-full bg-gradient-to-r from-zinc-800/50 via-zinc-700/30 to-zinc-800/50 bg-[length:200%_100%] animate-[shimmer_2s_ease-in-out_infinite]"></div>
+                      <div className="h-4 w-8 rounded-full bg-gradient-to-r from-zinc-800/50 via-zinc-700/30 to-zinc-800/50 bg-[length:200%_100%] animate-[shimmer_2s_ease-in-out_infinite]"></div>
+                    </div>
+                    <div className="h-5 w-40 bg-gradient-to-r from-zinc-800/50 via-zinc-700/30 to-zinc-800/50 bg-[length:200%_100%] animate-[shimmer_2s_ease-in-out_infinite] rounded"></div>
+                    <div className="h-4 w-28 bg-gradient-to-r from-zinc-800/50 via-zinc-700/30 to-zinc-800/50 bg-[length:200%_100%] animate-[shimmer_2s_ease-in-out_infinite] rounded"></div>
+                    <div className="flex gap-2">
+                      <div className="h-8 flex-1 rounded-md bg-gradient-to-r from-zinc-800/50 via-zinc-700/30 to-zinc-800/50 bg-[length:200%_100%] animate-[shimmer_2s_ease-in-out_infinite]"></div>
+                      <div className="h-8 w-20 rounded-md bg-gradient-to-r from-zinc-800/50 via-zinc-700/30 to-zinc-800/50 bg-[length:200%_100%] animate-[shimmer_2s_ease-in-out_infinite]"></div>
+                    </div>
+                  </div>
                </div>
-             ))}
-           </div>
-         )}
+            ))}
+          </div>
+          )}
 
         {!loading &&
           filteredListings.length ===
@@ -910,12 +948,21 @@ export default function Home() {
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 
-          {filteredListings.slice(0, visibleCount).map(
-            (item) => (
+          {(() => {
+            const visible = filteredListings.slice(0, visibleCount);
+            const maxViews = Math.max(...visible.map((i: any) => i.views || 0), 1);
+            return visible.map((item: any) => {
 
+              const isPopular = item.status !== "sold";
+
+              return (
               <div
                 key={item.id}
-                className="group block overflow-hidden rounded-xl bg-zinc-900/60 border border-zinc-800/50 transition-all duration-200 hover:-translate-y-1 hover:border-sky-500/30 hover:bg-zinc-900/80 hover:shadow-[0_8px_30px_rgba(0,0,0,0.2)] cursor-pointer"
+                className={`group block overflow-hidden rounded-xl transition-all duration-200 cursor-pointer ${
+                  isPopular
+                    ? "border-orange-500/30 bg-orange-500/[0.04] shadow-[0_0_20px_rgba(251,146,60,0.2)] animate-breathe-orange hover:border-orange-500/50 hover:shadow-[0_0_30px_rgba(251,146,60,0.35)]"
+                    : "bg-zinc-900/60 border border-zinc-800/50 hover:-translate-y-1 hover:border-sky-500/30 hover:bg-zinc-900/80 hover:shadow-[0_8px_30px_rgba(0,0,0,0.2)]"
+                }`}
                 onClick={() => { saveRecentlyViewed(item); router.push(`/post/listing/${item.id}`); }}
               >
 
@@ -937,6 +984,9 @@ export default function Home() {
                         </div>
                       )}
                       <div className="absolute top-2 left-2 flex flex-col gap-1">
+                        {item.status !== "sold" && (
+                          <span className="rounded-md bg-orange-600/90 px-2 py-0.5 text-[9px] font-bold text-white">🔥 Hot</span>
+                        )}
                         {(item as any).promotedUntil?.toMillis?.() > Date.now() && (
                           <span className="rounded-md bg-amber-600/90 px-2 py-0.5 text-[9px] font-bold text-white">📈 Promoted</span>
                         )}
@@ -1029,7 +1079,7 @@ export default function Home() {
                     {item.description}
                   </p>
 
-                   <p className="mt-3 text-2xl font-black tracking-tight text-[var(--foreground)]">
+                    <p className="mt-3 text-2xl font-black tracking-tight text-[var(--foreground)]">
                      ${item.price}
                      {(item.saleType === "auction" || item.saleType === "auction_buy_now") && (
                        <span className="ml-2 text-base font-bold text-amber-400">Bid: ${item.currentBid || item.startingBid || 0}</span>
@@ -1158,6 +1208,8 @@ export default function Home() {
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-1">
                                   <span className="truncate text-[14px] font-semibold text-[var(--foreground)]">{username}</span>
+                                  {sellerBadges[email || ""] === "legendary" && <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold text-amber-400 animate-pulse">👑 The Five</span>}
+                                  {sellerBadges[email || ""] === "epic" && <span className="rounded bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-bold text-violet-400">💎 Epic</span>}
                                 </div>
                                 <div className="flex items-center gap-1 text-[11px] text-[var(--muted)]">
                                   {reviewCount > 0 ? (
@@ -1185,8 +1237,9 @@ export default function Home() {
 
               </div>
 
-            )
-          )}
+            );
+          });
+        })()}
 
         </div>
 

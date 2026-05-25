@@ -11,7 +11,7 @@ import AnimatedCheckmark from "./AnimatedCheckmark";
 import { playConfetti, playSuccess } from "../lib/sounds";
 
 interface ListingData {
-  id: string;
+  id?: string;
   title: string;
   price: string;
   images?: string[];
@@ -25,6 +25,7 @@ interface ListingData {
   shippingFee?: number | null;
   freeShipping?: boolean;
   stockQuantity?: number;
+  badgeForSale?: string;
 }
 
 interface CheckoutModalProps {
@@ -34,11 +35,11 @@ interface CheckoutModalProps {
   collectionName?: string;
 }
 
-type DeliveryMethod = "pickup" | "shipping" | null;
+type DeliveryMethod = "pickup" | "shipping" | "badge" | null;
 type Step = "form" | "card" | "processing" | "share_address" | "success";
 
-function PaymentForm({ total, listingId, title, price, buyerEmail, onSuccess, onBack }: {
-  total: number; listingId: string; title: string; price: string; buyerEmail: string; onSuccess: () => void; onBack: () => void;
+function PaymentForm({ total, listingId, title, price, buyerEmail, onSuccess, onBack, badgeForSale, sellerEmail, collectionName }: {
+  total: number; listingId: string; title: string; price: string; buyerEmail: string; onSuccess: () => void; onBack: () => void; badgeForSale?: string; sellerEmail?: string; collectionName?: string;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -52,7 +53,7 @@ function PaymentForm({ total, listingId, title, price, buyerEmail, onSuccess, on
     const { error: submitError } = await stripe.confirmPayment({
       elements,
       confirmParams: {
-        return_url: `${window.location.origin}/checkout/success?listingId=${encodeURIComponent(listingId)}&title=${encodeURIComponent(title)}&price=${encodeURIComponent(price)}&buyerEmail=${encodeURIComponent(buyerEmail)}`,
+        return_url: `${window.location.origin}/checkout/success?listingId=${encodeURIComponent(listingId)}&title=${encodeURIComponent(title)}&price=${encodeURIComponent(price)}&buyerEmail=${encodeURIComponent(buyerEmail)}&collectionName=${encodeURIComponent(collectionName || "listings")}${badgeForSale ? `&badgeForSale=${encodeURIComponent(badgeForSale)}&sellerEmail=${encodeURIComponent(sellerEmail || "")}` : ""}`,
       },
       redirect: "if_required",
     });
@@ -93,6 +94,7 @@ function PaymentForm({ total, listingId, title, price, buyerEmail, onSuccess, on
 export default function CheckoutModal({ listing, buyerEmail, onClose, collectionName = "listings" }: CheckoutModalProps) {
   const router = useRouter();
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>(() => {
+    if (listing.badgeForSale) return "badge";
     if (listing.pickupAvailable && !listing.shippingAvailable) return "pickup";
     if (listing.shippingAvailable && !listing.pickupAvailable) return "shipping";
     return null;
@@ -111,9 +113,10 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
   const shippingAmount = listing.shippingFee && !listing.freeShipping ? listing.shippingFee : 0;
   const itemPrice = Number(listing.price) || 0;
   const processingFee = 1.00;
-  const total = (deliveryMethod === "shipping" ? itemPrice + shippingAmount : itemPrice) + processingFee;
+  const isBadge = deliveryMethod === "badge";
+  const total = isBadge ? itemPrice + processingFee : (deliveryMethod === "shipping" ? itemPrice + shippingAmount : itemPrice) + processingFee;
 
-  const isValid = name.trim() && phone.trim() && (deliveryMethod !== "shipping" || address.trim()) && deliveryMethod;
+  const isValid = isBadge ? name.trim() : name.trim() && phone.trim() && (deliveryMethod !== "shipping" || address.trim()) && deliveryMethod;
 
   // Restore body scroll on unmount
   useEffect(() => {
@@ -197,7 +200,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
       }
       const realPrice = Number(snap.data().price);
       const realShipping = listing.shippingFee && !listing.freeShipping ? Number(listing.shippingFee) : 0;
-      const realTotal = (deliveryMethod === "shipping" ? realPrice + realShipping : realPrice) + 1.00;
+      const realTotal = (deliveryMethod === "badge" ? realPrice : deliveryMethod === "shipping" ? realPrice + realShipping : realPrice) + 1.00;
 
       const res = await fetch("/api/create-payment-intent", {
         method: "POST",
@@ -233,23 +236,43 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
         sellerEmail: listing.sellerEmail,
         buyerEmail,
         buyerName: name.trim(),
-        buyerPhone: phone.trim(),
-        deliveryMethod,
+        buyerPhone: isBadge ? "" : phone.trim(),
+        deliveryMethod: isBadge ? "badge" : deliveryMethod,
         shippingAddress: deliveryMethod === "shipping" ? address.trim() : "",
         shippingFee: deliveryMethod === "shipping" ? shippingAmount : 0,
         processingFee: 1.00,
         total,
+        badgeTransfer: isBadge ? listing.badgeForSale : "",
         status: "pending",
         paidAt: serverTimestamp(),
         createdAt: serverTimestamp(),
       });
 
+      // Auto-transfer badge if applicable
+      if (isBadge && listing.badgeForSale) {
+        try {
+          const { getDocs, query, collection, where } = await import("firebase/firestore");
+          const sellerSnap = await getDocs(query(collection(db, "profiles"), where("email", "==", listing.sellerEmail)));
+          const buyerSnap = await getDocs(query(collection(db, "profiles"), where("email", "==", buyerEmail)));
+          const sellerId = sellerSnap.docs[0]?.id;
+          const buyerId = buyerSnap.docs[0]?.id;
+          if (sellerId && buyerId) {
+            const { autoTransferBadge } = await import("../lib/xpValidation");
+            await autoTransferBadge(sellerId, buyerId, listing.badgeForSale, purchaseRef.id);
+          }
+        } catch (e) {
+          console.error("Auto badge transfer failed:", e);
+        }
+      }
+
       await createNotification({
         type: "purchase",
         targetEmail: listing.sellerEmail,
         fromEmail: buyerEmail,
-        title: "Your item sold! 🎉",
-        message: `${name.trim()} just purchased "${listing.title}" for $${listing.price}. Check your sales page to confirm and ship.`,
+        title: isBadge ? "Your badge was purchased! 🎉" : "Your item sold! 🎉",
+        message: isBadge
+          ? `${name.trim()} just purchased your "${listing.badgeForSale}" badge. It has been automatically transferred.`
+          : `${name.trim()} just purchased "${listing.title}" for $${listing.price}. Check your sales page to confirm and ship.`,
         listingId: listing.id,
         listingTitle: listing.title,
         listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
@@ -265,7 +288,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
         localStorage.setItem("checkoutInfo", JSON.stringify({ name: name.trim(), phone: phone.trim() }));
       } catch {}
 
-      setStep("share_address");
+      setStep(isBadge ? "success" : "share_address");
     } catch (e) {
       console.error("Purchase record failed:", e);
       setStep("share_address");
@@ -318,17 +341,19 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
 
             <div className="mt-4 text-left">
               <p className="mb-2 text-xs text-[var(--muted)]">
-                {deliveryMethod === "shipping"
-                  ? "Share your shipping address with the seller?"
-                  : "Let the seller know you'd like to arrange pickup?"}
+                {isBadge
+                  ? "Badge transferred to your account automatically!"
+                  : deliveryMethod === "shipping"
+                    ? "Share your shipping address with the seller?"
+                    : "Let the seller know you'd like to arrange pickup?"}
               </p>
               <div className="rounded-lg bg-zinc-900/60 px-4 py-3 text-xs space-y-1">
                 <p className="font-bold text-[var(--foreground)]">{name.trim()}</p>
                 {phone.trim() && <p className="text-[var(--muted)]">📞 {phone.trim()}</p>}
-                {deliveryMethod === "shipping" && address.trim() && (
+                {!isBadge && deliveryMethod === "shipping" && address.trim() && (
                   <p className="text-[var(--muted)]">📍 {address.trim()}</p>
                 )}
-                {deliveryMethod === "shipping" && (
+                {!isBadge && deliveryMethod === "shipping" && (
                   <p className="pt-1 text-[10px] text-[var(--muted)]">Only shared if you send below.</p>
                 )}
               </div>
@@ -339,14 +364,16 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                 onClick={() => setStep("success")}
                 className="flex-1 rounded-xl border border-zinc-700 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-zinc-800"
               >
-                Skip
+                {isBadge ? "Done" : "Skip"}
               </button>
-              <button
-                onClick={handleSendAddress}
-                className="flex-1 rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-sky-400"
-              >
-                {deliveryMethod === "shipping" ? "Send Address" : "Send Message"}
-              </button>
+              {!isBadge && (
+                <button
+                  onClick={handleSendAddress}
+                  className="flex-1 rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-sky-400"
+                >
+                  {deliveryMethod === "shipping" ? "Send Address" : "Send Message"}
+                </button>
+              )}
             </div>
           </div>
         ) : step === "success" ? (
@@ -424,7 +451,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
             <div className="space-y-4 overflow-y-auto px-4 py-4 max-h-[60vh]">
               {step === "form" && (
                 <>
-                  {(listing.pickupAvailable && listing.shippingAvailable) && (
+                  {!isBadge && (listing.pickupAvailable && listing.shippingAvailable) && (
                     <div>
                       <label className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-[var(--muted)]">Delivery</label>
                       <div className="space-y-1.5">
@@ -467,12 +494,14 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                   )}
 
                   <div>
-                    <label className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-[var(--muted)]">Your details</label>
+                    <label className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-[var(--muted)]">{isBadge ? "Your name" : "Your details"}</label>
                     <div className="space-y-2">
-                      <input type="text" placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)}
+                      <input type="text" placeholder={isBadge ? "Full name" : "Full name"} value={name} onChange={(e) => setName(e.target.value)}
                         className="w-full rounded-lg border border-zinc-800 bg-zinc-900/60 px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-500/40" />
-                      <input type="tel" placeholder="Phone number" value={phone} onChange={(e) => setPhone(e.target.value)}
-                        className="w-full rounded-lg border border-zinc-800 bg-zinc-900/60 px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-500/40" />
+                      {!isBadge && (
+                        <input type="tel" placeholder="Phone number" value={phone} onChange={(e) => setPhone(e.target.value)}
+                          className="w-full rounded-lg border border-zinc-800 bg-zinc-900/60 px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-500/40" />
+                      )}
                       {deliveryMethod === "shipping" && (
                         <input type="text" placeholder="Shipping address" value={address} onChange={(e) => setAddress(e.target.value)}
                           className="w-full rounded-lg border border-zinc-800 bg-zinc-900/60 px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-500/40" />
@@ -532,7 +561,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                     </div>
                   </div>
                   <Elements stripe={stripePromise} options={{ clientSecret }}>
-                    <PaymentForm total={total} listingId={listing.id} title={listing.title} price={String(total)} buyerEmail={buyerEmail} onSuccess={handlePaymentSuccess} onBack={resetToForm} />
+                    <PaymentForm total={total} listingId={listing.id} title={listing.title} price={String(total)} buyerEmail={buyerEmail} onSuccess={handlePaymentSuccess} onBack={resetToForm} badgeForSale={listing.badgeForSale} sellerEmail={listing.sellerEmail} collectionName={collectionName} />
                   </Elements>
                 </div>
               )}

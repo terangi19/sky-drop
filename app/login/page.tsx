@@ -41,6 +41,12 @@ export default function AuthPage() {
   const [resetSent, setResetSent] = useState(false);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("ref");
+    if (ref) setInviteCode(ref.toUpperCase());
+  }, []);
+
+  useEffect(() => {
     return () => {
       recaptchaRef.current?.clear();
       recaptchaRef.current = null;
@@ -65,14 +71,18 @@ export default function AuthPage() {
         // Save basic profile
         const user = auth.currentUser;
         if (user) {
-          await setDoc(doc(db, "profiles", user.uid), {
+          const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+          const profileData: Record<string, any> = {
             email: user.email,
             phone,
             phoneVerified: false,
+            referralCode: code,
             memberSince: Timestamp.now(),
             lastActive: Timestamp.now(),
             createdAt: serverTimestamp(),
-          });
+          };
+          if (inviteCode.trim()) profileData.referredBy = inviteCode.trim().toUpperCase();
+          await setDoc(doc(db, "profiles", user.uid), profileData);
         }
 
         alert("Account created! A verification email has been sent to your inbox. Please verify to unlock full features.");
@@ -216,6 +226,16 @@ export default function AuthPage() {
                 />
               )}
 
+              {!isLogin && (
+                <input
+                  type="text"
+                  placeholder="Referral code (optional)"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                  className="w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 outline-none focus:border-sky-400"
+                />
+              )}
+
               {phoneMsg && (
                 <p className="text-center text-sm text-[var(--muted)]">{phoneMsg}</p>
               )}
@@ -290,6 +310,35 @@ export default function AuthPage() {
                   Already have an account? Login
                 </button>
               )}
+              <button
+                onClick={async () => {
+                  try {
+                    setLoading(true);
+                    await signInWithEmailAndPassword(auth, "test@skydrop.nz", "test123456");
+                    router.push("/");
+                  } catch {
+                    try {
+                      const cred = await createUserWithEmailAndPassword(auth, "test@skydrop.nz", "test123456");
+                      await setDoc(doc(db, "profiles", cred.user.uid), {
+                        email: "test@skydrop.nz",
+                        username: "tester",
+                        phone: "",
+                        phoneVerified: false,
+                        referralCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
+                        memberSince: Timestamp.now(),
+                        lastActive: Timestamp.now(),
+                        createdAt: serverTimestamp(),
+                      });
+                      router.push("/");
+                    } catch {}
+                  }
+                  setLoading(false);
+                }}
+                disabled={loading}
+                className="mt-3 w-full rounded-lg border border-dashed border-zinc-700 py-2.5 text-xs font-bold text-zinc-500 transition hover:border-zinc-600 hover:text-zinc-400 disabled:opacity-50"
+              >
+                {loading ? "..." : "🧪 Test Login (test@skydrop.nz / test123456)"}
+              </button>
             </>
           )}
         </div>
