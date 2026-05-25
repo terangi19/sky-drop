@@ -6,12 +6,13 @@ import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
 import ThemeToggle from "../../components/ThemeToggle";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, where } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { auth, db, storage } from "../../lib/firebase";
 import { createPendingXP, trackListingCreated } from "../../lib/xpValidation";
 import { checkImage } from "../../lib/nsfw";
 import { showToast } from "../../components/Toast";
+import DigitalAssetUpload from "../../components/DigitalAssetUpload";
 
 const objectToCategory: Record<string, string> = {
   "car": "Cars", "truck": "Cars", "bus": "Cars", "motorcycle": "Cars",
@@ -49,6 +50,9 @@ export default function AIPostPage() {
   const [auctionDuration, setAuctionDuration] = useState("3");
   const [stockQuantity, setStockQuantity] = useState("");
   const [expiresIn, setExpiresIn] = useState("14");
+  const [isDigital, setIsDigital] = useState(false);
+  const [digitalFileURL, setDigitalFileURL] = useState("");
+  const [digitalFileName, setDigitalFileName] = useState("");
   const [loading, setLoading] = useState(false);
   const classifierRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -191,20 +195,49 @@ export default function AIPostPage() {
       alert(`Please fill in title and ${(saleType === "auction" || saleType === "auction_buy_now") ? "starting bid" : "price"}`);
       return;
     }
-    if (!pickupAvailable && !shippingAvailable) {
+    if (!isDigital && !pickupAvailable && !shippingAvailable) {
       alert("Select at least one delivery method (pickup or shipping).");
       return;
     }
+    if (isDigital && !digitalFileURL) {
+      alert("Upload the digital file you're selling.");
+      return;
+    }
     setLoading(true);
+
+    let listingStatus = "live";
+    if (isDigital) {
+      const profileSnap = await getDoc(doc(db, "profiles", user.uid));
+      const profileData = profileSnap.data();
+      const { canListDigital } = await import("../../lib/kyc");
+      const gate = await canListDigital(profileData || {});
+      if (!gate.allowed) {
+        alert(`Cannot list digital assets: ${gate.reason}`);
+        setLoading(false);
+        return;
+      }
+      const existingDigital = await getDocs(query(collection(db, "purchases"), where("sellerEmail", "==", user.email), where("deliveryMethod", "==", "digital"), where("status", "==", "delivered")));
+      if (existingDigital.empty) listingStatus = "pending_review";
+    }
+
     try {
       const images: string[] = [];
-      for (let i = 0; i < imageFiles.length; i++) {
-        const blob = dataURLtoBlob(imagePreviews[i]);
-        const storageRef = ref(storage, `listings/${user.uid}/${Date.now()}_${i}.jpg`);
-        const snap = await uploadBytes(storageRef, blob);
-        images.push(await getDownloadURL(snap.ref));
+      if (!isDigital) {
+        for (let i = 0; i < imageFiles.length; i++) {
+          const blob = dataURLtoBlob(imagePreviews[i]);
+          const storageRef = ref(storage, `listings/${user.uid}/${Date.now()}_${i}.jpg`);
+          const snap = await uploadBytes(storageRef, blob);
+          images.push(await getDownloadURL(snap.ref));
+        }
       }
-      const listingRef = await addDoc(collection(db, "listings"), {
+
+      const listingData: any = isDigital ? {
+        title, description, price: String(price), category, condition: "Digital", acceptOffers: false,
+        images, imageUrl: images[0] || "", sellerEmail: user.email, sellerUsername: user.email?.split("@")[0] || "User", sellerId: user.uid, createdAt: serverTimestamp(),
+        type: "digital", digitalFileURL, digitalFileName,
+        saleType: "buy_now", expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000),
+        status: listingStatus,
+      } : {
         title, description, price: String(saleType === "auction_buy_now" && buyNowPrice ? buyNowPrice : (saleType === "auction" || saleType === "auction_buy_now") ? startingBid : price), category, condition, location,
         imageUrl: images[0] || "", images, sellerEmail: user.email, sellerUsername: user.email?.split("@")[0] || "User", sellerId: user.uid, createdAt: serverTimestamp(),
         pickupAvailable, shippingAvailable, pickupArea,
@@ -217,9 +250,13 @@ export default function AIPostPage() {
         auctionEndsAt: (saleType === "auction" || saleType === "auction_buy_now") ? new Date(Date.now() + Number(auctionDuration) * 86400000) : null,
         expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000),
         currentBid: null, bidCount: 0, highestBidder: null,
-      });
-      createPendingXP(user.uid, "listing", listingRef.id, listingRef.id);
-      trackListingCreated(user.uid, title);
+      };
+
+      const listingRef = await addDoc(collection(db, isDigital ? "tradePosts" : "listings"), listingData);
+      if (!isDigital) {
+        createPendingXP(user.uid, "listing", listingRef.id, listingRef.id);
+        trackListingCreated(user.uid, title);
+      }
       alert("Listing created!");
       setImagePreviews([]); setImageFiles([]); setTitle(""); setDescription(""); setPrice("");
       setLocation(""); setCategory("Other"); setDetected("");
@@ -227,6 +264,7 @@ export default function AIPostPage() {
       setPickupArea(""); setShippingFee(""); setFreeShipping(false);
       setStockQuantity("");
       setSaleType("buy_now"); setBuyNowPrice(""); setStartingBid(""); setReservePrice(""); setAuctionDuration("3"); setExpiresIn("14");
+      setIsDigital(false); setDigitalFileURL(""); setDigitalFileName("");
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (err) {
       console.error("Listing upload error:", err);
@@ -310,15 +348,21 @@ export default function AIPostPage() {
             <div>
               <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Category</label>
               <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]">
-                <option>Tech</option><option>Cars</option><option>Gaming</option><option>Fashion</option><option>Home</option><option>Sports</option><option>Other</option>
+                {isDigital ? (
+                  <><option>Templates & Assets</option><option>E-books & Guides</option><option>Art & Photography</option><option>Software & Audio</option><option>Gaming & 3D</option></>
+                ) : (
+                  <><option>Tech</option><option>Cars</option><option>Gaming</option><option>Fashion</option><option>Home</option><option>Sports</option><option>Other</option></>
+                )}
               </select>
             </div>
+            {!isDigital && (
             <div>
               <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Condition</label>
               <select value={condition} onChange={(e) => setCondition(e.target.value)} className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]">
                 <option>New</option><option>Used - Like New</option><option>Used - Good</option><option>Used - Fair</option>
               </select>
             </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -340,13 +384,15 @@ export default function AIPostPage() {
                   className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]" />
               </div>
             )}
+            {!isDigital && (
             <div>
               <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Location</label>
               <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="City" className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]" />
             </div>
+            )}
           </div>
 
-          {(saleType === "auction" || saleType === "auction_buy_now") && (
+          {!isDigital && (saleType === "auction" || saleType === "auction_buy_now") && (
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Reserve Price <span className="text-[var(--muted)] font-normal">(optional)</span></label>
@@ -366,7 +412,7 @@ export default function AIPostPage() {
             </div>
           )}
 
-          {/* Sale Type */}
+          {!isDigital && (
           <div>
             <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Sale Type</label>
             <div className="grid grid-cols-3 gap-2">
@@ -384,8 +430,40 @@ export default function AIPostPage() {
               ))}
             </div>
           </div>
+          )}
+
+          {/* Digital Asset Toggle */}
+          <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
+            <label className="flex cursor-pointer items-center gap-2.5">
+              <input type="checkbox" checked={isDigital} onChange={(e) => {
+                setIsDigital(e.target.checked);
+                if (e.target.checked) { setPickupAvailable(false); setShippingAvailable(false); setCategory("Templates & Assets"); }
+              }} className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-sky-500 focus:ring-sky-500/30" />
+              <div>
+                <span className="text-sm font-medium text-[var(--foreground)]">📥 Digital Asset</span>
+                <p className="text-xs text-[var(--muted)]">Sell a downloadable file (templates, e-books, art, etc.)</p>
+              </div>
+            </label>
+          </div>
+
+          {/* Digital File Upload */}
+          {isDigital && (
+            <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
+              <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Digital File</label>
+              {digitalFileURL ? (
+                <div className="flex items-center justify-between rounded-lg bg-emerald-500/10 px-4 py-3">
+                  <span className="text-xs text-emerald-400">✓ {digitalFileName}</span>
+                  <button onClick={() => { setDigitalFileURL(""); setDigitalFileName(""); }} className="text-[10px] text-red-400 hover:text-red-300">Remove</button>
+                </div>
+              ) : (
+                <DigitalAssetUpload onUpload={(url, name) => { setDigitalFileURL(url); setDigitalFileName(name); }} />
+              )}
+              <p className="mt-2 text-[10px] text-[var(--muted)]">Max 50MB. Buyers receive instantly after purchase.</p>
+            </div>
+          )}
 
           {/* Delivery Options */}
+          {!isDigital && (
           <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
             <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Delivery Options</label>
             <div className="space-y-3">
@@ -443,6 +521,7 @@ export default function AIPostPage() {
               </div>
             </div>
           </div>
+          )}
 
           <button onClick={createListing} disabled={loading || ((saleType === "auction" || saleType === "auction_buy_now") ? !startingBid : !price)} className="w-full rounded-xl bg-sky-500 py-4 text-lg font-bold text-[var(--foreground)] hover:bg-sky-400 disabled:opacity-50">
             {loading ? "Posting..." : "Post Now"}
