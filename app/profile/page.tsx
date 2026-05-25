@@ -92,6 +92,13 @@ interface ProfileData {
     reviewedBy?: string;
     rejectionReason?: string;
   };
+  kycStatus?: string;
+  kycDocumentURL?: string;
+  kycSubmittedAt?: Timestamp;
+  kycReviewedAt?: Timestamp;
+  kycReviewedBy?: string;
+  kycRejectionReason?: string;
+  digitalListingsCreated?: number;
 }
 
 interface Listing {
@@ -171,6 +178,11 @@ const [poaDocumentURL, setPoaDocumentURL] = useState("");
 const [poaRejectionReason, setPoaRejectionReason] = useState("");
 const [poaFile, setPoaFile] = useState<File | null>(null);
 const [poaUploading, setPoaUploading] = useState(false);
+const [kycStatus, setKycStatus] = useState("unsubmitted");
+const [kycDocumentURL, setKycDocumentURL] = useState("");
+const [kycRejectionReason, setKycRejectionReason] = useState("");
+const [kycFile, setKycFile] = useState<File | null>(null);
+const [kycUploading, setKycUploading] = useState(false);
 
   const bannerRef = useRef<HTMLInputElement>(null);
   const avatarRef = useRef<HTMLInputElement>(null);
@@ -220,6 +232,9 @@ const [poaUploading, setPoaUploading] = useState(false);
             setPoaStatus(poa.status || "unsubmitted");
             setPoaDocumentURL(poa.documentURL || "");
             setPoaRejectionReason(poa.rejectionReason || "");
+            setKycStatus(data.kycStatus || "unsubmitted");
+            setKycDocumentURL(data.kycDocumentURL || "");
+            setKycRejectionReason(data.kycRejectionReason || "");
           }
         } catch (e) { console.error(e); }
       }
@@ -1142,6 +1157,47 @@ const [poaUploading, setPoaUploading] = useState(false);
                   ) : null}
                   {referredBy && (
                     <p className="text-[10px] text-[var(--muted)]">Referred by code: <span className="font-bold text-amber-400">{referredBy}</span></p>
+                  )}
+                </div>
+              </div>
+
+              {/* KYC */}
+              <div className="rounded-xl border border-zinc-800/50 bg-zinc-900/60 p-5 transition-all duration-200 hover:border-zinc-700/50">
+                <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.15em] text-[var(--muted)]">🪪 KYC Verification</h2>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-[var(--foreground)]">Identity Verification</span>
+                    {kycStatus === "approved" && <span className="font-bold text-emerald-400">Approved ✓</span>}
+                    {kycStatus === "pending" && <span className="font-bold text-amber-400">Pending review</span>}
+                    {kycStatus === "rejected" && <span className="font-bold text-red-400">Rejected</span>}
+                    {kycStatus === "unsubmitted" && <span className="font-bold text-[var(--muted)]">Not submitted</span>}
+                  </div>
+                  <p className="text-[10px] text-[var(--muted)]">Required to list digital assets. Upload a photo of your driver's license or passport.</p>
+                  {kycStatus === "rejected" && kycRejectionReason && (
+                    <p className="text-[10px] text-red-400">Reason: {kycRejectionReason}</p>
+                  )}
+                  {(kycStatus === "unsubmitted" || kycStatus === "rejected") && (
+                    <div className="space-y-2">
+                      <input type="file" accept="image/*,.pdf" onChange={(e) => setKycFile(e.target.files?.[0] || null)} className="w-full text-xs text-[var(--muted)] file:mr-2 file:rounded-lg file:border-0 file:bg-sky-500 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-[var(--foreground)] hover:file:bg-sky-400" />
+                      {kycFile && (
+                        <button onClick={async () => {
+                          if (!user?.uid || !kycFile) return;
+                          setKycUploading(true);
+                          try {
+                            const { submitKYC } = await import("../lib/kyc");
+                            await submitKYC(user.uid, kycFile);
+                            setKycStatus("pending");
+                            setKycFile(null);
+                          } catch (e) { console.error(e); }
+                          setKycUploading(false);
+                        }} disabled={kycUploading} className="w-full rounded-xl bg-sky-500 py-2 text-xs font-bold text-[var(--foreground)] hover:bg-sky-400 transition disabled:opacity-50">
+                          {kycUploading ? "Uploading..." : "Submit for Review"}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {kycStatus === "approved" && (
+                    <p className="text-[10px] text-emerald-400">✓ You can list digital assets.</p>
                   )}
                 </div>
               </div>

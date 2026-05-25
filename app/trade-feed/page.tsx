@@ -26,6 +26,7 @@ const WORLDS = [
   { id: "fashion", label: "Fashion", icon: "👟", accent: "border-rose-400/20", glow: "shadow-[0_0_20px_rgba(251,113,133,0.12)]", color: "from-rose-400" },
   { id: "tech", label: "Tech", icon: "💻", accent: "border-blue-400/20", glow: "shadow-[0_0_20px_rgba(96,165,250,0.12)]", color: "from-blue-400" },
   { id: "collector", label: "Collector", icon: "⭐", accent: "border-amber-400/20", glow: "shadow-[0_0_20px_rgba(251,191,36,0.12)]", color: "from-amber-400" },
+  { id: "digital", label: "Digital", icon: "📥", accent: "border-sky-400/20", glow: "shadow-[0_0_20px_rgba(14,165,233,0.12)]", color: "from-sky-400" },
 ];
 
 const SUBCATEGORIES: Record<string, string[]> = {
@@ -35,6 +36,7 @@ const SUBCATEGORIES: Record<string, string[]> = {
   fashion: ["All Posts", "Sneakers", "Streetwear", "Designer", "Vintage", "Accessories"],
   tech: ["All Posts", "Phones", "PCs", "Cameras", "Audio", "Smart Home"],
   collector: ["All Posts", "Cards", "Figures", "Memorabilia", "Rare Items"],
+  digital: ["All Posts", "Templates & Assets", "E-books & Guides", "Art & Photography", "Software & Audio", "Gaming & 3D"],
 };
 
 const QUICK_REPLIES = ["Still available?", "Can pickup tonight.", "Sent offer.", "PM me", "Price negotiable?", "Trade?", "Interested"];
@@ -906,6 +908,7 @@ export default function TradeFeedPage() {
                             {post.status === "live" && <span className="rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold text-emerald-400">Active</span>}
                             {post.status === "completed" && <span className="rounded border border-zinc-500/20 bg-zinc-500/10 px-1.5 py-0.5 text-[10px] font-bold text-zinc-400">Completed</span>}
                             {post.status === "sold" && <span className="rounded border border-red-500/20 bg-red-500/10 px-1.5 py-0.5 text-[10px] font-bold text-red-400">Sold</span>}
+                            {post.type === "digital" && post.status !== "sold" && <span className="rounded border border-sky-500/20 bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-bold text-sky-400">📥 Digital</span>}
                             {isHot && <span className="rounded border border-orange-500/20 bg-orange-500/10 px-2 py-0.5 text-[11px] font-bold text-orange-400">HOT</span>}
                             {isNew && <span className="text-[11px] font-bold text-red-400">NEW</span>}
                             {post.world && <span className="text-[var(--muted)]">{worldData?.icon}</span>}

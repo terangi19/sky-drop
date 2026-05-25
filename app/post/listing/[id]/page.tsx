@@ -820,7 +820,14 @@ export default function ListingPage() {
             )}
 
             {/* 4. DELIVERY + AVAILABILITY */}
-            {(listing.pickupAvailable || listing.shippingAvailable || listing.stockQuantity !== undefined) && (
+            {listing.type === "digital" ? (
+              <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 p-3">
+                <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
+                  <span className="shrink-0 text-sky-400">📥</span>
+                  <span>Digital Download — Instant Delivery</span>
+                </div>
+              </div>
+            ) : (listing.pickupAvailable || listing.shippingAvailable || listing.stockQuantity !== undefined) && (
               <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 space-y-1.5">
                 {listing.pickupAvailable && (
                   <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">

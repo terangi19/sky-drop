@@ -13,6 +13,9 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
+  query,
+  where,
   serverTimestamp,
 } from "firebase/firestore";
 
@@ -33,6 +36,7 @@ import { checkImage } from "../lib/nsfw";
 import { showToast } from "../components/Toast";
 import { createPendingXP, trackListingCreated } from "../lib/xpValidation";
 import { useProfile } from "../contexts/ProfileContext";
+import DigitalAssetUpload from "../components/DigitalAssetUpload";
 
 export default function PostPage() {
   const router = useRouter();
@@ -74,6 +78,9 @@ export default function PostPage() {
    const [shipsWithinDays, setShipsWithinDays] = useState("");
     const [stockQuantity, setStockQuantity] = useState("");
     const [expiresIn, setExpiresIn] = useState("14");
+   const [isDigital, setIsDigital] = useState(false);
+   const [digitalFileURL, setDigitalFileURL] = useState("");
+   const [digitalFileName, setDigitalFileName] = useState("");
 
   const [loading, setLoading] =
     useState(false);
@@ -152,42 +159,30 @@ export default function PostPage() {
       return;
     }
 
-    if (!pickupAvailable && !shippingAvailable) {
+    if (!isDigital && !pickupAvailable && !shippingAvailable) {
       alert("Select at least one delivery method (pickup or shipping).");
       return;
     }
 
-    // CAPTCHA: minimum 3 seconds since form loaded
-    if (Date.now() - formMountedAt.current < 3000) {
-      alert("Please wait a moment before submitting.");
-      return;
-    }
+    let listingStatus = "live";
 
-    // Rate limit: 30 seconds between listings
-    if (Date.now() - lastListingTime.current < 30000) {
-      alert("Please wait 30 seconds between listings.");
-      return;
-    }
-    lastListingTime.current = Date.now();
-
-    // Scam check on listing content
-    const combinedText = `${title} ${description}`;
-    const scamResult = detectScam(combinedText);
-    if (scamResult.isScam && !confirmedSubmit) {
-      setScamAlert({
-        title: "Safety Flag Detected",
-        message: "Your listing contains words that may be used in suspicious listings. Review and remove them, or submit anyway.",
-        found: scamResult.keywords,
-      });
-      return;
-    }
-
-    // Price check
-    const priceNum = Number(price);
-    const isSuspiciousPrice = detectSuspiciousPrice(priceNum, category);
-    if (isSuspiciousPrice && !confirmedSubmit) {
-      setPriceAlert(true);
-      return;
+    if (isDigital) {
+      if (!digitalFileURL) {
+        alert("Upload the digital file you're selling.");
+        return;
+      }
+      const profileSnap = await getDoc(doc(db, "profiles", user.uid));
+      const profileData = profileSnap.data();
+      const { canListDigital } = await import("../lib/kyc");
+      const gate = await canListDigital(profileData || {});
+      if (!gate.allowed) {
+        alert(`Cannot list digital assets: ${gate.reason}`);
+        return;
+      }
+      const existingDigital = await getDocs(query(collection(db, "purchases"), where("sellerEmail", "==", user.email), where("deliveryMethod", "==", "digital"), where("status", "==", "delivered")));
+      if (existingDigital.empty) {
+        listingStatus = "pending_review";
+      }
     }
 
     try {
@@ -216,7 +211,26 @@ export default function PostPage() {
         });
       }
 
-      const listingRef = await addDoc(collection(db, "listings"), {
+      const listingData: any = isDigital ? {
+        title,
+        description,
+        price: String(price),
+        category,
+        condition: "Digital",
+        acceptOffers: false,
+        images,
+        imageUrl: images[0] || "",
+        sellerEmail: user.email,
+        sellerUsername: username,
+        sellerId: user.uid,
+        createdAt: serverTimestamp(),
+        type: "digital",
+        digitalFileURL,
+        digitalFileName,
+        saleType: "buy_now",
+        expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000),
+        status: listingStatus,
+      } : {
         title,
         description,
         price: String(price),
@@ -245,9 +259,13 @@ export default function PostPage() {
         currentBid: null,
         bidCount: 0,
         highestBidder: null,
-      });
-      createPendingXP(user.uid, "listing", listingRef.id, listingRef.id);
-      trackListingCreated(user.uid, title);
+      };
+
+      const listingRef = await addDoc(collection(db, isDigital ? "tradePosts" : "listings"), listingData);
+      if (!isDigital) {
+        createPendingXP(user.uid, "listing", listingRef.id, listingRef.id);
+        trackListingCreated(user.uid, title);
+      }
 
       router.push("/");
       return;
@@ -612,11 +630,35 @@ export default function PostPage() {
                </div>
              </div>
 
-             {/* DELIVERY OPTIONS */}
-             <div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
-               <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">
-                 Delivery Options
-               </label>
+              {/* DIGITAL ASSET TOGGLE */}
+              <div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
+                <label className="flex cursor-pointer items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={isDigital}
+                    onChange={(e) => {
+                      setIsDigital(e.target.checked);
+                      if (e.target.checked) {
+                        setPickupAvailable(false);
+                        setShippingAvailable(false);
+                        setCategory("Templates & Assets");
+                      }
+                    }}
+                    className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-sky-500 focus:ring-sky-500/30"
+                  />
+                  <div>
+                    <span className="text-sm font-medium text-[var(--foreground)]">📥 Digital Asset</span>
+                    <p className="text-xs text-[var(--muted)]">Sell a downloadable file (templates, e-books, art, etc.)</p>
+                  </div>
+                </label>
+              </div>
+
+              {/* DELIVERY OPTIONS */}
+              {!isDigital && (
+              <div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
+                <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">
+                  Delivery Options
+                </label>
 
                <div className="space-y-4">
                  {/* Pickup toggle */}
@@ -716,25 +758,47 @@ export default function PostPage() {
                   </div>
                 </div>
               </div>
+              )}
 
-              {/* LOCATION */}
-            <div>
-              <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">
-                Location
-              </label>
+              {/* DIGITAL FILE UPLOAD */}
+              {isDigital && (
+                <div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
+                  <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">
+                    Digital File
+                  </label>
+                  {digitalFileURL ? (
+                    <div className="flex items-center justify-between rounded-xl bg-emerald-500/10 px-4 py-3">
+                      <span className="text-xs text-emerald-400">✓ {digitalFileName}</span>
+                      <button onClick={() => { setDigitalFileURL(""); setDigitalFileName(""); }} className="text-[10px] text-red-400 hover:text-red-300">Remove</button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <DigitalAssetUpload onUpload={(url, name) => { setDigitalFileURL(url); setDigitalFileName(name); }} />
+                      <p className="text-[10px] text-[var(--muted)]">Max 50MB. Buyers receive this file instantly after purchase.</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
-              <input
-                type="text"
-                value={location}
-                onChange={(e) =>
-                  setLocation(
-                    e.target.value
-                  )
-                }
-                placeholder="Auckland"
-                className="w-full rounded-2xl border border-white/10 bg-zinc-900 px-5 py-4 text-[var(--foreground)] outline-none transition focus:border-sky-400"
-              />
-            </div>
+              {!isDigital && (
+              <div>
+                <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">
+                  Location
+                </label>
+
+                <input
+                  type="text"
+                  value={location}
+                  onChange={(e) =>
+                    setLocation(
+                      e.target.value
+                    )
+                  }
+                  placeholder="Auckland"
+                  className="w-full rounded-2xl border border-white/10 bg-zinc-900 px-5 py-4 text-[var(--foreground)] outline-none transition focus:border-sky-400"
+                />
+              </div>
+              )}
 
             {/* BUTTON */}
             <button

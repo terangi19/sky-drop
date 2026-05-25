@@ -743,6 +743,11 @@ export default function Home() {
                     <span className="text-[11px] font-bold">{cat.name}</span>
                   </button>
                 ))}
+                <Link href="/digital"
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-sky-500/20 bg-sky-500/5 p-4 transition-all duration-200 hover:border-sky-500/40 hover:bg-sky-500/10 hover:-translate-y-0.5">
+                  <span className="text-2xl">📥</span>
+                  <span className="text-[11px] font-bold text-sky-400">Digital</span>
+                </Link>
               </div>
             </div>
 
@@ -995,6 +1000,9 @@ export default function Home() {
                         )}
                         {item.status !== "sold" && item.saleType && String(item.saleType).includes("auction") && (
                           <span className="rounded-md bg-amber-600/90 px-2 py-0.5 text-[9px] font-bold text-white">⏰ Auction</span>
+                        )}
+                        {(item as any).type === "digital" && item.status !== "sold" && (
+                          <span className="rounded-md bg-sky-600/90 px-2 py-0.5 text-[9px] font-bold text-white">📥 Digital</span>
                         )}
                       </div>
                       {item.status !== "sold" && item.expiresAt?.toMillis?.() < Date.now() && (

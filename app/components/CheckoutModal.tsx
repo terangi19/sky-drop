@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { addDoc, collection, doc, getDoc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { addDoc, collection, doc, getDoc, serverTimestamp, Timestamp, updateDoc } from "firebase/firestore";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import stripePromise from "../lib/stripe-client";
 import { db } from "../lib/firebase";
@@ -26,6 +26,9 @@ interface ListingData {
   freeShipping?: boolean;
   stockQuantity?: number;
   badgeForSale?: string;
+  type?: string;
+  digitalFileURL?: string;
+  digitalFileName?: string;
 }
 
 interface CheckoutModalProps {
@@ -35,7 +38,7 @@ interface CheckoutModalProps {
   collectionName?: string;
 }
 
-type DeliveryMethod = "pickup" | "shipping" | "badge" | null;
+type DeliveryMethod = "pickup" | "shipping" | "badge" | "digital" | null;
 type Step = "form" | "card" | "processing" | "share_address" | "success";
 
 function PaymentForm({ total, listingId, title, price, buyerEmail, onSuccess, onBack, badgeForSale, sellerEmail, collectionName }: {
@@ -94,6 +97,7 @@ function PaymentForm({ total, listingId, title, price, buyerEmail, onSuccess, on
 export default function CheckoutModal({ listing, buyerEmail, onClose, collectionName = "listings" }: CheckoutModalProps) {
   const router = useRouter();
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>(() => {
+    if (listing.type === "digital") return "digital";
     if (listing.badgeForSale) return "badge";
     if (listing.pickupAvailable && !listing.shippingAvailable) return "pickup";
     if (listing.shippingAvailable && !listing.pickupAvailable) return "shipping";
@@ -114,9 +118,10 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
   const itemPrice = Number(listing.price) || 0;
   const processingFee = 1.00;
   const isBadge = deliveryMethod === "badge";
-  const total = isBadge ? itemPrice + processingFee : (deliveryMethod === "shipping" ? itemPrice + shippingAmount : itemPrice) + processingFee;
+  const isDigital = deliveryMethod === "digital";
+  const total = isBadge || isDigital ? itemPrice + processingFee : (deliveryMethod === "shipping" ? itemPrice + shippingAmount : itemPrice) + processingFee;
 
-  const isValid = isBadge ? name.trim() : name.trim() && phone.trim() && (deliveryMethod !== "shipping" || address.trim()) && deliveryMethod;
+  const isValid = isBadge || isDigital ? name.trim() : name.trim() && phone.trim() && (deliveryMethod !== "shipping" || address.trim()) && deliveryMethod;
 
   // Restore body scroll on unmount
   useEffect(() => {
@@ -236,15 +241,20 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
         sellerEmail: listing.sellerEmail,
         buyerEmail,
         buyerName: name.trim(),
-        buyerPhone: isBadge ? "" : phone.trim(),
-        deliveryMethod: isBadge ? "badge" : deliveryMethod,
+        buyerPhone: isBadge || isDigital ? "" : phone.trim(),
+        deliveryMethod: isBadge ? "badge" : isDigital ? "digital" : deliveryMethod,
         shippingAddress: deliveryMethod === "shipping" ? address.trim() : "",
         shippingFee: deliveryMethod === "shipping" ? shippingAmount : 0,
         processingFee: 1.00,
         total,
         badgeTransfer: isBadge ? listing.badgeForSale : "",
-        status: "pending",
+        type: isDigital ? "digital" : "physical",
+        digitalFileURL: isDigital ? listing.digitalFileURL : "",
+        digitalFileName: isDigital ? listing.digitalFileName : "",
+        status: isDigital ? "delivered" : "pending",
         paidAt: serverTimestamp(),
+        deliveredAt: isDigital ? serverTimestamp() : null,
+        disputeDeadline: isDigital ? Timestamp.fromMillis(Date.now() + 48 * 3600000) : null,
         createdAt: serverTimestamp(),
       });
 
@@ -269,8 +279,10 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
         type: "purchase",
         targetEmail: listing.sellerEmail,
         fromEmail: buyerEmail,
-        title: isBadge ? "Your badge was purchased! 🎉" : "Your item sold! 🎉",
-        message: isBadge
+        title: isDigital ? "Your digital item was purchased! 🎉" : isBadge ? "Your badge was purchased! 🎉" : "Your item sold! 🎉",
+        message: isDigital
+          ? `${name.trim()} just purchased "${listing.title}" (digital download).`
+          : isBadge
           ? `${name.trim()} just purchased your "${listing.badgeForSale}" badge. It has been automatically transferred.`
           : `${name.trim()} just purchased "${listing.title}" for $${listing.price}. Check your sales page to confirm and ship.`,
         listingId: listing.id,
@@ -288,7 +300,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
         localStorage.setItem("checkoutInfo", JSON.stringify({ name: name.trim(), phone: phone.trim() }));
       } catch {}
 
-      setStep(isBadge ? "success" : "share_address");
+      setStep(isBadge || isDigital ? "success" : "share_address");
     } catch (e) {
       console.error("Purchase record failed:", e);
       setStep("share_address");
@@ -343,6 +355,8 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
               <p className="mb-2 text-xs text-[var(--muted)]">
                 {isBadge
                   ? "Badge transferred to your account automatically!"
+                  : isDigital
+                  ? "Digital item delivered! Check your Purchases page to download."
                   : deliveryMethod === "shipping"
                     ? "Share your shipping address with the seller?"
                     : "Let the seller know you'd like to arrange pickup?"}

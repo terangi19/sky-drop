@@ -21,7 +21,7 @@ interface Purchase {
   buyerEmail: string;
   buyerName: string;
   buyerPhone: string;
-  deliveryMethod: "pickup" | "shipping";
+  deliveryMethod: "pickup" | "shipping" | "badge" | "digital";
   shippingAddress?: string;
   shippingFee: number;
   total: number;
@@ -33,6 +33,11 @@ interface Purchase {
   freeShipping?: boolean;
   trackingNumber?: string;
   estimatedDays?: number;
+  type?: string;
+  digitalFileURL?: string;
+  digitalFileName?: string;
+  disputeDeadline?: any;
+  disputed?: boolean;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -178,6 +183,7 @@ export default function PurchasesPage() {
   function deliveryLabel(p: Purchase): { icon: string; text: string; badge: string } {
     if (p.deliveryMethod === "pickup") return { icon: "📍", text: p.pickupArea ? `Pickup — ${p.pickupArea}` : "Local Pickup", badge: "Pickup" };
     if (p.freeShipping) return { icon: "🚚", text: "Free Shipping", badge: "Free Shipping" };
+    if (p.deliveryMethod === "digital") return { icon: "📥", text: "Digital Download", badge: "Digital" };
     return { icon: "📦", text: p.shippingFee ? `Shipping — $${p.shippingFee}` : "Shipping", badge: "Shipping" };
   }
 
@@ -412,6 +418,35 @@ export default function PurchasesPage() {
                     >
                       Message Seller
                     </Link>
+                    {p.deliveryMethod === "digital" && p.digitalFileURL && p.status === "delivered" && (
+                      <>
+                        <a href={p.digitalFileURL} target="_blank" rel="noopener noreferrer" download={p.digitalFileName}
+                          className="rounded-lg bg-sky-500 px-4 py-2 text-[11px] font-bold text-[var(--foreground)] transition hover:bg-sky-400">
+                          📥 Download{p.digitalFileName ? ` ${p.digitalFileName}` : ""}
+                        </a>
+                        {p.disputeDeadline?.seconds && (Date.now() / 1000) < p.disputeDeadline.seconds && !p.disputed && (
+                          <button onClick={async () => {
+                            if (!confirm("Report an issue with this digital purchase? Admin will review.")) return;
+                            try {
+                              await addDoc(collection(db, "reports"), {
+                                type: "digital_dispute",
+                                purchaseId: p.id,
+                                listingId: p.listingId,
+                                listingTitle: p.listingTitle,
+                                reporterEmail: user?.email || p.buyerEmail,
+                                reportedUserEmail: p.sellerEmail,
+                                reason: "Digital purchase issue",
+                                details: "Buyer reported an issue with a digital download.",
+                                createdAt: serverTimestamp(),
+                              });
+                              showToast("Issue reported. Admin will review.", "success");
+                            } catch (e) { console.error(e); }
+                          }} className="rounded-lg border border-red-500/30 px-4 py-2 text-[11px] font-bold text-red-400 transition hover:bg-red-500/10">
+                            ⚠️ Report Issue
+                          </button>
+                        )}
+                      </>
+                    )}
                     {p.deliveryMethod === "shipping" && !["delivered", "cancelled"].includes(p.status) && (
                       <button
                         onClick={() => { setEditAddress(p); setNewAddress(p.shippingAddress || ""); }}

@@ -39,6 +39,8 @@ export default function AdminPage() {
 
   const [checking, setChecking] = useState(true);
   const [pendingVerifications, setPendingVerifications] = useState(0);
+  const [pendingKYC, setPendingKYC] = useState(0);
+  const [pendingDigital, setPendingDigital] = useState(0);
   const router = useRouter();
 
   // ADMIN EMAILS
@@ -99,6 +101,18 @@ export default function AdminPage() {
   useEffect(() => {
     const q = query(collection(db, "profiles"), where("proofOfAddress.status", "==", "pending"));
     const unsub = onSnapshot(q, (snap) => setPendingVerifications(snap.docs.length));
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    const q = query(collection(db, "profiles"), where("kycStatus", "==", "pending"));
+    const unsub = onSnapshot(q, (snap) => setPendingKYC(snap.docs.length));
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    const q = query(collection(db, "tradePosts"), where("type", "==", "digital"), where("status", "==", "pending_review"));
+    const unsub = onSnapshot(q, (snap) => setPendingDigital(snap.docs.length));
     return () => unsub();
   }, []);
 
@@ -260,11 +274,31 @@ export default function AdminPage() {
 
           <a href="/admin/verification" className="rounded-3xl border border-emerald-500/20 bg-[var(--card)] p-6 shadow-xl transition hover:border-emerald-500/40 hover:shadow-[0_0_20px_rgba(16,185,129,0.1)]">
             <p className="text-sm text-[var(--muted)]">
-              Verification
+              Address Verification
             </p>
 
             <h2 className="mt-3 text-4xl font-black text-emerald-400">
               {pendingVerifications} pending →
+            </h2>
+          </a>
+
+          <a href="/admin/verification" className="rounded-3xl border border-violet-500/20 bg-[var(--card)] p-6 shadow-xl transition hover:border-violet-500/40 hover:shadow-[0_0_20px_rgba(139,92,246,0.1)]">
+            <p className="text-sm text-[var(--muted)]">
+              KYC Verification
+            </p>
+
+            <h2 className="mt-3 text-4xl font-black text-violet-400">
+              {pendingKYC} pending →
+            </h2>
+          </a>
+
+          <a href="/admin/verification" className="rounded-3xl border border-sky-500/20 bg-[var(--card)] p-6 shadow-xl transition hover:border-sky-500/40 hover:shadow-[0_0_20px_rgba(14,165,233,0.1)]">
+            <p className="text-sm text-[var(--muted)]">
+              Digital Listings
+            </p>
+
+            <h2 className="mt-3 text-4xl font-black text-sky-400">
+              {pendingDigital} pending →
             </h2>
           </a>
         </div>

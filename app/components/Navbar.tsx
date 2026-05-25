@@ -232,6 +232,7 @@ export default function Navbar() {
                 <span className="flex h-1.5 w-1.5 rounded-full bg-red-500/80" />
               </Link>
               <Link href="/post/ai" className="transition hover:text-sky-400">Quick Post</Link>
+              <Link href="/digital" className="transition hover:text-sky-400">📥 Digital</Link>
               <Link href="/list-list" className="transition hover:text-sky-400">My Listings</Link>
               <Link href="/watchlist" className="transition hover:text-sky-400">Watchlist</Link>
               <Link href="/purchases" className="transition hover:text-sky-400">Purchases</Link>
@@ -266,6 +267,7 @@ export default function Navbar() {
                     </span>
                 </Link>
                 <Link href="/post/ai" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Quick Post</Link>
+                <Link href="/digital" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>📥 Digital</Link>
                 <Link href="/list-list" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>My Listings</Link>
                 <Link href="/watchlist" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Watchlist</Link>
                 <Link href="/purchases" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Purchases</Link>
