@@ -292,30 +292,28 @@ export async function autoTransferBadge(sellerUid: string, buyerUid: string, bad
   const buyerRef = doc(db, "profiles", buyerUid);
   const purchaseRef = doc(db, "purchases", purchaseId);
 
-  await runTransaction(db, async (tx) => {
-    const sellerSnap = await tx.get(sellerRef);
-    if (!sellerSnap.exists()) throw new Error("Seller profile not found");
+  const sellerSnap = await getDoc(sellerRef);
+  if (!sellerSnap.exists()) throw new Error("Seller profile not found");
 
-    const badges: string[] = sellerSnap.data().badges || [];
-    if (!badges.includes(badge)) throw new Error("Seller doesn't own this badge");
+  const badges: string[] = sellerSnap.data().badges || [];
+  if (!badges.includes(badge)) throw new Error("Seller doesn't own this badge");
 
-    tx.update(sellerRef, {
-      badges: badges.filter((b) => b !== badge),
-      profileBadge: sellerSnap.data().profileBadge === badge ? "" : sellerSnap.data().profileBadge,
-    });
+  await updateDoc(sellerRef, {
+    badges: badges.filter((b) => b !== badge),
+    profileBadge: sellerSnap.data().profileBadge === badge ? "" : sellerSnap.data().profileBadge,
+  });
 
-    const buyerSnap = await tx.get(buyerRef);
-    if (!buyerSnap.exists()) throw new Error("Buyer profile not found");
+  const buyerSnap = await getDoc(buyerRef);
+  if (!buyerSnap.exists()) throw new Error("Buyer profile not found");
 
-    tx.update(buyerRef, {
-      badges: [...(buyerSnap.data().badges || []), badge],
-      profileBadge: badge,
-    });
+  await updateDoc(buyerRef, {
+    badges: [...(buyerSnap.data().badges || []), badge],
+    profileBadge: badge,
+  });
 
-    tx.update(purchaseRef, {
-      status: "delivered",
-      deliveredAt: serverTimestamp(),
-    });
+  await updateDoc(purchaseRef, {
+    status: "delivered",
+    deliveredAt: serverTimestamp(),
   });
 }
 
