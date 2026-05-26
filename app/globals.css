@@ -114,6 +114,27 @@ body {
   color: #9ca3af !important;
 }
 
+/* ── PREMIUM HOMEPAGE LIGHT MODE ── */
+:root.light .bg-white\/\[0\.02\] { background-color: #f8f9fc !important; }
+:root.light .bg-white\/\[0\.04\] { background-color: #f0f2f5 !important; }
+:root.light .border-white\/\[0\.04\] { border-color: rgba(0, 0, 0, 0.06) !important; }
+:root.light .border-white\/\[0\.06\] { border-color: rgba(0, 0, 0, 0.08) !important; }
+:root.light .from-white { --tw-gradient-from: #111827 !important; --tw-gradient-to: rgba(17, 24, 39, 0) !important; }
+:root.light .via-sky-200 { --tw-gradient-via: #7dd3fc !important; }
+:root.light .to-white { --tw-gradient-to: #111827 !important; }
+:root.light .from-orange-500\/\[0\.04\] { --tw-gradient-from: rgba(249, 115, 22, 0.08) !important; }
+:root.light [class*="radial-gradient"] {
+  background: none !important;
+}
+:root.light .shadow-\[0_0_150px_-20px_rgba\(14\,165\,233\,0\.12\)\] {
+  box-shadow: none !important;
+}
+:root.light section .text-white { color: #111827 !important; }
+:root.light section .text-zinc-500 { color: #6b7280 !important; }
+:root.light section .text-zinc-400 { color: #6b7280 !important; }
+:root.light section .text-zinc-300 { color: #374151 !important; }
+:root.light section .divide-zinc-700 > :not([hidden]) ~ :not([hidden]) { border-color: rgba(0, 0, 0, 0.08) !important; }
+
 /* ── BUTTONS ── */
 :root.light .bg-sky-500 {
   background-color: #0ea5e9 !important;

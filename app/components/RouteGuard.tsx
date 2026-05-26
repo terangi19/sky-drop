@@ -5,7 +5,17 @@ import { usePathname, useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../lib/firebase";
 
-const PUBLIC_ROUTES = ["/login", "/register", "/reset-password"];
+const PUBLIC_ROUTES = [
+  "/",
+  "/about",
+  "/blocked",
+  "/faqs",
+  "/login",
+  "/register",
+  "/reset-password",
+  "/terms",
+  "/privacy",
+];
 
 export function RouteGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
