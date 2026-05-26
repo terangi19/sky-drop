@@ -208,7 +208,7 @@ export default function SalesPage() {
         ) : (
           <div className="mt-6 space-y-3">
             {sales.map((s) => (
-              <div key={s.id} className="flex items-center gap-4 flex-wrap rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
+              <div key={s.id} className="flex items-center gap-4 flex-wrap rounded-xl border border-white/[0.04] bg-white/[0.02] p-5">
                 <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-zinc-800">
                   {s.listingImage ? (
                     <img src={s.listingImage} alt="" className="h-full w-full object-cover" />

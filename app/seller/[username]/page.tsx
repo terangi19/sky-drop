@@ -286,7 +286,7 @@ export default function SellerPage() {
         <div className="space-y-6">
 
           {/* HEADER */}
-          <div className="group relative overflow-hidden rounded-2xl border border-zinc-700/50 bg-zinc-900/80 shadow-[0_4px_24px_rgba(0,0,0,0.35)]">
+          <div className="group relative overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.02]">
             {/* Banner */}
             <div className="relative h-24 sm:h-32 overflow-hidden">
               {profile.bannerURL ? (
@@ -365,7 +365,7 @@ export default function SellerPage() {
                     { icon: "📦", label: "Listings", value: String(activeListings.length) },
                     { icon: "⚡", label: "Response", value: profile.responseTime ? `${profile.responseTime}m` : "—" },
                   ].map((s) => (
-                    <div key={s.label} className="rounded-xl border border-zinc-800 bg-zinc-900/60 px-3 py-2.5 text-center transition-all duration-200 hover:border-zinc-700/60">
+                    <div key={s.label} className="rounded-xl border border-white/[0.04] bg-white/[0.02] px-3 py-2.5 text-center transition-all duration-200 hover:bg-white/[0.04]">
                       <p className="text-sm font-black text-[var(--foreground)]">{s.value}</p>
                       <p className="text-[9px] font-medium text-[var(--muted)] uppercase tracking-wider">{s.icon} {s.label}</p>
                     </div>

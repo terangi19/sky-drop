@@ -247,14 +247,14 @@ export default function WatchlistPage() {
                 const imgSrc = (item as any).images?.[0] || item.imageUrl || item.image || "";
                 const isExpired = item.expiresAt?.toMillis?.() < currentTime;
                 return (
-                <Link
-                  key={item.id}
-                  href={`/post/listing/${item.id}`}
-                  className={`group relative block overflow-hidden rounded-xl transition-all duration-200 ${
-                    popularIds.has(item.id)
-                      ? "border-orange-500/30 bg-orange-500/[0.04] shadow-[0_0_20px_rgba(251,146,60,0.2)] animate-breathe-orange hover:border-orange-500/50 hover:shadow-[0_0_30px_rgba(251,146,60,0.35)]"
-                      : "bg-zinc-900/60 border border-zinc-800/50 hover:-translate-y-1 hover:border-sky-500/30 hover:shadow-[0_8px_25px_rgba(0,0,0,0.2)]"
-                  }`}
+                  <Link
+                    key={item.id}
+                    href={`/post/listing/${item.id}`}
+                    className={`group relative block overflow-hidden rounded-xl transition-all duration-200 ${
+                      popularIds.has(item.id)
+                        ? "border-orange-500/30 bg-orange-500/[0.04] shadow-[0_0_20px_rgba(251,146,60,0.2)] animate-breathe-orange hover:border-orange-500/50 hover:shadow-[0_0_30px_rgba(251,146,60,0.35)]"
+                        : "bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.04] hover:-translate-y-1 hover:border-sky-500/30 hover:shadow-[0_10px_40px_-10px_rgba(14,165,233,0.12)]"
+                    }`}
                 >
                   <button
                     onClick={(e) => removeItem(item.id, e)}

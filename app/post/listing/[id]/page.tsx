@@ -788,7 +788,7 @@ export default function ListingPage() {
           })()}
 
           {/* ── RIGHT COLUMN: PURCHASE CARD ── */}
-          <div className="flex flex-col gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5">
+          <div className="flex flex-col gap-4 rounded-2xl border border-white/[0.04] bg-white/[0.02] p-5">
             {/* 1. PILLS: Category / Condition / Time */}
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-sky-500/10 px-2.5 py-0.5 text-[10px] font-bold text-sky-400">{listing.category || "Other"}</span>
@@ -1131,7 +1131,7 @@ export default function ListingPage() {
             )}
 
             {/* ── SEPARATOR ── */}
-            <div className="border-t border-zinc-800" />
+            <div className="h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
 
             {/* 7. SELLER CARD */}
             <div>
@@ -1328,11 +1328,14 @@ export default function ListingPage() {
 
       {sellerListings.length > 0 && (
         <section className="relative z-10 mx-auto max-w-5xl px-6 pb-10">
-          <h2 className="text-sm font-bold text-[var(--foreground)]">More from {listing.sellerEmail?.split("@")[0]}</h2>
+          <div className="flex items-center gap-2 mb-4">
+            <div className="h-4 w-0.5 rounded-full bg-gradient-to-b from-sky-500 to-violet-500" />
+            <h2 className="text-sm font-bold text-white">More from {listing.sellerEmail?.split("@")[0]}</h2>
+          </div>
           <div className="mt-3 flex gap-3 overflow-x-auto pb-1 scrollbar-none">
             {sellerListings.map((l: any) => (
               <Link key={l.id} href={`/post/listing/${l.id}`}
-                className="group shrink-0 w-44 rounded-xl border border-zinc-800/40 bg-zinc-900/50 p-3 transition hover:border-sky-500/30 hover:-translate-y-0.5">
+                className="group shrink-0 w-44 rounded-xl border border-white/[0.04] bg-white/[0.02] p-3 transition-all duration-200 hover:bg-white/[0.04] hover:border-sky-500/30 hover:-translate-y-1 hover:shadow-[0_8px_30px_-8px_rgba(14,165,233,0.12)]">
                 {l.images?.[0] || l.imageUrl || l.image ? (
                   <img src={l.images?.[0] || l.imageUrl || l.image || ""} alt="" loading="lazy" className="h-20 w-full rounded-lg object-cover" />
                 ) : (

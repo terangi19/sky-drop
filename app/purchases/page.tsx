@@ -314,7 +314,7 @@ export default function PurchasesPage() {
               const hasTimeline = idx >= 0;
 
               return (
-                <div key={p.id} className="rounded-xl border border-zinc-800 bg-zinc-900/60 overflow-hidden">
+                <div key={p.id} className="rounded-xl border border-white/[0.04] bg-white/[0.02] overflow-hidden">
                   {/* Card body */}
                   <div className="flex items-start gap-4 p-5 flex-wrap">
                     {/* Image */}
