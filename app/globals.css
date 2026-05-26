@@ -64,7 +64,14 @@ body {
 :root.light .bg-black\/40 { background-color: rgba(255, 255, 255, 0.7) !important; }
 :root.light .bg-black\/60 { background-color: #eef0f5 !important; }
 :root.light .bg-white\/\[0\.02\] { background-color: #ffffff !important; }
+:root.light .bg-white\/\[0\.03\] { background-color: #ffffff !important; }
 :root.light .bg-white\/\[0\.04\] { background-color: #f7f8fc !important; }
+:root.light .bg-white\/\[0\.06\] { background-color: rgba(0, 0, 0, 0.04) !important; }
+:root.light .hover\:bg-white\/\[0\.06\]:hover { background-color: rgba(0, 0, 0, 0.06) !important; }
+:root.light .hover\:text-white:hover { color: var(--foreground) !important; }
+:root.light .bg-gradient-to-r.from-sky-500 {
+  background-image: linear-gradient(to right, #0ea5e9, #38bdf8) !important;
+}
 :root.light .border-zinc-800 { border-color: rgba(0, 0, 0, 0.08) !important; }
 :root.light .border-zinc-800\/50 { border-color: rgba(0, 0, 0, 0.05) !important; }
 :root.light .border-zinc-800\/30 { border-color: rgba(0, 0, 0, 0.04) !important; }
