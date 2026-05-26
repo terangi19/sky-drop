@@ -732,22 +732,35 @@ export default function Home() {
             {/* SEARCH */}
             <div className="mx-auto mt-8 max-w-xl">
               <div className="group relative">
-                <div className="absolute -inset-0.5 rounded-xl bg-gradient-to-r from-sky-500/30 via-violet-500/30 to-sky-500/30 opacity-0 blur transition duration-500 group-focus-within:opacity-100" />
-                <div className="relative flex items-center rounded-xl border border-white/[0.06] bg-black/50 backdrop-blur-sm ring-0 transition-all duration-300 focus-within:ring-2 focus-within:ring-sky-500/30 focus-within:border-sky-500/40">
-                  <svg className="ml-4 h-4 w-4 shrink-0 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-                  </svg>
+                <div className="absolute -inset-1 rounded-xl bg-gradient-to-r from-sky-500/40 via-violet-500/40 to-sky-500/40 opacity-0 blur-lg transition duration-500 group-focus-within:opacity-100" />
+                <div className="relative flex items-center rounded-xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-sm ring-0 transition-all duration-300 focus-within:ring-2 focus-within:ring-sky-500/30 focus-within:border-sky-500/40">
+                  <div className="ml-4 flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04]">
+                    <svg className="h-4 w-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                    </svg>
+                  </div>
                   <input
                     type="text"
                     placeholder="Search listings..."
                     value={search}
                     ref={searchRef}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="flex-1 bg-transparent px-4 py-3.5 text-[15px] text-white outline-none placeholder:text-zinc-500"
+                    className="flex-1 bg-transparent px-3 py-3.5 text-[15px] text-white outline-none placeholder:text-zinc-500"
                   />
-                  <button onClick={() => searchRef.current?.focus()} className="mr-1.5 shrink-0 rounded-lg bg-sky-500 px-6 py-2 text-[13px] font-bold text-white transition-all duration-200 hover:bg-sky-400 active:scale-[0.97]">
-                    Search
-                  </button>
+                  <div className="mr-1.5 flex gap-1.5">
+                    {search && (
+                      <button onClick={() => setSearch("")} className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-white/[0.06] hover:text-white">
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
+                    )}
+                    <button onClick={() => searchRef.current?.focus()}
+                      className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2 text-[13px] font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.97]">
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                      </svg>
+                      Search
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
