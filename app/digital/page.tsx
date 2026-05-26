@@ -40,18 +40,21 @@ export default function DigitalPage() {
 
       <section className="relative z-10 mx-auto max-w-6xl px-4 py-12 sm:px-6">
         {/* Hero */}
-        <div className="mb-10 text-center sm:text-left">
-          <div className="inline-flex items-center gap-2 rounded-full border border-sky-500/20 bg-sky-500/5 px-3 py-1 text-[11px] font-semibold text-sky-400 mb-4 tracking-wide uppercase">Curated Collection</div>
-          <h1 className="text-4xl font-black tracking-tight sm:text-5xl">
-            Digital <span className="bg-gradient-to-r from-sky-400 to-violet-400 bg-clip-text text-transparent">Store</span>
-          </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[var(--muted)]">
-            The Digital Store is Sky Drop's marketplace for premium instant-download products. Browse templates, software, design assets, e-books, and creative tools — delivered directly to you on purchase.
-          </p>
-          <Link href="/post/ai" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:scale-105 active:scale-95">
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-            Create Listing
-          </Link>
+        <div className="mb-10 relative overflow-hidden rounded-3xl border border-white/[0.04] bg-gradient-to-b from-white/[0.04] via-transparent to-transparent p-8 sm:p-10 text-center sm:text-left">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(14,165,233,0.12),transparent)] pointer-events-none" />
+          <div className="relative">
+            <div className="inline-flex items-center gap-2 rounded-full border border-sky-500/15 bg-sky-500/5 px-3.5 py-1 text-[10px] font-semibold text-sky-400 mb-4 tracking-wide uppercase">Curated Collection</div>
+            <h1 className="text-4xl font-black tracking-tight sm:text-5xl">
+              Digital <span className="bg-gradient-to-r from-sky-400 to-violet-400 bg-clip-text text-transparent">Store</span>
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-400">
+              The Digital Store is Sky Drop's marketplace for premium instant-download products. Browse templates, software, design assets, e-books, and creative tools — delivered directly to you on purchase.
+            </p>
+            <Link href="/post/ai" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:scale-105 active:scale-95">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+              Create Listing
+            </Link>
+          </div>
         </div>
 
         {/* Category filters */}
@@ -70,15 +73,20 @@ export default function DigitalPage() {
 
         {/* Listing grid */}
         {filtered.length === 0 ? (
-          <div className="rounded-2xl border border-zinc-800 bg-gradient-to-br from-zinc-900/60 to-zinc-900/20 p-16 text-center backdrop-blur-sm">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-800/60 text-3xl">📦</div>
-            <p className="text-lg font-bold text-[var(--foreground)]">Nothing here yet</p>
-            <p className="mt-1 text-sm text-[var(--muted)]">Be the first to list a digital product in this category.</p>
+          <div className="mx-auto max-w-md mt-12 text-center">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/[0.03] border border-white/[0.06]">
+              <span className="text-3xl">📦</span>
+            </div>
+            <h2 className="text-2xl font-black tracking-tight text-white">Nothing here yet</h2>
+            <p className="mt-2 text-sm text-zinc-500">Be the first to list a digital product in this category.</p>
+            <Link href="/post/ai" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:scale-105 active:scale-95">
+              Create Listing
+            </Link>
           </div>
         ) : (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filtered.map((item) => (
-              <div key={item.id} className="group relative overflow-hidden rounded-2xl border border-zinc-800/40 bg-gradient-to-b from-zinc-900/80 to-zinc-900/40 transition-all duration-500 hover:border-sky-500/30 hover:shadow-[0_0_30px_rgba(14,165,233,0.1)] hover:-translate-y-1">
+              <div key={item.id} className="group relative overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.02] transition-all duration-300 hover:bg-white/[0.04] hover:border-sky-500/30 hover:-translate-y-1 hover:shadow-[0_10px_40px_-10px_rgba(14,165,233,0.15)]">
                 {/* Preview image */}
                 <div className="relative h-40 overflow-hidden bg-gradient-to-br from-zinc-800/80 to-zinc-900/80">
                   {item.images?.[0] || item.imageUrl || item.image ? (
