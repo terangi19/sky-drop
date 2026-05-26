@@ -689,188 +689,191 @@ export default function Home() {
       )}
 
       {/* HERO / SEARCH SECTION */}
-      <div className="relative z-10 mx-auto max-w-[1920px] px-4 pt-6">
-        <div className="rounded-3xl border border-zinc-800/30 bg-gradient-to-b from-zinc-900/60 to-zinc-900/10 backdrop-blur-sm overflow-hidden shadow-[0_0_120px_rgba(14,165,233,0.08)]">
+      <section className="relative z-10 mx-auto max-w-[1920px] px-4 pt-6">
+        <div className="relative overflow-hidden rounded-3xl border border-white/[0.04] bg-gradient-to-b from-white/[0.04] via-transparent to-transparent shadow-[0_0_150px_-20px_rgba(14,165,233,0.12)]">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(14,165,233,0.12),transparent)] pointer-events-none" />
 
           {/* LIVE BAR */}
-          <div className="flex items-center justify-center px-8 py-2.5 text-[13px] text-[var(--muted)] border-b border-zinc-800/20">
+          <div className="relative flex items-center justify-center px-6 py-2.5 text-[12px] text-[var(--muted)] border-b border-white/[0.04]">
+            <span className="absolute left-6 top-1/2 -translate-y-1/2 flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+              </span>
+              <span className="text-[10px] font-medium text-emerald-400/60 uppercase tracking-widest">Live</span>
+            </span>
             {(() => {
               const top = [...listings].filter((l: any) => (l.views || 0) > 0 || (l.bidCount || 0) > 0).sort((a: any, b: any) => (b.views || 0) + (b.bidCount || 0) - (a.views || 0) - (a.bidCount || 0)).slice(0, 3);
               if (top.length > 0) {
-                return <span className="truncate">🔥 {top.map((l: any) => l.title).join(" · ")}</span>;
+                return <span className="truncate text-[11px] font-medium text-zinc-400">🔥 {top.map((l: any) => l.title).join(" · ")}</span>;
               }
-              return <span className="text-[var(--muted)]">🔥 Trending listings</span>;
+              return <span className="text-[11px] text-zinc-500 font-medium">🔥 Trending listings across New Zealand</span>;
             })()}
           </div>
 
-          <div className="px-8 py-6">
+          <div className="relative px-6 py-10 sm:px-10 sm:py-12">
+            <div className="mx-auto max-w-3xl text-center">
+              <div className="inline-flex items-center gap-2 rounded-full border border-sky-500/15 bg-sky-500/5 px-3.5 py-1 text-[10px] font-semibold text-sky-400 mb-5 tracking-wider uppercase">
+                {filteredListings.length} listings available
+              </div>
 
-            {/* HEADLINE */}
-            <div className="text-center mb-3">
-              <h1 className="text-3xl font-black tracking-tight text-[var(--foreground)]">
-                {user ? "Discover what you need" : "Welcome to Sky Drop"}
+              <h1 className="text-4xl font-black tracking-tight sm:text-5xl lg:text-6xl leading-none">
+                <span className="bg-gradient-to-r from-white via-sky-200 to-white bg-clip-text text-transparent">
+                  {user ? "Discover what you need" : "Welcome to Sky Drop"}
+                </span>
               </h1>
-              <p className="mt-1 text-[13px] text-[var(--muted)]">
+              <p className="mt-4 max-w-xl mx-auto text-sm leading-relaxed text-zinc-400">
                 {user
-                  ? `${filteredListings.length} listings from trusted sellers across NZ`
+                  ? `${filteredListings.length} listings from trusted sellers across New Zealand`
                   : "Browse listings, message sellers, and buy with confidence. All payments are protected."}
               </p>
             </div>
 
-              {/* SEARCH */}
-              <div className="mx-auto max-w-2xl">
-                <div className="flex items-center rounded-xl border border-zinc-700/30 bg-zinc-900/80 shadow-[0_0_40px_rgba(14,165,233,0.06)] ring-0 transition-all duration-300 focus-within:ring-2 focus-within:ring-sky-500/30 focus-within:border-sky-500/40">
-                   <input
-                     type="text"
-                     placeholder="Search listings..."
-                     value={search}
-                     ref={searchRef}
-                     onChange={(e) => setSearch(e.target.value)}
-                    className="flex-1 rounded-l-xl bg-transparent px-6 py-3.5 text-[16px] text-[var(--foreground)] outline-none placeholder:text-[var(--foreground)]"
+            {/* SEARCH */}
+            <div className="mx-auto mt-8 max-w-xl">
+              <div className="group relative">
+                <div className="absolute -inset-0.5 rounded-xl bg-gradient-to-r from-sky-500/30 via-violet-500/30 to-sky-500/30 opacity-0 blur transition duration-500 group-focus-within:opacity-100" />
+                <div className="relative flex items-center rounded-xl border border-white/[0.06] bg-black/50 backdrop-blur-sm ring-0 transition-all duration-300 focus-within:ring-2 focus-within:ring-sky-500/30 focus-within:border-sky-500/40">
+                  <svg className="ml-4 h-4 w-4 shrink-0 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Search listings..."
+                    value={search}
+                    ref={searchRef}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="flex-1 bg-transparent px-4 py-3.5 text-[15px] text-white outline-none placeholder:text-zinc-500"
                   />
-                  <button onClick={() => searchRef.current?.focus()} className="shrink-0 rounded-r-xl bg-sky-500 px-8 py-3.5 text-[14px] font-bold text-[var(--foreground)] transition-all duration-200 hover:bg-sky-400 active:scale-[0.98]">
+                  <button onClick={() => searchRef.current?.focus()} className="mr-1.5 shrink-0 rounded-lg bg-sky-500 px-6 py-2 text-[13px] font-bold text-white transition-all duration-200 hover:bg-sky-400 active:scale-[0.97]">
                     Search
                   </button>
                 </div>
               </div>
+            </div>
 
             {/* BROWSE CATEGORIES */}
-            <div className="mt-5">
-              <p className="text-center text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--muted)] mb-3">Browse Categories</p>
-              <div className="flex flex-wrap justify-center gap-2">
+            <div className="mt-8">
+              <p className="text-center text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500 mb-4">Browse Categories</p>
+              <div className="flex flex-wrap justify-center gap-2.5">
                 <button
                   onClick={() => setSelectedCategory("All")}
-                  className={`flex flex-col items-center gap-1.5 rounded-xl border p-3 transition-all duration-200 ${
+                  className={`flex flex-col items-center gap-1.5 rounded-xl border px-4 py-3.5 transition-all duration-200 ${
                     selectedCategory === "All"
-                      ? "border-sky-500/40 bg-sky-500/10 text-sky-400 shadow-[0_0_20px_rgba(14,165,233,0.1)]"
-                      : "border-zinc-800/40 bg-zinc-900/60 text-[var(--foreground)] hover:border-zinc-700/50 hover:bg-zinc-800/40 hover:-translate-y-0.5"
+                      ? "border-sky-500/40 bg-sky-500/10 shadow-[0_0_25px_rgba(14,165,233,0.15)]"
+                      : "border-white/[0.04] bg-white/[0.02] hover:bg-white/[0.04] hover:-translate-y-0.5"
                   }`}
                 >
-                  <span className="text-lg">✨</span>
-                  <span className="text-[10px] font-bold">All</span>
+                  <span className={`text-lg ${selectedCategory === "All" ? "" : "opacity-50"}`}>✨</span>
+                  <span className={`text-[10px] font-bold ${selectedCategory === "All" ? "text-sky-400" : "text-zinc-400"}`}>All</span>
                 </button>
                 {activeCategories.map((cat) => (
                   <button
                     key={cat.name}
                     onClick={() => setSelectedCategory(cat.name)}
-                    className={`flex flex-col items-center gap-1.5 rounded-xl border p-4 transition-all duration-200 ${
+                    className={`flex flex-col items-center gap-1.5 rounded-xl border px-4 py-3.5 transition-all duration-200 ${
                       selectedCategory === cat.name
-                        ? "border-sky-500/40 bg-sky-500/10 text-sky-400 shadow-[0_0_20px_rgba(14,165,233,0.1)]"
-                        : "border-zinc-800/40 bg-zinc-900/60 text-[var(--foreground)] hover:border-zinc-700/50 hover:bg-zinc-800/40 hover:-translate-y-0.5"
+                        ? "border-sky-500/40 bg-sky-500/10 shadow-[0_0_25px_rgba(14,165,233,0.15)]"
+                        : "border-white/[0.04] bg-white/[0.02] hover:bg-white/[0.04] hover:-translate-y-0.5"
                     }`}
                   >
-                    <span className="text-2xl">{cat.emoji}</span>
-                    <span className="text-[11px] font-bold">{cat.name}</span>
+                    <span className={`text-2xl ${selectedCategory === cat.name ? "" : "opacity-50"}`}>{cat.emoji}</span>
+                    <span className={`text-[11px] font-bold ${selectedCategory === cat.name ? "text-sky-400" : "text-zinc-400"}`}>{cat.name}</span>
                   </button>
                 ))}
                 <Link href="/digital"
-                  className="flex flex-col items-center gap-1.5 rounded-xl border border-sky-500/20 bg-sky-500/5 p-4 transition-all duration-200 hover:border-sky-500/40 hover:bg-sky-500/10 hover:-translate-y-0.5">
-                  <span className="text-2xl">📥</span>
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-sky-500/10 bg-sky-500/[0.03] px-4 py-3.5 transition-all duration-200 hover:border-sky-500/30 hover:bg-sky-500/[0.06] hover:-translate-y-0.5">
+                  <span className="text-2xl opacity-70">📥</span>
                   <span className="text-[11px] font-bold text-sky-400">Digital</span>
                 </Link>
               </div>
             </div>
 
-            {/* CONDITION & LOCATION ROW */}
-            <div className="mt-3 flex flex-wrap items-center justify-center gap-2.5">
-
-              <select
-                value={selectedCondition}
-                onChange={(e) =>
-                  setSelectedCondition(
-                    e.target.value
-                  )
-                }
-                className="rounded-md border border-zinc-700/40 bg-zinc-900/80 px-3 py-1.5 text-[13px] text-[var(--foreground)] outline-none min-h-[44px]"
-              >
-                {conditions.map((c) => (
-                  <option key={c} value={c}>{c === "All" ? "Condition" : c}</option>
-                ))}
-              </select>
-
-              <select
-                value={selectedRegion}
-                onChange={(e) =>
-                  setSelectedRegion(
-                    e.target.value
-                  )
-                }
-                className="rounded-md border border-zinc-700/40 bg-zinc-900/80 px-3 py-1.5 text-[13px] text-[var(--foreground)] outline-none min-h-[44px]"
-              >
-                {regions.map((r) => (
-                  <option key={r} value={r}>{r === "All" ? "Region" : r}</option>
-                ))}
-              </select>
-
-              <select
-                value={sortBy}
-                onChange={(e) =>
-                  setSortBy(
-                    e.target.value
-                  )
-                }
-                className="rounded-md border border-zinc-700/40 bg-zinc-900/80 px-3 py-1.5 text-[13px] text-[var(--foreground)] outline-none min-h-[44px]"
-              >
-                <option value="newest">Newest</option>
-                <option value="oldest">Oldest</option>
-                <option value="low-high">Price Low → High</option>
-                <option value="high-low">Price High → Low</option>
-                <option value="trending">🔥 Trending</option>
-              </select>
-
-              </div>
-
-            {/* Clear filters */}
-            {(
-              selectedCategory !== "All" ||
-              selectedCondition !== "All" ||
-              selectedRegion !== "All" ||
-              search
-            ) && (
-              <div className="mt-3 flex justify-center">
-                <button
-                  onClick={() => {
-                    setSelectedCategory("All");
-                    setSelectedCondition("All");
-                    setSelectedRegion("All");
-                    setSearch("");
-                    setSortBy("newest");
-                  }}
-                  className="rounded-lg border border-zinc-800/50 px-4 py-1.5 text-[11px] font-medium text-[var(--muted)] transition hover:border-zinc-700 hover:text-[var(--foreground)]"
+            {/* FILTERS ROW */}
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+              <div className="relative">
+                <select
+                  value={selectedCondition}
+                  onChange={(e) => setSelectedCondition(e.target.value)}
+                  className="appearance-none rounded-lg border border-white/[0.06] bg-black/40 px-4 py-2.5 pr-8 text-[12px] text-white outline-none transition focus:border-sky-500/40 focus:bg-black/60 cursor-pointer"
                 >
-                  ✕ Clear all filters
-                </button>
+                  {conditions.map((c) => (
+                    <option key={c} value={c} className="bg-zinc-900">{c === "All" ? "Condition" : c}</option>
+                  ))}
+                </select>
+                <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
               </div>
-            )}
 
+              <div className="relative">
+                <select
+                  value={selectedRegion}
+                  onChange={(e) => setSelectedRegion(e.target.value)}
+                  className="appearance-none rounded-lg border border-white/[0.06] bg-black/40 px-4 py-2.5 pr-8 text-[12px] text-white outline-none transition focus:border-sky-500/40 focus:bg-black/60 cursor-pointer"
+                >
+                  {regions.map((r) => (
+                    <option key={r} value={r} className="bg-zinc-900">{r === "All" ? "Region" : r}</option>
+                  ))}
+                </select>
+                <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+              </div>
+
+              <div className="relative">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="appearance-none rounded-lg border border-white/[0.06] bg-black/40 px-4 py-2.5 pr-8 text-[12px] text-white outline-none transition focus:border-sky-500/40 focus:bg-black/60 cursor-pointer"
+                >
+                  <option value="newest" className="bg-zinc-900">Newest</option>
+                  <option value="oldest" className="bg-zinc-900">Oldest</option>
+                  <option value="low-high" className="bg-zinc-900">Price Low → High</option>
+                  <option value="high-low" className="bg-zinc-900">Price High → Low</option>
+                  <option value="trending" className="bg-zinc-900">🔥 Trending</option>
+                </select>
+                <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+              </div>
+
+              {(selectedCategory !== "All" || selectedCondition !== "All" || selectedRegion !== "All" || search) && (
+                <button
+                  onClick={() => { setSelectedCategory("All"); setSelectedCondition("All"); setSelectedRegion("All"); setSearch(""); setSortBy("newest"); }}
+                  className="rounded-lg border border-white/[0.06] px-4 py-2.5 text-[11px] font-medium text-zinc-400 transition hover:bg-white/[0.04] hover:text-white"
+                >
+                  ✕ Clear
+                </button>
+              )}
             </div>
           </div>
         </div>
+      </section>
 
       {/* HOT THIS WEEK */}
       {listings.filter(l => l.status !== "sold").length > 0 && (
         <section className="relative z-10 mx-auto max-w-[1800px] px-4 pb-1.5">
-          <div className="relative mb-3 pt-2">
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-zinc-700/50 to-transparent" />
-            <p className="text-[13px] font-bold uppercase tracking-[0.22em] text-[var(--foreground)]">🔥 Hot This Week</p>
+          <div className="relative mb-4 pt-2">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+            <div className="flex items-center gap-2 pt-3">
+              <div className="h-5 w-1 rounded-full bg-gradient-to-b from-orange-500 to-amber-500" />
+              <p className="text-[13px] font-bold uppercase tracking-[0.22em] text-white">🔥 Hot This Week</p>
+            </div>
           </div>
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+          <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
             {hotItems.map((item: any) => (
             <div key={item.id} onClick={() => { saveRecentlyViewed(item); router.push(`/post/listing/${item.id}`); }}
-              className={`group shrink-0 w-56 cursor-pointer rounded-xl p-3 transition-all duration-200 ${
-                (item.views || 0) / hotMaxViews >= 0.3 || item.promotedUntil?.toMillis?.() > Date.now() || (item.bidCount || 0) >= 3 || (item.watchlistCount || 0) >= 3
-                  ? "border-orange-500/30 bg-orange-500/[0.04] shadow-[0_0_20px_rgba(251,146,60,0.2)] animate-breathe-orange hover:border-orange-500/50 hover:shadow-[0_0_30px_rgba(251,146,60,0.35)]"
-                  : "border border-zinc-800/40 bg-zinc-900/50 hover:border-orange-500/30 hover:-translate-y-0.5"
-              }`}>
-              {item.images?.[0] || item.imageUrl || item.image ? (
-                <div className="relative">
-                  <img src={item.images?.[0] || item.imageUrl || item.image || ""} alt="" loading="lazy" className="h-20 w-full rounded-lg object-cover" />
+              className="group shrink-0 w-56 cursor-pointer rounded-2xl border border-white/[0.04] bg-white/[0.02] p-3 transition-all duration-300 hover:bg-white/[0.04] hover:border-orange-500/30 hover:-translate-y-1 hover:shadow-[0_10px_30px_-10px_rgba(251,146,60,0.2)]">
+              <div className="relative overflow-hidden rounded-xl">
+                {item.images?.[0] || item.imageUrl || item.image ? (
+                  <img src={item.images?.[0] || item.imageUrl || item.image || ""} alt="" loading="lazy" className="h-20 w-full rounded-xl object-cover transition-all duration-500 group-hover:scale-110" />
+                ) : (
+                  <div className="h-20 rounded-xl bg-gradient-to-br from-orange-500/10 via-red-500/10 to-amber-500/10 flex items-center justify-center text-xs text-zinc-500">SD</div>
+                )}
+                <div className="absolute top-2 left-2">
+                  <span className="rounded-full bg-orange-500/90 px-2 py-0.5 text-[8px] font-bold text-white backdrop-blur-sm">🔥 Trending</span>
                 </div>
-              ) : (
-                <div className="h-20 w-full rounded-lg bg-gradient-to-br from-orange-500/10 via-red-500/10 to-amber-500/10 flex items-center justify-center text-xs text-[var(--muted)]">SD</div>
-              )}
-              <p className="mt-2 truncate text-sm font-bold text-[var(--foreground)]">{item.title}</p>
-              <p className="mt-0.5 text-sm font-black text-orange-400">${item.price} <span className="text-[10px] text-[var(--muted)]">· 👁 {(item as any).views || 0}</span></p>
+              </div>
+              <div className="mt-2.5 flex items-start justify-between gap-2">
+                <p className="truncate text-sm font-bold text-white flex-1">{item.title}</p>
+                <p className="shrink-0 text-sm font-black text-orange-400">${item.price}</p>
+              </div>
+              <p className="mt-1 text-[10px] text-zinc-500">👁 {(item as any).views || 0} views</p>
             </div>
           ))}
           </div>
@@ -880,41 +883,37 @@ export default function Home() {
       {/* LISTINGS */}
       <section className="relative z-10 mx-auto max-w-[1800px] px-4 pb-10">
 
-        <div className="mb-1.5">
-
-          <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--muted)]">
-
-            Marketplace
-
-          </p>
-
-          <h2 className="text-base font-black tracking-tight text-[var(--foreground)]">
-            {selectedCategory !== "All" ? `${selectedCategory}` : "Latest Listings"}
-          </h2>
-
-          <p className="text-[11px] text-[var(--muted)]">
-            {animatedCount} listing{animatedCount !== 1 ? "s" : ""} found
-            {selectedCategory !== "All" && ` in ${selectedCategory}`}
-            {selectedRegion !== "All" && ` · ${selectedRegion}`}
-          </p>
-
+        <div className="flex items-center justify-between mb-1.5">
+          <div className="flex items-center gap-3">
+            <div className="h-7 w-1 rounded-full bg-gradient-to-b from-sky-500 to-violet-500" />
+            <div>
+              <h2 className="text-lg font-black tracking-tight text-white">
+                {selectedCategory !== "All" ? selectedCategory : "Latest Listings"}
+              </h2>
+              <p className="text-[11px] text-zinc-500">
+                {animatedCount} listing{animatedCount !== 1 ? "s" : ""} found
+                {selectedCategory !== "All" && ` in ${selectedCategory}`}
+                {selectedRegion !== "All" && ` · ${selectedRegion}`}
+              </p>
+            </div>
+          </div>
         </div>
 
           {loading && (
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {[1,2,3,4,5,6,7,8,9,10].map((_, i) => (
-                <div key={i} className="relative overflow-hidden rounded-xl bg-zinc-900/60 border border-zinc-800/50">
-                  <div className="aspect-[4/3] w-full bg-gradient-to-r from-zinc-800/50 via-zinc-700/30 to-zinc-800/50 bg-[length:200%_100%] animate-[shimmer_2s_ease-in-out_infinite]"></div>
-                  <div className="p-3 space-y-2.5">
-                    <div className="flex gap-1.5">
-                      <div className="h-4 w-12 rounded-full bg-gradient-to-r from-zinc-800/50 via-zinc-700/30 to-zinc-800/50 bg-[length:200%_100%] animate-[shimmer_2s_ease-in-out_infinite]"></div>
-                      <div className="h-4 w-8 rounded-full bg-gradient-to-r from-zinc-800/50 via-zinc-700/30 to-zinc-800/50 bg-[length:200%_100%] animate-[shimmer_2s_ease-in-out_infinite]"></div>
-                    </div>
-                    <div className="h-5 w-40 bg-gradient-to-r from-zinc-800/50 via-zinc-700/30 to-zinc-800/50 bg-[length:200%_100%] animate-[shimmer_2s_ease-in-out_infinite] rounded"></div>
-                    <div className="h-4 w-28 bg-gradient-to-r from-zinc-800/50 via-zinc-700/30 to-zinc-800/50 bg-[length:200%_100%] animate-[shimmer_2s_ease-in-out_infinite] rounded"></div>
+            <div className="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {[1,2,3,4,5,6,7,8].map((_, i) => (
+                <div key={i} className="relative overflow-hidden rounded-2xl bg-white/[0.02] border border-white/[0.04]">
+                  <div className="aspect-[4/3] w-full bg-gradient-to-r from-white/[0.02] via-white/[0.04] to-white/[0.02] bg-[length:200%_100%] animate-[shimmer_2s_ease-in-out_infinite]" />
+                  <div className="p-4 space-y-3">
                     <div className="flex gap-2">
-                      <div className="h-8 flex-1 rounded-md bg-gradient-to-r from-zinc-800/50 via-zinc-700/30 to-zinc-800/50 bg-[length:200%_100%] animate-[shimmer_2s_ease-in-out_infinite]"></div>
-                      <div className="h-8 w-20 rounded-md bg-gradient-to-r from-zinc-800/50 via-zinc-700/30 to-zinc-800/50 bg-[length:200%_100%] animate-[shimmer_2s_ease-in-out_infinite]"></div>
+                      <div className="h-4 w-14 rounded-md bg-white/[0.04]" />
+                      <div className="h-4 w-10 rounded-md bg-white/[0.04]" />
+                    </div>
+                    <div className="h-5 w-3/4 rounded bg-white/[0.04]" />
+                    <div className="h-4 w-1/2 rounded bg-white/[0.02]" />
+                    <div className="flex gap-2">
+                      <div className="h-9 flex-1 rounded-lg bg-white/[0.04]" />
+                      <div className="h-9 w-20 rounded-lg bg-white/[0.04]" />
                     </div>
                   </div>
                </div>
@@ -922,33 +921,23 @@ export default function Home() {
           </div>
           )}
 
-        {!loading &&
-          filteredListings.length ===
-            0 && (
-
-            <div className="rounded-[32px] border border-[var(--card-border)] bg-[var(--card)] p-14 text-center shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
-
-              <h2 className="text-[34px] font-black tracking-tight text-[var(--foreground)]">
-
-                No listings found
-
-              </h2>
-
-              <p className="mx-auto mt-4 max-w-[500px] text-[15px] leading-relaxed text-[var(--muted)]">
-                Try adjusting your filters.
-              </p>
-              <button
-                onClick={() => { setSelectedCategory("All"); setSelectedCondition("All"); setSelectedRegion("All"); setSearch(""); }}
-                className="mt-3 text-xs text-sky-400 hover:underline"
-              >
-                Clear all filters
-              </button>
-
+        {!loading && filteredListings.length === 0 && (
+          <div className="relative mx-auto max-w-md mt-12 text-center">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/[0.03] border border-white/[0.06]">
+              <svg className="h-8 w-8 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
             </div>
+            <h2 className="text-2xl font-black tracking-tight text-white">No listings found</h2>
+            <p className="mt-2 text-sm text-zinc-500">Try adjusting your filters or search.</p>
+            <button onClick={() => { setSelectedCategory("All"); setSelectedCondition("All"); setSelectedRegion("All"); setSearch(""); }}
+              className="mt-5 rounded-lg border border-sky-500/20 bg-sky-500/5 px-5 py-2.5 text-sm font-bold text-sky-400 transition hover:bg-sky-500/10 hover:border-sky-500/30">
+              Clear all filters
+            </button>
+          </div>
+        )}
 
-          )}
-
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 
           {(() => {
             const visible = filteredListings.slice(0, visibleCount);
@@ -960,59 +949,60 @@ export default function Home() {
               return (
               <div
                 key={item.id}
-                className={`group block overflow-hidden rounded-xl transition-all duration-200 cursor-pointer ${
+                className={`group relative overflow-hidden rounded-2xl transition-all duration-300 cursor-pointer ${
                   isPopular
-                    ? "border-orange-500/30 bg-orange-500/[0.04] shadow-[0_0_20px_rgba(251,146,60,0.2)] animate-breathe-orange hover:border-orange-500/50 hover:shadow-[0_0_30px_rgba(251,146,60,0.35)]"
-                    : "bg-zinc-900/60 border border-zinc-800/50 hover:-translate-y-1 hover:border-sky-500/30 hover:bg-zinc-900/80 hover:shadow-[0_8px_30px_rgba(0,0,0,0.2)]"
+                    ? "bg-gradient-to-b from-orange-500/[0.04] to-transparent border border-orange-500/20 shadow-[0_0_30px_rgba(251,146,60,0.12)] hover:border-orange-500/40 hover:shadow-[0_0_40px_rgba(251,146,60,0.25)] hover:-translate-y-1"
+                    : "bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.04] hover:border-sky-500/30 hover:-translate-y-1 hover:shadow-[0_10px_40px_-10px_rgba(14,165,233,0.15)]"
                 }`}
                 onClick={() => { saveRecentlyViewed(item); router.push(`/post/listing/${item.id}`); }}
               >
+                {!isPopular && <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-white/[0.01] pointer-events-none" />}
 
                 {item.images?.[0] || item.imageUrl || item.image ? (
                   <>
-                  <div className="relative overflow-hidden bg-gradient-to-br from-sky-500/10 via-violet-500/10 to-purple-600/10">
+                  <div className="relative overflow-hidden">
                       <img
                         src={item.images?.[0] || item.imageUrl || item.image || ""}
                         alt={item.title}
                         loading="lazy"
                         onLoad={(e) => { (e.target as HTMLImageElement).style.opacity = "1"; }}
                         onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                        className="aspect-[4/3] w-full object-cover transition-opacity duration-500 group-hover:scale-105 opacity-0"
+                        className="aspect-[4/3] w-full object-cover transition-all duration-500 group-hover:scale-105 opacity-0"
                       />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                      {item.status === "sold" && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-none">
-                          <span className="rounded-md bg-red-600/90 px-3 py-1 text-xs font-black uppercase tracking-wider text-white">Sold · ${item.price}</span>
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+                          <span className="rounded-lg bg-red-600 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-white shadow-lg">Sold · ${item.price}</span>
                         </div>
                       )}
-                      <div className="absolute top-2 left-2 flex flex-col gap-1">
-                        {item.status !== "sold" && (
-                          <span className="rounded-md bg-orange-600/90 px-2 py-0.5 text-[9px] font-bold text-white">🔥 Hot</span>
+                      <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+                        {item.status !== "sold" && (item.views || 0) > 3 && (
+                          <span className="rounded-full bg-orange-500/90 px-2.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm shadow-lg">🔥 Hot</span>
                         )}
                         {(item as any).promotedUntil?.toMillis?.() > Date.now() && (
-                          <span className="rounded-md bg-amber-600/90 px-2 py-0.5 text-[9px] font-bold text-white">📈 Promoted</span>
+                          <span className="rounded-full bg-amber-500/90 px-2.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm shadow-lg">📈 Promoted</span>
                         )}
                         {item.status !== "sold" && item.createdAt?.seconds && (Date.now() / 1000 - item.createdAt.seconds) < 86400 && (
-                          <span className="rounded-md bg-emerald-600/90 px-2 py-0.5 text-[9px] font-bold text-white">New</span>
+                          <span className="rounded-full bg-emerald-500/90 px-2.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm shadow-lg">New</span>
                         )}
                         {item.status !== "sold" && item.saleType && String(item.saleType).includes("auction") && (
-                          <span className="rounded-md bg-amber-600/90 px-2 py-0.5 text-[9px] font-bold text-white">⏰ Auction</span>
+                          <span className="rounded-full bg-amber-500/90 px-2.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm shadow-lg">⏰ Auction</span>
                         )}
                         {(item as any).type === "digital" && item.status !== "sold" && (
-                          <span className="rounded-md bg-sky-600/90 px-2 py-0.5 text-[9px] font-bold text-white">📥 Digital</span>
+                          <span className="rounded-full bg-sky-500/90 px-2.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm shadow-lg">📥 Digital</span>
                         )}
                       </div>
                       {item.status !== "sold" && item.expiresAt?.toMillis?.() < Date.now() && (
-                        <div className="absolute top-2 right-2">
-                          <span className="rounded-md bg-zinc-700/90 px-2 py-0.5 text-[9px] font-bold text-[var(--muted)] uppercase tracking-wider">Expired</span>
+                        <div className="absolute top-3 right-3">
+                          <span className="rounded-full bg-zinc-800/90 px-2.5 py-0.5 text-[9px] font-bold text-zinc-400 backdrop-blur-sm">Expired</span>
                         </div>
                       )}
                   </div>
 
                   {(item as any).images?.length > 1 && (
-                    <div className="flex justify-center gap-1 py-1.5">
+                    <div className="flex justify-center gap-1.5 py-2">
                       {(item as any).images.slice(0, 5).map((_: string, i: number) => (
-                        <div key={i} className={`h-1 w-1 rounded-full ${i === 0 ? "bg-sky-400" : "bg-zinc-700"}`} />
+                        <div key={i} className={`h-1 rounded-full transition-all duration-300 ${i === 0 ? "w-4 bg-sky-400" : "w-1 bg-zinc-700"}`} />
                       ))}
                     </div>
                   )}
@@ -1020,26 +1010,26 @@ export default function Home() {
 
                 ) : (
 
-                   <div className="relative aspect-[4/3] flex items-center justify-center bg-gradient-to-br from-sky-500/10 via-violet-500/10 to-purple-600/10">
-                     <div className="absolute inset-0 flex items-center justify-center text-[var(--foreground)] text-xs">
+                   <div className="relative aspect-[4/3] flex items-center justify-center bg-gradient-to-br from-zinc-800/50 via-zinc-800/30 to-zinc-800/50">
+                     <div className="absolute inset-0 flex items-center justify-center text-zinc-500">
                        <div className="text-center">
-                         <div className="text-2xl font-bold mb-1">SD</div>
-                         <div className="text-xs">Sky Drop</div>
+                         <div className="text-3xl font-black tracking-tighter mb-1">SD</div>
+                         <div className="text-[10px] uppercase tracking-widest opacity-50">Sky Drop</div>
                        </div>
                      </div>
                      {item.status === "sold" && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/60">
-                          <span className="rounded-md bg-red-600/90 px-3 py-1 text-xs font-black uppercase tracking-wider text-[var(--foreground)]">
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+                          <span className="rounded-lg bg-red-600 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-white shadow-lg">
                             Sold · ${item.price}
                           </span>
                         </div>
                       )}
-                     <div className="absolute top-2 left-2 flex flex-col gap-1">
+                     <div className="absolute top-3 left-3 flex flex-col gap-1.5">
                        {item.status !== "sold" && item.createdAt?.seconds && (Date.now() / 1000 - item.createdAt.seconds) < 86400 && (
-                         <span className="rounded-md bg-emerald-600/90 px-2 py-0.5 text-[9px] font-bold text-white">New</span>
+                         <span className="rounded-full bg-emerald-500/90 px-2.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm shadow-lg">New</span>
                        )}
                        {item.status !== "sold" && item.saleType && String(item.saleType).includes("auction") && (
-                         <span className="rounded-md bg-amber-600/90 px-2 py-0.5 text-[9px] font-bold text-white">⏰ Auction</span>
+                         <span className="rounded-full bg-amber-500/90 px-2.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm shadow-lg">⏰ Auction</span>
                        )}
                      </div>
                    </div>
@@ -1050,53 +1040,55 @@ export default function Home() {
 
                   <div className="flex items-center justify-between gap-2">
 
-                   <div className="flex gap-2">
-                       <span className="rounded-full bg-sky-500/10 px-3 py-1 text-[12px] font-bold text-sky-400">
+                   <div className="flex gap-1.5 flex-wrap">
+                       <span className="rounded-md bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-400 border border-sky-500/10">
                           {item.category || "Other"}
                         </span>
                         {(item as any).promotedUntil?.toMillis?.() > Date.now() && (
-                          <span className="rounded-full bg-amber-500/10 px-3 py-1 text-[12px] font-bold text-amber-400">📈 Promoted</span>
+                          <span className="rounded-md bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-400 border border-amber-500/10">📈 Promoted</span>
                         )}
                        {item.condition && item.condition !== "New" && (
-                         <span className="rounded-full bg-zinc-800 px-3 py-1 text-[12px] text-[var(--muted)]">
-                           Used
+                         <span className="rounded-md bg-zinc-800/60 px-2 py-0.5 text-[10px] text-zinc-400 border border-zinc-700/30">
+                           {(item as any).type === "rental" ? item.condition : "Used"}
                          </span>
                        )}
                      </div>
 
                       <button
                         onClick={(e) => { e.stopPropagation(); toggleWatchlist(item); }}
-                        className={`relative text-base transition-all duration-200 hover:scale-105 active:scale-95 ${
+                        className={`relative text-base transition-all duration-200 hover:scale-110 active:scale-95 ${
                           JSON.parse(localStorage.getItem("watchlist") || "[]").some((w: any) => w.id === item.id)
-                            ? "text-red-400" : "text-[var(--muted)] hover:text-red-400"
+                            ? "text-red-400" : "text-zinc-500 hover:text-red-400"
                         }`}
                       >
-                        {JSON.parse(localStorage.getItem("watchlist") || "[]").some((w: any) => w.id === item.id) ? "❤️" : "♥"}
+                        {JSON.parse(localStorage.getItem("watchlist") || "[]").some((w: any) => w.id === item.id) ? "❤️" : "♡"}
                       </button>
 
                   </div>
 
-                  <h2 className="mt-2 line-clamp-1 text-[18px] font-black tracking-tight text-[var(--foreground)] group-hover:text-sky-400 transition-colors duration-150">
+                  <h2 className="mt-2.5 line-clamp-1 text-[17px] font-black tracking-tight text-white group-hover:text-sky-400 transition-colors duration-150">
                     {item.title}
                   </h2>
 
-                  <p className="mt-1 line-clamp-2 text-[13px] leading-relaxed text-[var(--muted)]">
+                  <p className="mt-1.5 line-clamp-2 text-[12px] leading-relaxed text-zinc-500">
                     {item.description}
                   </p>
 
-                    <p className="mt-3 text-2xl font-black tracking-tight text-[var(--foreground)]">
-                     ${item.price}
+                    <div className="mt-3 flex items-baseline gap-2">
+                      <p className="text-2xl font-black tracking-tight text-white">
+                       ${item.price}
+                      </p>
                      {(item.saleType === "auction" || item.saleType === "auction_buy_now") && (
-                       <span className="ml-2 text-base font-bold text-amber-400">Bid: ${item.currentBid || item.startingBid || 0}</span>
+                       <span className="text-sm font-bold text-amber-400">Bid: ${item.currentBid || item.startingBid || 0}</span>
                      )}
-                   </p>
+                   </div>
 
-                   <div className="mt-3 flex items-center gap-3 text-[12px] text-[var(--muted)]/70">
-                    {item.location && <span>📍 {item.location}</span>}
+                   <div className="mt-3 flex items-center gap-3 text-[11px] text-zinc-500">
+                    {item.location && <span className="flex items-center gap-1">📍 {item.location}</span>}
                     {item.createdAt?.seconds && <span>{timeAgo(item.createdAt.seconds)}</span>}
                     {item.pickupAvailable && <span>📍 Pickup</span>}
                     {item.shippingAvailable && <span>📦 Shipping</span>}
-                    <span className="ml-auto">👁 {(item as any).views || 0}</span>
+                    <span className="ml-auto flex items-center gap-1">👁 {item.views || 0}</span>
                   </div>
 
                     <div className="mt-3 flex gap-2">
