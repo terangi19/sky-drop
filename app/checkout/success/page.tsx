@@ -3,7 +3,9 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp, Timestamp, query, where, getDocs } from "firebase/firestore";
-import { db } from "../../lib/firebase";
+import { db, storage } from "../../lib/firebase";
+import stripePromise from "../../lib/stripe-client";
+import { ref, getDownloadURL } from "firebase/storage";
 
 function SuccessInner() {
   const searchParams = useSearchParams();
@@ -17,23 +19,37 @@ function SuccessInner() {
   const title = searchParams.get("title") || "Listing";
   const price = searchParams.get("price") || "0";
   const buyerEmail = searchParams.get("buyerEmail") || "";
+  const paymentIntentClientSecret = searchParams.get("payment_intent_client_secret") || "";
   const badgeForSale = searchParams.get("badgeForSale") || "";
   const collectionName = searchParams.get("collectionName") || "listings";
   const digitalParam = searchParams.get("type") || "";
-  const digitalFileURL = searchParams.get("digitalFileURL") || "";
+  const digitalStoragePath = searchParams.get("digitalStoragePath") || "";
   const digitalFileName = searchParams.get("digitalFileName") || "";
+  const sellerEmailParam = searchParams.get("sellerEmail") || "";
 
   useEffect(() => {
     async function processOrder() {
       if (processed) return;
       setProcessed(true);
 
-      if (!listingId) {
+      if (!listingId || !buyerEmail || !paymentIntentClientSecret) {
         setStatus("done");
         return;
       }
 
       try {
+        const stripe = await stripePromise;
+        if (!stripe) {
+          setStatus("error");
+          return;
+        }
+
+        const paymentIntentResult = await stripe.retrievePaymentIntent(paymentIntentClientSecret);
+        if (!paymentIntentResult.paymentIntent || paymentIntentResult.error || paymentIntentResult.paymentIntent.status !== "succeeded") {
+          setStatus("done");
+          return;
+        }
+
         const listingRef = doc(db, collectionName, listingId);
         const listingSnap = await getDoc(listingRef);
 
@@ -44,6 +60,17 @@ function SuccessInner() {
 
         const listingData = listingSnap.data();
         const sellerEmail = listingData.sellerEmail || "";
+
+        const existingPurchaseSnap = await getDocs(query(collection(db, "purchases"), where("listingId", "==", listingId), where("buyerEmail", "==", buyerEmail)));
+        if (!existingPurchaseSnap.empty) {
+          setStatus("done");
+          return;
+        }
+
+        if (listingData.status === "sold") {
+          setStatus("done");
+          return;
+        }
 
         // Mark listing as sold
         try {
@@ -84,8 +111,9 @@ function SuccessInner() {
         }
 
         // Auto-deliver digital purchase
-        if (digitalParam === "digital" && digitalFileURL && sellerEmail && buyerEmail) {
+        if (digitalParam === "digital" && digitalStoragePath && sellerEmail && buyerEmail) {
           try {
+            const digitalFileURL = await getDownloadURL(ref(storage, digitalStoragePath));
             await addDoc(collection(db, "purchases"), {
               listingId,
               listingTitle: listingData.title || title,
@@ -108,6 +136,30 @@ function SuccessInner() {
             });
           } catch (e) {
             console.error("Digital purchase create failed:", e);
+          }
+        }
+
+        // Handle service purchase (redirect path from OfferPaymentModal)
+        if (digitalParam === "service" && sellerEmailParam && buyerEmail && listingId) {
+          try {
+            await addDoc(collection(db, "purchases"), {
+              listingId,
+              listingTitle: listingData.title || title,
+              listingPrice: listingData.price || price,
+              listingImage: listingData.imageUrl || "",
+              sellerEmail: sellerEmailParam,
+              buyerEmail,
+              buyerName: buyerEmail,
+              deliveryMethod: "service",
+              status: "in_progress",
+              paidAt: serverTimestamp(),
+              total: Number(price),
+              processingFee: 1.00,
+              disputeDeadline: Timestamp.fromMillis(Date.now() + 7 * 86400000),
+              createdAt: serverTimestamp(),
+            });
+          } catch (e) {
+            console.error("Service purchase create failed:", e);
           }
         }
 
@@ -200,7 +252,7 @@ function SuccessInner() {
     }
 
     processOrder();
-  }, [listingId, title, price, buyerEmail]);
+  }, [listingId, title, price, buyerEmail, paymentIntentClientSecret]);
 
   const redirectToMessages = () => {
     const url = conversationId

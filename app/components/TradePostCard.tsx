@@ -7,8 +7,11 @@ type TradePostCardProps = {
   deleteTrade: (id: string) => void;
 };
 
+import { useMemo } from "react";
+
 export default function TradePostCard({ post, user, formatTime, deleteTrade }: TradePostCardProps) {
-  const isNew = post.createdAt && (Date.now() - (post.createdAt?.seconds || 0) * 1000) < 300000;
+  const now = useMemo(() => Date.now(), []);
+  const isNew = post.createdAt && (now - (post.createdAt?.seconds || 0) * 1000) < 300000;
 
   function getTypeStyles() {
     if (post.type === "WTB") return "bg-emerald-500/10 text-emerald-400";

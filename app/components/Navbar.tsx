@@ -232,7 +232,26 @@ export default function Navbar() {
                 <span className="flex h-1.5 w-1.5 rounded-full bg-red-500/80" />
               </Link>
               <Link href="/post/ai" className="transition hover:text-sky-400">Quick Post</Link>
-              <Link href="/digital" className="transition hover:text-sky-400">📥 Digital</Link>
+              <div className="relative group">
+                <button className="flex items-center gap-1 transition hover:text-sky-400 cursor-pointer">
+                  Browse
+                  <svg className="h-3 w-3 transition-transform group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                </button>
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-44 rounded-xl border border-zinc-800 bg-zinc-950/95 backdrop-blur-xl p-2 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                  <Link href="/" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-[var(--foreground)] hover:bg-zinc-800/60 transition-colors">
+                    <span className="text-base">📦</span> Physical Goods
+                  </Link>
+                  <Link href="/digital" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-[var(--foreground)] hover:bg-zinc-800/60 transition-colors">
+                    <span className="text-base">📥</span> Digital Store
+                  </Link>
+                  <Link href="/services" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-[var(--foreground)] hover:bg-zinc-800/60 transition-colors">
+                    <span className="text-base">🤝</span> Services
+                  </Link>
+                  <Link href="/rentals" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-[var(--foreground)] hover:bg-zinc-800/60 transition-colors">
+                    <span className="text-base">🔑</span> Rentals
+                  </Link>
+                </div>
+              </div>
               <Link href="/list-list" className="transition hover:text-sky-400">My Listings</Link>
               <Link href="/watchlist" className="transition hover:text-sky-400">Watchlist</Link>
               <Link href="/purchases" className="transition hover:text-sky-400">Purchases</Link>
@@ -267,7 +286,13 @@ export default function Navbar() {
                     </span>
                 </Link>
                 <Link href="/post/ai" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Quick Post</Link>
-                <Link href="/digital" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>📥 Digital</Link>
+                <div className="my-1 border-t border-zinc-800/50" />
+                <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-600">Browse</div>
+                <Link href="/" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}><span>📦</span> Physical Goods</Link>
+                <Link href="/digital" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}><span>📥</span> Digital Store</Link>
+                <Link href="/services" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}><span>🤝</span> Services</Link>
+                <Link href="/rentals" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}><span>🔑</span> Rentals</Link>
+                <div className="my-1 border-t border-zinc-800/50" />
                 <Link href="/list-list" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>My Listings</Link>
                 <Link href="/watchlist" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Watchlist</Link>
                 <Link href="/purchases" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Purchases</Link>

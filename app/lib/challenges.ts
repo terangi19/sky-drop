@@ -70,12 +70,13 @@ export async function getOrCreateDaily(uid: string, date: string): Promise<Daily
 
   if (snap.exists()) {
     const data = snap.data() as DailyChallengesData;
+    const challenges = Array.isArray(data.challenges) ? data.challenges : [];
 
-    if (data.date === date) {
-      return data;
+    if (data.date === date && challenges.length > 0) {
+      return { ...data, challenges };
     }
 
-    const allClaimed = data.challenges.length > 0 && data.challenges.every((c) => c.claimed);
+    const allClaimed = challenges.length > 0 && challenges.every((c) => c.claimed);
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const yStr = yesterday.toISOString().slice(0, 10);
@@ -112,7 +113,7 @@ export async function trackChallenge(uid: string, type: string): Promise<void> {
     if (!snap.exists()) return;
 
     const data = snap.data() as DailyChallengesData;
-    if (!Array.isArray(data.challenges) || data.date !== today) return;
+    if (!data || !Array.isArray(data.challenges) || data.date !== today) return;
 
     const idx = data.challenges.findIndex((c) => c.id === type && !c.completed);
     if (idx === -1) return;

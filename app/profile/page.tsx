@@ -941,7 +941,7 @@ const [kycUploading, setKycUploading] = useState(false);
                       <div key={item.id}
                         className="group/card shrink-0 w-44 overflow-hidden rounded-xl border border-zinc-800/40 bg-zinc-900/50 transition-all duration-300 hover:border-sky-500/30 hover:shadow-[0_0_15px_rgba(14,165,233,0.08)] hover:-translate-y-0.5"
                       >
-                        <Link href={`/post/listing/${item.id}`}>
+                        <Link href={item.type === "service" ? "/services" : `/post/listing/${item.id}`}>
                           {item.images?.[0] || item.imageUrl || item.image ? (
                             <div className="relative overflow-hidden">
                               <img src={item.images?.[0] || item.imageUrl || item.image || ""} alt="" className="h-28 w-full object-cover transition-transform duration-500 group-hover/card:scale-105" />
@@ -956,7 +956,7 @@ const [kycUploading, setKycUploading] = useState(false);
                           </div>
                         </Link>
                         <div className="flex gap-1 border-t border-zinc-800/40 px-2 py-2">
-                          <Link href={`/post/edit/${item.id}`} className="flex-1 rounded-md bg-sky-500/10 py-1.5 text-center text-[10px] font-bold text-sky-400 transition hover:bg-sky-500/20">Edit</Link>
+                          <Link href={`/post/ai?edit=${item.id}`} className="flex-1 rounded-md bg-sky-500/10 py-1.5 text-center text-[10px] font-bold text-sky-400 transition hover:bg-sky-500/20">Edit</Link>
                           <button onClick={() => setListingToDelete(item)} className="flex-1 rounded-md bg-zinc-800/60 py-1.5 text-[10px] font-bold text-[var(--foreground)] transition hover:bg-zinc-700">Remove</button>
                         </div>
                       </div>

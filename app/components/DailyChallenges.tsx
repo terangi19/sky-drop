@@ -15,10 +15,15 @@ export default function DailyChallenges({ userId }: { userId: string }) {
   useEffect(() => {
     if (!userId) return;
     const today = new Date().toISOString().slice(0, 10);
-    getOrCreateDaily(userId, today).then(setData).catch(() => {});
+    getOrCreateDaily(userId, today).then((result) => {
+      if (result && Array.isArray(result.challenges)) setData(result);
+    }).catch(() => {});
 
     const unsub = onSnapshot(getDailyRef(userId), (snap) => {
-      if (snap.exists()) setData(snap.data() as DailyChallengesData);
+      if (!snap.exists()) return;
+      const snapshotData = snap.data() as DailyChallengesData;
+      const challenges = Array.isArray(snapshotData.challenges) ? snapshotData.challenges : [];
+      setData({ ...snapshotData, challenges });
     }, (err) => {
       console.error("DailyChallenges listener error:", err);
     });
@@ -26,7 +31,7 @@ export default function DailyChallenges({ userId }: { userId: string }) {
   }, [userId]);
 
   async function handleClaim(challengeId: string) {
-    if (!data || claiming) return;
+    if (!data || !Array.isArray(data.challenges) || claiming) return;
     setClaiming(challengeId);
     try {
       const idx = data.challenges.findIndex((c) => c.id === challengeId);
@@ -54,9 +59,10 @@ export default function DailyChallenges({ userId }: { userId: string }) {
     setClaiming(null);
   }
 
-  if (!data || data.challenges.length === 0) return null;
+  const challenges = data && Array.isArray(data.challenges) ? data.challenges : [];
+  if (!data || challenges.length === 0) return null;
 
-  const allDone = data.challenges.every((c) => c.claimed);
+  const allDone = challenges.every((c) => c.claimed);
   const streakReward = Object.entries(STREAK_REWARDS)
     .map(([days, r]) => ({ days: Number(days), ...r }))
     .filter((r) => data.streak >= r.days)
@@ -78,7 +84,7 @@ export default function DailyChallenges({ userId }: { userId: string }) {
         <p className="text-xs text-emerald-400 font-bold text-center py-3">✅ All challenges complete for today!</p>
       ) : (
         <div className="space-y-2.5">
-          {data.challenges.map((c) => {
+          {challenges.map((c) => {
             const pct = Math.min((c.progress / c.target) * 100, 100);
             return (
               <div key={c.id} className={`rounded-lg border ${c.claimed ? "border-zinc-800/30 opacity-50" : "border-zinc-800/50 bg-zinc-800/10"} px-3.5 py-2.5`}>

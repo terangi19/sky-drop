@@ -35,14 +35,20 @@ const statusStyles: Record<string, string> = {
   pending: "bg-amber-500/10 text-amber-400 border-amber-500/20",
   seller_confirming: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20",
   shipped: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+  in_progress: "bg-violet-500/10 text-violet-400 border-violet-500/20",
   delivered: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   completed: "bg-green-500/10 text-green-400 border-green-500/20",
   cancelled: "bg-red-500/10 text-red-400 border-red-500/20",
+  rented: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  returned: "bg-blue-500/10 text-blue-400 border-blue-500/20",
 };
 
 const nextStatus: Record<string, { label: string; status: string }> = {
   pending: { label: "Confirm Order", status: "seller_confirming" },
   seller_confirming: { label: "Shipped", status: "shipped" },
+  in_progress: { label: "Mark Delivered", status: "delivered" },
+  rented: { label: "Mark Returned", status: "returned" },
+  returned: { label: "Complete", status: "completed" },
 };
 
 export default function SalesPage() {
@@ -119,6 +125,45 @@ export default function SalesPage() {
         } catch (e) { console.error("Payout transfer failed:", e); }
       }
 
+      if (newStatus === "delivered" && purchase.deliveryMethod === "service") {
+        await createNotification({
+          targetEmail: purchase.buyerEmail,
+          fromEmail: user!.email!,
+          type: "order_update",
+          title: "Service Completed",
+          message: `Your service "${purchase.listingTitle}" has been marked as delivered by the seller. Please confirm you're satisfied.`,
+          listingId: purchase.listingId,
+          listingTitle: purchase.listingTitle,
+          listingImage: purchase.listingImage,
+        });
+
+        // Release funds to seller on service delivery
+        try {
+          const profileSnap = await getDoc(doc(db, "profiles", user!.uid));
+          const accountId = profileSnap.data()?.stripeAccountId;
+          if (accountId && purchase.total) {
+            await fetch("/api/stripe-connect", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "withdraw", accountId, amount: purchase.total }),
+            });
+          }
+        } catch (e) { console.error("Service payout transfer failed:", e); }
+      }
+
+      if (newStatus === "returned" && purchase.deliveryMethod === "rental") {
+        await createNotification({
+          targetEmail: purchase.buyerEmail,
+          fromEmail: user!.email!,
+          type: "order_update",
+          title: "Item Returned",
+          message: `The seller confirmed return of "${purchase.listingTitle}". Rental completed!`,
+          listingId: purchase.listingId,
+          listingTitle: purchase.listingTitle,
+          listingImage: purchase.listingImage,
+        });
+      }
+
       if (newStatus === "delivered") {
         await awardXP(user!.uid, 50);
       }
@@ -173,18 +218,18 @@ export default function SalesPage() {
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <Link href={`/post/listing/${s.listingId}`} className="truncate text-sm font-bold text-[var(--foreground)] hover:text-sky-400 transition-colors">
+                  <Link href={s.deliveryMethod === "service" ? "/services" : `/post/listing/${s.listingId}`} className="truncate text-sm font-bold text-[var(--foreground)] hover:text-sky-400 transition-colors">
                     {s.listingTitle}
                   </Link>
                   <p className="mt-0.5 text-xs text-[var(--muted)]">
-                    ${s.listingPrice} &middot; {s.buyerName} &middot; {s.deliveryMethod === "pickup" ? "Pickup" : "Shipping"}
+                    ${s.listingPrice} &middot; {s.buyerName} &middot; {s.deliveryMethod === "pickup" ? "Pickup" : s.deliveryMethod === "shipping" ? "Shipping" : s.deliveryMethod === "service" ? "Service" : "Digital"}
                   </p>
                   {s.deliveryMethod === "shipping" && s.shippingAddress && (
                     <p className="mt-0.5 text-[10px] text-[var(--muted)]">Ship to: {s.shippingAddress}</p>
                   )}
                   <div className="mt-1.5 flex items-center gap-2">
                     <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${statusStyles[s.status] || "bg-zinc-800 text-[var(--muted)]"}`}>
-                      {s.status === "seller_confirming" ? "Confirmed" : s.status === "shipped" ? "Shipped" : s.status === "delivered" ? "Delivered" : s.status}
+                      {s.status === "seller_confirming" ? "Confirmed" : s.status === "shipped" ? "Shipped" : s.status === "in_progress" ? "In Progress" : s.status === "delivered" ? "Delivered" : s.status}
                     </span>
                     <span className="text-[10px] text-[var(--muted)]">${s.total.toFixed(2)}</span>
                     {s.buyerPhone && (

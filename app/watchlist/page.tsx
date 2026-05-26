@@ -29,6 +29,12 @@ export default function WatchlistPage() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("newest");
   const [clearConfirm, setClearConfirm] = useState(false);
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setCurrentTime(Date.now()), 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (currentUser) => {
@@ -239,7 +245,7 @@ export default function WatchlistPage() {
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
               {filteredWatchlist.map((item) => {
                 const imgSrc = (item as any).images?.[0] || item.imageUrl || item.image || "";
-                const isExpired = item.expiresAt?.toMillis?.() < Date.now();
+                const isExpired = item.expiresAt?.toMillis?.() < currentTime;
                 return (
                 <Link
                   key={item.id}

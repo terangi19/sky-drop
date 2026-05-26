@@ -5,23 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../lib/firebase";
 
-const PROTECTED_ROUTES = [
-  "/messages",
-  "/profile",
-  "/post",
-  "/post/ai",
-  "/list-list",
-  "/watchlist",
-  "/trade-feed",
-  "/reports",
-  "/reviews",
-  "/dashboard",
-  "/purchases",
-  "/sales",
-  "/my-listings",
-  "/admin",
-  "/checkout",
-];
+const PUBLIC_ROUTES = ["/login", "/register", "/reset-password"];
 
 export function RouteGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -30,10 +14,10 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
-      const isProtected = PROTECTED_ROUTES.some((route) =>
+      const isPublic = PUBLIC_ROUTES.some((route) =>
         pathname.startsWith(route)
       );
-      if (isProtected && !user) {
+      if (!isPublic && !user) {
         router.replace("/login");
       } else {
         setChecking(false);

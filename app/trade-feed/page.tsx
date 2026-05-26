@@ -968,7 +968,7 @@ export default function TradeFeedPage() {
                                 <button onClick={() => { const url = `${window.location.origin}/post/listing/${post.id}`; if (navigator.share) { navigator.share({ url, title: post.title }); } else { navigator.clipboard.writeText(url); showToast("Link copied!"); } setMenuOpen(null); }}
                                   className="flex w-full items-center gap-2 px-4 py-2 text-xs text-[var(--foreground)] hover:bg-zinc-800">📤 Share</button>
                                 {user?.email === post.sellerEmail && (
-                                  <Link href={`/post/edit/${post.id}`} onClick={() => setMenuOpen(null)}
+                                  <Link href={`/post/ai?edit=${post.id}`} onClick={() => setMenuOpen(null)}
                                     className="flex w-full items-center gap-2 px-4 py-2 text-xs text-[var(--foreground)] hover:bg-zinc-800">✏️ Edit</Link>
                                 )}
                                 <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/post/listing/${post.id}`); showToast("Link copied!"); setMenuOpen(null); }}

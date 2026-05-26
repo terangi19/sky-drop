@@ -72,6 +72,7 @@ interface Listing {
   bidCount?: number;
   highestBidder?: string;
   expiresAt?: Timestamp;
+  serviceDuration?: string;
   [key: string]: unknown;
 }
 
@@ -113,7 +114,15 @@ export default function ListingPage() {
   const [bidAmount, setBidAmount] = useState("");
   const [autoBidEnabled, setAutoBidEnabled] = useState(true);
   const [showBidModal, setShowBidModal] = useState(false);
+  const [pickupDate, setPickupDate] = useState("");
+  const [returnDate, setReturnDate] = useState("");
+  const [rentalDays, setRentalDays] = useState(0);
   const [sellerListings, setSellerListings] = useState<any[]>([]);
+  const [questions, setQuestions] = useState<any[]>([]);
+  const [newQuestion, setNewQuestion] = useState("");
+  const [sendingQuestion, setSendingQuestion] = useState(false);
+  const [answeringId, setAnsweringId] = useState<string | null>(null);
+  const [answerText, setAnswerText] = useState("");
   const prevHighestBidderRef = useRef<string | null>(null);
 
   // Auto-open checkout if navigated with ?buy=1
@@ -139,7 +148,7 @@ export default function ListingPage() {
     let mounted = true;
     const docRef = doc(db, "listings", listingId);
     const unsub = onSnapshot(docRef, (snap) => {
-      if (!snap.exists()) return;
+      if (!snap.exists()) { if (mounted) setLoading(false); return; }
       if (!mounted) return;
       const data: any = { id: snap.id, ...snap.data() };
       setListing(data);
@@ -230,6 +239,21 @@ export default function ListingPage() {
     updateDoc(doc(db, "listings", listingId), { views: increment(1) }).catch(() => {});
   }, [listingId]);
 
+  // Fetch Q&A
+  useEffect(() => {
+    if (!listingId) return;
+    const unsub = onSnapshot(
+      query(collection(db, "listingQuestions"), where("listingId", "==", listingId)),
+      (snap) => {
+        const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        items.sort((a: any, b: any) => ((a.createdAt?.toDate?.() || 0) - (b.createdAt?.toDate?.() || 0)));
+        setQuestions(items);
+      },
+      (err) => console.error("Q&A query error:", err)
+    );
+    return () => unsub();
+  }, [listingId]);
+
   // OG meta tags
   useEffect(() => {
     if (!listing) return;
@@ -308,6 +332,8 @@ export default function ListingPage() {
     if (!listing) return false;
     return detectSuspiciousPrice(Number(listing.price), listing.category);
   }, [listing]);
+
+  const isExpired = listing?.expiresAt?.toMillis?.() < Date.now();
 
   const submitOffer = async () => {
     if (!offerAmount || offerSending || !user?.email || !listing) return;
@@ -631,18 +657,20 @@ export default function ListingPage() {
         </div>
       )}
 
-      <ReportModal
-        isOpen={showReportModal}
-        onClose={() => setShowReportModal(false)}
-        type="listing"
-        targetId={listing.id}
-        targetUserId={(listing.sellerId || listing.userId || "") as string}
-        targetUserEmail={listing.sellerEmail || ""}
-        reporterUserId={user?.uid || ""}
-        reporterUserEmail={user?.email || ""}
-      />
+      {listing && (
+        <ReportModal
+          isOpen={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          type="listing"
+          targetId={listing.id}
+          targetUserId={(listing.sellerId || listing.userId || "") as string}
+          targetUserEmail={listing.sellerEmail || ""}
+          reporterUserId={user?.uid || ""}
+          reporterUserEmail={user?.email || ""}
+        />
+      )}
 
-      {(() => {
+      {listing && (() => {
         const modalImages = listing.images && listing.images.length > 0 ? listing.images : listing.imageUrl ? [listing.imageUrl] : [];
         if (!showImageModal || modalImages.length === 0) return null;
         return (
@@ -660,6 +688,13 @@ export default function ListingPage() {
         );
       })()}
 
+      {!listing ? (
+        <div className="flex flex-col items-center justify-center py-24">
+          <span className="text-5xl mb-4">🔍</span>
+          <p className="text-lg font-bold text-[var(--foreground)]">{loading ? "Loading..." : "Listing not found"}</p>
+          {!loading && <Link href="/" className="mt-4 text-sm text-sky-400 hover:underline">Browse listings</Link>}
+        </div>
+      ) : (<>
       <section className="relative z-10 mx-auto max-w-5xl px-6 py-8">
         {/* BREADCRUMB */}
         <nav className="mb-4 flex items-center gap-2 text-xs text-[var(--muted)]">
@@ -827,6 +862,43 @@ export default function ListingPage() {
                   <span>Digital Download — Instant Delivery</span>
                 </div>
               </div>
+            ) : listing.type === "service" ? (
+              <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-3 space-y-1.5">
+                <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
+                  <span className="shrink-0 text-violet-400">🤝</span>
+                  <span>Service — Discuss scope in messages</span>
+                </div>
+                {listing.serviceDuration && (
+                  <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
+                    <span>⏱ Estimated delivery: {listing.serviceDuration}</span>
+                  </div>
+                )}
+              </div>
+            ) : listing.type === "rental" ? (
+              <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-1.5">
+                <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
+                  <span className="shrink-0 text-emerald-400">🔑</span>
+                  <span>Rental — Pickup from {listing.location || "seller's location"}</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-emerald-400 font-bold">
+                  <span>${Number(listing.price).toFixed(2)}/day{listing.rentalPriceWeekly ? ` · $${Number(listing.rentalPriceWeekly).toFixed(2)}/wk` : ""}{listing.rentalPriceMonthly ? ` · $${Number(listing.rentalPriceMonthly).toFixed(2)}/mo` : ""}</span>
+                </div>
+                {listing.rentalDeposit && (
+                  <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
+                    <span>🔒 ${Number(listing.rentalDeposit).toFixed(2)} security deposit</span>
+                  </div>
+                )}
+                {listing.condition && (
+                  <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
+                    <span>Condition: {listing.condition}</span>
+                  </div>
+                )}
+                {listing.stockQuantity !== undefined && (
+                  <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
+                    <span>📦 {listing.stockQuantity} Available</span>
+                  </div>
+                )}
+              </div>
             ) : (listing.pickupAvailable || listing.shippingAvailable || listing.stockQuantity !== undefined) && (
               <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 space-y-1.5">
                 {listing.pickupAvailable && (
@@ -862,7 +934,7 @@ export default function ListingPage() {
             )}
 
             {/* 5. BUY BUTTONS */}
-            {listing.stockQuantity !== 0 && (
+            {listing.status !== "sold" && !isExpired && listing.stockQuantity !== 0 && listing.type !== "service" && (
             <div className="flex gap-2">
               {user && user.email !== listing.sellerEmail ? (
                 <>
@@ -897,18 +969,18 @@ export default function ListingPage() {
                       )}
                     </>
                   ))}
-
-                  <Link
-                    href={`/messages?user=${encodeURIComponent(listing.sellerEmail || "")}&listing=${listingId}`}
-                    className="flex items-center justify-center rounded-lg border border-zinc-700 px-4 py-3 text-[12px] font-medium text-[var(--foreground)] transition hover:border-zinc-600"
-                  >
-                    Message
-                  </Link>
                 </>
               ) : user?.email === listing.sellerEmail ? (
                 <div className="flex gap-2 w-full">
-                  <Link href={`/post/edit/${listing.id}`} className="flex-1 rounded-lg bg-sky-500 py-3 text-center text-[13px] font-bold text-[var(--foreground)] transition hover:bg-sky-400">
+                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 rounded-lg bg-sky-500 py-3 text-center text-[13px] font-bold text-[var(--foreground)] transition hover:bg-sky-400">
+
                     Edit Listing
+
+                  </Link>
+                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 rounded-lg bg-violet-500 py-3 text-center text-[13px] font-bold text-white transition hover:bg-violet-400">
+
+                    Edit Listing
+
                   </Link>
                   <button onClick={() => setShowPromote(true)}
                     className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-3 text-[13px] font-bold text-amber-400 transition hover:bg-amber-500/15">
@@ -920,6 +992,127 @@ export default function ListingPage() {
                   Sign in
                 </button>
               )}
+            </div>
+            )}
+
+            {/* Service buttons */}
+            {listing.type === "service" && (
+            <div className="flex gap-2">
+              {user && user.email !== listing.sellerEmail ? (
+                <>
+                  <Link
+                    href={`/messages?user=${encodeURIComponent(listing.sellerEmail || "")}&listing=${listingId}`}
+                    className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 py-3 text-[13px] font-bold text-white shadow-lg shadow-violet-500/20 transition hover:shadow-xl hover:shadow-violet-500/30"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                    Message Seller
+                  </Link>
+                  <button onClick={() => setShowOffer(true)}
+                    className="rounded-lg border border-zinc-700 px-4 py-3 text-[12px] font-medium text-[var(--foreground)] transition hover:border-zinc-600">
+                    Make Offer
+                  </button>
+                </>
+              ) : user?.email === listing.sellerEmail ? (
+                <div className="flex gap-2 w-full">
+                  <Link href="/services" className="flex-1 rounded-lg bg-violet-500 py-3 text-center text-[13px] font-bold text-white transition hover:bg-violet-400">
+                    Edit Listing
+                  </Link>
+                </div>
+              ) : (
+                <button onClick={() => showToast("Sign in first", "info")} className="flex-1 rounded-lg border border-zinc-700 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-zinc-800">
+                  Sign in
+                </button>
+              )}
+            </div>
+            )}
+
+            {/* Rental buttons */}
+            {listing.type === "rental" && (
+            <div>
+              <div className="flex gap-2">
+                {user && user.email !== listing.sellerEmail ? (
+                  <>
+                    <div className="flex-1 space-y-3 rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Pickup date</label>
+                          <input type="date" value={pickupDate} onChange={(e) => {
+                            setPickupDate(e.target.value);
+                            if (returnDate && e.target.value > returnDate) setReturnDate("");
+                            if (returnDate && e.target.value <= returnDate) {
+                              const diff = Math.ceil((new Date(returnDate).getTime() - new Date(e.target.value).getTime()) / 86400000);
+                              setRentalDays(diff);
+                            }
+                          }}
+                            className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3 py-2 text-xs text-[var(--foreground)] outline-none transition focus:border-emerald-500" />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Return date</label>
+                          <input type="date" value={returnDate} onChange={(e) => {
+                            setReturnDate(e.target.value);
+                            if (pickupDate && e.target.value > pickupDate) {
+                              const diff = Math.ceil((new Date(e.target.value).getTime() - new Date(pickupDate).getTime()) / 86400000);
+                              setRentalDays(diff);
+                            }
+                          }} min={pickupDate || undefined}
+                            className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3 py-2 text-xs text-[var(--foreground)] outline-none transition focus:border-emerald-500" />
+                        </div>
+                      </div>
+                      {rentalDays > 0 && (
+                        <div className="rounded-lg bg-zinc-800/40 px-3 py-2 text-xs">
+                          <div className="space-y-1">
+                            <p className="font-medium text-emerald-400 text-[11px]">
+                              ${Number(listing.price).toFixed(2)}/day
+                              {listing.rentalPriceWeekly ? ` · $${Number(listing.rentalPriceWeekly).toFixed(2)}/wk` : ""}
+                              {listing.rentalPriceMonthly ? ` · $${Number(listing.rentalPriceMonthly).toFixed(2)}/mo` : ""}
+                            </p>
+                          </div>
+                          <div className="mt-1.5 flex items-center justify-between text-[var(--muted)]">
+                            <span>${Number(listing.price)}/day × {rentalDays} day{rentalDays > 1 ? "s" : ""}</span>
+                            <span className="text-white font-bold">${(Number(listing.price) * rentalDays).toFixed(2)}</span>
+                          </div>
+                          {listing.rentalDeposit && (
+                            <div className="mt-0.5 flex items-center justify-between text-[var(--muted)]">
+                              <span>🔒 Security deposit (refundable)</span>
+                              <span>$${Number(listing.rentalDeposit).toFixed(2)}</span>
+                            </div>
+                          )}
+                          <div className="mt-0.5 flex items-center justify-between text-[var(--muted)]">
+                            <span>Buyer Protection</span>
+                            <span>$1.00</span>
+                          </div>
+                          <div className="mt-1 flex items-center justify-between border-t border-zinc-700 pt-1 text-sm font-bold text-white">
+                            <span>Total</span>
+                            <span>${(Number(listing.price) * rentalDays + 1).toFixed(2)}</span>
+                          </div>
+                        </div>
+                      )}
+                      <button onClick={() => {
+                        if (rentalDays < 1) { showToast("Select pickup and return dates", "info"); return; }
+                        setShowCheckout(true);
+                      }}
+                        className="w-full rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 py-3 text-[13px] font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:shadow-xl hover:shadow-emerald-500/30">
+                        Rent Now {rentalDays > 0 ? `— $${(Number(listing.price) * rentalDays + 1).toFixed(2)}` : ""}
+                      </button>
+                    </div>
+                    <Link
+                      href={`/messages?user=${encodeURIComponent(listing.sellerEmail || "")}&listing=${listingId}`}
+                      className="flex items-center justify-center rounded-lg border border-zinc-700 px-4 py-3 text-[12px] font-medium text-[var(--foreground)] transition hover:border-zinc-600 self-stretch">
+                      Message
+                    </Link>
+                  </>
+                ) : user?.email === listing.sellerEmail ? (
+                  <div className="flex gap-2 w-full">
+                    <Link href={`/post/ai?edit=${listingId}`} className="flex-1 rounded-lg bg-emerald-500 py-3 text-center text-[13px] font-bold text-white transition hover:bg-emerald-400">
+                      Edit Listing
+                    </Link>
+                  </div>
+                ) : (
+                  <button onClick={() => showToast("Sign in first", "info")} className="flex-1 rounded-lg border border-zinc-700 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-zinc-800">
+                    Sign in
+                  </button>
+                )}
+              </div>
             </div>
             )}
 
@@ -1026,7 +1219,105 @@ export default function ListingPage() {
               )}
             </div>
 
-            {/* 8. WATCHLIST */}
+            {/* 8. Q&A */}
+            <div className="border-t border-zinc-800 pt-4 pb-2">
+              <h3 className="mb-3 text-xs font-bold text-[var(--foreground)]">Questions & Answers</h3>
+
+              {questions.length === 0 && (
+                <p className="mb-3 text-[11px] text-[var(--muted)]">No questions yet. Be the first to ask.</p>
+              )}
+
+              <div className="space-y-3 mb-3">
+                {questions.map((q: any) => (
+                  <div key={q.id} className="rounded-lg border border-zinc-800/60 bg-zinc-900/40 p-3">
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs mt-0.5">❓</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs text-[var(--foreground)]">{q.question}</p>
+                        <p className="mt-0.5 text-[9px] text-[var(--muted)]">{q.askerName || q.askerEmail?.split("@")[0]} · {q.createdAt?.toDate?.() ? new Date(q.createdAt.toDate()).toLocaleDateString() : ""}</p>
+                      </div>
+                    </div>
+
+                    {q.answer ? (
+                      <div className="mt-2 ml-6 flex items-start gap-2 border-l-2 border-emerald-500/30 pl-3">
+                        <span className="text-xs mt-0.5">💬</span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs text-emerald-300">{q.answer}</p>
+                          <p className="mt-0.5 text-[9px] text-[var(--muted)]">Seller · {q.answeredAt?.toDate?.() ? new Date(q.answeredAt.toDate()).toLocaleDateString() : ""}</p>
+                        </div>
+                      </div>
+                    ) : user?.email === listing.sellerEmail ? (
+                      <div className="mt-2 ml-6">
+                        {answeringId === q.id ? (
+                          <div className="flex gap-2">
+                            <input type="text" value={answerText} onChange={(e) => setAnswerText(e.target.value)}
+                              placeholder="Type your answer..."
+                              className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800/80 px-3 py-1.5 text-[11px] text-[var(--foreground)] outline-none transition focus:border-emerald-500" />
+                            <button onClick={async () => {
+                              if (!answerText.trim()) return;
+                              try {
+                                await updateDoc(doc(db, "listingQuestions", q.id), { answer: answerText.trim(), answeredAt: serverTimestamp() });
+                                setAnswerText(""); setAnsweringId(null);
+                              } catch {}
+                            }} className="rounded-lg bg-emerald-500 px-3 py-1.5 text-[10px] font-bold text-white hover:bg-emerald-400">Answer</button>
+                            <button onClick={() => { setAnsweringId(null); setAnswerText(""); }} className="text-[10px] text-[var(--muted)] hover:text-white px-1">✕</button>
+                          </div>
+                        ) : (
+                          <button onClick={() => { setAnsweringId(q.id); setAnswerText(""); }}
+                            className="rounded-lg border border-emerald-500/30 px-3 py-1.5 text-[10px] font-bold text-emerald-400 transition hover:bg-emerald-500/10">
+                            Answer
+                          </button>
+                        )}
+                      </div>
+                    ) : null}
+
+                    {!q.answer && user?.email !== listing.sellerEmail && (
+                      <p className="mt-1 ml-6 text-[9px] text-amber-500">Awaiting seller response</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {user && user.email !== listing.sellerEmail && (
+                <div className="flex gap-2">
+                  <input type="text" value={newQuestion} onChange={(e) => setNewQuestion(e.target.value)}
+                    placeholder="Ask a question..."
+                    className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800/80 px-3 py-2 text-[11px] text-[var(--foreground)] outline-none transition placeholder:text-zinc-500 focus:border-sky-500" />
+                  <button onClick={async () => {
+                    if (!newQuestion.trim() || !listing) return;
+                    setSendingQuestion(true);
+                    try {
+                      await addDoc(collection(db, "listingQuestions"), {
+                        listingId: listing.id,
+                        askerEmail: user.email,
+                        askerName: user.email?.split("@")[0] || "Someone",
+                        question: newQuestion.trim(),
+                        createdAt: serverTimestamp(),
+                      });
+                      setNewQuestion("");
+                      showToast("Question submitted", "success");
+                      const { createNotification } = await import("../../../lib/notifications");
+                      createNotification({
+                        targetEmail: listing.sellerEmail || "",
+                        fromEmail: user.email,
+                        type: "question",
+                        title: `New question on "${listing.title}"`,
+                        message: newQuestion.trim().slice(0, 100),
+                        listingId: listing.id,
+                        listingTitle: listing.title,
+                        listingImage: listing.images?.[0] || listing.imageUrl || "",
+                      });
+                    } catch (e) { console.error(e); showToast("Failed to submit question", "error"); }
+                    setSendingQuestion(false);
+                  }} disabled={!newQuestion.trim() || sendingQuestion}
+                    className="shrink-0 rounded-lg bg-sky-500 px-4 py-2 text-[11px] font-bold text-white transition hover:bg-sky-400 disabled:opacity-50">
+                    Ask
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* 9. WATCHLIST */}
             <button onClick={saveToWatchlist} className="flex w-full items-center justify-center gap-1.5 py-2.5 text-xs text-[var(--muted)] transition hover:text-[var(--foreground)]">
               ♡ Save to Watchlist
             </button>
@@ -1057,7 +1348,7 @@ export default function ListingPage() {
 
       {showCheckout && user?.email && (
         <CheckoutModal
-          listing={listing}
+          listing={{ ...listing, rentalDays, pickupDate, returnDate }}
           buyerEmail={user.email}
           onClose={() => setShowCheckout(false)}
         />
@@ -1098,6 +1389,8 @@ export default function ListingPage() {
             </div>
           </div>
         </div>
+      )}
+      </>
       )}
     </main>
   );

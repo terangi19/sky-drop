@@ -14,6 +14,7 @@ interface Listing {
   id: string;
   title: string;
   price: string;
+  _collection?: string;
   description?: string;
   category?: string;
   imageUrl?: string;
@@ -23,7 +24,7 @@ interface Listing {
   status?: string;
   views?: number;
   expiresAt?: any;
-  createdAt?: { seconds: number };
+  createdAt?: any;
   promotedUntil?: any;
   [key: string]: unknown;
 }
@@ -47,21 +48,52 @@ export default function ListListPage() {
 
   useEffect(() => {
     if (!user) return;
-    const q = query(collection(db, "listings"), where("sellerEmail", "==", user.email));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Listing));
-      items.sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
-      const now = Date.now();
-      items.sort((a, b) => {
-        const aProm = a.promotedUntil?.toMillis?.() > now ? 1 : 0;
-        const bProm = b.promotedUntil?.toMillis?.() > now ? 1 : 0;
-        return bProm - aProm;
+    let cancelled = false;
+
+    const q1 = query(collection(db, "listings"), where("sellerEmail", "==", user.email));
+    const unsub1 = onSnapshot(q1, (snap) => {
+      if (cancelled) return;
+      const physical = snap.docs.map(d => ({ id: d.id, ...d.data(), _collection: "listings" } as Listing));
+      setListings(prev => {
+        const digital = prev.filter(p => p._collection === "tradePosts");
+        const merged = mergeListings(physical, digital);
+        setLoading(false);
+        return merged;
       });
-      setListings(items);
-      setLoading(false);
     });
-    return () => unsubscribe();
+
+    const q2 = query(collection(db, "tradePosts"), where("sellerEmail", "==", user.email));
+    const unsub2 = onSnapshot(q2, (snap) => {
+      if (cancelled) return;
+      const digital = snap.docs.map(d => ({ id: d.id, ...d.data(), _collection: "tradePosts" } as Listing));
+      setListings(prev => {
+        const physical = prev.filter(p => p._collection === "listings");
+        const merged = mergeListings(physical, digital);
+        setLoading(false);
+        return merged;
+      });
+    });
+
+    return () => { cancelled = true; unsub1(); unsub2(); };
   }, [user]);
+
+  function mergeListings(...arrays: Listing[][]): Listing[] {
+    const map = new Map<string, Listing>();
+    for (const arr of arrays) {
+      for (const item of arr) {
+        map.set(item.id, item);
+      }
+    }
+    const items = [...map.values()];
+    items.sort((a, b) => ((b.createdAt as any)?.toDate?.() || 0) - ((a.createdAt as any)?.toDate?.() || 0));
+    const now = Date.now();
+    items.sort((a, b) => {
+      const aProm = a.promotedUntil?.toMillis?.() > now ? 1 : 0;
+      const bProm = b.promotedUntil?.toMillis?.() > now ? 1 : 0;
+      return bProm - aProm;
+    });
+    return items;
+  }
 
   const deleteListing = async (id: string) => {
     const listing = listings.find(l => l.id === id);
@@ -69,8 +101,9 @@ export default function ListListPage() {
       alert("You can only delete your own listings");
       return;
     }
+    const col = (listing as any)._collection === "tradePosts" ? "tradePosts" : "listings";
     try {
-      await deleteDoc(doc(db, "listings", id));
+      await deleteDoc(doc(db, col, id));
     } catch (error) {
       console.error(error);
       alert("Failed to delete");
@@ -165,7 +198,7 @@ export default function ListListPage() {
               <div
                 key={item.id}
                 className={`group relative overflow-hidden rounded-xl bg-zinc-900/60 border border-zinc-800/50 transition-all duration-200 hover:-translate-y-1 hover:border-sky-500/30 hover:shadow-[0_8px_25px_rgba(0,0,0,0.2)] cursor-pointer ${item.status === "sold" ? "opacity-80" : ""}`}
-                onClick={() => router.push(`/post/listing/${item.id}`)}
+                onClick={() => router.push(item.type === "service" ? "/services" : `/post/listing/${item.id}`)}
               >
                 <div className="relative overflow-hidden bg-gradient-to-br from-sky-500/10 via-violet-500/10 to-purple-600/10">
                   {imgSrc ? (
@@ -211,17 +244,19 @@ export default function ListListPage() {
 
                   {isOwner && (
                     <div className="mt-4 flex gap-1.5 border-t border-zinc-800 pt-3 flex-wrap">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setPromoteItem(item); }}
-                        className="rounded-md bg-amber-500/10 px-3 py-2 text-[11px] font-bold text-amber-400 transition hover:bg-amber-500/20">
-                        📈 Boost
-                      </button>
-                      <Link
-                        href={`/post/edit/${item.id}`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="rounded-md border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-[11px] font-bold text-[var(--foreground)] hover:bg-zinc-700">
-                        Edit
-                      </Link>
+                      {(item as any)._collection !== "tradePosts" && (
+                        <button onClick={(e) => { e.stopPropagation(); setPromoteItem(item); }}
+                          className="rounded-md bg-amber-500/10 px-3 py-2 text-[11px] font-bold text-amber-400 transition hover:bg-amber-500/20">
+                          📈 Boost
+                        </button>
+                      )}
+                      {(item as any)._collection !== "tradePosts" && (
+                        <Link href={`/post/ai?edit=${item.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="rounded-md border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-[11px] font-bold text-[var(--foreground)] hover:bg-zinc-700">
+                          Edit
+                        </Link>
+                      )}
                       <button
                         onClick={(e) => { e.stopPropagation(); setDeleteConfirm(item.id); }}
                         className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-[11px] font-bold text-red-400 hover:bg-red-500/20">

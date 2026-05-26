@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { addDoc, collection, doc, getDoc, serverTimestamp, Timestamp, updateDoc } from "firebase/firestore";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import stripePromise from "../lib/stripe-client";
-import { db } from "../lib/firebase";
+import { db, storage } from "../lib/firebase";
+import { ref, getDownloadURL } from "firebase/storage";
 import { createNotification } from "../lib/notifications";
 import AnimatedCheckmark from "./AnimatedCheckmark";
 import { playConfetti, playSuccess } from "../lib/sounds";
@@ -29,6 +30,13 @@ interface ListingData {
   type?: string;
   digitalFileURL?: string;
   digitalFileName?: string;
+  digitalStoragePath?: string;
+  rentalDays?: number;
+  pickupDate?: string;
+  returnDate?: string;
+  rentalDeposit?: number;
+  rentalPriceWeekly?: number;
+  rentalPriceMonthly?: number;
 }
 
 interface CheckoutModalProps {
@@ -38,11 +46,11 @@ interface CheckoutModalProps {
   collectionName?: string;
 }
 
-type DeliveryMethod = "pickup" | "shipping" | "badge" | "digital" | null;
+type DeliveryMethod = "pickup" | "shipping" | "badge" | "digital" | "rental" | null;
 type Step = "form" | "card" | "processing" | "share_address" | "success";
 
-function PaymentForm({ total, listingId, title, price, buyerEmail, onSuccess, onBack, badgeForSale, sellerEmail, collectionName, type, digitalFileURL, digitalFileName }: {
-  total: number; listingId: string; title: string; price: string; buyerEmail: string; onSuccess: () => void; onBack: () => void; badgeForSale?: string; sellerEmail?: string; collectionName?: string; type?: string; digitalFileURL?: string; digitalFileName?: string;
+function PaymentForm({ total, listingId, title, price, buyerEmail, onSuccess, onBack, badgeForSale, sellerEmail, collectionName, type, digitalFileURL, digitalFileName, digitalStoragePath }: {
+  total: number; listingId: string; title: string; price: string; buyerEmail: string; onSuccess: () => void; onBack: () => void; badgeForSale?: string; sellerEmail?: string; collectionName?: string; type?: string; digitalFileURL?: string; digitalFileName?: string; digitalStoragePath?: string;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -56,7 +64,7 @@ function PaymentForm({ total, listingId, title, price, buyerEmail, onSuccess, on
     const { error: submitError } = await stripe.confirmPayment({
       elements,
       confirmParams: {
-        return_url: `${window.location.origin}/checkout/success?listingId=${encodeURIComponent(listingId)}&title=${encodeURIComponent(title)}&price=${encodeURIComponent(price)}&buyerEmail=${encodeURIComponent(buyerEmail)}&collectionName=${encodeURIComponent(collectionName || "listings")}${badgeForSale ? `&badgeForSale=${encodeURIComponent(badgeForSale)}&sellerEmail=${encodeURIComponent(sellerEmail || "")}` : ""}${type === "digital" ? `&type=digital&digitalFileURL=${encodeURIComponent(digitalFileURL || "")}&digitalFileName=${encodeURIComponent(digitalFileName || "")}` : ""}`,
+        return_url: `${window.location.origin}/checkout/success?listingId=${encodeURIComponent(listingId)}&title=${encodeURIComponent(title)}&price=${encodeURIComponent(price)}&buyerEmail=${encodeURIComponent(buyerEmail)}&collectionName=${encodeURIComponent(collectionName || "listings")}${badgeForSale ? `&badgeForSale=${encodeURIComponent(badgeForSale)}&sellerEmail=${encodeURIComponent(sellerEmail || "")}` : ""}${type === "digital" ? `&type=digital&digitalStoragePath=${encodeURIComponent(digitalStoragePath || digitalFileURL || "")}&digitalFileName=${encodeURIComponent(digitalFileName || "")}` : ""}${type === "rental" ? `&type=rental` : ""}`,
       },
       redirect: "if_required",
     });
@@ -98,6 +106,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
   const router = useRouter();
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>(() => {
     if (listing.type === "digital") return "digital";
+    if (listing.type === "rental") return "rental";
     if (listing.badgeForSale) return "badge";
     if (listing.pickupAvailable && !listing.shippingAvailable) return "pickup";
     if (listing.shippingAvailable && !listing.pickupAvailable) return "shipping";
@@ -119,9 +128,11 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
   const processingFee = 1.00;
   const isBadge = deliveryMethod === "badge";
   const isDigital = deliveryMethod === "digital";
-  const total = isBadge || isDigital ? itemPrice + processingFee : (deliveryMethod === "shipping" ? itemPrice + shippingAmount : itemPrice) + processingFee;
+  const isRental = deliveryMethod === "rental";
+  const rentalItemTotal = isRental ? itemPrice * (listing.rentalDays || 1) : itemPrice;
+  const total = isBadge || isDigital || isRental ? rentalItemTotal + processingFee : (deliveryMethod === "shipping" ? itemPrice + shippingAmount : itemPrice) + processingFee;
 
-  const isValid = isBadge || isDigital ? name.trim() : name.trim() && phone.trim() && (deliveryMethod !== "shipping" || address.trim()) && deliveryMethod;
+  const isValid = isBadge || isDigital || isRental ? name.trim() : name.trim() && phone.trim() && (deliveryMethod !== "shipping" || address.trim()) && deliveryMethod;
 
   // Restore body scroll on unmount
   useEffect(() => {
@@ -203,9 +214,33 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
         setStep("form");
         return;
       }
-      const realPrice = Number(snap.data().price);
-      const realShipping = listing.shippingFee && !listing.freeShipping ? Number(listing.shippingFee) : 0;
-      const realTotal = (deliveryMethod === "badge" ? realPrice : deliveryMethod === "shipping" ? realPrice + realShipping : realPrice) + 1.00;
+      const snapData = snap.data();
+      if (snapData.status === "sold") {
+        setIntentError("This listing has already sold.");
+        setStep("form");
+        return;
+      }
+      if (snapData.expiresAt?.toMillis?.() < Date.now()) {
+        setIntentError("This listing has expired.");
+        setStep("form");
+        return;
+      }
+      if (snapData.stockQuantity !== undefined && snapData.stockQuantity <= 0) {
+        setIntentError("This item is out of stock.");
+        setStep("form");
+        return;
+      }
+      const realPrice = Number(snapData.price);
+      const realShipping = snapData.shippingFee && !snapData.freeShipping ? Number(snapData.shippingFee) : 0;
+      const realRentalDays = snapData.rentalDays ?? listing.rentalDays ?? 1;
+      const realRentalTotal = realPrice * Number(realRentalDays);
+      const realTotal = (deliveryMethod === "badge"
+        ? realPrice
+        : deliveryMethod === "rental"
+          ? realRentalTotal
+          : deliveryMethod === "shipping"
+            ? realPrice + realShipping
+            : realPrice) + 1.00;
 
       const res = await fetch("/api/create-payment-intent", {
         method: "POST",
@@ -241,17 +276,20 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
         sellerEmail: listing.sellerEmail,
         buyerEmail,
         buyerName: name.trim(),
-        buyerPhone: isBadge || isDigital ? "" : phone.trim(),
-        deliveryMethod: isBadge ? "badge" : isDigital ? "digital" : deliveryMethod,
+        buyerPhone: isBadge || isDigital || isRental ? "" : phone.trim(),
+        deliveryMethod: isBadge ? "badge" : isDigital ? "digital" : isRental ? "rental" : deliveryMethod,
         shippingAddress: deliveryMethod === "shipping" ? address.trim() : "",
         shippingFee: deliveryMethod === "shipping" ? shippingAmount : 0,
         processingFee: 1.00,
         total,
         badgeTransfer: isBadge ? listing.badgeForSale : "",
-        type: isDigital ? "digital" : "physical",
-        digitalFileURL: isDigital ? listing.digitalFileURL : "",
+        type: isDigital ? "digital" : isRental ? "rental" : "physical",
+        digitalFileURL: isDigital ? (listing.digitalStoragePath ? await getDownloadURL(ref(storage, listing.digitalStoragePath)) : listing.digitalFileURL || "") : "",
         digitalFileName: isDigital ? listing.digitalFileName : "",
-        status: isDigital ? "delivered" : "pending",
+        status: isDigital ? "delivered" : isRental ? "rented" : "pending",
+        rentalStart: isRental && listing.pickupDate ? Timestamp.fromMillis(new Date(listing.pickupDate).getTime()) : null,
+        rentalEnd: isRental && listing.returnDate ? Timestamp.fromMillis(new Date(listing.returnDate).getTime()) : null,
+        rentalDays: isRental ? (listing.rentalDays || 1) : null,
         paidAt: serverTimestamp(),
         deliveredAt: isDigital ? serverTimestamp() : null,
         disputeDeadline: isDigital ? Timestamp.fromMillis(Date.now() + 48 * 3600000) : null,
@@ -279,11 +317,13 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
         type: "purchase",
         targetEmail: listing.sellerEmail,
         fromEmail: buyerEmail,
-        title: isDigital ? "Your digital item was purchased! 🎉" : isBadge ? "Your badge was purchased! 🎉" : "Your item sold! 🎉",
+        title: isDigital ? "Your digital item was purchased! 🎉" : isBadge ? "Your badge was purchased! 🎉" : isRental ? "Your item was rented! 🎉" : "Your item sold! 🎉",
         message: isDigital
           ? `${name.trim()} just purchased "${listing.title}" (digital download).`
           : isBadge
           ? `${name.trim()} just purchased your "${listing.badgeForSale}" badge. It has been automatically transferred.`
+          : isRental
+          ? `${name.trim()} just rented "${listing.title}" for ${listing.rentalDays || 1} day(s) — $${listing.price}/day. Coordinate pickup.`
           : `${name.trim()} just purchased "${listing.title}" for $${listing.price}. Check your sales page to confirm and ship.`,
         listingId: listing.id,
         listingTitle: listing.title,
@@ -292,15 +332,37 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
       });
 
       try {
-        await updateDoc(doc(db, collectionName, listing.id), { status: "sold" });
-      } catch (e) { console.error("Failed to mark listing as sold:", e); }
+        const listingRef = doc(db, collectionName, listing.id);
+        const listingSnap = await getDoc(listingRef);
+        if (listingSnap.exists()) {
+          const current = listingSnap.data();
+          const updateData: any = {};
+
+          if (typeof current.stockQuantity === "number") {
+            if (current.stockQuantity > 1) {
+              updateData.stockQuantity = current.stockQuantity - 1;
+            } else {
+              updateData.stockQuantity = 0;
+              if (listing.type !== "rental") updateData.status = "sold";
+            }
+          } else if (listing.type !== "rental") {
+            updateData.status = "sold";
+          }
+
+          if (Object.keys(updateData).length > 0) {
+            await updateDoc(listingRef, updateData);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to update listing availability:", e);
+      }
 
       setOrderId(purchaseRef.id);
       try {
         localStorage.setItem("checkoutInfo", JSON.stringify({ name: name.trim(), phone: phone.trim() }));
       } catch {}
 
-      setStep(isBadge || isDigital ? "success" : "share_address");
+          setStep(isBadge || isDigital || isRental ? "success" : "share_address");
     } catch (e) {
       console.error("Purchase record failed:", e);
       setStep("share_address");
@@ -357,6 +419,8 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                   ? "Badge transferred to your account automatically!"
                   : isDigital
                   ? "Digital item delivered! Check your Purchases page to download."
+                  : isRental
+                  ? "Rental confirmed! Coordinate pickup with the seller in messages."
                   : deliveryMethod === "shipping"
                     ? "Share your shipping address with the seller?"
                     : "Let the seller know you'd like to arrange pickup?"}
@@ -413,9 +477,18 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
             <h2 className="mt-4 text-lg font-black text-[var(--foreground)]">Payment Successful</h2>
             {orderId && <p className="mt-1 text-xs text-[var(--muted)]">Order #{orderId.slice(-6).toUpperCase()}</p>}
             <div className="mt-4 rounded-lg bg-zinc-900/40 px-4 py-3 text-left text-xs">
-              <div className="flex items-center justify-between text-[var(--muted)]"><span>Item</span><span>${itemPrice.toFixed(2)}</span></div>
+              <div className="flex items-center justify-between text-[var(--muted)]">
+                <span>{isRental ? `Rental — $${listing.price}/day × ${listing.rentalDays || 1} day(s)` : "Item"}</span>
+                <span>${rentalItemTotal.toFixed(2)}</span>
+              </div>
               {deliveryMethod === "shipping" && shippingAmount > 0 && (
                 <div className="mt-1 flex items-center justify-between text-[var(--muted)]"><span>Shipping</span><span>${shippingAmount.toFixed(2)}</span></div>
+              )}
+              {isRental && listing.rentalDeposit && (
+                <div className="mt-1 flex items-center justify-between text-amber-400">
+                  <span>🔒 Security deposit <span className="text-[var(--muted)]">(refundable)</span></span>
+                  <span>$${Number(listing.rentalDeposit).toFixed(2)}</span>
+                </div>
               )}
               <div className="mt-1 flex items-center justify-between text-[var(--muted)]"><span>Buyer Protection</span><span>$1.00</span></div>
               <div className="mt-2 flex items-center justify-between border-t border-zinc-800 pt-2 text-sm font-bold text-[var(--foreground)]"><span>Total</span><span>${total.toFixed(2)}</span></div>
@@ -525,13 +598,19 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
 
                   <div className="rounded-lg bg-zinc-900/40 px-3.5 py-3 text-xs">
                     <div className="flex items-center justify-between text-[var(--muted)]">
-                      <span>Item</span>
-                      <span>${itemPrice.toFixed(2)}</span>
+                      <span>{isRental ? `Rental — $${listing.price}/day × ${listing.rentalDays || 1} day(s)` : "Item"}</span>
+                      <span>${rentalItemTotal.toFixed(2)}</span>
                     </div>
                     {deliveryMethod === "shipping" && shippingAmount > 0 && (
                       <div className="mt-1 flex items-center justify-between text-[var(--muted)]">
                         <span>Shipping</span>
                         <span>${shippingAmount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {isRental && listing.rentalDeposit && (
+                      <div className="mt-1 flex items-center justify-between text-amber-400">
+                        <span>🔒 Security deposit <span className="text-[var(--muted)]">(refundable)</span></span>
+                        <span>$${Number(listing.rentalDeposit).toFixed(2)}</span>
                       </div>
                     )}
                     <div className="mt-1 flex items-center justify-between text-[var(--muted)]">
@@ -556,13 +635,19 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                 <div>
                   <div className="rounded-lg bg-zinc-900/40 px-3.5 py-3 mb-4 text-xs">
                     <div className="flex items-center justify-between text-[var(--muted)]">
-                      <span>Item</span>
-                      <span>${itemPrice.toFixed(2)}</span>
+                      <span>{isRental ? `Rental — $${listing.price}/day × ${listing.rentalDays || 1} day(s)` : "Item"}</span>
+                      <span>${rentalItemTotal.toFixed(2)}</span>
                     </div>
                     {deliveryMethod === "shipping" && shippingAmount > 0 && (
                       <div className="mt-1 flex items-center justify-between text-[var(--muted)]">
                         <span>Shipping</span>
                         <span>${shippingAmount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {isRental && listing.rentalDeposit && (
+                      <div className="mt-1 flex items-center justify-between text-amber-400">
+                        <span>🔒 Security deposit <span className="text-[var(--muted)]">(refundable)</span></span>
+                        <span>$${Number(listing.rentalDeposit).toFixed(2)}</span>
                       </div>
                     )}
                     <div className="mt-1 flex items-center justify-between text-[var(--muted)]">
@@ -575,7 +660,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                     </div>
                   </div>
                   <Elements stripe={stripePromise} options={{ clientSecret }}>
-                    <PaymentForm total={total} listingId={listing.id} title={listing.title} price={String(total)} buyerEmail={buyerEmail} onSuccess={handlePaymentSuccess} onBack={resetToForm} badgeForSale={listing.badgeForSale} sellerEmail={listing.sellerEmail} collectionName={collectionName} type={listing.type} digitalFileURL={listing.digitalFileURL} digitalFileName={listing.digitalFileName} />
+                    <PaymentForm total={total} listingId={listing.id} title={listing.title} price={String(total)} buyerEmail={buyerEmail} onSuccess={handlePaymentSuccess} onBack={resetToForm} badgeForSale={listing.badgeForSale} sellerEmail={listing.sellerEmail} collectionName={collectionName} type={listing.type} digitalFileURL={listing.digitalFileURL} digitalFileName={listing.digitalFileName} digitalStoragePath={listing.digitalStoragePath} />
                   </Elements>
                 </div>
               )}

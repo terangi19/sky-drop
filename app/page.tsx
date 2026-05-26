@@ -232,24 +232,43 @@ export default function Home() {
 
   useEffect(() => {
     if (!authReady) return;
-
-    const listingsQuery = query(collection(db, "listings"), orderBy("createdAt", "desc"), limit(50));
-
     let mounted = true;
 
-    const unsubscribe = onSnapshot(listingsQuery, (snapshot) => {
-      if (!mounted) return;
+    const allItems: any[] = [];
+    let done1 = false, done2 = false;
 
-      const items = snapshot.docs
-        .map((doc) => ({ id: doc.id, ...doc.data() } as any));
-      setListings(items as any);
+    function merge() {
+      if (!done1 || !done2 || !mounted) return;
+      const physical = allItems.filter((i: any) => i.type !== "digital" && i.type !== "service");
+      physical.sort((a, b) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
+      setListings(physical.slice(0, 50));
       setLoading(false);
-    }, (err) => { console.error("Homepage listener error:", err); setLoading(false); });
+    }
 
-    return () => {
-      mounted = false;
-      unsubscribe();
-    };
+    const unsub1 = onSnapshot(
+      query(collection(db, "listings"), orderBy("createdAt", "desc"), limit(50)),
+      (snap) => {
+        if (!mounted) return;
+        allItems.length = 0;
+        for (const d of snap.docs) allItems.push({ id: d.id, ...d.data() });
+        done1 = true;
+        merge();
+      },
+      () => { done1 = true; merge(); }
+    );
+
+    const unsub2 = onSnapshot(
+      query(collection(db, "tradePosts"), orderBy("createdAt", "desc"), limit(50)),
+      (snap) => {
+        if (!mounted) return;
+        for (const d of snap.docs) allItems.push({ id: d.id, ...d.data() });
+        done2 = true;
+        merge();
+      },
+      () => { done2 = true; merge(); }
+    );
+
+    return () => { mounted = false; unsub1(); unsub2(); };
   }, [user, authReady]);
 
   // Scroll-to-top visibility
@@ -367,6 +386,7 @@ export default function Home() {
    }
 
     function handleBuyNow(item: Listing) {
+        if (item.status === "sold") return;
         router.push(`/post/listing/${item.id}?buy=1`);
       }
 
@@ -504,7 +524,7 @@ export default function Home() {
 
             const isVisible = (search === "" || matchesSearch) && (selectedCategory === "All" || matchesCategory) && (selectedCondition === "All" || matchesCondition) && (selectedRegion === "All" || matchesRegion);
 
-            return isVisible;
+            return isVisible && !isSold;
 
           }
         );
@@ -853,29 +873,6 @@ export default function Home() {
               <p className="mt-0.5 text-sm font-black text-orange-400">${item.price} <span className="text-[10px] text-[var(--muted)]">· 👁 {(item as any).views || 0}</span></p>
             </div>
           ))}
-          </div>
-        </section>
-      )}
-
-      {/* RECENTLY SOLD */}
-      {listings.filter(l => l.status === "sold").length > 0 && (
-        <section className="relative z-10 mx-auto max-w-[1800px] px-4 pb-1.5">
-          <div className="relative mb-3 pt-2">
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-zinc-700/50 to-transparent" />
-            <p className="text-[13px] font-bold uppercase tracking-[0.22em] text-[var(--foreground)]">Recently Sold</p>
-          </div>
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {listings.filter(l => l.status === "sold").slice(0, 6).map((item) => (
-              <div key={item.id} className="shrink-0 w-44 rounded-xl border border-zinc-800/40 bg-zinc-900/50 p-3 opacity-80">
-                {item.images?.[0] || item.imageUrl || item.image ? (
-                  <img src={item.images?.[0] || item.imageUrl || item.image || ""} alt="" loading="lazy" className="h-20 w-full rounded-lg object-cover" />
-                ) : (
-                  <div className="h-20 w-full rounded-lg bg-gradient-to-br from-sky-500/10 via-violet-500/10 to-purple-600/10 flex items-center justify-center text-xs text-[var(--muted)]">SD</div>
-                )}
-                <p className="mt-2 truncate text-xs font-bold text-[var(--foreground)]">{item.title}</p>
-                <p className="text-xs font-bold text-emerald-400">Sold · ${item.price}</p>
-              </div>
-            ))}
           </div>
         </section>
       )}
@@ -1306,6 +1303,29 @@ onClick={() => router.push(`/post/listing/${item.id}`)}
                  <p className="mt-2.5 truncate text-[15px] font-bold text-[var(--foreground)]">{item.title}</p>
                  <p className="mt-0.5 text-base font-black" style={{ color: "var(--foreground)" }}>${item.price}</p>
                   <p className="mt-1 text-[10px] text-[var(--muted)]">👁 {(item as any).views || 0} views</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* RECENTLY SOLD */}
+      {listings.filter(l => l.status === "sold").length > 0 && (
+        <section className="relative z-10 mx-auto max-w-[1800px] px-4 pb-1.5">
+          <div className="relative mb-3 pt-2">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-zinc-700/50 to-transparent" />
+            <p className="text-[13px] font-bold uppercase tracking-[0.22em] text-[var(--foreground)]">Recently Sold</p>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {listings.filter(l => l.status === "sold").slice(0, 6).map((item) => (
+              <div key={item.id} className="shrink-0 w-44 rounded-xl border border-zinc-800/40 bg-zinc-900/50 p-3 opacity-80">
+                {item.images?.[0] || item.imageUrl || item.image ? (
+                  <img src={item.images?.[0] || item.imageUrl || item.image || ""} alt="" loading="lazy" className="h-20 w-full rounded-lg object-cover" />
+                ) : (
+                  <div className="h-20 w-full rounded-lg bg-gradient-to-br from-sky-500/10 via-violet-500/10 to-purple-600/10 flex items-center justify-center text-xs text-[var(--muted)]">SD</div>
+                )}
+                <p className="mt-2 truncate text-xs font-bold text-[var(--foreground)]">{item.title}</p>
+                <p className="text-xs font-bold text-emerald-400">Sold · ${item.price}</p>
               </div>
             ))}
           </div>

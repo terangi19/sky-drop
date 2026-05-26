@@ -5,7 +5,7 @@ import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { storage } from "../lib/firebase";
 
 interface Props {
-  onUpload: (url: string, fileName: string) => void;
+  onUpload: (url: string, fileName: string, storagePath: string) => void;
 }
 
 export default function DigitalAssetUpload({ onUpload }: Props) {
@@ -27,7 +27,7 @@ export default function DigitalAssetUpload({ onUpload }: Props) {
       });
       await task;
       const url = await getDownloadURL(storageRef);
-      onUpload(url, file.name);
+      onUpload(url, file.name, path);
       setFile(null);
     } catch (e) {
       console.error("Upload failed:", e);

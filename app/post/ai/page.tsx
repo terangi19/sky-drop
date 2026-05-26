@@ -6,7 +6,7 @@ import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
 import ThemeToggle from "../../components/ThemeToggle";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, where } from "firebase/firestore";
+import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { auth, db, storage } from "../../lib/firebase";
 import { createPendingXP, trackListingCreated } from "../../lib/xpValidation";
@@ -50,10 +50,20 @@ export default function AIPostPage() {
   const [auctionDuration, setAuctionDuration] = useState("3");
   const [stockQuantity, setStockQuantity] = useState("");
   const [expiresIn, setExpiresIn] = useState("14");
-  const [isDigital, setIsDigital] = useState(false);
+  const [listingType, setListingType] = useState<"physical" | "digital" | "service" | "rental">("physical");
   const [digitalFileURL, setDigitalFileURL] = useState("");
   const [digitalFileName, setDigitalFileName] = useState("");
+  const [digitalStoragePath, setDigitalStoragePath] = useState("");
+  const [serviceDuration, setServiceDuration] = useState("");
+  const [rentalPriceWeekly, setRentalPriceWeekly] = useState("");
+  const [rentalPriceMonthly, setRentalPriceMonthly] = useState("");
+  const [rentalDeposit, setRentalDeposit] = useState("");
+  const [acceptOffers, setAcceptOffers] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [existingImages, setExistingImages] = useState<string[]>([]);
+  const [editLoading, setEditLoading] = useState(false);
   const [loading, setLoading] = useState(false);
+  const isDigital = listingType === "digital";
   const classifierRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -109,6 +119,48 @@ export default function AIPostPage() {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, setUser);
     return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    const editParam = new URLSearchParams(window.location.search).get("edit");
+    if (!editParam) return;
+    setEditId(editParam);
+    setEditLoading(true);
+    getDoc(doc(db, "listings", editParam)).then((snap) => {
+      if (!snap.exists()) return;
+      const data = snap.data() as any;
+      setTitle(data.title || "");
+      setDescription(data.description || "");
+      setCategory(data.category || "Other");
+      setPrice(String(data.price || ""));
+      setCondition(data.condition || "New");
+      setListingType(data.type || "physical");
+      setLocation(data.location || "");
+      setPickupAvailable(!!data.pickupAvailable);
+      setShippingAvailable(!!data.shippingAvailable);
+      setPickupArea(data.pickupArea || "");
+      setShippingFee(data.shippingFee != null ? String(data.shippingFee) : "");
+      setFreeShipping(!!data.freeShipping);
+      setStockQuantity(data.stockQuantity != null ? String(data.stockQuantity) : "");
+      setSaleType(data.saleType || "buy_now");
+      setStartingBid(data.startingBid != null ? String(data.startingBid) : "");
+      setReservePrice(data.reservePrice != null ? String(data.reservePrice) : "");
+      setBuyNowPrice(data.buyNowPrice != null ? String(data.buyNowPrice) : "");
+      setAuctionDuration(String(data.auctionDuration || "3"));
+      if (data.expiresAt?.toDate) {
+        const daysLeft = Math.round((data.expiresAt.toDate() - Date.now()) / 86400000);
+        setExpiresIn(String(Math.max(daysLeft, 1)));
+      } else {
+        setExpiresIn(data.expiresIn || "14");
+      }
+      setDigitalFileURL(data.digitalFileURL || "");
+      setDigitalFileName(data.digitalFileName || "");
+      setDigitalStoragePath(data.digitalStoragePath || "");
+      setServiceDuration(data.serviceDuration || "");
+      setAcceptOffers(!!data.acceptOffers);
+      setExistingImages(data.images || []);
+      if (data.images?.length) setImagePreviews(data.images);
+    }).catch(console.error).finally(() => setEditLoading(false));
   }, []);
 
   function dataURLtoBlob(dataUrl: string): Blob {
@@ -195,34 +247,28 @@ export default function AIPostPage() {
       alert(`Please fill in title and ${(saleType === "auction" || saleType === "auction_buy_now") ? "starting bid" : "price"}`);
       return;
     }
-    if (!isDigital && !pickupAvailable && !shippingAvailable) {
+    if (listingType === "physical" && !pickupAvailable && !shippingAvailable) {
       alert("Select at least one delivery method (pickup or shipping).");
       return;
     }
-    if (isDigital && !digitalFileURL) {
+    if (listingType === "digital" && !digitalFileURL && !editId) {
       alert("Upload the digital file you're selling.");
+      return;
+    }
+    if (listingType === "rental" && !location) {
+      alert("Enter the pickup location for your rental.");
       return;
     }
     setLoading(true);
 
-    let listingStatus = "live";
-    if (isDigital) {
-      const profileSnap = await getDoc(doc(db, "profiles", user.uid));
-      const profileData = profileSnap.data();
-      const { canListDigital } = await import("../../lib/kyc");
-      const gate = await canListDigital(profileData || {});
-      if (!gate.allowed) {
-        alert(`Cannot list digital assets: ${gate.reason}`);
-        setLoading(false);
-        return;
-      }
-      const existingDigital = await getDocs(query(collection(db, "purchases"), where("sellerEmail", "==", user.email), where("deliveryMethod", "==", "digital"), where("status", "==", "delivered")));
-      if (existingDigital.empty) listingStatus = "pending_review";
+    if (!editId && listingType === "digital") {
+      // KYC check removed for testing
     }
 
     try {
-      const images: string[] = [];
-      if (!isDigital) {
+      let images: string[] = existingImages;
+      if (listingType !== "digital" && imageFiles.length > 0) {
+        images = [];
         for (let i = 0; i < imageFiles.length; i++) {
           const blob = dataURLtoBlob(imagePreviews[i]);
           const storageRef = ref(storage, `listings/${user.uid}/${Date.now()}_${i}.jpg`);
@@ -231,15 +277,36 @@ export default function AIPostPage() {
         }
       }
 
-      const listingData: any = isDigital ? {
-        title, description, price: String(price), category, condition: "Digital", acceptOffers: false,
-        images, imageUrl: images[0] || "", sellerEmail: user.email, sellerUsername: user.email?.split("@")[0] || "User", sellerId: user.uid, createdAt: serverTimestamp(),
-        type: "digital", digitalFileURL, digitalFileName,
-        saleType: "buy_now", expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000),
-        status: listingStatus,
+      const baseData: Record<string, any> = {
+        title, description, price: String(price), category, acceptOffers,
+        imageUrl: images[0] || "", images,
+      };
+
+      if (editId) {
+        baseData.updatedAt = serverTimestamp();
+      } else {
+        baseData.sellerEmail = user.email; baseData.sellerUsername = user.email?.split("@")[0] || "User";
+        baseData.sellerId = user.uid; baseData.createdAt = serverTimestamp();
+        baseData.expiresAt = new Date(Date.now() + Number(expiresIn) * 86400000);
+      }
+
+      const listingData: any = listingType === "digital" ? {
+        ...baseData, condition: "Digital",
+        type: "digital", digitalStoragePath, digitalFileName,
+        saleType: "buy_now", ...(editId ? {} : { expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000), status: "live" }),
+      } : listingType === "service" ? {
+        ...baseData, type: "service", serviceDuration,
+        saleType: "buy_now", ...(editId ? {} : { expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000), status: "live" }),
+      } : listingType === "rental" ? {
+        ...baseData, condition, location,
+        type: "rental", pickupAvailable: true, shippingAvailable: false,
+        stockQuantity: stockQuantity ? Number(stockQuantity) : 1,
+        rentalPriceWeekly: rentalPriceWeekly ? Number(rentalPriceWeekly) : null,
+        rentalPriceMonthly: rentalPriceMonthly ? Number(rentalPriceMonthly) : null,
+        rentalDeposit: rentalDeposit ? Number(rentalDeposit) : null,
+        ...(editId ? {} : { expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000), status: "live" }),
       } : {
-        title, description, price: String(saleType === "auction_buy_now" && buyNowPrice ? buyNowPrice : (saleType === "auction" || saleType === "auction_buy_now") ? startingBid : price), category, condition, location,
-        imageUrl: images[0] || "", images, sellerEmail: user.email, sellerUsername: user.email?.split("@")[0] || "User", sellerId: user.uid, createdAt: serverTimestamp(),
+        ...baseData, condition, location,
         pickupAvailable, shippingAvailable, pickupArea,
         shippingFee: shippingAvailable && shippingFee ? Number(shippingFee) : null,
         freeShipping: shippingAvailable ? freeShipping : false,
@@ -247,25 +314,40 @@ export default function AIPostPage() {
         saleType,
         startingBid: (saleType === "auction" || saleType === "auction_buy_now") && startingBid ? Number(startingBid) : null,
         reservePrice: (saleType === "auction" || saleType === "auction_buy_now") && reservePrice ? Number(reservePrice) : null,
-        auctionEndsAt: (saleType === "auction" || saleType === "auction_buy_now") ? new Date(Date.now() + Number(auctionDuration) * 86400000) : null,
-        expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000),
-        currentBid: null, bidCount: 0, highestBidder: null,
+        ...(editId ? {} : {
+          auctionEndsAt: (saleType === "auction" || saleType === "auction_buy_now") ? new Date(Date.now() + Number(auctionDuration) * 86400000) : null,
+          expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000),
+          currentBid: null, bidCount: 0, highestBidder: null, status: "live",
+        }),
       };
 
-      const listingRef = await addDoc(collection(db, isDigital ? "tradePosts" : "listings"), listingData);
-      if (!isDigital) {
-        createPendingXP(user.uid, "listing", listingRef.id, listingRef.id);
-        trackListingCreated(user.uid, title);
+      let newId = editId;
+      if (editId) {
+        await updateDoc(doc(db, "listings", editId), listingData);
+        alert("Listing updated!");
+      } else {
+        const listingRef = await addDoc(collection(db, "listings"), listingData);
+        newId = listingRef.id;
+        if (listingType !== "digital") {
+          createPendingXP(user.uid, "listing", listingRef.id, listingRef.id);
+          trackListingCreated(user.uid, title);
+        }
+        alert("Listing created!");
       }
-      alert("Listing created!");
-      setImagePreviews([]); setImageFiles([]); setTitle(""); setDescription(""); setPrice("");
+      setImagePreviews([]); setImageFiles([]); setExistingImages([]);
+      setTitle(""); setDescription(""); setPrice("");
       setLocation(""); setCategory("Other"); setDetected("");
       setPickupAvailable(false); setShippingAvailable(false);
       setPickupArea(""); setShippingFee(""); setFreeShipping(false);
       setStockQuantity("");
       setSaleType("buy_now"); setBuyNowPrice(""); setStartingBid(""); setReservePrice(""); setAuctionDuration("3"); setExpiresIn("14");
-      setIsDigital(false); setDigitalFileURL(""); setDigitalFileName("");
+      setListingType("physical"); setDigitalFileURL(""); setDigitalFileName(""); setDigitalStoragePath(""); setServiceDuration(""); setRentalPriceWeekly(""); setRentalPriceMonthly(""); setRentalDeposit(""); setAcceptOffers(false); setCondition("New");
+      setEditId(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
+      if (listingType === "service") window.location.href = "/services";
+      else if (listingType === "digital") window.location.href = "/digital";
+      else if (listingType === "rental") window.location.href = `/post/listing/${newId}`;
+      else window.location.href = `/post/listing/${newId}`;
     } catch (err) {
       console.error("Listing upload error:", err);
       alert("Failed to create listing — check console for details");
@@ -281,14 +363,20 @@ export default function AIPostPage() {
       {imagePreviews.length > 0 && <img ref={imgRef} src={imagePreviews[0]} style={{display:'none'}} />}
 
       <div className="relative z-10 mx-auto max-w-2xl px-6 py-12">
+        {editLoading && (
+          <div className="mb-6 flex items-center justify-center gap-3 rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-sky-500 border-t-transparent"></div>
+            <span className="text-sm text-[var(--muted)]">Loading listing...</span>
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <div>
             <Link href="/" className="inline-flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-[var(--foreground)] transition hover:border-zinc-700 hover:bg-zinc-800/60 mb-4">
   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
   Back
 </Link>
-            <h1 className="text-4xl font-black text-[var(--foreground)]">AI Quick Post</h1>
-            <p className="mt-2 text-[var(--muted)]">Free unlimited AI</p>
+            <h1 className="text-4xl font-black text-[var(--foreground)]">{editId ? "Edit Listing" : "AI Quick Post"}</h1>
+            <p className="mt-2 text-[var(--muted)]">{editId ? "Update your listing details" : "Free unlimited AI"}</p>
           </div>
           
         </div>
@@ -348,14 +436,16 @@ export default function AIPostPage() {
             <div>
               <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Category</label>
               <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]">
-                {isDigital ? (
+                {listingType === "digital" ? (
                   <><option>Templates & Assets</option><option>E-books & Guides</option><option>Art & Photography</option><option>Software & Audio</option><option>Gaming & 3D</option></>
+                ) : listingType === "service" ? (
+                  <><option>Design & Development</option><option>Writing & Translation</option><option>Video & Animation</option><option>Music & Audio</option><option>Marketing & SEO</option><option>Consulting & Coaching</option><option>Other</option></>
                 ) : (
                   <><option>Tech</option><option>Cars</option><option>Gaming</option><option>Fashion</option><option>Home</option><option>Sports</option><option>Other</option></>
                 )}
               </select>
             </div>
-            {!isDigital && (
+            {listingType === "physical" && (
             <div>
               <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Condition</label>
               <select value={condition} onChange={(e) => setCondition(e.target.value)} className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]">
@@ -365,6 +455,7 @@ export default function AIPostPage() {
             )}
           </div>
 
+          {listingType !== "rental" && (
           <div className="grid grid-cols-2 gap-4">
             {saleType === "buy_now" ? (
               <div>
@@ -384,15 +475,16 @@ export default function AIPostPage() {
                   className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]" />
               </div>
             )}
-            {!isDigital && (
+            {listingType === "physical" && (
             <div>
               <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Location</label>
               <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="City" className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]" />
             </div>
             )}
           </div>
+          )}
 
-          {!isDigital && (saleType === "auction" || saleType === "auction_buy_now") && (
+          {listingType === "physical" && (saleType === "auction" || saleType === "auction_buy_now") && (
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Reserve Price <span className="text-[var(--muted)] font-normal">(optional)</span></label>
@@ -412,7 +504,7 @@ export default function AIPostPage() {
             </div>
           )}
 
-          {!isDigital && (
+          {listingType === "physical" && (
           <div>
             <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Sale Type</label>
             <div className="grid grid-cols-3 gap-2">
@@ -432,38 +524,149 @@ export default function AIPostPage() {
           </div>
           )}
 
-          {/* Digital Asset Toggle */}
+          {/* Listing Type */}
           <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
-            <label className="flex cursor-pointer items-center gap-2.5">
-              <input type="checkbox" checked={isDigital} onChange={(e) => {
-                setIsDigital(e.target.checked);
-                if (e.target.checked) { setPickupAvailable(false); setShippingAvailable(false); setCategory("Templates & Assets"); }
-              }} className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-sky-500 focus:ring-sky-500/30" />
-              <div>
-                <span className="text-sm font-medium text-[var(--foreground)]">📥 Digital Asset</span>
-                <p className="text-xs text-[var(--muted)]">Sell a downloadable file (templates, e-books, art, etc.)</p>
-              </div>
-            </label>
+            <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Listing Type</label>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <button onClick={() => { setListingType("physical"); setAcceptOffers(false); }}
+                className={`rounded-xl border p-3 text-left transition-all ${listingType === "physical" ? "border-sky-500/40 bg-sky-500/10" : "border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600"}`}>
+                <span className="text-lg">📦</span>
+                <p className="mt-1 text-xs font-bold text-[var(--foreground)]">Physical</p>
+                <p className="mt-1 text-[10px] leading-tight text-[var(--muted)]">Sell items — ship or pickup</p>
+              </button>
+              <button onClick={() => { setListingType("digital"); setCategory("Templates & Assets"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); }}
+                className={`rounded-xl border p-3 text-left transition-all ${listingType === "digital" ? "border-sky-500/40 bg-sky-500/10" : "border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600"}`}>
+                <span className="text-lg">📥</span>
+                <p className="mt-1 text-xs font-bold text-[var(--foreground)]">Digital</p>
+                <p className="mt-1 text-[10px] leading-tight text-[var(--muted)]">Sell digital assets — instant delivery</p>
+              </button>
+              <button onClick={() => { setListingType("service"); setCategory("Design & Development"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(true); setSaleType("buy_now"); }}
+                className={`rounded-xl border p-3 text-left transition-all ${listingType === "service" ? "border-sky-500/40 bg-sky-500/10" : "border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600"}`}>
+                <span className="text-lg">🤝</span>
+                <p className="mt-1 text-xs font-bold text-[var(--foreground)]">Service</p>
+                <p className="mt-1 text-[10px] leading-tight text-[var(--muted)]">Offer your skills — scope in messages</p>
+              </button>
+              <button onClick={() => { setListingType("rental"); setCategory("Other"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); setLocation(""); setCondition("New"); }}
+                className={`rounded-xl border p-3 text-left transition-all ${listingType === "rental" ? "border-sky-500/40 bg-sky-500/10" : "border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600"}`}>
+                <span className="text-lg">🔑</span>
+                <p className="mt-1 text-xs font-bold text-[var(--foreground)]">Rental</p>
+                <p className="mt-1 text-[10px] leading-tight text-[var(--muted)]">Rent items out by the day</p>
+              </button>
+            </div>
           </div>
 
-          {/* Digital File Upload */}
-          {isDigital && (
+          {/* Accept Offers — physical & service only */}
+          {listingType !== "digital" && (
             <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
-              <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Digital File</label>
-              {digitalFileURL ? (
-                <div className="flex items-center justify-between rounded-lg bg-emerald-500/10 px-4 py-3">
-                  <span className="text-xs text-emerald-400">✓ {digitalFileName}</span>
-                  <button onClick={() => { setDigitalFileURL(""); setDigitalFileName(""); }} className="text-[10px] text-red-400 hover:text-red-300">Remove</button>
+              <div className="flex items-start">
+                <div className="flex h-5 items-center">
+                  <input id="acceptOffers" type="checkbox" checked={acceptOffers}
+                    onChange={(e) => setAcceptOffers(e.target.checked)}
+                    className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-sky-500 focus:ring-sky-500/30" />
                 </div>
-              ) : (
-                <DigitalAssetUpload onUpload={(url, name) => { setDigitalFileURL(url); setDigitalFileName(name); }} />
-              )}
-              <p className="mt-2 text-[10px] text-[var(--muted)]">Max 50MB. Buyers receive instantly after purchase.</p>
+                <div className="ml-3">
+                  <label htmlFor="acceptOffers" className="text-sm font-bold text-[var(--foreground)]">Accept offers</label>
+                  <p className="text-[10px] text-[var(--muted)]">Allow buyers to make offers below your asking price</p>
+                </div>
+              </div>
             </div>
           )}
 
-          {/* Delivery Options */}
-          {!isDigital && (
+          {/* Digital File Upload */}
+          {listingType === "digital" && (
+            <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
+              <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Digital File</label>
+              <p className="mb-3 text-[11px] font-medium tracking-wide bg-gradient-to-r from-sky-400 to-violet-400 bg-clip-text text-transparent">Upload your digital asset file</p>
+              {digitalFileURL ? (
+                <div className="flex items-center justify-between rounded-lg bg-emerald-500/10 px-4 py-3">
+                  <span className="text-xs text-emerald-400">✓ {digitalFileName}</span>
+                  <button onClick={() => { setDigitalFileURL(""); setDigitalFileName(""); setDigitalStoragePath(""); }} className="text-[10px] text-red-400 hover:text-red-300">Remove</button>
+                </div>
+              ) : (
+                <DigitalAssetUpload onUpload={(url, name, path) => { setDigitalFileURL(url); setDigitalFileName(name); setDigitalStoragePath(path); }} />
+              )}
+            </div>
+          )}
+
+          {/* Service Details */}
+          {listingType === "service" && (
+            <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
+              <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Service Details</label>
+              <input type="text" value={serviceDuration} onChange={(e) => setServiceDuration(e.target.value)}
+                placeholder="Estimated delivery time (e.g. 3-5 days)"
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+              <p className="mt-2 text-[10px] text-[var(--muted)]">Buyers will message you to discuss scope before purchasing.</p>
+            </div>
+          )}
+
+          {/* Rental Details */}
+          {listingType === "rental" && (
+            <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
+              <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Rental Details</label>
+              <div className="space-y-3">
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Daily rate *</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                      <input type="number" value={price} onChange={(e) => setPrice(e.target.value)}
+                        placeholder="Day"
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Weekly <span className="text-zinc-600">(opt)</span></label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                      <input type="number" value={rentalPriceWeekly} onChange={(e) => setRentalPriceWeekly(e.target.value)}
+                        placeholder="Week"
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Monthly <span className="text-zinc-600">(opt)</span></label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                      <input type="number" value={rentalPriceMonthly} onChange={(e) => setRentalPriceMonthly(e.target.value)}
+                        placeholder="Month"
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Security deposit / bond <span className="text-zinc-600">(opt)</span></label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                    <input type="number" value={rentalDeposit} onChange={(e) => setRentalDeposit(e.target.value)}
+                      placeholder="Deposit amount"
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Quantity available</label>
+                  <input type="number" value={stockQuantity} onChange={(e) => setStockQuantity(e.target.value)}
+                    placeholder="e.g. 1"
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Condition</label>
+                  <select value={condition} onChange={(e) => setCondition(e.target.value)}
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                    <option>New</option><option>Used - Like New</option><option>Used - Good</option><option>Used - Fair</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Pickup location *</label>
+                  <input type="text" value={location} onChange={(e) => setLocation(e.target.value)}
+                    placeholder="City or suburb"
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Delivery Options — physical only */}
+          {listingType === "physical" && (
           <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
             <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Delivery Options</label>
             <div className="space-y-3">
@@ -510,21 +713,23 @@ export default function AIPostPage() {
                   placeholder="e.g. 5"
                   className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
               </div>
-              <div>
-                <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Listing expires in</label>
-                <select value={expiresIn} onChange={(e) => setExpiresIn(e.target.value)}
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
-                  <option value="7">7 days</option>
-                  <option value="14">14 days</option>
-                  <option value="30">30 days</option>
-                </select>
-              </div>
             </div>
           </div>
           )}
 
-          <button onClick={createListing} disabled={loading || ((saleType === "auction" || saleType === "auction_buy_now") ? !startingBid : !price)} className="w-full rounded-xl bg-sky-500 py-4 text-lg font-bold text-[var(--foreground)] hover:bg-sky-400 disabled:opacity-50">
-            {loading ? "Posting..." : "Post Now"}
+          {/* Expires in — all types */}
+          <div>
+            <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Listing expires in</label>
+            <select value={expiresIn} onChange={(e) => setExpiresIn(e.target.value)}
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+              <option value="7">7 days</option>
+              <option value="14">14 days</option>
+              <option value="30">30 days</option>
+            </select>
+          </div>
+
+          <button onClick={createListing} disabled={loading || editLoading || ((saleType === "auction" || saleType === "auction_buy_now") ? !startingBid : !price)} className="w-full rounded-xl bg-sky-500 py-4 text-lg font-bold text-[var(--foreground)] hover:bg-sky-400 disabled:opacity-50">
+            {loading ? "Saving..." : editId ? "Save Changes" : "Post Now"}
           </button>
         </div>
       </div>

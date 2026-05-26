@@ -16,6 +16,7 @@ import { trackChallenge } from "../lib/challenges";
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [sales, setSales] = useState<any[]>([]);
   const [listings, setListings] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
@@ -25,7 +26,11 @@ export default function DashboardPage() {
   const [xp, setXp] = useState(0);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => setUser(u));
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setAuthChecked(true);
+      if (!u) setLoading(false);
+    });
     return () => unsub();
   }, []);
 
@@ -99,6 +104,38 @@ export default function DashboardPage() {
     }),
     [listings]
   );
+
+  if (!authChecked) {
+    return (
+      <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+        <Background />
+        <Navbar />
+        <section className="relative z-10 mx-auto max-w-5xl px-6 py-10">
+          <div className="h-8 w-48 rounded bg-zinc-800 animate-pulse" />
+          <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {[1,2,3,4].map((i) => (
+              <div key={i} className="h-24 rounded-xl bg-zinc-800/60 animate-pulse" />
+            ))}
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  if (!user) {
+    return (
+      <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+        <Background />
+        <Navbar />
+        <section className="relative z-10 mx-auto max-w-5xl px-6 py-10">
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-900/60 p-8 text-center">
+            <h1 className="text-2xl font-black text-[var(--foreground)]">Dashboard access</h1>
+            <p className="mt-3 text-sm text-[var(--muted)]">Please sign in to view your dashboard.</p>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   if (loading) {
     return (
@@ -231,7 +268,7 @@ export default function DashboardPage() {
                     <p className="truncate text-sm font-bold text-[var(--foreground)]">{l.title}</p>
                     <p className="text-[10px] text-amber-400">Expires in {Math.ceil((l.expiresAt.toMillis() - Date.now()) / 86400000)} day{Math.ceil((l.expiresAt.toMillis() - Date.now()) / 86400000) > 1 ? "s" : ""}</p>
                   </div>
-                  <Link href={`/post/edit/${l.id}`} className="shrink-0 rounded-lg bg-sky-500 px-3 py-1.5 text-[11px] font-bold text-[var(--foreground)] hover:bg-sky-400">Edit</Link>
+                  <Link href={`/post/ai?edit=${l.id}`} className="shrink-0 rounded-lg bg-sky-500 px-3 py-1.5 text-[11px] font-bold text-[var(--foreground)] hover:bg-sky-400">Edit</Link>
                 </div>
               ))}
             </div>

@@ -21,7 +21,7 @@ interface Purchase {
   buyerEmail: string;
   buyerName: string;
   buyerPhone: string;
-  deliveryMethod: "pickup" | "shipping" | "badge" | "digital";
+  deliveryMethod: "pickup" | "shipping" | "badge" | "digital" | "service" | "rental";
   shippingAddress?: string;
   shippingFee: number;
   total: number;
@@ -38,34 +38,50 @@ interface Purchase {
   digitalFileName?: string;
   disputeDeadline?: any;
   disputed?: boolean;
+  rentalDays?: number;
+  rentalStart?: any;
+  rentalEnd?: any;
 }
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Pending",
   seller_confirming: "Confirmed",
+  in_progress: "In Progress",
   shipped: "Shipped",
   delivered: "Delivered",
   cancelled: "Cancelled",
+  rented: "Rented",
+  returned: "Returned",
 };
 
 const STATUS_STYLES: Record<string, string> = {
   pending: "bg-amber-500/10 text-amber-400 border-amber-500/20",
   seller_confirming: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+  in_progress: "bg-violet-500/10 text-violet-400 border-violet-500/20",
   shipped: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   delivered: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   cancelled: "bg-red-500/10 text-red-400 border-red-500/20",
+  rented: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  returned: "bg-blue-500/10 text-blue-400 border-blue-500/20",
 };
 
 const TIMELINE_STEPS = ["pending", "seller_confirming", "shipped", "delivered"];
+const SERVICE_TIMELINE_STEPS = ["pending", "in_progress", "delivered"];
+const RENTAL_TIMELINE_STEPS = ["pending", "rented", "returned", "completed"];
 
 function formatDate(ts: any): string {
   if (!ts?.seconds) return "";
   return new Date(ts.seconds * 1000).toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" });
 }
 
-function statusIndex(s: string): number {
-  const i = TIMELINE_STEPS.indexOf(s);
+function statusIndex(s: string, isService?: boolean, isRental?: boolean): number {
+  const steps = isRental ? RENTAL_TIMELINE_STEPS : isService ? SERVICE_TIMELINE_STEPS : TIMELINE_STEPS;
+  const i = steps.indexOf(s);
   return i >= 0 ? i : -1;
+}
+
+function timelineSteps(isService?: boolean, isRental?: boolean): string[] {
+  return isRental ? RENTAL_TIMELINE_STEPS : isService ? SERVICE_TIMELINE_STEPS : TIMELINE_STEPS;
 }
 
 export default function PurchasesPage() {
@@ -177,6 +193,8 @@ export default function PurchasesPage() {
 
   function nextAction(p: Purchase): { label: string; action: string; color: string; badge?: string } | null {
     if (p.status === "shipped") return { label: "Confirm Received", action: "delivered", color: "bg-emerald-500" };
+    if (p.deliveryMethod === "service" && p.status === "in_progress") return { label: "Mark Completed", action: "delivered", color: "bg-violet-500" };
+    if (p.deliveryMethod === "rental" && p.status === "rented") return { label: "Return Item", action: "returned", color: "bg-sky-500" };
     return null;
   }
 
@@ -184,6 +202,8 @@ export default function PurchasesPage() {
     if (p.deliveryMethod === "pickup") return { icon: "📍", text: p.pickupArea ? `Pickup — ${p.pickupArea}` : "Local Pickup", badge: "Pickup" };
     if (p.freeShipping) return { icon: "🚚", text: "Free Shipping", badge: "Free Shipping" };
     if (p.deliveryMethod === "digital") return { icon: "📥", text: "Digital Download", badge: "Digital" };
+    if (p.deliveryMethod === "service") return { icon: "🤝", text: "Service", badge: "Service" };
+    if (p.deliveryMethod === "rental") return { icon: "🔑", text: p.rentalDays ? `Rental — ${p.rentalDays} day(s)` : "Rental", badge: "Rental" };
     return { icon: "📦", text: p.shippingFee ? `Shipping — $${p.shippingFee}` : "Shipping", badge: "Shipping" };
   }
 
@@ -287,7 +307,10 @@ export default function PurchasesPage() {
             {filtered.slice(0, visibleCount).map((p) => {
               const dl = deliveryLabel(p);
               const action = nextAction(p);
-              const idx = statusIndex(p.status);
+              const isService = p.deliveryMethod === "service";
+              const isRental = p.deliveryMethod === "rental";
+              const steps = timelineSteps(isService, isRental);
+              const idx = statusIndex(p.status, isService, isRental);
               const hasTimeline = idx >= 0;
 
               return (
@@ -307,7 +330,7 @@ export default function PurchasesPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <Link href={`/post/listing/${p.listingId}`} className="text-sm font-bold text-[var(--foreground)] transition hover:text-sky-400">
+                          <Link href={isService ? "/services" : `/post/listing/${p.listingId}`} className="text-sm font-bold text-[var(--foreground)] transition hover:text-sky-400">
                             {p.listingTitle}
                           </Link>
                           <p className="mt-0.5 text-xs text-[var(--muted)]">
@@ -332,7 +355,17 @@ export default function PurchasesPage() {
 
                       {/* Order status (prominent) */}
                       <div className="mt-0.5 text-[12px] font-medium">
-                        {p.deliveryMethod === "pickup" ? (
+                        {p.deliveryMethod === "service" && p.status === "in_progress" ? (
+                          <span className="text-violet-400">🟣 Service In Progress</span>
+                        ) : p.deliveryMethod === "service" && p.status === "delivered" ? (
+                          <span className="text-emerald-400">🟢 Service Completed ✓</span>
+                        ) : p.deliveryMethod === "rental" && p.status === "rented" ? (
+                          <span className="text-emerald-400">🔑 Rental Active</span>
+                        ) : p.deliveryMethod === "rental" && p.status === "returned" ? (
+                          <span className="text-blue-400">🔁 Item Returned</span>
+                        ) : p.deliveryMethod === "rental" && p.status === "completed" ? (
+                          <span className="text-emerald-400">✅ Rental Completed</span>
+                        ) : p.deliveryMethod === "pickup" ? (
                           <span className="text-sky-400">📍 {p.status === "delivered" ? "Picked Up" : p.status === "cancelled" ? "Cancelled" : "Pickup Arranged"}</span>
                         ) : p.status === "pending" ? (
                           <span className="text-amber-400">🟡 Awaiting Shipment</span>
@@ -355,7 +388,7 @@ export default function PurchasesPage() {
                   {hasTimeline && (
                     <div className="border-t border-zinc-800/50 px-5 py-4">
                       <div className="relative">
-                        {TIMELINE_STEPS.map((step, i) => {
+                        {steps.map((step, i) => {
                           const isCompleted = i < idx;
                           const isCurrent = i === idx;
                           return (
@@ -375,7 +408,7 @@ export default function PurchasesPage() {
                                     <div className="h-2 w-2 rounded-full bg-sky-400" />
                                   ) : null}
                                 </div>
-                                {i < TIMELINE_STEPS.length - 1 && (
+                                {i < steps.length - 1 && (
                                   <div className={`h-6 w-0.5 -mt-0.5 transition-colors duration-300 ${
                                     isCompleted ? "bg-sky-400/60" : "bg-zinc-800"
                                   }`} />
@@ -390,9 +423,13 @@ export default function PurchasesPage() {
                                 <p className="text-xs font-bold">{STATUS_LABELS[step] || step}</p>
                                 {isCurrent && (
                                   <p className="text-[10px] text-[var(--muted)] mt-0.5">
-                                    {step === "pending" ? "Awaiting seller confirmation" :
+                                    {step === "pending" ? isRental ? "Processing rental" : "Awaiting seller confirmation" :
+                                     step === "rented" ? "Rental active — return by due date" :
+                                     step === "returned" ? "Item returned — completing" :
                                      step === "seller_confirming" ? "Seller is preparing your order" :
                                      step === "shipped" ? "Your item is on the way" :
+                                     step === "in_progress" ? "Seller is working on your service" :
+                                     step === "delivered" && isService ? "Service completed" :
                                      "Awaiting delivery confirmation"}
                                   </p>
                                 )}
@@ -407,7 +444,7 @@ export default function PurchasesPage() {
                   {/* Actions bar */}
                   <div className="flex items-center gap-2 border-t border-zinc-800/50 px-4 py-2.5 flex-wrap">
                     <Link
-                      href={`/post/listing/${p.listingId}`}
+                      href={isService ? "/services" : `/post/listing/${p.listingId}`}
                       className="rounded-lg border border-zinc-700 px-4 py-2 text-[11px] font-bold text-[var(--foreground)] transition hover:border-zinc-600"
                     >
                       View Listing
@@ -447,6 +484,27 @@ export default function PurchasesPage() {
                         )}
                       </>
                     )}
+                    {p.deliveryMethod === "service" && p.disputeDeadline?.seconds && (Date.now() / 1000) < p.disputeDeadline.seconds && !p.disputed && (
+                      <button onClick={async () => {
+                        if (!confirm("Report an issue with this service? Admin will review and may process a refund if the seller is at fault.")) return;
+                        try {
+                          await addDoc(collection(db, "reports"), {
+                            type: "service_dispute",
+                            purchaseId: p.id,
+                            listingId: p.listingId,
+                            listingTitle: p.listingTitle,
+                            reporterEmail: user?.email || p.buyerEmail,
+                            reportedUserEmail: p.sellerEmail,
+                            reason: "Service issue",
+                            details: `Buyer reported an issue with service "${p.listingTitle}". Status: ${p.status}`,
+                            createdAt: serverTimestamp(),
+                          });
+                          showToast("Issue reported. Admin will review.", "success");
+                        } catch (e) { console.error(e); }
+                      }} className="rounded-lg border border-red-500/30 px-4 py-2 text-[11px] font-bold text-red-400 transition hover:bg-red-500/10">
+                        ⚠️ Report Issue
+                      </button>
+                    )}
                     {p.deliveryMethod === "shipping" && !["delivered", "cancelled"].includes(p.status) && (
                       <button
                         onClick={() => { setEditAddress(p); setNewAddress(p.shippingAddress || ""); }}
@@ -464,7 +522,7 @@ export default function PurchasesPage() {
                           Leave Review
                         </button>
                         <Link
-                          href={`/post/listing/${p.listingId}`}
+                          href={isService ? "/services" : `/post/listing/${p.listingId}`}
                           className="rounded-lg border border-sky-500/30 px-4 py-2 text-[11px] font-bold text-sky-400 transition hover:bg-sky-500/10"
                         >
                           Buy Again

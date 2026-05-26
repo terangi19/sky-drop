@@ -78,9 +78,11 @@ export default function PostPage() {
    const [shipsWithinDays, setShipsWithinDays] = useState("");
     const [stockQuantity, setStockQuantity] = useState("");
     const [expiresIn, setExpiresIn] = useState("14");
-   const [isDigital, setIsDigital] = useState(false);
-   const [digitalFileURL, setDigitalFileURL] = useState("");
-   const [digitalFileName, setDigitalFileName] = useState("");
+   const [listingType, setListingType] = useState<"physical" | "digital" | "service">("physical");
+    const [digitalFileURL, setDigitalFileURL] = useState("");
+    const [digitalFileName, setDigitalFileName] = useState("");
+    const [digitalStoragePath, setDigitalStoragePath] = useState("");
+   const [serviceDuration, setServiceDuration] = useState("");
 
   const [loading, setLoading] =
     useState(false);
@@ -159,14 +161,14 @@ export default function PostPage() {
       return;
     }
 
-    if (!isDigital && !pickupAvailable && !shippingAvailable) {
+    if (listingType === "physical" && !pickupAvailable && !shippingAvailable) {
       alert("Select at least one delivery method (pickup or shipping).");
       return;
     }
 
     let listingStatus = "live";
 
-    if (isDigital) {
+    if (listingType === "digital") {
       if (!digitalFileURL) {
         alert("Upload the digital file you're selling.");
         return;
@@ -180,9 +182,6 @@ export default function PostPage() {
         return;
       }
       const existingDigital = await getDocs(query(collection(db, "purchases"), where("sellerEmail", "==", user.email), where("deliveryMethod", "==", "digital"), where("status", "==", "delivered")));
-      if (existingDigital.empty) {
-        listingStatus = "pending_review";
-      }
     }
 
     try {
@@ -211,7 +210,7 @@ export default function PostPage() {
         });
       }
 
-      const listingData: any = isDigital ? {
+      const listingData: any = listingType === "digital" ? {
         title,
         description,
         price: String(price),
@@ -225,11 +224,28 @@ export default function PostPage() {
         sellerId: user.uid,
         createdAt: serverTimestamp(),
         type: "digital",
-        digitalFileURL,
+        digitalStoragePath,
         digitalFileName,
         saleType: "buy_now",
         expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000),
         status: listingStatus,
+      } : listingType === "service" ? {
+        title,
+        description,
+        price: String(price),
+        category,
+        acceptOffers: true,
+        images,
+        imageUrl: images[0] || "",
+        sellerEmail: user.email,
+        sellerUsername: username,
+        sellerId: user.uid,
+        createdAt: serverTimestamp(),
+        type: "service",
+        serviceDuration,
+        saleType: "buy_now",
+        expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000),
+        status: "live",
       } : {
         title,
         description,
@@ -261,8 +277,8 @@ export default function PostPage() {
         highestBidder: null,
       };
 
-      const listingRef = await addDoc(collection(db, isDigital ? "tradePosts" : "listings"), listingData);
-      if (!isDigital) {
+      const listingRef = await addDoc(collection(db, "listings"), listingData);
+      if (listingType !== "digital") {
         createPendingXP(user.uid, "listing", listingRef.id, listingRef.id);
         trackListingCreated(user.uid, title);
       }
@@ -630,175 +646,196 @@ export default function PostPage() {
                </div>
              </div>
 
-              {/* DIGITAL ASSET TOGGLE */}
-              <div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
-                <label className="flex cursor-pointer items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={isDigital}
-                    onChange={(e) => {
-                      setIsDigital(e.target.checked);
-                      if (e.target.checked) {
-                        setPickupAvailable(false);
-                        setShippingAvailable(false);
-                        setCategory("Templates & Assets");
-                      }
-                    }}
-                    className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-sky-500 focus:ring-sky-500/30"
-                  />
-                  <div>
-                    <span className="text-sm font-medium text-[var(--foreground)]">📥 Digital Asset</span>
-                    <p className="text-xs text-[var(--muted)]">Sell a downloadable file (templates, e-books, art, etc.)</p>
-                  </div>
-                </label>
-              </div>
+               {/* LISTING TYPE */}
+               <div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
+                 <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Listing Type</label>
+                 <div className="grid grid-cols-3 gap-3">
+                   <button onClick={() => { setListingType("physical"); setCategory("Other"); }}
+                     className={`rounded-xl border p-3 text-left transition-all ${listingType === "physical" ? "border-sky-500/40 bg-sky-500/10" : "border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600"}`}>
+                     <span className="text-lg">📦</span>
+                     <p className="mt-1 text-xs font-bold text-[var(--foreground)]">Physical</p>
+                     <p className="text-[10px] text-[var(--muted)]">Sell a physical item</p>
+                   </button>
+                   <button onClick={() => { setListingType("digital"); setCategory("Templates & Assets"); setPickupAvailable(false); setShippingAvailable(false); }}
+                     className={`rounded-xl border p-3 text-left transition-all ${listingType === "digital" ? "border-sky-500/40 bg-sky-500/10" : "border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600"}`}>
+                     <span className="text-lg">📥</span>
+                     <p className="mt-1 text-xs font-bold text-[var(--foreground)]">Digital</p>
+                     <p className="text-[10px] text-[var(--muted)]">Sell a downloadable file</p>
+                   </button>
+                   <button onClick={() => { setListingType("service"); setCategory("Other"); }}
+                     className={`rounded-xl border p-3 text-left transition-all ${listingType === "service" ? "border-sky-500/40 bg-sky-500/10" : "border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600"}`}>
+                     <span className="text-lg">🤝</span>
+                     <p className="mt-1 text-xs font-bold text-[var(--foreground)]">Service</p>
+                     <p className="text-[10px] text-[var(--muted)]">Offer a service</p>
+                   </button>
+                 </div>
+               </div>
 
-              {/* DELIVERY OPTIONS */}
-              {!isDigital && (
-              <div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
-                <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">
-                  Delivery Options
-                </label>
-
-               <div className="space-y-4">
-                 {/* Pickup toggle */}
-                 <label className="flex cursor-pointer items-center gap-3">
-                   <input
-                     type="checkbox"
-                     checked={pickupAvailable}
-                     onChange={(e) => setPickupAvailable(e.target.checked)}
-                     className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-sky-500 focus:ring-sky-500/30"
-                   />
-                   <div>
-                     <span className="text-sm font-medium text-[var(--foreground)]">Pickup available</span>
-                     <p className="text-xs text-[var(--muted)]">Buyer collects the item in person</p>
-                   </div>
+               {/* PHYSICAL DELIVERY OPTIONS */}
+               {listingType === "physical" && (
+               <div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
+                 <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">
+                   Delivery Options
                  </label>
 
-                 {pickupAvailable && (
-                   <div className="ml-7">
-                     <input
-                       type="text"
-                       value={pickupArea}
-                       onChange={(e) => setPickupArea(e.target.value)}
-                       placeholder="Pickup area / suburb"
-                       className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500"
-                     />
-                   </div>
-                 )}
+                <div className="space-y-4">
+                  <label className="flex cursor-pointer items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={pickupAvailable}
+                      onChange={(e) => setPickupAvailable(e.target.checked)}
+                      className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-sky-500 focus:ring-sky-500/30"
+                    />
+                    <div>
+                      <span className="text-sm font-medium text-[var(--foreground)]">Pickup available</span>
+                      <p className="text-xs text-[var(--muted)]">Buyer collects the item in person</p>
+                    </div>
+                  </label>
 
-                 {/* Shipping toggle */}
-                 <label className="flex cursor-pointer items-center gap-3">
-                   <input
-                     type="checkbox"
-                     checked={shippingAvailable}
-                     onChange={(e) => setShippingAvailable(e.target.checked)}
-                     className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-sky-500 focus:ring-sky-500/30"
-                   />
-                   <div>
-                     <span className="text-sm font-medium text-[var(--foreground)]">Shipping available</span>
-                     <p className="text-xs text-[var(--muted)]">Send the item to the buyer</p>
-                   </div>
-                 </label>
+                  {pickupAvailable && (
+                    <div className="ml-7">
+                      <input
+                        type="text"
+                        value={pickupArea}
+                        onChange={(e) => setPickupArea(e.target.value)}
+                        placeholder="Pickup area / suburb"
+                        className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500"
+                      />
+                    </div>
+                  )}
 
-                 {shippingAvailable && (
-                   <div className="ml-7 space-y-3">
-                     <div className="relative">
-                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                       <input
-                         type="number"
-                         value={shippingFee}
-                         onChange={(e) => setShippingFee(e.target.value)}
-                         placeholder="Shipping fee"
-                         className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 py-2.5 pl-8 pr-4 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500"
-                       />
-                     </div>
+                  <label className="flex cursor-pointer items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={shippingAvailable}
+                      onChange={(e) => setShippingAvailable(e.target.checked)}
+                      className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-sky-500 focus:ring-sky-500/30"
+                    />
+                    <div>
+                      <span className="text-sm font-medium text-[var(--foreground)]">Shipping available</span>
+                      <p className="text-xs text-[var(--muted)]">Send the item to the buyer</p>
+                    </div>
+                  </label>
 
-                      <label className="flex cursor-pointer items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={freeShipping}
-                          onChange={(e) => setFreeShipping(e.target.checked)}
-                          className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-emerald-500 focus:ring-emerald-500/30"
-                        />
-                        <span className="text-xs font-medium text-[var(--foreground)]">Free shipping</span>
-                      </label>
-
-                      <div>
-                        <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Ships within (days)</label>
+                  {shippingAvailable && (
+                    <div className="ml-7 space-y-3">
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
                         <input
                           type="number"
-                          value={shipsWithinDays}
-                          onChange={(e) => setShipsWithinDays(e.target.value)}
-                          placeholder="e.g. 3"
-                          className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500"
+                          value={shippingFee}
+                          onChange={(e) => setShippingFee(e.target.value)}
+                          placeholder="Shipping fee"
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 py-2.5 pl-8 pr-4 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500"
                         />
                       </div>
-                    </div>
-                  )}
 
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Stock quantity</label>
-                    <input
-                      type="number"
-                      value={stockQuantity}
-                      onChange={(e) => setStockQuantity(e.target.value)}
-                      placeholder="e.g. 5"
-                      className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Listing expires in</label>
-                    <select value={expiresIn} onChange={(e) => setExpiresIn(e.target.value)}
-                      className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
-                      <option value="7">7 days</option>
-                      <option value="14">14 days</option>
-                      <option value="30">30 days</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-              )}
+                       <label className="flex cursor-pointer items-center gap-2">
+                         <input
+                           type="checkbox"
+                           checked={freeShipping}
+                           onChange={(e) => setFreeShipping(e.target.checked)}
+                           className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-emerald-500 focus:ring-emerald-500/30"
+                         />
+                         <span className="text-xs font-medium text-[var(--foreground)]">Free shipping</span>
+                       </label>
 
-              {/* DIGITAL FILE UPLOAD */}
-              {isDigital && (
-                <div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
-                  <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">
-                    Digital File
-                  </label>
-                  {digitalFileURL ? (
-                    <div className="flex items-center justify-between rounded-xl bg-emerald-500/10 px-4 py-3">
-                      <span className="text-xs text-emerald-400">✓ {digitalFileName}</span>
-                      <button onClick={() => { setDigitalFileURL(""); setDigitalFileName(""); }} className="text-[10px] text-red-400 hover:text-red-300">Remove</button>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <DigitalAssetUpload onUpload={(url, name) => { setDigitalFileURL(url); setDigitalFileName(name); }} />
-                      <p className="text-[10px] text-[var(--muted)]">Max 50MB. Buyers receive this file instantly after purchase.</p>
-                    </div>
-                  )}
-                </div>
-              )}
+                       <div>
+                         <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Ships within (days)</label>
+                         <input
+                           type="number"
+                           value={shipsWithinDays}
+                           onChange={(e) => setShipsWithinDays(e.target.value)}
+                           placeholder="e.g. 3"
+                           className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500"
+                         />
+                       </div>
+                     </div>
+                   )}
 
-              {!isDigital && (
-              <div>
-                <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">
-                  Location
-                </label>
+                   <div>
+                     <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Stock quantity</label>
+                     <input
+                       type="number"
+                       value={stockQuantity}
+                       onChange={(e) => setStockQuantity(e.target.value)}
+                       placeholder="e.g. 5"
+                       className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500"
+                     />
+                   </div>
+                 </div>
+               </div>
+               )}
 
-                <input
-                  type="text"
-                  value={location}
-                  onChange={(e) =>
-                    setLocation(
-                      e.target.value
-                    )
-                  }
-                  placeholder="Auckland"
-                  className="w-full rounded-2xl border border-white/10 bg-zinc-900 px-5 py-4 text-[var(--foreground)] outline-none transition focus:border-sky-400"
-                />
-              </div>
-              )}
+               {/* DIGITAL FILE UPLOAD */}
+               {listingType === "digital" && (
+                 <div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
+                   <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">
+                     Digital File
+                   </label>
+                   {digitalFileURL ? (
+                     <div className="flex items-center justify-between rounded-xl bg-emerald-500/10 px-4 py-3">
+                       <span className="text-xs text-emerald-400">✓ {digitalFileName}</span>
+                       <button onClick={() => { setDigitalFileURL(""); setDigitalFileName(""); setDigitalStoragePath(""); }} className="text-[10px] text-red-400 hover:text-red-300">Remove</button>
+                     </div>
+                   ) : (
+                     <div className="space-y-2">
+                       <DigitalAssetUpload onUpload={(url, name, path) => { setDigitalFileURL(url); setDigitalFileName(name); setDigitalStoragePath(path); }} />
+                       <p className="text-[10px] text-[var(--muted)]">Up to 50MB. Buyers receive this file instantly after purchase.</p>
+                     </div>
+                   )}
+                 </div>
+               )}
+
+               {/* SERVICE DETAILS */}
+               {listingType === "service" && (
+                 <div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
+                   <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Service Details</label>
+                   <div>
+                     <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Estimated delivery time</label>
+                     <input
+                       type="text"
+                       value={serviceDuration}
+                       onChange={(e) => setServiceDuration(e.target.value)}
+                       placeholder="e.g. 3-5 days, 2 weeks, negotiable"
+                       className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500"
+                     />
+                     <p className="mt-1 text-[10px] text-[var(--muted)]">Buyers will contact you through messages to agree on scope before purchasing.</p>
+                   </div>
+                 </div>
+               )}
+
+               {/* LOCATION — physical only */}
+               {listingType === "physical" && (
+               <div>
+                 <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">
+                   Location
+                 </label>
+
+                 <input
+                   type="text"
+                   value={location}
+                   onChange={(e) =>
+                     setLocation(
+                       e.target.value
+                     )
+                   }
+                   placeholder="Auckland"
+                   className="w-full rounded-2xl border border-white/10 bg-zinc-900 px-5 py-4 text-[var(--foreground)] outline-none transition focus:border-sky-400"
+                 />
+               </div>
+               )}
+
+               {/* EXPIRES IN — all types */}
+               <div>
+                 <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Listing expires in</label>
+                 <select value={expiresIn} onChange={(e) => setExpiresIn(e.target.value)}
+                   className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                   <option value="7">7 days</option>
+                   <option value="14">14 days</option>
+                   <option value="30">30 days</option>
+                 </select>
+               </div>
 
             {/* BUTTON */}
             <button

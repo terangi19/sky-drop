@@ -445,7 +445,7 @@ export default function SellerPage() {
                   <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.15em] text-[var(--foreground)]">📌 Pinned</h2>
                   <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
                     {pinnedListings.map((item) => (
-                      <div key={item.id} onClick={() => router.push(`/post/listing/${item.id}`)}
+                      <div key={item.id} onClick={() => router.push(item.type === "service" ? "/services" : `/post/listing/${item.id}`)}
                         className="group/card shrink-0 w-44 cursor-pointer overflow-hidden rounded-xl border border-zinc-700/40 bg-zinc-800/30 transition-all duration-300 hover:border-sky-500/40 hover:shadow-[0_0_20px_rgba(14,165,233,0.15)]">
                         {item.images?.[0] || item.imageUrl || item.image ? (
                           <img src={item.images?.[0] || item.imageUrl || item.image || ""} alt="" className="h-28 w-full object-cover transition-transform duration-500 group-hover/card:scale-105" />
@@ -475,7 +475,7 @@ export default function SellerPage() {
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-2">
                     {activeListings.map((item) => (
-                      <div key={item.id} onClick={() => router.push(`/post/listing/${item.id}`)}
+                      <div key={item.id} onClick={() => router.push(item.type === "service" ? "/services" : `/post/listing/${item.id}`)}
                         className="group/card cursor-pointer overflow-hidden rounded-xl border border-zinc-700/40 bg-zinc-800/30 transition-all duration-300 hover:border-sky-500/40 hover:shadow-[0_0_20px_rgba(14,165,233,0.15)]">
                         {item.images?.[0] || item.imageUrl || item.image ? (
                           <img src={item.images?.[0] || item.imageUrl || item.image || ""} alt="" className="h-28 w-full object-cover transition-transform duration-500 group-hover/card:scale-105" />

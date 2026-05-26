@@ -29,6 +29,7 @@ import { calculateTrustScore } from "../lib/trustscore";
 import { checkImage } from "../lib/nsfw";
 import { showToast } from "../components/Toast";
 import { createNotification } from "../lib/notifications";
+import OfferPaymentModal from "../components/OfferPaymentModal";
 // Feature 8: Expanded risky keywords
 const RISKY_KEYWORDS = [
   "pay outside", "bank transfer only", "crypto", "gift card",
@@ -540,30 +541,40 @@ function MessagesPage() {
         listingTitle: listingCard?.title || null,
         createdAt: serverTimestamp(),
       });
-      // When offer is accepted by seller, auto-create a purchase record
+      // When offer is accepted by seller, create purchase or prompt payment
       if (type === "accept" && chatListingId && amount) {
+        let listingData: any = null;
         try {
-          await addDoc(collection(db, "purchases"), {
-            listingId: chatListingId,
-            listingTitle: listingCard?.title || "",
-            listingPrice: listingCard?.price || amount,
-            listingImage: listingCard?.images?.[0] || listingCard?.image || listingCard?.imageUrl || "",
-            sellerEmail: user.email,
-            buyerEmail: chatUser,
-            buyerName: chatUser.split("@")[0] || "",
-            deliveryMethod: "pickup",
-            total: Number(amount),
-            status: "seller_confirming",
-            createdAt: serverTimestamp(),
-          });
-        } catch (e2) { console.error("Failed to create purchase from offer:", e2); }
-        try {
-          const { updateDoc, doc: fd, getDoc } = await import("firebase/firestore");
+          const { getDoc, doc: fd } = await import("firebase/firestore");
+          const snap = await getDoc(fd(db, "listings", chatListingId));
+          if (snap.exists()) listingData = snap.data();
+        } catch {}
+        const isService = listingData?.type === "service";
+        // For services, skip purchase creation — buyer pays via Stripe first
+        if (!isService) {
+          try {
+            await addDoc(collection(db, "purchases"), {
+              listingId: chatListingId,
+              listingTitle: listingCard?.title || "",
+              listingPrice: listingCard?.price || amount,
+              listingImage: listingCard?.images?.[0] || listingCard?.image || listingCard?.imageUrl || "",
+              sellerEmail: user.email,
+              buyerEmail: chatUser,
+              buyerName: chatUser.split("@")[0] || "",
+              deliveryMethod: "pickup",
+              total: Number(amount),
+              status: "seller_confirming",
+              createdAt: serverTimestamp(),
+            });
+          } catch (e2) { console.error("Failed to create purchase from offer:", e2); }
           if (chatListingId) {
-            const snap = await getDoc(fd(db, "listings", chatListingId));
-            if (snap.exists()) await updateDoc(fd(db, "listings", chatListingId), { status: "sold" });
+            try {
+              const { updateDoc, doc: fd, getDoc } = await import("firebase/firestore");
+              const snap = await getDoc(fd(db, "listings", chatListingId));
+              if (snap.exists()) await updateDoc(fd(db, "listings", chatListingId), { status: "sold" });
+            } catch (e3) { console.error("Failed to mark listing as sold:", e3); }
           }
-        } catch (e3) { console.error("Failed to mark listing as sold:", e3); }
+        }
       }
       createNotification({
         targetEmail: chatUser,
@@ -579,6 +590,7 @@ function MessagesPage() {
   }
   const [offerAmount, setOfferAmount] = useState("");
   const [showOfferInput, setShowOfferInput] = useState(false);
+  const [pendingPayment, setPendingPayment] = useState<{amount: string; listingId: string; listingTitle: string; listingImage: string; listingPrice: string; sellerEmail: string; buyerEmail: string} | null>(null);
   // â€”â€” Computed values â€”â€”
   const conversationMap = new Map<string, any>();
   messages.forEach((msg: any) => {
@@ -933,7 +945,7 @@ function MessagesPage() {
                             {isAuctionWinner ? "This listing is yours! Arrange pickup or payment below." : isAuctionSeller ? (listingCard.highestBidder ? `${listingCard.highestBidder} won` : "No bids received") : "Auction ended"}
                           </span>
                         </div>
-                        <Link href={`/post/listing/${listingCard.id}`}
+                        <Link href={listingCard?.type === "service" ? "/services" : `/post/listing/${listingCard.id}`}
                           className={`shrink-0 rounded-xl px-4 py-2.5 text-[11px] font-bold shadow-lg transition hover:opacity-80 ${
                             isAuctionWinner
                               ? "bg-gradient-to-r from-emerald-500 to-emerald-400 text-black"
@@ -962,7 +974,7 @@ function MessagesPage() {
                           <p className="truncate text-[13px] font-bold text-[var(--foreground)]">{listingCard.title || "Listing"}</p>
                           {listingCard.price && <p className="text-[12px] font-black text-sky-400">${listingCard.price}</p>}
                         </div>
-                        <Link href={`/post/listing/${listingCard.id}`}
+                        <Link href={listingCard?.type === "service" ? "/services" : `/post/listing/${listingCard.id}`}
                           className="shrink-0 rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white transition hover:bg-sky-400">
                           View Listing
                         </Link>
@@ -984,8 +996,8 @@ function MessagesPage() {
                           <p className="text-[15px] font-black text-amber-400">${listingCard.currentBid || listingCard.price}</p>
                           <span className="text-[11px] font-medium text-amber-400/80">Active auction</span>
                         </div>
-                        <Link href={`/post/listing/${listingCard.id}`}
-                          className="shrink-0 rounded-xl bg-sky-500 px-4 py-2.5 text-[11px] font-bold text-white shadow-lg transition hover:bg-sky-400">
+                        <Link href={listingCard?.type === "service" ? "/services" : `/post/listing/${listingCard.id}`}
+                          className="shrink-0 rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white transition hover:bg-sky-400">
                           View Listing
                         </Link>
                       </div>
@@ -1005,7 +1017,7 @@ function MessagesPage() {
                           <p className="truncate text-[13px] font-bold text-[var(--foreground)]">{listingCard.title || "Listing"}</p>
                           {listingCard.price && <p className="text-[12px] font-black text-sky-400">${listingCard.price}</p>}
                         </div>
-                        <Link href={`/post/listing/${listingCard.id}`}
+                        <Link href={listingCard?.type === "service" ? "/services" : `/post/listing/${listingCard.id}`}
                           className="shrink-0 rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white transition hover:bg-sky-400">
                           View Listing
                         </Link>
@@ -1026,7 +1038,7 @@ function MessagesPage() {
                           <p className="truncate text-[13px] font-bold text-[var(--foreground)]">{listingCard.title || "Listing"}</p>
                           {listingCard.price && <p className="text-[12px] font-black text-[var(--muted)]">${listingCard.price}</p>}
                         </div>
-                        <Link href={`/post/listing/${listingCard.id}`}
+                        <Link href={listingCard?.type === "service" ? "/services" : `/post/listing/${listingCard.id}`}
                           className="shrink-0 rounded-lg bg-zinc-700 px-3 py-1.5 text-[10px] font-bold text-[var(--foreground)] transition hover:bg-zinc-600">
                           View Listing
                         </Link>
@@ -1085,6 +1097,23 @@ function MessagesPage() {
                                       <button onClick={() => sendOffer("accept", msg.offerAmount)} className="flex-1 rounded-lg bg-emerald-500 py-2.5 text-[10px] font-bold text-white transition hover:bg-emerald-400">Accept</button>
                                       <button onClick={() => sendOffer("decline")} className="flex-1 rounded-lg bg-zinc-700 py-2.5 text-[10px] font-bold text-[var(--foreground)] transition hover:bg-zinc-600">Decline</button>
                                       <button onClick={() => sendOffer("counter", msg.offerAmount)} className="flex-1 rounded-lg bg-amber-500 py-2.5 text-[10px] font-bold text-white transition hover:bg-amber-400">Counter</button>
+                                    </div>
+                                  )}
+                                  {/* Pay Now for accepted service offers */}
+                                  {!isOwn && msg.offerStatus === "accepted" && listingCard?.type === "service" && !hasPurchaseInChat && (
+                                    <div className="mt-3">
+                                      <button onClick={() => setPendingPayment({
+                                        amount: msg.offerAmount,
+                                        listingId: chatListingId || "",
+                                        listingTitle: listingCard?.title || "",
+                                        listingImage: (listingCard?.images?.[0] || listingCard?.image || listingCard?.imageUrl || ""),
+                                        listingPrice: listingCard?.price || "",
+                                        sellerEmail: chatUser,
+                                        buyerEmail: user?.email || "",
+                                      })}
+                                        className="w-full rounded-lg bg-sky-500 py-2.5 text-[10px] font-bold text-white transition hover:bg-sky-400">
+                                        Pay Now — ${msg.offerAmount}
+                                      </button>
                                     </div>
                                   )}
                                 </div>
@@ -1261,6 +1290,17 @@ function MessagesPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
                     </button>
+                    {/* Offer button */}
+                    {(chatListingId || getSearchParam("listing")) && user?.email !== chatUser && (
+                      <button onClick={() => setShowOfferInput((prev) => !prev)}
+                        className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border transition ${
+                          showOfferInput
+                            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                            : "border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--muted)] hover:border-emerald-400 hover:text-emerald-400"
+                        }`}>
+                        <span className="text-lg font-black">$</span>
+                      </button>
+                    )}
                     <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
                     <input type="text" placeholder="Type a message..." value={message}
                       onChange={(e) => {
@@ -1282,6 +1322,22 @@ function MessagesPage() {
           </div>
         </div>
       </section>
+      {pendingPayment && (
+        <OfferPaymentModal
+          amount={Number(pendingPayment.amount)}
+          listingTitle={pendingPayment.listingTitle}
+          listingId={pendingPayment.listingId}
+          sellerEmail={pendingPayment.sellerEmail}
+          buyerEmail={pendingPayment.buyerEmail}
+          listingImage={pendingPayment.listingImage}
+          listingPrice={pendingPayment.listingPrice}
+          onSuccess={() => {
+            setPendingPayment(null);
+            setHasPurchaseInChat(true);
+          }}
+          onClose={() => setPendingPayment(null)}
+        />
+      )}
     </>
   );
 }
