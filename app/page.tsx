@@ -239,7 +239,7 @@ export default function Home() {
 
     function merge() {
       if (!done1 || !done2 || !mounted) return;
-      const physical = allItems.filter((i: any) => i.type !== "digital" && i.type !== "service" && i.type !== "event" && i.type !== "vehicle" && i.type !== "job" && i.type !== "property");
+      const physical = allItems.filter((i: any) => i.type !== "digital" && i.type !== "service" && i.type !== "event" && i.type !== "vehicle" && i.type !== "job" && i.type !== "property" && i.type !== "rental");
       physical.sort((a, b) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
       setListings(physical.slice(0, 50));
       setLoading(false);

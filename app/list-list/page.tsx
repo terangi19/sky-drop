@@ -229,7 +229,7 @@ export default function ListListPage() {
             return (
               <div key={item.id}
                 className={`group relative overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.02] transition-all duration-300 hover:-translate-y-1 hover:bg-white/[0.04] hover:border-sky-500/30 hover:shadow-[0_10px_40px_-10px_rgba(14,165,233,0.12)] cursor-pointer ${isSold || isExpired ? "opacity-60" : ""}`}
-                onClick={() => router.push(item.type === "service" ? "/services" : item.type === "event" ? "/events" : item.type === "vehicle" ? "/vehicles" : item.type === "job" ? "/jobs" : item.type === "property" ? "/property" : `/post/listing/${item.id}`)}
+                onClick={() => router.push(item.type === "service" ? "/services" : item.type === "event" ? "/events" : item.type === "vehicle" ? "/vehicles" : item.type === "job" ? "/jobs" : item.type === "property" ? "/property" : item.type === "digital" ? "/digital" : item.type === "rental" ? "/rentals" : `/post/listing/${item.id}`)}
               >
                 {/* Image */}
                 <div className="relative overflow-hidden">
