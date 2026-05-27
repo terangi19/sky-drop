@@ -451,6 +451,13 @@ export default function Navbar() {
               </svg>
               <span className="text-[8px] font-semibold">Inbox</span>
             </Link>
+            <Link href="/trade-feed"
+              className={`flex flex-col items-center gap-px px-3 py-1 rounded-xl transition active:scale-95 ${pathname === "/trade-feed" ? "text-sky-400" : "text-[var(--muted)]"}`}>
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+              <span className="text-[8px] font-semibold">Trade</span>
+            </Link>
             <Link href="/post/ai"
               className={`flex flex-col items-center gap-px px-3 py-1 rounded-xl transition active:scale-95 ${pathname === "/post/ai" ? "text-sky-400" : "text-[var(--muted)]"}`}>
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
