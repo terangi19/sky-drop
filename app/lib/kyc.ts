@@ -60,6 +60,12 @@ export async function rejectKYC(profileId: string, reason: string, reviewerEmail
   }
 }
 
+export async function canList(profile: any): Promise<{ allowed: boolean; reason?: string }> {
+  if (profile.restricted) return { allowed: false, reason: "Account restricted" };
+  if (profile.kycStatus !== "approved") return { allowed: false, reason: "Identity verification required" };
+  return { allowed: true };
+}
+
 export async function canListDigital(profile: any): Promise<{ allowed: boolean; reason?: string }> {
   if (!profile.phoneVerified) return { allowed: false, reason: "Phone not verified" };
   if (profile.proofOfAddress?.status !== "approved") return { allowed: false, reason: "Proof of address not approved" };

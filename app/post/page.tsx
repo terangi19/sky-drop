@@ -37,6 +37,7 @@ import { showToast } from "../components/Toast";
 import { createPendingXP, trackListingCreated } from "../lib/xpValidation";
 import { useProfile } from "../contexts/ProfileContext";
 import DigitalAssetUpload from "../components/DigitalAssetUpload";
+import KYCGuard from "../components/KYCGuard";
 
 export default function PostPage() {
   const router = useRouter();
@@ -112,6 +113,9 @@ export default function PostPage() {
 
   const [restricted, setRestricted] =
     useState(false);
+  const [showKYC, setShowKYC] = useState(false);
+  const [kycStatus, setKycStatus] = useState("unsubmitted");
+  const [kycRejectionReason, setKycRejectionReason] = useState("");
 
   const [scamAlert, setScamAlert] = useState<{ title: string; message: string; found: string[] } | null>(null);
   const [priceAlert, setPriceAlert] = useState(false);
@@ -151,9 +155,10 @@ export default function PostPage() {
               if (
                 profileSnap.exists()
               ) {
-                setRestricted(
-                  profileSnap.data().restricted === true
-                );
+                const data = profileSnap.data();
+                setRestricted(data.restricted === true);
+                setKycStatus(data.kycStatus || "unsubmitted");
+                setKycRejectionReason(data.kycRejectionReason || "");
               }
             } catch (error) {
               console.error(
@@ -176,6 +181,11 @@ export default function PostPage() {
 
     if (restricted) {
       alert("Your account is temporarily restricted while we review reports.");
+      return;
+    }
+
+    if (kycStatus !== "approved") {
+      setShowKYC(true);
       return;
     }
 
@@ -485,6 +495,17 @@ export default function PostPage() {
       <Navbar />
 
       <ThemeToggle />
+
+      {/* KYC GUARD */}
+      {showKYC && (
+        <KYCGuard
+          status={kycStatus as "unsubmitted" | "pending" | "rejected"}
+          rejectionReason={kycRejectionReason}
+          userId={user?.uid || ""}
+          onClose={() => setShowKYC(false)}
+          onSubmitted={() => { setKycStatus("pending"); setShowKYC(false); }}
+        />
+      )}
 
       {/* SCAM ALERT MODAL */}
       {scamAlert && (

@@ -13,6 +13,7 @@ import { createPendingXP, trackListingCreated } from "../../lib/xpValidation";
 import { checkImage } from "../../lib/nsfw";
 import { showToast } from "../../components/Toast";
 import DigitalAssetUpload from "../../components/DigitalAssetUpload";
+import KYCGuard from "../../components/KYCGuard";
 
 const objectToCategory: Record<string, string> = {
   "car": "Cars", "truck": "Cars", "bus": "Cars", "motorcycle": "Cars",
@@ -82,6 +83,9 @@ export default function AIPostPage() {
   const [floorArea, setFloorArea] = useState("");
   const [parking, setParking] = useState("");
   const [acceptOffers, setAcceptOffers] = useState(false);
+  const [showKYC, setShowKYC] = useState(false);
+  const [kycStatus, setKycStatus] = useState("unsubmitted");
+  const [kycRejectionReason, setKycRejectionReason] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
   const [existingImages, setExistingImages] = useState<string[]>([]);
   const [editLoading, setEditLoading] = useState(false);
@@ -140,7 +144,19 @@ export default function AIPostPage() {
   }, []);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, setUser);
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      setUser(u);
+      if (u?.uid) {
+        try {
+          const snap = await getDoc(doc(db, "profiles", u.uid));
+          if (snap.exists()) {
+            const d = snap.data();
+            setKycStatus(d.kycStatus || "unsubmitted");
+            setKycRejectionReason(d.kycRejectionReason || "");
+          }
+        } catch {}
+      }
+    });
     return () => unsub();
   }, []);
 
@@ -327,11 +343,12 @@ export default function AIPostPage() {
       alert("Enter the property location.");
       return;
     }
-    setLoading(true);
-
-    if (!editId && listingType === "digital") {
-      // KYC check removed for testing
+    if (kycStatus !== "approved") {
+      setShowKYC(true);
+      setLoading(false);
+      return;
     }
+    setLoading(true);
 
     try {
       let images: string[] = existingImages;
@@ -543,6 +560,16 @@ export default function AIPostPage() {
           <div className="mt-4 rounded-lg bg-green-500/10 p-4 text-center">
             <span className="text-green-400 font-bold">✅ {detected}</span>
           </div>
+        )}
+
+        {showKYC && (
+          <KYCGuard
+            status={kycStatus as "unsubmitted" | "pending" | "rejected"}
+            rejectionReason={kycRejectionReason}
+            userId={user?.uid || ""}
+            onClose={() => setShowKYC(false)}
+            onSubmitted={() => { setKycStatus("pending"); setShowKYC(false); }}
+          />
         )}
 
         <div className="mt-6 space-y-4 rounded-xl border border-zinc-800 bg-zinc-900/60 p-6">
