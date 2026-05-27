@@ -39,11 +39,14 @@ export default function AuthPage() {
 
   const [showReset, setShowReset] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [redirectTo, setRedirectTo] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const ref = params.get("ref");
     if (ref) setInviteCode(ref.toUpperCase());
+    const redir = params.get("redirect");
+    if (redir) setRedirectTo(redir);
   }, []);
 
   useEffect(() => {
@@ -62,7 +65,7 @@ export default function AuthPage() {
 
       if (isLogin) {
         const cred = await signInWithEmailAndPassword(auth, email, password);
-        router.push("/profile");
+        router.push(redirectTo || "/profile");
       } else {
         const cred = await createUserWithEmailAndPassword(auth, email, password);
 

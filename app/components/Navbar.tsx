@@ -430,52 +430,57 @@ export default function Navbar() {
           </div>
         </div>
       </div>
-      {/* Mobile bottom bar — clean, 4 items */}
-      {user && (
+      {/* Mobile bottom bar */}
       <nav className="fixed bottom-0 left-0 right-0 z-[9999] border-t border-white/[0.04] backdrop-blur-xl md:hidden" style={{ backgroundColor: "var(--nav-bg)" }}>
           <div className="flex items-center justify-around py-1" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 4px) + 4px)" }}>
             <Link href="/"
-              className={`flex flex-col items-center gap-px px-3 py-1 rounded-xl transition active:scale-95 ${pathname === "/" ? "text-sky-400" : "text-[var(--muted)]"}`}>
+              className={`flex flex-col items-center gap-px px-3 py-1 rounded-xl transition active:scale-95 ${pathname === "/" ? "text-sky-400" : `${user ? "text-[var(--muted)]" : "text-zinc-500"}`}`}>
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
               </svg>
               <span className="text-[8px] font-semibold">Home</span>
             </Link>
             <Link href="/messages"
-              className={`relative flex flex-col items-center gap-px px-3 py-1 rounded-xl transition active:scale-95 ${pathname === "/messages" ? "text-sky-400" : "text-[var(--muted)]"}`}>
-              {msgCount > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-sky-500 px-1 text-[7px] font-bold text-white">{msgCount > 9 ? "9+" : msgCount}</span>
-              )}
+              className={`flex flex-col items-center gap-px px-3 py-1 rounded-xl transition active:scale-95 ${pathname === "/messages" ? "text-sky-400" : `${user ? "text-[var(--muted)]" : "text-zinc-500"}`}`}>
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
               <span className="text-[8px] font-semibold">Inbox</span>
             </Link>
             <Link href="/trade-feed"
-              className={`flex flex-col items-center gap-px px-3 py-1 rounded-xl transition active:scale-95 ${pathname === "/trade-feed" ? "text-sky-400" : "text-[var(--muted)]"}`}>
+              className={`flex flex-col items-center gap-px px-3 py-1 rounded-xl transition active:scale-95 ${pathname === "/trade-feed" ? "text-sky-400" : `${user ? "text-[var(--muted)]" : "text-zinc-500"}`}`}>
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
               </svg>
               <span className="text-[8px] font-semibold">Trade</span>
             </Link>
             <Link href="/post/ai"
-              className={`flex flex-col items-center gap-px px-3 py-1 rounded-xl transition active:scale-95 ${pathname === "/post/ai" ? "text-sky-400" : "text-[var(--muted)]"}`}>
+              className={`flex flex-col items-center gap-px px-3 py-1 rounded-xl transition active:scale-95 ${pathname === "/post/ai" ? "text-sky-400" : `${user ? "text-[var(--muted)]" : "text-zinc-500"}`}`}>
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
               </svg>
               <span className="text-[8px] font-semibold">Sell</span>
             </Link>
-            <button onClick={() => setMobileMenuOpen(true)}
-              className="flex flex-col items-center gap-px px-3 py-1 rounded-xl transition active:scale-95 text-[var(--muted)]">
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-              <span className="text-[8px] font-semibold">Menu</span>
-            </button>
+            {user ? (
+              <button onClick={() => setMobileMenuOpen(true)}
+                className="flex flex-col items-center gap-px px-3 py-1 rounded-xl transition active:scale-95 text-[var(--muted)]">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+                <span className="text-[8px] font-semibold">Menu</span>
+              </button>
+            ) : (
+              <Link href="/login"
+                className="flex flex-col items-center gap-px px-3 py-1 rounded-xl transition active:scale-95 text-zinc-500">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                <span className="text-[8px] font-semibold">Login</span>
+              </Link>
+            )}
           </div>
         </nav>
-      )}
-      <style jsx global>{`${user ? "main { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); } @media (min-width: 768px) { main { padding-bottom: 0; } }" : ""}`}</style>
+      <style jsx global>{`main { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); } @media (min-width: 768px) { main { padding-bottom: 0; } }`}</style>
 
     </header>
   );
