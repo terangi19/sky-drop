@@ -432,6 +432,7 @@ export default function Navbar() {
         </div>
       </div>
       {/* Fixed bottom nav — mobile only */}
+      {user && (
       <nav className="fixed bottom-0 left-0 right-0 z-[9999] border-t border-white/[0.04] backdrop-blur-xl md:hidden" style={{ backgroundColor: "var(--nav-bg)" }}>
           <div className="flex items-center justify-around py-1" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 4px) + 4px)" }}>
             {[
@@ -472,10 +473,11 @@ export default function Navbar() {
             )}
           </div>
         </nav>
+      )}
 
       {/* Mobile More Menu */}
-      {showMoreMenu && (
-        <div className="fixed inset-0 z-[9998] md:hidden" onClick={() => setShowMoreMenu(false)}>
+      {user && showMoreMenu && (
+        <div className="fixed inset-0 z-[10000] md:hidden" onClick={() => setShowMoreMenu(false)}>
           <div className="absolute bottom-20 left-2 right-2 mx-auto max-w-sm"
             onClick={(e) => e.stopPropagation()}
             style={{ animation: "slideUp 0.2s ease-out" }}
