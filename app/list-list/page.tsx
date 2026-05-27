@@ -34,7 +34,7 @@ export default function ListListPage() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"all" | "active" | "sold">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "active" | "sold">("active");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [promoteItem, setPromoteItem] = useState<Listing | null>(null);
   const [search, setSearch] = useState("");
@@ -145,18 +145,9 @@ export default function ListListPage() {
 
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex gap-2 border-b border-zinc-800 pb-4 sm:border-b-0 sm:pb-0">
-            <button onClick={() => setActiveTab("all")}
-              className={`rounded-full px-4 py-2 text-sm font-bold transition ${activeTab === "all" ? "bg-sky-500 text-white" : "text-zinc-500 hover:text-[var(--foreground)]"}`}>
-              All ({listings.length})
-            </button>
-            <button onClick={() => setActiveTab("active")}
-              className={`rounded-full px-4 py-2 text-sm font-bold transition ${activeTab === "active" ? "bg-sky-500 text-white" : "text-zinc-500 hover:text-[var(--foreground)]"}`}>
+            <span className="rounded-full bg-sky-500 px-4 py-2 text-sm font-bold text-white">
               Active ({activeCount})
-            </button>
-            <button onClick={() => setActiveTab("sold")}
-              className={`rounded-full px-4 py-2 text-sm font-bold transition ${activeTab === "sold" ? "bg-sky-500 text-white" : "text-zinc-500 hover:text-[var(--foreground)]"}`}>
-              Sold ({soldCount})
-            </button>
+            </span>
           </div>
           <input
             type="text" placeholder="Search listings..."
@@ -198,7 +189,7 @@ export default function ListListPage() {
               <div
                 key={item.id}
                 className={`group relative overflow-hidden rounded-xl bg-zinc-900/60 border border-zinc-800/50 transition-all duration-200 hover:-translate-y-1 hover:border-sky-500/30 hover:shadow-[0_8px_25px_rgba(0,0,0,0.2)] cursor-pointer ${item.status === "sold" ? "opacity-80" : ""}`}
-                onClick={() => router.push(item.type === "service" ? "/services" : `/post/listing/${item.id}`)}
+                onClick={() => router.push(item.type === "service" ? "/services" : item.type === "event" ? "/events" : item.type === "vehicle" ? "/vehicles" : item.type === "job" ? "/jobs" : item.type === "property" ? "/property" : `/post/listing/${item.id}`)}
               >
                 <div className="relative overflow-hidden bg-gradient-to-br from-sky-500/10 via-violet-500/10 to-purple-600/10">
                   {imgSrc ? (
@@ -211,14 +202,9 @@ export default function ListListPage() {
                     </div>
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-                  {item.status === "sold" && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/60">
-                      <span className="rounded-md bg-red-600/90 px-3 py-1 text-xs font-black uppercase tracking-wider text-white">Sold · ${item.price}</span>
-                    </div>
-                  )}
                   <div className="absolute top-2 left-2 flex flex-col gap-1">
                     {item.promotedUntil?.toMillis?.() > Date.now() && <span className="rounded-md bg-amber-600/90 px-2 py-0.5 text-[9px] font-bold text-white">📈 Promoted</span>}
-                    {item.status !== "sold" && isExpired && <span className="rounded-md bg-zinc-700/90 px-2 py-0.5 text-[9px] font-bold text-[var(--muted)] uppercase">Expired</span>}
+                    {isExpired && <span className="rounded-md bg-zinc-700/90 px-2 py-0.5 text-[9px] font-bold text-[var(--muted)] uppercase">Expired</span>}
                   </div>
                 </div>
 
@@ -243,23 +229,23 @@ export default function ListListPage() {
                   </div>
 
                   {isOwner && (
-                    <div className="mt-4 flex gap-1.5 border-t border-zinc-800 pt-3 flex-wrap">
+                    <div className="mt-4 flex gap-2 border-t border-zinc-800 pt-3">
                       {(item as any)._collection !== "tradePosts" && (
                         <button onClick={(e) => { e.stopPropagation(); setPromoteItem(item); }}
-                          className="rounded-md bg-amber-500/10 px-3 py-2 text-[11px] font-bold text-amber-400 transition hover:bg-amber-500/20">
+                          className="flex-1 rounded-lg bg-amber-500/10 px-3 py-3 text-[12px] font-bold text-amber-400 transition hover:bg-amber-500/20 active:scale-[0.97]">
                           📈 Boost
                         </button>
                       )}
                       {(item as any)._collection !== "tradePosts" && (
                         <Link href={`/post/ai?edit=${item.id}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="rounded-md border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-[11px] font-bold text-[var(--foreground)] hover:bg-zinc-700">
+                          className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800/50 px-3 py-3 text-[12px] font-bold text-[var(--foreground)] hover:bg-zinc-700 active:scale-[0.97] text-center">
                           Edit
                         </Link>
                       )}
                       <button
                         onClick={(e) => { e.stopPropagation(); setDeleteConfirm(item.id); }}
-                        className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-[11px] font-bold text-red-400 hover:bg-red-500/20">
+                        className="flex-1 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-3 text-[12px] font-bold text-red-400 hover:bg-red-500/20 active:scale-[0.97]">
                         Delete
                       </button>
                     </div>

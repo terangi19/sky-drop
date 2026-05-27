@@ -60,6 +60,7 @@ export default function Navbar() {
     useState<Set<string>>(new Set());
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [dropTokenCount, setDropTokenCount] = useState(0);
 
   function loadDismissed(): Set<string> {
@@ -250,6 +251,18 @@ export default function Navbar() {
                   <Link href="/rentals" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-[var(--foreground)] hover:bg-zinc-800/60 transition-colors">
                     <span className="text-base">🔑</span> Rentals
                   </Link>
+                  <Link href="/events" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-[var(--foreground)] hover:bg-zinc-800/60 transition-colors">
+                    <span className="text-base">🎟</span> Events
+                  </Link>
+                  <Link href="/vehicles" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-[var(--foreground)] hover:bg-zinc-800/60 transition-colors">
+                    <span className="text-base">🚗</span> Vehicles
+                  </Link>
+                  <Link href="/jobs" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-[var(--foreground)] hover:bg-zinc-800/60 transition-colors">
+                    <span className="text-base">💼</span> Jobs
+                  </Link>
+                  <Link href="/property" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-[var(--foreground)] hover:bg-zinc-800/60 transition-colors">
+                    <span className="text-base">🏠</span> Property
+                  </Link>
                 </div>
               </div>
               <Link href="/list-list" className="transition hover:text-sky-400">My Listings</Link>
@@ -260,10 +273,10 @@ export default function Navbar() {
           )}
 
           {/* HAMBURGER BUTTON */}
-          {user && (
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-800/50 text-[var(--foreground)]"
+              aria-label="Toggle menu"
+              className="md:hidden flex h-10 items-center gap-2 rounded-full bg-zinc-800/60 px-3 text-[var(--foreground)] active:scale-95 transition-all duration-200"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                 {mobileMenuOpen ? (
@@ -272,36 +285,59 @@ export default function Navbar() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
                 )}
               </svg>
+              <span className="text-xs font-semibold uppercase tracking-[0.2em]">Menu</span>
             </button>
-          )}
 
+          {/* MOBILE MENU PREVIEW */}
+            <div className="md:hidden border-t border-white/10 bg-zinc-950/95 px-4 py-3 overflow-x-auto">
+              <div className="flex gap-2 min-w-max">
+                <Link href="/trade-feed" className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10">Live Trade</Link>
+                <Link href="/post/ai" className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10">Quick Post</Link>
+                <Link href="/list-list" className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10">My Listings</Link>
+                <Link href="/watchlist" className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10">Watchlist</Link>
+                <Link href="/messages" className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10">Messages</Link>
+                {!user && (
+                  <Link href="/login" className="rounded-full border border-white/10 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-300 transition hover:bg-sky-500/15">Login</Link>
+                )}
+              </div>
+            </div>
           {/* MOBILE DROPDOWN */}
-          {user && mobileMenuOpen && (
-            <div className="absolute top-full left-0 right-0 z-50 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur-xl md:hidden">
-              <div className="flex flex-col gap-1 px-6 py-4">
-                <Link href="/trade-feed" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>
+          {mobileMenuOpen && (
+            <div className="absolute top-full left-0 right-0 z-50 border-b border-zinc-800/50 bg-zinc-950/95 backdrop-blur-xl md:hidden">
+              <div className="flex flex-col gap-0.5 px-4 py-3">
+                <Link href="/trade-feed" className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}>
                     <span className="flex items-center gap-1.5">
                       <span>Live Trade</span>
                       <span className="flex h-2 w-2 rounded-full bg-red-500" />
                     </span>
                 </Link>
-                <Link href="/post/ai" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Quick Post</Link>
-                <div className="my-1 border-t border-zinc-800/50" />
-                <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-600">Browse</div>
-                <Link href="/" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}><span>📦</span> Physical Goods</Link>
-                <Link href="/digital" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}><span>📥</span> Digital Store</Link>
-                <Link href="/services" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}><span>🤝</span> Services</Link>
-                <Link href="/rentals" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}><span>🔑</span> Rentals</Link>
-                <div className="my-1 border-t border-zinc-800/50" />
-                <Link href="/list-list" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>My Listings</Link>
-                <Link href="/watchlist" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Watchlist</Link>
-                <Link href="/purchases" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Purchases</Link>
-                <Link href="/sales" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Sales</Link>
-                <div className="my-2 border-t border-zinc-800" />
-                <Link href="/dashboard" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Dashboard</Link>
-                <Link href="/messages" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Messages</Link>
-                <Link href="/profile" className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60" onClick={() => setMobileMenuOpen(false)}>Profile</Link>
-                <button onClick={() => { handleLogout(); setMobileMenuOpen(false); }} className="w-full rounded-lg px-3 py-2 text-left text-sm font-bold text-red-400 hover:bg-zinc-800/60">Logout</button>
+                <Link href="/post/ai" className="rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}>Quick Post</Link>
+                <div className="my-1.5 mx-4 border-t border-zinc-800/40" />
+                <div className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Browse</div>
+                <Link href="/" className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}><span>📦</span> Physical Goods</Link>
+                <Link href="/digital" className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}><span>📥</span> Digital Store</Link>
+                <Link href="/services" className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}><span>🤝</span> Services</Link>
+                <Link href="/rentals" className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}><span>🔑</span> Rentals</Link>
+                <Link href="/events" className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}><span>🎟</span> Events</Link>
+                <Link href="/vehicles" className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}><span>🚗</span> Vehicles</Link>
+                <Link href="/jobs" className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}><span>💼</span> Jobs</Link>
+                <Link href="/property" className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}><span>🏠</span> Property</Link>
+                <div className="my-1.5 mx-4 border-t border-zinc-800/40" />
+                <Link href="/list-list" className="rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}>My Listings</Link>
+                <Link href="/watchlist" className="rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}>Watchlist</Link>
+                <Link href="/purchases" className="rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}>Purchases</Link>
+                <Link href="/sales" className="rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}>Sales</Link>
+                <div className="my-1.5 mx-4 border-t border-zinc-800/40" />
+                {user ? (
+                  <>
+                    <Link href="/dashboard" className="rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}>Dashboard</Link>
+                    <Link href="/messages" className="rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}>Messages</Link>
+                    <Link href="/profile" className="rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}>Profile</Link>
+                    <button onClick={() => { handleLogout(); setMobileMenuOpen(false); }} className="w-full rounded-xl px-4 py-3 text-left text-sm font-bold text-red-400 hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">Logout</button>
+                  </>
+                ) : (
+                  <Link href="/login" className="rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}>Login</Link>
+                )}
               </div>
             </div>
           )}
@@ -396,37 +432,120 @@ export default function Navbar() {
         </div>
       </div>
       {/* Fixed bottom nav — mobile only */}
-      {user && (
-        <nav className="fixed bottom-0 left-0 right-0 z-[9999] border-t border-white/10 backdrop-blur-xl md:hidden" style={{ backgroundColor: "var(--nav-bg)" }}>
-          <div className="flex items-center justify-around py-2 px-1">
+      <nav className="fixed bottom-0 left-0 right-0 z-[9999] border-t border-white/[0.04] backdrop-blur-xl md:hidden" style={{ backgroundColor: "var(--nav-bg)" }}>
+          <div className="flex items-center justify-around py-1" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 4px) + 4px)" }}>
             {[
               { href: "/", label: "Home", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
-              { href: "/trade-feed", label: "Trade", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
               { href: "/messages", label: "Inbox", icon: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" },
               { href: "/post/ai", label: "Sell", icon: "M12 4v16m8-8H4" },
               { href: "/profile", label: "Profile", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
-            ].map((item) => (
-              <Link key={item.href} href={item.href}
-                className={`relative flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition ${
-                  pathname === item.href ? "text-sky-400" : "text-[var(--muted)]"
-                }`}
-              >
-                {item.href === "/messages" && msgCount > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-sky-500 px-1 text-[8px] font-bold text-white">
-                    {msgCount > 9 ? "9+" : msgCount}
-                  </span>
-                )}
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
-                </svg>
-                <span className="text-[9px] font-medium">{item.label}</span>
-              </Link>
-            ))}
+              { label: "More", icon: "M12 5v.01M12 12v.01M12 19v.01" },
+            ].map((item) =>
+              item.label === "More" ? (
+                <button key="more" onClick={() => setShowMoreMenu(true)}
+                  className={`relative flex flex-col items-center gap-0.5 px-4 py-2.5 rounded-xl transition active:scale-95 ${
+                    showMoreMenu ? "text-sky-400" : "text-[var(--muted)]"
+                  }`}
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v.01M12 12v.01M12 19v.01" />
+                  </svg>
+                  <span className="text-[10px] font-semibold tracking-tight">More</span>
+                </button>
+              ) : (
+                <Link key={item.href} href={item.href}
+                  className={`relative flex flex-col items-center gap-0.5 px-4 py-2.5 rounded-xl transition active:scale-95 ${
+                    pathname === item.href ? "text-sky-400" : "text-[var(--muted)]"
+                  }`}
+                >
+                  {item.href === "/messages" && msgCount > 0 && (
+                    <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[18px] items-center justify-center rounded-full bg-sky-500 px-1.5 text-[9px] font-bold text-white shadow-lg shadow-sky-500/30">
+                      {msgCount > 9 ? "9+" : msgCount}
+                    </span>
+                  )}
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
+                  </svg>
+                  <span className="text-[10px] font-semibold tracking-tight">{item.label}</span>
+                </Link>
+              )
+            )}
           </div>
         </nav>
+
+      {/* Mobile More Menu */}
+      {showMoreMenu && (
+        <div className="fixed inset-0 z-[9998] md:hidden" onClick={() => setShowMoreMenu(false)}>
+          <div className="absolute bottom-20 left-2 right-2 mx-auto max-w-sm"
+            onClick={(e) => e.stopPropagation()}
+            style={{ animation: "slideUp 0.2s ease-out" }}
+          >
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-950/95 backdrop-blur-xl p-2 shadow-2xl shadow-black/50">
+              <Link href="/dashboard" onClick={() => setShowMoreMenu(false)}
+                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">
+                <span className="text-base">📊</span> Dashboard
+              </Link>
+              <Link href="/trade-feed" onClick={() => setShowMoreMenu(false)}
+                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">
+                <span className="flex items-center gap-1.5"><span className="text-base">🔴</span> <span className="flex h-2 w-2 rounded-full bg-red-500" /></span> Trade Feed
+              </Link>
+              <Link href="/list-list" onClick={() => setShowMoreMenu(false)}
+                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">
+                <span className="text-base">📋</span> My Listings
+              </Link>
+              <Link href="/watchlist" onClick={() => setShowMoreMenu(false)}
+                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">
+                <span className="text-base">♡</span> Watchlist
+              </Link>
+              <Link href="/purchases" onClick={() => setShowMoreMenu(false)}
+                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">
+                <span className="text-base">📥</span> Purchases
+              </Link>
+              <Link href="/sales" onClick={() => setShowMoreMenu(false)}
+                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">
+                <span className="text-base">💰</span> Sales
+              </Link>
+              <div className="my-1 mx-3 border-t border-zinc-800" />
+              <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Browse</div>
+              <Link href="/" onClick={() => setShowMoreMenu(false)}
+                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">
+                <span className="text-base">📦</span> Physical Goods
+              </Link>
+              <Link href="/digital" onClick={() => setShowMoreMenu(false)}
+                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">
+                <span className="text-base">📥</span> Digital Store
+              </Link>
+              <Link href="/services" onClick={() => setShowMoreMenu(false)}
+                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">
+                <span className="text-base">🤝</span> Services
+              </Link>
+              <Link href="/rentals" onClick={() => setShowMoreMenu(false)}
+                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">
+                <span className="text-base">🔑</span> Rentals
+              </Link>
+              <Link href="/events" onClick={() => setShowMoreMenu(false)}
+                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">
+                <span className="text-base">🎟</span> Events
+              </Link>
+              <Link href="/vehicles" onClick={() => setShowMoreMenu(false)}
+                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">
+                <span className="text-base">🚗</span> Vehicles
+              </Link>
+              <Link href="/jobs" onClick={() => setShowMoreMenu(false)}
+                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">
+                <span className="text-base">💼</span> Jobs
+              </Link>
+              <Link href="/property" onClick={() => setShowMoreMenu(false)}
+                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">
+                <span className="text-base">🏠</span> Property
+              </Link>
+            </div>
+          </div>
+        </div>
       )}
+
       {/* Add padding to main content so bottom nav doesn't overlap */}
-      {user && <style jsx global>{`main { padding-bottom: 64px; } @media (min-width: 768px) { main { padding-bottom: 0; } }`}</style>}
+      <style jsx global>{`main { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); } @media (min-width: 768px) { main { padding-bottom: 0; } } @keyframes slideUp { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`}</style>
 
     </header>
   );

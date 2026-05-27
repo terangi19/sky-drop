@@ -32,12 +32,18 @@ export async function createNotification(input: NotificationInput) {
     console.error("Failed to create notification:", e);
   }
 
-  // Emails disabled to conserve email quota
-  // try {
-  //   await fetch("/api/send-email", {
-  //     method: "POST",
-  //     headers: { "Content-Type": "application/json" },
-  //     body: JSON.stringify({ to: input.targetEmail, subject: input.title, html: `<p>${input.message}</p>` }),
-  //   });
-  // } catch {}
+  // Push notification
+  try {
+    const url = input.listingId ? `/post/listing/${input.listingId}` : "/messages";
+    await fetch("/api/send-push", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        targetEmail: input.targetEmail,
+        title: input.title,
+        message: input.message,
+        url,
+      }),
+    });
+  } catch {}
 }

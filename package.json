@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "next dev --port 3000",
     "build": "next build",
+    "vercel-build": "next build",
     "start": "next start",
     "lint": "eslint",
     "test": "playwright test",
@@ -20,6 +21,7 @@
     "@tensorflow/tfjs": "^4.22.0",
     "canvas-confetti": "^1.9.4",
     "firebase": "^10.12.2",
+    "firebase-admin": "^13.10.0",
     "lucide-react": "^1.14.0",
     "next": "^16.2.6",
     "nodemailer": "^8.0.7",

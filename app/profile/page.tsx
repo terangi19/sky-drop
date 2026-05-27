@@ -814,14 +814,14 @@ const [kycUploading, setKycUploading] = useState(false);
                 </div>
 
                 {/* Stats */}
-                <div className="mt-4 grid grid-cols-3 sm:grid-cols-7 gap-1.5">
+                <div className="mt-4 grid grid-cols-2 sm:grid-cols-7 gap-2">
                   {statItems.map((s) => (
                     <div
                       key={s.label}
-                      className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-2 py-2 text-center transition-all duration-200 hover:border-zinc-700/60"
+                      className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2.5 text-center transition-all duration-200 hover:border-zinc-700/60"
                     >
                       <p className="text-sm font-black text-[var(--foreground)]">{s.value}</p>
-                      <p className="text-[9px] font-medium text-[var(--muted)] uppercase tracking-wider">{s.label}</p>
+                      <p className="text-[10px] font-medium text-[var(--muted)] uppercase tracking-wider">{s.label}</p>
                     </div>
                   ))}
                 </div>

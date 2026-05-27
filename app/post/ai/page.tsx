@@ -50,7 +50,7 @@ export default function AIPostPage() {
   const [auctionDuration, setAuctionDuration] = useState("3");
   const [stockQuantity, setStockQuantity] = useState("");
   const [expiresIn, setExpiresIn] = useState("14");
-  const [listingType, setListingType] = useState<"physical" | "digital" | "service" | "rental">("physical");
+  const [listingType, setListingType] = useState<"physical" | "digital" | "service" | "rental" | "event" | "vehicle" | "job" | "property">("physical");
   const [digitalFileURL, setDigitalFileURL] = useState("");
   const [digitalFileName, setDigitalFileName] = useState("");
   const [digitalStoragePath, setDigitalStoragePath] = useState("");
@@ -58,6 +58,29 @@ export default function AIPostPage() {
   const [rentalPriceWeekly, setRentalPriceWeekly] = useState("");
   const [rentalPriceMonthly, setRentalPriceMonthly] = useState("");
   const [rentalDeposit, setRentalDeposit] = useState("");
+  const [eventDate, setEventDate] = useState("");
+  const [eventTime, setEventTime] = useState("");
+  const [venue, setVenue] = useState("");
+  const [ticketQuantity, setTicketQuantity] = useState("");
+  const [ticketType, setTicketType] = useState("General Admission");
+  const [vehicleMake, setVehicleMake] = useState("");
+  const [vehicleModel, setVehicleModel] = useState("");
+  const [vehicleYear, setVehicleYear] = useState("");
+  const [vehicleOdometer, setVehicleOdometer] = useState("");
+  const [vehicleBodyType, setVehicleBodyType] = useState("SUV");
+  const [vehicleFuelType, setVehicleFuelType] = useState("Petrol");
+  const [vehicleTransmission, setVehicleTransmission] = useState("Automatic");
+  const [vehicleColour, setVehicleColour] = useState("");
+  const [jobCompany, setJobCompany] = useState("");
+  const [jobEmploymentType, setJobEmploymentType] = useState("Full-time");
+  const [salaryMin, setSalaryMin] = useState("");
+  const [salaryMax, setSalaryMax] = useState("");
+  const [propertyType, setPropertyType] = useState("House");
+  const [bedrooms, setBedrooms] = useState("");
+  const [bathrooms, setBathrooms] = useState("");
+  const [landArea, setLandArea] = useState("");
+  const [floorArea, setFloorArea] = useState("");
+  const [parking, setParking] = useState("");
   const [acceptOffers, setAcceptOffers] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [existingImages, setExistingImages] = useState<string[]>([]);
@@ -157,6 +180,29 @@ export default function AIPostPage() {
       setDigitalFileName(data.digitalFileName || "");
       setDigitalStoragePath(data.digitalStoragePath || "");
       setServiceDuration(data.serviceDuration || "");
+      setEventDate(data.eventDate || "");
+      setEventTime(data.eventTime || "");
+      setVenue(data.venue || "");
+      setTicketQuantity(data.ticketQuantity != null ? String(data.ticketQuantity) : "");
+      setTicketType(data.ticketType || "General Admission");
+      setVehicleMake(data.vehicleMake || "");
+      setVehicleModel(data.vehicleModel || "");
+      setVehicleYear(data.vehicleYear != null ? String(data.vehicleYear) : "");
+      setVehicleOdometer(data.vehicleOdometer != null ? String(data.vehicleOdometer) : "");
+      setVehicleBodyType(data.vehicleBodyType || "SUV");
+      setVehicleFuelType(data.vehicleFuelType || "Petrol");
+      setVehicleTransmission(data.vehicleTransmission || "Automatic");
+      setVehicleColour(data.vehicleColour || "");
+      setJobCompany(data.jobCompany || "");
+      setJobEmploymentType(data.jobEmploymentType || "Full-time");
+      setSalaryMin(data.salaryMin != null ? String(data.salaryMin) : "");
+      setSalaryMax(data.salaryMax != null ? String(data.salaryMax) : "");
+      setPropertyType(data.propertyType || "House");
+      setBedrooms(data.bedrooms != null ? String(data.bedrooms) : "");
+      setBathrooms(data.bathrooms != null ? String(data.bathrooms) : "");
+      setLandArea(data.landArea != null ? String(data.landArea) : "");
+      setFloorArea(data.floorArea != null ? String(data.floorArea) : "");
+      setParking(data.parking != null ? String(data.parking) : "");
       setAcceptOffers(!!data.acceptOffers);
       setExistingImages(data.images || []);
       if (data.images?.length) setImagePreviews(data.images);
@@ -259,6 +305,28 @@ export default function AIPostPage() {
       alert("Enter the pickup location for your rental.");
       return;
     }
+    if (listingType === "event") {
+      if (!eventDate || !venue) {
+        alert("Enter the event date and venue.");
+        return;
+      }
+    }
+    if (listingType === "vehicle") {
+      if (!vehicleMake || !vehicleModel) {
+        alert("Enter the vehicle make and model.");
+        return;
+      }
+    }
+    if (listingType === "job") {
+      if (!jobCompany) {
+        alert("Enter the company name.");
+        return;
+      }
+    }
+    if (listingType === "property" && !location) {
+      alert("Enter the property location.");
+      return;
+    }
     setLoading(true);
 
     if (!editId && listingType === "digital") {
@@ -305,6 +373,58 @@ export default function AIPostPage() {
         rentalPriceMonthly: rentalPriceMonthly ? Number(rentalPriceMonthly) : null,
         rentalDeposit: rentalDeposit ? Number(rentalDeposit) : null,
         ...(editId ? {} : { expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000), status: "live" }),
+      } : listingType === "event" ? {
+        ...baseData, category,
+        type: "event", acceptOffers: false,
+        eventDate, eventTime, venue,
+        ticketQuantity: ticketQuantity ? Number(ticketQuantity) : null,
+        stockQuantity: ticketQuantity ? Number(ticketQuantity) : null,
+        ticketType,
+        ...(editId ? {} : { expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000), status: "live" }),
+      } : listingType === "job" ? {
+        ...baseData, category, location,
+        type: "job", acceptOffers: false,
+        jobCompany, jobEmploymentType,
+        salaryMin: salaryMin ? Number(salaryMin) : null,
+        salaryMax: salaryMax ? Number(salaryMax) : null,
+        ...(editId ? {} : { expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000), status: "live" }),
+      } : listingType === "property" ? {
+        ...baseData, condition, location,
+        pickupAvailable: true, shippingAvailable: false,
+        saleType,
+        startingBid: (saleType === "auction" || saleType === "auction_buy_now") && startingBid ? Number(startingBid) : null,
+        reservePrice: (saleType === "auction" || saleType === "auction_buy_now") && reservePrice ? Number(reservePrice) : null,
+        ...(editId ? {} : {
+          auctionEndsAt: (saleType === "auction" || saleType === "auction_buy_now") ? new Date(Date.now() + Number(auctionDuration) * 86400000) : null,
+          expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000),
+          currentBid: null, bidCount: 0, highestBidder: null, status: "live",
+        }),
+        type: "property",
+        propertyType,
+        bedrooms: bedrooms ? Number(bedrooms) : null,
+        bathrooms: bathrooms ? Number(bathrooms) : null,
+        landArea: landArea ? Number(landArea) : null,
+        floorArea: floorArea ? Number(floorArea) : null,
+        parking: parking ? Number(parking) : null,
+      } : listingType === "vehicle" ? {
+        ...baseData, condition, location,
+        pickupAvailable, shippingAvailable, pickupArea,
+        shippingFee: shippingAvailable && shippingFee ? Number(shippingFee) : null,
+        freeShipping: shippingAvailable ? freeShipping : false,
+        stockQuantity: stockQuantity ? Number(stockQuantity) : null,
+        saleType,
+        startingBid: (saleType === "auction" || saleType === "auction_buy_now") && startingBid ? Number(startingBid) : null,
+        reservePrice: (saleType === "auction" || saleType === "auction_buy_now") && reservePrice ? Number(reservePrice) : null,
+        ...(editId ? {} : {
+          auctionEndsAt: (saleType === "auction" || saleType === "auction_buy_now") ? new Date(Date.now() + Number(auctionDuration) * 86400000) : null,
+          expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000),
+          currentBid: null, bidCount: 0, highestBidder: null, status: "live",
+        }),
+        type: "vehicle",
+        vehicleMake, vehicleModel,
+        vehicleYear: vehicleYear ? Number(vehicleYear) : null,
+        vehicleOdometer: vehicleOdometer ? Number(vehicleOdometer) : null,
+        vehicleBodyType, vehicleFuelType, vehicleTransmission, vehicleColour,
       } : {
         ...baseData, condition, location,
         pickupAvailable, shippingAvailable, pickupArea,
@@ -341,12 +461,16 @@ export default function AIPostPage() {
       setPickupArea(""); setShippingFee(""); setFreeShipping(false);
       setStockQuantity("");
       setSaleType("buy_now"); setBuyNowPrice(""); setStartingBid(""); setReservePrice(""); setAuctionDuration("3"); setExpiresIn("14");
-      setListingType("physical"); setDigitalFileURL(""); setDigitalFileName(""); setDigitalStoragePath(""); setServiceDuration(""); setRentalPriceWeekly(""); setRentalPriceMonthly(""); setRentalDeposit(""); setAcceptOffers(false); setCondition("New");
+      setListingType("physical"); setDigitalFileURL(""); setDigitalFileName(""); setDigitalStoragePath(""); setServiceDuration(""); setRentalPriceWeekly(""); setRentalPriceMonthly(""); setRentalDeposit(""); setEventDate(""); setEventTime(""); setVenue(""); setTicketQuantity(""); setTicketType("General Admission"); setVehicleMake(""); setVehicleModel(""); setVehicleYear(""); setVehicleOdometer(""); setVehicleBodyType("SUV"); setVehicleFuelType("Petrol"); setVehicleTransmission("Automatic"); setVehicleColour(""); setJobCompany(""); setJobEmploymentType("Full-time"); setSalaryMin(""); setSalaryMax(""); setPropertyType("House"); setBedrooms(""); setBathrooms(""); setLandArea(""); setFloorArea(""); setParking(""); setAcceptOffers(false); setCondition("New");
       setEditId(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
       if (listingType === "service") window.location.href = "/services";
       else if (listingType === "digital") window.location.href = "/digital";
       else if (listingType === "rental") window.location.href = `/post/listing/${newId}`;
+      else if (listingType === "event") window.location.href = `/events`;
+      else if (listingType === "vehicle") window.location.href = `/vehicles`;
+      else if (listingType === "job") window.location.href = `/jobs`;
+      else if (listingType === "property") window.location.href = `/property`;
       else window.location.href = `/post/listing/${newId}`;
     } catch (err) {
       console.error("Listing upload error:", err);
@@ -440,12 +564,14 @@ export default function AIPostPage() {
                   <><option>Templates & Assets</option><option>E-books & Guides</option><option>Art & Photography</option><option>Software & Audio</option><option>Gaming & 3D</option></>
                 ) : listingType === "service" ? (
                   <><option>Design & Development</option><option>Writing & Translation</option><option>Video & Animation</option><option>Music & Audio</option><option>Marketing & SEO</option><option>Consulting & Coaching</option><option>Other</option></>
+                ) : listingType === "event" ? (
+                  <><option>Concerts & Gigs</option><option>Festivals</option><option>Sports</option><option>Workshops & Classes</option><option>Community</option><option>Food & Drink</option><option>Other</option></>
                 ) : (
                   <><option>Tech</option><option>Cars</option><option>Gaming</option><option>Fashion</option><option>Home</option><option>Sports</option><option>Other</option></>
                 )}
               </select>
             </div>
-            {listingType === "physical" && (
+            {(listingType === "physical" || listingType === "vehicle" || listingType === "property") && (
             <div>
               <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Condition</label>
               <select value={condition} onChange={(e) => setCondition(e.target.value)} className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]">
@@ -457,7 +583,12 @@ export default function AIPostPage() {
 
           {listingType !== "rental" && (
           <div className="grid grid-cols-2 gap-4">
-            {saleType === "buy_now" ? (
+            {listingType === "job" ? (
+              <div>
+                <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Salary / Price *</label>
+                <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="$" className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]" />
+              </div>
+            ) : saleType === "buy_now" ? (
               <div>
                 <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Price *</label>
                 <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="$" className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]" />
@@ -468,14 +599,14 @@ export default function AIPostPage() {
                 <input type="number" value={startingBid} onChange={(e) => setStartingBid(e.target.value)} placeholder="$" className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]" />
               </div>
             )}
-            {saleType === "auction_buy_now" && (
+            {listingType !== "job" && saleType === "auction_buy_now" && (
               <div>
                 <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Buy Now Price <span className="text-[var(--muted)] font-normal">(optional)</span></label>
                 <input type="number" value={buyNowPrice} onChange={(e) => setBuyNowPrice(e.target.value)} placeholder="$"
                   className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]" />
               </div>
             )}
-            {listingType === "physical" && (
+            {(listingType === "physical" || listingType === "vehicle" || listingType === "property") && (
             <div>
               <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Location</label>
               <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="City" className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]" />
@@ -484,7 +615,7 @@ export default function AIPostPage() {
           </div>
           )}
 
-          {listingType === "physical" && (saleType === "auction" || saleType === "auction_buy_now") && (
+          {(listingType === "physical" || listingType === "vehicle" || listingType === "property") && (saleType === "auction" || saleType === "auction_buy_now") && (
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Reserve Price <span className="text-[var(--muted)] font-normal">(optional)</span></label>
@@ -504,7 +635,7 @@ export default function AIPostPage() {
             </div>
           )}
 
-          {listingType === "physical" && (
+          {(listingType === "physical" || listingType === "vehicle" || listingType === "property") && (
           <div>
             <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Sale Type</label>
             <div className="grid grid-cols-3 gap-2">
@@ -552,11 +683,233 @@ export default function AIPostPage() {
                 <p className="mt-1 text-xs font-bold text-[var(--foreground)]">Rental</p>
                 <p className="mt-1 text-[10px] leading-tight text-[var(--muted)]">Rent items out by the day</p>
               </button>
+              <button onClick={() => { setListingType("event"); setCategory("Concerts & Gigs"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); }}
+                className={`rounded-xl border p-3 text-left transition-all ${listingType === "event" ? "border-sky-500/40 bg-sky-500/10" : "border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600"}`}>
+                <span className="text-lg">🎟</span>
+                <p className="mt-1 text-xs font-bold text-[var(--foreground)]">Event</p>
+                <p className="mt-1 text-[10px] leading-tight text-[var(--muted)]">Sell tickets to your event</p>
+              </button>
+              <button onClick={() => { setListingType("vehicle"); setCategory("Cars"); setSaleType("buy_now"); }}
+                className={`rounded-xl border p-3 text-left transition-all ${listingType === "vehicle" ? "border-sky-500/40 bg-sky-500/10" : "border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600"}`}>
+                <span className="text-lg">🚗</span>
+                <p className="mt-1 text-xs font-bold text-[var(--foreground)]">Vehicle</p>
+                <p className="mt-1 text-[10px] leading-tight text-[var(--muted)]">Sell cars, bikes, boats</p>
+              </button>
+              <button onClick={() => { setListingType("job"); setCategory("IT & Tech"); setSaleType("buy_now"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); }}
+                className={`rounded-xl border p-3 text-left transition-all ${listingType === "job" ? "border-sky-500/40 bg-sky-500/10" : "border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600"}`}>
+                <span className="text-lg">💼</span>
+                <p className="mt-1 text-xs font-bold text-[var(--foreground)]">Job</p>
+                <p className="mt-1 text-[10px] leading-tight text-[var(--muted)]">Post a job listing</p>
+              </button>
+              <button onClick={() => { setListingType("property"); setCategory("Houses"); setSaleType("buy_now"); setPickupAvailable(true); setShippingAvailable(false); }}
+                className={`rounded-xl border p-3 text-left transition-all ${listingType === "property" ? "border-sky-500/40 bg-sky-500/10" : "border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600"}`}>
+                <span className="text-lg">🏠</span>
+                <p className="mt-1 text-xs font-bold text-[var(--foreground)]">Property</p>
+                <p className="mt-1 text-[10px] leading-tight text-[var(--muted)]">List real estate</p>
+              </button>
             </div>
           </div>
 
-          {/* Accept Offers — physical & service only */}
-          {listingType !== "digital" && (
+          {/* Event Details */}
+          {listingType === "event" && (
+            <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
+              <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Event Details</label>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Event date *</label>
+                    <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Event time</label>
+                    <input type="time" value={eventTime} onChange={(e) => setEventTime(e.target.value)}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Venue *</label>
+                  <input type="text" value={venue} onChange={(e) => setVenue(e.target.value)} placeholder="e.g. Spark Arena, Auckland"
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Ticket quantity</label>
+                    <input type="number" value={ticketQuantity} onChange={(e) => setTicketQuantity(e.target.value)} placeholder="e.g. 100"
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Ticket type</label>
+                    <select value={ticketType} onChange={(e) => setTicketType(e.target.value)}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                      <option>General Admission</option>
+                      <option>VIP</option>
+                      <option>Early Bird</option>
+                      <option>Student</option>
+                      <option>Family Pass</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Vehicle Details */}
+          {listingType === "vehicle" && (
+            <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
+              <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Vehicle Details</label>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Make *</label>
+                    <input type="text" value={vehicleMake} onChange={(e) => setVehicleMake(e.target.value)} placeholder="e.g. Toyota"
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Model *</label>
+                    <input type="text" value={vehicleModel} onChange={(e) => setVehicleModel(e.target.value)} placeholder="e.g. Corolla"
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Year</label>
+                    <input type="number" value={vehicleYear} onChange={(e) => setVehicleYear(e.target.value)} placeholder="e.g. 2020"
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Odometer (km)</label>
+                    <input type="number" value={vehicleOdometer} onChange={(e) => setVehicleOdometer(e.target.value)} placeholder="e.g. 50000"
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Colour</label>
+                    <input type="text" value={vehicleColour} onChange={(e) => setVehicleColour(e.target.value)} placeholder="e.g. White"
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Body type</label>
+                    <select value={vehicleBodyType} onChange={(e) => setVehicleBodyType(e.target.value)}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                      <option>SUV</option><option>Sedan</option><option>Hatchback</option><option>Wagon</option><option>Coupe</option><option>Convertible</option><option>Ute</option><option>Van</option><option>Truck</option><option>Motorcycle</option><option>Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Fuel type</label>
+                    <select value={vehicleFuelType} onChange={(e) => setVehicleFuelType(e.target.value)}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                      <option>Petrol</option><option>Diesel</option><option>Electric</option><option>Hybrid</option><option>Plug-in Hybrid</option><option>Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Transmission</label>
+                    <select value={vehicleTransmission} onChange={(e) => setVehicleTransmission(e.target.value)}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                      <option>Automatic</option><option>Manual</option><option>Tiptronic</option><option>CVT</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Job Details */}
+          {listingType === "job" && (
+            <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
+              <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Job Details</label>
+              <div className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Company *</label>
+                  <input type="text" value={jobCompany} onChange={(e) => setJobCompany(e.target.value)} placeholder="e.g. Sky Drop Ltd"
+                    className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Employment type</label>
+                    <select value={jobEmploymentType} onChange={(e) => setJobEmploymentType(e.target.value)}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                      <option>Full-time</option><option>Part-time</option><option>Contract</option><option>Casual</option><option>Fixed-term</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Location</label>
+                    <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Auckland"
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Salary min</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                      <input type="number" value={salaryMin} onChange={(e) => setSalaryMin(e.target.value)} placeholder="70000"
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Salary max</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                      <input type="number" value={salaryMax} onChange={(e) => setSalaryMax(e.target.value)} placeholder="90000"
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Property Details */}
+          {listingType === "property" && (
+            <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
+              <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Property Details</label>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Property type</label>
+                    <select value={propertyType} onChange={(e) => setPropertyType(e.target.value)}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                      <option>House</option><option>Apartment</option><option>Unit</option><option>Townhouse</option><option>Lifestyle</option><option>Land</option><option>Commercial</option><option>Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Parking spaces</label>
+                    <input type="number" value={parking} onChange={(e) => setParking(e.target.value)} placeholder="e.g. 2"
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Bedrooms</label>
+                    <input type="number" value={bedrooms} onChange={(e) => setBedrooms(e.target.value)} placeholder="e.g. 3"
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Bathrooms</label>
+                    <input type="number" value={bathrooms} onChange={(e) => setBathrooms(e.target.value)} placeholder="e.g. 2"
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Land area (m²)</label>
+                    <input type="number" value={landArea} onChange={(e) => setLandArea(e.target.value)} placeholder="e.g. 675"
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Floor area (m²)</label>
+                    <input type="number" value={floorArea} onChange={(e) => setFloorArea(e.target.value)} placeholder="e.g. 150"
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Accept Offers — physical, vehicle, service, property only */}
+          {listingType !== "digital" && listingType !== "event" && listingType !== "job" && (
             <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
               <div className="flex items-start">
                 <div className="flex h-5 items-center">
@@ -665,8 +1018,8 @@ export default function AIPostPage() {
             </div>
           )}
 
-          {/* Delivery Options — physical only */}
-          {listingType === "physical" && (
+          {/* Delivery Options — physical & vehicle */}
+          {(listingType === "physical" || listingType === "vehicle") && (
           <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
             <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Delivery Options</label>
             <div className="space-y-3">

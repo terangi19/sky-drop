@@ -239,7 +239,7 @@ export default function Home() {
 
     function merge() {
       if (!done1 || !done2 || !mounted) return;
-      const physical = allItems.filter((i: any) => i.type !== "digital" && i.type !== "service");
+      const physical = allItems.filter((i: any) => i.type !== "digital" && i.type !== "service" && i.type !== "event" && i.type !== "vehicle" && i.type !== "job" && i.type !== "property");
       physical.sort((a, b) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
       setListings(physical.slice(0, 50));
       setLoading(false);
@@ -754,11 +754,11 @@ export default function Home() {
                       </button>
                     )}
                     <button onClick={() => searchRef.current?.focus()}
-                      className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2 text-[13px] font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.97]">
-                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 px-3 py-2 text-[13px] font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.97]">
+                      <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
                       </svg>
-                      Search
+                      <span className="hidden sm:inline">Search</span>
                     </button>
                   </div>
                 </div>
@@ -766,8 +766,8 @@ export default function Home() {
             </div>
 
             {/* BROWSE CATEGORIES */}
-            <div className="mt-8">
-              <p className="text-center text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500 mb-4">Browse Categories</p>
+            <div className="mt-6">
+              <p className="text-center text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500 mb-3">Browse Categories</p>
               <div className="flex flex-wrap justify-center gap-2.5">
                 <button
                   onClick={() => setSelectedCategory("All")}
@@ -800,59 +800,6 @@ export default function Home() {
                   <span className="text-[11px] font-bold text-sky-400">Digital</span>
                 </Link>
               </div>
-            </div>
-
-            {/* FILTERS ROW */}
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-              <div className="relative">
-                <select
-                  value={selectedCondition}
-                  onChange={(e) => setSelectedCondition(e.target.value)}
-                  className="appearance-none rounded-lg border border-white/[0.06] bg-black/40 px-4 py-2.5 pr-8 text-[12px] text-white outline-none transition focus:border-sky-500/40 focus:bg-black/60 cursor-pointer"
-                >
-                  {conditions.map((c) => (
-                    <option key={c} value={c} className="bg-zinc-900">{c === "All" ? "Condition" : c}</option>
-                  ))}
-                </select>
-                <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-              </div>
-
-              <div className="relative">
-                <select
-                  value={selectedRegion}
-                  onChange={(e) => setSelectedRegion(e.target.value)}
-                  className="appearance-none rounded-lg border border-white/[0.06] bg-black/40 px-4 py-2.5 pr-8 text-[12px] text-white outline-none transition focus:border-sky-500/40 focus:bg-black/60 cursor-pointer"
-                >
-                  {regions.map((r) => (
-                    <option key={r} value={r} className="bg-zinc-900">{r === "All" ? "Region" : r}</option>
-                  ))}
-                </select>
-                <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-              </div>
-
-              <div className="relative">
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="appearance-none rounded-lg border border-white/[0.06] bg-black/40 px-4 py-2.5 pr-8 text-[12px] text-white outline-none transition focus:border-sky-500/40 focus:bg-black/60 cursor-pointer"
-                >
-                  <option value="newest" className="bg-zinc-900">Newest</option>
-                  <option value="oldest" className="bg-zinc-900">Oldest</option>
-                  <option value="low-high" className="bg-zinc-900">Price Low → High</option>
-                  <option value="high-low" className="bg-zinc-900">Price High → Low</option>
-                  <option value="trending" className="bg-zinc-900">🔥 Trending</option>
-                </select>
-                <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-              </div>
-
-              {(selectedCategory !== "All" || selectedCondition !== "All" || selectedRegion !== "All" || search) && (
-                <button
-                  onClick={() => { setSelectedCategory("All"); setSelectedCondition("All"); setSelectedRegion("All"); setSearch(""); setSortBy("newest"); }}
-                  className="rounded-lg border border-white/[0.06] px-4 py-2.5 text-[11px] font-medium text-zinc-400 transition hover:bg-white/[0.04] hover:text-white"
-                >
-                  ✕ Clear
-                </button>
-              )}
             </div>
           </div>
         </div>

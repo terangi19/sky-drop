@@ -455,7 +455,7 @@ export default function ListingPage() {
                 <div className="mt-6 flex gap-3">
 
                   <a
-                    href={item.type === "service" ? "/services" : `/post/listing/${item.id}`}
+                    href={item.type === "service" ? "/services" : item.type === "event" ? "/events" : item.type === "vehicle" ? "/vehicles" : item.type === "job" ? "/jobs" : item.type === "property" ? "/property" : `/post/listing/${item.id}`}
                     className="flex-1 rounded-2xl bg-sky-500 px-4 py-3 text-center font-bold text-[var(--foreground)] transition hover:bg-sky-400"
                   >
                     View

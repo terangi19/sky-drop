@@ -46,7 +46,7 @@ interface CheckoutModalProps {
   collectionName?: string;
 }
 
-type DeliveryMethod = "pickup" | "shipping" | "badge" | "digital" | "rental" | null;
+type DeliveryMethod = "pickup" | "shipping" | "badge" | "digital" | "rental" | "event" | null;
 type Step = "form" | "card" | "processing" | "share_address" | "success";
 
 function PaymentForm({ total, listingId, title, price, buyerEmail, onSuccess, onBack, badgeForSale, sellerEmail, collectionName, type, digitalFileURL, digitalFileName, digitalStoragePath }: {
@@ -107,6 +107,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>(() => {
     if (listing.type === "digital") return "digital";
     if (listing.type === "rental") return "rental";
+    if (listing.type === "event") return "event";
     if (listing.badgeForSale) return "badge";
     if (listing.pickupAvailable && !listing.shippingAvailable) return "pickup";
     if (listing.shippingAvailable && !listing.pickupAvailable) return "shipping";
@@ -129,10 +130,11 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
   const isBadge = deliveryMethod === "badge";
   const isDigital = deliveryMethod === "digital";
   const isRental = deliveryMethod === "rental";
+  const isEvent = deliveryMethod === "event";
   const rentalItemTotal = isRental ? itemPrice * (listing.rentalDays || 1) : itemPrice;
-  const total = isBadge || isDigital || isRental ? rentalItemTotal + processingFee : (deliveryMethod === "shipping" ? itemPrice + shippingAmount : itemPrice) + processingFee;
+  const total = isBadge || isDigital || isRental || isEvent ? rentalItemTotal + processingFee : (deliveryMethod === "shipping" ? itemPrice + shippingAmount : itemPrice) + processingFee;
 
-  const isValid = isBadge || isDigital || isRental ? name.trim() : name.trim() && phone.trim() && (deliveryMethod !== "shipping" || address.trim()) && deliveryMethod;
+  const isValid = isBadge || isDigital || isRental || isEvent ? name.trim() : name.trim() && phone.trim() && (deliveryMethod !== "shipping" || address.trim()) && deliveryMethod;
 
   // Restore body scroll on unmount
   useEffect(() => {
@@ -276,14 +278,14 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
         sellerEmail: listing.sellerEmail,
         buyerEmail,
         buyerName: name.trim(),
-        buyerPhone: isBadge || isDigital || isRental ? "" : phone.trim(),
-        deliveryMethod: isBadge ? "badge" : isDigital ? "digital" : isRental ? "rental" : deliveryMethod,
+        buyerPhone: isBadge || isDigital || isRental || isEvent ? "" : phone.trim(),
+        deliveryMethod: isBadge ? "badge" : isDigital ? "digital" : isRental ? "rental" : isEvent ? "event" : deliveryMethod,
         shippingAddress: deliveryMethod === "shipping" ? address.trim() : "",
         shippingFee: deliveryMethod === "shipping" ? shippingAmount : 0,
         processingFee: 1.00,
         total,
         badgeTransfer: isBadge ? listing.badgeForSale : "",
-        type: isDigital ? "digital" : isRental ? "rental" : "physical",
+        type: isDigital ? "digital" : isRental ? "rental" : isEvent ? "event" : "physical",
         digitalFileURL: isDigital ? (listing.digitalStoragePath ? await getDownloadURL(ref(storage, listing.digitalStoragePath)) : listing.digitalFileURL || "") : "",
         digitalFileName: isDigital ? listing.digitalFileName : "",
         status: isDigital ? "delivered" : isRental ? "rented" : "pending",
@@ -317,13 +319,15 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
         type: "purchase",
         targetEmail: listing.sellerEmail,
         fromEmail: buyerEmail,
-        title: isDigital ? "Your digital item was purchased! 🎉" : isBadge ? "Your badge was purchased! 🎉" : isRental ? "Your item was rented! 🎉" : "Your item sold! 🎉",
+        title: isDigital ? "Your digital item was purchased! 🎉" : isBadge ? "Your badge was purchased! 🎉" : isRental ? "Your item was rented! 🎉" : isEvent ? "Your event tickets were purchased! 🎉" : "Your item sold! 🎉",
         message: isDigital
           ? `${name.trim()} just purchased "${listing.title}" (digital download).`
           : isBadge
           ? `${name.trim()} just purchased your "${listing.badgeForSale}" badge. It has been automatically transferred.`
           : isRental
           ? `${name.trim()} just rented "${listing.title}" for ${listing.rentalDays || 1} day(s) — $${listing.price}/day. Coordinate pickup.`
+          : isEvent
+          ? `${name.trim()} just purchased tickets to "${listing.title}" for $${listing.price}. Coordinate with the buyer.`
           : `${name.trim()} just purchased "${listing.title}" for $${listing.price}. Check your sales page to confirm and ship.`,
         listingId: listing.id,
         listingTitle: listing.title,
@@ -362,7 +366,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
         localStorage.setItem("checkoutInfo", JSON.stringify({ name: name.trim(), phone: phone.trim() }));
       } catch {}
 
-          setStep(isBadge || isDigital || isRental ? "success" : "share_address");
+          setStep(isBadge || isDigital || isRental || isEvent ? "success" : "share_address");
     } catch (e) {
       console.error("Purchase record failed:", e);
       setStep("share_address");
@@ -421,6 +425,8 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                   ? "Digital item delivered! Check your Purchases page to download."
                   : isRental
                   ? "Rental confirmed! Coordinate pickup with the seller in messages."
+                  : isEvent
+                  ? "Tickets purchased! Your tickets will be ready at the venue. Check your Purchases page for details."
                   : deliveryMethod === "shipping"
                     ? "Share your shipping address with the seller?"
                     : "Let the seller know you'd like to arrange pickup?"}

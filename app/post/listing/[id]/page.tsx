@@ -73,6 +73,29 @@ interface Listing {
   highestBidder?: string;
   expiresAt?: Timestamp;
   serviceDuration?: string;
+  eventDate?: string;
+  eventTime?: string;
+  venue?: string;
+  ticketQuantity?: number;
+  ticketType?: string;
+  vehicleMake?: string;
+  vehicleModel?: string;
+  vehicleYear?: number;
+  vehicleOdometer?: number;
+  vehicleBodyType?: string;
+  vehicleFuelType?: string;
+  vehicleTransmission?: string;
+  vehicleColour?: string;
+  jobCompany?: string;
+  jobEmploymentType?: string;
+  salaryMin?: number;
+  salaryMax?: number;
+  propertyType?: string;
+  bedrooms?: number;
+  bathrooms?: number;
+  landArea?: number;
+  floorArea?: number;
+  parking?: number;
   [key: string]: unknown;
 }
 
@@ -899,6 +922,105 @@ export default function ListingPage() {
                   </div>
                 )}
               </div>
+            ) : listing.type === "event" ? (
+              <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-3 space-y-1.5">
+                <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
+                  <span className="shrink-0 text-yellow-400">🎟</span>
+                  <span>Event Tickets — {listing.ticketType || "General Admission"}</span>
+                </div>
+                {listing.eventDate && (
+                  <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
+                    <span>📅 {new Date(listing.eventDate).toLocaleDateString("en-NZ", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</span>
+                    {listing.eventTime && <span>⏰ {listing.eventTime}</span>}
+                  </div>
+                )}
+                {listing.venue && (
+                  <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
+                    <span>📍 {listing.venue}</span>
+                  </div>
+                )}
+                {listing.ticketQuantity !== undefined && listing.ticketQuantity !== null && (
+                  <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
+                    <span>🎫 {listing.ticketQuantity} ticket{listing.ticketQuantity !== 1 ? "s" : ""} available</span>
+                  </div>
+                )}
+              </div>
+            ) : listing.type === "property" ? (
+              <div className="rounded-lg border border-rose-500/20 bg-rose-500/5 p-3 space-y-1.5">
+                <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
+                  <span className="shrink-0 text-rose-400">🏠</span>
+                  <span>Property — {listing.propertyType || "House"}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-[var(--muted)]">
+                  {listing.bedrooms && <span>🛏 {listing.bedrooms} bed</span>}
+                  {listing.bathrooms && <span>🚿 {listing.bathrooms} bath</span>}
+                  {listing.landArea && <span>📐 {listing.landArea}m² land</span>}
+                  {listing.floorArea && <span>🏠 {listing.floorArea}m² floor</span>}
+                  {listing.parking && <span>🚗 {listing.parking} park</span>}
+                </div>
+                {listing.condition && (
+                  <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
+                    <span>Condition: {listing.condition}</span>
+                  </div>
+                )}
+                {listing.location && (
+                  <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
+                    <span>📍 {listing.location}</span>
+                  </div>
+                )}
+              </div>
+            ) : listing.type === "vehicle" ? (
+              <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3 space-y-1.5">
+                <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
+                  <span className="shrink-0 text-blue-400">🚗</span>
+                  <span>Vehicle</span>
+                </div>
+                {listing.vehicleMake && listing.vehicleModel && (
+                  <div className="flex items-center gap-2 text-xs text-[var(--foreground)] font-bold">
+                    <span>{listing.vehicleMake} {listing.vehicleModel}</span>
+                    {listing.vehicleYear && <span className="text-[var(--muted)] font-normal">· {listing.vehicleYear}</span>}
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-[var(--muted)]">
+                  {listing.vehicleOdometer && <span>📏 {Number(listing.vehicleOdometer).toLocaleString()} km</span>}
+                  {listing.vehicleFuelType && <span>⛽ {listing.vehicleFuelType}</span>}
+                  {listing.vehicleTransmission && <span>⚙ {listing.vehicleTransmission}</span>}
+                  {listing.vehicleBodyType && <span>🚘 {listing.vehicleBodyType}</span>}
+                  {listing.vehicleColour && <span>🎨 {listing.vehicleColour}</span>}
+                </div>
+                {listing.condition && (
+                  <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
+                    <span>Condition: {listing.condition}</span>
+                  </div>
+                )}
+              </div>
+            ) : listing.type === "job" ? (
+              <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3 space-y-1.5">
+                <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
+                  <span className="shrink-0 text-cyan-400">💼</span>
+                  <span>Job — {listing.jobEmploymentType || "Full-time"}</span>
+                </div>
+                {listing.jobCompany && (
+                  <div className="flex items-center gap-2 text-xs text-[var(--foreground)] font-bold">
+                    <span>🏢 {listing.jobCompany}</span>
+                  </div>
+                )}
+                <div className="text-xs text-[var(--muted)]">
+                  {listing.salaryMin && listing.salaryMax
+                    ? <span>💰 ${Number(listing.salaryMin).toLocaleString()} - ${Number(listing.salaryMax).toLocaleString()}</span>
+                    : listing.salaryMin
+                    ? <span>💰 From ${Number(listing.salaryMin).toLocaleString()}</span>
+                    : listing.salaryMax
+                    ? <span>💰 Up to ${Number(listing.salaryMax).toLocaleString()}</span>
+                    : <span>💰 ${listing.price}</span>
+                  }
+                </div>
+                {listing.location && (
+                  <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
+                    <span>📍 {listing.location}</span>
+                  </div>
+                )}
+              </div>
             ) : (listing.pickupAvailable || listing.shippingAvailable || listing.stockQuantity !== undefined) && (
               <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 space-y-1.5">
                 {listing.pickupAvailable && (
@@ -934,7 +1056,7 @@ export default function ListingPage() {
             )}
 
             {/* 5. BUY BUTTONS */}
-            {listing.status !== "sold" && !isExpired && listing.stockQuantity !== 0 && listing.type !== "service" && (
+            {listing.status !== "sold" && !isExpired && listing.stockQuantity !== 0 && listing.type !== "service" && listing.type !== "job" && (
             <div className="flex gap-2">
               {user && user.email !== listing.sellerEmail ? (
                 <>
@@ -990,6 +1112,33 @@ export default function ListingPage() {
               ) : (
                 <button onClick={() => showToast("Sign in first", "info")} className="flex-1 rounded-lg border border-zinc-700 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-zinc-800">
                   Sign in
+                </button>
+              )}
+            </div>
+            )}
+
+            {/* Job buttons */}
+            {listing.type === "job" && (
+            <div className="flex gap-2">
+              {user && user.email !== listing.sellerEmail ? (
+                <>
+                  <Link
+                    href={`/messages?user=${encodeURIComponent(listing.sellerEmail || "")}&listing=${listingId}`}
+                    className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-cyan-500 to-teal-500 py-3 text-[13px] font-bold text-white shadow-lg shadow-cyan-500/20 transition hover:shadow-xl hover:shadow-cyan-500/30"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                    Apply Now
+                  </Link>
+                </>
+              ) : user?.email === listing.sellerEmail ? (
+                <div className="flex gap-2 w-full">
+                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 rounded-lg bg-cyan-500 py-3 text-center text-[13px] font-bold text-white transition hover:bg-cyan-400">
+                    Edit Listing
+                  </Link>
+                </div>
+              ) : (
+                <button onClick={() => showToast("Sign in first", "info")} className="flex-1 rounded-lg border border-zinc-700 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-zinc-800">
+                  Sign in to Apply
                 </button>
               )}
             </div>

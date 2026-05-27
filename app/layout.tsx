@@ -11,6 +11,7 @@ import DropIndicator from "./components/DropIndicator";
 import Spotlight from "./components/Spotlight";
 import ScrollToTop from "./components/ScrollToTop";
 import LegendaryClaimNotification from "./components/LegendaryClaimNotification";
+import PWAProvider from "./components/PWAProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -50,8 +51,21 @@ export const metadata: Metadata = {
       rel: "icon",
       type: "image/x-icon",
       url: "/favicon.ico"
+    },
+    {
+      rel: "apple-touch-icon",
+      url: "/icon-192.png"
     }
   ],
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    title: "Sky Drop",
+    statusBarStyle: "black-translucent",
+  },
+  other: {
+    "theme-color": "#111118",
+  },
 };
 
 export default function RootLayout({
@@ -74,7 +88,7 @@ export default function RootLayout({
             })();
           `,
         }} />
-        <AuthProvider><ProfileProvider><VerificationBanner /><RouteGuard>{children}<Footer /><DropIndicator /><Spotlight /><ScrollToTop /></RouteGuard><ToastContainer /><LegendaryClaimNotification /></ProfileProvider></AuthProvider>
+        <AuthProvider><ProfileProvider><VerificationBanner /><RouteGuard>{children}<Footer /><DropIndicator /><Spotlight /><ScrollToTop /></RouteGuard><ToastContainer /><LegendaryClaimNotification /><PWAProvider /></ProfileProvider></AuthProvider>
       </body>
     </html>
   );
