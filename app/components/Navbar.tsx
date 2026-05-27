@@ -276,7 +276,7 @@ export default function Navbar() {
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               aria-label="Toggle menu"
-              className="md:hidden flex h-10 items-center gap-2 rounded-full bg-zinc-800/60 px-3 text-[var(--foreground)] active:scale-95 transition-all duration-200"
+              className="md:hidden flex h-9 w-9 items-center justify-center rounded-lg text-[var(--foreground)] active:scale-90 transition-all duration-200"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                 {mobileMenuOpen ? (
@@ -285,22 +285,7 @@ export default function Navbar() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
                 )}
               </svg>
-              <span className="text-xs font-semibold uppercase tracking-[0.2em]">Menu</span>
             </button>
-
-          {/* MOBILE MENU PREVIEW */}
-            <div className="md:hidden border-t border-white/10 bg-zinc-950/95 px-4 py-3 overflow-x-auto">
-              <div className="flex gap-2 min-w-max">
-                <Link href="/trade-feed" className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10">Live Trade</Link>
-                <Link href="/post/ai" className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10">Quick Post</Link>
-                <Link href="/list-list" className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10">My Listings</Link>
-                <Link href="/watchlist" className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10">Watchlist</Link>
-                <Link href="/messages" className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10">Messages</Link>
-                {!user && (
-                  <Link href="/login" className="rounded-full border border-white/10 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-300 transition hover:bg-sky-500/15">Login</Link>
-                )}
-              </div>
-            </div>
           {/* MOBILE DROPDOWN */}
           {mobileMenuOpen && (
             <div className="absolute top-full left-0 right-0 z-50 border-b border-zinc-800/50 bg-zinc-950/95 backdrop-blur-xl md:hidden">
@@ -349,11 +334,11 @@ export default function Navbar() {
             </Link>
           )}
 
-          {/* INBOX */}
+          {/* INBOX — desktop only */}
           {user && (
             <Link
               href="/messages"
-              className="relative flex h-9 w-9 items-center justify-center rounded-lg transition hover:bg-zinc-800/50"
+              className="hidden md:flex relative h-9 w-9 items-center justify-center rounded-lg transition hover:bg-zinc-800/50"
             >
               <svg className="h-4 w-4 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -366,17 +351,17 @@ export default function Navbar() {
             </Link>
           )}
 
-          {/* DROP TOKENS */}
+          {/* DROP TOKENS — desktop only */}
           {user && dropTokenCount > 0 && (
-            <Link href="/dashboard" className="relative flex h-9 w-9 items-center justify-center rounded-lg transition hover:bg-zinc-800/50" title="Drop Tokens">
+            <Link href="/dashboard" className="hidden md:flex relative h-9 w-9 items-center justify-center rounded-lg transition hover:bg-zinc-800/50" title="Drop Tokens">
               <span className="text-sm">🎁</span>
               <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-amber-500 px-1 text-[8px] font-bold text-black">{dropTokenCount}</span>
             </Link>
           )}
 
-          {/* NOTIFICATIONS */}
+          {/* NOTIFICATIONS — desktop only */}
           {user && (
-            <div className="relative">
+            <div className="hidden md:block relative">
               <div
                 onClick={() =>
                   setShowNotifications(
@@ -402,8 +387,8 @@ export default function Navbar() {
             </div>
           )}
 
-          {/* PROFILE */}
-          <div className="ml-auto flex items-center gap-5">
+          {/* PROFILE — desktop only */}
+          <div className="hidden md:flex ml-auto items-center gap-5">
           {user ? (
             <>
               <Link
