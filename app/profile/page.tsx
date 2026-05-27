@@ -712,49 +712,41 @@ const [kycUploading, setKycUploading] = useState(false);
           )}
 
           {/* ===== PROFILE HEADER ===== */}
-          <div className="group relative overflow-hidden rounded-2xl border border-zinc-800/50 bg-zinc-900/60 shadow-[0_0_30px_rgba(0,0,0,0.3)] transition-all duration-300 hover:border-zinc-700/60 hover:shadow-[0_0_40px_rgba(0,0,0,0.4)]">
+          <div className="group relative overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.02] backdrop-blur-sm">
             {/* Banner */}
-            <div
-              className="relative h-24 sm:h-32 cursor-pointer overflow-hidden"
-              onClick={() => bannerRef.current?.click()}
-            >
+            <div className="relative h-24 sm:h-32 cursor-pointer overflow-hidden" onClick={() => bannerRef.current?.click()}>
               {bannerUrl ? (
                 <img src={bannerUrl} alt="" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
               ) : (
-                <div className="h-full w-full bg-gradient-to-br from-zinc-800 via-zinc-900 to-black" />
+                <div className="h-full w-full bg-gradient-to-br from-sky-500/5 via-violet-500/5 to-zinc-900" />
               )}
               <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/60" />
               <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-all duration-300 hover:bg-black/40">
-                <span className="rounded-full bg-black/60 px-4 py-1.5 text-xs font-bold text-[var(--foreground)] opacity-0 transition-all duration-300 hover:opacity-100 backdrop-blur-sm">
+                <span className="rounded-full bg-black/60 backdrop-blur-sm px-4 py-1.5 text-xs font-bold text-white opacity-0 transition-all duration-300 group-hover:opacity-100">
                   {bannerUrl ? "Change Banner" : "Add Banner"}
                 </span>
               </div>
             </div>
             <input ref={bannerRef} type="file" accept="image/*" className="hidden" onChange={handleBannerUpload} />
 
-            <div className="relative px-5 pb-4">
+            <div className="relative px-5 pb-5">
               {/* Avatar */}
-              <div
-                className="absolute -top-11 left-5 sm:-top-14 sm:left-6 cursor-pointer group/avatar"
-                onClick={() => avatarRef.current?.click()}
-              >
+              <div className="absolute -top-11 left-5 sm:-top-14 sm:left-6 cursor-pointer group/avatar" onClick={() => avatarRef.current?.click()}>
                 {avatarUrl ? (
                   <div className="relative">
-                    <img
-                      src={avatarUrl} alt=""
-                      className="h-[72px] w-[72px] sm:h-24 sm:w-24 rounded-xl border-[3px] border-zinc-900 object-cover shadow-[0_0_20px_rgba(14,165,233,0.2)] transition-all duration-300 group-hover/avatar:shadow-[0_0_35px_rgba(14,165,233,0.4)]"
-                    />
+                    <img src={avatarUrl} alt=""
+                      className="h-[72px] w-[72px] sm:h-24 sm:w-24 rounded-xl border-[3px] border-zinc-900 object-cover shadow-lg transition-all duration-300 group-hover/avatar:shadow-xl" />
                     <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/0 transition-all duration-300 group-hover/avatar:bg-black/50">
-                      <span className="text-xs font-bold text-[var(--foreground)] opacity-0 transition-all duration-300 group-hover/avatar:opacity-100">Edit</span>
+                      <span className="text-xs font-bold text-white opacity-0 transition-all duration-300 group-hover/avatar:opacity-100">Edit</span>
                     </div>
                   </div>
                 ) : (
                   <div className="relative">
-                    <div className="flex h-[72px] w-[72px] sm:h-24 sm:w-24 items-center justify-center rounded-xl border-[3px] border-zinc-900 bg-gradient-to-br from-sky-500 via-violet-500 to-purple-600 text-2xl sm:text-3xl font-black text-[var(--foreground)] shadow-[0_0_20px_rgba(14,165,233,0.2)] transition-all duration-300 group-hover/avatar:shadow-[0_0_35px_rgba(14,165,233,0.4)]">
+                    <div className="flex h-[72px] w-[72px] sm:h-24 sm:w-24 items-center justify-center rounded-xl border-[3px] border-zinc-900 bg-gradient-to-br from-sky-500 via-violet-500 to-purple-600 text-2xl sm:text-3xl font-black text-white shadow-lg">
                       {initial}
                     </div>
                     <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/0 transition-all duration-300 group-hover/avatar:bg-black/50">
-                      <span className="text-xs font-bold text-[var(--foreground)] opacity-0 transition-all duration-300 group-hover/avatar:opacity-100">Add</span>
+                      <span className="text-xs font-bold text-white opacity-0 transition-all duration-300 group-hover/avatar:opacity-100">Add</span>
                     </div>
                   </div>
                 )}
@@ -762,34 +754,31 @@ const [kycUploading, setKycUploading] = useState(false);
               <input ref={avatarRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
 
               <div className="pt-9 sm:pt-14">
-                <Link href="/" className="inline-flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-[var(--foreground)] transition hover:border-zinc-700 hover:bg-zinc-800/60 mb-4">
-  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-  Back
-</Link>
-              <div className="flex flex-wrap items-center gap-2">
-                  <div className="flex items-center gap-2">
-                    <h1 className="text-lg sm:text-2xl font-black tracking-tight text-[var(--foreground)]">
-                      {displayName || username || "No Name"}
-                    </h1>
-                    <span title={`Level ${levelInfo.level} — ${profile.xp || 0} XP`}
-                      className="text-xs font-bold text-[var(--muted)]">
-                      Level {levelInfo.level}
-                    </span>
-                  </div>
+                <Link href="/" className="inline-flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-[var(--foreground)] transition hover:border-zinc-700 hover:bg-zinc-800/60 mb-3">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                  Back
+                </Link>
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <h1 className="text-xl sm:text-2xl font-black tracking-tight text-[var(--foreground)]">
+                    {displayName || username || "No Name"}
+                  </h1>
+                  <span title={`Level ${levelInfo.level} — ${profile.xp || 0} XP`} className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-bold text-amber-400 border border-amber-500/20">
+                    Level {levelInfo.level}
+                  </span>
                   {profile.verified && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold text-sky-400 ring-1 ring-sky-500/20 shadow-[0_0_10px_rgba(14,165,233,0.1)]">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2.5 py-0.5 text-[10px] font-bold text-sky-400 border border-sky-500/20">
                       <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
                       Verified
                     </span>
                   )}
                   {profile.topTrader && (
-                    <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400 ring-1 ring-amber-500/20">Top Trader</span>
+                    <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-bold text-amber-400 border border-amber-500/20">Top Trader</span>
                   )}
                   {profile.profileBadge === "epic" && (
-                    <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-bold text-violet-400 ring-1 ring-violet-500/20">💎 Epic</span>
+                    <span className="rounded-full bg-violet-500/10 px-2.5 py-0.5 text-[10px] font-bold text-violet-400 border border-violet-500/20">💎 Epic</span>
                   )}
                   {!hideOnline && (
-                    <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
+                    <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/20">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" /> Online
                     </span>
                   )}
@@ -816,12 +805,10 @@ const [kycUploading, setKycUploading] = useState(false);
                 {/* Stats */}
                 <div className="mt-4 grid grid-cols-2 sm:grid-cols-7 gap-2">
                   {statItems.map((s) => (
-                    <div
-                      key={s.label}
-                      className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2.5 text-center transition-all duration-200 hover:border-zinc-700/60"
-                    >
+                    <div key={s.label}
+                      className="rounded-xl border border-white/[0.04] bg-white/[0.02] px-3 py-2.5 text-center transition-all duration-200 hover:bg-white/[0.04]">
                       <p className="text-sm font-black text-[var(--foreground)]">{s.value}</p>
-                      <p className="text-[10px] font-medium text-[var(--muted)] uppercase tracking-wider">{s.label}</p>
+                      <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider">{s.label}</p>
                     </div>
                   ))}
                 </div>
@@ -836,47 +823,44 @@ const [kycUploading, setKycUploading] = useState(false);
             <div className="space-y-5 lg:col-span-2">
 
               {/* About */}
-              <div className="rounded-xl border border-zinc-800/50 bg-zinc-900/60 p-5 transition-all duration-200 hover:border-zinc-700/50">
+              <div className="rounded-2xl border border-white/[0.04] bg-white/[0.02] p-5 transition-all duration-200 hover:bg-white/[0.04]">
                 <div className="mb-3 flex items-center justify-between">
-                  <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-[var(--muted)]">About</h2>
-                  <span className="text-[10px] text-[var(--muted)]">{bio.length}/300</span>
+                  <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-zinc-500">About</h2>
+                  <span className="text-[10px] text-zinc-600">{bio.length}/300</span>
                 </div>
-                <textarea
-                  value={bio}
-                  onChange={(e) => e.target.value.length <= 300 && setBio(e.target.value)}
-                  placeholder="Tell buyers what you sell, where you&apos;re based, and how fast you reply..."
+                <textarea value={bio} onChange={(e) => e.target.value.length <= 300 && setBio(e.target.value)}
+                  placeholder="Tell buyers what you sell, where you're based, and how fast you reply..."
                   rows={3}
-                  className="w-full rounded-xl border border-zinc-800/50 bg-zinc-800/30 px-4 py-3 text-sm text-[var(--foreground)] outline-none transition-all duration-200 placeholder:text-[var(--muted)] focus:border-sky-500/40 focus:ring-2 focus:ring-sky-500/10"
-                />
+                  className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-sm text-[var(--foreground)] outline-none transition-all duration-200 placeholder:text-zinc-600 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
               </div>
 
               {/* General */}
-              <div className="rounded-xl border border-zinc-800/50 bg-zinc-900/60 p-5 transition-all duration-200 hover:border-zinc-700/50">
-                <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.15em] text-[var(--muted)]">General</h2>
+              <div className="rounded-2xl border border-white/[0.04] bg-white/[0.02] p-5 transition-all duration-200 hover:bg-white/[0.04]">
+                <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.12em] text-zinc-500">General</h2>
                 <div className="space-y-3">
-                  <div>
-                    <label className="mb-1 block text-[11px] font-bold text-[var(--muted)]">Username</label>
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-zinc-500">Username</label>
                     <input type="text" value={username} onChange={(e) => setUsername(e.target.value)}
                       placeholder="Sky335i"
-                      className="w-full rounded-xl border border-zinc-800/50 bg-zinc-800/30 px-3 py-2.5 text-sm text-[var(--foreground)] outline-none transition-all duration-200 placeholder:text-zinc-600 focus:border-sky-500/40 focus:ring-2 focus:ring-sky-500/10" />
+                      className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 text-sm text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
                   </div>
-                  <div>
-                    <label className="mb-1 block text-[11px] font-bold text-[var(--muted)]">Display Name</label>
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-zinc-500">Display Name</label>
                     <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)}
                       placeholder="John Smith"
-                      className="w-full rounded-xl border border-zinc-800/50 bg-zinc-800/30 px-3 py-2.5 text-sm text-[var(--foreground)] outline-none transition-all duration-200 placeholder:text-zinc-600 focus:border-sky-500/40 focus:ring-2 focus:ring-sky-500/10" />
+                      className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 text-sm text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
                   </div>
-                  <div>
-                    <label className="mb-1 block text-[11px] font-bold text-[var(--muted)]">Region</label>
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-zinc-500">Region</label>
                     <select value={region} onChange={(e) => setRegion(e.target.value)}
-                      className="w-full rounded-xl border border-zinc-800/50 bg-zinc-800/30 px-3 py-2.5 text-sm text-[var(--foreground)] outline-none transition-all duration-200 focus:border-sky-500/40 focus:ring-2 focus:ring-sky-500/10">
+                      className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 text-sm text-[var(--foreground)] outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10 appearance-none cursor-pointer">
                       <option value="">Select region</option>
                       {regions.map((r) => <option key={r} value={r}>{r}</option>)}
                     </select>
                   </div>
                 </div>
                 <button onClick={saveProfile} disabled={!!saving}
-                  className="mt-4 w-full rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:bg-sky-400 active:scale-[0.98] disabled:opacity-50">
+                  className="mt-4 w-full rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:brightness-110 active:scale-[0.98] disabled:opacity-50">
                   {saving ? "Saving..." : "Save Profile"}
                 </button>
               </div>
