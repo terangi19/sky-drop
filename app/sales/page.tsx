@@ -43,6 +43,26 @@ const statusStyles: Record<string, string> = {
   returned: "bg-blue-500/10 text-blue-400 border-blue-500/20",
 };
 
+function formatDate(ts: any): string {
+  if (!ts?.seconds) return "";
+  return new Date(ts.seconds * 1000).toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function statusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    pending: "Pending",
+    seller_confirming: "Confirmed",
+    shipped: "Shipped",
+    in_progress: "In Progress",
+    delivered: "Delivered",
+    completed: "Completed",
+    cancelled: "Cancelled",
+    rented: "Rented",
+    returned: "Returned",
+  };
+  return labels[status] || status;
+}
+
 const nextStatus: Record<string, { label: string; status: string }> = {
   pending: { label: "Confirm Order", status: "seller_confirming" },
   seller_confirming: { label: "Shipped", status: "shipped" },
@@ -177,96 +197,119 @@ export default function SalesPage() {
       <Background />
       <Navbar />
 
-      <section className="relative z-10 mx-auto max-w-4xl px-6 py-10">
-<Link href="/" className="inline-flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-[var(--foreground)] transition hover:border-zinc-700 hover:bg-zinc-800/60 mb-4">
-  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-  Back
-</Link>
-        <h1 className="text-2xl font-black text-[var(--foreground)]">Sales</h1>
-        <p className="mt-1 text-sm text-[var(--muted)]">Items you&rsquo;ve sold.</p>
+      <section className="relative z-10 mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
+
+        {/* Header */}
+        <Link href="/" className="inline-flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-[var(--foreground)] transition hover:border-zinc-700 hover:bg-zinc-800/60 mb-4 sm:mb-5">
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+          Back
+        </Link>
+        <div className="relative mb-8">
+          <div className="absolute -inset-20 bg-gradient-to-r from-indigo-500/5 via-violet-500/5 to-transparent blur-3xl pointer-events-none" />
+          <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
+            <span className="bg-gradient-to-r from-white via-indigo-100 to-white bg-clip-text text-transparent">Sales</span>
+          </h1>
+          <p className="relative mt-2 text-sm text-zinc-500">{sales.length} total</p>
+        </div>
 
         {error && (
-          <div className="mt-8 rounded-xl border border-red-800/40 bg-red-900/20 p-4 text-sm text-red-400">{error}</div>
+          <div className="mb-6 rounded-xl border border-red-800/40 bg-red-900/20 p-4 text-sm text-red-400">{error}</div>
         )}
+
         {loading ? (
-          <div className="mt-6 space-y-3">
+          <div className="space-y-3">
             {[1,2,3].map((i) => (
-              <div key={i} className="flex items-center gap-4 rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 animate-pulse">
-                <div className="h-16 w-16 rounded-lg bg-zinc-800" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 w-40 rounded bg-zinc-800" />
-                  <div className="h-3 w-32 rounded bg-zinc-800" />
+              <div key={i} className="rounded-2xl bg-white/[0.02] border border-white/[0.04] p-5 animate-pulse">
+                <div className="flex items-center gap-4">
+                  <div className="h-16 w-16 rounded-xl bg-white/[0.03]" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-40 rounded bg-white/[0.03]" />
+                    <div className="h-3 w-20 rounded bg-white/[0.03]" />
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         ) : sales.length === 0 ? (
-          <div className="mt-12 text-center">
-            <p className="text-[var(--muted)]">No sales yet.</p>
-            <Link href="/post/ai" className="mt-2 inline-block text-sm text-sky-400 hover:underline">Create a listing</Link>
+          <div className="mx-auto max-w-md mt-16 text-center">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/[0.03] border border-white/[0.06]">
+              <svg className="h-8 w-8 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-black tracking-tight text-white">No sales yet</h2>
+            <p className="mt-2 text-sm text-zinc-500">When someone buys your items, they'll show up here.</p>
+            <Link href="/post/ai" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-indigo-500/30 active:scale-[0.97]">
+              Create a Listing
+            </Link>
           </div>
         ) : (
-          <div className="mt-6 space-y-3">
+          <div className="space-y-3">
             {sales.map((s) => (
-              <div key={s.id} className="flex items-center gap-4 flex-wrap rounded-xl border border-white/[0.04] bg-white/[0.02] p-5">
-                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-zinc-800">
-                  {s.listingImage ? (
-                    <img src={s.listingImage} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-xs text-[var(--muted)]">No img</div>
-                  )}
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <Link href={s.deliveryMethod === "service" ? "/services" : `/post/listing/${s.listingId}`} className="truncate text-sm font-bold text-[var(--foreground)] hover:text-sky-400 transition-colors">
-                    {s.listingTitle}
+              <div key={s.id} className="rounded-2xl border border-white/[0.04] bg-white/[0.02] p-4 sm:p-5 transition-all duration-200 hover:bg-white/[0.04]">
+                <div className="flex items-start gap-3 sm:gap-4">
+                  <Link href={`/post/listing/${s.listingId}`} className="shrink-0">
+                    <div className="h-16 w-16 sm:h-20 sm:w-20 overflow-hidden rounded-xl bg-zinc-800 ring-1 ring-white/[0.06]">
+                      {s.listingImage ? (
+                        <img src={s.listingImage} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-[10px] text-zinc-600">—</div>
+                      )}
+                    </div>
                   </Link>
-                  <p className="mt-0.5 text-xs text-[var(--muted)]">
-                    ${s.listingPrice} &middot; {s.buyerName} &middot; {s.deliveryMethod === "pickup" ? "Pickup" : s.deliveryMethod === "shipping" ? "Shipping" : s.deliveryMethod === "service" ? "Service" : "Digital"}
-                  </p>
-                  {s.deliveryMethod === "shipping" && s.shippingAddress && (
-                    <p className="mt-0.5 text-[10px] text-[var(--muted)]">Ship to: {s.shippingAddress}</p>
-                  )}
-                  <div className="mt-1.5 flex items-center gap-2">
-                    <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${statusStyles[s.status] || "bg-zinc-800 text-[var(--muted)]"}`}>
-                      {s.status === "seller_confirming" ? "Confirmed" : s.status === "shipped" ? "Shipped" : s.status === "in_progress" ? "In Progress" : s.status === "delivered" ? "Delivered" : s.status}
-                    </span>
-                    <span className="text-[10px] text-[var(--muted)]">${s.total.toFixed(2)}</span>
-                    {s.buyerPhone && (
-                      <span className="text-[10px] text-[var(--muted)]">&middot; {s.buyerPhone}</span>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <Link href={`/post/listing/${s.listingId}`} className="text-sm font-bold text-[var(--foreground)] transition hover:text-indigo-400 line-clamp-1">{s.listingTitle}</Link>
+                        <p className="mt-0.5 text-sm font-semibold text-indigo-400">${s.listingPrice}</p>
+                        <div className="mt-0.5 flex items-center gap-2 text-[11px] text-zinc-500">
+                          <span>{s.buyerName || s.buyerEmail?.split("@")[0] || "—"}</span>
+                          <span>· {s.deliveryMethod}</span>
+                          {s.createdAt?.seconds && <span>· {formatDate(s.createdAt)}</span>}
+                        </div>
+                      </div>
+                      <span className={`shrink-0 rounded-full border px-3 py-0.5 text-[10px] font-bold ${statusStyles[s.status] || "bg-zinc-800/50 text-zinc-500 border-zinc-700/50"}`}>
+                        {statusLabel(s.status)}
+                      </span>
+                    </div>
+
+                    {s.deliveryMethod === "shipping" && s.shippingAddress && (
+                      <p className="mt-1.5 text-[11px] text-zinc-600">📍 Ship to: {s.shippingAddress}</p>
                     )}
-                  </div>
-                </div>
 
-                <div className="flex shrink-0 flex-col gap-1.5">
-                  {nextStatus[s.status] ? (
-                    <button
-                      onClick={() => setConfirmAction({ id: s.id, status: nextStatus[s.status].status, label: nextStatus[s.status].label })}
-                      className="rounded-xl bg-sky-500 px-4 py-2 text-[11px] font-bold text-[var(--foreground)] transition hover:bg-sky-400"
-                    >
-                      {nextStatus[s.status].label}
-                    </button>
-                  ) : null}
-                  <Link
-                    href={`/messages?user=${encodeURIComponent(s.buyerEmail || "")}&listing=${s.listingId}`}
-                    className="rounded-xl border border-zinc-700 px-4 py-2 text-[11px] text-[var(--foreground)] transition hover:border-zinc-600 text-center"
-                  >
-                    Message
-                  </Link>
+                    <div className="mt-3 flex items-center gap-2 flex-wrap">
+                      {nextStatus[s.status] ? (
+                        <button onClick={() => setConfirmAction({ id: s.id, status: nextStatus[s.status].status, label: nextStatus[s.status].label })}
+                          className="rounded-lg bg-gradient-to-r from-indigo-500 to-violet-500 px-4 py-1.5 text-[11px] font-bold text-white shadow-lg shadow-indigo-500/20 transition hover:shadow-xl active:scale-[0.97]">
+                          {nextStatus[s.status].label}
+                        </button>
+                      ) : null}
+                      <Link href={`/messages?user=${encodeURIComponent(s.buyerEmail || "")}&listing=${s.listingId}`}
+                        className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-4 py-1.5 text-[11px] font-bold text-zinc-400 transition hover:bg-white/[0.05] hover:text-zinc-300 active:scale-[0.97]">
+                        Message
+                      </Link>
+                      {s.buyerPhone && (
+                        <span className="text-[11px] text-zinc-600">📞 {s.buyerPhone}</span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         )}
       </section>
+
       {confirmAction && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setConfirmAction(null)}>
           <div className="mx-4 w-full max-w-sm rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-black text-[var(--foreground)]">Mark as {confirmAction.label}?</h3>
-            <p className="mt-2 text-sm text-[var(--muted)]">This will update the order status.</p>
-            <div className="mt-5 flex gap-3">
-              <button onClick={() => setConfirmAction(null)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700">Cancel</button>
-              <button onClick={async () => { await updateStatus(confirmAction.id, confirmAction.status); setConfirmAction(null); }} className="flex-1 rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-sky-400">Confirm</button>
+            <h3 className="text-center text-lg font-black text-[var(--foreground)]">Mark as {confirmAction.label}?</h3>
+            <p className="mt-2 text-center text-sm text-[var(--muted)]">This will update the order status and notify the buyer.</p>
+            <div className="mt-6 flex gap-3">
+              <button onClick={() => setConfirmAction(null)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700 active:scale-[0.97] transition-all">Cancel</button>
+              <button onClick={async () => { await updateStatus(confirmAction.id, confirmAction.status); setConfirmAction(null); }}
+                className="flex-1 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-500/20 transition hover:shadow-xl active:scale-[0.97]">Confirm</button>
             </div>
           </div>
         </div>
