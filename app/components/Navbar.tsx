@@ -198,7 +198,7 @@ export default function Navbar() {
 
   return (
     <header className="relative sticky top-0 z-[9999] border-b border-white/10 backdrop-blur-xl" style={{ backgroundColor: "var(--nav-bg)" }}>
-        <div className="flex h-16 md:h-24 items-center justify-between px-6">
+        <div className="hidden md:flex h-24 items-center justify-between px-6">
 
          {/* LEFT */}
           <Link
