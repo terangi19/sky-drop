@@ -442,7 +442,7 @@ export default function Navbar() {
               { label: "More", icon: "M12 5v.01M12 12v.01M12 19v.01" },
             ].map((item) =>
               item.label === "More" ? (
-                <button key="more" onClick={() => setShowMoreMenu(true)}
+                <button key="more" onPointerDown={() => setShowMoreMenu(true)}
                   className={`relative flex flex-col items-center gap-0.5 px-4 py-2.5 rounded-xl transition active:scale-95 ${
                     showMoreMenu ? "text-sky-400" : "text-[var(--muted)]"
                   }`}
@@ -475,7 +475,7 @@ export default function Navbar() {
 
       {/* Mobile More Menu */}
       {showMoreMenu && (
-        <div className="fixed inset-0 z-[10000] md:hidden" onClick={() => setShowMoreMenu(false)}>
+        <div className="fixed inset-0 z-[10000] md:hidden" onPointerDown={() => setShowMoreMenu(false)}>
           <div className="absolute bottom-20 left-2 right-2 mx-auto max-w-sm"
             onClick={(e) => e.stopPropagation()}
             style={{ animation: "slideUp 0.2s ease-out" }}
