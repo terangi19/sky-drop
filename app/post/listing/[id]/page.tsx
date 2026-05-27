@@ -1021,7 +1021,7 @@ export default function ListingPage() {
                   </div>
                 )}
               </div>
-            ) : (listing.pickupAvailable || listing.shippingAvailable || listing.stockQuantity !== undefined) && (
+            ) : listing.type !== "property" && (listing.pickupAvailable || listing.shippingAvailable || listing.stockQuantity !== undefined) && (
               <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 space-y-1.5">
                 {listing.pickupAvailable && (
                   <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
@@ -1094,15 +1094,8 @@ export default function ListingPage() {
                 </>
               ) : user?.email === listing.sellerEmail ? (
                 <div className="flex gap-2 w-full">
-                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 rounded-lg bg-sky-500 py-3 text-center text-[13px] font-bold text-[var(--foreground)] transition hover:bg-sky-400">
-
-                    Edit Listing
-
-                  </Link>
-                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 rounded-lg bg-violet-500 py-3 text-center text-[13px] font-bold text-white transition hover:bg-violet-400">
-
-                    Edit Listing
-
+                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-center text-[13px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">
+                    ✏️ Edit Listing
                   </Link>
                   <button onClick={() => setShowPromote(true)}
                     className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-3 text-[13px] font-bold text-amber-400 transition hover:bg-amber-500/15">
@@ -1163,8 +1156,8 @@ export default function ListingPage() {
                 </>
               ) : user?.email === listing.sellerEmail ? (
                 <div className="flex gap-2 w-full">
-                  <Link href="/services" className="flex-1 rounded-lg bg-violet-500 py-3 text-center text-[13px] font-bold text-white transition hover:bg-violet-400">
-                    Edit Listing
+                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 py-3 text-center text-[13px] font-bold text-white shadow-lg shadow-violet-500/20 transition hover:shadow-xl active:scale-[0.97]">
+                    ✏️ Edit Listing
                   </Link>
                 </div>
               ) : (
