@@ -703,7 +703,6 @@ export default function AIPostPage() {
                     setAiNotes((prev) => (prev + " " + transcript).trim());
                   };
                   recognition.onerror = (e: any) => {
-                    console.error("Speech error:", e.error);
                     setIsListening(false);
                     showToast(e.error === "not-allowed" ? "Microphone access denied — allow microphone in your browser settings" : "Speech recognition error: " + e.error, "error");
                   };
