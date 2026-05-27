@@ -540,30 +540,34 @@ export default function AIPostPage() {
       <ThemeToggle />
       {imagePreviews.length > 0 && <img ref={imgRef} src={imagePreviews[0]} style={{display:'none'}} />}
 
-      <div className="relative z-10 mx-auto max-w-2xl px-6 py-12">
+        <div className="relative z-10 mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-12">
         {editLoading && (
           <div className="mb-6 flex items-center justify-center gap-3 rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-sky-500 border-t-transparent"></div>
             <span className="text-sm text-[var(--muted)]">Loading listing...</span>
           </div>
         )}
-        <div className="flex items-center justify-between">
-          <div>
-            <Link href="/" className="inline-flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-[var(--foreground)] transition hover:border-zinc-700 hover:bg-zinc-800/60 mb-4">
-  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-  Back
-</Link>
-            <h1 className="text-4xl font-black text-[var(--foreground)]">{editId ? "Edit Listing" : "Quick Post"}</h1>
+        <div className="mb-8">
+          <Link href="/" className="inline-flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-[var(--foreground)] transition hover:border-zinc-700 hover:bg-zinc-800/60 mb-4">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+            Back
+          </Link>
+          <div className="mt-4">
+            <h1 className="text-4xl font-black tracking-tight text-[var(--foreground)]">{editId ? "Edit Listing" : "Quick Post"}</h1>
             <p className="mt-2 text-[var(--muted)]">{editId ? "Update your listing details" : "List your item in minutes"}</p>
           </div>
-          
         </div>
 
-        <div className="mt-6 rounded-xl border border-zinc-800 bg-zinc-900/60 p-6">
+        <div className="rounded-2xl border border-white/[0.04] bg-white/[0.02] backdrop-blur-sm p-5 sm:p-8 space-y-6">
           {imagePreviews.length === 0 ? (
-            <div onClick={() => fileInputRef.current?.click()} className="flex h-64 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-700 text-[var(--muted)] hover:border-sky-500">
-              <span className="text-5xl">📸</span>
-              <span className="mt-3 font-bold">Upload Photo</span>
+            <div onClick={() => fileInputRef.current?.click()} className="flex h-56 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-white/[0.08] bg-white/[0.01] text-zinc-500 transition-all duration-200 hover:border-sky-500/40 hover:bg-sky-500/[0.02] active:scale-[0.99]">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500/10 to-violet-500/10 border border-white/[0.06]">
+                <svg className="h-6 w-6 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                </svg>
+              </div>
+              <span className="mt-4 text-sm font-bold text-zinc-400">Upload photos</span>
+              <span className="mt-1 text-[11px] text-zinc-600">Tap to select — up to 8 images</span>
             </div>
           ) : (
             <div className="grid grid-cols-3 gap-2">
@@ -587,15 +591,15 @@ export default function AIPostPage() {
         </div>
 
         {analyzing && (
-          <div className="mt-4 flex items-center justify-center gap-3 rounded-lg bg-sky-500/10 p-4">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-sky-500 border-t-transparent"></div>
-            <span className="text-sky-400">Detecting...</span>
+          <div className="flex items-center justify-center gap-2.5 rounded-xl border border-sky-500/15 bg-sky-500/5 px-4 py-3">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-sky-400 border-t-transparent" />
+            <span className="text-sm font-medium text-sky-400">Detecting...</span>
           </div>
         )}
 
         {detected && !analyzing && (
-          <div className="mt-4 rounded-lg bg-green-500/10 p-4 text-center">
-            <span className="text-green-400 font-bold">✅ {detected}</span>
+          <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/5 px-4 py-3 text-center">
+            <span className="text-sm font-bold text-emerald-400">✅ {detected}</span>
           </div>
         )}
 
@@ -659,20 +663,20 @@ export default function AIPostPage() {
         )}
 
         <div className="mt-6 space-y-4 rounded-xl border border-zinc-800 bg-zinc-900/60 p-6">
-          <div>
-            <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Title</label>
-            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]" placeholder="Auto-filled" />
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Title</label>
+            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" placeholder="What are you selling?" />
           </div>
 
-          <div>
-            <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Description</label>
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]" placeholder="Describe your item..." />
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Description</label>
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10 resize-none" placeholder="Describe your item in detail..." />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Category</label>
-              <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Category</label>
+              <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-[var(--foreground)] outline-none transition-all duration-200 focus:border-sky-500/40 focus:ring-2 focus:ring-sky-500/10 appearance-none cursor-pointer">
                 {listingType === "digital" ? (
                   <><option>Templates & Assets</option><option>E-books & Guides</option><option>Art & Photography</option><option>Software & Audio</option><option>Gaming & 3D</option></>
                 ) : listingType === "service" ? (
@@ -685,9 +689,9 @@ export default function AIPostPage() {
               </select>
             </div>
             {(listingType === "physical" || listingType === "vehicle" || listingType === "property") && (
-            <div>
-              <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Condition</label>
-              <select value={condition} onChange={(e) => setCondition(e.target.value)} className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Condition</label>
+              <select value={condition} onChange={(e) => setCondition(e.target.value)} className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-[var(--foreground)] outline-none transition-all duration-200 focus:border-sky-500/40 focus:ring-2 focus:ring-sky-500/10 appearance-none cursor-pointer">
                 <option>New</option><option>Used - Like New</option><option>Used - Good</option><option>Used - Fair</option>
               </select>
             </div>
@@ -695,34 +699,45 @@ export default function AIPostPage() {
           </div>
 
           {listingType !== "rental" && (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
             {listingType === "job" ? (
-              <div>
-                <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Salary / Price *</label>
-                <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="$" className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]" />
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Salary / Price *</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">$</span>
+                  <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] pl-8 pr-4 py-3 text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
+                </div>
               </div>
             ) : saleType === "buy_now" ? (
-              <div>
-                <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Price *</label>
-                <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="$" className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]" />
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Price *</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">$</span>
+                  <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] pl-8 pr-4 py-3 text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
+                </div>
               </div>
             ) : (
-              <div>
-                <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Starting Bid *</label>
-                <input type="number" value={startingBid} onChange={(e) => setStartingBid(e.target.value)} placeholder="$" className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]" />
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Starting Bid *</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">$</span>
+                  <input type="number" value={startingBid} onChange={(e) => setStartingBid(e.target.value)} placeholder="0" className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] pl-8 pr-4 py-3 text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
+                </div>
               </div>
             )}
             {listingType !== "job" && saleType === "auction_buy_now" && (
-              <div>
-                <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Buy Now Price <span className="text-[var(--muted)] font-normal">(optional)</span></label>
-                <input type="number" value={buyNowPrice} onChange={(e) => setBuyNowPrice(e.target.value)} placeholder="$"
-                  className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]" />
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Buy Now Price <span className="text-zinc-600 font-normal">(optional)</span></label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">$</span>
+                  <input type="number" value={buyNowPrice} onChange={(e) => setBuyNowPrice(e.target.value)} placeholder="0" className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] pl-8 pr-4 py-3 text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
+                </div>
               </div>
             )}
             {(listingType === "physical" || listingType === "vehicle" || listingType === "property") && (
-            <div>
-              <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Location</label>
-              <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="City" className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]" />
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Location</label>
+              <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="City" className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
             </div>
             )}
           </div>
@@ -749,8 +764,8 @@ export default function AIPostPage() {
           )}
 
           {(listingType === "physical" || listingType === "vehicle" || listingType === "property") && (
-          <div>
-            <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Sale Type</label>
+          <div className="space-y-3">
+            <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Sale Type</label>
             <div className="grid grid-cols-3 gap-2">
               {[
                 { id: "buy_now", label: "Buy Now" },
@@ -758,8 +773,8 @@ export default function AIPostPage() {
                 { id: "auction_buy_now", label: "Auction + Buy Now" },
               ].map((opt) => (
                 <button key={opt.id} type="button" onClick={() => setSaleType(opt.id)}
-                  className={`rounded-xl border px-4 py-3 text-xs font-bold text-left transition ${
-                    saleType === opt.id ? "border-sky-500/40 bg-sky-500/10 text-sky-400" : "border-zinc-700 bg-zinc-800/50 text-[var(--muted)] hover:border-zinc-600"
+                  className={`rounded-xl border px-4 py-3 text-xs font-bold text-left transition-all duration-200 active:scale-[0.97] ${
+                    saleType === opt.id ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.06)]" : "border-white/[0.06] bg-white/[0.02] text-zinc-500 hover:bg-white/[0.04] hover:border-white/[0.12]"
                   }`}>
                   {opt.label}
                 </button>
@@ -769,57 +784,30 @@ export default function AIPostPage() {
           )}
 
           {/* Listing Type */}
-          <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
-            <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Listing Type</label>
+          <div className="space-y-3">
+            <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Listing Type</label>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <button onClick={() => { setListingType("physical"); setAcceptOffers(false); }}
-                className={`rounded-xl border p-3 text-left transition-all ${listingType === "physical" ? "border-sky-500/40 bg-sky-500/10" : "border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600"}`}>
-                <span className="text-lg">📦</span>
-                <p className="mt-1 text-xs font-bold text-[var(--foreground)]">Physical</p>
-                <p className="mt-1 text-[10px] leading-tight text-[var(--muted)]">Sell items — ship or pickup</p>
-              </button>
-              <button onClick={() => { setListingType("digital"); setCategory("Templates & Assets"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); }}
-                className={`rounded-xl border p-3 text-left transition-all ${listingType === "digital" ? "border-sky-500/40 bg-sky-500/10" : "border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600"}`}>
-                <span className="text-lg">📥</span>
-                <p className="mt-1 text-xs font-bold text-[var(--foreground)]">Digital</p>
-                <p className="mt-1 text-[10px] leading-tight text-[var(--muted)]">Sell digital assets — instant delivery</p>
-              </button>
-              <button onClick={() => { setListingType("service"); setCategory("Design & Development"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(true); setSaleType("buy_now"); }}
-                className={`rounded-xl border p-3 text-left transition-all ${listingType === "service" ? "border-sky-500/40 bg-sky-500/10" : "border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600"}`}>
-                <span className="text-lg">🤝</span>
-                <p className="mt-1 text-xs font-bold text-[var(--foreground)]">Service</p>
-                <p className="mt-1 text-[10px] leading-tight text-[var(--muted)]">Offer your skills — scope in messages</p>
-              </button>
-              <button onClick={() => { setListingType("rental"); setCategory("Other"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); setLocation(""); setCondition("New"); }}
-                className={`rounded-xl border p-3 text-left transition-all ${listingType === "rental" ? "border-sky-500/40 bg-sky-500/10" : "border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600"}`}>
-                <span className="text-lg">🔑</span>
-                <p className="mt-1 text-xs font-bold text-[var(--foreground)]">Rental</p>
-                <p className="mt-1 text-[10px] leading-tight text-[var(--muted)]">Rent items out by the day</p>
-              </button>
-              <button onClick={() => { setListingType("event"); setCategory("Concerts & Gigs"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); }}
-                className={`rounded-xl border p-3 text-left transition-all ${listingType === "event" ? "border-sky-500/40 bg-sky-500/10" : "border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600"}`}>
-                <span className="text-lg">🎟</span>
-                <p className="mt-1 text-xs font-bold text-[var(--foreground)]">Event</p>
-                <p className="mt-1 text-[10px] leading-tight text-[var(--muted)]">Sell tickets to your event</p>
-              </button>
-              <button onClick={() => { setListingType("vehicle"); setCategory("Cars"); setSaleType("buy_now"); }}
-                className={`rounded-xl border p-3 text-left transition-all ${listingType === "vehicle" ? "border-sky-500/40 bg-sky-500/10" : "border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600"}`}>
-                <span className="text-lg">🚗</span>
-                <p className="mt-1 text-xs font-bold text-[var(--foreground)]">Vehicle</p>
-                <p className="mt-1 text-[10px] leading-tight text-[var(--muted)]">Sell cars, bikes, boats</p>
-              </button>
-              <button onClick={() => { setListingType("job"); setCategory("IT & Tech"); setSaleType("buy_now"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); }}
-                className={`rounded-xl border p-3 text-left transition-all ${listingType === "job" ? "border-sky-500/40 bg-sky-500/10" : "border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600"}`}>
-                <span className="text-lg">💼</span>
-                <p className="mt-1 text-xs font-bold text-[var(--foreground)]">Job</p>
-                <p className="mt-1 text-[10px] leading-tight text-[var(--muted)]">Post a job listing</p>
-              </button>
-              <button onClick={() => { setListingType("property"); setCategory("Houses"); setSaleType("buy_now"); setPickupAvailable(true); setShippingAvailable(false); }}
-                className={`rounded-xl border p-3 text-left transition-all ${listingType === "property" ? "border-sky-500/40 bg-sky-500/10" : "border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600"}`}>
-                <span className="text-lg">🏠</span>
-                <p className="mt-1 text-xs font-bold text-[var(--foreground)]">Property</p>
-                <p className="mt-1 text-[10px] leading-tight text-[var(--muted)]">List real estate</p>
-              </button>
+              {[
+                { key: "physical", icon: "📦", label: "Physical", desc: "Sell items — ship or pickup", action: () => setAcceptOffers(false) },
+                { key: "digital", icon: "📥", label: "Digital", desc: "Instant delivery", action: () => { setCategory("Templates & Assets"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); } },
+                { key: "service", icon: "🤝", label: "Service", desc: "Scope discussed in messages", action: () => { setCategory("Design & Development"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(true); setSaleType("buy_now"); } },
+                { key: "rental", icon: "🔑", label: "Rental", desc: "By the day", action: () => { setCategory("Other"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); setLocation(""); setCondition("New"); } },
+                { key: "event", icon: "🎟", label: "Event", desc: "Sell tickets", action: () => { setCategory("Concerts & Gigs"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); } },
+                { key: "vehicle", icon: "🚗", label: "Vehicle", desc: "Cars, bikes & boats", action: () => { setCategory("Cars"); setSaleType("buy_now"); } },
+                { key: "job", icon: "💼", label: "Job", desc: "Employment listing", action: () => { setCategory("IT & Tech"); setSaleType("buy_now"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); } },
+                { key: "property", icon: "🏠", label: "Property", desc: "Real estate", action: () => { setCategory("Houses"); setSaleType("buy_now"); setPickupAvailable(true); setShippingAvailable(false); } },
+              ].map((t) => (
+                <button key={t.key} type="button" onClick={() => { setListingType(t.key as any); t.action(); }}
+                  className={`rounded-xl border p-3 text-left transition-all duration-200 active:scale-[0.97] ${
+                    listingType === t.key
+                      ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 shadow-[0_0_20px_rgba(14,165,233,0.08)]"
+                      : "border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.12]"
+                  }`}>
+                  <span className="text-lg">{t.icon}</span>
+                  <p className={`mt-1 text-xs font-bold ${listingType === t.key ? "text-sky-400" : "text-[var(--foreground)]"}`}>{t.label}</p>
+                  <p className="mt-1 text-[10px] leading-tight text-[var(--muted)]">{t.desc}</p>
+                </button>
+              ))}
             </div>
           </div>
 
@@ -1194,8 +1182,17 @@ export default function AIPostPage() {
             </select>
           </div>
 
-          <button onClick={createListing} disabled={loading || editLoading || ((saleType === "auction" || saleType === "auction_buy_now") ? !startingBid : !price)} className="w-full rounded-xl bg-sky-500 py-4 text-lg font-bold text-[var(--foreground)] hover:bg-sky-400 disabled:opacity-50">
-            {loading ? "Saving..." : editId ? "Save Changes" : "Post Now"}
+          <button onClick={createListing} disabled={loading || editLoading || ((saleType === "auction" || saleType === "auction_buy_now") ? !startingBid : !price)}
+            className="w-full rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-4 text-lg font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98] disabled:opacity-40 disabled:shadow-none disabled:hover:brightness-100">
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Saving...
+              </span>
+            ) : editId ? "Save Changes" : "Post Now"}
           </button>
         </div>
       </div>
