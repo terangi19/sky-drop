@@ -416,6 +416,7 @@ export default function Navbar() {
         </div>
       </div>
       {/* Fixed bottom nav — mobile only */}
+      {user && (
       <nav className="fixed bottom-0 left-0 right-0 z-[9999] border-t border-white/[0.04] backdrop-blur-xl md:hidden" style={{ backgroundColor: "var(--nav-bg)" }}>
           <div className="flex items-center justify-around py-1" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 4px) + 4px)" }}>
             {[
@@ -452,6 +453,7 @@ export default function Navbar() {
             )}
           </div>
         </nav>
+      )}
       <style jsx global>{`@keyframes slideUp { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } ${user ? "main { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); } @media (min-width: 768px) { main { padding-bottom: 0; } }" : ""}`}</style>
 
     </header>
