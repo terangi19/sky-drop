@@ -546,8 +546,7 @@ export default function Navbar() {
         </div>
       )}
 
-      {/* Add padding to main content so bottom nav doesn't overlap */}
-      <style jsx global>{`main { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); } @media (min-width: 768px) { main { padding-bottom: 0; } } @keyframes slideUp { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`}</style>
+      <style jsx global>{`@keyframes slideUp { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } ${user ? "main { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); } @media (min-width: 768px) { main { padding-bottom: 0; } }" : ""}`}</style>
 
     </header>
   );
