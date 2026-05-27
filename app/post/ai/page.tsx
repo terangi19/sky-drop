@@ -683,20 +683,18 @@ export default function AIPostPage() {
                   return;
                 }
                 const recognition = new SpeechRecognition();
-                recognition.continuous = true;
-                recognition.interimResults = true;
+                recognition.continuous = false;
+                recognition.interimResults = false;
                 recognition.lang = "en-NZ";
                 recognitionRef.current = recognition;
                 recognition.onresult = (event: any) => {
-                  let final = "";
-                  for (let i = event.resultIndex; i < event.results.length; i++) {
-                    final += event.results[i][0].transcript;
-                  }
-                  setAiNotes((prev) => (prev + " " + final).trim());
+                  const transcript = event.results[0][0].transcript;
+                  setAiNotes((prev) => (prev + " " + transcript).trim());
                 };
-                recognition.onerror = () => {
+                recognition.onerror = (e: any) => {
+                  console.error("Speech error:", e.error);
                   setIsListening(false);
-                  showToast("Speech recognition error — try again", "error");
+                  showToast(e.error === "not-allowed" ? "Microphone access denied — allow microphone in your browser settings" : "Speech recognition error: " + e.error, "error");
                 };
                 recognition.onend = () => setIsListening(false);
                 recognition.start();
