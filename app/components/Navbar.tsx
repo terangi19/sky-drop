@@ -427,7 +427,7 @@ export default function Navbar() {
               { label: "More", icon: "M12 5v.01M12 12v.01M12 19v.01" },
             ].map((item) =>
               item.label === "More" ? (
-                <button key="more" onPointerDown={() => setShowMoreMenu(true)}
+                <button key="more" onClick={() => setShowMoreMenu(true)}
                   className={`relative flex flex-col items-center gap-0.5 px-4 py-2.5 rounded-xl transition active:scale-95 ${
                     showMoreMenu ? "text-sky-400" : "text-[var(--muted)]"
                   }`}
@@ -460,35 +460,28 @@ export default function Navbar() {
 
       {/* Mobile More Menu */}
       {showMoreMenu && (
-        <div className="fixed inset-0 z-[10000] md:hidden" onClick={() => setShowMoreMenu(false)}>
-          <div className="absolute bottom-24 left-2 right-2 mx-auto max-w-sm"
-            onClick={(e) => e.stopPropagation()}
+        <>
+          <div className="fixed inset-0 z-[10001] md:hidden" onClick={() => setShowMoreMenu(false)} />
+          <div className="fixed bottom-20 left-2 right-2 z-[10002] mx-auto max-w-sm md:hidden"
             style={{ animation: "slideUp 0.2s ease-out" }}
           >
-            <div className="max-h-[50vh] overflow-y-auto rounded-2xl border border-zinc-800 bg-zinc-950/95 backdrop-blur-xl p-2 shadow-2xl shadow-black/50">
-              <Link href="/dashboard" onClick={() => setShowMoreMenu(false)}
-                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">
-                <span className="text-base">📊</span> Dashboard
-              </Link>
-              <Link href="/list-list" onClick={() => setShowMoreMenu(false)}
-                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">
-                <span className="text-base">📋</span> My Listings
-              </Link>
-              <Link href="/watchlist" onClick={() => setShowMoreMenu(false)}
-                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">
-                <span className="text-base">♡</span> Watchlist
-              </Link>
-              <Link href="/purchases" onClick={() => setShowMoreMenu(false)}
-                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">
-                <span className="text-base">📥</span> Purchases
-              </Link>
-              <Link href="/sales" onClick={() => setShowMoreMenu(false)}
-                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">
-                <span className="text-base">💰</span> Sales
-              </Link>
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-950 backdrop-blur-xl p-2 shadow-2xl shadow-black/60">
+              {[
+                { href: "/dashboard", icon: "📊", label: "Dashboard" },
+                { href: "/list-list", icon: "📋", label: "My Listings" },
+                { href: "/watchlist", icon: "♡", label: "Watchlist" },
+                { href: "/purchases", icon: "📥", label: "Purchases" },
+                { href: "/sales", icon: "💰", label: "Sales" },
+              ].map((item) => (
+                <Link key={item.href} href={item.href} onClick={() => setShowMoreMenu(false)}
+                  className="flex items-center gap-3 rounded-xl px-4 py-3.5 text-sm font-bold text-[var(--foreground)] active:bg-zinc-800/80 transition-colors">
+                  <span className="text-base">{item.icon}</span>
+                  <span>{item.label}</span>
+                </Link>
+              ))}
             </div>
           </div>
-        </div>
+        </>
       )}
 
       <style jsx global>{`@keyframes slideUp { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } ${user ? "main { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); } @media (min-width: 768px) { main { padding-bottom: 0; } }" : ""}`}</style>
