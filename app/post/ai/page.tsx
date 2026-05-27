@@ -92,7 +92,16 @@ export default function AIPostPage() {
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
-    setSpeechSupported(!!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition));
+    (async () => {
+      const hasAPI = !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+      if (!hasAPI) { setSpeechSupported(false); return; }
+      try {
+        const isBrave = await (navigator as any).brave?.isBrave?.();
+        setSpeechSupported(!isBrave);
+      } catch {
+        setSpeechSupported(true);
+      }
+    })();
   }, []);
   const [showKYC, setShowKYC] = useState(false);
   const [kycStatus, setKycStatus] = useState("unsubmitted");
