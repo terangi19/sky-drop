@@ -547,18 +547,26 @@ export default function AIPostPage() {
             <span className="text-sm text-[var(--muted)]">Loading listing...</span>
           </div>
         )}
-        <div className="mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-[var(--foreground)] transition hover:border-zinc-700 hover:bg-zinc-800/60 mb-4">
+
+        {/* Header */}
+        <div className="mb-10 text-center sm:text-left">
+          <Link href="/" className="inline-flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-[var(--foreground)] transition hover:border-zinc-700 hover:bg-zinc-800/60 mb-5">
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
             Back
           </Link>
-          <div className="mt-4">
-            <h1 className="text-4xl font-black tracking-tight text-[var(--foreground)]">{editId ? "Edit Listing" : "Quick Post"}</h1>
-            <p className="mt-2 text-[var(--muted)]">{editId ? "Update your listing details" : "List your item in minutes"}</p>
+          <div className="relative">
+            <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/5 via-violet-500/5 to-sky-500/5 blur-3xl pointer-events-none" />
+            <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
+              <span className="bg-gradient-to-r from-white via-sky-100 to-white bg-clip-text text-transparent">{editId ? "Edit Listing" : "Quick Post"}</span>
+            </h1>
+            <p className="relative mt-3 text-[var(--muted)]">{editId ? "Update your listing details" : "List your item in minutes"}</p>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/[0.04] bg-white/[0.02] backdrop-blur-sm p-5 sm:p-8 space-y-6">
+        {/* Form Card */}
+        <div className="relative">
+          <div className="absolute -inset-1 bg-gradient-to-b from-sky-500/10 via-violet-500/5 to-transparent rounded-3xl blur-xl pointer-events-none" />
+          <div className="relative rounded-2xl border border-white/[0.06] bg-zinc-950/80 backdrop-blur-xl p-6 sm:p-8 space-y-6 shadow-2xl shadow-black/40">
           {imagePreviews.length === 0 ? (
             <div onClick={() => fileInputRef.current?.click()} className="flex h-56 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-white/[0.08] bg-white/[0.01] text-zinc-500 transition-all duration-200 hover:border-sky-500/40 hover:bg-sky-500/[0.02] active:scale-[0.99]">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500/10 to-violet-500/10 border border-white/[0.06]">
@@ -570,19 +578,22 @@ export default function AIPostPage() {
               <span className="mt-1 text-[11px] text-zinc-600">Tap to select — up to 8 images</span>
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-3">
               {imagePreviews.map((preview, i) => (
-                <div key={i} className="relative">
-                  <img src={preview} className="h-28 w-full rounded-lg object-cover" />
+                <div key={i} className="group relative overflow-hidden rounded-xl bg-zinc-900/60 ring-1 ring-white/[0.06]">
+                  <img src={preview} className="h-28 w-full object-cover" />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity" />
                   <button onClick={() => {
                     setImagePreviews((prev) => prev.filter((_, j) => j !== i));
                     setImageFiles((prev) => prev.filter((_, j) => j !== i));
-                  }} className="absolute right-1 top-1 rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white">✕</button>
+                  }} className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-red-500/90 text-[11px] font-bold text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-400">✕</button>
                 </div>
               ))}
               {imagePreviews.length < 8 && (
-                <button onClick={() => fileInputRef.current?.click()} className="flex h-28 items-center justify-center rounded-lg border-2 border-dashed border-zinc-700 text-[var(--muted)] hover:border-sky-500">
-                  <span className="text-2xl">+</span>
+                <button onClick={() => fileInputRef.current?.click()} className="flex h-28 items-center justify-center rounded-xl border-2 border-dashed border-white/[0.08] text-zinc-500 transition-all duration-200 hover:border-sky-500/40 hover:bg-sky-500/[0.02] active:scale-[0.97]">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                  </svg>
                 </button>
               )}
             </div>
@@ -662,7 +673,7 @@ export default function AIPostPage() {
           </div>
         )}
 
-        <div className="mt-6 space-y-4 rounded-xl border border-zinc-800 bg-zinc-900/60 p-6">
+        <div className="space-y-5">
           <div className="space-y-1.5">
             <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Title</label>
             <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" placeholder="What are you selling?" />
@@ -1194,6 +1205,7 @@ export default function AIPostPage() {
               </span>
             ) : editId ? "Save Changes" : "Post Now"}
           </button>
+        </div>
         </div>
       </div>
     </main>
