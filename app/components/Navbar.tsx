@@ -460,19 +460,15 @@ export default function Navbar() {
 
       {/* Mobile More Menu */}
       {showMoreMenu && (
-        <div className="fixed inset-0 z-[10000] md:hidden" onPointerDown={() => setShowMoreMenu(false)}>
-          <div className="absolute bottom-20 left-2 right-2 mx-auto max-w-sm"
+        <div className="fixed inset-0 z-[10000] md:hidden" onClick={() => setShowMoreMenu(false)}>
+          <div className="absolute bottom-24 left-2 right-2 mx-auto max-w-sm"
             onClick={(e) => e.stopPropagation()}
             style={{ animation: "slideUp 0.2s ease-out" }}
           >
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-950/95 backdrop-blur-xl p-2 shadow-2xl shadow-black/50">
+            <div className="max-h-[50vh] overflow-y-auto rounded-2xl border border-zinc-800 bg-zinc-950/95 backdrop-blur-xl p-2 shadow-2xl shadow-black/50">
               <Link href="/dashboard" onClick={() => setShowMoreMenu(false)}
                 className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">
                 <span className="text-base">📊</span> Dashboard
-              </Link>
-              <Link href="/trade-feed" onClick={() => setShowMoreMenu(false)}
-                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">
-                <span className="flex items-center gap-1.5"><span className="text-base">🔴</span> <span className="flex h-2 w-2 rounded-full bg-red-500" /></span> Trade Feed
               </Link>
               <Link href="/list-list" onClick={() => setShowMoreMenu(false)}
                 className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">
@@ -489,40 +485,6 @@ export default function Navbar() {
               <Link href="/sales" onClick={() => setShowMoreMenu(false)}
                 className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">
                 <span className="text-base">💰</span> Sales
-              </Link>
-              <div className="my-1 mx-3 border-t border-zinc-800" />
-              <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Browse</div>
-              <Link href="/" onClick={() => setShowMoreMenu(false)}
-                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">
-                <span className="text-base">📦</span> Physical Goods
-              </Link>
-              <Link href="/digital" onClick={() => setShowMoreMenu(false)}
-                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">
-                <span className="text-base">📥</span> Digital Store
-              </Link>
-              <Link href="/services" onClick={() => setShowMoreMenu(false)}
-                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">
-                <span className="text-base">🤝</span> Services
-              </Link>
-              <Link href="/rentals" onClick={() => setShowMoreMenu(false)}
-                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">
-                <span className="text-base">🔑</span> Rentals
-              </Link>
-              <Link href="/events" onClick={() => setShowMoreMenu(false)}
-                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">
-                <span className="text-base">🎟</span> Events
-              </Link>
-              <Link href="/vehicles" onClick={() => setShowMoreMenu(false)}
-                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">
-                <span className="text-base">🚗</span> Vehicles
-              </Link>
-              <Link href="/jobs" onClick={() => setShowMoreMenu(false)}
-                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">
-                <span className="text-base">💼</span> Jobs
-              </Link>
-              <Link href="/property" onClick={() => setShowMoreMenu(false)}
-                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors">
-                <span className="text-base">🏠</span> Property
               </Link>
             </div>
           </div>
