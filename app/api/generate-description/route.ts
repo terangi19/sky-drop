@@ -1,9 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 
-function fallbackDescription(prompt: string, category: string): string {
+function fallbackDescription(prompt: string): string {
   const p = prompt.trim();
-  const first = p.charAt(0).toUpperCase() + p.slice(1);
-  return `${first}. This item is in good condition and has been well looked after. Pickup available — feel free to message me with any questions.`;
+  if (!p) return "Item is in great condition. Pickup available — feel free to message me with any questions.";
+
+  const lower = p.toLowerCase();
+  const itemName = p.charAt(0).toUpperCase() + p.slice(1).replace(/\..*$/, "");
+
+  let cond = "great";
+  if (/new|unused|never worn/i.test(lower)) cond = "excellent, like-new";
+  else if (/mint|perfect|flawless/i.test(lower)) cond = "mint";
+  else if (/excellent|barely/i.test(lower)) cond = "excellent";
+  else if (/good/i.test(lower)) cond = "good";
+  else if (/fair|used|worn/i.test(lower)) cond = "good used";
+
+  let details = "";
+  if (/box|packaging|original/i.test(lower)) details += " Comes with original packaging.";
+  if (/size/i.test(lower)) {
+    const m = lower.match(/size\s*[:\-]?\s*([\d.]+(\s*(us|uk|eu|cm))?)/i);
+    if (m) details += ` Size ${m[1].toUpperCase()}.`;
+  }
+
+  return `${itemName}. In ${cond} condition${details} Pickup available — message me with any questions.`;
 }
 
 const SYSTEM_PROMPT = `You are a professional copywriter for Sky Drop, a New Zealand marketplace. Write a polished, natural product description based on the seller's notes.
@@ -51,10 +69,12 @@ export async function POST(req: NextRequest) {
     if (apiKey) {
       text = await callGemini(apiKey, prompt.trim(), category || "General", "gemini-2.0-flash");
       if (!text) text = await callGemini(apiKey, prompt.trim(), category || "General", "gemini-1.5-flash");
+      if (!text) text = await callGemini(apiKey, prompt.trim(), category || "General", "gemini-1.5-pro");
+      if (!text) text = await callGemini(apiKey, prompt.trim(), category || "General", "gemini-2.0-flash-lite");
     }
 
-    return NextResponse.json({ description: text || fallbackDescription(prompt, category || "General") });
+    return NextResponse.json({ description: text || fallbackDescription(prompt) });
   } catch {
-    return NextResponse.json({ description: fallbackDescription("", "General") });
+    return NextResponse.json({ description: fallbackDescription("") });
   }
 }
