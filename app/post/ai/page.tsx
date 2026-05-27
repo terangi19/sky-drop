@@ -554,7 +554,7 @@ export default function AIPostPage() {
   Back
 </Link>
             <h1 className="text-4xl font-black text-[var(--foreground)]">{editId ? "Edit Listing" : "Quick Post"}</h1>
-            <p className="mt-2 text-[var(--muted)]">{editId ? "Update your listing details" : "Free unlimited AI"}</p>
+            <p className="mt-2 text-[var(--muted)]">{editId ? "Update your listing details" : "List your item in minutes"}</p>
           </div>
           
         </div>
