@@ -431,6 +431,7 @@ export default function Navbar() {
         </div>
       </div>
       {/* Mobile bottom bar */}
+      {user && (
       <nav className="fixed bottom-0 left-0 right-0 z-[9999] border-t border-white/[0.04] backdrop-blur-xl md:hidden" style={{ backgroundColor: "var(--nav-bg)" }}>
           <div className="flex items-center justify-around py-1" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 4px) + 4px)" }}>
             <Link href="/"
@@ -461,25 +462,16 @@ export default function Navbar() {
               </svg>
               <span className="text-[8px] font-semibold">Sell</span>
             </Link>
-            {user ? (
-              <button onClick={() => setMobileMenuOpen(true)}
-                className="flex flex-col items-center gap-px px-3 py-1 rounded-xl transition active:scale-95 text-[var(--muted)]">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-                <span className="text-[8px] font-semibold">Menu</span>
-              </button>
-            ) : (
-              <Link href="/login"
-                className="flex flex-col items-center gap-px px-3 py-1 rounded-xl transition active:scale-95 text-zinc-500">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-                <span className="text-[8px] font-semibold">Login</span>
-              </Link>
-            )}
+            <button onClick={() => setMobileMenuOpen(true)}
+              className="flex flex-col items-center gap-px px-3 py-1 rounded-xl transition active:scale-95 text-[var(--muted)]">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+              <span className="text-[8px] font-semibold">Menu</span>
+            </button>
           </div>
         </nav>
+      )}
       <style jsx global>{`main { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); } @media (min-width: 768px) { main { padding-bottom: 0; } }`}</style>
 
     </header>
