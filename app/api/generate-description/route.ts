@@ -6,24 +6,33 @@ function fallbackDescription(prompt: string, category: string): string {
   return `${first}. This item is in good condition and has been well looked after. Pickup available — feel free to message me with any questions.`;
 }
 
+const SYSTEM_PROMPT = `You are a professional copywriter for Sky Drop, a New Zealand marketplace. Write a polished, natural product description based on the seller's notes.
+
+Guidelines:
+- Write 2-4 sentences in a warm, professional tone — like a real person selling their item
+- Mention key details naturally (brand, model, size, colour, condition, what's included)
+- Do not use phrases like "the seller says", "based on the notes", or "according to the customer"
+- Do not mention that you're an AI or that this is a generated description
+- Never use emoji, hashtags, markdown, or bullet points
+- Write in plain English paragraphs only
+- Category: {category}`;
+
 async function callGemini(apiKey: string, prompt: string, category: string, model: string): Promise<string | null> {
   try {
-    const sys = `You write product listings for Sky Drop, a New Zealand marketplace. Write a natural 2-4 sentence description based on the seller's notes. Do not mention the notes, the seller, or that you're an AI — just write the listing. No emoji, no markdown, no bullet points. Category: ${category || "General"}.`;
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: `${sys}\n\nSeller's notes:\n${prompt}` }] }],
-          generationConfig: { temperature: 0.7, maxOutputTokens: 200 },
+          contents: [{ parts: [{ text: `${SYSTEM_PROMPT.replace("{category}", category || "General")}\n\nSeller's notes:\n${prompt}` }] }],
+          generationConfig: { temperature: 0.8, maxOutputTokens: 300 },
         }),
       }
     );
     if (!res.ok) return null;
     const data = await res.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-    return text || null;
+    return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
   } catch {
     return null;
   }
