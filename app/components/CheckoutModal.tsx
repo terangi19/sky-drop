@@ -37,6 +37,20 @@ interface ListingData {
   rentalDeposit?: number;
   rentalPriceWeekly?: number;
   rentalPriceMonthly?: number;
+  eventDate?: string;
+  venue?: string;
+  condition?: string;
+  location?: string;
+  shipsWithinDays?: number;
+  saleType?: string;
+  startingBid?: number;
+  currentBid?: number;
+  auctionEndsAt?: any;
+  serviceDuration?: string;
+  vehicleMake?: string;
+  vehicleModel?: string;
+  propertyType?: string;
+  bedrooms?: number;
 }
 
 interface CheckoutModalProps {

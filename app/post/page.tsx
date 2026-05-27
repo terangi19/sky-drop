@@ -13,8 +13,6 @@ import {
   collection,
   doc,
   getDoc,
-  getDocs,
-  query,
   where,
   serverTimestamp,
 } from "firebase/firestore";
@@ -194,7 +192,7 @@ export default function PostPage() {
       return;
     }
 
-    if (listingType === "physical" && !pickupAvailable && !shippingAvailable) {
+    if ((listingType === "physical" || listingType === "vehicle") && !pickupAvailable && !shippingAvailable) {
       alert("Select at least one delivery method (pickup or shipping).");
       return;
     }
@@ -214,7 +212,6 @@ export default function PostPage() {
         alert(`Cannot list digital assets: ${gate.reason}`);
         return;
       }
-      const existingDigital = await getDocs(query(collection(db, "purchases"), where("sellerEmail", "==", user.email), where("deliveryMethod", "==", "digital"), where("status", "==", "delivered")));
     }
 
     if (listingType === "event") {
@@ -471,24 +468,6 @@ export default function PostPage() {
       }
 
       router.push("/");
-      return;
-      setDescription("");
-      setPrice("");
-      setLocation("");
-      setCategory("Other");
-      setCondition("New");
-      setPickupAvailable(false);
-      setShippingAvailable(false);
-      setPickupArea("");
-      setShippingFee("");
-      setFreeShipping(false);
-      setShipsWithinDays("");
-      setStockQuantity("");
-      setSaleType("buy_now");
-      setStartingBid("");
-      setReservePrice("");
-      setAuctionDuration("3");
-      setConfirmedSubmit(false);
     } catch (error) {
       console.error(error);
       alert("Failed to create listing.");

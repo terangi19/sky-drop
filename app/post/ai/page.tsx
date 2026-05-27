@@ -804,9 +804,9 @@ export default function AIPostPage() {
                 { key: "service", icon: "🤝", label: "Service", desc: "Scope discussed in messages", action: () => { setCategory("Design & Development"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(true); setSaleType("buy_now"); } },
                 { key: "rental", icon: "🔑", label: "Rental", desc: "By the day", action: () => { setCategory("Other"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); setLocation(""); setCondition("New"); } },
                 { key: "event", icon: "🎟", label: "Event", desc: "Sell tickets", action: () => { setCategory("Concerts & Gigs"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); } },
-                { key: "vehicle", icon: "🚗", label: "Vehicle", desc: "Cars, bikes & boats", action: () => { setCategory("Cars"); setSaleType("buy_now"); } },
+                { key: "vehicle", icon: "🚗", label: "Vehicle", desc: "Cars, bikes & boats", action: () => { setCategory("Cars"); setSaleType("buy_now"); setAcceptOffers(false); } },
                 { key: "job", icon: "💼", label: "Job", desc: "Employment listing", action: () => { setCategory("IT & Tech"); setSaleType("buy_now"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); } },
-                { key: "property", icon: "🏠", label: "Property", desc: "Real estate", action: () => { setCategory("Houses"); setSaleType("buy_now"); setPickupAvailable(true); setShippingAvailable(false); } },
+                { key: "property", icon: "🏠", label: "Property", desc: "Real estate", action: () => { setCategory("Houses"); setSaleType("buy_now"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(false); } },
               ].map((t) => (
                 <button key={t.key} type="button" onClick={() => { setListingType(t.key as any); t.action(); }}
                   className={`rounded-xl border p-3 text-left transition-all duration-200 active:scale-[0.97] ${
