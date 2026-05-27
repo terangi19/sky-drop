@@ -87,6 +87,8 @@ export default function AIPostPage() {
   const [acceptOffers, setAcceptOffers] = useState(false);
   const [aiNotes, setAiNotes] = useState("");
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
   const [showKYC, setShowKYC] = useState(false);
   const [kycStatus, setKycStatus] = useState("unsubmitted");
   const [kycRejectionReason, setKycRejectionReason] = useState("");
@@ -667,8 +669,47 @@ export default function AIPostPage() {
           </div>
 
           <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/30 p-4">
-            <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">✏️ Quick notes about your item</label>
-            <textarea value={aiNotes} onChange={(e) => setAiNotes(e.target.value)} rows={2} className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" placeholder="e.g. Nike Air Max 90 black white size 10 worn twice great condition box included" />
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-bold text-[var(--foreground)]">✏️ Quick notes about your item</label>
+              <button onClick={() => {
+                if (isListening) {
+                  recognitionRef.current?.stop();
+                  setIsListening(false);
+                  return;
+                }
+                const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+                if (!SpeechRecognition) {
+                  showToast("Speech recognition not supported on this browser", "error");
+                  return;
+                }
+                const recognition = new SpeechRecognition();
+                recognition.continuous = true;
+                recognition.interimResults = true;
+                recognition.lang = "en-NZ";
+                recognitionRef.current = recognition;
+                recognition.onresult = (event: any) => {
+                  let final = "";
+                  for (let i = event.resultIndex; i < event.results.length; i++) {
+                    final += event.results[i][0].transcript;
+                  }
+                  setAiNotes((prev) => (prev + " " + final).trim());
+                };
+                recognition.onerror = () => {
+                  setIsListening(false);
+                  showToast("Speech recognition error — try again", "error");
+                };
+                recognition.onend = () => setIsListening(false);
+                recognition.start();
+                setIsListening(true);
+              }}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition active:scale-95 ${
+                  isListening ? "bg-red-500 text-white animate-pulse" : "bg-zinc-700/50 text-zinc-400 hover:bg-zinc-700 hover:text-white"
+                }`}>
+                <span className="text-sm">{isListening ? "🔴" : "🎤"}</span>
+                <span>{isListening ? "Listening..." : "Voice"}</span>
+              </button>
+            </div>
+            <textarea value={aiNotes} onChange={(e) => setAiNotes(e.target.value)} rows={2} className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" placeholder={isListening ? "Listening..." : "e.g. Nike Air Max 90 black white size 10 worn twice great condition box included"} />
             <button onClick={async () => {
               if (!aiNotes.trim() || aiGenerating) return;
               setAiGenerating(true);
