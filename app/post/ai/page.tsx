@@ -85,6 +85,8 @@ export default function AIPostPage() {
   const [floorArea, setFloorArea] = useState("");
   const [parking, setParking] = useState("");
   const [acceptOffers, setAcceptOffers] = useState(false);
+  const [aiNotes, setAiNotes] = useState("");
+  const [aiGenerating, setAiGenerating] = useState(false);
   const [showKYC, setShowKYC] = useState(false);
   const [kycStatus, setKycStatus] = useState("unsubmitted");
   const [kycRejectionReason, setKycRejectionReason] = useState("");
@@ -503,7 +505,7 @@ export default function AIPostPage() {
       setPickupArea(""); setShippingFee(""); setFreeShipping(false);
       setStockQuantity("");
       setSaleType("buy_now"); setBuyNowPrice(""); setStartingBid(""); setReservePrice(""); setAuctionDuration("3"); setExpiresIn("14");
-      setListingType("physical"); setDigitalFileURL(""); setDigitalFileName(""); setDigitalStoragePath(""); setServiceDuration(""); setRentalPriceWeekly(""); setRentalPriceMonthly(""); setRentalDeposit(""); setEventDate(""); setEventTime(""); setVenue(""); setTicketQuantity(""); setTicketType("General Admission"); setVehicleMake(""); setVehicleModel(""); setVehicleYear(""); setVehicleOdometer(""); setVehicleBodyType("SUV"); setVehicleFuelType("Petrol"); setVehicleTransmission("Automatic"); setVehicleColour(""); setJobCompany(""); setJobEmploymentType("Full-time"); setSalaryMin(""); setSalaryMax(""); setPropertyType("House"); setBedrooms(""); setBathrooms(""); setLandArea(""); setFloorArea(""); setParking(""); setAcceptOffers(false); setCondition("New");
+      setListingType("physical"); setAiNotes(""); setDigitalFileURL(""); setDigitalFileName(""); setDigitalStoragePath(""); setServiceDuration(""); setRentalPriceWeekly(""); setRentalPriceMonthly(""); setRentalDeposit(""); setEventDate(""); setEventTime(""); setVenue(""); setTicketQuantity(""); setTicketType("General Admission"); setVehicleMake(""); setVehicleModel(""); setVehicleYear(""); setVehicleOdometer(""); setVehicleBodyType("SUV"); setVehicleFuelType("Petrol"); setVehicleTransmission("Automatic"); setVehicleColour(""); setJobCompany(""); setJobEmploymentType("Full-time"); setSalaryMin(""); setSalaryMax(""); setPropertyType("House"); setBedrooms(""); setBathrooms(""); setLandArea(""); setFloorArea(""); setParking(""); setAcceptOffers(false); setCondition("New");
       setEditId(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
       if (listingType === "service") window.location.href = "/services";
@@ -664,9 +666,35 @@ export default function AIPostPage() {
             <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]" placeholder="Auto-filled" />
           </div>
 
+          <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/30 p-4">
+            <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">✏️ Quick notes about your item</label>
+            <textarea value={aiNotes} onChange={(e) => setAiNotes(e.target.value)} rows={2} className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" placeholder="e.g. Nike Air Max 90 black white size 10 worn twice great condition box included" />
+            <button onClick={async () => {
+              if (!aiNotes.trim() || aiGenerating) return;
+              setAiGenerating(true);
+              try {
+                const res = await fetch("/api/generate-description", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ prompt: aiNotes.trim(), category }),
+                });
+                const data = await res.json();
+                if (data.description) setDescription(data.description);
+              } catch {}
+              setAiGenerating(false);
+            }} disabled={!aiNotes.trim() || aiGenerating}
+              className="mt-2 flex items-center gap-2 rounded-lg bg-gradient-to-r from-sky-500 to-violet-500 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-95 disabled:opacity-50">
+              {aiGenerating ? (
+                <><div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" /> Generating...</>
+              ) : (
+                <><span>✨</span> Auto-write Description</>
+              )}
+            </button>
+          </div>
+
           <div>
             <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Description</label>
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]" placeholder="Auto-filled" />
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]" placeholder={aiGenerating ? "AI is writing..." : "Auto-filled or write your own"} />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
