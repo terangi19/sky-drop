@@ -21,7 +21,6 @@ import {
   query,
   where,
   onSnapshot,
-  orderBy,
   limit,
 } from "firebase/firestore";
 

@@ -455,6 +455,7 @@ export default function AIPostPage() {
         freeShipping: shippingAvailable ? freeShipping : false,
         stockQuantity: stockQuantity ? Number(stockQuantity) : null,
         saleType,
+        buyNowPrice: buyNowPrice ? Number(buyNowPrice) : null,
         startingBid: (saleType === "auction" || saleType === "auction_buy_now") && startingBid ? Number(startingBid) : null,
         reservePrice: (saleType === "auction" || saleType === "auction_buy_now") && reservePrice ? Number(reservePrice) : null,
         ...(editId ? {} : {
@@ -474,6 +475,7 @@ export default function AIPostPage() {
         freeShipping: shippingAvailable ? freeShipping : false,
         stockQuantity: stockQuantity ? Number(stockQuantity) : null,
         saleType,
+        buyNowPrice: buyNowPrice ? Number(buyNowPrice) : null,
         startingBid: (saleType === "auction" || saleType === "auction_buy_now") && startingBid ? Number(startingBid) : null,
         reservePrice: (saleType === "auction" || saleType === "auction_buy_now") && reservePrice ? Number(reservePrice) : null,
         ...(editId ? {} : {

@@ -27,7 +27,7 @@ import {
   db,
   storage,
 } from "../lib/firebase";
-import { ref, uploadBytes, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { detectScam } from "../lib/scamdetection";
 import { detectSuspiciousPrice } from "../lib/pricedetection";
 import { checkImage } from "../lib/nsfw";
@@ -118,8 +118,6 @@ export default function PostPage() {
   const [scamAlert, setScamAlert] = useState<{ title: string; message: string; found: string[] } | null>(null);
   const [priceAlert, setPriceAlert] = useState(false);
   const [confirmedSubmit, setConfirmedSubmit] = useState(false);
-  const formMountedAt = useRef(Date.now());
-  const lastListingTime = useRef(0);
 
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
@@ -205,6 +203,7 @@ export default function PostPage() {
         return;
       }
       const profileSnap = await getDoc(doc(db, "profiles", user.uid));
+      if (!profileSnap.exists()) { alert("Profile not found. Complete your profile first."); return; }
       const profileData = profileSnap.data();
       const { canListDigital } = await import("../lib/kyc");
       const gate = await canListDigital(profileData || {});
@@ -257,7 +256,6 @@ export default function PostPage() {
 
       const images: string[] = [];
       setUploadProgress(0);
-      setLoading(true);
       for (const file of imageFiles) {
         const nsfwResult = await checkImage(file);
         if (!nsfwResult.safe) {
@@ -268,9 +266,7 @@ export default function PostPage() {
         const storageRef = ref(storage, `listings/${user.uid}/${Date.now()}_${file.name}`);
         const task = uploadBytesResumable(storageRef, file);
         await new Promise<void>((resolve, reject) => {
-          task.on("state_changed", (snapshot) => {
-            const pct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
-          }, reject, async () => {
+          task.on("state_changed", () => {}, reject, async () => {
             images.push(await getDownloadURL(task.snapshot.ref));
             setUploadProgress((prev) => prev + 1);
             resolve();

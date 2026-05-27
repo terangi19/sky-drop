@@ -507,7 +507,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
               {isRental && listing.rentalDeposit && (
                 <div className="mt-1 flex items-center justify-between text-amber-400">
                   <span>🔒 Security deposit <span className="text-[var(--muted)]">(refundable)</span></span>
-                  <span>$${Number(listing.rentalDeposit).toFixed(2)}</span>
+                  <span>${Number(listing.rentalDeposit).toFixed(2)}</span>
                 </div>
               )}
               <div className="mt-1 flex items-center justify-between text-[var(--muted)]"><span>Buyer Protection</span><span>$1.00</span></div>
@@ -630,7 +630,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                     {isRental && listing.rentalDeposit && (
                       <div className="mt-1 flex items-center justify-between text-amber-400">
                         <span>🔒 Security deposit <span className="text-[var(--muted)]">(refundable)</span></span>
-                        <span>$${Number(listing.rentalDeposit).toFixed(2)}</span>
+                        <span>${Number(listing.rentalDeposit).toFixed(2)}</span>
                       </div>
                     )}
                     <div className="mt-1 flex items-center justify-between text-[var(--muted)]">
@@ -667,7 +667,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                     {isRental && listing.rentalDeposit && (
                       <div className="mt-1 flex items-center justify-between text-amber-400">
                         <span>🔒 Security deposit <span className="text-[var(--muted)]">(refundable)</span></span>
-                        <span>$${Number(listing.rentalDeposit).toFixed(2)}</span>
+                        <span>${Number(listing.rentalDeposit).toFixed(2)}</span>
                       </div>
                     )}
                     <div className="mt-1 flex items-center justify-between text-[var(--muted)]">

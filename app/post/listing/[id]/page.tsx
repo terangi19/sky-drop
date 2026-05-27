@@ -11,6 +11,10 @@ import PromoteModal from "../../../components/PromoteModal";
 import { showToast } from "../../../components/Toast";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { addDoc, collection, doc, getDoc, getDocs, increment, onSnapshot, query, runTransaction, serverTimestamp, updateDoc, where, Timestamp, setDoc } from "firebase/firestore";
+import { auth, db } from "../../../lib/firebase";
+import { detectScam } from "../../../lib/scamdetection";
+import { calculateTrustScore } from "../../../lib/trustscore";
+import { detectSuspiciousPrice } from "../../../lib/pricedetection";
 
 function getBidIncrement(price: number): number {
   if (price < 50) return 1;
@@ -23,10 +27,6 @@ function getBidIncrement(price: number): number {
 function getMinimumNextBid(price: number): number {
   return Math.floor(price) + getBidIncrement(Math.floor(price));
 }
-import { auth, db } from "../../../lib/firebase";
-import { detectScam } from "../../../lib/scamdetection";
-import { calculateTrustScore } from "../../../lib/trustscore";
-import { detectSuspiciousPrice } from "../../../lib/pricedetection";
 
 function timeAgo(seconds: number): string {
   const now = Math.floor(Date.now() / 1000);
