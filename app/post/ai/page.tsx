@@ -679,8 +679,15 @@ export default function AIPostPage() {
                   body: JSON.stringify({ prompt: aiNotes.trim(), category }),
                 });
                 const data = await res.json();
-                if (data.description) setDescription(data.description);
-              } catch {}
+                if (data.description) {
+                  setDescription(data.description);
+                } else {
+                  showToast(data.error || "No response from AI", "error");
+                }
+              } catch (e) {
+                console.error("AI description error:", e);
+                showToast("Failed to generate description", "error");
+              }
               setAiGenerating(false);
             }} disabled={!aiNotes.trim() || aiGenerating}
               className="mt-2 flex items-center gap-2 rounded-lg bg-gradient-to-r from-sky-500 to-violet-500 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-95 disabled:opacity-50">
