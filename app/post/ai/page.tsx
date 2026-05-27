@@ -14,6 +14,8 @@ import { checkImage } from "../../lib/nsfw";
 import { showToast } from "../../components/Toast";
 import DigitalAssetUpload from "../../components/DigitalAssetUpload";
 import KYCGuard from "../../components/KYCGuard";
+import { detectScam } from "../../lib/scamdetection";
+import { detectSuspiciousPrice } from "../../lib/pricedetection";
 
 const objectToCategory: Record<string, string> = {
   "car": "Cars", "truck": "Cars", "bus": "Cars", "motorcycle": "Cars",
@@ -90,6 +92,9 @@ export default function AIPostPage() {
   const [existingImages, setExistingImages] = useState<string[]>([]);
   const [editLoading, setEditLoading] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [scamAlert, setScamAlert] = useState<{ title: string; message: string; found: string[] } | null>(null);
+  const [priceAlert, setPriceAlert] = useState(false);
+  const [confirmedSubmit, setConfirmedSubmit] = useState(false);
   const isDigital = listingType === "digital";
   const classifierRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -348,6 +353,26 @@ export default function AIPostPage() {
       setLoading(false);
       return;
     }
+
+    // Scam detection
+    const scamResult = detectScam(`${title} ${description}`);
+    if (scamResult.isScam && !confirmedSubmit) {
+      setScamAlert({
+        title: "Potential Scam Detected",
+        message: "Your listing contains language commonly used in scams. Please review and edit.",
+        found: scamResult.keywords,
+      });
+      setLoading(false);
+      return;
+    }
+
+    // Price detection
+    if (detectSuspiciousPrice(Number(price), category) && !confirmedSubmit) {
+      setPriceAlert(true);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -496,6 +521,18 @@ export default function AIPostPage() {
     setLoading(false);
   };
 
+  function bypassScamAlert() {
+    setConfirmedSubmit(true);
+    setScamAlert(null);
+    setTimeout(() => createListing(), 0);
+  }
+
+  function bypassPriceAlert() {
+    setConfirmedSubmit(true);
+    setPriceAlert(false);
+    setTimeout(() => createListing(), 0);
+  }
+
   return (
     <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <Background />
@@ -570,6 +607,55 @@ export default function AIPostPage() {
             onClose={() => setShowKYC(false)}
             onSubmitted={() => { setKycStatus("pending"); setShowKYC(false); }}
           />
+        )}
+
+        {/* SCAM ALERT MODAL */}
+        {scamAlert && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setScamAlert(null)}>
+            <div className="mx-4 w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-black text-amber-400">⚠️ {scamAlert.title}</h3>
+                <button onClick={() => setScamAlert(null)} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
+              </div>
+              <p className="mt-2 text-sm text-[var(--foreground)]">{scamAlert.message}</p>
+              {scamAlert.found.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {scamAlert.found.map((kw) => (
+                    <span key={kw} className="rounded-full bg-red-500/10 px-2.5 py-1 text-[11px] font-medium text-red-400">"{kw}"</span>
+                  ))}
+                </div>
+              )}
+              <div className="mt-5 flex gap-3">
+                <button onClick={() => setScamAlert(null)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700 active:scale-[0.98]">
+                  Edit Listing
+                </button>
+                <button onClick={bypassScamAlert} className="flex-1 rounded-xl bg-amber-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-amber-400 active:scale-[0.98]">
+                  Submit Anyway
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* PRICE ALERT MODAL */}
+        {priceAlert && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setPriceAlert(false)}>
+            <div className="mx-4 w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-black text-amber-400">⚠️ Unusually Low Price</h3>
+                <button onClick={() => setPriceAlert(false)} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
+              </div>
+              <p className="mt-2 text-sm text-[var(--foreground)]">Your listing price (${price}) seems unusually low for the "{category}" category. This may attract scam filters or suspicious buyers.</p>
+              <div className="mt-5 flex gap-3">
+                <button onClick={() => setPriceAlert(false)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700 active:scale-[0.98]">
+                  Set Higher Price
+                </button>
+                <button onClick={bypassPriceAlert} className="flex-1 rounded-xl bg-amber-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-amber-400 active:scale-[0.98]">
+                  Submit Anyway
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         <div className="mt-6 space-y-4 rounded-xl border border-zinc-800 bg-zinc-900/60 p-6">

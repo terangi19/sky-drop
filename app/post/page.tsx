@@ -238,6 +238,23 @@ export default function PostPage() {
       }
     }
 
+    // Scam detection
+    const scamResult = detectScam(`${title} ${description}`);
+    if (scamResult.isScam && !confirmedSubmit) {
+      setScamAlert({
+        title: "Potential Scam Detected",
+        message: "Your listing contains language commonly used in scams. Please review and edit.",
+        found: scamResult.keywords,
+      });
+      return;
+    }
+
+    // Price detection
+    if (detectSuspiciousPrice(Number(price), category) && !confirmedSubmit) {
+      setPriceAlert(true);
+      return;
+    }
+
     try {
       setLoading(true);
 
