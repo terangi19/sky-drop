@@ -1,5 +1,6 @@
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
+import { buildEmailHtml, notificationToEmail } from "./email";
 
 interface NotificationInput {
   targetEmail: string;
@@ -55,5 +56,27 @@ export async function createNotification(input: NotificationInput) {
     }
   } catch {
     console.info("[Notification] Push endpoint unreachable (expected if push not configured)");
+  }
+
+  // Email notification
+  try {
+    const url = input.listingId ? `https://skydrop.nz/post/listing/${input.listingId}` : "https://skydrop.nz/messages";
+    const email = notificationToEmail(input.type, input.title, input.listingTitle, input.total);
+    const html = buildEmailHtml({
+      to: input.targetEmail,
+      subject: email.subject,
+      title: input.title,
+      message: email.message + (input.listingTitle ? `\n\nListing: ${input.listingTitle}` : ""),
+      cta: "View on Sky Drop",
+      ctaUrl: url,
+      footerNote: "Stay safe — never pay outside Sky Drop. Keep all communication in our chat.",
+    });
+    await fetch("/api/send-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to: input.targetEmail, subject: email.subject, html }),
+    });
+  } catch (e) {
+    console.info("[Notification] Email send skipped or failed:", e);
   }
 }
