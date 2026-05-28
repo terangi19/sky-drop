@@ -2,7 +2,13 @@ import { doc, getDoc, getDocs, onSnapshot, type DocumentReference, type Query, t
 import { db } from "./firebase";
 
 export function isOnline(): boolean {
-  return typeof navigator !== "undefined" ? navigator.onLine : true;
+  try {
+    if (typeof navigator === "undefined") return true;
+    if (typeof navigator.onLine === "boolean") return navigator.onLine;
+    return true;
+  } catch {
+    return true;
+  }
 }
 
 export function parseFirestoreError(err: unknown): { message: string; code: string; recoverable: boolean } {
