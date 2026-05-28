@@ -210,31 +210,24 @@ export default function Navbar() {
           >
             <div className="relative w-10 h-10 md:w-12 md:h-12 flex-shrink-0">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" className="w-full h-full">
-                {/* Parachute canopy */}
-                <path d="M2 10C2 5.5 8 2 16 2s14 3.5 14 8"
-                  fill="none" stroke="#38bdf8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M2 10c0 1 0.5 2 1 3"
-                  fill="none" stroke="#38bdf8" strokeWidth="1.2" strokeLinecap="round"/>
-                <path d="M30 10c0 1-0.5 2-1 3"
-                  fill="none" stroke="#38bdf8" strokeWidth="1.2" strokeLinecap="round"/>
-                {/* Parachute strings */}
-                <path d="M7 12c2-0.5 5-1 9-1s7 0.5 9 1"
-                  fill="none" stroke="#38bdf8" strokeWidth="0.8" opacity="0.5" strokeLinecap="round"/>
-                <line x1="7" y1="12" x2="10" y2="18" stroke="#38bdf8" strokeWidth="0.8" opacity="0.5"/>
-                <line x1="25" y1="12" x2="22" y2="18" stroke="#38bdf8" strokeWidth="0.8" opacity="0.5"/>
-                <line x1="16" y1="12" x2="16" y2="18" stroke="#38bdf8" strokeWidth="0.8" opacity="0.5"/>
-                {/* Falling box */}
-                <rect x="10" y="18" width="12" height="10" rx="1.5" ry="1.5"
-                  fill="none" stroke="#38bdf8" strokeWidth="1.8" strokeLinejoin="round"/>
-                {/* Box lid line */}
-                <line x1="10" y1="21" x2="22" y2="21" stroke="#38bdf8" strokeWidth="1.2" opacity="0.6"/>
-                {/* Box highlight */}
-                <path d="M12 23h3" stroke="#38bdf8" strokeWidth="0.8" opacity="0.4" strokeLinecap="round"/>
+                {/* Outer glow ring */}
+                <circle cx="16" cy="16" r="14.5" fill="none" stroke="#38bdf8" strokeWidth="0.5" opacity="0.15" className="drop-shadow-[0_0_6px_rgba(56,189,248,0.3)]" />
+                {/* Geometric S curve — top arc */}
+                <path d="M8 12 C8 7, 12 5, 16 6 C20 7, 22 10, 22 13 C22 16, 18 17, 14 17"
+                  fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-[0_0_4px_rgba(56,189,248,0.4)]" />
+                {/* Geometric S curve — bottom arc */}
+                <path d="M14 17 C10 17, 10 20, 10 22 C10 25, 12 27, 16 27 C20 27, 24 25, 24 22"
+                  fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-[0_0_4px_rgba(56,189,248,0.4)]" />
+                {/* Accent dot — the "drop" */}
+                <circle cx="24" cy="22" r="1.8" fill="#38bdf8" opacity="0.7" className="drop-shadow-[0_0_6px_rgba(56,189,248,0.6)]" />
+                {/* Small trailing motion dots */}
+                <circle cx="20" cy="8" r="1" fill="#38bdf8" opacity="0.3" />
+                <circle cx="15" cy="5.5" r="0.6" fill="#38bdf8" opacity="0.2" />
               </svg>
             </div>
             <div className="flex flex-col leading-tight">
-              <span className="text-lg md:text-2xl font-black tracking-tight" style={{ color: "var(--foreground)" }}>
-                SKY<span className="text-sky-400">DROP</span>
+              <span className="text-lg md:text-2xl font-black tracking-[0.02em]" style={{ color: "var(--foreground)" }}>
+                SKY<span className="text-sky-400 drop-shadow-[0_0_8px_rgba(56,189,248,0.3)]">DROP</span>
               </span>
             </div>
           </Link>
