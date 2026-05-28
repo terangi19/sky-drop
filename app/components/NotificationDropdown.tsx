@@ -31,6 +31,7 @@ type NotificationDropdownProps = {
   notifications?: NotificationItem[];
   onClose?: () => void;
   onMarkSeen?: (id: string, type?: string) => void;
+  onClearAll?: () => void;
 };
 
 const TYPE_META: Record<
@@ -67,6 +68,7 @@ export default function NotificationDropdown({
   notifications = [],
   onClose,
   onMarkSeen,
+  onClearAll,
 }: NotificationDropdownProps) {
   const [usernames, setUsernames] =
     useState<Record<string, string>>({});
@@ -102,9 +104,13 @@ export default function NotificationDropdown({
   }, [notifications]);
 
   function handleClearAll() {
-    notifications.forEach((n) =>
-      onMarkSeen?.(n.id, n.type)
-    );
+    if (onClearAll) {
+      onClearAll();
+    } else {
+      notifications.forEach((n) =>
+        onMarkSeen?.(n.id, n.type)
+      );
+    }
     onClose?.();
   }
 

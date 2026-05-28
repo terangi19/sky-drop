@@ -69,14 +69,18 @@ export default function Navbar() {
     } catch { return new Set<string>(); }
   }
 
-  function markSeen(id: string) {
+  function markSeen(id: string, type?: string) {
     const next = new Set(dismissedIds);
     next.add(id);
     setDismissedIds(next);
     try {
       localStorage.setItem("dismissedNotifications", JSON.stringify([...next]));
     } catch {}
-    updateDoc(doc(db, "notifications", id), { read: true }).catch(() => {});
+    if (type === "message" || type === "offer") {
+      updateDoc(doc(db, "messages", id), { read: true }).catch(() => {});
+    } else {
+      updateDoc(doc(db, "notifications", id), { read: true }).catch(() => {});
+    }
   }
 
   useEffect(() => {
@@ -395,6 +399,11 @@ export default function Navbar() {
                   }
                   onClose={() => setShowNotifications(false)}
                   onMarkSeen={markSeen}
+                  onClearAll={() => {
+                    notifications.forEach((n) => markSeen(n.id, n.type));
+                    setNotifications([]);
+                    setNotificationCount(0);
+                  }}
                 />
               )}
             </div>
