@@ -390,6 +390,99 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
         console.error("Failed to update listing availability:", e);
       }
 
+      // Rental: auto-create conversation and send system message
+      if (isRental) {
+        try {
+          const convKey = `listing_${listing.id}`;
+          const existingConv = await getDocs(
+            query(
+              collection(db, "conversations"),
+              where("convKey", "==", convKey),
+              where("participants", "array-contains", buyerEmail)
+            )
+          );
+
+          let convId: string;
+          if (!existingConv.empty) {
+            convId = existingConv.docs[0].id;
+            await updateDoc(doc(db, "conversations", convId), {
+              updatedAt: serverTimestamp(),
+              lastMessage: `Rental confirmed — $${total}`,
+              orderStatus: "paid",
+            });
+          } else {
+            const convRef = await addDoc(collection(db, "conversations"), {
+              convKey,
+              participants: [buyerEmail, listing.sellerEmail],
+              buyerEmail,
+              sellerEmail: listing.sellerEmail,
+              listingId: listing.id,
+              listingTitle: listing.title,
+              listingPrice: String(total),
+              listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
+              orderStatus: "paid",
+              orderId: purchaseRef.id,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+              lastMessage: `Rental confirmed — $${total}`,
+            });
+            convId = convRef.id;
+          }
+
+          const depositAmount = Number(listing.rentalDeposit) || 0;
+          const rentalDuration = `${listing.rentalDays || 1} day(s)`;
+
+          const systemMsg = `🎉 Rental confirmed for "${listing.title}"
+
+Payment has been completed successfully.
+
+Rental Details:
+• Duration: ${rentalDuration}
+• Total Paid Today: $${total.toFixed(2)}
+• Refundable Deposit Held: $${depositAmount.toFixed(2)}
+
+The refundable deposit will be returned after the item/property is safely returned and confirmed by the owner.
+
+Use this chat to organize:
+• pickup/dropoff
+• delivery
+• rental instructions
+• return time/date
+
+Please keep all communication and payments inside Sky Drop for protection.
+
+Rental Status: 🟢 Active`;
+
+          await addDoc(collection(db, "messages"), {
+            type: "system",
+            text: systemMsg,
+            sender: "system",
+            receiver: listing.sellerEmail,
+            participants: [buyerEmail, listing.sellerEmail],
+            conversationId: convId,
+            listingId: listing.id,
+            listingTitle: listing.title,
+            read: false,
+            createdAt: serverTimestamp(),
+          });
+
+          await addDoc(collection(db, "messages"), {
+            type: "text",
+            text: `🟢 A renter has successfully booked your rental listing.\n\nPlease use this chat to coordinate pickup/dropoff, delivery, rental instructions, and return arrangements.`,
+            sender: "system",
+            receiver: listing.sellerEmail,
+            participants: [buyerEmail, listing.sellerEmail],
+            conversationId: convId,
+            listingId: listing.id,
+            listingTitle: listing.title,
+            read: false,
+            createdAt: serverTimestamp(),
+          });
+        } catch (e) {
+          console.error("Rental conversation creation failed:", e);
+        }
+      }
+
       setOrderId(purchaseRef.id);
       try {
         localStorage.setItem("checkoutInfo", JSON.stringify({ name: name.trim(), phone: phone.trim() }));
