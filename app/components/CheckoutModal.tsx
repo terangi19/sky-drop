@@ -451,7 +451,14 @@ Use this chat to organize:
 
 Please keep all communication and payments inside Sky Drop for protection.
 
-Rental Status: 🟢 Active`;
+Rental Status: 🟢 Active
+
+⚠️ PROTECT YOURSELF — Stay on Sky Drop
+• Never communicate outside this chat
+• Never send payments outside Sky Drop
+• Report suspicious behavior immediately
+
+Scammers often try to move conversations to WhatsApp, email, or other platforms. If anyone asks you to do so, stop and report them.`;
 
           await addDoc(collection(db, "messages"), {
             type: "system",
@@ -468,7 +475,7 @@ Rental Status: 🟢 Active`;
 
           await addDoc(collection(db, "messages"), {
             type: "text",
-            text: `🟢 A renter has successfully booked your rental listing.\n\nPlease use this chat to coordinate pickup/dropoff, delivery, rental instructions, and return arrangements.`,
+            text: `🟢 A renter has successfully booked your rental listing.\n\nPlease use this chat to coordinate pickup/dropoff, delivery, rental instructions, and return arrangements.\n\n⚠️ Do not release the item until payment is confirmed in your sales dashboard. Keep all communication in this chat for dispute protection.`,
             sender: "system",
             receiver: listing.sellerEmail,
             participants: [buyerEmail, listing.sellerEmail],
@@ -534,7 +541,14 @@ The seller has been notified and will provide the digital asset, access details,
 
 Please keep all communication and digital delivery inside Sky Drop for protection.
 
-Digital Order Status: 🟢 Active`;
+Digital Order Status: 🟢 Active
+
+⚠️ PROTECT YOURSELF — Stay on Sky Drop
+• Never communicate outside this chat
+• Never send payments outside Sky Drop
+• Report suspicious behavior immediately
+
+Scammers often try to move conversations to WhatsApp, email, or other platforms. If anyone asks you to do so, stop and report them.`;
 
           await addDoc(collection(db, "messages"), {
             type: "system",
@@ -551,7 +565,7 @@ Digital Order Status: 🟢 Active`;
 
           await addDoc(collection(db, "messages"), {
             type: "text",
-            text: `🟢 Your digital asset has been purchased successfully.\n\nPlease use this chat to:\n• deliver files/assets\n• provide access details\n• send license keys\n• coordinate transfer securely\n\nKeep all communication and delivery inside Sky Drop for protection.`,
+            text: `🟢 Your digital asset has been purchased successfully.\n\nPlease use this chat to:\n• deliver files/assets\n• provide access details\n• send license keys\n• coordinate transfer securely\n\nKeep all communication and delivery inside Sky Drop for protection.\n\n⚠️ Do not deliver files/access until the payment shows as confirmed in your sales dashboard. Keep all digital delivery within this chat for dispute protection.`,
             sender: "system",
             receiver: listing.sellerEmail,
             participants: [buyerEmail, listing.sellerEmail],
