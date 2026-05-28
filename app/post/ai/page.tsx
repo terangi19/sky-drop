@@ -472,6 +472,7 @@ export default function AIPostPage() {
         vehicleBodyType, vehicleFuelType, vehicleTransmission, vehicleColour,
       } : {
         ...baseData, condition, location,
+        type: "physical",
         pickupAvailable, shippingAvailable, pickupArea,
         shippingFee: shippingAvailable && shippingFee ? Number(shippingFee) : null,
         freeShipping: shippingAvailable ? freeShipping : false,
