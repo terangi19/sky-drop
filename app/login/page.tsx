@@ -18,6 +18,7 @@ import {
 import { addDoc, collection, doc, getDocs, increment, query, serverTimestamp, setDoc, Timestamp, updateDoc, where } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 import { createNotification } from "../lib/notifications";
+import { buildEmailHtml } from "../lib/email";
 
 export default function AuthPage() {
   const router = useRouter();
@@ -128,6 +129,37 @@ export default function AuthPage() {
             }
           }
           await setDoc(doc(db, "profiles", user.uid), profileData);
+
+          // Send welcome email
+          try {
+            const welcomeHtml = buildEmailHtml({
+              to: user.email!,
+              subject: "Welcome to Sky Drop — let's get started",
+              title: "Welcome to Sky Drop",
+              message: `Hi there,
+
+Thanks for joining Sky Drop — New Zealand's community marketplace.
+
+Here's how to get started:
+
+• Browse listings — Find what you need across 7 categories: tech, vehicles, property, services, events, rentals, and digital goods.
+• List an item — Post your first listing for free. It takes less than a minute.
+• Buy with confidence — All payments are processed securely through Stripe with buyer protection included.
+• Stay safe — Never pay outside Sky Drop. Keep all communication in our chat.
+
+Your account is ready. Now go explore.`,
+              cta: "Browse Listings",
+              ctaUrl: "https://skydrop.nz",
+              footerNote: "Please verify your email address to unlock all features including listing items and making offers.",
+            });
+            await fetch("/api/send-email", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ to: user.email, subject: "Welcome to Sky Drop — let's get started", html: welcomeHtml }),
+            });
+          } catch (e) {
+            console.info("[Auth] Welcome email skipped:", e);
+          }
         }
 
         alert("Account created! A verification email has been sent to your inbox. Please verify to unlock full features.");
