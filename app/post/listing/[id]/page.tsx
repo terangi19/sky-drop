@@ -1108,7 +1108,89 @@ export default function ListingPage() {
             <div className="flex gap-2">
               {user && user.email !== listing.sellerEmail ? (
                 <>
-                  <button onClick={() => setShowJobApplication(true)}
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      try {
+                        const convKey = `listing_${listingId}`;
+                        const existingConv = await getDocs(
+                          query(
+                            collection(db, "conversations"),
+                            where("convKey", "==", convKey),
+                            where("participants", "array-contains", user!.email!)
+                          )
+                        );
+
+                        let convId: string;
+                        if (!existingConv.empty) {
+                          convId = existingConv.docs[0].id;
+                          await updateDoc(doc(db, "conversations", convId), {
+                            updatedAt: serverTimestamp(),
+                            lastMessage: `Job inquiry started`,
+                          });
+                        } else {
+                          const convRef = await addDoc(collection(db, "conversations"), {
+                            convKey,
+                            participants: [user!.email!, listing.sellerEmail],
+                            buyerEmail: user!.email!,
+                            sellerEmail: listing.sellerEmail,
+                            listingId,
+                            listingTitle: listing.title,
+                            listingPrice: listing.price,
+                            listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
+                            createdAt: serverTimestamp(),
+                            updatedAt: serverTimestamp(),
+                            lastMessage: `Job inquiry started`,
+                          });
+                          convId = convRef.id;
+                        }
+
+                        const buyerMsg = `💼 Job inquiry started for "${listing.title}"
+
+You're now connected with the employer.
+
+Use this chat to discuss:
+• job requirements
+• availability
+• experience
+• pay/rates
+• interview details
+• work schedule
+
+Please keep all communication inside Sky Drop for protection.
+
+Application Status: 🟢 Active`;
+
+                        await addDoc(collection(db, "messages"), {
+                          type: "system",
+                          text: buyerMsg,
+                          sender: "system",
+                          receiver: listing.sellerEmail,
+                          participants: [user!.email!, listing.sellerEmail],
+                          conversationId: convId,
+                          listingId,
+                          listingTitle: listing.title,
+                          read: false,
+                          createdAt: serverTimestamp(),
+                        });
+
+                        await addDoc(collection(db, "messages"), {
+                          type: "text",
+                          text: `🟢 A user is interested in your job listing.\n\nUse this chat to discuss:\n• experience/skills\n• availability\n• interview arrangements\n• pay/rates\n• job expectations\n\nKeep all communication inside Sky Drop for protection.`,
+                          sender: "system",
+                          receiver: listing.sellerEmail,
+                          participants: [user!.email!, listing.sellerEmail],
+                          conversationId: convId,
+                          listingId,
+                          listingTitle: listing.title,
+                          read: false,
+                          createdAt: serverTimestamp(),
+                        });
+                      } catch (e) {
+                        console.error("Job inquiry failed:", e);
+                      }
+                      router.push(`/messages?user=${encodeURIComponent(listing.sellerEmail || "")}&listing=${listingId}`);
+                    }}
                     className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-cyan-500 to-teal-500 py-3 text-[13px] font-bold text-white shadow-lg shadow-cyan-500/20 transition hover:shadow-xl hover:shadow-cyan-500/30"
                   >
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
