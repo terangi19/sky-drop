@@ -101,7 +101,7 @@ export default function VehiclesPage() {
               <Link key={item.id} href={`/post/listing/${item.id}`} className="group relative overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.02] transition-all duration-300 hover:bg-white/[0.04] hover:border-blue-500/30 hover:-translate-y-1 hover:shadow-[0_10px_40px_-10px_rgba(59,130,246,0.15)]">
                 <div className="relative h-36 overflow-hidden bg-gradient-to-br from-blue-900/20 to-indigo-900/20">
                   {item.images?.[0] || item.imageUrl || item.image ? (
-                    <img src={item.images?.[0] || item.imageUrl || item.image} alt="" className="h-full w-full object-cover transition-all duration-500 group-hover:scale-110" />
+                    <img src={item.images?.[0] || item.imageUrl || item.image} alt={item.title} className="h-full w-full object-cover transition-all duration-500 group-hover:scale-110" />
                   ) : (
                     <div className="flex h-full items-center justify-center text-5xl opacity-30">🚗</div>
                   )}

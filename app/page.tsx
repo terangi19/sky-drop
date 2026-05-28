@@ -821,7 +821,7 @@ export default function Home() {
               className="group shrink-0 w-56 cursor-pointer rounded-2xl border border-white/[0.04] bg-white/[0.02] p-3 transition-all duration-300 hover:bg-white/[0.04] hover:border-orange-500/30 hover:-translate-y-1 hover:shadow-[0_10px_30px_-10px_rgba(251,146,60,0.2)]">
               <div className="relative overflow-hidden rounded-xl">
                 {item.images?.[0] || item.imageUrl || item.image ? (
-                  <img src={item.images?.[0] || item.imageUrl || item.image || ""} alt="" loading="lazy" className="h-20 w-full rounded-xl object-cover transition-all duration-500 group-hover:scale-110" />
+                   <img src={item.images?.[0] || item.imageUrl || item.image || ""} alt={item.title} loading="lazy" className="h-20 w-full rounded-xl object-cover transition-all duration-500 group-hover:scale-110" />
                 ) : (
                   <div className="h-20 rounded-xl bg-gradient-to-br from-orange-500/10 via-red-500/10 to-amber-500/10 flex items-center justify-center text-xs text-zinc-500">SD</div>
                 )}
@@ -1288,7 +1288,7 @@ onClick={() => router.push(`/post/listing/${item.id}`)}
                      className="group shrink-0 w-56 rounded-xl border border-zinc-700/60 bg-zinc-900/80 p-3 cursor-pointer hover:border-sky-500/40 hover:-translate-y-0.5 hover:shadow-[0_8px_25px_rgba(0,0,0,0.25)] transition-all duration-300"
                 >
                 {item.images?.[0] || item.imageUrl || item.image ? (
-                    <img src={item.images?.[0] || item.imageUrl || item.image || ""} alt="" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).src = ""; (e.target as HTMLImageElement).classList.add("hidden"); }} className="h-20 w-full rounded-lg object-cover" />
+                    <img src={item.images?.[0] || item.imageUrl || item.image || ""} alt={item.title} loading="lazy" onError={(e) => { (e.target as HTMLImageElement).src = ""; (e.target as HTMLImageElement).classList.add("hidden"); }} className="h-20 w-full rounded-lg object-cover" />
                 ) : (
                     <div className="h-20 w-full rounded-lg bg-gradient-to-br from-sky-500/15 via-violet-500/15 to-purple-600/15 flex items-center justify-center text-[var(--foreground)] text-xs">
                         <div className="text-center">
@@ -1317,7 +1317,7 @@ onClick={() => router.push(`/post/listing/${item.id}`)}
             {listings.filter(l => l.status === "sold").slice(0, 6).map((item) => (
               <div key={item.id} className="shrink-0 w-44 rounded-xl border border-zinc-800/40 bg-zinc-900/50 p-3 opacity-80">
                 {item.images?.[0] || item.imageUrl || item.image ? (
-                  <img src={item.images?.[0] || item.imageUrl || item.image || ""} alt="" loading="lazy" className="h-20 w-full rounded-lg object-cover" />
+                   <img src={item.images?.[0] || item.imageUrl || item.image || ""} alt={item.title} loading="lazy" className="h-20 w-full rounded-lg object-cover" />
                 ) : (
                   <div className="h-20 w-full rounded-lg bg-gradient-to-br from-sky-500/10 via-violet-500/10 to-purple-600/10 flex items-center justify-center text-xs text-[var(--muted)]">SD</div>
                 )}

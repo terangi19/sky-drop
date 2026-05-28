@@ -132,7 +132,7 @@ export default function ServicesPage() {
                 {/* Preview */}
                 <div className="relative h-36 overflow-hidden bg-gradient-to-br from-violet-900/20 to-fuchsia-900/20">
                   {item.images?.[0] || item.imageUrl || item.image ? (
-                    <img src={item.images?.[0] || item.imageUrl || item.image} alt="" className="h-full w-full object-cover transition-all duration-500 group-hover:scale-110" />
+                    <img src={item.images?.[0] || item.imageUrl || item.image} alt={item.title} className="h-full w-full object-cover transition-all duration-500 group-hover:scale-110" />
                   ) : (
                     <div className="flex h-full items-center justify-center text-5xl opacity-30">🤝</div>
                   )}

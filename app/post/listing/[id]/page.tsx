@@ -294,6 +294,29 @@ export default function ListingPage() {
     updateMeta("og:description", desc);
     if (image) updateMeta("og:image", image);
     updateMeta("og:type", "website");
+
+    // JSON-LD structured data
+    const existingLd = document.querySelector("#sky-drop-ld");
+    if (existingLd) existingLd.remove();
+    const ld = document.createElement("script");
+    ld.id = "sky-drop-ld";
+    ld.type = "application/ld+json";
+    ld.textContent = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: listing.title,
+      description: (listing.description || "").slice(0, 500),
+      image: image || undefined,
+      offers: {
+        "@type": "Offer",
+        price: listing.price ? Number(listing.price) : undefined,
+        priceCurrency: "NZD",
+        availability: listing.status === "sold" ? "https://schema.org/SoldOut" : "https://schema.org/InStock",
+        itemCondition: listing.condition === "New" ? "https://schema.org/NewCondition" : listing.condition === "Used - Like New" ? "https://schema.org/LikeNew" : "https://schema.org/UsedCondition",
+        url: typeof window !== "undefined" ? window.location.href : "",
+      },
+    });
+    document.head.appendChild(ld);
   }, [listing]);
 
   async function saveToWatchlist() {

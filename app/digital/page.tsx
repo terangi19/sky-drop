@@ -133,7 +133,7 @@ export default function DigitalPage() {
                 {/* Preview image */}
                 <div className="relative h-40 overflow-hidden bg-gradient-to-br from-zinc-800/80 to-zinc-900/80">
                   {item.images?.[0] || item.imageUrl || item.image ? (
-                    <img src={item.images?.[0] || item.imageUrl || item.image} alt="" className="h-full w-full object-contain p-6 transition-all duration-500 group-hover:scale-110 group-hover:brightness-110" />
+                    <img src={item.images?.[0] || item.imageUrl || item.image} alt={item.title} className="h-full w-full object-contain p-6 transition-all duration-500 group-hover:scale-110 group-hover:brightness-110" />
                   ) : (
                     <div className="flex h-full items-center justify-center text-5xl opacity-40">✦</div>
                   )}
