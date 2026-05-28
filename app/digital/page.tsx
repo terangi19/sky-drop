@@ -58,6 +58,41 @@ export default function DigitalPage() {
           </div>
         </div>
 
+        {/* How It Works */}
+        <div className="mb-10 rounded-2xl border border-sky-500/10 bg-gradient-to-b from-sky-500/[0.03] to-transparent p-6">
+          <h2 className="mb-5 text-xs font-bold uppercase tracking-[0.12em] text-sky-400">📖 How It Works</h2>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div className="flex gap-3">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sm">🔍</span>
+              <div>
+                <p className="text-sm font-bold text-[var(--foreground)]">Browse & Buy</p>
+                <p className="mt-0.5 text-xs text-zinc-500">Find a digital product you need and click Buy Now to purchase instantly.</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sm">💳</span>
+              <div>
+                <p className="text-sm font-bold text-[var(--foreground)]">Pay Securely</p>
+                <p className="mt-0.5 text-xs text-zinc-500">Checkout is handled securely through Stripe with buyer protection included.</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sm">💬</span>
+              <div>
+                <p className="text-sm font-bold text-[var(--foreground)]">Seller Delivers</p>
+                <p className="mt-0.5 text-xs text-zinc-500">The seller sends files, access details, or license keys through the chat.</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sm">✅</span>
+              <div>
+                <p className="text-sm font-bold text-[var(--foreground)]">Instant Download</p>
+                <p className="mt-0.5 text-xs text-zinc-500">Digital items are delivered instantly upon payment confirmation.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Category filters */}
         <div className="mb-8 flex flex-wrap gap-2">
           {CATEGORIES.map((c) => (
