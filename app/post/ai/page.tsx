@@ -1058,7 +1058,7 @@ export default function AIPostPage() {
                     <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Daily rate *</label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                      <input type="number" value={price} onChange={(e) => setPrice(e.target.value)}
+                      <input type="number" value={price} onChange={(e) => { const v = e.target.value; setPrice(v); const d = Number(v); if (d > 0) { if (!rentalPriceWeekly) setRentalPriceWeekly(String(Math.round(d * 7))); if (!rentalPriceMonthly) setRentalPriceMonthly(String(Math.round(d * 30))); } }}
                         placeholder="Day"
                         className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
                     </div>
@@ -1083,13 +1083,14 @@ export default function AIPostPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Security deposit / bond <span className="text-zinc-600">(opt)</span></label>
+                  <label className="mb-1 block text-[10px] font-medium text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">Refundable Deposit</label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
                     <input type="number" value={rentalDeposit} onChange={(e) => setRentalDeposit(e.target.value)}
                       placeholder="Deposit amount"
                       className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
                   </div>
+                  <p className="mt-1 text-[10px] text-amber-400/70 drop-shadow-[0_0_4px_rgba(251,191,36,0.2)]">Returned to renter if item/property is returned safely.</p>
                 </div>
                 <div>
                   <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Quantity available</label>

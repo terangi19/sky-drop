@@ -80,7 +80,7 @@ export default function RentalsPage() {
                     </div>
                   </div>
 
-                  <div className="mt-2 text-[10px] text-zinc-500">{item.condition || "Good"}{item.rentalDeposit ? ` · $${item.rentalDeposit} deposit` : ""}</div>
+                  <div className="mt-2 text-[10px] text-zinc-500">{item.condition || "Good"}{item.rentalDeposit ? <> · <span className="text-amber-400">${item.rentalDeposit} deposit</span></> : ""}</div>
 
                   <div className="mt-4 flex items-center justify-between border-t border-zinc-800/50 pt-4">
                     <span className="text-[11px] text-zinc-500">{item.location || "Pickup"}</span>

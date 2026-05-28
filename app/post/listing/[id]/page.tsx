@@ -913,7 +913,7 @@ export default function ListingPage() {
                 </div>
                 {listing.rentalDeposit && (
                   <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
-                    <span>🔒 ${Number(listing.rentalDeposit).toFixed(2)} security deposit</span>
+                    <span className="text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">🔒 $${Number(listing.rentalDeposit).toFixed(2)} refundable deposit</span>
                   </div>
                 )}
                 {listing.condition && (
@@ -1208,7 +1208,7 @@ export default function ListingPage() {
                           </div>
                           {listing.rentalDeposit && (
                             <div className="mt-0.5 flex items-center justify-between text-[var(--muted)]">
-                              <span>🔒 Security deposit (refundable)</span>
+                              <span className="text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">🔒 Refundable Deposit</span>
                               <span>$${Number(listing.rentalDeposit).toFixed(2)}</span>
                             </div>
                           )}

@@ -513,7 +513,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
               )}
               {isRental && listing.rentalDeposit && (
                 <div className="mt-1 flex items-center justify-between text-amber-400">
-                  <span>🔒 Security deposit <span className="text-[var(--muted)]">(refundable)</span></span>
+                  <span className="text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">🔒 Refundable Deposit</span>
                   <span>${Number(listing.rentalDeposit).toFixed(2)}</span>
                 </div>
               )}
@@ -636,7 +636,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                     )}
                     {isRental && listing.rentalDeposit && (
                       <div className="mt-1 flex items-center justify-between text-amber-400">
-                        <span>🔒 Security deposit <span className="text-[var(--muted)]">(refundable)</span></span>
+                        <span className="text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">🔒 Refundable Deposit</span>
                         <span>${Number(listing.rentalDeposit).toFixed(2)}</span>
                       </div>
                     )}
@@ -673,7 +673,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                     )}
                     {isRental && listing.rentalDeposit && (
                       <div className="mt-1 flex items-center justify-between text-amber-400">
-                        <span>🔒 Security deposit <span className="text-[var(--muted)]">(refundable)</span></span>
+                        <span className="text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">🔒 Refundable Deposit</span>
                         <span>${Number(listing.rentalDeposit).toFixed(2)}</span>
                       </div>
                     )}
