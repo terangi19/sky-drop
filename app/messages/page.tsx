@@ -105,6 +105,7 @@ function MessagesPage() {
   // Feature 7: Image sending
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const messageInputRef = useRef<HTMLInputElement>(null);
   const [showSafetyWarning, setShowSafetyWarning] = useState(false);
   const [riskyKeyword, setRiskyKeyword] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState("");
@@ -174,6 +175,19 @@ function MessagesPage() {
       if (isMobile) setMobileView("chat");
     }
   }, [isMobile, user?.email]);
+
+  // Read pre-fill message from localStorage (used by job Apply Now)
+  useEffect(() => {
+    try {
+      const prefill = localStorage.getItem("skyJobPrefill");
+      if (prefill && !message) {
+        setMessage(prefill);
+        localStorage.removeItem("skyJobPrefill");
+        setTimeout(() => messageInputRef.current?.focus(), 100);
+      }
+    } catch {}
+  }, [chatUser, message]);
+
   // Fetch seller profile + trust score
   useEffect(() => {
     if (!chatUser) { setSellerProfile(null); setSellerTrust(null); return; }
@@ -1302,7 +1316,7 @@ function MessagesPage() {
                       </button>
                     )}
                     <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
-                    <input type="text" placeholder="Type a message..." value={message}
+                    <input ref={messageInputRef} type="text" placeholder="Type a message..." value={message}
                       onChange={(e) => {
                         setMessage(e.target.value);
                         if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current);

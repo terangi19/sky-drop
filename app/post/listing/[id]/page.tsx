@@ -1150,9 +1150,9 @@ export default function ListingPage() {
 You're now connected with the employer.
 
 Use this chat to discuss:
-• job requirements
-• availability
 • experience
+• availability
+• skills
 • pay/rates
 • interview details
 • work schedule
@@ -1189,6 +1189,15 @@ Application Status: 🟢 Active`;
                       } catch (e) {
                         console.error("Job inquiry failed:", e);
                       }
+                      try { localStorage.setItem("skyJobPrefill", `👋 Hi, I'm interested in this job listing.
+
+Here's a quick introduction about myself:
+• Experience:
+• Availability:
+• Location:
+• Relevant skills:
+
+Looking forward to hearing from you.`); } catch {}
                       router.push(`/messages?user=${encodeURIComponent(listing.sellerEmail || "")}&listing=${listingId}`);
                     }}
                     className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-cyan-500 to-teal-500 py-3 text-[13px] font-bold text-white shadow-lg shadow-cyan-500/20 transition hover:shadow-xl hover:shadow-cyan-500/30"
