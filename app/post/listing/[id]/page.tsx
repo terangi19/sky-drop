@@ -1059,8 +1059,125 @@ export default function ListingPage() {
               </div>
             )}
 
+            {/* Property inquiry buttons */}
+            {listing.type === "property" && (
+            <div className="flex gap-2">
+              {user && user.email !== listing.sellerEmail ? (
+                <>
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      try {
+                        const convKey = `listing_${listingId}`;
+                        const existingConv = await getDocs(
+                          query(
+                            collection(db, "conversations"),
+                            where("convKey", "==", convKey),
+                            where("participants", "array-contains", user!.email!)
+                          )
+                        );
+
+                        let convId: string;
+                        if (!existingConv.empty) {
+                          convId = existingConv.docs[0].id;
+                          await updateDoc(doc(db, "conversations", convId), {
+                            updatedAt: serverTimestamp(),
+                            lastMessage: `Property inquiry started`,
+                          });
+                        } else {
+                          const convRef = await addDoc(collection(db, "conversations"), {
+                            convKey,
+                            participants: [user!.email!, listing.sellerEmail],
+                            buyerEmail: user!.email!,
+                            sellerEmail: listing.sellerEmail,
+                            listingId,
+                            listingTitle: listing.title,
+                            listingPrice: listing.price,
+                            listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
+                            createdAt: serverTimestamp(),
+                            updatedAt: serverTimestamp(),
+                            lastMessage: `Property inquiry started`,
+                          });
+                          convId = convRef.id;
+                        }
+
+                        const buyerMsg = `🏡 Property inquiry started for "${listing.title}"
+
+You're now connected with the property owner/agent.
+
+Use this chat to discuss:
+• viewing/open home times
+• price
+• property details
+• settlement questions
+• inspection details
+• next steps
+
+Please keep all communication inside Sky Drop for protection.
+
+Property Status: 🟢 Inquiry Active`;
+
+                        await addDoc(collection(db, "messages"), {
+                          type: "system",
+                          text: buyerMsg,
+                          sender: "system",
+                          receiver: listing.sellerEmail,
+                          participants: [user!.email!, listing.sellerEmail],
+                          conversationId: convId,
+                          listingId,
+                          listingTitle: listing.title,
+                          read: false,
+                          createdAt: serverTimestamp(),
+                        });
+
+                        await addDoc(collection(db, "messages"), {
+                          type: "text",
+                          text: `🟢 A user is interested in your property listing.\n\nUse this chat to discuss:\n• viewing arrangements\n• price/negotiation\n• property details\n• settlement or tenancy\n\nKeep all communication inside Sky Drop for protection.`,
+                          sender: "system",
+                          receiver: listing.sellerEmail,
+                          participants: [user!.email!, listing.sellerEmail],
+                          conversationId: convId,
+                          listingId,
+                          listingTitle: listing.title,
+                          read: false,
+                          createdAt: serverTimestamp(),
+                        });
+                      } catch (e) {
+                        console.error("Property inquiry failed:", e);
+                      }
+                      router.push(`/messages?user=${encodeURIComponent(listing.sellerEmail || "")}&listing=${listingId}`);
+                    }}
+                    className="flex-1 rounded-lg bg-gradient-to-r from-rose-500 to-pink-500 py-3 text-[13px] font-bold text-white shadow-lg shadow-rose-500/20 transition hover:shadow-xl active:scale-[0.97]"
+                  >
+                    Contact Owner
+                  </button>
+                  {listing.acceptOffers && (
+                    <button onClick={() => setShowOffer(true)}
+                      className="rounded-lg border border-zinc-700 px-3 py-3 text-[12px] font-medium text-[var(--muted)] transition hover:border-zinc-600 hover:text-[var(--foreground)]">
+                      Make Offer
+                    </button>
+                  )}
+                </>
+              ) : user?.email === listing.sellerEmail ? (
+                <div className="flex gap-2 w-full">
+                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 rounded-lg bg-gradient-to-r from-rose-500 to-pink-500 py-3 text-center text-[13px] font-bold text-white shadow-lg shadow-rose-500/20 transition hover:shadow-xl active:scale-[0.97]">
+                    ✏️ Edit Listing
+                  </Link>
+                  <button onClick={() => setShowPromote(true)}
+                    className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-3 text-[13px] font-bold text-amber-400 transition hover:bg-amber-500/15">
+                    📈 Promote
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => showToast("Sign in first", "info")} className="flex-1 rounded-lg border border-zinc-700 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-zinc-800">
+                  Sign in
+                </button>
+              )}
+            </div>
+            )}
+
             {/* 5. BUY BUTTONS */}
-            {listing.status !== "sold" && !isExpired && listing.stockQuantity !== 0 && listing.type !== "service" && listing.type !== "job" && (
+            {listing.status !== "sold" && !isExpired && listing.stockQuantity !== 0 && listing.type !== "service" && listing.type !== "job" && listing.type !== "property" && (
             <div className="flex gap-2">
               {user && user.email !== listing.sellerEmail ? (
                 <>
