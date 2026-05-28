@@ -8,6 +8,7 @@ import stripePromise from "../lib/stripe-client";
 import { db, storage } from "../lib/firebase";
 import { ref, getDownloadURL } from "firebase/storage";
 import { createNotification } from "../lib/notifications";
+import { safeGetDoc, parseFirestoreError } from "../lib/firestore";
 import AnimatedCheckmark from "./AnimatedCheckmark";
 import { playConfetti, playSuccess } from "../lib/sounds";
 
@@ -232,8 +233,8 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
 
     try {
       // Verify the real price from Firestore
-      const snap = await getDoc(doc(db, collectionName, listing.id));
-      if (!snap.exists()) {
+      const snap = await safeGetDoc(doc(db, collectionName, listing.id));
+      if (!snap?.exists()) {
         setIntentError("Listing not found.");
         setStep("form");
         return;

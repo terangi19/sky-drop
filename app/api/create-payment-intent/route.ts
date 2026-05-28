@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { collection, doc, getDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 import { rateLimit } from "../../lib/rate-limit";
+import { isOnline } from "../../lib/firestore";
 
 let stripe: Stripe | null = null;
 
@@ -31,7 +32,16 @@ export async function POST(req: NextRequest) {
     }
 
     const listingRef = doc(collection(db, "listings"), listingId);
-    const listingSnap = await getDoc(listingRef);
+    let listingSnap;
+    try {
+      listingSnap = await getDoc(listingRef);
+    } catch (e: any) {
+      console.error("[create-payment-intent] Failed to read listing:", e?.code || e?.message || e);
+      if (!isOnline()) {
+        return NextResponse.json({ error: "Your device appears to be offline. Check your internet connection and try again." }, { status: 503 });
+      }
+      return NextResponse.json({ error: "Failed to verify listing. Please try again." }, { status: 503 });
+    }
     if (!listingSnap.exists()) {
       return NextResponse.json({ error: "Listing not found." }, { status: 400 });
     }
