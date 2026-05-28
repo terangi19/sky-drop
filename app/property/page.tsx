@@ -11,10 +11,10 @@ export default function PropertyPage() {
   const [listings, setListings] = useState<any[]>([]);
 
   useEffect(() => {
-    const q = query(collection(db, "listings"), where("type", "==", "property"), where("status", "==", "live"));
+    const q = query(collection(db, "listings"), where("type", "==", "property"));
     const unsub = onSnapshot(q, (snap) => {
-      const items: any[] = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      items.sort((a, b) => ((b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0)));
+      const items: any[] = snap.docs.map((d) => ({ id: d.id, ...d.data() } as any)).filter((i: any) => i.status === "live");
+      items.sort((a: any, b: any) => ((b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0)));
       setListings(items);
     }, (err) => { console.error("Failed to load property:", err); });
     return () => unsub();

@@ -59,9 +59,9 @@ export default function AdminVerificationPage() {
       return () => unsub();
     } else if (tab === "digital") {
       setLoading(true);
-      const q = query(collection(db, "tradePosts"), where("type", "==", "digital"), where("status", "==", "pending_review"));
+      const q = query(collection(db, "tradePosts"), where("type", "==", "digital"));
       const unsub = onSnapshot(q, (snap) => {
-        setDigitalListings(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setDigitalListings(snap.docs.filter((d) => d.data().status === "pending_review").map((d) => ({ id: d.id, ...d.data() })));
         setLoading(false);
       }, (err) => {
         console.error("Failed to load digital listings:", err);

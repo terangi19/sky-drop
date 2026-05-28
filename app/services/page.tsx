@@ -23,12 +23,12 @@ export default function ServicesPage() {
   }, []);
 
   useEffect(() => {
-    const q = query(collection(db, "listings"), where("type", "==", "service"), where("status", "==", "live"));
+    const q = query(collection(db, "listings"), where("type", "==", "service"));
     const unsub = onSnapshot(q, (snap) => {
-      const items: any[] = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      items.sort((a, b) => ((b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0)));
+      const items: any[] = snap.docs.map((d) => ({ id: d.id, ...d.data() } as any)).filter((i: any) => i.status === "live");
+      items.sort((a: any, b: any) => ((b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0)));
       setListings(items);
-    }, (err) => { console.error("Failed to load services:", err); alert("Failed to load services — check Firestore indexes"); });
+    }, (err) => { console.error("Failed to load services:", err); });
     return () => unsub();
   }, []);
 

@@ -105,8 +105,8 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => {
-    const q = query(collection(db, "tradePosts"), where("type", "==", "digital"), where("status", "==", "pending_review"));
-    const unsub = onSnapshot(q, (snap) => setPendingDigital(snap.docs.length));
+    const q = query(collection(db, "tradePosts"), where("type", "==", "digital"));
+    const unsub = onSnapshot(q, (snap) => setPendingDigital(snap.docs.filter((d) => d.data().status === "pending_review").length));
     return () => unsub();
   }, []);
 
