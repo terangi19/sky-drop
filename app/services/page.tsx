@@ -141,13 +141,13 @@ export default function ServicesPage() {
                 </div>
 
                 <div className="p-5">
-                  <div className="flex items-start justify-between gap-3">
+                  <Link href={`/post/listing/${item.id}`} className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-bold text-[var(--foreground)] group-hover:text-violet-400 transition-colors duration-300">{item.title}</p>
                       <p className="mt-0.5 text-[11px] text-zinc-500">{item.category}</p>
                     </div>
                     <span className="shrink-0 text-lg font-black text-violet-400 drop-shadow-[0_0_8px_rgba(139,92,246,0.3)]">{item.price ? `$${item.price}` : "Negotiable"}</span>
-                  </div>
+                  </Link>
 
                   {item.serviceDuration && (
                     <p className="mt-2 text-[10px] text-zinc-500">⏱ {item.serviceDuration}</p>
