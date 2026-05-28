@@ -188,8 +188,8 @@ export default function Navbar() {
     return () => { unsub1(); unsub2(); };
   }, [user]);
 
-  const msgCount = notifications.filter((n) => n.type === "message" || n.type === "offer").length;
-  const activityCount = notifications.filter((n) => n.type !== "message" && n.type !== "offer" && !dismissedIds.has(n.id)).length;
+  const msgCount = Math.max(0, notifications.filter((n) => n.type === "message" || n.type === "offer").length);
+  const activityCount = Math.max(0, notifications.filter((n) => n.type !== "message" && n.type !== "offer" && !dismissedIds.has(n.id)).length);
 
   async function handleLogout() {
     await signOut(auth);

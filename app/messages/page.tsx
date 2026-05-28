@@ -273,6 +273,13 @@ function MessagesPage() {
       seenBatchRef.current.add(msg.id);
       updateDoc(doc(db, "messages", msg.id), { read: true, readAt: serverTimestamp() }).catch(() => {});
     }
+
+    // Also mark corresponding notification documents as read
+    if (unreadMsgs.length > 0 || chatListingId) {
+      getDocs(query(collection(db, "notifications"), where("listingId", "==", chatListingId || ""), where("read", "==", false))).then((snap) => {
+        snap.docs.forEach((d) => updateDoc(doc(db, "notifications", d.id), { read: true }).catch(() => {}));
+      }).catch(() => {});
+    }
   }, [chatUser, user, messages, chatListingId]);
   // Fetch usernames
   async function fetchUsername(email: string) {
