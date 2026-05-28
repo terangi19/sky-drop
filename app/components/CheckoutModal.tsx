@@ -40,6 +40,7 @@ interface ListingData {
   rentalPriceMonthly?: number;
   eventDate?: string;
   venue?: string;
+  ticketQuantity?: number;
   condition?: string;
   location?: string;
   shipsWithinDays?: number;
@@ -577,6 +578,105 @@ Scammers often try to move conversations to WhatsApp, email, or other platforms.
           });
         } catch (e) {
           console.error("Digital conversation creation failed:", e);
+        }
+      }
+
+      // Event: auto-create conversation and send system message
+      if (isEvent) {
+        try {
+          const convKey = `listing_${listing.id}`;
+          const existingConv = await getDocs(
+            query(
+              collection(db, "conversations"),
+              where("convKey", "==", convKey),
+              where("participants", "array-contains", buyerEmail)
+            )
+          );
+
+          let convId: string;
+          if (!existingConv.empty) {
+            convId = existingConv.docs[0].id;
+            await updateDoc(doc(db, "conversations", convId), {
+              updatedAt: serverTimestamp(),
+              lastMessage: `Event purchase confirmed — $${total}`,
+              orderStatus: "paid",
+            });
+          } else {
+            const convRef = await addDoc(collection(db, "conversations"), {
+              convKey,
+              participants: [buyerEmail, listing.sellerEmail],
+              buyerEmail,
+              sellerEmail: listing.sellerEmail,
+              listingId: listing.id,
+              listingTitle: listing.title,
+              listingPrice: String(total),
+              listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
+              orderStatus: "paid",
+              orderId: purchaseRef.id,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+              lastMessage: `Event purchase confirmed — $${total}`,
+            });
+            convId = convRef.id;
+          }
+
+          const ticketQty = listing.stockQuantity || listing.ticketQuantity || 1;
+          const eventDateStr = listing.eventDate ? new Date(listing.eventDate).toLocaleDateString("en-NZ", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : "See listing";
+
+          const buyerMsg = `🎟️ Ticket purchase confirmed for "${listing.title}"
+
+Payment has been completed successfully.
+
+Order Details:
+• Quantity: ${ticketQty}
+• Total Paid: $${total.toFixed(2)}
+• Event Date: ${eventDateStr}
+
+The seller has been notified and will provide:
+• ticket transfer
+• QR codes
+• entry details
+• seat information
+• meetup instructions if needed
+
+Please keep all communication and ticket delivery inside Sky Drop for protection.
+
+Event Order Status: 🟢 Active
+
+⚠️ PROTECT YOURSELF — Stay on Sky Drop
+• Never communicate outside this chat
+• Never send payments outside Sky Drop
+• Report suspicious behavior immediately
+
+Scammers often try to move conversations to WhatsApp, email, or other platforms. If anyone asks you to do so, stop and report them.`;
+
+          await addDoc(collection(db, "messages"), {
+            type: "system",
+            text: buyerMsg,
+            sender: "system",
+            receiver: listing.sellerEmail,
+            participants: [buyerEmail, listing.sellerEmail],
+            conversationId: convId,
+            listingId: listing.id,
+            listingTitle: listing.title,
+            read: false,
+            createdAt: serverTimestamp(),
+          });
+
+          await addDoc(collection(db, "messages"), {
+            type: "text",
+            text: `🟢 Your event ticket listing has been purchased.\n\nPlease use this chat to:\n• transfer tickets\n• send QR codes\n• provide seat/event details\n• coordinate meetup if required\n\nKeep all ticket delivery and communication inside Sky Drop for protection.\n\n⚠️ Do not transfer tickets until the payment shows as confirmed in your sales dashboard. Keep all ticket delivery within this chat for dispute protection.`,
+            sender: "system",
+            receiver: listing.sellerEmail,
+            participants: [buyerEmail, listing.sellerEmail],
+            conversationId: convId,
+            listingId: listing.id,
+            listingTitle: listing.title,
+            read: false,
+            createdAt: serverTimestamp(),
+          });
+        } catch (e) {
+          console.error("Event conversation creation failed:", e);
         }
       }
 
