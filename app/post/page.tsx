@@ -35,8 +35,6 @@ import { showToast } from "../components/Toast";
 import { createPendingXP, trackListingCreated } from "../lib/xpValidation";
 import { useProfile } from "../contexts/ProfileContext";
 import DigitalAssetUpload from "../components/DigitalAssetUpload";
-import KYCGuard from "../components/KYCGuard";
-
 export default function PostPage() {
   const router = useRouter();
   const { username } = useProfile();
@@ -111,9 +109,7 @@ export default function PostPage() {
 
   const [restricted, setRestricted] =
     useState(false);
-  const [showKYC, setShowKYC] = useState(false);
-  const [kycStatus, setKycStatus] = useState("unsubmitted");
-  const [kycRejectionReason, setKycRejectionReason] = useState("");
+
 
   const [scamAlert, setScamAlert] = useState<{ title: string; message: string; found: string[] } | null>(null);
   const [priceAlert, setPriceAlert] = useState(false);
@@ -153,8 +149,7 @@ export default function PostPage() {
               ) {
                 const data = profileSnap.data();
                 setRestricted(data.restricted === true);
-                setKycStatus(data.kycStatus || "unsubmitted");
-                setKycRejectionReason(data.kycRejectionReason || "");
+
               }
             } catch (error) {
               console.error(
@@ -180,11 +175,6 @@ export default function PostPage() {
       return;
     }
 
-    if (kycStatus !== "approved") {
-      setShowKYC(true);
-      return;
-    }
-
     if (!title || !description || !price) {
       alert("Fill all required fields.");
       return;
@@ -205,12 +195,6 @@ export default function PostPage() {
       const profileSnap = await getDoc(doc(db, "profiles", user.uid));
       if (!profileSnap.exists()) { alert("Profile not found. Complete your profile first."); return; }
       const profileData = profileSnap.data();
-      const { canListDigital } = await import("../lib/kyc");
-      const gate = await canListDigital(profileData || {});
-      if (!gate.allowed) {
-        alert(`Cannot list digital assets: ${gate.reason}`);
-        return;
-      }
     }
 
     if (listingType === "event") {
@@ -491,17 +475,6 @@ export default function PostPage() {
       <Navbar />
 
       <ThemeToggle />
-
-      {/* KYC GUARD */}
-      {showKYC && (
-        <KYCGuard
-          status={kycStatus as "unsubmitted" | "pending" | "rejected"}
-          rejectionReason={kycRejectionReason}
-          userId={user?.uid || ""}
-          onClose={() => setShowKYC(false)}
-          onSubmitted={() => { setKycStatus("pending"); setShowKYC(false); }}
-        />
-      )}
 
       {/* SCAM ALERT MODAL */}
       {scamAlert && (

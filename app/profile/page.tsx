@@ -20,6 +20,7 @@ import {
   serverTimestamp,
   setDoc,
   Timestamp,
+  updateDoc,
   where,
 } from "firebase/firestore";
 import {
@@ -92,12 +93,6 @@ interface ProfileData {
     reviewedBy?: string;
     rejectionReason?: string;
   };
-  kycStatus?: string;
-  kycDocumentURL?: string;
-  kycSubmittedAt?: Timestamp;
-  kycReviewedAt?: Timestamp;
-  kycReviewedBy?: string;
-  kycRejectionReason?: string;
   digitalListingsCreated?: number;
 }
 
@@ -178,11 +173,7 @@ const [poaDocumentURL, setPoaDocumentURL] = useState("");
 const [poaRejectionReason, setPoaRejectionReason] = useState("");
 const [poaFile, setPoaFile] = useState<File | null>(null);
 const [poaUploading, setPoaUploading] = useState(false);
-const [kycStatus, setKycStatus] = useState("unsubmitted");
-const [kycDocumentURL, setKycDocumentURL] = useState("");
-const [kycRejectionReason, setKycRejectionReason] = useState("");
-const [kycFile, setKycFile] = useState<File | null>(null);
-const [kycUploading, setKycUploading] = useState(false);
+
 
   const bannerRef = useRef<HTMLInputElement>(null);
   const avatarRef = useRef<HTMLInputElement>(null);
@@ -232,9 +223,7 @@ const [kycUploading, setKycUploading] = useState(false);
             setPoaStatus(poa.status || "unsubmitted");
             setPoaDocumentURL(poa.documentURL || "");
             setPoaRejectionReason(poa.rejectionReason || "");
-            setKycStatus(data.kycStatus || "unsubmitted");
-            setKycDocumentURL(data.kycDocumentURL || "");
-            setKycRejectionReason(data.kycRejectionReason || "");
+
 
             if (!data.referralCode) {
               const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -887,9 +876,7 @@ const [kycUploading, setKycUploading] = useState(false);
                   <p className="mt-2 text-[10px] text-[var(--muted)]">
                     Share: <span className="text-sky-400 select-all">{window?.location?.origin || "https://sky-drop.vercel.app"}/login?ref={referralCode}</span>
                   </p>
-                  <Link href="/affiliate" className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-3 py-2 text-[11px] font-bold text-white shadow-lg shadow-amber-500/20 transition hover:shadow-xl hover:shadow-amber-500/30 active:scale-95">
-                    View Affiliate Dashboard →
-                  </Link>
+
                 </div>
               )}
 
@@ -1154,46 +1141,7 @@ const [kycUploading, setKycUploading] = useState(false);
                 </div>
               </div>
 
-              {/* KYC */}
-              <div className="rounded-xl border border-zinc-800/50 bg-zinc-900/60 p-5 transition-all duration-200 hover:border-zinc-700/50">
-                <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.15em] text-[var(--muted)]">🪪 KYC Verification</h2>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-[var(--foreground)]">Identity Verification</span>
-                    {kycStatus === "approved" && <span className="font-bold text-emerald-400">Approved ✓</span>}
-                    {kycStatus === "pending" && <span className="font-bold text-amber-400">Pending review</span>}
-                    {kycStatus === "rejected" && <span className="font-bold text-red-400">Rejected</span>}
-                    {kycStatus === "unsubmitted" && <span className="font-bold text-[var(--muted)]">Not submitted</span>}
-                  </div>
-                  <p className="text-[10px] text-[var(--muted)]">Required to list digital assets. Upload a photo of your driver's license or passport.</p>
-                  {kycStatus === "rejected" && kycRejectionReason && (
-                    <p className="text-[10px] text-red-400">Reason: {kycRejectionReason}</p>
-                  )}
-                  {(kycStatus === "unsubmitted" || kycStatus === "rejected") && (
-                    <div className="space-y-2">
-                      <input type="file" accept="image/*,.pdf" onChange={(e) => setKycFile(e.target.files?.[0] || null)} className="w-full text-xs text-[var(--muted)] file:mr-2 file:rounded-lg file:border-0 file:bg-sky-500 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-[var(--foreground)] hover:file:bg-sky-400" />
-                      {kycFile && (
-                        <button onClick={async () => {
-                          if (!user?.uid || !kycFile) return;
-                          setKycUploading(true);
-                          try {
-                            const { submitKYC } = await import("../lib/kyc");
-                            await submitKYC(user.uid, kycFile);
-                            setKycStatus("pending");
-                            setKycFile(null);
-                          } catch (e) { console.error(e); }
-                          setKycUploading(false);
-                        }} disabled={kycUploading} className="w-full rounded-xl bg-sky-500 py-2 text-xs font-bold text-[var(--foreground)] hover:bg-sky-400 transition disabled:opacity-50">
-                          {kycUploading ? "Uploading..." : "Submit for Review"}
-                        </button>
-                      )}
-                    </div>
-                  )}
-                  {kycStatus === "approved" && (
-                    <p className="text-[10px] text-emerald-400">✓ You can list digital assets.</p>
-                  )}
-                </div>
-              </div>
+
 
               {/* Collectibles */}
               <div className="rounded-xl border border-zinc-800/50 bg-zinc-900/60 p-5 transition-all duration-200 hover:border-zinc-700/50">

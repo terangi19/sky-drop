@@ -28,11 +28,9 @@ import {
   db,
 } from "../../lib/firebase";
 import { createNotification } from "../../lib/notifications";
-import { approveKYC, rejectKYC } from "../../lib/kyc";
-
 const ADMIN_EMAILS = ["rangitr16@gmail.com"];
 
-type Tab = "address" | "kyc" | "digital";
+type Tab = "address" | "digital";
 
 export default function AdminVerificationPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -56,17 +54,6 @@ export default function AdminVerificationPage() {
         setLoading(false);
       }, (err) => {
         console.error("Failed to load pending verifications:", err);
-        setLoading(false);
-      });
-      return () => unsub();
-    } else if (tab === "kyc") {
-      setLoading(true);
-      const q = query(collection(db, "profiles"), where("kycStatus", "==", "pending"));
-      const unsub = onSnapshot(q, (snap) => {
-        setProfiles(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        setLoading(false);
-      }, (err) => {
-        console.error("Failed to load KYC:", err);
         setLoading(false);
       });
       return () => unsub();
@@ -159,23 +146,6 @@ export default function AdminVerificationPage() {
     } catch (e) { console.error(e); }
   }
 
-  async function handleApproveKYC(profileId: string) {
-    if (!user?.email) return;
-    if (!confirm("Approve this user's KYC?")) return;
-    try {
-      await approveKYC(profileId, user.email);
-    } catch (e) { console.error(e); }
-  }
-
-  async function handleRejectKYC(profileId: string) {
-    const reason = rejectInputs[`kyc_${profileId}`]?.trim();
-    if (!reason) { alert("Enter a rejection reason."); return; }
-    try {
-      await rejectKYC(profileId, reason, user?.email || "admin");
-      setRejectInputs((prev) => { const next = { ...prev }; delete next[`kyc_${profileId}`]; return next; });
-    } catch (e) { console.error(e); }
-  }
-
   async function handleApproveDigital(listingId: string) {
     if (!confirm("Approve this digital listing?")) return;
     try {
@@ -220,7 +190,6 @@ export default function AdminVerificationPage() {
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "address", label: "Proof of Address" },
-    { key: "kyc", label: "KYC" },
     { key: "digital", label: "Digital Listings" },
   ];
 
@@ -320,67 +289,34 @@ export default function AdminVerificationPage() {
                           <span>Username: {profile.username || "—"}</span>
                           <span>Phone: {profile.phone || "—"}</span>
                           {profile.referredBy && <span>Referred by: <span className="font-bold text-amber-400">{profile.referredBy}</span></span>}
-                          {tab === "kyc" ? (
-                            profile.kycSubmittedAt?.toDate && <span>Submitted: {profile.kycSubmittedAt.toDate().toLocaleDateString()}</span>
-                          ) : (
-                            profile.proofOfAddress?.submittedAt?.toDate && <span>Submitted: {profile.proofOfAddress.submittedAt.toDate().toLocaleDateString()}</span>
-                          )}
+                          {profile.proofOfAddress?.submittedAt?.toDate && <span>Submitted: {profile.proofOfAddress.submittedAt.toDate().toLocaleDateString()}</span>}
                         </div>
                       </div>
                     </div>
 
                     {/* Document preview */}
-                    {tab === "kyc" ? (
-                      profile.kycDocumentURL && (
-                        <div className="mt-4">
-                          <a href={profile.kycDocumentURL} target="_blank" rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 rounded-xl bg-zinc-800/50 px-4 py-2 text-xs font-bold text-sky-400 hover:bg-zinc-700/50 transition">
-                            📄 View ID Document →
-                          </a>
-                        </div>
-                      )
-                    ) : (
-                      profile.proofOfAddress?.documentURL && (
-                        <div className="mt-4">
-                          <a href={profile.proofOfAddress.documentURL} target="_blank" rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 rounded-xl bg-zinc-800/50 px-4 py-2 text-xs font-bold text-sky-400 hover:bg-zinc-700/50 transition">
-                            📄 View Document →
-                          </a>
-                        </div>
-                      )
+                    {profile.proofOfAddress?.documentURL && (
+                      <div className="mt-4">
+                        <a href={profile.proofOfAddress.documentURL} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 rounded-xl bg-zinc-800/50 px-4 py-2 text-xs font-bold text-sky-400 hover:bg-zinc-700/50 transition">
+                          📄 View Document →
+                        </a>
+                      </div>
                     )}
 
                     {/* Approve / Reject */}
                     <div className="mt-4 flex flex-wrap gap-3">
-                      {tab === "kyc" ? (
-                        <>
-                          <button onClick={() => handleApproveKYC(profile.id)}
-                            className="rounded-xl bg-emerald-500/15 px-5 py-2.5 text-xs font-bold text-emerald-400 transition hover:bg-emerald-500/25">
-                            ✅ Approve KYC
-                          </button>
-                          <input type="text" value={rejectInputs[`kyc_${profile.id}`] || ""} onChange={(e) => setRejectInputs((prev) => ({ ...prev, [`kyc_${profile.id}`]: e.target.value }))}
-                            placeholder="Rejection reason..."
-                            className="flex-1 min-w-[180px] rounded-xl border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-xs text-[var(--foreground)] outline-none focus:border-red-500/40 placeholder:text-zinc-600" />
-                          <button onClick={() => handleRejectKYC(profile.id)} disabled={!rejectInputs[`kyc_${profile.id}`]?.trim()}
-                            className="rounded-xl bg-red-500/15 px-5 py-2.5 text-xs font-bold text-red-400 transition hover:bg-red-500/25 disabled:opacity-40">
-                            ❌ Reject KYC
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button onClick={() => handleApprove(profile.id)}
-                            className="rounded-xl bg-emerald-500/15 px-5 py-2.5 text-xs font-bold text-emerald-400 transition hover:bg-emerald-500/25">
-                            ✅ Approve
-                          </button>
-                          <input type="text" value={rejectInputs[profile.id] || ""} onChange={(e) => setRejectInputs((prev) => ({ ...prev, [profile.id]: e.target.value }))}
-                            placeholder="Rejection reason..."
-                            className="flex-1 min-w-[180px] rounded-xl border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-xs text-[var(--foreground)] outline-none focus:border-red-500/40 placeholder:text-zinc-600" />
-                          <button onClick={() => handleReject(profile.id)} disabled={!rejectInputs[profile.id]?.trim()}
-                            className="rounded-xl bg-red-500/15 px-5 py-2.5 text-xs font-bold text-red-400 transition hover:bg-red-500/25 disabled:opacity-40">
-                            ❌ Reject
-                          </button>
-                        </>
-                      )}
+                      <button onClick={() => handleApprove(profile.id)}
+                        className="rounded-xl bg-emerald-500/15 px-5 py-2.5 text-xs font-bold text-emerald-400 transition hover:bg-emerald-500/25">
+                        ✅ Approve
+                      </button>
+                      <input type="text" value={rejectInputs[profile.id] || ""} onChange={(e) => setRejectInputs((prev) => ({ ...prev, [profile.id]: e.target.value }))}
+                        placeholder="Rejection reason..."
+                        className="flex-1 min-w-[180px] rounded-xl border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-xs text-[var(--foreground)] outline-none focus:border-red-500/40 placeholder:text-zinc-600" />
+                      <button onClick={() => handleReject(profile.id)} disabled={!rejectInputs[profile.id]?.trim()}
+                        className="rounded-xl bg-red-500/15 px-5 py-2.5 text-xs font-bold text-red-400 transition hover:bg-red-500/25 disabled:opacity-40">
+                        ❌ Reject
+                      </button>
                     </div>
                   </div>
                 ))}

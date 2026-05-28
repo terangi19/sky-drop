@@ -282,8 +282,6 @@ export default function Navbar() {
               <Link href="/watchlist" className="transition hover:text-sky-400">Watchlist</Link>
               <Link href="/purchases" className="transition hover:text-sky-400">Purchases</Link>
               <Link href="/sales" className="transition hover:text-sky-400">Sales</Link>
-              <Link href="/affiliate" className="transition hover:text-amber-400">Affiliate</Link>
-              <Link href="/promote" className="transition hover:text-emerald-400">Hustle</Link>
             </nav>
           )}
 
@@ -327,8 +325,6 @@ export default function Navbar() {
                 <Link href="/watchlist" className="rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}>Watchlist</Link>
                 <Link href="/purchases" className="rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}>Purchases</Link>
                 <Link href="/sales" className="rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}>Sales</Link>
-                <Link href="/affiliate" className="rounded-xl px-4 py-3 text-sm font-bold text-amber-400 hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}>Affiliate</Link>
-                <Link href="/promote" className="rounded-xl px-4 py-3 text-sm font-bold text-emerald-400 hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}>Hustle</Link>
                 <div className="my-1.5 mx-4 border-t border-zinc-800/40" />
                 {user ? (
                   <>

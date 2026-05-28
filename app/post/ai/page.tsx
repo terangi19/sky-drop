@@ -13,7 +13,6 @@ import { createPendingXP, trackListingCreated } from "../../lib/xpValidation";
 import { checkImage } from "../../lib/nsfw";
 import { showToast } from "../../components/Toast";
 import DigitalAssetUpload from "../../components/DigitalAssetUpload";
-import KYCGuard from "../../components/KYCGuard";
 import { detectScam } from "../../lib/scamdetection";
 import { detectSuspiciousPrice } from "../../lib/pricedetection";
 
@@ -85,9 +84,7 @@ export default function AIPostPage() {
   const [floorArea, setFloorArea] = useState("");
   const [parking, setParking] = useState("");
   const [acceptOffers, setAcceptOffers] = useState(false);
-  const [showKYC, setShowKYC] = useState(false);
-  const [kycStatus, setKycStatus] = useState("unsubmitted");
-  const [kycRejectionReason, setKycRejectionReason] = useState("");
+
   const [editId, setEditId] = useState<string | null>(null);
   const [existingImages, setExistingImages] = useState<string[]>([]);
   const [editLoading, setEditLoading] = useState(false);
@@ -161,8 +158,7 @@ export default function AIPostPage() {
           const snap = await getDoc(doc(db, "profiles", u.uid));
           if (snap.exists()) {
             const d = snap.data();
-            setKycStatus(d.kycStatus || "unsubmitted");
-            setKycRejectionReason(d.kycRejectionReason || "");
+
           }
         } catch {}
       }
@@ -353,12 +349,6 @@ export default function AIPostPage() {
       alert("Enter the property location.");
       return;
     }
-    if (kycStatus !== "approved") {
-      setShowKYC(true);
-      setLoading(false);
-      return;
-    }
-
     // Scam detection
     const scamResult = detectScam(`${title} ${description}`);
     if (scamResult.isScam && !confirmedSubmit) {
@@ -658,16 +648,6 @@ export default function AIPostPage() {
           <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/5 px-4 py-3 text-center">
             <span className="text-sm font-bold text-emerald-400">✅ {detected}</span>
           </div>
-        )}
-
-        {showKYC && (
-          <KYCGuard
-            status={kycStatus as "unsubmitted" | "pending" | "rejected"}
-            rejectionReason={kycRejectionReason}
-            userId={user?.uid || ""}
-            onClose={() => setShowKYC(false)}
-            onSubmitted={() => { setKycStatus("pending"); setShowKYC(false); }}
-          />
         )}
 
         {/* SCAM ALERT MODAL */}
