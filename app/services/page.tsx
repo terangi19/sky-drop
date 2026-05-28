@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
-import { collection, onSnapshot, orderBy, query, where } from "firebase/firestore";
+import { addDoc, collection, doc, getDocs, onSnapshot, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth, db } from "../lib/firebase";
 
@@ -163,7 +163,71 @@ export default function ServicesPage() {
                         Edit
                       </Link>
                     ) : (
-                      <button onClick={() => router.push(`/messages?user=${encodeURIComponent(item.sellerEmail || "")}&listing=${encodeURIComponent(item.id)}`)}
+                      <button onClick={async () => {
+                        try {
+                          const convKey = `listing_${item.id}`;
+                          const existingConv = await getDocs(
+                            query(
+                              collection(db, "conversations"),
+                              where("convKey", "==", convKey),
+                              where("participants", "array-contains", user!.email!)
+                            )
+                          );
+
+                          let convId: string;
+                          if (!existingConv.empty) {
+                            convId = existingConv.docs[0].id;
+                            await updateDoc(doc(db, "conversations", convId), {
+                              updatedAt: serverTimestamp(),
+                              lastMessage: `Service inquiry started`,
+                            });
+                          } else {
+                            const convRef = await addDoc(collection(db, "conversations"), {
+                              convKey,
+                              participants: [user!.email!, item.sellerEmail],
+                              buyerEmail: user!.email!,
+                              sellerEmail: item.sellerEmail,
+                              listingId: item.id,
+                              listingTitle: item.title,
+                              listingPrice: item.price,
+                              listingImage: item.images?.[0] || item.imageUrl || item.image || "",
+                              createdAt: serverTimestamp(),
+                              updatedAt: serverTimestamp(),
+                              lastMessage: `Service inquiry started`,
+                            });
+                            convId = convRef.id;
+                          }
+
+                          await addDoc(collection(db, "messages"), {
+                            type: "system",
+                            text: `🛠️ Service inquiry started for "${item.title}"\n\nYou're now connected with the service provider.\n\nUse this chat to discuss:\n• project scope\n• pricing\n• delivery timeframe\n• revisions\n• requirements/files\n• payment details\n\nPlease keep all communication and payments inside Sky Drop for protection.\n\nService Status: 🟢 Inquiry Active`,
+                            sender: "system",
+                            receiver: item.sellerEmail,
+                            participants: [user!.email!, item.sellerEmail],
+                            conversationId: convId,
+                            listingId: item.id,
+                            listingTitle: item.title,
+                            read: false,
+                            createdAt: serverTimestamp(),
+                          });
+
+                          await addDoc(collection(db, "messages"), {
+                            type: "text",
+                            text: `🟢 A user is interested in hiring your service.\n\nUse this chat to discuss:\n• project requirements\n• pricing\n• deadlines\n• revisions\n• delivery expectations\n\nKeep all communication inside Sky Drop for protection.`,
+                            sender: "system",
+                            receiver: item.sellerEmail,
+                            participants: [user!.email!, item.sellerEmail],
+                            conversationId: convId,
+                            listingId: item.id,
+                            listingTitle: item.title,
+                            read: false,
+                            createdAt: serverTimestamp(),
+                          });
+                        } catch (e) {
+                          console.error("Service inquiry failed:", e);
+                        }
+                        router.push(`/messages?user=${encodeURIComponent(item.sellerEmail || "")}&listing=${encodeURIComponent(item.id)}`);
+                      }}
                         className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-4 py-1.5 text-[11px] font-bold text-violet-400 transition-all duration-200 hover:bg-violet-500/20 hover:scale-105 active:scale-95">
                         Hire
                       </button>

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Navbar from "../../../components/Navbar";
 import Background from "../../../components/Background";
 import ReportModal from "../../../components/ReportModal";
@@ -115,6 +115,7 @@ interface SellerProfile {
 
 export default function ListingPage() {
   const params = useParams();
+  const router = useRouter();
   const listingId = params.id as string;
 
   const [listing, setListing] = useState<Listing | null>(null);
@@ -1133,13 +1134,93 @@ export default function ListingPage() {
             <div className="flex gap-2">
               {user && user.email !== listing.sellerEmail ? (
                 <>
-                  <Link
-                    href={`/messages?user=${encodeURIComponent(listing.sellerEmail || "")}&listing=${listingId}`}
+                  <button
+                    onClick={async () => {
+                      try {
+                        const convKey = `listing_${listingId}`;
+                        const existingConv = await getDocs(
+                          query(
+                            collection(db, "conversations"),
+                            where("convKey", "==", convKey),
+                            where("participants", "array-contains", user!.email!)
+                          )
+                        );
+
+                        let convId: string;
+                        if (!existingConv.empty) {
+                          convId = existingConv.docs[0].id;
+                          await updateDoc(doc(db, "conversations", convId), {
+                            updatedAt: serverTimestamp(),
+                            lastMessage: `Service inquiry started`,
+                          });
+                        } else {
+                          const convRef = await addDoc(collection(db, "conversations"), {
+                            convKey,
+                            participants: [user!.email!, listing.sellerEmail],
+                            buyerEmail: user!.email!,
+                            sellerEmail: listing.sellerEmail,
+                            listingId,
+                            listingTitle: listing.title,
+                            listingPrice: listing.price,
+                            listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
+                            createdAt: serverTimestamp(),
+                            updatedAt: serverTimestamp(),
+                            lastMessage: `Service inquiry started`,
+                          });
+                          convId = convRef.id;
+                        }
+
+                        const buyerMsg = `🛠️ Service inquiry started for "${listing.title}"
+
+You're now connected with the service provider.
+
+Use this chat to discuss:
+• project scope
+• pricing
+• delivery timeframe
+• revisions
+• requirements/files
+• payment details
+
+Please keep all communication and payments inside Sky Drop for protection.
+
+Service Status: 🟢 Inquiry Active`;
+
+                        await addDoc(collection(db, "messages"), {
+                          type: "system",
+                          text: buyerMsg,
+                          sender: "system",
+                          receiver: listing.sellerEmail,
+                          participants: [user!.email!, listing.sellerEmail],
+                          conversationId: convId,
+                          listingId,
+                          listingTitle: listing.title,
+                          read: false,
+                          createdAt: serverTimestamp(),
+                        });
+
+                        await addDoc(collection(db, "messages"), {
+                          type: "text",
+                          text: `🟢 A user is interested in hiring your service.\n\nUse this chat to discuss:\n• project requirements\n• pricing\n• deadlines\n• revisions\n• delivery expectations\n\nKeep all communication inside Sky Drop for protection.`,
+                          sender: "system",
+                          receiver: listing.sellerEmail,
+                          participants: [user!.email!, listing.sellerEmail],
+                          conversationId: convId,
+                          listingId,
+                          listingTitle: listing.title,
+                          read: false,
+                          createdAt: serverTimestamp(),
+                        });
+                      } catch (e) {
+                        console.error("Service inquiry failed:", e);
+                      }
+                      router.push(`/messages?user=${encodeURIComponent(listing.sellerEmail || "")}&listing=${listingId}`);
+                    }}
                     className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 py-3 text-[13px] font-bold text-white shadow-lg shadow-violet-500/20 transition hover:shadow-xl hover:shadow-violet-500/30"
                   >
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
                     Message Seller
-                  </Link>
+                  </button>
                   <button onClick={() => setShowOffer(true)}
                     className="rounded-lg border border-zinc-700 px-4 py-3 text-[12px] font-medium text-[var(--foreground)] transition hover:border-zinc-600">
                     Make Offer
