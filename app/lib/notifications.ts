@@ -35,7 +35,7 @@ export async function createNotification(input: NotificationInput) {
   // Push notification
   try {
     const url = input.listingId ? `/post/listing/${input.listingId}` : "/messages";
-    await fetch("/api/send-push", {
+    const res = await fetch("/api/send-push", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -45,5 +45,15 @@ export async function createNotification(input: NotificationInput) {
         url,
       }),
     });
-  } catch {}
+    if (res.ok) {
+      const data = await res.json();
+      if (data.note === "push not configured") {
+        console.info("[Notification] Push not configured — notification stored in Firestore only");
+      }
+    } else {
+      console.info("[Notification] Push endpoint returned non-OK:", res.status);
+    }
+  } catch {
+    console.info("[Notification] Push endpoint unreachable (expected if push not configured)");
+  }
 }

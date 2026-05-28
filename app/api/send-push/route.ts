@@ -29,7 +29,8 @@ export async function POST(req: NextRequest) {
       if (serviceAccount) {
         initializeApp({ credential: cert(JSON.parse(serviceAccount)) });
       } else {
-        initializeApp({ projectId: "sky-drop-de459" });
+        // No service account configured — push notifications unavailable
+        return NextResponse.json({ sent: 0, note: "push not configured" });
       }
     }
 

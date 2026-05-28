@@ -92,4 +92,22 @@ test.describe("Tier 1 — Smoke Tests", () => {
     }
   });
 
+  test("mobile — homepage renders without errors", async ({ page }) => {
+    // iPhone 12 viewport
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+    await expect(page.getByPlaceholder("Search listings...")).toBeVisible();
+    // Nav hamburger should be visible on mobile
+    await expect(page.locator('[aria-label="Toggle menu"]')).toBeVisible();
+  });
+
+  test("mobile — category pages render without errors", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const pages = ["/digital", "/services", "/rentals", "/vehicles", "/property", "/events", "/jobs"];
+    for (const route of pages) {
+      await page.goto(route);
+      await expect(page.getByText("How It Works")).toBeVisible();
+    }
+  });
+
 });
