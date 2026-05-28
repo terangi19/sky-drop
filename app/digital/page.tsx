@@ -5,9 +5,10 @@ import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import CheckoutModal from "../components/CheckoutModal";
-import { collection, onSnapshot, orderBy, query, where } from "firebase/firestore";
+import { collection, query, where } from "firebase/firestore";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth, db } from "../lib/firebase";
+import { safeOnSnapshot, parseFirestoreError } from "../lib/firestore";
 
 const CATEGORIES = ["All", "Templates & Assets", "E-books & Guides", "Art & Photography", "Software & Audio", "Gaming & 3D"];
 
@@ -24,11 +25,11 @@ export default function DigitalPage() {
 
   useEffect(() => {
     const q = query(collection(db, "listings"), where("type", "==", "digital"));
-    const unsub = onSnapshot(q, (snap) => {
+    const unsub = safeOnSnapshot(q, (snap) => {
       const items: any[] = snap.docs.map((d) => ({ id: d.id, ...d.data() } as any)).filter((i: any) => i.status === "live");
       items.sort((a: any, b: any) => ((b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0)));
       setListings(items);
-    }, (err) => { console.error("Failed to load digital listings:", err); });
+    });
     return () => unsub();
   }, []);
 

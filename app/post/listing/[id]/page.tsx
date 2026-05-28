@@ -16,6 +16,7 @@ import { auth, db } from "../../../lib/firebase";
 import { detectScam } from "../../../lib/scamdetection";
 import { calculateTrustScore } from "../../../lib/trustscore";
 import { detectSuspiciousPrice } from "../../../lib/pricedetection";
+import { safeGetDoc, safeOnSnapshot, parseFirestoreError, isOnline } from "../../../lib/firestore";
 
 function getBidIncrement(price: number): number {
   if (price < 50) return 1;
@@ -172,19 +173,16 @@ export default function ListingPage() {
   useEffect(() => {
     let mounted = true;
     const docRef = doc(db, "listings", listingId);
-    const unsub = onSnapshot(docRef, (snap) => {
+    const unsub = safeOnSnapshot(docRef, (snap) => {
       if (!snap.exists()) { if (mounted) setLoading(false); return; }
       if (!mounted) return;
       const data: any = { id: snap.id, ...snap.data() };
       setListing(data);
       setLoading(false);
-    }, (error) => {
-      console.error(error);
-      if (mounted) setLoading(false);
-    });
+    }, (parsed) => { console.error("[ListingPage] onSnapshot:", parsed); if (mounted) setLoading(false); });
 
-    getDoc(docRef).then((snap) => {
-      if (!snap.exists() || !mounted) return;
+    safeGetDoc(docRef).then((snap) => {
+      if (!snap?.exists() || !mounted) return;
       const sellerEmail = snap.data().sellerEmail as string | undefined;
       if (!sellerEmail) return;
       getDocs(query(collection(db, "profiles"), where("email", "==", sellerEmail))).then((profileSnap) => {
@@ -193,7 +191,7 @@ export default function ListingPage() {
       getDocs(query(collection(db, "reports"), where("reportedUserEmail", "==", sellerEmail), where("status", "==", "pending"))).then((reportsSnap) => {
         if (mounted) setSellerReportsCount(reportsSnap.size);
       }).catch(() => {});
-    }).catch(() => {});
+    });
 
     return () => { mounted = false; unsub(); };
   }, [listingId]);
