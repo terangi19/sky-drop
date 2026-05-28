@@ -235,6 +235,12 @@ const [kycUploading, setKycUploading] = useState(false);
             setKycStatus(data.kycStatus || "unsubmitted");
             setKycDocumentURL(data.kycDocumentURL || "");
             setKycRejectionReason(data.kycRejectionReason || "");
+
+            if (!data.referralCode) {
+              const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+              setReferralCode(newCode);
+              await updateDoc(doc(db, "profiles", currentUser.uid), { referralCode: newCode }).catch(() => {});
+            }
           }
         } catch (e) { console.error(e); }
       }
@@ -881,6 +887,9 @@ const [kycUploading, setKycUploading] = useState(false);
                   <p className="mt-2 text-[10px] text-[var(--muted)]">
                     Share: <span className="text-sky-400 select-all">{window?.location?.origin || "https://sky-drop.vercel.app"}/login?ref={referralCode}</span>
                   </p>
+                  <Link href="/affiliate" className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-3 py-2 text-[11px] font-bold text-white shadow-lg shadow-amber-500/20 transition hover:shadow-xl hover:shadow-amber-500/30 active:scale-95">
+                    View Affiliate Dashboard →
+                  </Link>
                 </div>
               )}
 

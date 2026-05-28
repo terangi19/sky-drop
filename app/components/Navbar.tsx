@@ -245,7 +245,7 @@ export default function Navbar() {
                 <span className="font-bold">Live Trade</span>
                 <span className="flex h-1.5 w-1.5 rounded-full bg-red-500/80" />
               </Link>
-              <Link href="/post/ai" className="transition hover:text-sky-400">Quick Post</Link>
+              <Link href="/post/ai" className="transition hover:text-sky-400">Sell</Link>
               <div className="relative group">
                 <button className="flex items-center gap-1 transition hover:text-sky-400 cursor-pointer">
                   Browse
@@ -282,6 +282,8 @@ export default function Navbar() {
               <Link href="/watchlist" className="transition hover:text-sky-400">Watchlist</Link>
               <Link href="/purchases" className="transition hover:text-sky-400">Purchases</Link>
               <Link href="/sales" className="transition hover:text-sky-400">Sales</Link>
+              <Link href="/affiliate" className="transition hover:text-amber-400">Affiliate</Link>
+              <Link href="/promote" className="transition hover:text-emerald-400">Hustle</Link>
             </nav>
           )}
 
@@ -309,7 +311,7 @@ export default function Navbar() {
                       <span className="flex h-2 w-2 rounded-full bg-red-500" />
                     </span>
                 </Link>
-                <Link href="/post/ai" className="rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}>Quick Post</Link>
+                <Link href="/post/ai" className="rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}>Sell</Link>
                 <div className="my-1.5 mx-4 border-t border-zinc-800/40" />
                 <div className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Browse</div>
                 <Link href="/" className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}><span>📦</span> Physical Goods</Link>
@@ -325,6 +327,8 @@ export default function Navbar() {
                 <Link href="/watchlist" className="rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}>Watchlist</Link>
                 <Link href="/purchases" className="rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}>Purchases</Link>
                 <Link href="/sales" className="rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}>Sales</Link>
+                <Link href="/affiliate" className="rounded-xl px-4 py-3 text-sm font-bold text-amber-400 hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}>Affiliate</Link>
+                <Link href="/promote" className="rounded-xl px-4 py-3 text-sm font-bold text-emerald-400 hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}>Hustle</Link>
                 <div className="my-1.5 mx-4 border-t border-zinc-800/40" />
                 {user ? (
                   <>

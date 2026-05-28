@@ -560,123 +560,125 @@ export default function TradeFeedPage() {
     <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <Background /><Navbar />
 
-      <section className="relative z-10 mx-auto max-w-[1600px] px-4 pb-8 pt-4">
+      <section className="relative z-10 mx-auto max-w-[1600px] px-4 pb-8 pt-6">
         {/* ── HEADER ── */}
-        <div className="flex items-center justify-between mb-4">
-          <Link href="/" className="inline-flex items-center gap-1.5 text-xs text-[var(--muted)] hover:text-[var(--foreground)] transition">
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-            Back
-          </Link>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-              <span className={`bg-gradient-to-r ${activeWorldColor} to-transparent bg-clip-text text-[10px] font-bold uppercase tracking-widest text-transparent`}>Live</span>
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-5">
+            <div className="flex items-center gap-2.5">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inset-0 h-2 w-2 rounded-full bg-emerald-400 animate-ping opacity-75" />
+                <span className="relative h-2 w-2 rounded-full bg-emerald-400" />
+              </span>
+              <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500">Live</span>
             </div>
-            <span className="text-[11px] text-[var(--muted)]">{posts.length} trades</span>
+            <span className="h-3 w-px bg-zinc-800" />
+            <span className="text-xs font-mono text-zinc-600">{String(posts.length).padStart(2, '0')} trades</span>
           </div>
 
           {/* Live event ticker */}
-          <div className="hidden lg:flex items-center gap-3 flex-1 max-w-md overflow-hidden">
-            {liveEvents.slice(0, 2).map((ev) => (
-              <span key={ev.id} className="flex items-center gap-1.5 shrink-0 rounded-full bg-zinc-800/60 px-3 py-1 text-[10px] text-[var(--foreground)]"
+          <div className="hidden lg:flex items-center gap-2 flex-1 max-w-md overflow-hidden justify-center">
+            {liveEvents.slice(0, 1).map((ev) => (
+              <span key={ev.id} className="flex items-center gap-1.5 shrink-0 rounded-full bg-white/[0.03] border border-white/[0.05] px-3 py-1 text-[10px] text-zinc-400"
                 style={{ animation: "fadeIn 0.3s ease-out" }}>
                 {ev.icon} {ev.text}
               </span>
             ))}
           </div>
 
-          <div className="relative">
-            <svg className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <div className="relative group">
+            <svg className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-600 group-focus-within:text-sky-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input type="text" placeholder="Search trades..." value={search} onChange={(e) => setSearch(e.target.value)}
-              className="w-44 rounded-lg border border-zinc-800 bg-zinc-900/60 py-2 pl-9 pr-3 text-xs text-[var(--foreground)] outline-none placeholder:text-[var(--muted)] focus:border-sky-500/40" />
+              className="w-36 lg:w-48 rounded-xl border border-white/[0.06] bg-white/[0.02] py-2.5 pl-9 pr-3 text-xs text-[var(--foreground)] outline-none placeholder:text-zinc-600 focus:border-sky-500/30 focus:bg-white/[0.04] transition-all" />
           </div>
         </div>
 
         {/* ── WORLDS ── */}
-        <div className="mt-4 flex gap-2 overflow-x-auto pb-1 scrollbar-none justify-center">
+        <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-none justify-center">
           {WORLDS.map((world) => (
             <button key={world.id}
               onClick={() => {
                 if (world.id === "all") setSelectedWorld([]);
                 else setSelectedWorld((prev) => prev.includes(world.id) ? prev.filter((w) => w !== world.id) : [...prev, world.id]);
               }}
-              className={`flex shrink-0 items-center gap-2 rounded-xl border px-5 py-3 text-sm font-bold transition ${
+              className={`relative flex shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-xs font-medium transition-all ${
                 (world.id === "all" && selectedWorld.length === 0) || selectedWorld.includes(world.id)
-                  ? `bg-sky-500/10 text-sky-400 border-sky-500/30 ${world.glow}`
-                  : "border-zinc-800 bg-zinc-900/50 text-[var(--muted)] hover:border-zinc-700 hover:text-[var(--foreground)]"
+                  ? "text-sky-400 bg-sky-500/[0.06] border border-sky-500/20 shadow-[0_0_15px_rgba(14,165,233,0.06)]"
+                  : "text-zinc-500 border border-transparent hover:text-zinc-300 hover:bg-white/[0.02] hover:border-white/[0.06]"
               }`}>
-              <span className="text-lg">{world.icon}</span>
-              <span>{world.label}</span>
-              {world.id !== "all" && <span className="text-xs text-[var(--muted)]">{posts.filter((p) => p.world === world.id).length}</span>}
+              <span className="opacity-80">{world.icon}</span>
+              <span className="font-semibold">{world.label}</span>
+              {world.id !== "all" && <span className="text-[10px] text-zinc-600 font-mono">{posts.filter((p) => p.world === world.id).length}</span>}
             </button>
           ))}
         </div>
 
         {/* ── FILTER TOOLBAR ── */}
-        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/30 px-4 py-3">
-          <div className="flex gap-1 overflow-x-auto scrollbar-none">
+        <div className="mt-5 flex flex-wrap items-center gap-2 rounded-2xl border border-white/[0.04] bg-white/[0.01] px-3.5 py-2.5">
+          <div className="flex gap-0.5 overflow-x-auto scrollbar-none">
             {SUBCATEGORIES[selectedWorld.length === 1 ? selectedWorld[0] : "all"]?.map((cat) => (
               <button key={cat} onClick={() => setSelectedFilter(cat)}
-                className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                  selectedFilter === cat ? "bg-sky-500/15 text-sky-400" : "text-[var(--muted)] hover:bg-zinc-800/50 hover:text-[var(--foreground)]"
+                className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition ${
+                  selectedFilter === cat ? "bg-white/[0.06] text-[var(--foreground)]" : "text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.02]"
                 }`}>{cat}</button>
             ))}
           </div>
-          <div className="w-px h-5 bg-zinc-800" />
-          <div className="flex gap-1">
+          <div className="w-px h-4 bg-white/[0.04]" />
+          <div className="flex gap-0.5">
             {["All", "WTS", "WTB", "Trading"].map((t) => (
               <button key={t} onClick={() => setSelectedType(t)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                className={`rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition ${
                   selectedType === t
-                    ? t === "WTB" ? "bg-emerald-500/15 text-emerald-400" : t === "Trading" ? "bg-violet-500/15 text-violet-400" : "bg-sky-500/15 text-sky-400"
-                    : "bg-zinc-800/50 text-[var(--muted)] hover:bg-zinc-800"
+                    ? t === "WTB" ? "text-emerald-400 bg-emerald-500/[0.06]" : t === "Trading" ? "text-violet-400 bg-violet-500/[0.06]" : "text-sky-400 bg-sky-500/[0.06]"
+                    : "text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.02]"
                 }`}>{t === "All" ? "All" : t}</button>
             ))}
           </div>
-          <div className="w-px h-5 bg-zinc-800" />
+          <div className="w-px h-4 bg-white/[0.04]" />
           <div className="flex items-center gap-1.5">
             <input type="number" placeholder="Min" value={minPrice} onChange={(e) => setMinPrice(e.target.value)}
-              className="w-14 rounded-lg border border-zinc-800 bg-zinc-800/50 px-2 py-1.5 text-xs outline-none placeholder:text-[var(--muted)] focus:border-sky-500/40" />
-            <span className="text-xs text-[var(--muted)]">–</span>
+              className="w-12 rounded-lg border border-white/[0.04] bg-white/[0.02] px-1.5 py-1.5 text-[11px] outline-none placeholder:text-zinc-600 focus:border-sky-500/30 text-[var(--foreground)]" />
+            <span className="text-[10px] text-zinc-600">–</span>
             <input type="number" placeholder="Max" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)}
-              className="w-14 rounded-lg border border-zinc-800 bg-zinc-800/50 px-2 py-1.5 text-xs outline-none placeholder:text-[var(--muted)] focus:border-sky-500/40" />
+              className="w-12 rounded-lg border border-white/[0.04] bg-white/[0.02] px-1.5 py-1.5 text-[11px] outline-none placeholder:text-zinc-600 focus:border-sky-500/30 text-[var(--foreground)]" />
           </div>
-          <div className="w-px h-5 bg-zinc-800" />
-
+          <div className="w-px h-4 bg-white/[0.04]" />
+          <button onClick={() => setShowMyTrades(!showMyTrades)}
+            className={`rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition ${showMyTrades ? "text-sky-400 bg-sky-500/[0.06]" : "text-zinc-500 hover:text-zinc-300"}`}>My Trades</button>
         </div>
 
         {/* ── MAIN CONTENT ── */}
         <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_240px]">
           {/* ── FEED ── */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold text-[var(--foreground)]">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <h2 className="text-base font-bold text-[var(--foreground)] tracking-tight">
                   {selectedWorld.length === 1 ? WORLDS.find((w) => w.id === selectedWorld[0])?.label : "All Trades"}
                 </h2>
-                <span className="text-[11px] text-[var(--muted)]">{filteredPosts.length} trades</span>
-                {hotPosts.length > 0 && <span className="text-[10px] font-bold text-orange-400">🔥 {hotPosts.length} hot</span>}
+                <span className="h-3 w-px bg-white/[0.04]" />
+                <span className="text-[11px] font-mono text-zinc-600">{String(filteredPosts.length).padStart(2, '0')}</span>
+                {hotPosts.length > 0 && <span className="text-[11px] font-medium text-orange-400/80">🔥 {hotPosts.length} hot</span>}
               </div>
               <div className="flex items-center gap-2">
                 {["all", "active"].map((s) => (
                   <button key={s} onClick={() => setStatusFilter(s)}
-                    className={`rounded-lg px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider transition ${
+                    className={`rounded-lg px-2.5 py-1.5 text-[10px] font-medium transition ${
                       statusFilter === s
-                        ? s === "active" ? "bg-emerald-500/15 text-emerald-400" : "bg-sky-500/15 text-sky-400"
-                        : "bg-zinc-800/50 text-[var(--muted)] hover:bg-zinc-800"
+                        ? s === "active" ? "text-emerald-400 bg-emerald-500/[0.06]" : "text-sky-400 bg-sky-500/[0.06]"
+                        : "text-zinc-500 hover:text-zinc-300"
                     }`}>{s === "all" ? "All" : s}</button>
                 ))}
                 <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
-                  className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-2.5 py-1.5 text-[11px] text-[var(--foreground)] outline-none focus:border-sky-500/40 cursor-pointer">
+                  className="rounded-lg border border-white/[0.04] bg-white/[0.02] px-2.5 py-1.5 text-[11px] text-[var(--foreground)] outline-none focus:border-sky-500/30 cursor-pointer">
                   <option value="newest">Newest</option>
                   <option value="replies">Most Replies</option>
                   <option value="price_low">Price: Low</option>
                   <option value="price_high">Price: High</option>
                 </select>
                 <button onClick={() => setShowComposer(!showComposer)}
-                  className="rounded-lg bg-sky-500 px-3.5 py-2 text-[11px] font-bold text-white transition hover:bg-sky-400">
+                  className="rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-4 py-2 text-[11px] font-bold text-white transition-all hover:shadow-[0_0_20px_rgba(14,165,233,0.3)] hover:brightness-110 active:scale-[0.97]">
                   {showComposer ? "Cancel" : "+ New Post"}
                 </button>
               </div>
@@ -684,46 +686,46 @@ export default function TradeFeedPage() {
 
             {/* ── COMPOSER ── */}
             {showComposer && (
-              <div className="mb-4 rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
-                <div className="flex gap-1.5 mb-2">
+              <div className="mb-4 rounded-2xl border border-white/[0.04] bg-white/[0.02] p-5">
+                <div className="flex gap-1.5 mb-3">
                   {["WTS", "WTB", "Trading"].map((t) => (
                     <button key={t} onClick={() => setType(t)}
                       className={`rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition ${
-                        type === t ? "bg-sky-500 text-white" : "bg-zinc-800 text-[var(--muted)] hover:text-[var(--foreground)]"
+                        type === t ? "bg-sky-500 text-white" : "bg-white/[0.04] text-zinc-500 hover:text-[var(--foreground)]"
                       }`}>{t}</button>
                   ))}
                 </div>
                 <input type="text" placeholder="Title *" value={title} onChange={(e) => setTitle(e.target.value)}
-                  className="w-full rounded-lg border border-zinc-800 bg-zinc-800/50 px-3 py-2 text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--muted)] focus:border-sky-500/40 mb-2" />
-                <div className="flex gap-2 mb-2">
+                  className="w-full rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5 text-sm text-[var(--foreground)] outline-none placeholder:text-zinc-600 focus:border-sky-500/30 focus:bg-white/[0.04] transition-all mb-2" />
+                <div className="flex gap-2 mb-3">
                   {type !== "Trading" && (
                     <input type="text" placeholder={type === "WTB" ? "Budget" : "Price"} value={price} onChange={(e) => setPrice(e.target.value)}
-                      className="w-28 rounded-lg border border-zinc-800 bg-zinc-800/50 px-3 py-2 text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--muted)] focus:border-sky-500/40" />
+                      className="w-28 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5 text-sm text-[var(--foreground)] outline-none placeholder:text-zinc-600 focus:border-sky-500/30 focus:bg-white/[0.04] transition-all" />
                   )}
                   <textarea placeholder="Description (optional)" value={message} onChange={(e) => e.target.value.length <= 300 && setMessage(e.target.value)} rows={2} maxLength={300}
-                    className="flex-1 rounded-lg border border-zinc-800 bg-zinc-800/50 px-3 py-2 text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--muted)] focus:border-sky-500/40 resize-none" />
-                  <span className="self-end text-[10px] text-[var(--muted)] pb-1">{message.length}/300</span>
+                    className="flex-1 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5 text-sm text-[var(--foreground)] outline-none placeholder:text-zinc-600 focus:border-sky-500/30 focus:bg-white/[0.04] transition-all resize-none" />
+                  <span className="self-end text-[10px] text-zinc-600 pb-1">{message.length}/300</span>
                 </div>
                 {/* Delivery + upload row */}
                 <div className="flex items-center gap-2 mb-2">
-                  <label className="flex cursor-pointer items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-800/50 px-2.5 py-2 text-[10px] text-[var(--muted)] hover:border-zinc-600 has-[:checked]:border-sky-500/40 has-[:checked]:bg-sky-500/10 has-[:checked]:text-sky-400">
+                  <label className="flex cursor-pointer items-center gap-1 rounded-xl border border-white/[0.04] bg-white/[0.02] px-3 py-2 text-[10px] text-zinc-500 hover:text-zinc-300 hover:border-white/[0.08] has-[:checked]:border-sky-500/40 has-[:checked]:bg-sky-500/[0.06] has-[:checked]:text-sky-400 transition-all">
                     <input type="checkbox" checked={pickupAvailable} onChange={(e) => setPickupAvailable(e.target.checked)} className="hidden" />📍 Pickup
                   </label>
-                  <label className="flex cursor-pointer items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-800/50 px-2.5 py-2 text-[10px] text-[var(--muted)] hover:border-zinc-600 has-[:checked]:border-emerald-500/40 has-[:checked]:bg-emerald-500/10 has-[:checked]:text-emerald-400">
+                  <label className="flex cursor-pointer items-center gap-1 rounded-xl border border-white/[0.04] bg-white/[0.02] px-3 py-2 text-[10px] text-zinc-500 hover:text-zinc-300 hover:border-white/[0.08] has-[:checked]:border-emerald-500/40 has-[:checked]:bg-emerald-500/[0.06] has-[:checked]:text-emerald-400 transition-all">
                     <input type="checkbox" checked={shippingAvailable} onChange={(e) => setShippingAvailable(e.target.checked)} className="hidden" />📦 Ship
                   </label>
                   <button onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-[11px] text-[var(--muted)] transition hover:border-zinc-600 hover:text-[var(--foreground)]">📷 {imageFiles.length > 0 && `(${imageFiles.length})`}</button>
+                    className="flex items-center gap-1.5 rounded-xl border border-white/[0.04] bg-white/[0.02] px-3 py-2 text-[11px] text-zinc-500 hover:text-zinc-300 hover:border-white/[0.08] transition-all">📷 {imageFiles.length > 0 && `(${imageFiles.length})`}</button>
                   <div className="flex-1" />
                   <button onClick={postTrade} disabled={posting || !title}
-                    className="rounded-lg bg-sky-500 px-6 py-2.5 text-xs font-bold text-white transition hover:bg-sky-400 disabled:opacity-50">
+                    className="rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-6 py-2.5 text-xs font-bold text-white transition-all hover:shadow-[0_0_20px_rgba(14,165,233,0.3)] disabled:opacity-50">
                     {posting ? "Posting..." : "Post"}
                   </button>
                 </div>
                 {imagePreviews.length > 0 && (
                   <div className="mt-2 flex gap-2">
                     {imagePreviews.map((preview, i) => (
-                      <div key={i} className="group relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-zinc-700 bg-zinc-800">
+                      <div key={i} className="group relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02]">
                         <img src={preview} alt="" className="h-full w-full object-cover" />
                         <button onClick={() => { setImageFiles((prev) => prev.filter((_, j) => j !== i)); setImagePreviews((prev) => prev.filter((_, j) => j !== i)); }}
                           className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-600/80 text-[8px] text-white opacity-0 transition group-hover:opacity-100">✕</button>
@@ -748,16 +750,16 @@ export default function TradeFeedPage() {
                   <div className="mt-2 flex gap-2">
                     {pickupAvailable && (
                       <input type="text" placeholder="Pickup area/suburb" value={pickupArea} onChange={(e) => setPickupArea(e.target.value)}
-                        className="flex-1 rounded-lg border border-zinc-800 bg-zinc-800/50 px-3 py-1.5 text-[10px] text-[var(--foreground)] outline-none placeholder:text-[var(--muted)] focus:border-sky-500/40" />
+                        className="flex-1 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-1.5 text-[10px] text-[var(--foreground)] outline-none placeholder:text-zinc-600 focus:border-sky-500/30 focus:bg-white/[0.04] transition-all" />
                     )}
                     {shippingAvailable && (
                       <div className="flex gap-1.5">
                         <div className="relative">
-                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-[var(--muted)]">$</span>
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-zinc-600">$</span>
                           <input type="number" placeholder="Fee" value={shippingFee} onChange={(e) => setShippingFee(e.target.value)}
-                            className="w-20 rounded-lg border border-zinc-800 bg-zinc-800/50 py-1.5 pl-5 pr-2 text-[10px] text-[var(--foreground)] outline-none placeholder:text-[var(--muted)] focus:border-sky-500/40" />
+                            className="w-20 rounded-xl border border-white/[0.06] bg-white/[0.02] py-1.5 pl-5 pr-2 text-[10px] text-[var(--foreground)] outline-none placeholder:text-zinc-600 focus:border-sky-500/30 focus:bg-white/[0.04] transition-all" />
                         </div>
-                        <label className="flex cursor-pointer items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-800/50 px-2 py-1.5 text-[9px] text-[var(--muted)] has-[:checked]:text-emerald-400">
+                        <label className="flex cursor-pointer items-center gap-1 rounded-xl border border-white/[0.04] bg-white/[0.02] px-2 py-1.5 text-[9px] text-zinc-500 has-[:checked]:text-emerald-400 transition-all">
                           <input type="checkbox" checked={freeShipping} onChange={(e) => setFreeShipping(e.target.checked)} className="hidden" />Free
                         </label>
                       </div>
@@ -774,51 +776,46 @@ export default function TradeFeedPage() {
               onTouchEnd={() => { if (pullDistance > 80) { setIsRefreshing(true); setPullDistance(0); setTimeout(() => setIsRefreshing(false), 1000); } else { setPullDistance(0); } }}
             >
               {isRefreshing && (
-                <div className="flex items-center justify-center py-3">
-                  <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
-                    <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-                    Refreshing...
+                <div className="flex items-center justify-center py-4">
+                  <div className="flex items-center gap-2.5 text-xs text-zinc-500">
+                    <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                    Refreshing
                   </div>
                 </div>
               )}
               {pullDistance > 0 && !isRefreshing && (
                 <div className="flex items-center justify-center py-2 transition-all" style={{ transform: `translateY(${pullDistance * 0.5}px)` }}>
-                  <span className={`text-xs text-[var(--muted)] transition-opacity ${pullDistance > 80 ? "text-sky-400" : ""}`}>
-                    {pullDistance > 80 ? "Release to refresh" : "↓ Pull to refresh"}
+                  <span className={`text-[10px] font-mono tracking-wider transition-opacity ${pullDistance > 80 ? "text-sky-400" : "text-zinc-600"}`}>
+                    {pullDistance > 80 ? "↕ release to refresh" : "↓ pull to refresh"}
                   </span>
                 </div>
               )}
               {!postsLoaded ? (
                 <div className="space-y-3">
                   {[1, 2, 3].map((i) => (
-                    <div key={i} className="flex gap-5 rounded-xl border border-zinc-800 bg-zinc-900/40 p-5 animate-pulse">
-                      <div className="h-24 w-24 shrink-0 rounded-xl bg-zinc-800" />
+                    <div key={i} className="flex gap-4 rounded-2xl border border-white/[0.04] bg-white/[0.015] p-4 animate-pulse">
+                      <div className="h-20 w-20 shrink-0 rounded-xl bg-white/[0.04]" />
                       <div className="min-w-0 flex-1 space-y-3">
                         <div className="flex gap-2">
-                          <div className="h-4 w-16 rounded bg-zinc-800" />
-                          <div className="h-4 w-12 rounded bg-zinc-800" />
+                          <div className="h-3 w-16 rounded bg-white/[0.04]" />
+                          <div className="h-3 w-12 rounded bg-white/[0.04]" />
                         </div>
-                        <div className="h-5 w-3/4 rounded bg-zinc-800" />
-                        <div className="h-4 w-1/2 rounded bg-zinc-800" />
+                        <div className="h-5 w-3/4 rounded bg-white/[0.04]" />
+                        <div className="h-4 w-1/2 rounded bg-white/[0.04]" />
                         <div className="flex gap-3">
-                          <div className="h-6 w-16 rounded bg-zinc-800" />
-                          <div className="h-6 w-16 rounded bg-zinc-800" />
+                          <div className="h-5 w-16 rounded bg-white/[0.04]" />
+                          <div className="h-5 w-16 rounded bg-white/[0.04]" />
                         </div>
-                      </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <div className="h-4 w-4 rounded-full bg-zinc-800" />
-                        <div className="h-8 w-16 rounded-lg bg-zinc-800" />
-                        <div className="h-8 w-16 rounded-lg bg-zinc-800" />
                       </div>
                     </div>
                   ))}
                 </div>
               ) : filteredPosts.length === 0 ? (
-                <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 py-16 text-center">
-                  <div className="text-4xl mb-3">📦</div>
-                  <p className="text-sm text-[var(--muted)]">No trades here yet.</p>
+                <div className="rounded-2xl border border-white/[0.04] bg-white/[0.015] py-20 text-center">
+                  <div className="text-5xl mb-4 opacity-30">📦</div>
+                  <p className="text-sm text-zinc-500">No trades here yet.</p>
                   <button onClick={() => { window.scrollTo({ top: 0, behavior: "smooth" }); setTimeout(() => setShowComposer(true), 300); }}
-                    className="mt-4 rounded-lg bg-sky-500 px-5 py-2.5 text-xs font-bold text-white transition hover:bg-sky-400">
+                    className="mt-5 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-6 py-3 text-xs font-bold text-white transition-all hover:shadow-[0_0_20px_rgba(14,165,233,0.3)]">
                     + Create your first trade post
                   </button>
                 </div>
@@ -836,6 +833,7 @@ export default function TradeFeedPage() {
                   const postOffers = post.offers || 0;
                   const isPopular = post.promotedUntil?.toMillis?.() > Date.now() || postViews >= 10;
                   const imgs = post.images || (post.image ? [post.image] : []);
+                  const sellerName = post.sellerUsername?.split("@")[0] || post.sellerEmail?.split("@")[0];
 
                   return (
                     <div key={post.id}>
@@ -848,171 +846,137 @@ export default function TradeFeedPage() {
                           else if (dx < -30) setSwipedId(null);
                           touchStartX.current = 0;
                         }}
-                        className={`relative flex gap-5 rounded-xl border p-5 transition-all duration-200 cursor-pointer overflow-hidden hover:scale-[1.01] hover:shadow-lg hover:shadow-black/20 ${
-                          isNew ? "border-amber-500/30 bg-amber-500/5 shadow-[0_0_15px_rgba(251,191,36,0.06)] hover:border-amber-500/50" : isHot ? "border-orange-500/20 bg-orange-500/3 hover:border-orange-500/30" : isPopular ? "border-orange-500/30 bg-orange-500/[0.04] shadow-[0_0_20px_rgba(251,146,60,0.2)] hover:border-orange-500/50 hover:shadow-[0_0_30px_rgba(251,146,60,0.35)]" : "border-zinc-800 bg-zinc-900/50 hover:border-zinc-700/60"
-                        } ${worldData ? worldData.glow : ""}`}
+                        className={`group relative flex gap-4 rounded-2xl border p-4 transition-all duration-300 cursor-pointer overflow-hidden ${
+                          isNew ? "border-amber-500/20" : isPopular ? "border-orange-500/15" : "border-white/[0.04]"
+                        } bg-white/[0.015] hover:bg-white/[0.03] hover:border-white/[0.08] hover:shadow-xl hover:shadow-black/30`}
                       >
+                        {/* Glass top highlight */}
+                        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+                        {/* Status indicator dot */}
+                        {isNew && <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-amber-400 to-transparent" />}
+                        {isPopular && !isNew && <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-orange-400 to-transparent" />}
+
                         {/* Swipe actions overlay */}
                         {swipedId === post.id && (
-                          <div className="absolute inset-0 z-20 flex items-center justify-end gap-2 rounded-xl bg-black/60 backdrop-blur-sm px-4" onClick={(e) => e.stopPropagation()}>
+                          <div className="absolute inset-0 z-20 flex items-center justify-end gap-2 rounded-2xl bg-black/70 backdrop-blur-md px-4" onClick={(e) => e.stopPropagation()}>
                             <button onClick={() => { setExpandedPost(post.id); setSwipedId(null); }}
-                              className="rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-xs font-bold text-[var(--foreground)]">💬 Chat</button>
+                              className="rounded-xl border border-white/[0.06] bg-white/[0.04] px-4 py-2.5 text-xs font-bold text-[var(--foreground)] hover:bg-white/[0.08] transition">💬 Chat</button>
                             {user?.email !== post.sellerEmail && (
                               <>
                                 {post.price && <button onClick={() => { setCheckoutPost(post); setSwipedId(null); }}
-                                  className="rounded-lg bg-sky-500 px-4 py-2.5 text-xs font-bold text-white">🛒 Buy</button>}
+                                  className="rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-4 py-2.5 text-xs font-bold text-white">🛒 Buy</button>}
                                 <button onClick={() => { sendOffer(post.id); setSwipedId(null); }}
-                                  className="rounded-lg bg-sky-500/20 px-4 py-2.5 text-xs font-bold text-sky-400">💰 Offer</button>
+                                  className="rounded-xl bg-white/[0.04] border border-white/[0.06] px-4 py-2.5 text-xs font-bold text-sky-400">💰 Offer</button>
                               </>
-                            )}
-                            {user?.email === post.sellerEmail && (
-                              <button onClick={() => { setSwipedId(null); }}
-                                className="rounded-lg bg-zinc-800 px-4 py-2.5 text-xs font-bold text-[var(--muted)]">✕</button>
                             )}
                           </div>
                         )}
-                        {/* World accent line */}
-                        {worldData && (
-                          <div className={`absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b ${worldData.color} to-transparent`} />
-                        )}
 
                         {/* Image */}
-                        <div className="h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-zinc-800 cursor-pointer" onClick={(e) => { e.stopPropagation(); if (imgs.length > 0) { setLightboxImages(imgs); setLightboxIndex(0); setLightboxImg(imgs[0]); } }}>
+                        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-white/[0.02] cursor-pointer ring-1 ring-white/[0.04]" onClick={(e) => { e.stopPropagation(); if (imgs.length > 0) { setLightboxImages(imgs); setLightboxIndex(0); setLightboxImg(imgs[0]); } }}>
                           {imgs.length > 0 ? (
-                            <img src={imgs[0]} alt="" className="h-full w-full object-cover transition-transform duration-300 hover:scale-105" />
+                            <img src={imgs[0]} alt="" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
                           ) : (
-                            <div className="flex h-full items-center justify-center text-lg text-[var(--muted)]">
+                            <div className="flex h-full items-center justify-center text-lg text-zinc-600">
                               {post.badgeForSale === "legendary" ? "👑" : post.badgeForSale === "epic" ? "💎" : post.type === "WTB" ? "🛒" : post.type === "Trading" ? "🔄" : "💰"}
-                            </div>
-                          )}
-                          {imgs.length > 1 && (
-                            <div className="absolute -bottom-1 -right-1 flex">
-                              {imgs.slice(1, 4).map((img: string, i: number) => (
-                                <div key={i} className={`h-7 w-7 -ml-1.5 overflow-hidden rounded-md border border-zinc-800 bg-zinc-900 shadow-lg ${i > 0 ? "-ml-3" : ""}`}>
-                                  <img src={img} alt="" className="h-full w-full object-cover" />
-                                </div>
-                              ))}
                             </div>
                           )}
                         </div>
 
                         {/* Content */}
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 text-xs">
-                            <span className={`rounded px-2.5 py-1 font-bold uppercase tracking-wider ${getTypePill(post.type)}`}>{post.type}</span>
-                            {post.saleType === "buy_now" && <span className="rounded border border-sky-500/20 bg-sky-500/5 px-1.5 py-0.5 text-[10px] font-bold text-sky-400">Buy Now</span>}
-                            {post.saleType === "buy_now_offers" && <span className="rounded border border-emerald-500/20 bg-emerald-500/5 px-1.5 py-0.5 text-[10px] font-bold text-emerald-400">Offers</span>}
-                            {post.saleType === "trade" && <span className="rounded border border-violet-500/20 bg-violet-500/5 px-1.5 py-0.5 text-[10px] font-bold text-violet-400">Trade</span>}
-                            {isPopular && <span className="rounded border border-orange-500/20 bg-orange-500/10 px-1.5 py-0.5 text-[10px] font-bold text-orange-400">🔥 Hot</span>}
-                            {post.promotedUntil?.toMillis?.() > Date.now() && <span className="rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-400">📈 Promoted</span>}
-                            {post.status === "live" && <span className="rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold text-emerald-400">Active</span>}
-                            {post.status === "completed" && <span className="rounded border border-zinc-500/20 bg-zinc-500/10 px-1.5 py-0.5 text-[10px] font-bold text-zinc-400">Completed</span>}
-                            {post.status === "sold" && <span className="rounded border border-red-500/20 bg-red-500/10 px-1.5 py-0.5 text-[10px] font-bold text-red-400">Sold</span>}
-                            {post.type === "digital" && post.status !== "sold" && <span className="rounded border border-sky-500/20 bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-bold text-sky-400">📥 Digital</span>}
-                            {isHot && <span className="rounded border border-orange-500/20 bg-orange-500/10 px-2 py-0.5 text-[11px] font-bold text-orange-400">HOT</span>}
-                            {isNew && <span className="text-[11px] font-bold text-red-400">NEW</span>}
-                            {post.world && <span className="text-[var(--muted)]">{worldData?.icon}</span>}
-                            <span className="text-[9px] text-zinc-600">{formatTime(post.createdAt)}</span>
+                          <div className="flex items-center gap-2">
+                            <span className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${getTypePill(post.type)}`}>{post.type}</span>
+                            {post.status === "sold" && <span className="rounded-md bg-red-500/[0.08] px-2 py-0.5 text-[10px] font-medium text-red-400">Sold</span>}
+                            {isNew && <span className="text-[10px] font-medium text-amber-400">New</span>}
+                            <span className="text-[10px] text-zinc-600 ml-auto font-mono">{formatTime(post.createdAt)}</span>
                           </div>
 
-                          <h3 className="mt-1.5 text-lg font-black text-[var(--foreground)] leading-snug">{post.title}</h3>
-                          {post.message && !isExpanded && <p className="mt-1 truncate text-sm text-[var(--muted)]">{post.message}</p>}
+                          <h3 className="mt-1.5 text-[15px] font-bold text-[var(--foreground)] leading-snug tracking-tight">{post.title}</h3>
+                          {post.message && !isExpanded && <p className="mt-0.5 text-sm text-zinc-500 truncate">{post.message}</p>}
                           {replies.length > 0 && !isExpanded && (
-                            <p className="mt-1 truncate text-xs text-zinc-600">💬 {replies[replies.length - 1].by?.split("@")[0]}: {replies[replies.length - 1].text}</p>
+                            <p className="mt-0.5 text-xs text-zinc-600 truncate">💬 {replies[replies.length - 1].by?.split("@")[0]}: {replies[replies.length - 1].text}</p>
                           )}
 
-                          {/* Price + Stats row */}
-                          <div className="mt-3 flex items-center gap-3 flex-wrap">
-                            {post.price && <span className="text-xl font-black text-sky-400">${post.price}</span>}
-                            <div className="flex items-center gap-2.5 text-xs text-[var(--muted)]">
+                          {/* Price + Stats */}
+                          <div className="mt-2.5 flex items-center gap-4">
+                            {post.price && <span className="text-xl font-black text-sky-400 tracking-tight">${post.price}</span>}
+                            <div className="flex items-center gap-2.5 text-[11px] text-zinc-600">
                               <span>👁 {postViews}</span>
                               {replyCount > 0 && <span>💬 {replyCount}</span>}
                               {offers > 0 && <span>💰 {offers}</span>}
+                            </div>
                           </div>
-                          </div>
-                          <div className="mt-2 flex items-center gap-3 text-xs text-[var(--muted)]">
-                            <Link href={`/seller/${post.sellerUsername || post.sellerEmail}`} onClick={(e) => e.stopPropagation()}
-                              className="flex items-center gap-1.5 hover:text-sky-400 transition-colors">
-                              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-violet-500 text-[10px] font-bold text-white">
-                                {(post.sellerUsername || post.sellerEmail || "?").charAt(0).toUpperCase()}
-                              </div>
-                          <span className="font-medium text-[var(--foreground)]">{post.sellerUsername?.split("@")[0] || post.sellerEmail?.split("@")[0]}</span>
-                          {sellerBadges[post.sellerEmail || ""] === "legendary" && <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold text-amber-400 animate-pulse">👑 The Five</span>}
-                          {sellerBadges[post.sellerEmail || ""] === "epic" && <span className="rounded bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-bold text-violet-400">💎 Epic</span>}
-                          {stats && stats.count > 0 && (
-                            <span className="text-amber-400">{'★'.repeat(Math.min(Math.floor(stats.avg), 5))} {stats.avg.toFixed(1)}</span>
-                          )}
-                        </Link>
-                            {post.pickupAvailable && <span>📍 {post.pickupArea || "Pickup"}</span>}
-                            {post.shippingAvailable && <span>{post.freeShipping ? "🚚 Free" : `📦 $${post.shippingFee || ""}`}</span>}
-                            <span className="text-zinc-700">·</span>
-                            <span>{formatTime(post.createdAt)}</span>
-                          </div>
-                        </div>
 
-                        {/* Actions column */}
-                        <div className="flex shrink-0 flex-col items-end gap-1.5">
-                          {/* Watchlist heart */}
-                          <button onClick={(e) => { e.stopPropagation(); toggleWatchlist(post); }}
-                            className="text-sm transition hover:scale-110" title="Save to watchlist">
-                            ♡
-                          </button>
-                          {/* Three-dot menu */}
-                          <div className="relative">
-                            <button onClick={(e) => { e.stopPropagation(); setMenuOpen(menuOpen === post.id ? null : post.id); }}
-                              className="rounded-lg p-1 text-[var(--muted)] transition hover:bg-zinc-800/50 hover:text-[var(--foreground)]">
-                              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" /></svg>
-                            </button>
-                            {menuOpen === post.id && (
-                              <div className="absolute right-0 top-8 z-50 w-36 rounded-xl border border-zinc-700 bg-zinc-900 py-1 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-                                <button onClick={() => { const url = `${window.location.origin}/post/listing/${post.id}`; if (navigator.share) { navigator.share({ url, title: post.title }); } else { navigator.clipboard.writeText(url); showToast("Link copied!"); } setMenuOpen(null); }}
-                                  className="flex w-full items-center gap-2 px-4 py-2 text-xs text-[var(--foreground)] hover:bg-zinc-800">📤 Share</button>
-                                {user?.email === post.sellerEmail && (
-                                  <Link href={`/post/ai?edit=${post.id}`} onClick={() => setMenuOpen(null)}
-                                    className="flex w-full items-center gap-2 px-4 py-2 text-xs text-[var(--foreground)] hover:bg-zinc-800">✏️ Edit</Link>
-                                )}
-                                <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/post/listing/${post.id}`); showToast("Link copied!"); setMenuOpen(null); }}
-                                  className="flex w-full items-center gap-2 px-4 py-2 text-xs text-[var(--foreground)] hover:bg-zinc-800">🔗 Copy link</button>
-                                <button onClick={() => { setMenuOpen(null); }}
-                                  className="flex w-full items-center gap-2 px-4 py-2 text-xs text-red-400 hover:bg-zinc-800">🚩 Report</button>
+                          {/* Seller + Actions row */}
+                          <div className="mt-2.5 flex items-center gap-2 text-xs">
+                            <Link href={`/seller/${post.sellerUsername || post.sellerEmail}`} onClick={(e) => e.stopPropagation()}
+                              className="flex items-center gap-1.5 text-zinc-500 hover:text-sky-400 transition-colors">
+                              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-violet-500 text-[8px] font-bold text-white">
+                                {sellerName?.charAt(0).toUpperCase() || "?"}
                               </div>
-                            )}
+                              <span className="font-medium text-zinc-400">{sellerName}</span>
+                              {sellerBadges[post.sellerEmail || ""] === "legendary" && <span className="rounded bg-amber-500/[0.08] px-1.5 py-0.5 text-[8px] font-bold text-amber-400">👑 The Five</span>}
+                              {stats && stats.count > 0 && <span className="text-amber-400/80">★ {stats.avg.toFixed(1)}</span>}
+                            </Link>
+                            <span className="text-zinc-700">·</span>
+                            {post.pickupAvailable && <span className="text-zinc-600">📍 {post.pickupArea || "Pickup"}</span>}
+                            {post.shippingAvailable && <span className="text-zinc-600">{post.freeShipping ? "🚚 Free" : `📦 $${post.shippingFee || ""}`}</span>}
+
+                            <div className="ml-auto flex items-center gap-1.5">
+                              {user?.email !== post.sellerEmail && post.price && (
+                                <button onClick={(e) => { e.stopPropagation(); setCheckoutPost(post); }}
+                                  className="rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-3.5 py-1.5 text-[10px] font-bold text-white transition-all hover:shadow-[0_0_12px_rgba(14,165,233,0.2)] active:scale-95">Buy</button>
+                              )}
+                              {user?.email !== post.sellerEmail && (
+                                <Link href={`/messages?user=${encodeURIComponent(post.sellerEmail || "")}&listing=${encodeURIComponent(post.id)}`} onClick={(e) => e.stopPropagation()}
+                                  className="rounded-xl border border-white/[0.06] px-3.5 py-1.5 text-[10px] font-bold text-zinc-400 hover:text-[var(--foreground)] hover:border-white/[0.12] transition">Chat</Link>
+                              )}
+                              {user?.email === post.sellerEmail && (
+                                <button onClick={(e) => { e.stopPropagation(); setPromotePost(post); }}
+                                  className="rounded-xl border border-amber-500/20 px-3.5 py-1.5 text-[10px] font-bold text-amber-400 hover:bg-amber-500/[0.06] transition">📈 Promote</button>
+                              )}
+                              <div className="relative">
+                                <button onClick={(e) => { e.stopPropagation(); setMenuOpen(menuOpen === post.id ? null : post.id); }}
+                                  className="rounded-xl p-1.5 text-zinc-600 hover:text-zinc-300 hover:bg-white/[0.04] transition">
+                                  <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" /></svg>
+                                </button>
+                                {menuOpen === post.id && (
+                                  <div className="absolute right-0 top-8 z-50 w-36 rounded-xl border border-white/[0.06] bg-zinc-950/95 backdrop-blur-xl py-1 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                                    <button onClick={() => { const url = `${window.location.origin}/post/listing/${post.id}`; if (navigator.share) { navigator.share({ url, title: post.title }); } else { navigator.clipboard.writeText(url); showToast("Link copied!"); } setMenuOpen(null); }}
+                                      className="flex w-full items-center gap-2 px-4 py-2 text-xs text-zinc-400 hover:text-[var(--foreground)] hover:bg-white/[0.04]">📤 Share</button>
+                                    {user?.email === post.sellerEmail && (
+                                      <Link href={`/post/ai?edit=${post.id}`} onClick={() => setMenuOpen(null)}
+                                        className="flex w-full items-center gap-2 px-4 py-2 text-xs text-zinc-400 hover:text-[var(--foreground)] hover:bg-white/[0.04]">✏️ Edit</Link>
+                                    )}
+                                    <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/post/listing/${post.id}`); showToast("Link copied!"); setMenuOpen(null); }}
+                                      className="flex w-full items-center gap-2 px-4 py-2 text-xs text-zinc-400 hover:text-[var(--foreground)] hover:bg-white/[0.04]">🔗 Copy link</button>
+                                    <button onClick={() => { setMenuOpen(null); }}
+                                      className="flex w-full items-center gap-2 px-4 py-2 text-xs text-red-400 hover:bg-white/[0.04]">🚩 Report</button>
+                                    {user?.email === post.sellerEmail && (
+                                      <button onClick={() => { deleteTrade(post.id); setMenuOpen(null); }}
+                                        className="flex w-full items-center gap-2 px-4 py-2 text-xs text-red-400 hover:bg-white/[0.04]">🗑 Delete</button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                          {/* Buy/Message/Offer buttons */}
-                          {user?.email !== post.sellerEmail && post.price && (
-                            <button onClick={(e) => { e.stopPropagation(); setCheckoutPost(post); }}
-                              className="w-full rounded-lg bg-sky-500 px-4 py-2 text-xs font-bold text-white transition hover:bg-sky-400">Buy Now</button>
-                          )}
-                          {user?.email !== post.sellerEmail && (
-                            <Link href={`/messages?user=${encodeURIComponent(post.sellerEmail || "")}&listing=${encodeURIComponent(post.id)}`}
-                              className="block w-full rounded-lg border border-zinc-700 px-4 py-2 text-xs font-bold text-[var(--foreground)] text-center transition hover:border-zinc-600">Message</Link>
-                          )}
-                          {user?.email !== post.sellerEmail && (
-                            <Link href={`/messages?user=${encodeURIComponent(post.sellerEmail || "")}&listing=${encodeURIComponent(post.id)}`}
-                              className="block w-full rounded-lg bg-sky-500/10 px-4 py-2 text-xs font-bold text-sky-400 text-center transition hover:bg-sky-500/20">💰 Offer</Link>
-                          )}
-                          {user?.email === post.sellerEmail && (
-                            <>
-                              <button onClick={(e) => { e.stopPropagation(); setPromotePost(post); }}
-                                className="w-full rounded-lg border border-amber-500/30 px-4 py-1.5 text-[10px] font-bold text-amber-400 transition hover:bg-amber-500/10">📈 Promote</button>
-                              <button onClick={(e) => { e.stopPropagation(); deleteTrade(post.id); }}
-                                className="w-full rounded-lg bg-red-500/10 px-4 py-1.5 text-[10px] font-bold text-red-400 transition hover:bg-red-500/20">Delete</button>
-                            </>
-                          )}
                         </div>
                       </div>
 
                       {/* Expanded replies */}
                       {isExpanded && (
-                        <div className="ml-[124px] mt-3 space-y-2.5">
+                        <div className="ml-[88px] mt-3 space-y-2.5">
                           {replies.slice(-3).map((r: any, i: number) => (
-                            <div key={i} className="group flex items-center gap-2 rounded-lg bg-zinc-800/30 px-4 py-2.5">
+                            <div key={i} className="group flex items-center gap-2 rounded-xl border border-white/[0.03] bg-white/[0.01] px-4 py-2.5">
                               <span className="text-xs font-medium text-[var(--foreground)]">{r.by?.split("@")[0]}:</span>
-                              <span className="text-xs text-[var(--muted)]">{r.text}</span>
+                              <span className="text-xs text-zinc-500">{r.text}</span>
                               <div className="flex gap-1 ml-auto">
                                 {["👍", "❤️", "😮", "😂"].map((emoji) => (
                                   <button key={emoji} onClick={(e) => { e.stopPropagation(); addReply(post.id, emoji); }}
-                                    className="rounded px-1.5 py-0.5 text-[11px] opacity-0 group-hover:opacity-100 md:opacity-100 md:hover:opacity-100 transition hover:bg-zinc-700/50">{emoji}</button>
+                                    className="rounded px-1.5 py-0.5 text-[11px] opacity-0 group-hover:opacity-100 md:opacity-100 md:hover:opacity-100 transition hover:bg-white/[0.04]">{emoji}</button>
                                 ))}
                               </div>
                             </div>
@@ -1021,29 +985,25 @@ export default function TradeFeedPage() {
                             <input type="text" placeholder="Quick reply..." value={replyTexts[post.id] || ""}
                               onChange={(e) => setReplyTexts((prev) => ({ ...prev, [post.id]: e.target.value }))}
                               onKeyDown={(e) => { if (e.key === "Enter") addReply(post.id, replyTexts[post.id] || ""); }}
-                              className="flex-1 rounded-lg border border-zinc-800 bg-zinc-900/60 px-3.5 py-2.5 text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--muted)] focus:border-sky-500/40" />
-                            <button onClick={() => addReply(post.id, replyTexts[post.id] || "")} className="rounded-lg bg-sky-500 px-4 py-2.5 text-xs font-bold text-white hover:bg-sky-400">Reply</button>
+                              className="flex-1 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5 text-sm text-[var(--foreground)] outline-none placeholder:text-zinc-600 focus:border-sky-500/30 focus:bg-white/[0.04] transition-all" />
+                            <button onClick={() => addReply(post.id, replyTexts[post.id] || "")} className="rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-4 py-2.5 text-xs font-bold text-white transition-all hover:shadow-[0_0_12px_rgba(14,165,233,0.2)]">Reply</button>
                           </div>
                           <div className="flex flex-wrap gap-1.5">
                             {[...QUICK_REPLIES, ...customReplies].slice(0, 6).map((qr) => (
                               <button key={qr} onClick={() => addReply(post.id, qr)}
-                                className="rounded-md border border-zinc-700/50 px-3 py-1.5 text-[10px] text-[var(--muted)] transition hover:border-zinc-600 hover:text-[var(--foreground)]">{qr}</button>
+                                className="rounded-lg border border-white/[0.04] px-3 py-1.5 text-[10px] text-zinc-500 hover:text-zinc-300 hover:border-white/[0.08] transition">{qr}</button>
                             ))}
                             <div className="relative">
                               <button onClick={(e) => { e.stopPropagation(); setAddingReply(addingReply === post.id ? "" : post.id); }}
-                                className="rounded-md border border-dashed border-zinc-700/50 px-3 py-1.5 text-[10px] text-[var(--muted)] hover:border-zinc-600 hover:text-[var(--foreground)]">+ Add</button>
+                                className="rounded-lg border border-dashed border-white/[0.04] px-3 py-1.5 text-[10px] text-zinc-500 hover:text-zinc-300 hover:border-white/[0.08] transition">+ Add</button>
                               {addingReply === post.id && (
-                                <div className="absolute bottom-full left-0 mb-1.5 z-50 flex gap-1 rounded-lg border border-zinc-700 bg-zinc-900 p-1.5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+                                <div className="absolute bottom-full left-0 mb-1.5 z-50 flex gap-1 rounded-xl border border-white/[0.06] bg-zinc-950/95 backdrop-blur-xl p-1.5 shadow-xl" onClick={(e) => e.stopPropagation()}>
                                   <input type="text" placeholder="Quick reply..." autoFocus
                                     onKeyDown={(e) => { if (e.key === "Enter" && e.currentTarget.value.trim()) { setCustomReplies((p) => [e.currentTarget.value.trim(), ...p].slice(0, 10)); e.currentTarget.value = ""; setAddingReply(""); } }}
-                                    className="w-32 rounded-md border border-zinc-800 bg-zinc-800/80 px-2 py-1 text-[10px] text-[var(--foreground)] outline-none placeholder:text-[var(--muted)]" />
+                                    className="w-32 rounded-lg border border-white/[0.06] bg-white/[0.02] px-2 py-1 text-[10px] text-[var(--foreground)] outline-none placeholder:text-zinc-600" />
                                 </div>
                               )}
                             </div>
-                            {customReplies.length > 0 && (
-                              <button onClick={(e) => { e.stopPropagation(); setCustomReplies([]); }}
-                                className="rounded-md border border-red-500/20 px-3 py-1.5 text-[10px] text-red-400 hover:bg-red-500/10">Reset</button>
-                            )}
                           </div>
                         </div>
                       )}
@@ -1057,81 +1017,82 @@ export default function TradeFeedPage() {
 
           {/* ── SIDE PANEL ── */}
           <div className="space-y-3 xl:sticky xl:top-24">
-            {/* ── LIVE ── */}
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 backdrop-blur-xl p-5">
+            {/* ── ACTIVITY ── */}
+            <div className="rounded-2xl border border-white/[0.04] bg-white/[0.015] backdrop-blur-xl p-5">
               <div className="flex items-center justify-between mb-4">
-                <p className="text-sm font-bold text-[var(--foreground)]">🔴 Live</p>
-                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-500">Activity</p>
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inset-0 h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping opacity-75" />
+                  <span className="relative h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                </span>
               </div>
               <div className="grid grid-cols-2 gap-2.5">
-                <div className="rounded-lg bg-zinc-800/30 px-3.5 py-2.5">
-                  <p className="text-xs text-[var(--muted)]">📊 In view</p>
-                  <p className="mt-0.5 text-lg font-black text-sky-400">{filteredPosts.length}</p>
+                <div className="rounded-xl border border-white/[0.03] bg-white/[0.01] px-3.5 py-3">
+                  <p className="text-[10px] text-zinc-600 font-mono uppercase tracking-wider">Trades</p>
+                  <p className="mt-1 text-xl font-black tracking-tight text-sky-400">{String(filteredPosts.length).padStart(2, '0')}</p>
                 </div>
-                <div className="rounded-lg bg-zinc-800/30 px-3.5 py-2.5">
-                  <p className="text-xs text-[var(--muted)]">🔥 Hot</p>
-                  <p className="mt-0.5 text-lg font-black text-orange-400">{hotPosts.length}</p>
+                <div className="rounded-xl border border-white/[0.03] bg-white/[0.01] px-3.5 py-3">
+                  <p className="text-[10px] text-zinc-600 font-mono uppercase tracking-wider">Trending</p>
+                  <p className="mt-1 text-xl font-black tracking-tight text-orange-400">{String(hotPosts.length).padStart(2, '0')}</p>
                 </div>
               </div>
-              <div className="mt-3 space-y-0.5 max-h-48 overflow-y-auto scrollbar-thin">
+              <div className="mt-3 space-y-0.5 max-h-32 overflow-y-auto scrollbar-thin">
                 {liveEvents.length > 0 ? (
-                  liveEvents.map((ev, idx) => (
-                    <div key={ev.id} className="flex items-start gap-2 py-1 text-xs leading-relaxed animate-[slideIn_0.3s_ease-out]"
-                      style={{ animation: "slideIn 0.3s ease-out", opacity: idx >= liveEvents.length - 3 ? 0.6 : 1 }}>
+                  liveEvents.slice(0, 5).map((ev, idx) => (
+                    <div key={ev.id} className="flex items-start gap-2 py-1 text-xs leading-relaxed"
+                      style={{ opacity: idx >= 3 ? 0.5 : 1 }}>
                       <span className="shrink-0 mt-0.5">{ev.icon}</span>
-                      <span className="text-[var(--muted)]">{ev.text}</span>
+                      <span className="text-zinc-500 truncate">{ev.text}</span>
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-[var(--muted)] italic">Waiting for activity...</p>
+                  <p className="text-xs text-zinc-600 italic py-4 text-center">Waiting for activity...</p>
                 )}
               </div>
             </div>
 
-
-
             {/* ── TRENDING WORLDS ── */}
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 backdrop-blur-xl p-5">
+            <div className="rounded-2xl border border-white/[0.04] bg-white/[0.015] backdrop-blur-xl p-5">
               <div className="flex items-center justify-between mb-4">
-                <p className="text-sm font-bold text-[var(--foreground)]">🔥 Trending Worlds</p>
-                <span className="text-[10px] text-[var(--muted)]">By activity</span>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-500">Trending</p>
+                <span className="text-[10px] text-zinc-600">By activity</span>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {trends.length > 0 ? (
                   trends.map((t, i) => (
-                    <div key={t.world} className="flex items-center gap-3 rounded-lg bg-zinc-800/20 px-3.5 py-2.5 transition hover:bg-zinc-800/40">
-                      <span className="text-xl">{t.icon}</span>
+                    <div key={t.world} className="flex items-center gap-3 rounded-xl border border-white/[0.02] bg-white/[0.01] px-3.5 py-2.5 transition hover:bg-white/[0.03] hover:border-white/[0.04]">
+                      <span className="text-lg">{t.icon}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-[var(--foreground)] truncate">{t.label}</p>
-                        <p className="text-[11px] text-[var(--muted)]">{t.count} post{t.count !== 1 ? "s" : ""}</p>
+                        <p className="text-[10px] text-zinc-600">{t.count} post{t.count !== 1 ? "s" : ""}</p>
                       </div>
-                      <span className="shrink-0 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400">
-                        {t.change}
-                      </span>
-                      {i === 0 && <span className="text-xs">👑</span>}
+                      {i === 0 && <span className="text-xs opacity-60">👑</span>}
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-[var(--muted)] italic py-2 text-center">Not enough data yet...</p>
+                  <p className="text-xs text-zinc-600 italic py-4 text-center">Not enough data yet...</p>
                 )}
               </div>
             </div>
 
             {/* ── SHOUTBOX ── */}
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 backdrop-blur-xl p-5">
+            <div className="rounded-2xl border border-white/[0.04] bg-white/[0.015] backdrop-blur-xl p-5">
               <div className="flex items-center justify-between mb-4">
-                <p className="text-sm font-bold text-[var(--foreground)]">💬 Shoutbox</p>
-                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-500">💬 Shoutbox</p>
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inset-0 h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping opacity-75" />
+                  <span className="relative h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                </span>
               </div>
               <div className="max-h-80 overflow-y-auto mb-3 scrollbar-thin space-y-0.5" ref={shoutsEndRef} onScroll={handleShoutsScroll}>
                 {shouts.length === 0 ? (
-                  <div className="flex flex-col items-center py-8 text-sm text-[var(--muted)]">
+                  <div className="flex flex-col items-center py-8 text-sm text-zinc-600">
                     <span className="mb-2 text-2xl">💬</span>
                     <span>No messages yet...</span>
                   </div>
                 ) : (
                   shouts.map((s) => (
-                    <div key={s.id} className="group relative rounded-lg px-2 py-2 transition hover:bg-zinc-800/20">
+                    <div key={s.id} className="group relative rounded-lg px-2 py-2 transition hover:bg-white/[0.02]">
                       <div className="flex items-start gap-2.5">
                         <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-violet-500 text-xs font-bold text-white mt-0.5">
                           {(s.by?.split("@")[0] || "?").charAt(0).toUpperCase()}
@@ -1141,11 +1102,11 @@ export default function TradeFeedPage() {
                             <span className="text-sm font-bold text-[var(--foreground)]">{s.by?.split("@")[0]}</span>
                             <span className="text-[11px] text-zinc-600">{s.createdAt?.seconds ? formatTime(s.createdAt) : ""}</span>
                           </div>
-                          <p className="text-sm text-[var(--muted)] break-words mt-0.5">{s.text}</p>
+                          <p className="text-sm text-zinc-500 break-words mt-0.5">{s.text}</p>
                         </div>
                         {user?.email === s.by && (
                           <button onClick={(e) => { e.stopPropagation(); deleteDoc(doc(db, "tradeShouts", s.id)); }}
-                            className="absolute right-1 top-1 hidden group-hover:flex h-5 w-5 items-center justify-center rounded bg-zinc-800 text-[10px] text-[var(--muted)] hover:text-red-400 transition"
+                            className="absolute right-1 top-1 hidden group-hover:flex h-5 w-5 items-center justify-center rounded bg-white/[0.04] text-[10px] text-zinc-600 hover:text-red-400 transition"
                             title="Delete">✕</button>
                         )}
                       </div>
@@ -1157,15 +1118,15 @@ export default function TradeFeedPage() {
                 <input type="text" placeholder="Chat... (Enter to send)" value={shoutText} maxLength={200}
                   onChange={(e) => setShoutText(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") sendShout(); }}
-                  className="w-full rounded-lg border border-zinc-800 bg-zinc-800/80 px-3.5 py-2.5 pr-10 text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--muted)] focus:border-sky-500/40 transition" />
-                <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] ${shoutText.length > 180 ? "text-amber-400" : "text-zinc-600"}`}>
+                  className="w-full rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5 pr-10 text-sm text-[var(--foreground)] outline-none placeholder:text-zinc-600 focus:border-sky-500/30 focus:bg-white/[0.04] transition-all" />
+                <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-[9px] ${shoutText.length > 180 ? "text-amber-400" : "text-zinc-600"}`}>
                   {shoutText.length}/200
                 </span>
               </div>
-              <div className="flex gap-1 mt-1.5">
+              <div className="flex gap-1 mt-2">
                 {["👍", "❤️", "😂", "😮", "🔥", "🙏"].map((emoji) => (
                   <button key={emoji} onClick={() => { setShoutText((prev) => prev + emoji); }}
-                    className="rounded px-1.5 py-0.5 text-sm opacity-60 hover:opacity-100 transition hover:bg-zinc-800/50">{emoji}</button>
+                    className="rounded px-1.5 py-0.5 text-sm opacity-40 hover:opacity-100 transition hover:bg-white/[0.04]">{emoji}</button>
                 ))}
               </div>
             </div>
@@ -1227,7 +1188,7 @@ export default function TradeFeedPage() {
 
       <style jsx>{`
         @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(4px); }
+          from { opacity: 0; transform: translateY(6px); }
           to { opacity: 1; transform: translateY(0); }
         }
       `}</style>

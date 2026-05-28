@@ -1048,11 +1048,15 @@ export default function Home() {
                         {(item as any).promotedUntil?.toMillis?.() > Date.now() && (
                           <span className="rounded-md bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-400 border border-amber-500/10">📈 Promoted</span>
                         )}
-                       {item.condition && item.condition !== "New" && (
-                         <span className="rounded-md bg-zinc-800/60 px-2 py-0.5 text-[10px] text-zinc-400 border border-zinc-700/30">
-                           {(item as any).type === "rental" ? item.condition : "Used"}
-                         </span>
-                       )}
+                        {item.condition && (
+                          <span className={`rounded-md px-2 py-0.5 text-[10px] font-semibold border ${
+                            item.condition === "New"
+                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/10"
+                              : "bg-zinc-800/60 text-zinc-400 border-zinc-700/30"
+                          }`}>
+                            {item.condition === "New" ? "🆕 New" : item.condition}
+                          </span>
+                        )}
                      </div>
 
                       <button

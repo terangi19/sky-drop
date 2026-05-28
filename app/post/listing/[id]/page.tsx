@@ -155,6 +155,32 @@ export default function ListingPage() {
     }
   }, [user, listing]);
 
+  // Sky Hustlers: track ?ref= referral and store in localStorage
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const ref = new URLSearchParams(window.location.search).get("ref");
+    if (ref && listingId) {
+      const key = `sky_hustler_${listingId}`;
+      localStorage.setItem(key, ref);
+      // Record click
+      const q = query(collection(db, "hustlerLinks"), where("code", "==", ref), where("listingId", "==", listingId));
+      getDocs(q).then((snap) => {
+        if (!snap.empty) {
+          const link = snap.docs[0];
+          const data = link.data();
+          addDoc(collection(db, "hustlerClicks"), {
+            linkId: link.id,
+            promotionId: data.promotionId || null,
+            listingId,
+            promoterId: data.promoterId || null,
+            createdAt: serverTimestamp(),
+          }).catch(() => {});
+          updateDoc(doc(db, "hustlerLinks", link.id), { clicks: increment(1) }).catch(() => {});
+        }
+      }).catch(() => {});
+    }
+  }, [listingId]);
+
   useEffect(() => {
     let mounted = true;
     const unsub = onAuthStateChanged(auth, (currentUser) => {
@@ -1425,36 +1451,39 @@ export default function ListingPage() {
                   <input type="text" value={newQuestion} onChange={(e) => setNewQuestion(e.target.value)}
                     placeholder="Ask a question..."
                     className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800/80 px-3 py-2 text-[11px] text-[var(--foreground)] outline-none transition placeholder:text-zinc-500 focus:border-sky-500" />
-                  <button onClick={async () => {
-                    if (!newQuestion.trim() || !listing) return;
-                    setSendingQuestion(true);
-                    try {
-                      await addDoc(collection(db, "listingQuestions"), {
-                        listingId: listing.id,
-                        askerEmail: user.email,
-                        askerName: user.email?.split("@")[0] || "Someone",
-                        question: newQuestion.trim(),
-                        createdAt: serverTimestamp(),
-                      });
-                      setNewQuestion("");
-                      showToast("Question submitted", "success");
-                      const { createNotification } = await import("../../../lib/notifications");
-                      createNotification({
-                        targetEmail: listing.sellerEmail || "",
-                        fromEmail: user.email,
-                        type: "question",
-                        title: `New question on "${listing.title}"`,
-                        message: newQuestion.trim().slice(0, 100),
-                        listingId: listing.id,
-                        listingTitle: listing.title,
-                        listingImage: listing.images?.[0] || listing.imageUrl || "",
-                      });
-                    } catch (e) { console.error(e); showToast("Failed to submit question", "error"); }
-                    setSendingQuestion(false);
-                  }} disabled={!newQuestion.trim() || sendingQuestion}
-                    className="shrink-0 rounded-lg bg-sky-500 px-4 py-2 text-[11px] font-bold text-white transition hover:bg-sky-400 disabled:opacity-50">
-                    Ask
-                  </button>
+                    <button onClick={async () => {
+                      if (!newQuestion.trim() || !listing) return;
+                      setSendingQuestion(true);
+                      try {
+                        await addDoc(collection(db, "listingQuestions"), {
+                          listingId: listing.id,
+                          askerEmail: user.email,
+                          askerName: user.email?.split("@")[0] || "Someone",
+                          question: newQuestion.trim(),
+                          createdAt: serverTimestamp(),
+                        });
+                        setNewQuestion("");
+                        showToast("Question submitted", "success");
+                      } catch (e) { console.error("Q&A submit error:", e); showToast("Failed to submit question", "error"); }
+                      setSendingQuestion(false);
+                      // Send notification to seller (outside main try/catch so failures don't mislead user)
+                      try {
+                        const { createNotification } = await import("../../../lib/notifications");
+                        createNotification({
+                          targetEmail: listing.sellerEmail || "",
+                          fromEmail: user.email,
+                          type: "question",
+                          title: `New question on "${listing.title}"`,
+                          message: newQuestion.trim().slice(0, 100),
+                          listingId: listing.id,
+                          listingTitle: listing.title,
+                          listingImage: listing.images?.[0] || listing.imageUrl || "",
+                        });
+                      } catch {}
+                    }} disabled={!newQuestion.trim() || sendingQuestion}
+                      className="shrink-0 rounded-lg bg-sky-500 px-4 py-2 text-[11px] font-bold text-white transition hover:bg-sky-400 disabled:opacity-50">
+                      Ask
+                    </button>
                 </div>
               )}
             </div>

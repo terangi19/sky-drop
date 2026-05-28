@@ -15,8 +15,9 @@ import {
   signInWithPhoneNumber,
 } from "firebase/auth";
 
-import { doc, serverTimestamp, setDoc, Timestamp } from "firebase/firestore";
+import { addDoc, collection, doc, getDocs, increment, query, serverTimestamp, setDoc, Timestamp, updateDoc, where } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
+import { createNotification } from "../lib/notifications";
 
 export default function AuthPage() {
   const router = useRouter();
@@ -59,6 +60,7 @@ export default function AuthPage() {
   async function handleAuth(e: React.FormEvent) {
     e.preventDefault();
     if (!email || !password) return;
+    if (!isLogin && !phone.trim()) { alert("Phone number is required."); return; }
 
     try {
       setLoading(true);
@@ -84,7 +86,47 @@ export default function AuthPage() {
             lastActive: Timestamp.now(),
             createdAt: serverTimestamp(),
           };
-          if (inviteCode.trim()) profileData.referredBy = inviteCode.trim().toUpperCase();
+          if (inviteCode.trim()) {
+            try {
+              const referrerQuery = query(collection(db, "profiles"), where("referralCode", "==", inviteCode.trim().toUpperCase()));
+              const referrerSnap = await getDocs(referrerQuery);
+              if (!referrerSnap.empty) {
+                const referrerDoc = referrerSnap.docs[0];
+                const referrerData = referrerDoc.data();
+                if (referrerData.email && referrerData.email !== user.email) {
+                  profileData.referredBy = inviteCode.trim().toUpperCase();
+                  await updateDoc(doc(db, "profiles", referrerDoc.id), {
+                    referralSignups: increment(1),
+                  });
+                  await addDoc(collection(db, "referralEvents"), {
+                    type: "signup",
+                    referrerEmail: referrerData.email,
+                    referredEmail: user.email,
+                    createdAt: serverTimestamp(),
+                  });
+                  await createNotification({
+                    type: "referral",
+                    targetEmail: referrerData.email,
+                    fromEmail: user.email || "",
+                    title: "🎉 You referred someone!",
+                    message: `${user.email} signed up using your referral code!`,
+                  });
+
+                  for (let i = 0; i < 5; i++) {
+                    await addDoc(collection(db, "dropTokens"), {
+                      ownerId: user.uid,
+                      ownerEmail: user.email,
+                      originDropId: "referral_reward",
+                      status: "available",
+                      createdAt: serverTimestamp(),
+                    });
+                  }
+                }
+              }
+            } catch (e) {
+              console.error("Referral tracking failed:", e);
+            }
+          }
           await setDoc(doc(db, "profiles", user.uid), profileData);
         }
 
@@ -157,7 +199,7 @@ export default function AuthPage() {
               ? "Enter the 6-digit code sent to your phone."
               : isLogin
               ? "Welcome back to Sky Drop."
-              : "Join Sky Drop — phone verification helps keep the marketplace safe."}
+              : "Create your Sky Drop account. A verified phone number is required to ensure a trusted marketplace for everyone."}
           </p>
 
           {step === "verify" ? (
@@ -207,22 +249,10 @@ export default function AuthPage() {
                 className="w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 outline-none focus:border-sky-400"
               />
 
-              {resetSent ? (
-                <p className="text-xs text-right text-emerald-400">Reset link sent!</p>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleResetPassword}
-                  className="w-full text-xs text-right text-[var(--muted)] hover:text-sky-400 transition-colors"
-                >
-                  Forgot password?
-                </button>
-              )}
-
               {!isLogin && (
                 <input
                   type="tel"
-                  placeholder="Phone (optional) — for pickup coordination"
+                  placeholder="Phone Number"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   className="w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 outline-none focus:border-sky-400"
@@ -237,6 +267,9 @@ export default function AuthPage() {
                   onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                   className="w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 outline-none focus:border-sky-400"
                 />
+              )}
+              {!isLogin && !inviteCode.trim() && (
+                <p className="-mt-2 text-[10px] text-amber-400/70">Use a referral code and get 5 free Drop Tokens 🎁</p>
               )}
 
               {phoneMsg && (
@@ -255,16 +288,16 @@ export default function AuthPage() {
                   : "Create Account"}
               </button>
 
-              {isLogin && (
-                <div className="text-center">
-                  <button
-                    type="button"
-                    onClick={() => setShowReset(!showReset)}
-                    className="text-sm text-sky-400 hover:underline"
-                  >
-                    Forgot password?
-                  </button>
-                </div>
+              {resetSent ? (
+                <p className="w-full text-xs text-right text-emerald-400">Reset link sent!</p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleResetPassword}
+                  className="w-full text-xs text-right text-[var(--muted)] hover:text-sky-400 transition-colors"
+                >
+                  Forgot password?
+                </button>
               )}
 
               {showReset && (
@@ -344,6 +377,14 @@ export default function AuthPage() {
               </button>
             </>
           )}
+
+          <div className="mt-6 flex items-center justify-center gap-1.5 text-[11px] text-[var(--muted)]">
+            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            Payments protected by <span className="font-semibold tracking-tight">Stripe</span>
+          </div>
         </div>
       </section>
       <div id="recaptcha-container" />
