@@ -103,12 +103,12 @@ const regions = [
 ];
 
 const trendingCategories = [
-  { emoji: "🚗", name: "Cars" },
-  { emoji: "💻", name: "Tech" },
+  { emoji: "🏎️", name: "Cars" },
+  { emoji: "🖥️", name: "Tech" },
   { emoji: "🎮", name: "Gaming" },
-  { emoji: "👕", name: "Fashion" },
-  { emoji: "🏠", name: "Home" },
-  { emoji: "⚽", name: "Sports" },
+  { emoji: "👟", name: "Fashion" },
+  { emoji: "🏡", name: "Home" },
+  { emoji: "🏋️", name: "Sports" },
 ];
 
 function timeAgo(seconds: number): string {
