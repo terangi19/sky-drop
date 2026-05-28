@@ -8,6 +8,7 @@ import Background from "../../../components/Background";
 import ReportModal from "../../../components/ReportModal";
 import CheckoutModal from "../../../components/CheckoutModal";
 import PromoteModal from "../../../components/PromoteModal";
+import JobApplicationModal from "../../../components/JobApplicationModal";
 import { showToast } from "../../../components/Toast";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { addDoc, collection, doc, getDoc, getDocs, increment, onSnapshot, query, runTransaction, serverTimestamp, updateDoc, where, Timestamp, setDoc } from "firebase/firestore";
@@ -132,6 +133,7 @@ export default function ListingPage() {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showCheckout, setShowCheckout] = useState(false);
   const [showPromote, setShowPromote] = useState(false);
+  const [showJobApplication, setShowJobApplication] = useState(false);
   const [userPurchased, setUserPurchased] = useState(false);
   const [sellerReviewData, setSellerReviewData] = useState<{ avg: number; count: number } | null>(null);
   const [bidAmount, setBidAmount] = useState("");
@@ -1115,13 +1117,12 @@ export default function ListingPage() {
             <div className="flex gap-2">
               {user && user.email !== listing.sellerEmail ? (
                 <>
-                  <Link
-                    href={`/messages?user=${encodeURIComponent(listing.sellerEmail || "")}&listing=${listingId}`}
+                  <button onClick={() => setShowJobApplication(true)}
                     className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-cyan-500 to-teal-500 py-3 text-[13px] font-bold text-white shadow-lg shadow-cyan-500/20 transition hover:shadow-xl hover:shadow-cyan-500/30"
                   >
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
                     Apply Now
-                  </Link>
+                  </button>
                 </>
               ) : user?.email === listing.sellerEmail ? (
                 <div className="flex gap-2 w-full">
@@ -1505,6 +1506,18 @@ export default function ListingPage() {
         <PromoteModal
           listing={listing}
           onClose={() => setShowPromote(false)}
+        />
+      )}
+      {showJobApplication && user && (
+        <JobApplicationModal
+          listingId={listingId}
+          listingTitle={listing.title || ""}
+          employerEmail={listing.sellerEmail || ""}
+          employerId={listing.sellerId || ""}
+          userEmail={user.email || ""}
+          userName={user.displayName || ""}
+          onClose={() => setShowJobApplication(false)}
+          onSubmitted={() => {}}
         />
       )}
       {showBidModal && (

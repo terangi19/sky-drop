@@ -357,6 +357,18 @@ export default function DashboardPage() {
         {showSponsor && sponsorListing && user && (
           <SponsorDropModal listing={sponsorListing} sellerEmail={user.email!} userId={user.uid} onClose={() => setShowSponsor(false)} />
         )}
+
+        <Link href="/dashboard/applications"
+          className="mt-8 flex items-center justify-between rounded-2xl border border-cyan-500/10 bg-gradient-to-b from-cyan-500/3 to-transparent p-5 transition hover:border-cyan-500/20">
+          <div className="flex items-center gap-3">
+            <span className="text-lg">📋</span>
+            <div>
+              <h2 className="text-sm font-bold text-[var(--foreground)]">Job Applications</h2>
+              <p className="mt-0.5 text-xs text-zinc-500">Review applicants for your job listings</p>
+            </div>
+          </div>
+          <span className="text-cyan-400 text-sm font-bold">View →</span>
+        </Link>
       </section>
     </main>
   );
