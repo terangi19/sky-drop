@@ -483,6 +483,89 @@ Rental Status: 🟢 Active`;
         }
       }
 
+      // Digital: auto-create conversation and send system message
+      if (isDigital) {
+        try {
+          const convKey = `listing_${listing.id}`;
+          const existingConv = await getDocs(
+            query(
+              collection(db, "conversations"),
+              where("convKey", "==", convKey),
+              where("participants", "array-contains", buyerEmail)
+            )
+          );
+
+          let convId: string;
+          if (!existingConv.empty) {
+            convId = existingConv.docs[0].id;
+            await updateDoc(doc(db, "conversations", convId), {
+              updatedAt: serverTimestamp(),
+              lastMessage: `Digital purchase confirmed — $${total}`,
+              orderStatus: "paid",
+            });
+          } else {
+            const convRef = await addDoc(collection(db, "conversations"), {
+              convKey,
+              participants: [buyerEmail, listing.sellerEmail],
+              buyerEmail,
+              sellerEmail: listing.sellerEmail,
+              listingId: listing.id,
+              listingTitle: listing.title,
+              listingPrice: String(total),
+              listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
+              orderStatus: "paid",
+              orderId: purchaseRef.id,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+              lastMessage: `Digital purchase confirmed — $${total}`,
+            });
+            convId = convRef.id;
+          }
+
+          const buyerMsg = `🎉 Purchase confirmed for "${listing.title}"
+
+Payment has been completed successfully.
+
+Order Details:
+• Total Paid: $${total.toFixed(2)}
+• Buyer Protection Included
+
+The seller has been notified and will provide the digital asset, access details, files, license key, account transfer, or delivery instructions through this chat.
+
+Please keep all communication and digital delivery inside Sky Drop for protection.
+
+Digital Order Status: 🟢 Active`;
+
+          await addDoc(collection(db, "messages"), {
+            type: "system",
+            text: buyerMsg,
+            sender: "system",
+            receiver: listing.sellerEmail,
+            participants: [buyerEmail, listing.sellerEmail],
+            conversationId: convId,
+            listingId: listing.id,
+            listingTitle: listing.title,
+            read: false,
+            createdAt: serverTimestamp(),
+          });
+
+          await addDoc(collection(db, "messages"), {
+            type: "text",
+            text: `🟢 Your digital asset has been purchased successfully.\n\nPlease use this chat to:\n• deliver files/assets\n• provide access details\n• send license keys\n• coordinate transfer securely\n\nKeep all communication and delivery inside Sky Drop for protection.`,
+            sender: "system",
+            receiver: listing.sellerEmail,
+            participants: [buyerEmail, listing.sellerEmail],
+            conversationId: convId,
+            listingId: listing.id,
+            listingTitle: listing.title,
+            read: false,
+            createdAt: serverTimestamp(),
+          });
+        } catch (e) {
+          console.error("Digital conversation creation failed:", e);
+        }
+      }
+
       setOrderId(purchaseRef.id);
       try {
         localStorage.setItem("checkoutInfo", JSON.stringify({ name: name.trim(), phone: phone.trim() }));
