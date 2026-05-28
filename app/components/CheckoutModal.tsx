@@ -234,7 +234,12 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
     try {
       // Verify the real price from Firestore
       const snap = await safeGetDoc(doc(db, collectionName, listing.id));
-      if (!snap?.exists()) {
+      if (!snap) {
+        setIntentError("Could not verify listing. Please try again.");
+        setStep("form");
+        return;
+      }
+      if (!snap.exists()) {
         setIntentError("Listing not found.");
         setStep("form");
         return;
