@@ -128,7 +128,7 @@ export default function ServicesPage() {
         ) : (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filtered.map((item) => (
-              <div key={item.id} className="group relative overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.02] transition-all duration-300 hover:bg-white/[0.04] hover:border-violet-500/30 hover:-translate-y-1 hover:shadow-[0_10px_40px_-10px_rgba(139,92,246,0.15)]">
+              <Link key={item.id} href={`/post/listing/${item.id}`} className="group relative overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.02] transition-all duration-300 hover:bg-white/[0.04] hover:border-violet-500/30 hover:-translate-y-1 hover:shadow-[0_10px_40px_-10px_rgba(139,92,246,0.15)]">
                 {/* Preview */}
                 <div className="relative h-36 overflow-hidden bg-gradient-to-br from-violet-900/20 to-fuchsia-900/20">
                   {item.images?.[0] || item.imageUrl || item.image ? (
@@ -141,29 +141,30 @@ export default function ServicesPage() {
                 </div>
 
                 <div className="p-5">
-                  <Link href={`/post/listing/${item.id}`} className="flex items-start justify-between gap-3">
+                  <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-bold text-[var(--foreground)] group-hover:text-violet-400 transition-colors duration-300">{item.title}</p>
                       <p className="mt-0.5 text-[11px] text-zinc-500">{item.category}</p>
                     </div>
                     <span className="shrink-0 text-lg font-black text-violet-400 drop-shadow-[0_0_8px_rgba(139,92,246,0.3)]">{item.price ? `$${item.price}` : "Negotiable"}</span>
-                  </Link>
+                  </div>
 
                   {item.serviceDuration && (
                     <p className="mt-2 text-[10px] text-zinc-500">⏱ {item.serviceDuration}</p>
                   )}
 
                   <div className="mt-4 flex items-center justify-between border-t border-zinc-800/50 pt-4">
-                    <Link href={`/seller/${item.sellerUsername || item.sellerEmail}`} className="text-[11px] text-zinc-500 hover:text-violet-400 transition-colors">
+                    <Link href={`/seller/${item.sellerUsername || item.sellerEmail}`} onClick={(e) => e.stopPropagation()} className="text-[11px] text-zinc-500 hover:text-violet-400 transition-colors">
                       {item.sellerUsername || item.sellerEmail?.split("@")[0] || "Seller"}
                     </Link>
                     {user?.email === item.sellerEmail ? (
-                      <Link href={`/post/ai?edit=${item.id}`}
+                      <Link href={`/post/ai?edit=${item.id}`} onClick={(e) => e.stopPropagation()}
                         className="rounded-lg border border-zinc-700 px-4 py-1.5 text-[11px] font-bold text-zinc-400 transition-all duration-200 hover:border-zinc-600 hover:text-white">
                         Edit
                       </Link>
                     ) : (
-                      <button onClick={async () => {
+                      <button onClick={async (e) => {
+                        e.stopPropagation();
                         try {
                           const convKey = `listing_${item.id}`;
                           const existingConv = await getDocs(
@@ -234,7 +235,7 @@ export default function ServicesPage() {
                     )}
                   </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}
