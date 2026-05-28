@@ -35,7 +35,7 @@ export default function RentalsPage() {
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-400">
             Rent items by the day — tools, cameras, equipment, and more. Pick up locally and return when you&apos;re done.
           </p>
-          <Link href="/post/ai" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-emerald-500/30 hover:scale-105 active:scale-95">
+          <Link href="/post/ai?type=rental" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-emerald-500/30 hover:scale-105 active:scale-95">
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
             List a Rental
           </Link>
@@ -91,7 +91,7 @@ export default function RentalsPage() {
             </div>
             <h2 className="text-2xl font-black tracking-tight text-white">No rentals listed yet</h2>
             <p className="mt-2 text-sm text-zinc-500">Be the first to list something for rent.</p>
-            <Link href="/post/ai" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-emerald-500/30 hover:scale-105 active:scale-95">
+            <Link href="/post/ai?type=rental" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-emerald-500/30 hover:scale-105 active:scale-95">
               List a Rental
             </Link>
           </div>

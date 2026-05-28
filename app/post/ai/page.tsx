@@ -163,6 +163,16 @@ export default function AIPostPage() {
     return () => unsub();
   }, []);
 
+  // Pre-select listing type from ?type= query param
+  useEffect(() => {
+    const typeParam = new URLSearchParams(window.location.search).get("type");
+    if (!typeParam) return;
+    const valid = ["physical", "digital", "service", "rental", "event", "vehicle", "job", "property"];
+    if (valid.includes(typeParam)) {
+      setListingType(typeParam as any);
+    }
+  }, []);
+
   useEffect(() => {
     const editParam = new URLSearchParams(window.location.search).get("edit");
     if (!editParam) return;

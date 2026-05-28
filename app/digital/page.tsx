@@ -51,7 +51,7 @@ export default function DigitalPage() {
             <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-400">
               The Digital Store is Sky Drop's marketplace for premium instant-download products. Browse templates, software, design assets, e-books, and creative tools — delivered directly to you on purchase.
             </p>
-            <Link href="/post/ai" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:scale-105 active:scale-95">
+            <Link href="/post/ai?type=digital" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:scale-105 active:scale-95">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
               Create Listing
             </Link>
@@ -122,7 +122,7 @@ export default function DigitalPage() {
             </div>
             <h2 className="text-2xl font-black tracking-tight text-white">Nothing here yet</h2>
             <p className="mt-2 text-sm text-zinc-500">Be the first to list a digital product in this category.</p>
-            <Link href="/post/ai" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:scale-105 active:scale-95">
+            <Link href="/post/ai?type=digital" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:scale-105 active:scale-95">
               Create Listing
             </Link>
           </div>
