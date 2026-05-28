@@ -97,6 +97,7 @@ export default function AIPostPage() {
   const classifierRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
+  const manualEdit = useRef<Set<string>>(new Set());
 
   // Load model from CDN
   useEffect(() => {
@@ -1058,7 +1059,16 @@ export default function AIPostPage() {
                     <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Daily rate *</label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                      <input type="number" value={price} onChange={(e) => { const v = e.target.value; setPrice(v); const d = Number(v); if (d > 0) { if (!rentalPriceWeekly) setRentalPriceWeekly(String(Math.round(d * 7))); if (!rentalPriceMonthly) setRentalPriceMonthly(String(Math.round(d * 30))); } }}
+                      <input type="number" value={price} onChange={(e) => {
+                        const v = e.target.value;
+                        setPrice(v);
+                        const d = Number(v);
+                        if (d > 0) {
+                          if (!manualEdit.current.has("weekly")) setRentalPriceWeekly(String(Math.round(d * 7)));
+                          const w = manualEdit.current.has("weekly") ? Number(rentalPriceWeekly) : Math.round(d * 7);
+                          if (!manualEdit.current.has("monthly") && w > 0) setRentalPriceMonthly(String(Math.round(w * 4)));
+                        }
+                      }}
                         placeholder="Day"
                         className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
                     </div>
@@ -1067,7 +1077,10 @@ export default function AIPostPage() {
                     <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Weekly <span className="text-zinc-600">(opt)</span></label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                      <input type="number" value={rentalPriceWeekly} onChange={(e) => setRentalPriceWeekly(e.target.value)}
+                      <input type="number" value={rentalPriceWeekly} onChange={(e) => {
+                        setRentalPriceWeekly(e.target.value);
+                        manualEdit.current.add("weekly");
+                      }}
                         placeholder="Week"
                         className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
                     </div>
@@ -1076,12 +1089,16 @@ export default function AIPostPage() {
                     <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Monthly <span className="text-zinc-600">(opt)</span></label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                      <input type="number" value={rentalPriceMonthly} onChange={(e) => setRentalPriceMonthly(e.target.value)}
+                      <input type="number" value={rentalPriceMonthly} onChange={(e) => {
+                        setRentalPriceMonthly(e.target.value);
+                        manualEdit.current.add("monthly");
+                      }}
                         placeholder="Month"
                         className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
                     </div>
                   </div>
                 </div>
+                <p className="text-[10px] text-zinc-500">Auto-calculated from entered rates. You can edit manually.</p>
                 <div>
                   <label className="mb-1 block text-[10px] font-medium text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">Refundable Deposit</label>
                   <div className="relative">
