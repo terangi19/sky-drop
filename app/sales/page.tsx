@@ -131,27 +131,15 @@ export default function SalesPage() {
           listingImage: purchase.listingImage,
         });
 
-        // Calculate net payout (deduct hustler commissions)
-        let payoutAmount = purchase.total;
-        try {
-          const hustlerSnap = await getDocs(query(
-            collection(db, "hustlerCommissions"),
-            where("listingId", "==", purchase.listingId),
-            where("status", "==", "confirmed")
-          ));
-          const totalCommission = hustlerSnap.docs.reduce((sum: number, d: any) => sum + Number(d.data().commissionAmount || 0), 0);
-          payoutAmount = Math.max(0, Number(purchase.total) - totalCommission);
-        } catch (e) { console.error("Failed to calculate hustler deduction:", e); }
-
         // Release funds to seller
         try {
           const profileSnap = await getDoc(doc(db, "profiles", user!.uid));
           const accountId = profileSnap.data()?.stripeAccountId;
-          if (accountId && payoutAmount > 0) {
+          if (accountId && Number(purchase.total) > 0) {
             await fetch("/api/stripe-connect", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ action: "withdraw", accountId, amount: payoutAmount }),
+              body: JSON.stringify({ action: "withdraw", accountId, amount: Number(purchase.total) }),
             });
           }
         } catch (e) { console.error("Payout transfer failed:", e); }
@@ -169,27 +157,15 @@ export default function SalesPage() {
           listingImage: purchase.listingImage,
         });
 
-        // Calculate net payout (deduct hustler commissions)
-        let payoutAmount = purchase.total;
-        try {
-          const hustlerSnap = await getDocs(query(
-            collection(db, "hustlerCommissions"),
-            where("listingId", "==", purchase.listingId),
-            where("status", "==", "confirmed")
-          ));
-          const totalCommission = hustlerSnap.docs.reduce((sum: number, d: any) => sum + Number(d.data().commissionAmount || 0), 0);
-          payoutAmount = Math.max(0, Number(purchase.total) - totalCommission);
-        } catch (e) { console.error("Failed to calculate hustler deduction:", e); }
-
         // Release funds to seller on service delivery
         try {
           const profileSnap = await getDoc(doc(db, "profiles", user!.uid));
           const accountId = profileSnap.data()?.stripeAccountId;
-          if (accountId && payoutAmount > 0) {
+          if (accountId && Number(purchase.total) > 0) {
             await fetch("/api/stripe-connect", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ action: "withdraw", accountId, amount: payoutAmount }),
+              body: JSON.stringify({ action: "withdraw", accountId, amount: Number(purchase.total) }),
             });
           }
         } catch (e) { console.error("Service payout transfer failed:", e); }

@@ -155,32 +155,6 @@ export default function ListingPage() {
     }
   }, [user, listing]);
 
-  // Sky Hustlers: track ?ref= referral and store in localStorage
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const ref = new URLSearchParams(window.location.search).get("ref");
-    if (ref && listingId) {
-      const key = `sky_hustler_${listingId}`;
-      localStorage.setItem(key, ref);
-      // Record click
-      const q = query(collection(db, "hustlerLinks"), where("code", "==", ref), where("listingId", "==", listingId));
-      getDocs(q).then((snap) => {
-        if (!snap.empty) {
-          const link = snap.docs[0];
-          const data = link.data();
-          addDoc(collection(db, "hustlerClicks"), {
-            linkId: link.id,
-            promotionId: data.promotionId || null,
-            listingId,
-            promoterId: data.promoterId || null,
-            createdAt: serverTimestamp(),
-          }).catch(() => {});
-          updateDoc(doc(db, "hustlerLinks", link.id), { clicks: increment(1) }).catch(() => {});
-        }
-      }).catch(() => {});
-    }
-  }, [listingId]);
-
   useEffect(() => {
     let mounted = true;
     const unsub = onAuthStateChanged(auth, (currentUser) => {

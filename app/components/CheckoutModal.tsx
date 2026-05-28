@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { addDoc, collection, doc, getDoc, getDocs, increment, query, serverTimestamp, Timestamp, updateDoc, where } from "firebase/firestore";
+import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, Timestamp, updateDoc, where } from "firebase/firestore";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import stripePromise from "../lib/stripe-client";
 import { db, storage } from "../lib/firebase";
@@ -380,129 +380,6 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
         }
       } catch (e) {
         console.error("Failed to update listing availability:", e);
-      }
-
-      // Affiliate commission tracking
-      try {
-        const buyerProfileSnap = await getDocs(query(collection(db, "profiles"), where("email", "==", buyerEmail)));
-        const buyerProfile = buyerProfileSnap.docs[0]?.data();
-        const referredBy = buyerProfile?.referredBy;
-        if (referredBy) {
-          const referrerQuery = query(collection(db, "profiles"), where("referralCode", "==", referredBy));
-          const referrerSnap = await getDocs(referrerQuery);
-          if (!referrerSnap.empty) {
-            const referrerDoc = referrerSnap.docs[0];
-            const referrerData = referrerDoc.data();
-            const referrerEmail = referrerData.email || "";
-            const sellerEmail = listing.sellerEmail || "";
-            if (!referrerEmail || referrerEmail === buyerEmail || referrerEmail === sellerEmail) {
-              // skip — self-referral, seller is referrer, or empty
-            } else {
-              const commissionableTotal = total - processingFee;
-              const commissionAmount = parseFloat((Math.max(0, commissionableTotal) * 0.05).toFixed(2));
-              await addDoc(collection(db, "commissions"), {
-                referrerEmail,
-                referredEmail: buyerEmail,
-                purchaseId: purchaseRef.id,
-                listingId: listing.id,
-                listingTitle: listing.title,
-                amount: commissionAmount,
-                status: "pending",
-                createdAt: serverTimestamp(),
-              });
-              await updateDoc(doc(db, "profiles", referrerDoc.id), {
-                commissionBalance: increment(commissionAmount),
-                totalCommissionEarned: increment(commissionAmount),
-              });
-              await addDoc(collection(db, "referralEvents"), {
-                type: "commission",
-                referrerEmail,
-                referredEmail: buyerEmail,
-                amount: commissionAmount,
-                listingTitle: listing.title,
-                createdAt: serverTimestamp(),
-              });
-              await createNotification({
-                type: "commission",
-                targetEmail: referrerEmail,
-                fromEmail: buyerEmail,
-                title: "💰 Commission Earned!",
-                message: `You earned $${commissionAmount} commission from ${name.trim()}'s purchase of "${listing.title}".`,
-                listingId: listing.id,
-                listingTitle: listing.title,
-                total: commissionAmount,
-              });
-            }
-          }
-        }
-      } catch (e) {
-        console.error("Commission tracking failed:", e);
-      }
-
-      // Sky Hustlers: check for promoter referral in localStorage
-      try {
-        const key = `sky_hustler_${listing.id}`;
-        const refCode = typeof window !== "undefined" ? localStorage.getItem(key) : null;
-        if (refCode && listing.id) {
-          const linkSnap = await getDocs(query(collection(db, "hustlerLinks"), where("code", "==", refCode), where("listingId", "==", listing.id)));
-          if (!linkSnap.empty) {
-            const linkDoc = linkSnap.docs[0];
-            const linkData = linkDoc.data();
-            const promoterId = linkData.promoterId;
-            const sellerId = linkData.sellerId || "";
-
-            // Anti-abuse: no self-referral, no self-purchase
-            const buyerProfileSnap = await getDocs(query(collection(db, "profiles"), where("email", "==", buyerEmail)));
-            const buyerProfileUid = buyerProfileSnap.docs[0]?.id;
-            if (promoterId && promoterId !== sellerId && buyerProfileUid !== promoterId) {
-              // Get promotion to calculate commission
-              const promoSnap = await getDoc(doc(db, "promotions", listing.id));
-              if (promoSnap.exists()) {
-                const promo = promoSnap.data();
-                const budgetLeft = (promo.maxBudget || 0) - (promo.totalCommissionPaid || 0);
-                const commissionableTotal = Math.max(0, total - processingFee);
-                let commissionAmount = 0;
-                if (promo.commissionType === "percent") {
-                  commissionAmount = parseFloat((commissionableTotal * (promo.commissionValue || 0) / 100).toFixed(2));
-                } else {
-                  commissionAmount = Math.min(promo.commissionValue || 0, commissionableTotal);
-                }
-                commissionAmount = Math.min(commissionAmount, budgetLeft);
-
-                if (commissionAmount > 0) {
-                  await addDoc(collection(db, "hustlerCommissions"), {
-                    promotionId: listing.id,
-                    linkId: linkDoc.id,
-                    listingId: listing.id,
-                    sellerId,
-                    promoterId,
-                    buyerEmail,
-                    orderId: purchaseRef.id,
-                    saleAmount: total,
-                    commissionType: promo.commissionType,
-                    commissionValue: promo.commissionValue,
-                    commissionAmount,
-                    status: "confirmed",
-                    createdAt: serverTimestamp(),
-                  });
-                  await updateDoc(doc(db, "hustlerLinks", linkDoc.id), { conversions: increment(1) });
-                  await updateDoc(doc(db, "promotions", listing.id), { totalCommissionPaid: increment(commissionAmount) });
-                  await addDoc(collection(db, "hustlerEvents"), {
-                    type: "commission",
-                    promoterId,
-                    promoterName: "",
-                    listingTitle: listing.title || "",
-                    amount: commissionAmount,
-                    text: `💰 ${listing.title || "A listing"} — $${commissionAmount.toFixed(2)} commission earned`,
-                    createdAt: serverTimestamp(),
-                  });
-                }
-              }
-            }
-          }
-        }
-      } catch (e) {
-        console.error("Hustler commission tracking failed:", e);
       }
 
       setOrderId(purchaseRef.id);

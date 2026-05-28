@@ -92,11 +92,7 @@ export default function AIPostPage() {
   const [scamAlert, setScamAlert] = useState<{ title: string; message: string; found: string[] } | null>(null);
   const [priceAlert, setPriceAlert] = useState(false);
   const [confirmedSubmit, setConfirmedSubmit] = useState(false);
-  const [promoteEnabled, setPromoteEnabled] = useState(false);
-  const [promoteCommissionType, setPromoteCommissionType] = useState<"percent" | "fixed">("percent");
-  const [promoteCommissionValue, setPromoteCommissionValue] = useState("");
-  const [promoteMaxBudget, setPromoteMaxBudget] = useState("");
-  const [promoteExpiryDays, setPromoteExpiryDays] = useState("30");
+
   const isDigital = listingType === "digital";
   const classifierRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -492,45 +488,7 @@ export default function AIPostPage() {
           trackListingCreated(user.uid, title);
         }
 
-        // Create promotion if enabled
-        if (promoteEnabled && promoteCommissionValue && promoteMaxBudget) {
-          const expiresDate = new Date(Date.now() + Number(promoteExpiryDays) * 86400000);
-          await setDoc(doc(db, "promotions", listingRef.id), {
-            listingId: listingRef.id,
-            sellerId: user.uid,
-            enabled: true,
-            commissionType: promoteCommissionType,
-            commissionValue: Number(promoteCommissionValue),
-            maxBudget: Number(promoteMaxBudget),
-            totalCommissionPaid: 0,
-            expiresAt: Timestamp.fromDate(expiresDate),
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          });
-        }
-
         alert("Listing created!");
-      }
-
-      // Handle promotion for edit mode
-      if (editId) {
-        if (promoteEnabled && promoteCommissionValue && promoteMaxBudget) {
-          const expiresDate = new Date(Date.now() + Number(promoteExpiryDays) * 86400000);
-          await setDoc(doc(db, "promotions", editId), {
-            listingId: editId,
-            sellerId: user.uid,
-            enabled: true,
-            commissionType: promoteCommissionType,
-            commissionValue: Number(promoteCommissionValue),
-            maxBudget: Number(promoteMaxBudget),
-            totalCommissionPaid: 0,
-            expiresAt: Timestamp.fromDate(expiresDate),
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          }, { merge: true });
-        } else {
-          await setDoc(doc(db, "promotions", editId), { enabled: false }, { merge: true }).catch(() => {});
-        }
       }
       setImagePreviews([]); setImageFiles([]); setExistingImages([]);
       setTitle(""); setDescription(""); setPrice("");
@@ -1207,68 +1165,6 @@ export default function AIPostPage() {
             </div>
           </div>
           )}
-
-          {/* Sky Hustlers — Promote & Earn */}
-          <div className="rounded-2xl border border-amber-500/10 bg-gradient-to-b from-amber-500/3 to-transparent p-5">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">🚀</span>
-                <div>
-                  <p className="text-sm font-bold text-[var(--foreground)]">Sky Hustlers — Promote & Earn</p>
-                  <p className="text-[10px] text-zinc-500">Let others promote your listing and earn commission from sales</p>
-                </div>
-              </div>
-              <label className="relative inline-flex cursor-pointer items-center">
-                <input type="checkbox" checked={promoteEnabled} onChange={(e) => setPromoteEnabled(e.target.checked)} className="peer sr-only" />
-                <div className="h-6 w-11 rounded-full border border-zinc-700 bg-zinc-800 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-zinc-400 after:transition-all after:content-[''] peer-checked:border-amber-500/30 peer-checked:bg-amber-500/20 peer-checked:after:translate-x-full peer-checked:after:bg-amber-400" />
-              </label>
-            </div>
-
-            {promoteEnabled && (
-              <div className="space-y-3 mt-3 pt-3 border-t border-amber-500/10">
-                <div className="flex gap-3">
-                  <div className="flex-1">
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Commission type</label>
-                    <div className="flex gap-1.5">
-                      <button type="button" onClick={() => setPromoteCommissionType("percent")}
-                        className={`flex-1 rounded-lg py-2 text-[11px] font-bold transition ${promoteCommissionType === "percent" ? "bg-amber-500/15 text-amber-400 border border-amber-500/30" : "bg-zinc-800/50 text-zinc-500 border border-zinc-700/30 hover:text-zinc-300"}`}>
-                        %
-                      </button>
-                      <button type="button" onClick={() => setPromoteCommissionType("fixed")}
-                        className={`flex-1 rounded-lg py-2 text-[11px] font-bold transition ${promoteCommissionType === "fixed" ? "bg-amber-500/15 text-amber-400 border border-amber-500/30" : "bg-zinc-800/50 text-zinc-500 border border-zinc-700/30 hover:text-zinc-300"}`}>
-                        $
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">{promoteCommissionType === "percent" ? "Commission %" : "Fixed amount ($)"}</label>
-                    <input type="number" value={promoteCommissionValue} onChange={(e) => setPromoteCommissionValue(e.target.value)}
-                      placeholder={promoteCommissionType === "percent" ? "e.g. 10" : "e.g. 20"}
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-amber-500" />
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <div className="flex-1">
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Max budget ($)</label>
-                    <input type="number" value={promoteMaxBudget} onChange={(e) => setPromoteMaxBudget(e.target.value)}
-                      placeholder="e.g. 200"
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-amber-500" />
-                  </div>
-                  <div className="flex-1">
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Promotion expires in</label>
-                    <select value={promoteExpiryDays} onChange={(e) => setPromoteExpiryDays(e.target.value)}
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-amber-500">
-                      <option value="7">7 days</option>
-                      <option value="14">14 days</option>
-                      <option value="30">30 days</option>
-                      <option value="60">60 days</option>
-                      <option value="90">90 days</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
 
           {/* Expires in — all types */}
           <div>
