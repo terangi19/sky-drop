@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+import { collection, doc, getDoc } from "firebase/firestore";
+import { db } from "../../lib/firebase";
 import { rateLimit } from "../../lib/rate-limit";
 
 let stripe: Stripe | null = null;
@@ -9,26 +11,6 @@ function getStripe(): Stripe {
     stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
   }
   return stripe;
-}
-
-let adminInitialized = false;
-
-async function getAdminDB() {
-  if (!adminInitialized) {
-    const { initializeApp, getApps, cert } = await import("firebase-admin/app");
-    const { getFirestore } = await import("firebase-admin/firestore");
-    if (!getApps().length) {
-      const sa = process.env.FIREBASE_SERVICE_ACCOUNT;
-      if (sa) {
-        initializeApp({ credential: cert(JSON.parse(sa)) });
-      } else {
-        initializeApp({ projectId: "sky-drop-de459" });
-      }
-    }
-    adminInitialized = true;
-  }
-  const { getFirestore } = await import("firebase-admin/firestore");
-  return getFirestore();
 }
 
 export async function POST(req: NextRequest) {
@@ -48,23 +30,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    const adminDb = await getAdminDB();
-    const listingRef = adminDb.collection("listings").doc(listingId);
-    let listingSnap;
-    try {
-      listingSnap = await listingRef.get();
-    } catch (e: any) {
-      console.error("[create-payment-intent] Failed to read listing:", e?.code || e?.message || e);
-      return NextResponse.json({ error: "Could not verify listing. Please try again." }, { status: 503 });
-    }
-    if (!listingSnap.exists) {
+    const listingRef = doc(collection(db, "listings"), listingId);
+    const listingSnap = await getDoc(listingRef);
+    if (!listingSnap.exists()) {
       return NextResponse.json({ error: "Listing not found." }, { status: 400 });
     }
 
     const listingData = listingSnap.data();
-    if (!listingData) {
-      return NextResponse.json({ error: "Listing data is empty." }, { status: 400 });
-    }
     if (listingData.status === "sold") {
       return NextResponse.json({ error: "This listing is no longer available." }, { status: 400 });
     }
@@ -100,7 +72,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ clientSecret: paymentIntent.client_secret });
   } catch (err: any) {
-    console.error("Stripe error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error("[create-payment-intent] Error:", err?.code || err?.message || err);
+    return NextResponse.json({ error: "Payment could not be processed. Please try again." }, { status: 500 });
   }
 }
