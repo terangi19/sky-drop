@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (e: any) {
-    console.error("[send-email] Error:", e?.code || e?.message || e, JSON.stringify({ host: transport?.host, user: transport?.auth?.user ? "set" : "empty" }));
+    console.error("[send-email] Error:", e?.code || e?.message || e);
     return NextResponse.json({ error: "Failed" }, { status: 500 });
   }
 }
