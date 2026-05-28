@@ -1065,37 +1065,26 @@ export default function ListingPage() {
             <div className="flex gap-2">
               {user && user.email !== listing.sellerEmail ? (
                 <>
-                  {((listing.category === "Cars" || listing.category === "Property") && listing.acceptOffers ? (
+                  <button
+                    onClick={() => setShowCheckout(true)}
+                    className="flex-1 rounded-lg bg-sky-500 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-sky-400"
+                  >
+                    Buy Now
+                  </button>
+                  {(listing.saleType === "auction" || listing.saleType === "auction_buy_now") && user && user.email !== listing.sellerEmail && (
+                    <button onClick={() => { setShowBidModal(true); setBidAmount(String(getMinimumNextBid(listing.currentBid || listing.startingBid || 0))); }}
+                      className="flex-1 rounded-lg border border-amber-500/40 bg-amber-500/10 py-2.5 text-[13px] font-bold text-amber-400 transition hover:bg-amber-500/20">
+                      Bid Now
+                    </button>
+                  )}
+                  {listing.acceptOffers && (
                     <button
                       onClick={() => setShowOffer(true)}
-                      className="flex-1 rounded-lg bg-sky-500 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-sky-400"
+                        className="rounded-lg border border-zinc-700 px-3 py-3 text-[12px] font-medium text-[var(--muted)] transition hover:border-zinc-600 hover:text-[var(--foreground)]"
                     >
                       Make Offer
                     </button>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => setShowCheckout(true)}
-                        className="flex-1 rounded-lg bg-sky-500 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-sky-400"
-                      >
-                        Buy Now
-                      </button>
-                      {(listing.saleType === "auction" || listing.saleType === "auction_buy_now") && user && user.email !== listing.sellerEmail && (
-                        <button onClick={() => { setShowBidModal(true); setBidAmount(String(getMinimumNextBid(listing.currentBid || listing.startingBid || 0))); }}
-                          className="flex-1 rounded-lg border border-amber-500/40 bg-amber-500/10 py-2.5 text-[13px] font-bold text-amber-400 transition hover:bg-amber-500/20">
-                          Bid Now
-                        </button>
-                      )}
-                      {listing.acceptOffers && (
-                        <button
-                          onClick={() => setShowOffer(true)}
-                            className="rounded-lg border border-zinc-700 px-3 py-3 text-[12px] font-medium text-[var(--muted)] transition hover:border-zinc-600 hover:text-[var(--foreground)]"
-                        >
-                          Make Offer
-                        </button>
-                      )}
-                    </>
-                  ))}
+                  )}
                 </>
               ) : user?.email === listing.sellerEmail ? (
                 <div className="flex gap-2 w-full">
