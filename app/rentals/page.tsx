@@ -42,6 +42,41 @@ export default function RentalsPage() {
           </div>
         </div>
 
+        {/* How It Works */}
+        <div className="mb-10 rounded-2xl border border-emerald-500/10 bg-gradient-to-b from-emerald-500/[0.03] to-transparent p-6">
+          <h2 className="mb-5 text-xs font-bold uppercase tracking-[0.12em] text-emerald-400">📖 How It Works</h2>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div className="flex gap-3">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-sm">🔍</span>
+              <div>
+                <p className="text-sm font-bold text-[var(--foreground)]">Browse & Choose</p>
+                <p className="mt-0.5 text-xs text-zinc-500">Find an item you need and check the daily/weekly rate and deposit amount.</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-sm">📅</span>
+              <div>
+                <p className="text-sm font-bold text-[var(--foreground)]">Book & Pay</p>
+                <p className="mt-0.5 text-xs text-zinc-500">Choose your rental dates. Pay the rental fee plus a refundable deposit.</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-sm">🤝</span>
+              <div>
+                <p className="text-sm font-bold text-[var(--foreground)]">Pick Up & Use</p>
+                <p className="mt-0.5 text-xs text-zinc-500">Coordinate pickup or delivery with the owner through the chat.</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-sm">✅</span>
+              <div>
+                <p className="text-sm font-bold text-[var(--foreground)]">Return & Refund</p>
+                <p className="mt-0.5 text-xs text-zinc-500">Return the item safely. The deposit is refunded after the owner confirms.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {listings.length === 0 ? (
           <div className="mx-auto max-w-md mt-12 text-center">
             <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/[0.03] border border-white/[0.06]">
