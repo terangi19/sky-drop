@@ -152,8 +152,9 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
   const isDigital = deliveryMethod === "digital";
   const isRental = deliveryMethod === "rental";
   const isEvent = deliveryMethod === "event";
+  const rentalDepositAmount = isRental ? Number(listing.rentalDeposit) || 0 : 0;
   const rentalItemTotal = isRental ? itemPrice * (listing.rentalDays || 1) : itemPrice;
-  const total = isBadge || isDigital || isRental || isEvent ? rentalItemTotal + processingFee : (deliveryMethod === "shipping" ? itemPrice + shippingAmount : itemPrice) + processingFee;
+  const total = isBadge || isDigital || isRental || isEvent ? rentalItemTotal + processingFee + rentalDepositAmount : (deliveryMethod === "shipping" ? itemPrice + shippingAmount : itemPrice) + processingFee;
 
   const isValid = isBadge || isDigital || isRental || isEvent ? name.trim() : name.trim() && phone.trim() && (deliveryMethod !== "shipping" || address.trim()) && deliveryMethod;
 
@@ -257,10 +258,11 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
       const realShipping = snapData.shippingFee && !snapData.freeShipping ? Number(snapData.shippingFee) : 0;
       const realRentalDays = snapData.rentalDays ?? listing.rentalDays ?? 1;
       const realRentalTotal = realPrice * Number(realRentalDays);
+      const realDeposit = deliveryMethod === "rental" ? Number(snapData.rentalDeposit) || 0 : 0;
       const realTotal = (deliveryMethod === "badge"
         ? realPrice
         : deliveryMethod === "rental"
-          ? realRentalTotal
+          ? realRentalTotal + realDeposit
           : deliveryMethod === "shipping"
             ? realPrice + realShipping
             : realPrice) + 1.00;
@@ -518,7 +520,8 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                 </div>
               )}
               <div className="mt-1 flex items-center justify-between text-[var(--muted)]"><span>Buyer Protection</span><span>$1.00</span></div>
-              <div className="mt-2 flex items-center justify-between border-t border-zinc-800 pt-2 text-sm font-bold text-[var(--foreground)]"><span>Total</span><span>${total.toFixed(2)}</span></div>
+              <div className="mt-2 flex items-center justify-between border-t border-zinc-800 pt-2 text-sm font-bold text-[var(--foreground)]"><span>Total Due Today</span><span>${total.toFixed(2)}</span></div>
+              {isRental && listing.rentalDeposit && <p className="mt-1 text-[10px] text-amber-400/70">${Number(listing.rentalDeposit).toFixed(2)} refundable after safe return.</p>}
             </div>
             <div className="mt-3 flex items-center justify-center gap-1 text-xs text-[var(--muted)]">
               <span className="text-emerald-400">✓</span>
@@ -645,9 +648,10 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                       <span>$1.00</span>
                     </div>
                     <div className="mt-2 flex items-center justify-between border-t border-zinc-800 pt-2 text-sm font-bold text-[var(--foreground)]">
-                      <span>Total</span>
+                      <span>Total Due Today</span>
                       <span>${total.toFixed(2)}</span>
                     </div>
+                    {isRental && listing.rentalDeposit && <p className="mt-1 text-[10px] text-amber-400/70">${Number(listing.rentalDeposit).toFixed(2)} refundable after safe return.</p>}
                   </div>
 
                   {intentError && (
@@ -682,9 +686,10 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                       <span>$1.00</span>
                     </div>
                     <div className="mt-2 flex items-center justify-between border-t border-zinc-800 pt-2 text-sm font-bold text-[var(--foreground)]">
-                      <span>Total</span>
+                      <span>Total Due Today</span>
                       <span>${total.toFixed(2)}</span>
                     </div>
+                    {isRental && listing.rentalDeposit && <p className="mt-1 text-[10px] text-amber-400/70">${Number(listing.rentalDeposit).toFixed(2)} refundable after safe return.</p>}
                   </div>
                   <Elements stripe={stripePromise} options={{ clientSecret }}>
                     <PaymentForm total={total} listingId={listing.id} title={listing.title} price={String(total)} buyerEmail={buyerEmail} onSuccess={handlePaymentSuccess} onBack={resetToForm} badgeForSale={listing.badgeForSale} sellerEmail={listing.sellerEmail} collectionName={collectionName} type={listing.type} digitalFileURL={listing.digitalFileURL} digitalFileName={listing.digitalFileName} digitalStoragePath={listing.digitalStoragePath} />
