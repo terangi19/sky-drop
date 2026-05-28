@@ -680,6 +680,90 @@ Scammers often try to move conversations to WhatsApp, email, or other platforms.
         }
       }
 
+      // Vehicle: auto-create conversation and send system message
+      if (listing.type === "vehicle") {
+        try {
+          const convKey = `listing_${listing.id}`;
+          const existingConv = await getDocs(
+            query(
+              collection(db, "conversations"),
+              where("convKey", "==", convKey),
+              where("participants", "array-contains", buyerEmail)
+            )
+          );
+
+          let convId: string;
+          if (!existingConv.empty) {
+            convId = existingConv.docs[0].id;
+            await updateDoc(doc(db, "conversations", convId), {
+              updatedAt: serverTimestamp(),
+              lastMessage: `Vehicle purchase confirmed — $${total}`,
+              orderStatus: "paid",
+            });
+          } else {
+            const convRef = await addDoc(collection(db, "conversations"), {
+              convKey,
+              participants: [buyerEmail, listing.sellerEmail],
+              buyerEmail,
+              sellerEmail: listing.sellerEmail,
+              listingId: listing.id,
+              listingTitle: listing.title,
+              listingPrice: String(total),
+              listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
+              orderStatus: "paid",
+              orderId: purchaseRef.id,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+              lastMessage: `Vehicle purchase confirmed — $${total}`,
+            });
+            convId = convRef.id;
+          }
+
+          const buyerMsg = `🚗 Vehicle purchase confirmed for "${listing.title}"
+
+Payment has been completed successfully.
+
+Order Details:
+• Total Paid: $${total.toFixed(2)}
+• Buyer Protection Included
+
+The seller has been notified.
+
+Use this chat to coordinate:
+• pickup/delivery
+• inspection
+• ownership transfer
+• registration details
+• vehicle condition/questions
+
+Please keep all communication and payments inside Sky Drop for protection.
+
+Vehicle Order Status: 🟢 Active
+
+⚠️ PROTECT YOURSELF — Stay on Sky Drop
+• Never communicate outside this chat
+• Never send payments outside Sky Drop
+• Report suspicious behavior immediately
+
+Scammers often try to move conversations to WhatsApp, email, or other platforms. If anyone asks you to do so, stop and report them.`;
+
+          await addDoc(collection(db, "messages"), {
+            type: "system",
+            text: buyerMsg,
+            sender: "system",
+            receiver: listing.sellerEmail,
+            participants: [buyerEmail, listing.sellerEmail],
+            conversationId: convId,
+            listingId: listing.id,
+            listingTitle: listing.title,
+            read: false,
+            createdAt: serverTimestamp(),
+          });
+        } catch (e) {
+          console.error("Vehicle conversation creation failed:", e);
+        }
+      }
+
       setOrderId(purchaseRef.id);
       try {
         localStorage.setItem("checkoutInfo", JSON.stringify({ name: name.trim(), phone: phone.trim() }));
