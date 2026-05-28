@@ -47,6 +47,48 @@ export default function EventsPage() {
           </div>
         </div>
 
+        {/* How It Works */}
+        <div className="mb-6 rounded-2xl border border-yellow-500/10 bg-gradient-to-b from-yellow-500/[0.03] to-transparent p-6">
+          <h2 className="mb-5 text-xs font-bold uppercase tracking-[0.12em] text-yellow-400">📖 How It Works</h2>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div className="flex gap-3">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-yellow-500/10 text-sm">🔍</span>
+              <div>
+                <p className="text-sm font-bold text-[var(--foreground)]">Find Events</p>
+                <p className="mt-0.5 text-xs text-zinc-500">Browse concerts, festivals, workshops and sports events.</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-yellow-500/10 text-sm">🎟</span>
+              <div>
+                <p className="text-sm font-bold text-[var(--foreground)]">Select Tickets</p>
+                <p className="mt-0.5 text-xs text-zinc-500">Choose the event and number of tickets you need.</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-yellow-500/10 text-sm">💳</span>
+              <div>
+                <p className="text-sm font-bold text-[var(--foreground)]">Buy Securely</p>
+                <p className="mt-0.5 text-xs text-zinc-500">Checkout is handled securely through Stripe.</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-yellow-500/10 text-sm">✅</span>
+              <div>
+                <p className="text-sm font-bold text-[var(--foreground)]">Show Up</p>
+                <p className="mt-0.5 text-xs text-zinc-500">Coordinate with the seller through chat for delivery or pickup.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Safety Warning */}
+        <div className="mb-10 rounded-xl border border-red-500/10 bg-red-500/[0.03] p-4">
+          <p className="text-xs text-red-400/80">
+            ⚠️ <span className="font-bold text-red-400">Stay safe.</span> Never pay outside Sky Drop. Keep all communication in our chat. Report suspicious behaviour immediately.
+          </p>
+        </div>
+
         {/* Category filters */}
         <div className="mb-8 flex flex-wrap gap-2">
           {CATEGORIES.map((c) => (

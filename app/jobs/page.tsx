@@ -54,6 +54,48 @@ export default function JobsPage() {
           </div>
         </div>
 
+        {/* How It Works */}
+        <div className="mb-6 rounded-2xl border border-cyan-500/10 bg-gradient-to-b from-cyan-500/[0.03] to-transparent p-6">
+          <h2 className="mb-5 text-xs font-bold uppercase tracking-[0.12em] text-cyan-400">📖 How It Works</h2>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div className="flex gap-3">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-cyan-500/10 text-sm">🔍</span>
+              <div>
+                <p className="text-sm font-bold text-[var(--foreground)]">Browse Jobs</p>
+                <p className="mt-0.5 text-xs text-zinc-500">Find your next role across NZ in various industries.</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-cyan-500/10 text-sm">📄</span>
+              <div>
+                <p className="text-sm font-bold text-[var(--foreground)]">Review Details</p>
+                <p className="mt-0.5 text-xs text-zinc-500">Check salary range, employment type, and company info.</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-cyan-500/10 text-sm">💬</span>
+              <div>
+                <p className="text-sm font-bold text-[var(--foreground)]">Apply Directly</p>
+                <p className="mt-0.5 text-xs text-zinc-500">Send your application with a cover letter and resume.</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-cyan-500/10 text-sm">✅</span>
+              <div>
+                <p className="text-sm font-bold text-[var(--foreground)]">Get Hired</p>
+                <p className="mt-0.5 text-xs text-zinc-500">Employer reviews your application and reaches out.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Safety Warning */}
+        <div className="mb-10 rounded-xl border border-red-500/10 bg-red-500/[0.03] p-4">
+          <p className="text-xs text-red-400/80">
+            ⚠️ <span className="font-bold text-red-400">Stay safe.</span> Never pay outside Sky Drop. Keep all communication in our chat. Report suspicious behaviour immediately.
+          </p>
+        </div>
+
         <div className="mb-8 flex flex-wrap gap-2">
           {CATEGORIES.map((c) => (
             <button key={c} onClick={() => setCategory(c)}

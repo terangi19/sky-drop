@@ -77,6 +77,13 @@ export default function RentalsPage() {
           </div>
         </div>
 
+        {/* Safety Warning */}
+        <div className="mb-10 rounded-xl border border-red-500/10 bg-red-500/[0.03] p-4">
+          <p className="text-xs text-red-400/80">
+            ⚠️ <span className="font-bold text-red-400">Stay safe.</span> Never pay outside Sky Drop. Keep all communication in our chat. Report suspicious behaviour immediately.
+          </p>
+        </div>
+
         {listings.length === 0 ? (
           <div className="mx-auto max-w-md mt-12 text-center">
             <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/[0.03] border border-white/[0.06]">

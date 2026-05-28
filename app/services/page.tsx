@@ -92,6 +92,13 @@ export default function ServicesPage() {
           </div>
         </div>
 
+        {/* Safety Warning */}
+        <div className="mb-10 rounded-xl border border-red-500/10 bg-red-500/[0.03] p-4">
+          <p className="text-xs text-red-400/80">
+            ⚠️ <span className="font-bold text-red-400">Stay safe.</span> Never pay outside Sky Drop. Keep all communication in our chat. Report suspicious behaviour immediately.
+          </p>
+        </div>
+
         {/* Category filters */}
         <div className="mb-8 flex flex-wrap gap-2">
           {CATEGORIES.map((c) => (

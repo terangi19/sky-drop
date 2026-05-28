@@ -42,6 +42,48 @@ export default function PropertyPage() {
           </div>
         </div>
 
+        {/* How It Works */}
+        <div className="mb-6 rounded-2xl border border-rose-500/10 bg-gradient-to-b from-rose-500/[0.03] to-transparent p-6">
+          <h2 className="mb-5 text-xs font-bold uppercase tracking-[0.12em] text-rose-400">📖 How It Works</h2>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div className="flex gap-3">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-500/10 text-sm">🔍</span>
+              <div>
+                <p className="text-sm font-bold text-[var(--foreground)]">Browse Listings</p>
+                <p className="mt-0.5 text-xs text-zinc-500">Find property for sale or auction across New Zealand.</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-500/10 text-sm">💰</span>
+              <div>
+                <p className="text-sm font-bold text-[var(--foreground)]">Buy or Bid</p>
+                <p className="mt-0.5 text-xs text-zinc-500">Purchase directly or place a bid on auction listings.</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-500/10 text-sm">💬</span>
+              <div>
+                <p className="text-sm font-bold text-[var(--foreground)]">Contact Seller</p>
+                <p className="mt-0.5 text-xs text-zinc-500">Message the seller to arrange viewings and negotiate.</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-500/10 text-sm">✅</span>
+              <div>
+                <p className="text-sm font-bold text-[var(--foreground)]">Settle Securely</p>
+                <p className="mt-0.5 text-xs text-zinc-500">Payment and settlement handled securely through Sky Drop.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Safety Warning */}
+        <div className="mb-10 rounded-xl border border-red-500/10 bg-red-500/[0.03] p-4">
+          <p className="text-xs text-red-400/80">
+            ⚠️ <span className="font-bold text-red-400">Stay safe.</span> Never pay outside Sky Drop. Keep all communication in our chat. Report suspicious behaviour immediately.
+          </p>
+        </div>
+
         {listings.length === 0 ? (
           <div className="mx-auto max-w-md mt-12 text-center">
             <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/[0.03] border border-white/[0.06]">
