@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, browserLocalPersistence } from "firebase/auth";
-import { getFirestore, initializeFirestore, persistentLocalCache } from "firebase/firestore";
+import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
@@ -21,7 +21,5 @@ auth.useDeviceLanguage();
 
 auth.setPersistence?.(browserLocalPersistence).catch(() => {});
 
-export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache(),
-});
+export const db = getFirestore(app);
 export const storage = getStorage(app);

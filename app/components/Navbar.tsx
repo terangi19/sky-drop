@@ -98,8 +98,8 @@ export default function Navbar() {
 
   useEffect(() => {
     if (!user?.uid) return;
-    const q = query(collection(db, "dropTokens"), where("ownerId", "==", user.uid), where("status", "==", "available"));
-    const unsub = onSnapshot(q, (snap) => setDropTokenCount(snap.docs.length));
+    const q = query(collection(db, "dropTokens"), where("ownerId", "==", user.uid));
+    const unsub = onSnapshot(q, (snap) => setDropTokenCount(snap.docs.filter((d) => d.data().status === "available").length));
     return () => unsub();
   }, [user?.uid]);
 
@@ -160,9 +160,9 @@ export default function Navbar() {
       merge();
     }, (err) => { console.error("Msg notification error:", err); msgDone = true; merge(); });
 
-    const purchaseQ = query(collection(db, "notifications"), where("targetEmail", "==", user.email), where("read", "==", false));
+    const purchaseQ = query(collection(db, "notifications"), where("targetEmail", "==", user.email));
     const unsub2 = onSnapshot(purchaseQ, (snap) => {
-      const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Record<string, unknown>);
+      const items = snap.docs.filter((d) => d.data().read === false).map((d) => ({ id: d.id, ...d.data() }) as Record<string, unknown>);
       for (const n of items) {
         const fromName = n.fromName as string | undefined;
         const fromEmail = n.fromEmail as string | undefined;
