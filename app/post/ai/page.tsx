@@ -1177,7 +1177,7 @@ export default function AIPostPage() {
             </select>
           </div>
 
-          <button onClick={createListing} disabled={loading || editLoading || ((saleType === "auction" || saleType === "auction_buy_now") ? !startingBid : !price)}
+          <button onClick={createListing} disabled={loading || editLoading || ((saleType === "auction" || saleType === "auction_buy_now") ? !startingBid : (listingType !== "service" && !price))}
             className="w-full rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-4 text-lg font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98] disabled:opacity-40 disabled:shadow-none disabled:hover:brightness-100">
             {loading ? (
               <span className="flex items-center justify-center gap-2">

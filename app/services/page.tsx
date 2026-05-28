@@ -57,6 +57,41 @@ export default function ServicesPage() {
           </div>
         </div>
 
+        {/* How It Works */}
+        <div className="mb-10 rounded-2xl border border-violet-500/10 bg-gradient-to-b from-violet-500/[0.03] to-transparent p-6">
+          <h2 className="mb-5 text-xs font-bold uppercase tracking-[0.12em] text-violet-400">📖 How It Works</h2>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div className="flex gap-3">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-sm">🔍</span>
+              <div>
+                <p className="text-sm font-bold text-[var(--foreground)]">Browse & Choose</p>
+                <p className="mt-0.5 text-xs text-zinc-500">Find a service you need and check the price and delivery time.</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-sm">💬</span>
+              <div>
+                <p className="text-sm font-bold text-[var(--foreground)]">Discuss Scope</p>
+                <p className="mt-0.5 text-xs text-zinc-500">Message the seller to agree on details, timeline, and price.</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-sm">💰</span>
+              <div>
+                <p className="text-sm font-bold text-[var(--foreground)]">Agree & Pay</p>
+                <p className="mt-0.5 text-xs text-zinc-500">Send an offer or accept the price. Pay securely through Stripe.</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-sm">✅</span>
+              <div>
+                <p className="text-sm font-bold text-[var(--foreground)]">Service Delivered</p>
+                <p className="mt-0.5 text-xs text-zinc-500">Seller completes the work. You mark complete and funds are released.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Category filters */}
         <div className="mb-8 flex flex-wrap gap-2">
           {CATEGORIES.map((c) => (
@@ -104,7 +139,7 @@ export default function ServicesPage() {
                       <p className="truncate text-sm font-bold text-[var(--foreground)] group-hover:text-violet-400 transition-colors duration-300">{item.title}</p>
                       <p className="mt-0.5 text-[11px] text-zinc-500">{item.category}</p>
                     </div>
-                    <span className="shrink-0 text-lg font-black text-violet-400 drop-shadow-[0_0_8px_rgba(139,92,246,0.3)]">${item.price}</span>
+                    <span className="shrink-0 text-lg font-black text-violet-400 drop-shadow-[0_0_8px_rgba(139,92,246,0.3)]">{item.price ? `$${item.price}` : "Negotiable"}</span>
                   </div>
 
                   {item.serviceDuration && (

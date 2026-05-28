@@ -835,7 +835,7 @@ export default function ListingPage() {
 
             {/* 3. PRICE */}
             <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black text-[var(--foreground)]">${listing.price}</span>
+              <span className="text-3xl font-black text-[var(--foreground)]">{listing.price ? `$${listing.price}` : listing.type === "service" ? "Price negotiable" : `$${listing.price}`}</span>
               {listing.status === "sold" && (
                 <span className="rounded bg-red-600/90 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[var(--foreground)]">Sold</span>
               )}
@@ -898,6 +898,9 @@ export default function ListingPage() {
                     <span>⏱ Estimated delivery: {listing.serviceDuration}</span>
                   </div>
                 )}
+                <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
+                  <span>{listing.price ? `💰 $${listing.price}` : "💬 Price negotiable — send an offer"}</span>
+                </div>
               </div>
             ) : listing.type === "rental" ? (
               <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-1.5">

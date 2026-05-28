@@ -175,7 +175,7 @@ export default function PostPage() {
       return;
     }
 
-    if (!title || !description || !price) {
+    if (!title || !description || (listingType !== "service" && !price)) {
       alert("Fill all required fields.");
       return;
     }
