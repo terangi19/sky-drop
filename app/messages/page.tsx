@@ -1,6 +1,7 @@
 "use client";
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import ThemeToggle from "../components/ThemeToggle";
@@ -271,14 +272,14 @@ function MessagesPage() {
     const unreadMsgs = relevant.filter((m: any) => m.sender !== user.email && !m.read && !seenBatchRef.current.has(m.id));
     for (const msg of unreadMsgs) {
       seenBatchRef.current.add(msg.id);
-      updateDoc(doc(db, "messages", msg.id), { read: true, readAt: serverTimestamp() }).catch(() => {});
+      updateDoc(doc(db, "messages", msg.id), { read: true, readAt: serverTimestamp() }).catch((e) => console.error("Failed to mark message read:", e));
     }
 
     // Also mark corresponding notification documents as read
     if (unreadMsgs.length > 0 || chatListingId) {
       getDocs(query(collection(db, "notifications"), where("listingId", "==", chatListingId || ""), where("read", "==", false))).then((snap) => {
-        snap.docs.forEach((d) => updateDoc(doc(db, "notifications", d.id), { read: true }).catch(() => {}));
-      }).catch(() => {});
+        snap.docs.forEach((d) => updateDoc(doc(db, "notifications", d.id), { read: true }).catch((e) => console.error("Failed to mark notification read:", e)));
+      }).catch((e) => console.error("Failed to fetch notifications to mark read:", e));
     }
   }, [chatUser, user, messages, chatListingId]);
   // Fetch usernames
@@ -434,6 +435,36 @@ function MessagesPage() {
       return;
     }
     lastMessageTime.current = Date.now();
+
+    // Anti-spam: track recipients per hour
+    try {
+      const msgTracker = JSON.parse(localStorage.getItem("msgTracker") || "{}");
+      const now = Date.now();
+      if (msgTracker[chatUser] && now - msgTracker[chatUser] < 60000) {
+        showToast("Please wait before messaging this user again", "info");
+        return;
+      }
+      msgTracker[chatUser] = now;
+      for (const key of Object.keys(msgTracker)) {
+        if (now - msgTracker[key] > 3600000) delete msgTracker[key];
+      }
+      localStorage.setItem("msgTracker", JSON.stringify(msgTracker));
+    } catch (e) { console.error("Msg tracker error:", e); }
+
+    // Anti-spam: detect duplicate messages (same text sent recently)
+    if (!skipSafety) {
+      try {
+        const recentMessages: string[] = JSON.parse(localStorage.getItem("recentMessages") || "[]");
+        if (recentMessages.includes(message.trim().toLowerCase())) {
+          showToast("You already sent this message recently", "info");
+          return;
+        }
+        recentMessages.push(message.trim().toLowerCase());
+        if (recentMessages.length > 20) recentMessages.shift();
+        localStorage.setItem("recentMessages", JSON.stringify(recentMessages));
+      } catch (e) { console.error("Recent messages tracker error:", e); }
+    }
+
     if (!skipSafety) {
       const result = detectScam(message);
       if (result.isScam && !pendingMessage) { setPendingMessage(message); setScamWarning(true); return; }
@@ -528,7 +559,7 @@ function MessagesPage() {
       const relevant = messages.filter((m: any) => { const other = m.participants?.find((p: string) => p !== user.email); return other === chatUser; });
       for (const msg of relevant) {
         if (!dismissed.includes(msg.id)) dismissed.push(msg.id);
-        updateDoc(doc(db, "messages", msg.id), { read: true }).catch(() => {});
+        updateDoc(doc(db, "messages", msg.id), { read: true }).catch((e) => console.error("Failed to mark message read:", e));
       }
       localStorage.setItem("dismissedNotifications", JSON.stringify(dismissed));
     } catch {}
@@ -539,7 +570,7 @@ function MessagesPage() {
     if (!confirm("Delete all your messages? This cannot be undone.")) return;
     const ids = [...new Set(messages.map((m: any) => m.id))];
     for (const id of ids) {
-      deleteDoc(doc(db, "messages", id)).catch(() => {});
+      deleteDoc(doc(db, "messages", id)).catch((e) => console.error("Failed to delete message:", e));
     }
     setShowClearAll(false);
     setChatUser("");
@@ -647,6 +678,7 @@ function MessagesPage() {
   const isAuctionSeller = auctionEnded && listingCard?.sellerEmail === user?.email;
   const [hasPurchaseInChat, setHasPurchaseInChat] = useState(false);
   const [purchaseData, setPurchaseData] = useState<any>(null);
+  const router = useRouter();
   useEffect(() => {
     if (!chatUser || !user?.email) { setHasPurchaseInChat(false); return; }
     let mounted = true;
@@ -881,6 +913,12 @@ function MessagesPage() {
                         <svg className="h-3.5 w-3.5 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         Archive conversation
                       </button>
+                      {hasPurchaseInChat && purchaseData?.buyerEmail === user?.email && !purchaseData?.disputeStatus && (
+                        <button onClick={() => router.push("/purchases")} className="flex w-full items-center gap-2 px-4 py-3 text-left text-[12px] text-[var(--foreground)] hover:bg-white/[0.05]">
+                          <svg className="h-3.5 w-3.5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>
+                          Open Dispute
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -901,7 +939,7 @@ function MessagesPage() {
               <>
                 {/* Messages area */}
                 <div ref={messagesContainerRef} className="flex-1 overflow-y-auto scrollbar-thin px-5 py-4">
-                  {/* Listing context card — purchased */}
+                   {/* Listing context card — purchased */}
                   {listingCard && hasPurchaseInChat && (
                     <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-zinc-900/60">
                       <div className="flex items-center gap-3 p-3">
@@ -914,26 +952,41 @@ function MessagesPage() {
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[13px] font-bold text-[var(--foreground)]">{listingCard.title || "Listing"}</p>
                           <p className="text-[12px] font-black text-sky-400">${purchaseData?.total || listingCard.price}</p>
-                          <span className={`text-[10px] ${
-                            purchaseData?.status === "delivered" || purchaseData?.status === "completed" ? "text-emerald-400" :
-                            purchaseData?.status === "shipped" ? "text-sky-400" :
-                            purchaseData?.status === "seller_confirming" ? "text-indigo-400" :
-                            purchaseData?.status === "cancelled" ? "text-red-400" :
-                            "text-amber-400"
-                          }`}>
-                            {purchaseData?.status === "pending" ? "Awaiting seller confirmation" :
-                             purchaseData?.status === "seller_confirming" ? "Confirmed" :
-                             purchaseData?.status === "shipped" ? "Shipped" :
-                             purchaseData?.status === "delivered" ? "Delivered" :
-                             purchaseData?.status === "completed" ? "Completed" :
-                             purchaseData?.status === "cancelled" ? "Cancelled" :
-                             "Purchased"}
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`text-[10px] ${
+                              purchaseData?.status === "delivered" || purchaseData?.status === "completed" ? "text-emerald-400" :
+                              purchaseData?.status === "shipped" ? "text-sky-400" :
+                              purchaseData?.status === "seller_confirming" ? "text-indigo-400" :
+                              purchaseData?.status === "cancelled" ? "text-red-400" :
+                              "text-amber-400"
+                            }`}>
+                              {purchaseData?.status === "pending" ? "Awaiting seller confirmation" :
+                               purchaseData?.status === "seller_confirming" ? "Confirmed" :
+                               purchaseData?.status === "shipped" ? "Shipped" :
+                               purchaseData?.status === "delivered" ? "Delivered" :
+                               purchaseData?.status === "completed" ? "Completed" :
+                               purchaseData?.status === "cancelled" ? "Cancelled" :
+                               "Purchased"}
+                            </span>
+                            {purchaseData?.disputeStatus && (
+                              <span className="text-[10px] font-bold text-red-400">
+                                {purchaseData.disputeStatus === "refunded" ? "✅ Refunded" : "⚠️ Disputed"}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <Link href={`/purchases`}
-                          className="shrink-0 rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white transition hover:bg-sky-400">
-                          View Order
-                        </Link>
+                        <div className="flex flex-col gap-1">
+                          <Link href={`/purchases`}
+                            className="shrink-0 rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white text-center transition hover:bg-sky-400">
+                            View Order
+                          </Link>
+                          {purchaseData?.buyerEmail === user?.email && !purchaseData?.disputeStatus && (
+                            <button onClick={() => router.push("/purchases")}
+                              className="shrink-0 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-[10px] font-bold text-red-400 transition hover:bg-red-500/20">
+                              ⚠️ Dispute
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}

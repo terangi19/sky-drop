@@ -41,6 +41,7 @@ export default function AdminPage() {
   const [pendingVerifications, setPendingVerifications] = useState(0);
 
   const [pendingDigital, setPendingDigital] = useState(0);
+  const [openDisputes, setOpenDisputes] = useState(0);
   const router = useRouter();
 
   // ADMIN EMAILS
@@ -107,6 +108,12 @@ export default function AdminPage() {
   useEffect(() => {
     const q = query(collection(db, "tradePosts"), where("type", "==", "digital"));
     const unsub = onSnapshot(q, (snap) => setPendingDigital(snap.docs.filter((d) => d.data().status === "pending_review").length));
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    const q = query(collection(db, "disputes"), where("status", "in", ["open", "under_review"]));
+    const unsub = onSnapshot(q, (snap) => setOpenDisputes(snap.docs.length));
     return () => unsub();
   }, []);
 
@@ -246,15 +253,15 @@ export default function AdminPage() {
             </h2>
           </a>
 
-          <div className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-xl">
+          <a href="/admin/disputes" className="rounded-3xl border border-red-500/20 bg-[var(--card)] p-6 shadow-xl transition hover:border-red-500/40 hover:shadow-[0_0_20px_rgba(239,68,68,0.1)]">
             <p className="text-sm text-[var(--muted)]">
-              Platform Status
+              Disputes
             </p>
 
-            <h2 className="mt-3 text-4xl font-black text-green-400">
-              Online
+            <h2 className="mt-3 text-4xl font-black text-red-400">
+              {openDisputes} open →
             </h2>
-          </div>
+          </a>
 
           <div className="rounded-3xl border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-xl">
             <p className="text-sm text-[var(--muted)]">

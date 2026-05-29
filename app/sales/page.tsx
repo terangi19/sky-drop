@@ -29,6 +29,7 @@ interface Purchase {
   paidAt?: any;
   createdAt?: any;
   badgeTransfer?: string;
+  disputeStatus?: string;
 }
 
 const statusStyles: Record<string, string> = {
@@ -77,6 +78,29 @@ export default function SalesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [confirmAction, setConfirmAction] = useState<{ id: string; status: string; label: string } | null>(null);
+  const [releasing, setReleasing] = useState<string | null>(null);
+
+  async function handleReleaseFunds(purchaseId: string) {
+    setReleasing(purchaseId);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch("/api/release-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ purchaseId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast("Funds released to your account!", "success");
+      } else {
+        showToast(data.error || "Failed to release funds", "error");
+      }
+    } catch (e) {
+      console.error("Release funds error:", e);
+      showToast("Could not release funds. Try again.", "error");
+    }
+    setReleasing(null);
+  }
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => setUser(u));
@@ -98,6 +122,35 @@ export default function SalesPage() {
     });
     return () => unsub();
   }, [user?.email]);
+
+  // Auto-release funds for items in 'delivered' status for 24+ hours
+  useEffect(() => {
+    const now = Date.now();
+    const toRelease = sales.filter(
+      (s) => s.status === "delivered" && !(s as any).fundsReleased && s.createdAt?.seconds && (now - s.createdAt.seconds * 1000) > 86400000
+    );
+    if (toRelease.length === 0) return;
+    // Process sequentially with delay to avoid rate limits
+    (async () => {
+      for (const s of toRelease) {
+        try {
+          const token = await auth.currentUser?.getIdToken();
+          const res = await fetch("/api/release-payment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
+            body: JSON.stringify({ purchaseId: s.id }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            console.log(`Auto-released funds for ${s.listingTitle}`);
+          }
+        } catch (e) {
+          console.error("Auto-release failed:", e);
+        }
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+    })();
+  }, [sales]);
 
   async function updateStatus(purchaseId: string, newStatus: string) {
     try {
@@ -130,19 +183,36 @@ export default function SalesPage() {
           listingTitle: purchase.listingTitle,
           listingImage: purchase.listingImage,
         });
+      }
 
-        // Release funds to seller
+      if (newStatus === "delivered") {
+        await createNotification({
+          targetEmail: purchase.buyerEmail,
+          fromEmail: user!.email!,
+          type: "order_update",
+          title: "Item Delivered",
+          message: `Your purchase "${purchase.listingTitle}" has been marked as delivered. Confirm receipt to release funds to the seller, or open a dispute within 7 days.`,
+          listingId: purchase.listingId,
+          listingTitle: purchase.listingTitle,
+          listingImage: purchase.listingImage,
+        });
+
+        // Release funds via escrow API
         try {
-          const profileSnap = await getDoc(doc(db, "profiles", user!.uid));
-          const accountId = profileSnap.data()?.stripeAccountId;
-          if (accountId && Number(purchase.total) > 0) {
-            await fetch("/api/stripe-connect", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ action: "withdraw", accountId, amount: Number(purchase.total) }),
-            });
+          const token = await auth.currentUser?.getIdToken();
+          const res = await fetch("/api/release-payment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
+            body: JSON.stringify({ purchaseId }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            showToast(`$${(Number(purchase.total) - 1).toFixed(2)} released to your account!`, "success");
+          } else {
+            console.error("Release payment failed:", data.error);
+            showToast("Funds release pending — set up Stripe Connect in your profile.", "info");
           }
-        } catch (e) { console.error("Payout transfer failed:", e); }
+        } catch (e) { console.error("Release payment error:", e); }
       }
 
       if (newStatus === "delivered" && purchase.deliveryMethod === "service") {
@@ -157,18 +227,17 @@ export default function SalesPage() {
           listingImage: purchase.listingImage,
         });
 
-        // Release funds to seller on service delivery
+        // Release funds via escrow API for service too
         try {
-          const profileSnap = await getDoc(doc(db, "profiles", user!.uid));
-          const accountId = profileSnap.data()?.stripeAccountId;
-          if (accountId && Number(purchase.total) > 0) {
-            await fetch("/api/stripe-connect", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ action: "withdraw", accountId, amount: Number(purchase.total) }),
-            });
-          }
-        } catch (e) { console.error("Service payout transfer failed:", e); }
+          const token = await auth.currentUser?.getIdToken();
+          const res = await fetch("/api/release-payment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
+            body: JSON.stringify({ purchaseId }),
+          });
+          const data = await res.json();
+          if (data.success) showToast("Payment released to your account!", "success");
+        } catch (e) { console.error("Service release payment error:", e); }
       }
 
       if (newStatus === "returned" && purchase.deliveryMethod === "rental") {
@@ -205,10 +274,11 @@ export default function SalesPage() {
           Back
         </Link>
         <div className="relative mb-8">
-          <div className="absolute -inset-20 bg-gradient-to-r from-indigo-500/5 via-violet-500/5 to-transparent blur-3xl pointer-events-none" />
+          <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/5 via-violet-500/5 to-transparent blur-3xl pointer-events-none" />
           <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
-            <span className="bg-gradient-to-r from-white via-indigo-100 to-white bg-clip-text text-transparent">Sales</span>
+            <span className="text-white drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">Sales</span>
           </h1>
+          <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl">Track your sales, manage orders, and get paid — all in one place. When a buyer confirms delivery, release your funds securely through our escrow system. Every transaction is protected from listing to payout.</p>
           <p className="relative mt-2 text-sm text-zinc-500">{sales.length} total</p>
         </div>
 
@@ -272,6 +342,11 @@ export default function SalesPage() {
                       <span className={`shrink-0 rounded-full border px-3 py-0.5 text-[10px] font-bold ${statusStyles[s.status] || "bg-zinc-800/50 text-zinc-500 border-zinc-700/50"}`}>
                         {statusLabel(s.status)}
                       </span>
+                      {s.disputeStatus && (
+                        <span className="shrink-0 rounded-full border border-red-500/20 bg-red-500/10 px-3 py-0.5 text-[10px] font-bold text-red-400">
+                          ⚠️ Dispute
+                        </span>
+                      )}
                     </div>
 
                     {s.deliveryMethod === "shipping" && s.shippingAddress && (
@@ -279,12 +354,21 @@ export default function SalesPage() {
                     )}
 
                     <div className="mt-3 flex items-center gap-2 flex-wrap">
-                      {nextStatus[s.status] ? (
+                      {nextStatus[s.status] && !s.disputeStatus && !(s as any).fundsReleased ? (
                         <button onClick={() => setConfirmAction({ id: s.id, status: nextStatus[s.status].status, label: nextStatus[s.status].label })}
                           className="rounded-lg bg-gradient-to-r from-indigo-500 to-violet-500 px-4 py-1.5 text-[11px] font-bold text-white shadow-lg shadow-indigo-500/20 transition hover:shadow-xl active:scale-[0.97]">
                           {nextStatus[s.status].label}
                         </button>
                       ) : null}
+                      {s.status === "delivered" && !(s as any).fundsReleased ? (
+                        <button onClick={() => handleReleaseFunds(s.id)} disabled={releasing === s.id}
+                          className="rounded-lg bg-gradient-to-r from-emerald-500 to-green-500 px-4 py-1.5 text-[11px] font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:shadow-xl active:scale-[0.97] disabled:opacity-50">
+                          {releasing === s.id ? "..." : "💰 Release Funds"}
+                        </button>
+                      ) : null}
+                      {(s as any).fundsReleased && (
+                        <span className="text-[11px] text-emerald-400 font-bold">✅ Funds Released</span>
+                      )}
                       <Link href={`/messages?user=${encodeURIComponent(s.buyerEmail || "")}&listing=${s.listingId}`}
                         className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-4 py-1.5 text-[11px] font-bold text-zinc-400 transition hover:bg-white/[0.05] hover:text-zinc-300 active:scale-[0.97]">
                         Message

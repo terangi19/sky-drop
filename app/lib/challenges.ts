@@ -81,7 +81,7 @@ export async function getOrCreateDaily(uid: string, date: string): Promise<Daily
     yesterday.setDate(yesterday.getDate() - 1);
     const yStr = yesterday.toISOString().slice(0, 10);
     const wasYesterday = data.date === yStr;
-    const streak = allClaimed && wasYesterday ? (data.streak || 0) + 1 : allClaimed && !wasYesterday ? 1 : data.streak || 0;
+    const streak = allClaimed && wasYesterday ? (data.streak || 0) + 1 : allClaimed && !wasYesterday ? 1 : 0;
     const picked = pickDailyChallenges(date, uid);
     const newData: DailyChallengesData = {
       date,

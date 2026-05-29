@@ -228,7 +228,7 @@ const [poaUploading, setPoaUploading] = useState(false);
             if (!data.referralCode) {
               const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
               setReferralCode(newCode);
-              await updateDoc(doc(db, "profiles", currentUser.uid), { referralCode: newCode }).catch(() => {});
+              await updateDoc(doc(db, "profiles", currentUser.uid), { referralCode: newCode }).catch((e) => console.error("Failed to save referral code:", e));
             }
           }
         } catch (e) { console.error(e); }
@@ -242,7 +242,7 @@ const [poaUploading, setPoaUploading] = useState(false);
   useEffect(() => {
     if (!user?.uid) return;
     const ref = doc(db, "profiles", user.uid);
-    setDoc(ref, { lastActive: Timestamp.now() }, { merge: true }).catch(() => {});
+    setDoc(ref, { lastActive: Timestamp.now() }, { merge: true }).catch((e) => console.error("Failed to update lastActive:", e));
   }, [user?.uid]);
 
   // Fetch following list
@@ -595,18 +595,20 @@ const [poaUploading, setPoaUploading] = useState(false);
     if (!user?.uid || !user.email) return;
     setStripeConnecting(true);
     try {
+      const token = await auth.currentUser?.getIdToken();
       const res = await fetch("/api/stripe-connect", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
         body: JSON.stringify({ action: "create", email: user.email }),
       });
       const data = await res.json();
       if (data.accountId) {
         await setDoc(doc(db, "profiles", user.uid), { stripeAccountId: data.accountId }, { merge: true });
         setStripeAccountId(data.accountId);
+        const token2 = await auth.currentUser?.getIdToken();
         const linkRes = await fetch("/api/stripe-connect", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...(token2 ? { "Authorization": `Bearer ${token2}` } : {}) },
           body: JSON.stringify({ action: "onboard", accountId: data.accountId }),
         });
         const linkData = await linkRes.json();
@@ -619,9 +621,10 @@ const [poaUploading, setPoaUploading] = useState(false);
   async function handleStripeOnboard() {
     if (!stripeAccountId) return;
     try {
+      const token = await auth.currentUser?.getIdToken();
       const res = await fetch("/api/stripe-connect", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
         body: JSON.stringify({ action: "onboard", accountId: stripeAccountId }),
       });
       const data = await res.json();

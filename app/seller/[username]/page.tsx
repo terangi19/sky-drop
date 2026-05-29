@@ -198,7 +198,7 @@ export default function SellerPage() {
   // Block/unblock
   useEffect(() => {
     if (!currentUser?.uid || !sellerUid) return;
-    getDoc(doc(db, "users", currentUser.uid, "blocked", sellerUid)).then((d) => setIsBlocked(d.exists())).catch(() => {});
+    getDoc(doc(db, "users", currentUser.uid, "blocked", sellerUid)).then((d) => setIsBlocked(d.exists())).catch((e) => console.error("Failed to check blocked status:", e));
   }, [currentUser?.uid, sellerUid]);
 
   async function toggleBlock() {

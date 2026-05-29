@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, Timestamp, updateDoc, where } from "firebase/firestore";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import stripePromise from "../lib/stripe-client";
-import { db, storage } from "../lib/firebase";
+import { auth, db, storage } from "../lib/firebase";
 import { ref, getDownloadURL } from "firebase/storage";
 import { createNotification } from "../lib/notifications";
+import { showToast } from "./Toast";
 import { safeGetDoc, parseFirestoreError } from "../lib/firestore";
 import AnimatedCheckmark from "./AnimatedCheckmark";
 import { playConfetti, playSuccess } from "../lib/sounds";
@@ -142,6 +143,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
   const [address, setAddress] = useState("");
   const [step, setStep] = useState<Step>("form");
   const [clientSecret, setClientSecret] = useState("");
+  const [paymentIntentId, setPaymentIntentId] = useState("");
   const [intentError, setIntentError] = useState("");
   const [orderId, setOrderId] = useState("");
   const [showConfetti, setShowConfetti] = useState(false);
@@ -172,6 +174,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
       if (e.key === "Escape") safeClose();
     }
     window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
   useEffect(() => {
@@ -196,8 +199,6 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
         }
         // Load saved shipping address from Firestore profile
         if (buyerEmail) {
-          const { getDocs, query, collection, where } = await import("firebase/firestore");
-          const { db } = await import("../lib/firebase");
           const snap = await getDocs(query(collection(db, "profiles"), where("email", "==", buyerEmail)));
           if (!snap.empty) {
             const data = snap.docs[0].data();
@@ -225,7 +226,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
   async function handleContinue() {
     if (!isValid || step !== "form") return;
     if (listing.stockQuantity !== undefined && listing.stockQuantity <= 0) {
-      alert("This item is out of stock.");
+      showToast("This item is out of stock.", "error");
       setStep("form");
       return;
     }
@@ -274,9 +275,10 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
             ? realPrice + realShipping
             : realPrice) + 1.00;
 
+      const token = await auth.currentUser?.getIdToken();
       const res = await fetch("/api/create-payment-intent", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
         body: JSON.stringify({
           title: listing.title,
           price: String(realTotal),
@@ -287,6 +289,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
       const data = await res.json();
       if (data.clientSecret) {
         setClientSecret(data.clientSecret);
+        setPaymentIntentId(data.paymentIntentId || "");
       } else {
         setIntentError(data.error || "Payment initialization failed. Please try again.");
         setStep("form");
@@ -319,26 +322,26 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
         digitalFileURL: isDigital ? (listing.digitalStoragePath ? await getDownloadURL(ref(storage, listing.digitalStoragePath)) : listing.digitalFileURL || "") : "",
         digitalFileName: isDigital ? listing.digitalFileName : "",
         status: isDigital ? "delivered" : isRental ? "rented" : "pending",
-        rentalStart: isRental && listing.pickupDate ? Timestamp.fromMillis(new Date(listing.pickupDate).getTime()) : null,
-        rentalEnd: isRental && listing.returnDate ? Timestamp.fromMillis(new Date(listing.returnDate).getTime()) : null,
+        rentalStart: isRental && listing.pickupDate ? Timestamp.fromMillis(new Date(listing.pickupDate).getTime() || Date.now()) : null,
+        rentalEnd: isRental && listing.returnDate ? Timestamp.fromMillis(new Date(listing.returnDate).getTime() || Date.now()) : null,
         rentalDays: isRental ? (listing.rentalDays || 1) : null,
         paidAt: serverTimestamp(),
         deliveredAt: isDigital ? serverTimestamp() : null,
         disputeDeadline: isDigital ? Timestamp.fromMillis(Date.now() + 48 * 3600000) : null,
+        stripePaymentIntentId: paymentIntentId || "",
         createdAt: serverTimestamp(),
       });
 
       // Auto-transfer badge if applicable
       if (isBadge && listing.badgeForSale) {
         try {
-          const { getDocs, query, collection, where } = await import("firebase/firestore");
           const sellerSnap = await getDocs(query(collection(db, "profiles"), where("email", "==", listing.sellerEmail)));
           const buyerSnap = await getDocs(query(collection(db, "profiles"), where("email", "==", buyerEmail)));
           const sellerId = sellerSnap.docs[0]?.id;
           const buyerId = buyerSnap.docs[0]?.id;
           if (sellerId && buyerId) {
             const { autoTransferBadge } = await import("../lib/xpValidation");
-            await autoTransferBadge(sellerId, buyerId, listing.badgeForSale, purchaseRef.id, listing.sellerEmail);
+            await autoTransferBadge(sellerId, buyerId, listing.badgeForSale, purchaseRef.id!, listing.sellerEmail);
           }
         } catch (e) {
           console.error("Auto badge transfer failed:", e);

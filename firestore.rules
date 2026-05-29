@@ -10,10 +10,18 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys()
         .hasOnly(['currentBid', 'currentMaxBid', 'secondMaxBid', 'highestBidder', 'bidCount', 'auctionEndsAt', 'auctionExtended']);
     }
+    function isAdmin() {
+      return request.auth.token.admin == true
+        || request.auth.token.email in get(/databases/$(database)/documents/config/adminEmails).data.emails;
+    }
+    function isEmailVerified() {
+      return request.auth.token.email_verified == true;
+    }
 
     match /listings/{listingId} {
       allow read: if true;
       allow create: if request.auth != null
+        && isEmailVerified()
         && request.resource.data.sellerEmail == request.auth.token.email;
       allow update: if request.auth != null
         && (isSeller()
@@ -46,7 +54,8 @@ service cloud.firestore {
       allow read: if request.auth != null
         && (resource.data.buyerEmail == request.auth.token.email
           || resource.data.sellerEmail == request.auth.token.email);
-      allow create: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.buyerEmail == request.auth.token.email;
       allow update: if request.auth != null
         && (resource.data.buyerEmail == request.auth.token.email
           || resource.data.sellerEmail == request.auth.token.email);
@@ -55,25 +64,35 @@ service cloud.firestore {
     match /notifications/{notificationId} {
       allow read: if request.auth != null
         && resource.data.targetEmail == request.auth.token.email;
-      allow create: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.targetEmail == request.auth.token.email;
       allow update: if request.auth != null
         && resource.data.targetEmail == request.auth.token.email;
     }
 
+    // Reviews: only real buyers can review, one per purchase
     match /reviews/{reviewId} {
       allow read: if true;
-      allow create: if request.auth != null;
+      allow create: if request.auth != null
+        && isEmailVerified()
+        && request.resource.data.reviewerEmail == request.auth.token.email
+        && request.resource.data.sellerEmail != request.auth.token.email
+        && exists(/databases/$(database)/documents/purchases/$(request.resource.data.purchaseId))
+        && get(/databases/$(database)/documents/purchases/$(request.resource.data.purchaseId)).data.buyerEmail == request.auth.token.email;
+      allow update: if request.auth != null
+        && resource.data.reviewerEmail == request.auth.token.email;
+      allow delete: if request.auth != null
+        && resource.data.reviewerEmail == request.auth.token.email;
     }
 
     match /reports/{reportId} {
-      allow create: if request.auth != null;
-      allow read: if request.auth != null
-        && request.auth.token.email == "rangitr16@gmail.com";
+      allow create: if request.auth != null && isEmailVerified();
+      allow read: if request.auth != null && isAdmin();
     }
 
     match /tradePosts/{postId} {
       allow read: if true;
-      allow create: if request.auth != null;
+      allow create: if request.auth != null && isEmailVerified();
       allow update: if request.auth != null;
       allow delete: if request.auth != null
         && resource.data.sellerEmail == request.auth.token.email;
@@ -93,13 +112,13 @@ service cloud.firestore {
 
     match /drops/{dropId} {
       allow read: if true;
-      allow create: if request.auth != null;
+      allow create: if request.auth != null && isEmailVerified();
       allow update: if request.auth != null;
     }
 
     match /tradeShouts/{shoutId} {
       allow read: if true;
-      allow create: if request.auth != null;
+      allow create: if request.auth != null && isEmailVerified();
       allow delete: if request.auth != null
         && resource.data.by == request.auth.token.email;
     }
@@ -113,7 +132,7 @@ service cloud.firestore {
 
     match /dropTokens/{tokenId} {
       allow read: if request.auth != null && resource.data.ownerId == request.auth.uid;
-      allow create: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
       allow update: if request.auth != null && resource.data.ownerId == request.auth.uid;
     }
 
@@ -136,12 +155,12 @@ service cloud.firestore {
 
     match /config/{docId} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if request.auth != null && isAdmin();
     }
 
     match /listingQuestions/{questionId} {
       allow read: if true;
-      allow create: if request.auth != null;
+      allow create: if request.auth != null && isEmailVerified();
       allow update: if request.auth != null;
     }
 
@@ -164,14 +183,14 @@ service cloud.firestore {
       allow read: if request.auth != null
         && (resource.data.employerEmail == request.auth.token.email
           || resource.data.applicantEmail == request.auth.token.email);
-      allow create: if request.auth != null;
+      allow create: if request.auth != null && isEmailVerified();
       allow update: if request.auth != null
         && resource.data.employerEmail == request.auth.token.email;
     }
 
     match /promotions/{promotionId} {
       allow read: if true;
-      allow create: if request.auth != null;
+      allow create: if request.auth != null && isEmailVerified();
       allow update: if request.auth != null;
       allow delete: if request.auth != null;
     }
@@ -199,6 +218,18 @@ service cloud.firestore {
     match /hustlerEvents/{eventId} {
       allow read: if true;
       allow create: if request.auth != null;
+    }
+
+    match /disputes/{disputeId} {
+      allow create: if request.auth != null;
+      allow read: if request.auth != null
+        && (resource.data.buyerEmail == request.auth.token.email
+          || resource.data.sellerEmail == request.auth.token.email
+          || isAdmin());
+      allow update: if request.auth != null
+        && (resource.data.buyerEmail == request.auth.token.email
+          || resource.data.sellerEmail == request.auth.token.email
+          || isAdmin());
     }
 
     match /{document=**} {

@@ -20,7 +20,7 @@ import { createNotification } from "../lib/notifications";
 import { useProfile } from "../contexts/ProfileContext";
 
 const WORLDS = [
-  { id: "all", label: "All Worlds", icon: "🌐", accent: "border-sky-500/20", glow: "shadow-[0_0_12px_rgba(14,165,233,0.06)]", color: "from-sky-400" },
+  { id: "all", label: "Categories", icon: "🌐", accent: "border-sky-500/20", glow: "shadow-[0_0_12px_rgba(14,165,233,0.06)]", color: "from-sky-400" },
   { id: "gaming", label: "Gaming", icon: "🎮", accent: "border-sky-500/20", glow: "shadow-[0_0_20px_rgba(14,165,233,0.12)]", color: "from-sky-400" },
   { id: "cars", label: "Cars", icon: "🚗", accent: "border-zinc-400/20", glow: "shadow-[0_0_20px_rgba(161,161,170,0.12)]", color: "from-zinc-300" },
   { id: "fashion", label: "Fashion", icon: "👟", accent: "border-rose-400/20", glow: "shadow-[0_0_20px_rgba(251,113,133,0.12)]", color: "from-rose-400" },
@@ -30,13 +30,13 @@ const WORLDS = [
 ];
 
 const SUBCATEGORIES: Record<string, string[]> = {
-  all: ["All Posts"],
-  gaming: ["All Posts", "In-Game Collectibles", "PC Parts", "Consoles", "Gaming Setups"],
-  cars: ["All Posts", "Wheels", "Parts", "Cars", "Performance", "Detailing", "Tools"],
-  fashion: ["All Posts", "Sneakers", "Streetwear", "Designer", "Vintage", "Accessories"],
-  tech: ["All Posts", "Phones", "PCs", "Cameras", "Audio", "Smart Home"],
-  collector: ["All Posts", "Cards", "Figures", "Memorabilia", "Rare Items"],
-  digital: ["All Posts", "Templates & Assets", "E-books & Guides", "Art & Photography", "Software & Audio", "Gaming & 3D"],
+  all: [],
+  gaming: ["In-Game Collectibles", "PC Parts", "Consoles", "Gaming Setups"],
+  cars: ["Wheels", "Parts", "Cars", "Performance", "Detailing", "Tools"],
+  fashion: ["Sneakers", "Streetwear", "Designer", "Vintage", "Accessories"],
+  tech: ["Phones", "PCs", "Cameras", "Audio", "Smart Home"],
+  collector: ["Cards", "Figures", "Memorabilia", "Rare Items"],
+  digital: ["Templates & Assets", "E-books & Guides", "Art & Photography", "Software & Audio", "Gaming & 3D"],
 };
 
 const QUICK_REPLIES = ["Still available?", "Can pickup tonight.", "Sent offer.", "PM me", "Price negotiable?", "Trade?", "Interested"];
@@ -62,7 +62,7 @@ export default function TradeFeedPage() {
   const [user, setUser] = useState<User | null>(null);
   const [posts, setPosts] = useState<any[]>([]);
   const [selectedWorld, setSelectedWorld] = useState<string[]>([]);
-  const [selectedFilter, setSelectedFilter] = useState("All Posts");
+  const [selectedFilter, setSelectedFilter] = useState("All");
   const [selectedType, setSelectedType] = useState("All");
   const [search, setSearch] = useState("");
   const [expandedPost, setExpandedPost] = useState<string | null>(null);
@@ -287,11 +287,12 @@ export default function TradeFeedPage() {
     return () => unsub();
   }, [selectedWorld]);
 
-  // Shoutbox auto-clear every 5 minutes
+  // Shoutbox auto-clear old shouts (older than 1 hour) every 5 minutes
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
-        const q = query(collection(db, "tradeShouts"), limit(100));
+        const cutoff = Date.now() / 1000 - 3600;
+        const q = query(collection(db, "tradeShouts"), where("createdAt", "<", cutoff), limit(50));
         const snap = await getDocs(q);
         if (snap.empty) return;
         const batch = writeBatch(db);
@@ -381,7 +382,7 @@ export default function TradeFeedPage() {
         type, title, price: price || "", message: message || "",
         sellerEmail: user.email, sellerUsername: username || user.email,
         world: selectedWorld.length === 1 ? selectedWorld[0] : null,
-        category: selectedFilter !== "All Posts" ? selectedFilter : null,
+        category: selectedFilter !== "All" ? selectedFilter : null,
         status: "live",
         saleType: type === "WTS" ? "buy_now" : type === "WTB" ? "buy_now_offers" : "trade",
         replies: [], images, views: 1, offers: 0,
@@ -524,7 +525,7 @@ export default function TradeFeedPage() {
   const filteredPosts = useMemo(() => {
     let items = posts;
     if (selectedWorld.length > 0 && !selectedWorld.includes("all")) items = items.filter((p) => selectedWorld.includes(p.world));
-    if (selectedFilter !== "All Posts") items = items.filter((p) => p.category === selectedFilter);
+    if (selectedFilter !== "All") items = items.filter((p) => p.category === selectedFilter);
     if (selectedType === "WTS") items = items.filter((p) => p.type === "WTS");
     else if (selectedType === "WTB") items = items.filter((p) => p.type === "WTB");
     else if (selectedType === "Trading") items = items.filter((p) => p.type === "Trading");
@@ -561,6 +562,15 @@ export default function TradeFeedPage() {
       <Background /><Navbar />
 
       <section className="relative z-10 mx-auto max-w-[1600px] px-4 pb-8 pt-6">
+        {/* ── PAGE TITLE ── */}
+        <div className="relative mb-6">
+          <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/5 via-emerald-500/5 to-transparent blur-3xl pointer-events-none" />
+          <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
+            <span className="text-white drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">Trade Live</span>
+          </h1>
+            <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl">A real-time community marketplace where members post, trade, and negotiate live. Browse active listings, make offers, and connect with buyers and sellers as deals happen — all in one feed.</p>
+        </div>
+
         {/* ── HEADER ── */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-5">
@@ -601,6 +611,7 @@ export default function TradeFeedPage() {
               onClick={() => {
                 if (world.id === "all") setSelectedWorld([]);
                 else setSelectedWorld((prev) => prev.includes(world.id) ? prev.filter((w) => w !== world.id) : [...prev, world.id]);
+                setSelectedFilter("All");
               }}
               className={`relative flex shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-xs font-medium transition-all ${
                 (world.id === "all" && selectedWorld.length === 0) || selectedWorld.includes(world.id)
@@ -618,7 +629,7 @@ export default function TradeFeedPage() {
         <div className="mt-5 flex flex-wrap items-center gap-2 rounded-2xl border border-white/[0.04] bg-white/[0.01] px-3.5 py-2.5">
           <div className="flex gap-0.5 overflow-x-auto scrollbar-none">
             {SUBCATEGORIES[selectedWorld.length === 1 ? selectedWorld[0] : "all"]?.map((cat) => (
-              <button key={cat} onClick={() => setSelectedFilter(cat)}
+              <button key={cat} onClick={() => setSelectedFilter(selectedFilter === cat ? "All" : cat)}
                 className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition ${
                   selectedFilter === cat ? "bg-white/[0.06] text-[var(--foreground)]" : "text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.02]"
                 }`}>{cat}</button>
@@ -687,6 +698,7 @@ export default function TradeFeedPage() {
             {/* ── COMPOSER ── */}
             {showComposer && (
               <div className="mb-4 rounded-2xl border border-white/[0.04] bg-white/[0.02] p-5">
+                <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-zinc-500">Create Trade Post</p>
                 <div className="flex gap-1.5 mb-3">
                   {["WTS", "WTB", "Trading"].map((t) => (
                     <button key={t} onClick={() => setType(t)}

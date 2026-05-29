@@ -30,13 +30,14 @@ import {
 import { createNotification } from "../../lib/notifications";
 const ADMIN_EMAILS = ["rangitr16@gmail.com"];
 
-type Tab = "address" | "digital";
+type Tab = "address" | "digital" | "listings";
 
 export default function AdminVerificationPage() {
   const [user, setUser] = useState<User | null>(null);
   const [tab, setTab] = useState<Tab>("address");
   const [profiles, setProfiles] = useState<any[]>([]);
   const [digitalListings, setDigitalListings] = useState<any[]>([]);
+  const [pendingListings, setPendingListings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [rejectInputs, setRejectInputs] = useState<Record<string, string>>({});
 
@@ -65,6 +66,17 @@ export default function AdminVerificationPage() {
         setLoading(false);
       }, (err) => {
         console.error("Failed to load digital listings:", err);
+        setLoading(false);
+      });
+      return () => unsub();
+    } else if (tab === "listings") {
+      setLoading(true);
+      const q = query(collection(db, "listings"), where("status", "==", "pending_review"), orderBy("createdAt", "desc"));
+      const unsub = onSnapshot(q, (snap) => {
+        setPendingListings(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setLoading(false);
+      }, (err) => {
+        console.error("Failed to load pending listings:", err);
         setLoading(false);
       });
       return () => unsub();
@@ -173,6 +185,33 @@ export default function AdminVerificationPage() {
     } catch (e) { console.error(e); }
   }
 
+  async function handleApproveListing(listingId: string) {
+    if (!confirm("Approve this listing? It will go live immediately.")) return;
+    try {
+      await updateDoc(doc(db, "listings", listingId), { status: "live" });
+    } catch (e) { console.error(e); }
+  }
+
+  async function handleRejectListing(listingId: string) {
+    const reason = rejectInputs[`lst_${listingId}`]?.trim();
+    if (!reason) { alert("Enter a rejection reason."); return; }
+    try {
+      await updateDoc(doc(db, "listings", listingId), { status: "rejected" });
+      const snap = await getDoc(doc(db, "listings", listingId));
+      const data = snap.data();
+      if (data?.sellerEmail) {
+        await createNotification({
+          targetEmail: data.sellerEmail,
+          fromEmail: user!.email!,
+          type: "listing",
+          title: "Listing Rejected",
+          message: `Your listing "${data.title}" was rejected. Reason: ${reason}`,
+        });
+      }
+      setRejectInputs((prev) => { const next = { ...prev }; delete next[`lst_${listingId}`]; return next; });
+    } catch (e) { console.error(e); }
+  }
+
   if (!isAdmin) {
     return (
       <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
@@ -190,6 +229,7 @@ export default function AdminVerificationPage() {
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "address", label: "Proof of Address" },
+    { key: "listings", label: `Listings (${pendingListings.length || "—"})` },
     { key: "digital", label: "Digital Listings" },
   ];
 
@@ -213,7 +253,64 @@ export default function AdminVerificationPage() {
           ))}
         </div>
 
-        {tab === "digital" ? (
+        {tab === "listings" ? (
+          <>
+            <div className="mb-8 grid gap-4 sm:grid-cols-2">
+              <div className="rounded-2xl border border-amber-500/20 bg-[var(--card)] p-5 shadow-xl">
+                <p className="text-sm text-[var(--muted)]">Pending Listings</p>
+                <p className="mt-1 text-3xl font-black text-amber-400">{pendingListings.length}</p>
+              </div>
+            </div>
+
+            {loading ? (
+              <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-8 text-center">Loading...</div>
+            ) : pendingListings.length === 0 ? (
+              <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-10 text-center">
+                <p className="text-3xl mb-3">✅</p>
+                <p className="text-lg font-bold">All caught up</p>
+                <p className="text-sm text-[var(--muted)] mt-1">No pending listings.</p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {pendingListings.map((listing) => (
+                  <div key={listing.id} className="rounded-2xl border border-amber-500/20 bg-[var(--card)] p-6 shadow-xl">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg font-bold text-[var(--foreground)]">{listing.title}</span>
+                          <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400">Pending</span>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-[var(--muted)]">
+                          <span>Seller: {listing.sellerEmail || "—"}</span>
+                          <span>Price: ${listing.price || "—"}</span>
+                          <span>Category: {listing.category || "—"}</span>
+                          <span>Type: {listing.type || "—"}</span>
+                          {listing.createdAt?.toDate && <span>Created: {listing.createdAt.toDate().toLocaleDateString()}</span>}
+                        </div>
+                        {(listing.description || "").length > 0 && (
+                          <p className="mt-2 text-xs text-[var(--muted)] line-clamp-3">{listing.description}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      <button onClick={() => handleApproveListing(listing.id)}
+                        className="rounded-xl bg-emerald-500/15 px-5 py-2.5 text-xs font-bold text-emerald-400 transition hover:bg-emerald-500/25">
+                        ✅ Approve
+                      </button>
+                      <input type="text" value={rejectInputs[`lst_${listing.id}`] || ""} onChange={(e) => setRejectInputs((prev) => ({ ...prev, [`lst_${listing.id}`]: e.target.value }))}
+                        placeholder="Rejection reason..."
+                        className="flex-1 min-w-[180px] rounded-xl border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-xs text-[var(--foreground)] outline-none focus:border-red-500/40 placeholder:text-zinc-600" />
+                      <button onClick={() => handleRejectListing(listing.id)} disabled={!rejectInputs[`lst_${listing.id}`]?.trim()}
+                        className="rounded-xl bg-red-500/15 px-5 py-2.5 text-xs font-bold text-red-400 transition hover:bg-red-500/25 disabled:opacity-40">
+                        ❌ Reject
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        ) : tab === "digital" ? (
           <>
             {loading ? (
               <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-8 text-center">Loading...</div>

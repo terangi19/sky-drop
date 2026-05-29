@@ -44,7 +44,7 @@ export default function WatchlistPage() {
         const unsubWatch = onSnapshot(q, (snap) => {
           const items = snap.docs.map((d) => ({ id: d.id, ...d.data() } as WatchlistItem));
           setWatchlist(items);
-          localStorage.setItem("watchlist", JSON.stringify(items));
+          try { localStorage.setItem("watchlist", JSON.stringify(items)); } catch (e) { console.error("Failed to save watchlist:", e); }
           setLoading(false);
         }, () => setLoading(false));
         return () => unsubWatch();
@@ -93,7 +93,7 @@ export default function WatchlistPage() {
 
     const updated = watchlist.filter((item) => item.id !== id);
     setWatchlist(updated);
-    localStorage.setItem("watchlist", JSON.stringify(updated));
+    try { localStorage.setItem("watchlist", JSON.stringify(updated)); } catch (e) { console.error("Failed to save watchlist:", e); }
 
     if (user?.uid) {
       try {
@@ -111,7 +111,7 @@ export default function WatchlistPage() {
       }
     }
     setWatchlist([]);
-    localStorage.setItem("watchlist", "[]");
+    try { localStorage.setItem("watchlist", "[]"); } catch (e) { console.error("Failed to clear watchlist:", e); }
     setClearConfirm(false);
   };
 
@@ -131,14 +131,14 @@ export default function WatchlistPage() {
     if (sortBy === "price-low") {
       items.sort(
         (a, b) =>
-          parseFloat(a.price?.replace(/[^0-9]/g, "") || "0") -
-          parseFloat(b.price?.replace(/[^0-9]/g, "") || "0")
+          parseFloat(String(a.price || "0").replace(/[$,]/g, "")) -
+          parseFloat(String(b.price || "0").replace(/[$,]/g, ""))
       );
     } else if (sortBy === "price-high") {
       items.sort(
         (a, b) =>
-          parseFloat(b.price?.replace(/[^0-9]/g, "") || "0") -
-          parseFloat(a.price?.replace(/[^0-9]/g, "") || "0")
+          parseFloat(String(b.price || "0").replace(/[$,]/g, "")) -
+          parseFloat(String(a.price || "0").replace(/[$,]/g, ""))
       );
     }
 
@@ -198,10 +198,11 @@ export default function WatchlistPage() {
           Back
         </Link>
         <div className="relative mb-8">
-          <div className="absolute -inset-20 bg-gradient-to-r from-rose-500/5 via-pink-500/5 to-transparent blur-3xl pointer-events-none" />
+          <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/5 via-sky-400/5 to-transparent blur-3xl pointer-events-none" />
           <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
-            <span className="bg-gradient-to-r from-white via-rose-100 to-white bg-clip-text text-transparent">Watchlist</span>
+            <span className="text-white drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">Watchlist</span>
           </h1>
+          <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl">Save listings you're interested in and revisit them anytime. Your Watchlist is designed to help you keep track of potential purchases, compare options, and never lose sight of items that matter to you.</p>
           <p className="relative mt-2 text-sm text-zinc-500">{watchlist.length} saved item{watchlist.length !== 1 ? "s" : ""}</p>
         </div>
         {watchlist.length === 0 ? (

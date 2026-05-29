@@ -46,7 +46,8 @@ export default function ReportModal({
 
     // Rate limiting: check 24h cooldown
     const cooldownKey = `report_cooldown_${type}_${targetId || targetUserEmail}`;
-    const lastReport = localStorage.getItem(cooldownKey);
+    let lastReport = null;
+    try { lastReport = localStorage.getItem(cooldownKey); } catch (e) { console.error("Failed to read report cooldown:", e); }
     if (lastReport) {
       const elapsed = Date.now() - Number(lastReport);
       const hoursLeft = Math.ceil((24 * 60 * 60 * 1000 - elapsed) / (1000 * 60 * 60));
@@ -70,7 +71,7 @@ export default function ReportModal({
         status: "pending",
         createdAt: serverTimestamp(),
       });
-      localStorage.setItem(cooldownKey, String(Date.now()));
+      try { localStorage.setItem(cooldownKey, String(Date.now())); } catch (e) { console.error("Failed to save report cooldown:", e); }
       setSent(true);
     } catch (e) {
       console.error(e);

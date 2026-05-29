@@ -19,7 +19,14 @@ export function calculateTrustScore(params: {
   if (params.hasProfile && params.hasBio && params.hasPhoto) score += 10;
 
   if (params.memberSince) {
-    const ms = "getTime" in params.memberSince ? params.memberSince.getTime() : params.memberSince.toMillis() || 0;
+    let ms = 0;
+    if (params.memberSince instanceof Date) {
+      ms = params.memberSince.getTime();
+    } else if ("toMillis" in params.memberSince) {
+      ms = params.memberSince.toMillis?.() || 0;
+    } else if ("getTime" in params.memberSince) {
+      ms = (params.memberSince as unknown as Date).getTime();
+    }
     const daysOld = (Date.now() - ms) / 86400000;
     if (daysOld > 30) score += 10;
     if (daysOld > 90) score += 5;

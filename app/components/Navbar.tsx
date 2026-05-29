@@ -64,7 +64,8 @@ export default function Navbar() {
 
   function loadDismissed(): Set<string> {
     try {
-      const raw = localStorage.getItem("dismissedNotifications");
+      let raw = null;
+    try { raw = localStorage.getItem("dismissedNotifications"); } catch (e) { console.error("Failed to read dismissed notifications:", e); }
       return new Set<string>(raw ? JSON.parse(raw) : []);
     } catch { return new Set<string>(); }
   }
@@ -74,12 +75,12 @@ export default function Navbar() {
     next.add(id);
     setDismissedIds(next);
     try {
-      localStorage.setItem("dismissedNotifications", JSON.stringify([...next]));
+      try { localStorage.setItem("dismissedNotifications", JSON.stringify([...next])); } catch (e) { console.error("Failed to save dismissed notifications:", e); }
     } catch {}
     if (type === "message" || type === "offer") {
-      updateDoc(doc(db, "messages", id), { read: true }).catch(() => {});
+      updateDoc(doc(db, "messages", id), { read: true }).catch((e) => console.error("Failed to mark message read:", e));
     } else {
-      updateDoc(doc(db, "notifications", id), { read: true }).catch(() => {});
+      updateDoc(doc(db, "notifications", id), { read: true }).catch((e) => console.error("Failed to mark notification read:", e));
     }
   }
 
@@ -110,14 +111,13 @@ export default function Navbar() {
   useEffect(() => {
     if (!user?.email) return;
 
-    const all: NotificationItem[] = [];
-    let msgDone = false;
-    let purchaseDone = false;
+    const msgItems: NotificationItem[] = [];
+    const purchaseItems: NotificationItem[] = [];
 
     function merge() {
-      if (!msgDone || !purchaseDone) return;
       const dismissed = loadDismissed();
-      const filtered = all.filter((n) => !dismissed.has(n.id));
+      const combined = [...msgItems, ...purchaseItems];
+      const filtered = combined.filter((n) => !dismissed.has(n.id));
       filtered.sort((a, b) => {
         const ta = a.time === "Now" ? Date.now() : new Date(a.time).getTime();
         const tb = b.time === "Now" ? Date.now() : new Date(b.time).getTime();
@@ -131,7 +131,7 @@ export default function Navbar() {
     const dismissed = loadDismissed();
     const msgQ = query(collection(db, "messages"), where("participants", "array-contains", user.email), limit(20));
     const unsub1 = onSnapshot(msgQ, (snap) => {
-      all.length = 0;
+      msgItems.length = 0;
       const items = snap.docs
         .map((d) => ({ id: d.id, ...d.data() }) as Record<string, unknown>)
         .filter((msg): msg is Record<string, unknown> => {
@@ -148,7 +148,7 @@ export default function Navbar() {
         const offerStatus = msg.offerStatus as string | undefined;
         const createdAt = msg.createdAt as { toDate?: () => Date } | undefined;
 
-        all.push({
+        msgItems.push({
           id: msg.id as string,
           sender: sender || "",
           senderEmail: sender || "",
@@ -160,12 +160,12 @@ export default function Navbar() {
           unread: !(msg.read as boolean),
         });
       }
-      msgDone = true;
       merge();
-    }, (err) => { console.error("Msg notification error:", err); msgDone = true; merge(); });
+    }, (err) => { console.error("Msg notification error:", err); merge(); });
 
     const purchaseQ = query(collection(db, "notifications"), where("targetEmail", "==", user.email));
     const unsub2 = onSnapshot(purchaseQ, (snap) => {
+      purchaseItems.length = 0;
       const items = snap.docs.filter((d) => d.data().read === false).map((d) => ({ id: d.id, ...d.data() }) as Record<string, unknown>);
       for (const n of items) {
         const fromName = n.fromName as string | undefined;
@@ -173,7 +173,7 @@ export default function Navbar() {
         const listingId = n.listingId as string | undefined;
         const createdAt = n.createdAt as { toDate?: () => Date } | undefined;
 
-        all.push({
+        purchaseItems.push({
           id: n.id as string,
           sender: fromName || fromEmail || "",
           senderEmail: fromEmail || "",
@@ -185,7 +185,6 @@ export default function Navbar() {
           unread: true,
         });
       }
-      purchaseDone = true;
       merge();
     }, (err) => console.error("Purchase notification error:", err));
 
@@ -193,7 +192,7 @@ export default function Navbar() {
   }, [user]);
 
   const msgCount = Math.max(0, notifications.filter((n) => n.type === "message" || n.type === "offer").length);
-  const activityCount = Math.max(0, notifications.filter((n) => n.type !== "message" && n.type !== "offer" && !dismissedIds.has(n.id)).length);
+  const activityCount = Math.max(0, notifications.filter((n) => n.type !== "message" && n.type !== "offer").length);
 
   async function handleLogout() {
     await signOut(auth);
@@ -253,7 +252,7 @@ export default function Navbar() {
           {user && (
             <nav className="hidden md:flex items-center gap-5 text-sm font-medium text-[var(--foreground)]">
               <Link href="/trade-feed" className="flex items-center gap-1.5 transition hover:text-sky-400">
-                <span className="font-bold">Live Trade</span>
+                <span className="font-bold">Trade Live</span>
                 <span className="flex h-1.5 w-1.5 rounded-full bg-red-500/80" />
               </Link>
               <Link href="/post/ai" className="transition hover:text-sky-400">Sell</Link>
@@ -316,7 +315,7 @@ export default function Navbar() {
               <div className="flex flex-col gap-0.5 px-4 py-3">
                 <Link href="/trade-feed" className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}>
                     <span className="flex items-center gap-1.5">
-                      <span>Live Trade</span>
+                      <span>Trade Live</span>
                       <span className="flex h-2 w-2 rounded-full bg-red-500" />
                     </span>
                 </Link>
@@ -468,7 +467,7 @@ export default function Navbar() {
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
               </svg>
-              <span className="text-[8px] font-semibold">Trade</span>
+              <span className="text-[8px] font-semibold">Trade Live</span>
             </Link>
             <Link href="/post/ai"
               className={`flex flex-col items-center gap-px px-3 py-1 rounded-xl transition active:scale-95 ${pathname === "/post/ai" ? "text-sky-400" : `${user ? "text-[var(--muted)]" : "text-zinc-500"}`}`}>

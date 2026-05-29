@@ -16,6 +16,7 @@ export default function LegendaryClaimNotification() {
   const [visible, setVisible] = useState(false);
   const [animState, setAnimState] = useState<"idle" | "entering" | "showing" | "exiting">("idle");
   const prevRef = useRef<string>("");
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "config", "platform"), (snap) => {
@@ -28,13 +29,19 @@ export default function LegendaryClaimNotification() {
       if (key === prevRef.current) return;
       prevRef.current = key;
 
+      timersRef.current.forEach(clearTimeout);
+      timersRef.current = [];
+
       setClaim(lastClaim);
       setAnimState("entering");
-      setTimeout(() => setAnimState("showing"), 800);
-      setTimeout(() => setAnimState("exiting"), 7000);
-      setTimeout(() => setAnimState("idle"), 7800);
+      timersRef.current.push(setTimeout(() => setAnimState("showing"), 800));
+      timersRef.current.push(setTimeout(() => setAnimState("exiting"), 7000));
+      timersRef.current.push(setTimeout(() => setAnimState("idle"), 7800));
     });
-    return () => unsub();
+    return () => {
+      unsub();
+      timersRef.current.forEach(clearTimeout);
+    };
   }, []);
 
   if (animState === "idle" || !claim) return null;

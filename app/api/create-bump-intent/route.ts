@@ -1,15 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import Stripe from "stripe";
+import { getStripe } from "../../lib/stripe-server";
+import { getAdminAuth } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
-
-let stripe: Stripe | null = null;
-
-function getStripe(): Stripe {
-  if (!stripe) {
-    stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
-  }
-  return stripe;
-}
 
 export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
@@ -19,6 +11,17 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const idToken = authHeader.slice(7);
+    try {
+      await getAdminAuth().verifyIdToken(idToken);
+    } catch {
+      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
+    }
+
     const s = getStripe();
     const paymentIntent = await s.paymentIntents.create({
       amount: 500,

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { collection, addDoc, Timestamp, doc, setDoc } from "firebase/firestore";
-import { db } from "../../lib/firebase";
+import { getAdminDb } from "../../lib/firebase-admin";
 
 const sellers = [
   { email: "seller1@skydrop.nz", name: "TechTrader", uid: "seed_s1" },
@@ -34,9 +33,9 @@ export async function GET() {
     const now = Date.now();
 
     for (const s of sellers) {
-      await setDoc(doc(db, "profiles", s.uid), {
+      await getAdminDb().collection("profiles").doc(s.uid).set({
         email: s.email, username: s.name, displayName: s.name,
-        createdAt: Timestamp.now(),
+        createdAt: new Date(),
       }, { merge: true });
       results.push(`Seller: ${s.name}`);
     }
@@ -47,13 +46,13 @@ export async function GET() {
       const seller = sellers[i % sellers.length];
       const expiresAt = new Date(now + 60 * 86400000);
       const createdAt = new Date(now - (listings.length - i) * 3600000);
-      await addDoc(collection(db, "listings"), {
+      await getAdminDb().collection("listings").add({
         ...data,
         sellerEmail: seller.email,
         sellerUsername: seller.name,
         sellerId: seller.uid,
-        createdAt: Timestamp.fromDate(createdAt),
-        expiresAt: Timestamp.fromDate(expiresAt),
+        createdAt,
+        expiresAt,
         status: "live",
         views: Math.floor(Math.random() * 200),
         images: [],

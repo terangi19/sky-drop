@@ -24,9 +24,15 @@ export default function GrantTokensPage() {
           originDropId: "admin_grant",
           status: "available",
           createdAt: serverTimestamp(),
-        }));
+        }).catch((e) => { console.error("Token grant failed:", e); setStatus("Error granting token. Check console."); }));
       }
-      await Promise.all(promises);
+      try {
+        await Promise.all(promises);
+      } catch (e) {
+        console.error("Batch grant failed:", e);
+        setStatus("Error granting batch. Stopped.");
+        return;
+      }
       setStatus(`Granted ${Math.min(i + batchSize, count)} / ${count}...`);
     }
     setStatus(`Done! ${count} drop tokens granted to ${user.email}`);

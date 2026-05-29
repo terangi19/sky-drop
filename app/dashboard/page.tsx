@@ -167,10 +167,11 @@ export default function DashboardPage() {
           Back
         </Link>
         <div className="relative mb-8">
-          <div className="absolute -inset-20 bg-gradient-to-r from-amber-500/5 via-orange-500/5 to-transparent blur-3xl pointer-events-none" />
+          <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/5 via-amber-500/5 to-transparent blur-3xl pointer-events-none" />
           <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
-            <span className="bg-gradient-to-r from-white via-amber-100 to-white bg-clip-text text-transparent">Dashboard</span>
+            <span className="text-white drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">Dashboard</span>
           </h1>
+          <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl">Your central hub for managing your Sky Drop activity. Monitor sales, track earnings, manage listings, and unlock rewards — all from one place.</p>
           <p className="relative mt-2 text-sm text-zinc-500">Your sales and performance at a glance.</p>
         </div>
 
@@ -262,7 +263,7 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-zinc-800">
-              <div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-400 transition-all duration-500" style={{ width: `${getLevelInfo(xp).progress}%` }} />
+              <div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-400 transition-all duration-500" style={{ width: `${(getLevelInfo(xp).progress / getLevelInfo(xp).xpToNext) * 100}%` }} />
             </div>
           </div>
           {/* Sky Crate */}
@@ -286,7 +287,7 @@ export default function DashboardPage() {
                 <div key={l.id} className="flex items-center justify-between rounded-2xl border border-amber-500/10 bg-gradient-to-b from-amber-500/3 to-transparent px-4 sm:px-5 py-3">
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-bold text-[var(--foreground)]">{l.title}</p>
-                    <p className="text-[10px] text-amber-400">Expires in {Math.ceil((l.expiresAt.toMillis() - Date.now()) / 86400000)}d</p>
+                    <p className="text-[10px] text-amber-400">Expires in {Math.ceil(((l.expiresAt?.toMillis?.() || 0) - Date.now()) / 86400000)}d</p>
                   </div>
                   <Link href={`/post/ai?edit=${l.id}`} className="shrink-0 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 px-3 py-1.5 text-[11px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">Edit</Link>
                 </div>

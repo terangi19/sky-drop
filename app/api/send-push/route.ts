@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getAdminAuth } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 
 interface PushPayload {
@@ -16,6 +17,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }
 
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const idToken = authHeader.slice(7);
+    try {
+      await getAdminAuth().verifyIdToken(idToken);
+    } catch {
+      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
+    }
+
     const { targetEmail, title, message, url } = await req.json() as PushPayload;
     if (!targetEmail || !title) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -29,7 +41,6 @@ export async function POST(req: NextRequest) {
       if (serviceAccount) {
         initializeApp({ credential: cert(JSON.parse(serviceAccount)) });
       } else {
-        // No service account configured — push notifications unavailable
         return NextResponse.json({ sent: 0, note: "push not configured" });
       }
     }

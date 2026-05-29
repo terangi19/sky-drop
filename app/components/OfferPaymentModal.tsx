@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import stripePromise from "../lib/stripe-client";
 import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, Timestamp, updateDoc, where } from "firebase/firestore";
-import { db } from "../lib/firebase";
+import { auth, db } from "../lib/firebase";
 import { createNotification } from "../lib/notifications";
 import { calculateTrustScore } from "../lib/trustscore";
 import { playSuccess } from "../lib/sounds";
@@ -71,6 +71,7 @@ export default function OfferPaymentModal({ amount, listingTitle, listingId, sel
   const [name, setName] = useState("");
   const [step, setStep] = useState<"form" | "card" | "processing" | "success">("form");
   const [clientSecret, setClientSecret] = useState("");
+  const [paymentIntentId, setPaymentIntentId] = useState("");
   const [intentError, setIntentError] = useState("");
   const [purchaseId, setPurchaseId] = useState("");
 
@@ -139,9 +140,10 @@ export default function OfferPaymentModal({ amount, listingTitle, listingId, sel
         }
       }
 
+      const token = await auth.currentUser?.getIdToken();
       const res = await fetch("/api/create-payment-intent", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
         body: JSON.stringify({
           title: listingTitle,
           price: String(total),
@@ -152,6 +154,7 @@ export default function OfferPaymentModal({ amount, listingTitle, listingId, sel
       const data = await res.json();
       if (data.clientSecret) {
         setClientSecret(data.clientSecret);
+        setPaymentIntentId(data.paymentIntentId || "");
       } else {
         setIntentError(data.error || "Payment initialization failed. Please try again.");
         setStep("form");
@@ -180,6 +183,7 @@ export default function OfferPaymentModal({ amount, listingTitle, listingId, sel
         paidAt: serverTimestamp(),
         status: "in_progress",
         disputeDeadline,
+        stripePaymentIntentId: paymentIntentId || "",
         createdAt: serverTimestamp(),
       });
 
@@ -196,6 +200,30 @@ export default function OfferPaymentModal({ amount, listingTitle, listingId, sel
         listingImage: listingImage || "",
         total,
       });
+
+      try {
+        const listingRef = doc(db, "listings", listingId);
+        const listingSnap = await getDoc(listingRef);
+        if (listingSnap.exists()) {
+          const current = listingSnap.data();
+          const updateData: any = {};
+          if (typeof current.stockQuantity === "number") {
+            if (current.stockQuantity > 1) {
+              updateData.stockQuantity = current.stockQuantity - 1;
+            } else {
+              updateData.stockQuantity = 0;
+              updateData.status = "sold";
+            }
+          } else {
+            updateData.status = "sold";
+          }
+          if (Object.keys(updateData).length > 0) {
+            await updateDoc(listingRef, updateData);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to update listing availability:", e);
+      }
 
       try {
         await addDoc(collection(db, "messages"), {

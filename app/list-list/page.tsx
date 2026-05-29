@@ -150,8 +150,9 @@ export default function ListListPage() {
             <div className="relative">
               <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/5 via-violet-500/5 to-transparent blur-3xl pointer-events-none" />
               <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
-                <span className="bg-gradient-to-r from-white via-sky-100 to-white bg-clip-text text-transparent">My Listings</span>
+                <span className="text-white drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">My Listings</span>
               </h1>
+              <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl">Your complete listing dashboard. View, manage, and track your listings while keeping full control over your selling activity across Sky Drop.</p>
               <p className="relative mt-2 text-sm text-zinc-500">
                 {listings.length} total · {activeCount} active · {soldCount} sold
               </p>

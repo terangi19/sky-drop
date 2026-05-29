@@ -121,11 +121,17 @@ function timeAgo(seconds: number): string {
   return `${Math.floor(diff / 604800)}w ago`;
 }
 
-function getRecentlyViewed(): any[] {
-  try {
-    return JSON.parse(localStorage.getItem("recentlyViewed") || "[]");
-  } catch { return []; }
-}
+  function getRecentlyViewed(): any[] {
+    try {
+      return JSON.parse(localStorage.getItem("recentlyViewed") || "[]");
+    } catch { return []; }
+  }
+
+  function isInWatchlist(itemId: string): boolean {
+    try {
+      return JSON.parse(localStorage.getItem("watchlist") || "[]").some((w: any) => w.id === itemId);
+    } catch { return false; }
+  }
 
 function saveRecentlyViewed(item: any) {
   const recent = getRecentlyViewed().filter(r => r.id !== item.id);
@@ -197,8 +203,6 @@ export default function Home() {
       const saved = JSON.parse(localStorage.getItem("savedSearches") || "[]");
       setSavedSearches(saved.slice(0, 6));
     } catch {}
-    try {
-    } catch {}
   }, []);
 
   // Recently viewed cleanup — remove deleted/expired items
@@ -234,12 +238,13 @@ export default function Home() {
     if (!authReady) return;
     let mounted = true;
 
-    const allItems: any[] = [];
-    let done1 = false, done2 = false;
+    const listingItems: any[] = [];
+    const tradeItems: any[] = [];
 
     function merge() {
-      if (!done1 || !done2 || !mounted) return;
-      const physical = allItems.filter((i: any) => i.type !== "digital" && i.type !== "service" && i.type !== "event" && i.type !== "vehicle" && i.type !== "job" && i.type !== "property" && i.type !== "rental");
+      if (!mounted) return;
+      const combined = [...listingItems, ...tradeItems];
+      const physical = combined.filter((i: any) => i.status !== "flagged" && i.status !== "pending_review" && i.type !== "digital" && i.type !== "service" && i.type !== "event" && i.type !== "vehicle" && i.type !== "job" && i.type !== "property" && i.type !== "rental");
       physical.sort((a, b) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
       setListings(physical.slice(0, 50));
       setLoading(false);
@@ -249,23 +254,22 @@ export default function Home() {
       query(collection(db, "listings"), orderBy("createdAt", "desc"), limit(50)),
       (snap) => {
         if (!mounted) return;
-        allItems.length = 0;
-        for (const d of snap.docs) allItems.push({ id: d.id, ...d.data() });
-        done1 = true;
+        listingItems.length = 0;
+        for (const d of snap.docs) listingItems.push({ id: d.id, ...d.data() });
         merge();
       },
-      () => { done1 = true; merge(); }
+      () => { merge(); }
     );
 
     const unsub2 = onSnapshot(
       query(collection(db, "tradePosts"), orderBy("createdAt", "desc"), limit(50)),
       (snap) => {
         if (!mounted) return;
-        for (const d of snap.docs) allItems.push({ id: d.id, ...d.data() });
-        done2 = true;
+        tradeItems.length = 0;
+        for (const d of snap.docs) tradeItems.push({ id: d.id, ...d.data() });
         merge();
       },
-      () => { done2 = true; merge(); }
+      () => { merge(); }
     );
 
     return () => { mounted = false; unsub1(); unsub2(); };
@@ -719,7 +723,7 @@ export default function Home() {
 
               <h1 className="text-4xl font-black tracking-tight sm:text-5xl lg:text-6xl leading-none">
                 <span className="bg-gradient-to-r from-white via-sky-200 to-white bg-clip-text text-transparent">
-                  {user ? "Discover what you need" : "Welcome to Sky Drop"}
+                  {user ? "Your next great find starts here" : "Welcome to Sky Drop"}
                 </span>
               </h1>
               <p className="mt-4 max-w-xl mx-auto text-sm leading-relaxed text-zinc-400">
@@ -1062,11 +1066,11 @@ export default function Home() {
                       <button
                         onClick={(e) => { e.stopPropagation(); toggleWatchlist(item); }}
                         className={`relative text-base transition-all duration-200 hover:scale-110 active:scale-95 ${
-                          JSON.parse(localStorage.getItem("watchlist") || "[]").some((w: any) => w.id === item.id)
+                          isInWatchlist(item.id)
                             ? "text-red-400" : "text-zinc-500 hover:text-red-400"
                         }`}
                       >
-                        {JSON.parse(localStorage.getItem("watchlist") || "[]").some((w: any) => w.id === item.id) ? "❤️" : "♡"}
+                        {isInWatchlist(item.id) ? "❤️" : "♡"}
                       </button>
 
                   </div>
@@ -1090,7 +1094,7 @@ export default function Home() {
 
                    <div className="mt-3 flex items-center gap-3 text-[11px] text-zinc-500">
                     {item.location && <span className="flex items-center gap-1">📍 {item.location}</span>}
-                    {item.createdAt?.seconds && <span>{timeAgo(item.createdAt.seconds)}</span>}
+                    {item.createdAt?.seconds != null && <span>{timeAgo(item.createdAt.seconds)}</span>}
                     {item.pickupAvailable && <span>📍 Pickup</span>}
                     {item.shippingAvailable && <span>📦 Shipping</span>}
                     <span className="ml-auto flex items-center gap-1">👁 {item.views || 0}</span>

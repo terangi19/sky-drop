@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { doc, Timestamp, updateDoc } from "firebase/firestore";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import stripePromise from "../lib/stripe-client";
-import { db } from "../lib/firebase";
+import { auth, db } from "../lib/firebase";
 import AnimatedCheckmark from "./AnimatedCheckmark";
 import { playConfetti, playSuccess } from "../lib/sounds";
 
@@ -71,7 +71,8 @@ export default function PromoteModal({ listing, collectionName = "listings", onC
   async function handleStart() {
     setStep("card");
     try {
-      const res = await fetch("/api/create-bump-intent", { method: "POST", headers: { "Content-Type": "application/json" } });
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch("/api/create-bump-intent", { method: "POST", headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) } });
       const data = await res.json();
       if (data.clientSecret) setClientSecret(data.clientSecret);
       else { setStep("confirm"); alert("Payment service unavailable."); }

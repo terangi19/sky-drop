@@ -37,11 +37,28 @@ interface Purchase {
   digitalFileURL?: string;
   digitalFileName?: string;
   disputeDeadline?: any;
-  disputed?: boolean;
+  disputeStatus?: string;
+  stripePaymentIntentId?: string;
   rentalDays?: number;
   rentalStart?: any;
   rentalEnd?: any;
 }
+
+const DISPUTE_LABELS: Record<string, string> = {
+  open: "Dispute Open",
+  under_review: "Under Review",
+  resolved_buyer: "Resolved — You Won",
+  resolved_seller: "Resolved — Seller",
+  refunded: "Refunded",
+};
+
+const DISPUTE_STYLES: Record<string, string> = {
+  open: "bg-red-500/10 text-red-400 border-red-500/20",
+  under_review: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+  resolved_buyer: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  resolved_seller: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20",
+  refunded: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+};
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Pending",
@@ -99,6 +116,10 @@ export default function PurchasesPage() {
   const [reviewSending, setReviewSending] = useState(false);
   const [editAddress, setEditAddress] = useState<Purchase | null>(null);
   const [newAddress, setNewAddress] = useState("");
+  const [disputeModal, setDisputeModal] = useState<Purchase | null>(null);
+  const [disputeReason, setDisputeReason] = useState("");
+  const [disputeDescription, setDisputeDescription] = useState("");
+  const [disputeSending, setDisputeSending] = useState(false);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => setUser(u));
@@ -121,12 +142,12 @@ export default function PurchasesPage() {
     return () => unsub();
   }, [user?.email]);
 
-  // Auto-confirm shipped items after 14 days
+  // Auto-confirm shipped items after 14 days + trigger fund release
   useEffect(() => {
     const now = Date.now();
     for (const p of purchases) {
       if (p.status === "shipped" && p.createdAt?.seconds && (now - p.createdAt.seconds * 1000) > 14 * 86400000) {
-        updateStatus(p.id, "delivered").catch(() => {});
+        updateStatus(p.id, "delivered").catch((e) => console.error("Failed to auto-confirm delivery:", e));
       }
     }
   }, [purchases]);
@@ -220,10 +241,11 @@ export default function PurchasesPage() {
           Back
         </Link>
         <div className="relative mb-8">
-          <div className="absolute -inset-20 bg-gradient-to-r from-emerald-500/5 via-teal-500/5 to-transparent blur-3xl pointer-events-none" />
+          <div className="absolute -inset-20 bg-gradient-to-r from-emerald-500/5 via-sky-500/5 to-transparent blur-3xl pointer-events-none" />
           <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
-            <span className="bg-gradient-to-r from-white via-emerald-100 to-white bg-clip-text text-transparent">My Purchases</span>
+            <span className="text-white drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">My Purchases</span>
           </h1>
+          <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl">Every purchase on Sky Drop is protected by our escrow system. Your payment is held securely until you confirm delivery — ensuring you never pay for something you haven't received. Track your orders, manage delivery, and shop with complete peace of mind.</p>
           <p className="relative mt-2 text-sm text-zinc-500">{purchases.length} total · {counts.active || 0} active</p>
         </div>
 
@@ -323,6 +345,15 @@ export default function PurchasesPage() {
                         {p.status === "shipped" && p.trackingNumber && <span className="text-zinc-600">· #{p.trackingNumber}</span>}
                       </div>
 
+                      {/* Dispute status */}
+                      {p.disputeStatus && p.disputeStatus !== "resolved_seller" && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${DISPUTE_STYLES[p.disputeStatus] || "bg-red-500/10 text-red-400 border-red-500/20"}`}>
+                            {p.disputeStatus === "refunded" ? "✅ " : "⚠️ "}{DISPUTE_LABELS[p.disputeStatus] || p.disputeStatus}
+                          </span>
+                        </div>
+                      )}
+
                       {/* Actions row */}
                       <div className="mt-3 flex items-center gap-2 flex-wrap">
                         <Link href={`/messages?user=${encodeURIComponent(p.sellerEmail || "")}&listing=${p.listingId}`}
@@ -335,7 +366,7 @@ export default function PurchasesPage() {
                             📥 Download
                           </a>
                         )}
-                        {p.status === "delivered" && (
+                        {p.status === "delivered" && !p.disputeStatus && (
                           <button onClick={() => { setReviewModal(p); setReviewRating(0); setReviewText(""); }}
                             className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-1.5 text-[11px] font-bold text-amber-400 transition hover:bg-amber-500/10 active:scale-[0.97]">
                             Review
@@ -347,7 +378,13 @@ export default function PurchasesPage() {
                             Edit Address
                           </button>
                         )}
-                        {action && (
+                        {["delivered", "shipped", "seller_confirming"].includes(p.status) && !p.disputeStatus && (
+                          <button onClick={() => { setDisputeModal(p); setDisputeReason(""); setDisputeDescription(""); }}
+                            className="rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-1.5 text-[11px] font-bold text-red-400 transition hover:bg-red-500/10 active:scale-[0.97]">
+                            ⚠️ Dispute
+                          </button>
+                        )}
+                        {action && !p.disputeStatus && (
                           <button onClick={() => updateStatus(p.id, action.action, (action as any).badge)}
                             className={`rounded-lg ${action.color} px-3 py-1.5 text-[11px] font-bold text-white shadow-lg transition hover:brightness-110 active:scale-[0.97]`}>
                             {action.label}
@@ -413,6 +450,77 @@ export default function PurchasesPage() {
             <div className="mt-4 flex gap-3">
               <button onClick={() => setEditAddress(null)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700 active:scale-[0.97] transition-all">Cancel</button>
               <button onClick={saveAddress} className="flex-1 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:shadow-xl active:scale-[0.97]">Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {disputeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setDisputeModal(null)}>
+          <div className="mx-4 w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-black text-[var(--foreground)]">Open a Dispute</h3>
+            <p className="mt-1 text-sm text-[var(--muted)]">{disputeModal.listingTitle}</p>
+            <div className="mt-4 space-y-3">
+              <div>
+                <label className="text-xs font-bold text-zinc-500 mb-1 block">Reason</label>
+                <select value={disputeReason} onChange={(e) => setDisputeReason(e.target.value)}
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm text-[var(--foreground)] outline-none transition focus:border-red-500">
+                  <option value="">Select a reason...</option>
+                  <option value="not_received">Item not received</option>
+                  <option value="not_as_described">Not as described</option>
+                  <option value="damaged">Damaged or defective</option>
+                  <option value="wrong_item">Wrong item received</option>
+                  <option value="digital_issue">Digital download issue</option>
+                  <option value="service_issue">Service not completed</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-zinc-500 mb-1 block">Describe the issue</label>
+                <textarea value={disputeDescription} onChange={(e) => setDisputeDescription(e.target.value)}
+                  rows={4} className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm text-[var(--foreground)] outline-none transition focus:border-red-500 placeholder:text-zinc-600"
+                  placeholder="Explain what happened in detail..." />
+              </div>
+            </div>
+            <div className="mt-4 flex gap-3">
+              <button onClick={() => setDisputeModal(null)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700 active:scale-[0.97] transition-all">Cancel</button>
+              <button disabled={!disputeReason || !disputeDescription.trim() || disputeSending} onClick={async () => {
+                setDisputeSending(true);
+                try {
+                  const disputeRef = await addDoc(collection(db, "disputes"), {
+                    purchaseId: disputeModal.id,
+                    listingId: disputeModal.listingId,
+                    listingTitle: disputeModal.listingTitle,
+                    listingPrice: disputeModal.listingPrice,
+                    buyerEmail: user?.email,
+                    sellerEmail: disputeModal.sellerEmail,
+                    reason: disputeReason,
+                    description: disputeDescription.trim(),
+                    status: "open",
+                    stripePaymentIntentId: disputeModal.stripePaymentIntentId || "",
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp(),
+                  });
+                  await updateDoc(doc(db, "purchases", disputeModal.id), { disputeStatus: "open" });
+                  await createNotification({
+                    targetEmail: process.env.NEXT_PUBLIC_ADMIN_EMAIL || "rangitr16@gmail.com",
+                    fromEmail: user!.email!,
+                    type: "order_update",
+                    title: "New Dispute Opened",
+                    message: `Dispute opened for "${disputeModal.listingTitle}" — ${disputeReason}`,
+                    listingId: disputeModal.listingId,
+                    listingTitle: disputeModal.listingTitle,
+                  });
+                  setDisputeModal(null);
+                  showToast("Dispute opened. Admin will review shortly.");
+                } catch (e) {
+                  console.error(e);
+                  showToast("Failed to open dispute. Try again.", "error");
+                }
+                setDisputeSending(false);
+              }} className="flex-1 rounded-xl bg-gradient-to-r from-red-500 to-orange-500 py-3 text-sm font-bold text-white shadow-lg shadow-red-500/20 transition hover:shadow-xl active:scale-[0.97] disabled:opacity-50">
+                {disputeSending ? "Opening..." : "Open Dispute"}
+              </button>
             </div>
           </div>
         </div>

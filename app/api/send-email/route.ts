@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getAdminAuth } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 
 export async function POST(req: NextRequest) {
@@ -7,6 +8,17 @@ export async function POST(req: NextRequest) {
     const { allowed } = rateLimit(`email:${ip}`, 20, 60_000);
     if (!allowed) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const idToken = authHeader.slice(7);
+    try {
+      await getAdminAuth().verifyIdToken(idToken);
+    } catch {
+      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
     }
 
     const { to, subject, html } = await req.json();

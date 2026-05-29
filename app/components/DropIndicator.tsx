@@ -28,8 +28,7 @@ export default function DropIndicator() {
   }, []);
 
   useEffect(() => {
-    const id = localStorage.getItem("dismissedDropId");
-    if (id) setDismissedDropId(id);
+    try { const id = localStorage.getItem("dismissedDropId"); if (id) setDismissedDropId(id); } catch (e) { console.error("Failed to read dismissedDropId:", e); }
   }, []);
 
   async function refreshDrop() {
@@ -175,7 +174,7 @@ export default function DropIndicator() {
 
   function handleDismissHint() {
     if (drop?.sponsoredId) {
-      localStorage.setItem("dismissedDropId", drop.sponsoredId);
+      try { localStorage.setItem("dismissedDropId", drop.sponsoredId); } catch (e) { console.error("Failed to save dismissedDropId:", e); }
       setDismissedDropId(drop.sponsoredId);
     }
   }

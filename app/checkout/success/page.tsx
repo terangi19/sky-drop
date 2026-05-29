@@ -80,7 +80,6 @@ function SuccessInner() {
         // Auto-transfer badge if applicable
         if (badgeForSale && sellerEmail && buyerEmail) {
           try {
-            const { collection, query, where, getDocs } = await import("firebase/firestore");
             const { autoTransferBadge } = await import("../../lib/xpValidation");
             const sellerSnap = await getDocs(query(collection(db, "profiles"), where("email", "==", sellerEmail)));
             const buyerSnap = await getDocs(query(collection(db, "profiles"), where("email", "==", buyerEmail)));

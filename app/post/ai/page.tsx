@@ -238,13 +238,17 @@ export default function AIPostPage() {
     }).catch(console.error).finally(() => setEditLoading(false));
   }, []);
 
-  function dataURLtoBlob(dataUrl: string): Blob {
+  function dataURLtoBlob(dataUrl: string): Blob | null {
     const parts = dataUrl.split(",");
-    const mime = parts[0].match(/:(.*?);/)![1];
-    const bytes = atob(parts[1]);
-    const arr = new Uint8Array(bytes.length);
-    for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
-    return new Blob([arr], { type: mime });
+    const match = parts[0]?.match(/:(.*?);/);
+    if (!match || !parts[1]) return null;
+    const mime = match[1];
+    try {
+      const bytes = atob(parts[1]);
+      const arr = new Uint8Array(bytes.length);
+      for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+      return new Blob([arr], { type: mime });
+    } catch { return null; }
   }
 
   const runDetection = async () => {
@@ -319,41 +323,41 @@ export default function AIPostPage() {
   const createListing = async () => {
     const requiredPrice = (saleType === "auction" || saleType === "auction_buy_now") ? startingBid : price;
     if (!user?.email || !title || !requiredPrice) {
-      alert(`Please fill in title and ${(saleType === "auction" || saleType === "auction_buy_now") ? "starting bid" : "price"}`);
+      showToast(`Please fill in title and ${(saleType === "auction" || saleType === "auction_buy_now") ? "starting bid" : "price"}`, "error");
       return;
     }
     if (listingType === "physical" && !pickupAvailable && !shippingAvailable) {
-      alert("Select at least one delivery method (pickup or shipping).");
+      showToast("Select at least one delivery method (pickup or shipping).", "error");
       return;
     }
     if (listingType === "digital" && !digitalFileURL && !editId) {
-      alert("Upload the digital file you're selling.");
+      showToast("Upload the digital file you're selling.", "error");
       return;
     }
     if (listingType === "rental" && !location) {
-      alert("Enter the pickup location for your rental.");
+      showToast("Enter the pickup location for your rental.", "error");
       return;
     }
     if (listingType === "event") {
       if (!eventDate || !venue) {
-        alert("Enter the event date and venue.");
+        showToast("Enter the event date and venue.", "error");
         return;
       }
     }
     if (listingType === "vehicle") {
       if (!vehicleMake || !vehicleModel) {
-        alert("Enter the vehicle make and model.");
+        showToast("Enter the vehicle make and model.", "error");
         return;
       }
     }
     if (listingType === "job") {
       if (!jobCompany) {
-        alert("Enter the company name.");
+        showToast("Enter the company name.", "error");
         return;
       }
     }
     if (listingType === "property" && !location) {
-      alert("Enter the property location.");
+      showToast("Enter the property location.", "error");
       return;
     }
     // Scam detection
@@ -491,16 +495,26 @@ export default function AIPostPage() {
       let newId = editId;
       if (editId) {
         await updateDoc(doc(db, "listings", editId), listingData);
-        alert("Listing updated!");
+        showToast("Listing updated!", "success");
       } else {
-        const listingRef = await addDoc(collection(db, "listings"), listingData);
-        newId = listingRef.id;
+        const token = await auth.currentUser?.getIdToken();
+        const res = await fetch("/api/create-listing", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
+          body: JSON.stringify({ ...listingData, expiresInDays: expiresIn, listingType }),
+        });
+        const data = await res.json();
+        if (!data.success) {
+          showToast(data.error || "Failed to create listing", "error");
+          setLoading(false);
+          return;
+        }
+        newId = data.listingId;
         if (listingType !== "digital") {
-          createPendingXP(user.uid, "listing", listingRef.id, listingRef.id);
+          createPendingXP(user.uid, "listing", data.listingId, data.listingId);
           trackListingCreated(user.uid, title);
         }
-
-        alert("Listing created!");
+        showToast("Listing created!", "success");
       }
       setImagePreviews([]); setImageFiles([]); setExistingImages([]);
       setTitle(""); setDescription(""); setPrice("");
@@ -522,9 +536,10 @@ export default function AIPostPage() {
       else window.location.href = `/post/listing/${newId}`;
     } catch (err) {
       console.error("Listing upload error:", err);
-      alert("Failed to create listing — check console for details");
+      showToast("Failed to create listing — check console for details", "error");
     }
     setLoading(false);
+    setConfirmedSubmit(false);
   };
 
   function bypassScamAlert() {
@@ -563,9 +578,9 @@ export default function AIPostPage() {
           <div className="relative">
             <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/5 via-violet-500/5 to-sky-500/5 blur-3xl pointer-events-none" />
             <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
-              <span className="bg-gradient-to-r from-white via-sky-100 to-white bg-clip-text text-transparent">{editId ? "Edit Listing" : "Quick Post"}</span>
+              <span className="text-white drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">{editId ? "Edit Listing" : "Quick Post"}</span>
             </h1>
-            <p className="relative mt-3 text-[var(--muted)]">{editId ? "Update your listing details" : "List your item in minutes"}</p>
+            <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl">List your item in minutes. Add photos, set your price, and publish to thousands of buyers across New Zealand — all with built-in scam protection and secure escrow payments.</p>
           </div>
         </div>
 

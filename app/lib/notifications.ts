@@ -60,7 +60,8 @@ export async function createNotification(input: NotificationInput) {
 
   // Email notification
   try {
-    const url = input.listingId ? `https://skydrop.nz/post/listing/${input.listingId}` : "https://skydrop.nz/messages";
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://skydrop.nz";
+    const url = input.listingId ? `${baseUrl}/post/listing/${input.listingId}` : `${baseUrl}/messages`;
     const email = notificationToEmail(input.type, input.title, input.listingTitle, input.total);
     const html = buildEmailHtml({
       to: input.targetEmail,

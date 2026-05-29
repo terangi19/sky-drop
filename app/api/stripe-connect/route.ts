@@ -1,15 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import Stripe from "stripe";
+import { getStripe } from "../../lib/stripe-server";
+import { getAdminAuth, getAdminDb } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
-
-let stripe: Stripe | null = null;
-
-function getStripe(): Stripe {
-  if (!stripe) {
-    stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
-  }
-  return stripe;
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,6 +9,18 @@ export async function POST(req: NextRequest) {
     const { allowed } = rateLimit(`stripe-connect:${ip}`, 10, 60_000);
     if (!allowed) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const idToken = authHeader.slice(7);
+    let decodedToken;
+    try {
+      decodedToken = await getAdminAuth().verifyIdToken(idToken);
+    } catch {
+      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
     }
 
     const body = await req.json();
@@ -29,10 +33,21 @@ export async function POST(req: NextRequest) {
         email,
         capabilities: { transfers: { requested: true } },
       });
+
+      await getAdminDb().collection("profiles").doc(decodedToken.uid).set({
+        stripeConnectId: account.id,
+        stripeConnectOnboarded: false,
+      }, { merge: true });
+
       return NextResponse.json({ accountId: account.id });
     }
 
     if (action === "onboard") {
+      const profileDoc = await getAdminDb().collection("profiles").doc(decodedToken.uid).get();
+      if (!profileDoc.exists || profileDoc.data()!.stripeConnectId !== accountId) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      }
+
       const link = await s.accountLinks.create({
         account: accountId,
         refresh_url: `${process.env.NEXT_PUBLIC_URL || "http://localhost:3000"}/profile`,
@@ -43,6 +58,11 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "withdraw") {
+      const profileDoc = await getAdminDb().collection("profiles").doc(decodedToken.uid).get();
+      if (!profileDoc.exists || profileDoc.data()!.stripeConnectId !== accountId) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      }
+
       const transfer = await s.transfers.create({
         amount: Math.round(Number(amount) * 100),
         currency: "nzd",

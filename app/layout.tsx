@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import dynamic from "next/dynamic";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "./components/AuthProvider";
@@ -7,11 +8,12 @@ import { ProfileProvider } from "./contexts/ProfileContext";
 import VerificationBanner from "./components/VerificationBanner";
 import ToastContainer from "./components/Toast";
 import Footer from "./components/Footer";
-import DropIndicator from "./components/DropIndicator";
-import Spotlight from "./components/Spotlight";
 import ScrollToTop from "./components/ScrollToTop";
-import LegendaryClaimNotification from "./components/LegendaryClaimNotification";
 import PWAProvider from "./components/PWAProvider";
+
+const DropIndicator = dynamic(() => import("./components/DropIndicator"));
+const Spotlight = dynamic(() => import("./components/Spotlight"));
+const LegendaryClaimNotification = dynamic(() => import("./components/LegendaryClaimNotification"));
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

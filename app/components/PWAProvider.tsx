@@ -11,7 +11,11 @@ export default function PWAProvider() {
     if (!("Notification" in window) || !("serviceWorker" in navigator)) return;
 
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/firebase-messaging-sw.js").catch(() => {});
+      navigator.serviceWorker.getRegistration("/firebase-messaging-sw.js").then((reg) => {
+        if (!reg) {
+          navigator.serviceWorker.register("/firebase-messaging-sw.js").catch(() => {});
+        }
+      });
     }
 
     const unsubAuth = onAuthStateChanged(auth, async (user) => {

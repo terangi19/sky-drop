@@ -441,9 +441,29 @@ export default function PostPage() {
         highestBidder: null,
       };
 
-      const listingRef = await addDoc(collection(db, "listings"), listingData);
+      listingData.images = images;
+      listingData.imageUrl = images[0] || "";
+      listingData.sellerUsername = username;
+      listingData.acceptOffers = acceptOffers;
+      listingData.expiresInDays = expiresIn;
+      listingData.listingType = listingType;
+
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch("/api/create-listing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
+        body: JSON.stringify(listingData),
+      });
+      const data = await res.json();
+
+      if (!data.success) {
+        showToast(data.error || "Failed to create listing", "error");
+        setLoading(false);
+        return;
+      }
+
       if (listingType !== "digital") {
-        createPendingXP(user.uid, "listing", listingRef.id, listingRef.id);
+        createPendingXP(user.uid, "listing", data.listingId, data.listingId);
         trackListingCreated(user.uid, title);
       }
 

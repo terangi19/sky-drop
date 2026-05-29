@@ -6,7 +6,8 @@ export default function ThemeToggle() {
   const [lightMode, setLightMode] = useState(false);
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem("theme");
+    let savedTheme = null;
+    try { savedTheme = localStorage.getItem("theme"); } catch {}
 
     if (savedTheme === "light") {
       document.documentElement.classList.add("light");

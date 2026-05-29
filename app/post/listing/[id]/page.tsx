@@ -188,10 +188,10 @@ export default function ListingPage() {
       if (!sellerEmail) return;
       getDocs(query(collection(db, "profiles"), where("email", "==", sellerEmail))).then((profileSnap) => {
         if (!profileSnap.empty && mounted) setSellerProfile(profileSnap.docs[0].data() as SellerProfile);
-      }).catch(() => {});
+      }).catch((e) => console.error("Failed to fetch seller profile:", e));
       getDocs(query(collection(db, "reports"), where("reportedUserEmail", "==", sellerEmail), where("status", "==", "pending"))).then((reportsSnap) => {
         if (mounted) setSellerReportsCount(reportsSnap.size);
-      }).catch(() => {});
+      }).catch((e) => console.error("Failed to fetch reports:", e));
     });
 
     return () => { mounted = false; unsub(); };
@@ -245,7 +245,7 @@ export default function ListingPage() {
     getDocs(query(collection(db, "listings"), where("sellerEmail", "==", listing.sellerEmail))).then((snap) => {
       const items = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((l: any) => l.id !== listingId && l.status !== "sold");
       setSellerListings(items.slice(0, 5));
-    }).catch(() => {});
+    }).catch((e) => console.error("Failed to fetch seller listings:", e));
   }, [listing?.sellerEmail, listingId]);
 
   useEffect(() => {
@@ -257,10 +257,15 @@ export default function ListingPage() {
     } catch {}
   }, [listing]);
 
-  // View counter
+  // View counter (debounced, once per session per listing)
+  const viewedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
-    if (!listingId) return;
-    updateDoc(doc(db, "listings", listingId), { views: increment(1) }).catch(() => {});
+    if (!listingId || viewedRef.current.has(listingId)) return;
+    viewedRef.current.add(listingId);
+    const timer = setTimeout(() => {
+      updateDoc(doc(db, "listings", listingId), { views: increment(1) }).catch((e) => console.error("Failed to increment view count:", e));
+    }, 3000);
+    return () => clearTimeout(timer);
   }, [listingId]);
 
   // Fetch Q&A
@@ -331,7 +336,7 @@ export default function ListingPage() {
       setDoc(doc(db, "users", user.uid, "watchlist", listing.id), {
         id: listing.id, title: listing.title, price: listing.price, imageUrl: listing.imageUrl || listing.image || "",
         savedAt: new Date().toISOString(),
-      });
+      }).catch((e) => console.error("Watchlist save failed:", e));
     }
     showToast("Added to watchlist!");
   }
@@ -844,7 +849,7 @@ export default function ListingPage() {
                   {listing.condition}
                 </span>
               )}
-              {listing.createdAt?.seconds && (
+              {listing.createdAt?.seconds != null && (
                 <span className="rounded-full bg-zinc-800 px-2.5 py-0.5 text-[10px] text-[var(--muted)]">{timeAgo(listing.createdAt.seconds)}</span>
               )}
               {listing.location && (
@@ -896,7 +901,7 @@ export default function ListingPage() {
                   <div className="text-[10px] text-amber-400">You've been outbid</div>
                 )}
                 {listing.auctionEndsAt && (
-                  <div className="text-[10px] text-[var(--muted)]">Ends in {Math.max(0, Math.floor((new Date(listing.auctionEndsAt.seconds * 1000).getTime() - Date.now()) / 3600000))}h</div>
+                  <div className="text-[10px] text-[var(--muted)]">Ends in {Math.max(0, Math.floor(((listing.auctionEndsAt?.seconds ? new Date(listing.auctionEndsAt.seconds * 1000).getTime() : 0) - Date.now()) / 3600000))}h</div>
                 )}
               </div>
             )}
@@ -1738,7 +1743,7 @@ Service Status: 🟢 Inquiry Active`;
                       // Send notification to seller (outside main try/catch so failures don't mislead user)
                       try {
                         const { createNotification } = await import("../../../lib/notifications");
-                        createNotification({
+                        await createNotification({
                           targetEmail: listing.sellerEmail || "",
                           fromEmail: user.email,
                           type: "question",

@@ -88,7 +88,8 @@ export default function ReportsPage() {
       return;
     }
     const cooldownKey = `report_cooldown_${reportedUser.trim()}`;
-    const lastReport = localStorage.getItem(cooldownKey);
+    let lastReport = null;
+    try { lastReport = localStorage.getItem(cooldownKey); } catch (e) { console.error("Failed to read report cooldown:", e); }
     if (lastReport && Date.now() - Number(lastReport) < 300000) {
       alert("Please wait 5 minutes between reports.");
       return;
@@ -107,7 +108,7 @@ export default function ReportsPage() {
         }
       );
 
-      localStorage.setItem(cooldownKey, String(Date.now()));
+      try { localStorage.setItem(cooldownKey, String(Date.now())); } catch (e) { console.error("Failed to save report cooldown:", e); }
       setReportedUser("");
       setReason("");
       setDetails("");

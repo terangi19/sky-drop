@@ -30,13 +30,16 @@ service firebase.storage {
     // Resume uploads for job applications
     match /resumes/{userId}/{fileName} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
 
     // Digital asset files (sold through marketplace)
-    match /digital-assets/{fileName} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
+    match /digital-assets/{listingId}/{fileName} {
+      allow read: if request.auth != null
+        && (resource.metadata.sellerEmail == request.auth.token.email
+          || resource.metadata.buyerEmail == request.auth.token.email);
+      allow write: if request.auth != null
+        && resource.metadata.sellerEmail == request.auth.token.email;
     }
   }
 }

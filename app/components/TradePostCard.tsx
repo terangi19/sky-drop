@@ -1,3 +1,5 @@
+"use client";
+
 import UserBadge from "./UserBadge";
 
 type TradePostCardProps = {

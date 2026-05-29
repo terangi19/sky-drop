@@ -1,4 +1,4 @@
-import { doc, getDoc, increment, updateDoc } from "firebase/firestore";
+import { doc, runTransaction } from "firebase/firestore";
 import { db } from "./firebase";
 
 const XP_PER_LEVEL = 150;
@@ -18,26 +18,41 @@ export async function awardXP(
 
   if (options?.capped) {
     const profileRef = doc(db, "profiles", userId);
-    const snap = await getDoc(profileRef);
-    if (!snap.exists()) return;
+    try {
+      await runTransaction(db, async (transaction) => {
+        const snap = await transaction.get(profileRef);
+        if (!snap.exists()) return;
 
-    const data = snap.data();
-    const today = new Date().toISOString().slice(0, 10);
-    const lastDate = data.lastDailyXpDate || "";
-    const dailyEarned = lastDate === today ? (data.dailyXpEarned || 0) : 0;
+        const data = snap.data();
+        const today = new Date().toISOString().slice(0, 10);
+        const lastDate = data.lastDailyXpDate || "";
+        const dailyEarned = lastDate === today ? (data.dailyXpEarned || 0) : 0;
 
-    if (dailyEarned >= 30) return;
+        if (dailyEarned >= 30) return;
 
-    const clamped = Math.min(amount, 30 - dailyEarned);
-    await updateDoc(profileRef, {
-      xp: increment(clamped),
-      dailyXpEarned: dailyEarned + clamped,
-      lastDailyXpDate: today,
-    });
+        const clamped = Math.min(amount, 30 - dailyEarned);
+        transaction.update(profileRef, {
+          xp: (data.xp || 0) + clamped,
+          dailyXpEarned: dailyEarned + clamped,
+          lastDailyXpDate: today,
+        });
+      });
+    } catch (e) {
+      console.error("XP award transaction failed:", e);
+    }
     return;
   }
 
-  await updateDoc(doc(db, "profiles", userId), {
-    xp: increment(amount),
-  });
+  const profileRef = doc(db, "profiles", userId);
+  try {
+    await runTransaction(db, async (transaction) => {
+      const snap = await transaction.get(profileRef);
+      if (!snap.exists()) return;
+      transaction.update(profileRef, {
+        xp: (snap.data().xp || 0) + amount,
+      });
+    });
+  } catch (e) {
+    console.error("XP award transaction failed:", e);
+  }
 }

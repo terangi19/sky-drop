@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import stripePromise from "../lib/stripe-client";
 import { collection, addDoc, doc, getDoc, serverTimestamp, Timestamp, updateDoc } from "firebase/firestore";
-import { db } from "../lib/firebase";
+import { auth, db } from "../lib/firebase";
 import { showToast } from "./Toast";
 
 interface SponsorDropModalProps {
@@ -95,9 +95,10 @@ export default function SponsorDropModal({ listing, sellerEmail, userId, onClose
   async function handleStart() {
     setStep("card");
     try {
+      const token = await auth.currentUser?.getIdToken();
       const res = await fetch("/api/sponsor-drop", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
         body: JSON.stringify({ listingId: listing.id, listingTitle: listing.title, sellerEmail, targetPage }),
       });
       const data = await res.json();
