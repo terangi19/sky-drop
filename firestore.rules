@@ -17,6 +17,11 @@ service cloud.firestore {
     function isEmailVerified() {
       return request.auth.token.email_verified == true;
     }
+    function isDisputeActive() {
+      return resource.data.disputeStatus == "open"
+        || resource.data.disputeStatus == "pending"
+        || resource.data.disputeStatus == "under_review";
+    }
 
     match /listings/{listingId} {
       allow read: if true;
@@ -33,9 +38,11 @@ service cloud.firestore {
 
     match /profiles/{profileId} {
       allow read: if true;
-      allow create, update: if request.auth != null
-        && (request.resource.data.email == request.auth.token.email
-          || request.resource.data.badges is list);
+      allow create: if request.auth != null
+        && request.auth.uid == profileId
+        && request.resource.data.email == request.auth.token.email;
+      allow update: if request.auth != null
+        && request.auth.uid == profileId;
     }
 
     match /messages/{messageId} {
@@ -58,7 +65,13 @@ service cloud.firestore {
         && request.resource.data.buyerEmail == request.auth.token.email;
       allow update: if request.auth != null
         && (resource.data.buyerEmail == request.auth.token.email
-          || resource.data.sellerEmail == request.auth.token.email);
+          || resource.data.sellerEmail == request.auth.token.email)
+        // Block seller from setting status to "delivered" (only buyer can confirm receipt)
+        && !(resource.data.sellerEmail == request.auth.token.email
+          && request.resource.data.status == "delivered")
+        // During active dispute, only allow changing disputeStatus field
+        && (!isDisputeActive()
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['disputeStatus', 'updatedAt']));
     }
 
     match /notifications/{notificationId} {
@@ -93,7 +106,9 @@ service cloud.firestore {
     match /tradePosts/{postId} {
       allow read: if true;
       allow create: if request.auth != null && isEmailVerified();
-      allow update: if request.auth != null;
+      allow update: if request.auth != null
+        && (resource.data.sellerEmail == request.auth.token.email
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views']));
       allow delete: if request.auth != null
         && resource.data.sellerEmail == request.auth.token.email;
     }
@@ -103,7 +118,18 @@ service cloud.firestore {
     }
 
     match /conversations/{conversationId} {
-      allow read, write: if request.auth != null;
+      allow read: if request.auth != null
+        && resource.data.participants != null
+        && request.auth.token.email in resource.data.participants;
+      allow create: if request.auth != null
+        && request.resource.data.participants != null
+        && request.auth.token.email in request.resource.data.participants;
+      allow update: if request.auth != null
+        && resource.data.participants != null
+        && request.auth.token.email in resource.data.participants;
+      allow delete: if request.auth != null
+        && resource.data.participants != null
+        && request.auth.token.email in resource.data.participants;
     }
 
     match /users/{userId}/{document=**} {
@@ -112,8 +138,11 @@ service cloud.firestore {
 
     match /drops/{dropId} {
       allow read: if true;
-      allow create: if request.auth != null && isEmailVerified();
-      allow update: if request.auth != null;
+      allow create: if request.auth != null
+        && isEmailVerified()
+        && request.resource.data.sellerEmail == request.auth.token.email;
+      allow update: if request.auth != null
+        && resource.data.sellerEmail == request.auth.token.email;
     }
 
     match /tradeShouts/{shoutId} {
@@ -127,7 +156,8 @@ service cloud.firestore {
       allow read: if true;
       allow create: if request.auth != null
         && request.resource.data.sellerEmail == request.auth.token.email;
-      allow update: if request.auth != null;
+      allow update: if request.auth != null
+        && resource.data.sellerEmail == request.auth.token.email;
     }
 
     match /dropTokens/{tokenId} {
@@ -160,8 +190,12 @@ service cloud.firestore {
 
     match /listingQuestions/{questionId} {
       allow read: if true;
-      allow create: if request.auth != null && isEmailVerified();
-      allow update: if request.auth != null;
+      allow create: if request.auth != null
+        && isEmailVerified()
+        && request.resource.data.askerEmail == request.auth.token.email;
+      allow update: if request.auth != null
+        && (resource.data.askerEmail == request.auth.token.email
+          || resource.data.listingSellerEmail == request.auth.token.email);
     }
 
     match /commissions/{commissionId} {
@@ -190,9 +224,13 @@ service cloud.firestore {
 
     match /promotions/{promotionId} {
       allow read: if true;
-      allow create: if request.auth != null && isEmailVerified();
-      allow update: if request.auth != null;
-      allow delete: if request.auth != null;
+      allow create: if request.auth != null
+        && isEmailVerified()
+        && request.resource.data.sellerEmail == request.auth.token.email;
+      allow update: if request.auth != null
+        && resource.data.sellerEmail == request.auth.token.email;
+      allow delete: if request.auth != null
+        && resource.data.sellerEmail == request.auth.token.email;
     }
 
     match /hustlerLinks/{linkId} {

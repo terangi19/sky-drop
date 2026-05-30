@@ -18,7 +18,6 @@ import {
 } from "firebase/firestore";
 
 import {
-  onAuthStateChanged,
   User,
 } from "firebase/auth";
 
@@ -26,6 +25,7 @@ import {
   auth,
   db,
   storage,
+  onAuthStateChanged,
 } from "../lib/firebase";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { detectScam } from "../lib/scamdetection";
@@ -699,6 +699,23 @@ export default function PostPage() {
                       <option>Food & Drink</option>
                       <option>Other</option>
                     </>
+                  ) : listingType === "property" ? (
+                    <>
+                      <option>Property</option>
+                      <option>Houses</option>
+                      <option>Apartments</option>
+                      <option>Land</option>
+                      <option>Commercial</option>
+                    </>
+                  ) : listingType === "job" ? (
+                    <>
+                      <option>Jobs</option>
+                      <option>IT & Tech</option>
+                      <option>Design & Creative</option>
+                      <option>Sales & Marketing</option>
+                      <option>Trades & Services</option>
+                      <option>Other</option>
+                    </>
                   ) : (
                     <>
                       <option>Cars</option>
@@ -846,13 +863,13 @@ export default function PostPage() {
                       <p className="mt-1 text-xs font-bold text-[var(--foreground)]">Vehicle</p>
                       <p className="text-[10px] text-[var(--muted)]">Sell a car, bike, boat</p>
                     </button>
-                    <button onClick={() => { setListingType("job"); setCategory("IT & Tech"); }}
+                    <button onClick={() => { setListingType("job"); setCategory("Jobs"); }}
                       className={`rounded-xl border p-3 text-left transition-all ${listingType === "job" ? "border-sky-500/40 bg-sky-500/10" : "border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600"}`}>
                       <span className="text-lg">💼</span>
                       <p className="mt-1 text-xs font-bold text-[var(--foreground)]">Job</p>
                       <p className="text-[10px] text-[var(--muted)]">Post a job listing</p>
                     </button>
-                    <button onClick={() => { setListingType("property"); setCategory("Houses"); }}
+                    <button onClick={() => { setListingType("property"); setCategory("Property"); }}
                       className={`rounded-xl border p-3 text-left transition-all ${listingType === "property" ? "border-sky-500/40 bg-sky-500/10" : "border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600"}`}>
                       <span className="text-lg">🏠</span>
                       <p className="mt-1 text-xs font-bold text-[var(--foreground)]">Property</p>

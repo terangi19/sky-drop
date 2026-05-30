@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { User } from "firebase/auth";
 import { collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, updateDoc, where } from "firebase/firestore";
-import { auth, db } from "../lib/firebase";
+import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import { createNotification } from "../lib/notifications";
 import { awardXP } from "../lib/xp";
 import { showToast } from "../components/Toast";
@@ -67,7 +67,7 @@ function statusLabel(status: string): string {
 const nextStatus: Record<string, { label: string; status: string }> = {
   pending: { label: "Confirm Order", status: "seller_confirming" },
   seller_confirming: { label: "Shipped", status: "shipped" },
-  in_progress: { label: "Mark Delivered", status: "delivered" },
+  in_progress: { label: "Mark Completed", status: "completed" },
   rented: { label: "Mark Returned", status: "returned" },
   returned: { label: "Complete", status: "completed" },
 };
@@ -78,29 +78,6 @@ export default function SalesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [confirmAction, setConfirmAction] = useState<{ id: string; status: string; label: string } | null>(null);
-  const [releasing, setReleasing] = useState<string | null>(null);
-
-  async function handleReleaseFunds(purchaseId: string) {
-    setReleasing(purchaseId);
-    try {
-      const token = await auth.currentUser?.getIdToken();
-      const res = await fetch("/api/release-payment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ purchaseId }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        showToast("Funds released to your account!", "success");
-      } else {
-        showToast(data.error || "Failed to release funds", "error");
-      }
-    } catch (e) {
-      console.error("Release funds error:", e);
-      showToast("Could not release funds. Try again.", "error");
-    }
-    setReleasing(null);
-  }
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => setUser(u));
@@ -123,35 +100,6 @@ export default function SalesPage() {
     return () => unsub();
   }, [user?.email]);
 
-  // Auto-release funds for items in 'delivered' status for 24+ hours
-  useEffect(() => {
-    const now = Date.now();
-    const toRelease = sales.filter(
-      (s) => s.status === "delivered" && !(s as any).fundsReleased && s.createdAt?.seconds && (now - s.createdAt.seconds * 1000) > 86400000
-    );
-    if (toRelease.length === 0) return;
-    // Process sequentially with delay to avoid rate limits
-    (async () => {
-      for (const s of toRelease) {
-        try {
-          const token = await auth.currentUser?.getIdToken();
-          const res = await fetch("/api/release-payment", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
-            body: JSON.stringify({ purchaseId: s.id }),
-          });
-          const data = await res.json();
-          if (data.success) {
-            console.log(`Auto-released funds for ${s.listingTitle}`);
-          }
-        } catch (e) {
-          console.error("Auto-release failed:", e);
-        }
-        await new Promise((r) => setTimeout(r, 2000));
-      }
-    })();
-  }, [sales]);
-
   async function updateStatus(purchaseId: string, newStatus: string) {
     try {
       await updateDoc(doc(db, "purchases", purchaseId), { status: newStatus });
@@ -163,9 +111,9 @@ export default function SalesPage() {
         await createNotification({
           targetEmail: purchase.buyerEmail,
           fromEmail: user!.email!,
-          type: "order_update",
+          type: "order_confirmed",
           title: "Order Confirmed",
-          message: `Your order for "${purchase.listingTitle}" has been confirmed by the seller.`,
+          message: `Your order for "${purchase.listingTitle}" has been confirmed by the seller. They'll prepare your item and update the status when shipped.`,
           listingId: purchase.listingId,
           listingTitle: purchase.listingTitle,
           listingImage: purchase.listingImage,
@@ -176,77 +124,48 @@ export default function SalesPage() {
         await createNotification({
           targetEmail: purchase.buyerEmail,
           fromEmail: user!.email!,
-          type: "order_update",
+          type: "item_shipped",
           title: "Item Shipped",
-          message: `Your item "${purchase.listingTitle}" has been shipped and is on its way!`,
+          message: `Your item "${purchase.listingTitle}" has been shipped and is on its way! Track delivery in your purchases page.`,
           listingId: purchase.listingId,
           listingTitle: purchase.listingTitle,
           listingImage: purchase.listingImage,
         });
       }
 
-      if (newStatus === "delivered") {
+      if (newStatus === "delivered" && purchase.deliveryMethod !== "service") {
         await createNotification({
           targetEmail: purchase.buyerEmail,
           fromEmail: user!.email!,
-          type: "order_update",
+          type: "delivered",
           title: "Item Delivered",
-          message: `Your purchase "${purchase.listingTitle}" has been marked as delivered. Confirm receipt to release funds to the seller, or open a dispute within 7 days.`,
+          message: `Your purchase "${purchase.listingTitle}" has been marked as delivered. Please confirm receipt to release funds to the seller, or open a dispute within 7 days.`,
           listingId: purchase.listingId,
           listingTitle: purchase.listingTitle,
           listingImage: purchase.listingImage,
         });
-
-        // Release funds via escrow API
-        try {
-          const token = await auth.currentUser?.getIdToken();
-          const res = await fetch("/api/release-payment", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
-            body: JSON.stringify({ purchaseId }),
-          });
-          const data = await res.json();
-          if (data.success) {
-            showToast(`$${(Number(purchase.total) - 1).toFixed(2)} released to your account!`, "success");
-          } else {
-            console.error("Release payment failed:", data.error);
-            showToast("Funds release pending — set up Stripe Connect in your profile.", "info");
-          }
-        } catch (e) { console.error("Release payment error:", e); }
       }
 
       if (newStatus === "delivered" && purchase.deliveryMethod === "service") {
         await createNotification({
           targetEmail: purchase.buyerEmail,
           fromEmail: user!.email!,
-          type: "order_update",
+          type: "service_completed",
           title: "Service Completed",
-          message: `Your service "${purchase.listingTitle}" has been marked as delivered by the seller. Please confirm you're satisfied.`,
+          message: `Your service "${purchase.listingTitle}" has been marked as complete. Please confirm you're satisfied to release payment.`,
           listingId: purchase.listingId,
           listingTitle: purchase.listingTitle,
           listingImage: purchase.listingImage,
         });
-
-        // Release funds via escrow API for service too
-        try {
-          const token = await auth.currentUser?.getIdToken();
-          const res = await fetch("/api/release-payment", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
-            body: JSON.stringify({ purchaseId }),
-          });
-          const data = await res.json();
-          if (data.success) showToast("Payment released to your account!", "success");
-        } catch (e) { console.error("Service release payment error:", e); }
       }
 
       if (newStatus === "returned" && purchase.deliveryMethod === "rental") {
         await createNotification({
           targetEmail: purchase.buyerEmail,
           fromEmail: user!.email!,
-          type: "order_update",
+          type: "item_returned",
           title: "Item Returned",
-          message: `The seller confirmed return of "${purchase.listingTitle}". Rental completed!`,
+          message: `The seller confirmed return of "${purchase.listingTitle}". Rental completed! Thanks for using Sky Drop.`,
           listingId: purchase.listingId,
           listingTitle: purchase.listingTitle,
           listingImage: purchase.listingImage,
@@ -360,12 +279,9 @@ export default function SalesPage() {
                           {nextStatus[s.status].label}
                         </button>
                       ) : null}
-                      {s.status === "delivered" && !(s as any).fundsReleased ? (
-                        <button onClick={() => handleReleaseFunds(s.id)} disabled={releasing === s.id}
-                          className="rounded-lg bg-gradient-to-r from-emerald-500 to-green-500 px-4 py-1.5 text-[11px] font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:shadow-xl active:scale-[0.97] disabled:opacity-50">
-                          {releasing === s.id ? "..." : "💰 Release Funds"}
-                        </button>
-                      ) : null}
+                      {s.status === "delivered" && !(s as any).fundsReleased && (
+                        <span className="text-[11px] text-amber-400 font-bold">🔒 Funds Held in Escrow</span>
+                      )}
                       {(s as any).fundsReleased && (
                         <span className="text-[11px] text-emerald-400 font-bold">✅ Funds Released</span>
                       )}

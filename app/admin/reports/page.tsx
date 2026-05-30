@@ -15,12 +15,12 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import {
-  onAuthStateChanged,
   User,
 } from "firebase/auth";
 import {
   auth,
   db,
+  onAuthStateChanged,
 } from "../../lib/firebase";
 
 const ADMIN_EMAILS = ["rangitr16@gmail.com"];

@@ -16,7 +16,6 @@ import { showToast } from "./components/Toast";
 import { cancelPendingXPByListing, trackListingDeleted } from "./lib/xpValidation";
 
 import {
-  onAuthStateChanged,
   User,
 } from "firebase/auth";
 
@@ -40,7 +39,7 @@ import {
   where,
 } from "firebase/firestore";
 
-import { auth, db } from "./lib/firebase";
+import { auth, db, onAuthStateChanged } from "./lib/firebase";
 
 interface Listing {
   id: string;
@@ -1192,7 +1191,7 @@ export default function Home() {
 
                     {/* SELLER CARD */}
                     <Link
-                      href={user?.email === item.sellerEmail ? "#" : `/seller/${item.sellerUsername || item.sellerEmail}`}
+                      href={user?.email === item.sellerEmail ? "#" : `/seller/${item.sellerEmail || item.sellerUsername}`}
                       onClick={(e) => e.stopPropagation()}
                       className="block hover:cursor-pointer"
                     >

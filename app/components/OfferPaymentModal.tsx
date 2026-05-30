@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import stripePromise from "../lib/stripe-client";
-import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, Timestamp, updateDoc, where } from "firebase/firestore";
+import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, where } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 import { createNotification } from "../lib/notifications";
 import { calculateTrustScore } from "../lib/trustscore";
@@ -168,26 +168,39 @@ export default function OfferPaymentModal({ amount, listingTitle, listingId, sel
   async function handlePaymentSuccess() {
     setStep("processing");
     try {
-      const disputeDeadline = Timestamp.fromMillis(Date.now() + 7 * 86400000);
-      const purchaseRef = await addDoc(collection(db, "purchases"), {
-        listingId,
-        listingTitle,
-        listingPrice: listingPrice || String(amount),
-        listingImage: listingImage || "",
-        sellerEmail,
-        buyerEmail,
-        buyerName: name.trim(),
-        deliveryMethod: "service",
-        total,
-        processingFee,
-        paidAt: serverTimestamp(),
-        status: "in_progress",
-        disputeDeadline,
-        stripePaymentIntentId: paymentIntentId || "",
-        createdAt: serverTimestamp(),
+      const token = await auth.currentUser?.getIdToken();
+      const createRes = await fetch("/api/create-purchase", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          listingId,
+          listingTitle,
+          listingPrice: listingPrice || String(amount),
+          listingImage: listingImage || "",
+          sellerEmail,
+          buyerName: name.trim(),
+          deliveryMethod: "service",
+          total,
+          processingFee: 1.00,
+          type: "service",
+          status: "in_progress",
+          disputeDeadline: new Date(Date.now() + 7 * 86400000).toISOString(),
+          stripePaymentIntentId: paymentIntentId || "",
+          collectionName: "listings",
+        }),
       });
+      const createData = await createRes.json();
+      if (!createRes.ok) {
+        console.error("Purchase creation failed:", createData.error);
+        setStep("form");
+        return;
+      }
 
-      setPurchaseId(purchaseRef.id);
+      const purchaseId = createData.purchaseId;
+      setPurchaseId(purchaseId);
 
       await createNotification({
         type: "purchase",
@@ -200,30 +213,6 @@ export default function OfferPaymentModal({ amount, listingTitle, listingId, sel
         listingImage: listingImage || "",
         total,
       });
-
-      try {
-        const listingRef = doc(db, "listings", listingId);
-        const listingSnap = await getDoc(listingRef);
-        if (listingSnap.exists()) {
-          const current = listingSnap.data();
-          const updateData: any = {};
-          if (typeof current.stockQuantity === "number") {
-            if (current.stockQuantity > 1) {
-              updateData.stockQuantity = current.stockQuantity - 1;
-            } else {
-              updateData.stockQuantity = 0;
-              updateData.status = "sold";
-            }
-          } else {
-            updateData.status = "sold";
-          }
-          if (Object.keys(updateData).length > 0) {
-            await updateDoc(listingRef, updateData);
-          }
-        }
-      } catch (e) {
-        console.error("Failed to update listing availability:", e);
-      }
 
       try {
         await addDoc(collection(db, "messages"), {

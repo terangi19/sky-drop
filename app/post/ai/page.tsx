@@ -5,10 +5,10 @@ import Link from "next/link";
 import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
 import ThemeToggle from "../../components/ThemeToggle";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { User } from "firebase/auth";
 import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, Timestamp, updateDoc, where } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { auth, db, storage } from "../../lib/firebase";
+import { auth, db, storage, onAuthStateChanged } from "../../lib/firebase";
 import { createPendingXP, trackListingCreated } from "../../lib/xpValidation";
 import { checkImage } from "../../lib/nsfw";
 import { showToast } from "../../components/Toast";
@@ -705,6 +705,12 @@ export default function AIPostPage() {
                   <><option>Design & Development</option><option>Writing & Translation</option><option>Video & Animation</option><option>Music & Audio</option><option>Marketing & SEO</option><option>Consulting & Coaching</option><option>Other</option></>
                 ) : listingType === "event" ? (
                   <><option>Concerts & Gigs</option><option>Festivals</option><option>Sports</option><option>Workshops & Classes</option><option>Community</option><option>Food & Drink</option><option>Other</option></>
+                ) : listingType === "property" ? (
+                  <><option>Property</option><option>Houses</option><option>Apartments</option><option>Land</option><option>Commercial</option></>
+                ) : listingType === "job" ? (
+                  <><option>Jobs</option><option>IT & Tech</option><option>Design & Creative</option><option>Sales & Marketing</option><option>Trades & Services</option><option>Other</option></>
+                ) : listingType === "rental" ? (
+                  <><option>Other</option><option>Vehicles</option><option>Equipment</option><option>Property</option></>
                 ) : (
                   <><option>Tech</option><option>Cars</option><option>Gaming</option><option>Fashion</option><option>Home</option><option>Sports</option><option>Other</option></>
                 )}
@@ -816,8 +822,8 @@ export default function AIPostPage() {
                 { key: "rental", icon: "🔑", label: "Rental", desc: "By the day", action: () => { setCategory("Other"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); setLocation(""); setCondition("New"); } },
                 { key: "event", icon: "🎟", label: "Event", desc: "Sell tickets", action: () => { setCategory("Concerts & Gigs"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); } },
                 { key: "vehicle", icon: "🚗", label: "Vehicle", desc: "Cars, bikes & boats", action: () => { setCategory("Cars"); setSaleType("buy_now"); setAcceptOffers(false); } },
-                { key: "job", icon: "💼", label: "Job", desc: "Employment listing", action: () => { setCategory("IT & Tech"); setSaleType("buy_now"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); } },
-                { key: "property", icon: "🏠", label: "Property", desc: "Real estate", action: () => { setCategory("Houses"); setSaleType("buy_now"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(false); } },
+                { key: "job", icon: "💼", label: "Job", desc: "Employment listing", action: () => { setCategory("Jobs"); setSaleType("buy_now"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); } },
+                { key: "property", icon: "🏠", label: "Property", desc: "Real estate", action: () => { setCategory("Property"); setSaleType("buy_now"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(false); } },
               ].map((t) => (
                 <button key={t.key} type="button" onClick={() => { setListingType(t.key as any); t.action(); }}
                   className={`rounded-xl border p-3 text-left transition-all duration-200 active:scale-[0.97] ${

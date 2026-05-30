@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "../lib/firebase";
+import { auth, onAuthStateChanged } from "../lib/firebase";
 
 const PUBLIC_ROUTES = [
   "/",

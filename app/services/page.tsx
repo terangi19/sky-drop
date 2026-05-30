@@ -6,8 +6,8 @@ import { useRouter } from "next/navigation";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import { addDoc, collection, doc, getDocs, onSnapshot, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
-import { onAuthStateChanged, User } from "firebase/auth";
-import { auth, db } from "../lib/firebase";
+import { User } from "firebase/auth";
+import { auth, db, onAuthStateChanged } from "../lib/firebase";
 
 const CATEGORIES = ["All", "Web Development", "Design & Creative", "Writing & Translation", "Video & Animation", "Music & Audio", "Consulting", "Photography", "Tutoring"];
 
@@ -154,7 +154,7 @@ export default function ServicesPage() {
                   )}
 
                   <div className="mt-4 flex items-center justify-between border-t border-zinc-800/50 pt-4">
-                    <Link href={`/seller/${item.sellerUsername || item.sellerEmail}`} onClick={(e) => e.stopPropagation()} className="text-[11px] text-zinc-500 hover:text-violet-400 transition-colors">
+                    <Link href={`/seller/${item.sellerEmail || item.sellerUsername}`} onClick={(e) => e.stopPropagation()} className="text-[11px] text-zinc-500 hover:text-violet-400 transition-colors">
                       {item.sellerUsername || item.sellerEmail?.split("@")[0] || "Seller"}
                     </Link>
                     {user?.email === item.sellerEmail ? (

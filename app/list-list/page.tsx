@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { User } from "firebase/auth";
 import { collection, deleteDoc, doc, onSnapshot, query, where } from "firebase/firestore";
-import { auth, db } from "../lib/firebase";
+import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import PromoteModal from "../components/PromoteModal";

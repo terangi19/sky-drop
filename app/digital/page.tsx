@@ -6,8 +6,8 @@ import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import CheckoutModal from "../components/CheckoutModal";
 import { collection, query, where } from "firebase/firestore";
-import { onAuthStateChanged, User } from "firebase/auth";
-import { auth, db } from "../lib/firebase";
+import { User } from "firebase/auth";
+import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import { safeOnSnapshot, parseFirestoreError } from "../lib/firestore";
 
 const CATEGORIES = ["All", "Templates & Assets", "E-books & Guides", "Art & Photography", "Software & Audio", "Gaming & 3D"];
@@ -151,7 +151,7 @@ export default function DigitalPage() {
                   </div>
 
                   <div className="mt-4 flex items-center justify-between border-t border-zinc-800/50 pt-4">
-                    <Link href={`/seller/${item.sellerUsername || item.sellerEmail}`} className="text-[11px] text-zinc-500 hover:text-sky-400 transition-colors">
+                    <Link href={`/seller/${item.sellerEmail || item.sellerUsername}`} className="text-[11px] text-zinc-500 hover:text-sky-400 transition-colors">
                       {item.sellerUsername || item.sellerEmail?.split("@")[0] || "Seller"}
                     </Link>
                     {user && user.email !== item.sellerEmail && (

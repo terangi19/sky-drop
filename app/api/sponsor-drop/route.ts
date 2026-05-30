@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "../../lib/stripe-server";
-import { getAdminAuth, getAdminDb } from "../../lib/firebase-admin";
+import { verifyIdToken, getAdminDb } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 
 export async function POST(req: NextRequest) {
@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     const idToken = authHeader.slice(7);
     let decodedToken;
     try {
-      decodedToken = await getAdminAuth().verifyIdToken(idToken);
+      decodedToken = await verifyIdToken(idToken);
     } catch {
       return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
     }
@@ -42,12 +42,15 @@ export async function POST(req: NextRequest) {
     }
 
     const s = getStripe();
-    const paymentIntent = await s.paymentIntents.create({
-      amount: 500,
-      currency: "nzd",
-      automatic_payment_methods: { enabled: true },
-      metadata: { listingId, sellerEmail },
-    });
+    const paymentIntent = await s.paymentIntents.create(
+      {
+        amount: 500,
+        currency: "nzd",
+        automatic_payment_methods: { enabled: true },
+        metadata: { listingId, sellerEmail, sellerUid: decodedToken.uid, type: "sponsor" },
+      },
+      { idempotencyKey: `sponsor-${listingId}` }
+    );
 
     return NextResponse.json({ clientSecret: paymentIntent.client_secret });
   } catch (e: any) {

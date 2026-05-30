@@ -18,13 +18,13 @@ import {
 } from "firebase/firestore";
 
 import {
-  onAuthStateChanged,
   User,
 } from "firebase/auth";
 
 import {
   auth,
   db,
+  onAuthStateChanged,
 } from "../lib/firebase";
 
 export default function AdminPage() {

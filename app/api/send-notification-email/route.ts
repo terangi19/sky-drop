@@ -5,7 +5,7 @@ import { rateLimit } from "../../lib/rate-limit";
 export async function POST(req: NextRequest) {
   try {
     const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const { allowed } = rateLimit(`email:${ip}`, 20, 60_000);
+    const { allowed } = rateLimit(`notif-email:${ip}`, 60, 60_000);
     if (!allowed) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }
@@ -15,14 +15,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const idToken = authHeader.slice(7);
-    let decoded;
     try {
-      decoded = await verifyIdToken(idToken);
+      await verifyIdToken(idToken);
     } catch {
       return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
     }
-
-    const ADMIN_EMAILS = ["rangitr16@gmail.com"];
 
     const { to, subject, html } = await req.json();
     if (!to || !subject || !html) {
@@ -31,10 +28,6 @@ export async function POST(req: NextRequest) {
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
       return NextResponse.json({ error: "Invalid recipient email" }, { status: 400 });
-    }
-
-    if (to !== decoded.email && !ADMIN_EMAILS.includes(decoded.email || "")) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const transport = {
@@ -54,7 +47,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (e: any) {
-    console.error("[send-email] Error:", e?.code || e?.message || e);
+    console.error("[send-notification-email] Error:", e?.code || e?.message || e);
     return NextResponse.json({ error: "Failed" }, { status: 500 });
   }
 }

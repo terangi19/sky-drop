@@ -21,10 +21,9 @@ import {
   deleteDoc,
 } from "firebase/firestore";
 import {
-  onAuthStateChanged,
   User,
 } from "firebase/auth";
-import { auth, db, storage } from "../lib/firebase";
+import { auth, db, storage, onAuthStateChanged } from "../lib/firebase";
 import { detectScam } from "../lib/scamdetection";
 import { calculateTrustScore } from "../lib/trustscore";
 import { checkImage } from "../lib/nsfw";
@@ -628,15 +627,21 @@ function MessagesPage() {
           }
         }
       }
+      const notifType = type === "accept" ? "offer_accepted" : type === "decline" ? "offer_declined" : type === "make" ? "offer" : "offer";
       createNotification({
         targetEmail: chatUser,
         fromEmail: user.email,
-        type: "offer",
+        type: notifType,
         title: type === "accept" ? "Offer accepted!" : type === "make" ? "New offer received" : type === "decline" ? "Offer declined" : "Counter offer",
-        message: `$${amount || ""} — ${listingCard?.title || "a listing"}`,
+        message: type === "accept"
+          ? `Your offer of $${amount} on "${listingCard?.title || "a listing"}" has been accepted!`
+          : type === "decline"
+          ? `Your offer of $${amount} on "${listingCard?.title || "a listing"}" was declined.`
+          : `$${amount || ""} — ${listingCard?.title || "a listing"}`,
         listingId: chatListingId || undefined,
         listingTitle: listingCard?.title || undefined,
         listingImage: listingCard?.images?.[0] || listingCard?.image || listingCard?.imageUrl || undefined,
+        total: amount ? Number(amount) : undefined,
       });
     } catch (e) { console.error(e); }
   }

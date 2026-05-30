@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "../lib/firebase";
+import { auth, onAuthStateChanged } from "../lib/firebase";
 import { requestNotificationPermission, getFCMToken, saveFCMToken, removeFCMToken } from "../lib/fcm";
 
 export default function PWAProvider() {

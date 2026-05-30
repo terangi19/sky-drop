@@ -19,11 +19,10 @@ import {
 } from "firebase/firestore";
 
 import {
-  onAuthStateChanged,
   User,
 } from "firebase/auth";
 
-import { auth, db } from "../lib/firebase";
+import { auth, db, onAuthStateChanged } from "../lib/firebase";
 
 interface Review {
   id: string;

@@ -8,8 +8,8 @@ import Background from "../components/Background";
 import CheckoutModal from "../components/CheckoutModal";
 import PromoteModal from "../components/PromoteModal";
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from "firebase/firestore";
-import { onAuthStateChanged, User } from "firebase/auth";
-import { auth, db, storage } from "../lib/firebase";
+import { User } from "firebase/auth";
+import { auth, db, storage, onAuthStateChanged } from "../lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { checkImage } from "../lib/nsfw";
 import { showToast } from "../components/Toast";
@@ -925,7 +925,7 @@ export default function TradeFeedPage() {
 
                           {/* Seller + Actions row */}
                           <div className="mt-2.5 flex items-center gap-2 text-xs">
-                            <Link href={`/seller/${post.sellerUsername || post.sellerEmail}`} onClick={(e) => e.stopPropagation()}
+                            <Link href={`/seller/${post.sellerEmail || post.sellerUsername}`} onClick={(e) => e.stopPropagation()}
                               className="flex items-center gap-1.5 text-zinc-500 hover:text-sky-400 transition-colors">
                               <div className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-violet-500 text-[8px] font-bold text-white">
                                 {sellerName?.charAt(0).toUpperCase() || "?"}

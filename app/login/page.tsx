@@ -148,13 +148,12 @@ Here's how to get started:
 • Stay safe — Never pay outside Sky Drop. Keep all communication in our chat.
 
 Your account is ready. Now go explore.`,
-              cta: "Browse Listings",
-              ctaUrl: "https://skydrop.nz",
-              footerNote: "Please verify your email address to unlock all features including listing items and making offers.",
+              ctas: [{ label: "Browse Listings", url: "https://skydrop.nz", primary: true }],
             });
+            const token = await auth.currentUser?.getIdToken();
             await fetch("/api/send-email", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
               body: JSON.stringify({ to: user.email, subject: "Welcome to Sky Drop — let's get started", html: welcomeHtml }),
             });
           } catch (e) {

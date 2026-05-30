@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "../../lib/stripe-server";
-import { getAdminAuth, getAdminDb } from "../../lib/firebase-admin";
+import { verifyIdToken, getAdminDb } from "../../lib/firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { rateLimit } from "../../lib/rate-limit";
 
 export async function POST(req: NextRequest) {
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest) {
     const idToken = authHeader.slice(7);
     let decodedToken;
     try {
-      decodedToken = await getAdminAuth().verifyIdToken(idToken);
+      decodedToken = await verifyIdToken(idToken);
     } catch {
       return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
     }
@@ -58,13 +59,27 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "withdraw") {
-      const profileDoc = await getAdminDb().collection("profiles").doc(decodedToken.uid).get();
-      if (!profileDoc.exists || profileDoc.data()!.stripeConnectId !== accountId) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-      }
+      const profileRef = getAdminDb().collection("profiles").doc(decodedToken.uid);
+      let withdrawAmount: number;
+
+      await getAdminDb().runTransaction(async (transaction) => {
+        const profileDoc = await transaction.get(profileRef);
+        if (!profileDoc.exists || profileDoc.data()!.stripeConnectId !== accountId) {
+          throw new Error("Unauthorized");
+        }
+        const profileData = profileDoc.data()!;
+        const balance = profileData.earningsBalance || 0;
+        withdrawAmount = Math.round(Number(amount) * 100);
+        if (balance < withdrawAmount) {
+          throw new Error("Insufficient balance");
+        }
+        transaction.update(profileRef, {
+          earningsBalance: FieldValue.increment(-withdrawAmount),
+        });
+      });
 
       const transfer = await s.transfers.create({
-        amount: Math.round(Number(amount) * 100),
+        amount: withdrawAmount,
         currency: "nzd",
         destination: accountId,
       });

@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, Timestamp, updateDoc, where } from "firebase/firestore";
-import { onAuthStateChanged, User } from "firebase/auth";
-import { auth, db } from "../lib/firebase";
+import { User } from "firebase/auth";
+import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import confetti from "canvas-confetti";
 import { playConfetti, playSuccess } from "../lib/sounds";
 import { showToast } from "./Toast";

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, Timestamp, updateDoc, where } from "firebase/firestore";
+import { addDoc, collection, doc, getDocs, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import stripePromise from "../lib/stripe-client";
 import { auth, db, storage } from "../lib/firebase";
@@ -61,6 +61,7 @@ interface CheckoutModalProps {
   buyerEmail: string;
   onClose: () => void;
   collectionName?: string;
+  winningBid?: number;
 }
 
 type DeliveryMethod = "pickup" | "shipping" | "badge" | "digital" | "rental" | "event" | null;
@@ -73,9 +74,15 @@ function PaymentForm({ total, listingId, title, price, buyerEmail, onSuccess, on
   const elements = useElements();
   const [error, setError] = useState("");
 
+  const [elementReady, setElementReady] = useState(false);
+
   async function handlePay(e: React.FormEvent) {
     e.preventDefault();
     if (!stripe || !elements) return;
+    if (!elements.getElement("payment")) {
+      setError("Payment form is still loading. Please wait...");
+      return;
+    }
     setError("");
 
     const { error: submitError } = await stripe.confirmPayment({
@@ -95,7 +102,7 @@ function PaymentForm({ total, listingId, title, price, buyerEmail, onSuccess, on
 
   return (
     <form onSubmit={handlePay} className="space-y-3">
-      <PaymentElement />
+      <PaymentElement onReady={() => setElementReady(true)} />
       <div className="flex items-center justify-center gap-1.5 text-[11px] text-[var(--muted)]">
         <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
@@ -110,7 +117,7 @@ function PaymentForm({ total, listingId, title, price, buyerEmail, onSuccess, on
       )}
       <button
         type="submit"
-        disabled={!stripe}
+        disabled={!stripe || !elementReady}
         className="w-full rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-sky-400 disabled:opacity-50"
       >
         Pay ${total.toFixed(2)}
@@ -126,9 +133,10 @@ function PaymentForm({ total, listingId, title, price, buyerEmail, onSuccess, on
   );
 }
 
-export default function CheckoutModal({ listing, buyerEmail, onClose, collectionName = "listings" }: CheckoutModalProps) {
+export default function CheckoutModal({ listing, buyerEmail, onClose, collectionName = "listings", winningBid }: CheckoutModalProps) {
   const router = useRouter();
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>(() => {
+    if (winningBid) return "pickup";
     if (listing.type === "digital") return "digital";
     if (listing.type === "rental") return "rental";
     if (listing.type === "event") return "event";
@@ -150,15 +158,16 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
   const modalRef = useRef<HTMLDivElement>(null);
 
   const shippingAmount = listing.shippingFee && !listing.freeShipping ? listing.shippingFee : 0;
-  const itemPrice = Number(listing.price) || 0;
+  const itemPrice = winningBid || Number(listing.price) || 0;
   const processingFee = 1.00;
   const isBadge = deliveryMethod === "badge";
   const isDigital = deliveryMethod === "digital";
   const isRental = deliveryMethod === "rental";
   const isEvent = deliveryMethod === "event";
+  const isAuction = !!winningBid;
   const rentalDepositAmount = isRental ? Number(listing.rentalDeposit) || 0 : 0;
   const rentalItemTotal = isRental ? itemPrice * (listing.rentalDays || 1) : itemPrice;
-  const total = isBadge || isDigital || isRental || isEvent ? rentalItemTotal + processingFee + rentalDepositAmount : (deliveryMethod === "shipping" ? itemPrice + shippingAmount : itemPrice) + processingFee;
+  const total = isAuction ? winningBid! + processingFee : isBadge || isDigital || isRental || isEvent ? rentalItemTotal + processingFee + rentalDepositAmount : (deliveryMethod === "shipping" ? itemPrice + shippingAmount : itemPrice) + processingFee;
 
   const isValid = isBadge || isDigital || isRental || isEvent ? name.trim() : name.trim() && phone.trim() && (deliveryMethod !== "shipping" || address.trim()) && deliveryMethod;
 
@@ -225,7 +234,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
 
   async function handleContinue() {
     if (!isValid || step !== "form") return;
-    if (listing.stockQuantity !== undefined && listing.stockQuantity <= 0) {
+    if (listing.stockQuantity != null && listing.stockQuantity <= 0) {
       showToast("This item is out of stock.", "error");
       setStep("form");
       return;
@@ -257,12 +266,25 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
         setStep("form");
         return;
       }
-      if (snapData.stockQuantity !== undefined && snapData.stockQuantity <= 0) {
+      if (snapData.stockQuantity != null && snapData.stockQuantity <= 0) {
         setIntentError("This item is out of stock.");
         setStep("form");
         return;
       }
-      const realPrice = Number(snapData.price);
+      if (winningBid) {
+        const currentBid = Number(snapData.currentBid);
+        if (Math.round(currentBid * 100) !== Math.round(winningBid * 100)) {
+          setIntentError("The winning bid amount has changed. Please refresh and try again.");
+          setStep("form");
+          return;
+        }
+        if (snapData.highestBidder !== buyerEmail) {
+          setIntentError("You are no longer the highest bidder.");
+          setStep("form");
+          return;
+        }
+      }
+      const realPrice = winningBid || Number(snapData.price);
       const realShipping = snapData.shippingFee && !snapData.freeShipping ? Number(snapData.shippingFee) : 0;
       const realRentalDays = snapData.rentalDays ?? listing.rentalDays ?? 1;
       const realRentalTotal = realPrice * Number(realRentalDays);
@@ -303,34 +325,59 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
   async function handlePaymentSuccess() {
     setStep("processing");
     try {
-      const purchaseRef = await addDoc(collection(db, "purchases"), {
-        listingId: listing.id,
-        listingTitle: listing.title,
-        listingPrice: listing.price,
-        listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
-        sellerEmail: listing.sellerEmail,
-        buyerEmail,
-        buyerName: name.trim(),
-        buyerPhone: isBadge || isDigital || isRental || isEvent ? "" : phone.trim(),
-        deliveryMethod: isBadge ? "badge" : isDigital ? "digital" : isRental ? "rental" : isEvent ? "event" : deliveryMethod,
-        shippingAddress: deliveryMethod === "shipping" ? address.trim() : "",
-        shippingFee: deliveryMethod === "shipping" ? shippingAmount : 0,
-        processingFee: 1.00,
-        total,
-        badgeTransfer: isBadge ? listing.badgeForSale : "",
-        type: isDigital ? "digital" : isRental ? "rental" : isEvent ? "event" : "physical",
-        digitalFileURL: isDigital ? (listing.digitalStoragePath ? await getDownloadURL(ref(storage, listing.digitalStoragePath)) : listing.digitalFileURL || "") : "",
-        digitalFileName: isDigital ? listing.digitalFileName : "",
-        status: isDigital ? "delivered" : isRental ? "rented" : "pending",
-        rentalStart: isRental && listing.pickupDate ? Timestamp.fromMillis(new Date(listing.pickupDate).getTime() || Date.now()) : null,
-        rentalEnd: isRental && listing.returnDate ? Timestamp.fromMillis(new Date(listing.returnDate).getTime() || Date.now()) : null,
-        rentalDays: isRental ? (listing.rentalDays || 1) : null,
-        paidAt: serverTimestamp(),
-        deliveredAt: isDigital ? serverTimestamp() : null,
-        disputeDeadline: isDigital ? Timestamp.fromMillis(Date.now() + 48 * 3600000) : null,
-        stripePaymentIntentId: paymentIntentId || "",
-        createdAt: serverTimestamp(),
+      const token = await auth.currentUser?.getIdToken();
+
+      let resolvedDigitalURL = "";
+      if (isDigital) {
+        try {
+          resolvedDigitalURL = listing.digitalStoragePath
+            ? await getDownloadURL(ref(storage, listing.digitalStoragePath))
+            : listing.digitalFileURL || "";
+        } catch (e) {
+          console.error("Failed to resolve digital URL:", e);
+        }
+      }
+
+      const createRes = await fetch("/api/create-purchase", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          listingId: listing.id,
+          listingTitle: listing.title,
+          listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
+          sellerEmail: listing.sellerEmail,
+          buyerName: name.trim(),
+          buyerPhone: isAuction || isBadge || isDigital || isRental || isEvent ? "" : phone.trim(),
+          deliveryMethod: isAuction ? "pickup" : isBadge ? "badge" : isDigital ? "digital" : isRental ? "rental" : isEvent ? "event" : deliveryMethod,
+          shippingAddress: deliveryMethod === "shipping" ? address.trim() : "",
+          shippingFee: deliveryMethod === "shipping" ? shippingAmount : 0,
+          processingFee: 1.00,
+          total,
+          badgeTransfer: isBadge ? listing.badgeForSale : "",
+          type: isAuction ? "auction" : isDigital ? "digital" : isRental ? "rental" : isEvent ? "event" : "physical",
+          digitalFileURL: resolvedDigitalURL,
+          digitalFileName: isDigital ? listing.digitalFileName : "",
+          status: isDigital ? "delivered" : isRental ? "rented" : "pending",
+          rentalStart: isRental && listing.pickupDate ? new Date(listing.pickupDate).toISOString() : null,
+          rentalEnd: isRental && listing.returnDate ? new Date(listing.returnDate).toISOString() : null,
+          rentalDays: isRental ? (listing.rentalDays || 1) : null,
+          stripePaymentIntentId: paymentIntentId || "",
+          winningBid: winningBid || null,
+          collectionName,
+        }),
       });
+
+      const createData = await createRes.json();
+      if (!createRes.ok) {
+        console.error("Purchase creation failed:", createData.error);
+        setStep("share_address");
+        return;
+      }
+
+      const purchaseId = createData.purchaseId;
 
       // Auto-transfer badge if applicable
       if (isBadge && listing.badgeForSale) {
@@ -341,7 +388,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
           const buyerId = buyerSnap.docs[0]?.id;
           if (sellerId && buyerId) {
             const { autoTransferBadge } = await import("../lib/xpValidation");
-            await autoTransferBadge(sellerId, buyerId, listing.badgeForSale, purchaseRef.id!, listing.sellerEmail);
+            await autoTransferBadge(sellerId, buyerId, listing.badgeForSale, purchaseId!, listing.sellerEmail);
           }
         } catch (e) {
           console.error("Auto badge transfer failed:", e);
@@ -349,11 +396,13 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
       }
 
       await createNotification({
-        type: "purchase",
+        type: isAuction ? "purchase" : "purchase",
         targetEmail: listing.sellerEmail,
         fromEmail: buyerEmail,
-        title: isDigital ? "Your digital item was purchased! 🎉" : isBadge ? "Your badge was purchased! 🎉" : isRental ? "Your item was rented! 🎉" : isEvent ? "Your event tickets were purchased! 🎉" : "Your item sold! 🎉",
-        message: isDigital
+        title: isAuction ? "Auction payment received! 🎉" : isDigital ? "Your digital item was purchased! 🎉" : isBadge ? "Your badge was purchased! 🎉" : isRental ? "Your item was rented! 🎉" : isEvent ? "Your event tickets were purchased! 🎉" : "Your item sold! 🎉",
+        message: isAuction
+          ? `${name.trim()} won the auction and paid $${winningBid}. Coordinate delivery through messages.`
+          : isDigital
           ? `${name.trim()} just purchased "${listing.title}" (digital download).`
           : isBadge
           ? `${name.trim()} just purchased your "${listing.badgeForSale}" badge. It has been automatically transferred.`
@@ -366,32 +415,87 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
         listingTitle: listing.title,
         listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
         total,
+        buyerName: name.trim(),
+        orderId: purchaseId,
       });
 
-      try {
-        const listingRef = doc(db, collectionName, listing.id);
-        const listingSnap = await getDoc(listingRef);
-        if (listingSnap.exists()) {
-          const current = listingSnap.data();
-          const updateData: any = {};
+      // Buyer purchase confirmation
+      await createNotification({
+        type: isAuction ? "auction_won" : "purchase_confirmation",
+        targetEmail: buyerEmail,
+        fromEmail: listing.sellerEmail || "",
+        title: isAuction ? "Auction Won — Payment Successful 🎉" : isDigital ? "Digital Purchase Confirmed 📥" : "Purchase Confirmed 🛒",
+        message: isAuction
+          ? `You won the auction for "${listing.title}" and your payment of $${winningBid} was successful.\n\nCoordinate delivery with the seller through messages.`
+          : isDigital
+          ? `Your purchase of "${listing.title}" is complete. The digital file is ready for download.`
+          : isRental
+          ? `Your rental of "${listing.title}" has been confirmed.\n\nRental period: ${listing.rentalDays || 1} day(s)\nRate: $${listing.price}/day`
+          : isEvent
+          ? `Your ticket purchase for "${listing.title}" has been confirmed.\n\nAmount: $${listing.price}`
+          : `Your purchase of "${listing.title}" has been confirmed.\n\nAmount: $${listing.price}`,
+        listingId: listing.id,
+        listingTitle: listing.title,
+        listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
+        total,
+        sellerName: listing.sellerUsername || listing.sellerEmail?.split("@")[0] || "",
+        orderId: purchaseId,
+      });
 
-          if (typeof current.stockQuantity === "number") {
-            if (current.stockQuantity > 1) {
-              updateData.stockQuantity = current.stockQuantity - 1;
-            } else {
-              updateData.stockQuantity = 0;
-              if (listing.type !== "rental") updateData.status = "sold";
-            }
-          } else if (listing.type !== "rental") {
-            updateData.status = "sold";
-          }
+      // Auction: send system message in existing conversation
+      if (isAuction) {
+        try {
+          const convKey = `listing_${listing.id}`;
+          const existingConv = await getDocs(
+            query(
+              collection(db, "conversations"),
+              where("convKey", "==", convKey),
+              where("participants", "array-contains", buyerEmail)
+            )
+          );
 
-          if (Object.keys(updateData).length > 0) {
-            await updateDoc(listingRef, updateData);
+          if (!existingConv.empty) {
+            const convId = existingConv.docs[0].id;
+            await updateDoc(doc(db, "conversations", convId), {
+              updatedAt: serverTimestamp(),
+              lastMessage: `Auction payment confirmed — $${total}`,
+              orderStatus: "paid",
+            });
+
+            const systemMsg = `🏆 Auction payment received for "${listing.title}"
+
+Payment has been completed successfully.
+
+Winning bid: $${winningBid}
+Buyer protection fee: $1.00
+Total paid: $${total.toFixed(2)}
+
+Use this chat to coordinate:
+• pickup/delivery
+• inspection
+• item details/questions
+
+⚠️ PROTECT YOURSELF — Stay on Sky Drop
+• Never communicate outside this chat
+• Never send payments outside Sky Drop
+• Report suspicious behavior immediately`;
+
+            await addDoc(collection(db, "messages"), {
+              type: "system",
+              text: systemMsg,
+              sender: "system",
+              receiver: listing.sellerEmail,
+              participants: [buyerEmail, listing.sellerEmail],
+              conversationId: convId,
+              listingId: listing.id,
+              listingTitle: listing.title,
+              read: false,
+              createdAt: serverTimestamp(),
+            });
           }
+        } catch (e) {
+          console.error("Auction conversation update failed:", e);
         }
-      } catch (e) {
-        console.error("Failed to update listing availability:", e);
       }
 
       // Rental: auto-create conversation and send system message
@@ -425,7 +529,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
               listingPrice: String(total),
               listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
               orderStatus: "paid",
-              orderId: purchaseRef.id,
+              orderId: purchaseId,
               createdAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
               lastMessage: `Rental confirmed — $${total}`,
@@ -525,7 +629,7 @@ Scammers often try to move conversations to WhatsApp, email, or other platforms.
               listingPrice: String(total),
               listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
               orderStatus: "paid",
-              orderId: purchaseRef.id,
+              orderId: purchaseId,
               createdAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
               lastMessage: `Digital purchase confirmed — $${total}`,
@@ -615,7 +719,7 @@ Scammers often try to move conversations to WhatsApp, email, or other platforms.
               listingPrice: String(total),
               listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
               orderStatus: "paid",
-              orderId: purchaseRef.id,
+              orderId: purchaseId,
               createdAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
               lastMessage: `Event purchase confirmed — $${total}`,
@@ -714,7 +818,7 @@ Scammers often try to move conversations to WhatsApp, email, or other platforms.
               listingPrice: String(total),
               listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
               orderStatus: "paid",
-              orderId: purchaseRef.id,
+              orderId: purchaseId,
               createdAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
               lastMessage: `Vehicle purchase confirmed — $${total}`,
@@ -767,7 +871,7 @@ Scammers often try to move conversations to WhatsApp, email, or other platforms.
         }
       }
 
-      setOrderId(purchaseRef.id);
+      setOrderId(purchaseId);
       try {
         localStorage.setItem("checkoutInfo", JSON.stringify({ name: name.trim(), phone: phone.trim() }));
       } catch {}

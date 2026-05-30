@@ -5,9 +5,9 @@ import Link from "next/link";
 import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
 import ThemeToggle from "../../components/ThemeToggle";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { User } from "firebase/auth";
 import { collection, onSnapshot, orderBy, query, where, doc, updateDoc, serverTimestamp } from "firebase/firestore";
-import { auth, db } from "../../lib/firebase";
+import { auth, db, onAuthStateChanged } from "../../lib/firebase";
 import type { JobApplication } from "../../lib/jobApplications";
 
 type Filter = "all" | "pending" | "reviewed" | "accepted" | "rejected";

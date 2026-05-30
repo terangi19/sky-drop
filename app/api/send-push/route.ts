@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminAuth } from "../../lib/firebase-admin";
+import { verifyIdToken } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 
 interface PushPayload {
@@ -22,15 +22,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const idToken = authHeader.slice(7);
+    let decoded;
     try {
-      await getAdminAuth().verifyIdToken(idToken);
+      decoded = await verifyIdToken(idToken);
     } catch {
       return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
     }
 
+    const ADMIN_EMAILS = ["rangitr16@gmail.com"];
+
     const { targetEmail, title, message, url } = await req.json() as PushPayload;
     if (!targetEmail || !title) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    if (targetEmail !== decoded.email && !ADMIN_EMAILS.includes(decoded.email || "")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { initializeApp, getApps, cert } = await import("firebase-admin/app");
@@ -46,12 +53,12 @@ export async function POST(req: NextRequest) {
     }
 
     const db = getFirestore();
-    const tokensSnap = await db.collection("fcmTokens").get();
+    const tokensSnap = await db.collection("fcmTokens").where("email", "==", targetEmail).get();
     const tokens: string[] = [];
 
     tokensSnap.forEach((doc) => {
       const data = doc.data();
-      if (data.email === targetEmail && data.token) {
+      if (data.token) {
         tokens.push(data.token);
       }
     });

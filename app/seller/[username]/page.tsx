@@ -12,14 +12,15 @@ import {
   getDoc,
   getDocs,
   onSnapshot,
+  limit,
   orderBy,
   query,
   setDoc,
   Timestamp,
   where,
 } from "firebase/firestore";
-import { onAuthStateChanged, User } from "firebase/auth";
-import { auth, db } from "../../lib/firebase";
+import { User } from "firebase/auth";
+import { auth, db, onAuthStateChanged } from "../../lib/firebase";
 import { useParams } from "next/navigation";
 import ReportModal from "../../components/ReportModal";
 import { calculateTrustScore } from "../../lib/trustscore";
@@ -117,6 +118,13 @@ export default function SellerPage() {
         let snap = await getDocs(query(collection(db, "profiles"), where("username", "==", username)));
         if (snap.empty) {
           snap = await getDocs(query(collection(db, "profiles"), where("email", "==", username)));
+        }
+        if (snap.empty) {
+          const listingSnap = await getDocs(query(collection(db, "listings"), where("sellerEmail", "==", username), limit(1)));
+          if (!listingSnap.empty) {
+            const listingData = listingSnap.docs[0].data();
+            snap = await getDocs(query(collection(db, "profiles"), where("email", "==", listingData.sellerEmail)));
+          }
         }
         if (snap.empty || cancelled) { setLoading(false); return; }
 

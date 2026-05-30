@@ -10,9 +10,10 @@ import CheckoutModal from "../../../components/CheckoutModal";
 import PromoteModal from "../../../components/PromoteModal";
 import JobApplicationModal from "../../../components/JobApplicationModal";
 import { showToast } from "../../../components/Toast";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { createNotification } from "../../../lib/notifications";
+import { User } from "firebase/auth";
 import { addDoc, collection, doc, getDoc, getDocs, increment, onSnapshot, query, runTransaction, serverTimestamp, updateDoc, where, Timestamp, setDoc } from "firebase/firestore";
-import { auth, db } from "../../../lib/firebase";
+import { auth, db, onAuthStateChanged } from "../../../lib/firebase";
 import { detectScam } from "../../../lib/scamdetection";
 import { calculateTrustScore } from "../../../lib/trustscore";
 import { detectSuspiciousPrice } from "../../../lib/pricedetection";
@@ -134,6 +135,7 @@ export default function ListingPage() {
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showCheckout, setShowCheckout] = useState(false);
+  const [winningBid, setWinningBid] = useState<number | null>(null);
   const [showPromote, setShowPromote] = useState(false);
   const [showJobApplication, setShowJobApplication] = useState(false);
   const [userPurchased, setUserPurchased] = useState(false);
@@ -152,12 +154,69 @@ export default function ListingPage() {
   const [answerText, setAnswerText] = useState("");
   const prevHighestBidderRef = useRef<string | null>(null);
 
+  function getAuctionEndTime(endsAt: unknown): number {
+    if (!endsAt) return 0;
+    if (typeof (endsAt as any).toMillis === "function") return (endsAt as any).toMillis();
+    if ((endsAt as any).seconds) return (endsAt as any).seconds * 1000;
+    if (endsAt instanceof Date) return endsAt.getTime();
+    return new Date(endsAt as string | number).getTime();
+  }
+
+  const auctionEnded = listing && (listing.saleType === "auction" || listing.saleType === "auction_buy_now")
+    ? getAuctionEndTime(listing.auctionEndsAt) < Date.now() : false;
+  const isAuctionWinner = auctionEnded && user?.email === listing.highestBidder;
+
   // Auto-open checkout if navigated with ?buy=1
   useEffect(() => {
     if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("buy") === "1" && user?.email && listing) {
-      setShowCheckout(true);
+      if (isAuctionWinner) {
+        setWinningBid(listing.currentBid || listing.startingBid || 0);
+      }
+      const t = setTimeout(() => setShowCheckout(true), 0);
+      return () => clearTimeout(t);
     }
-  }, [user, listing]);
+  }, [user, listing, isAuctionWinner]);
+
+  // Notify winner + seller when auction ends
+  const prevAuctionEndedRef = useRef(false);
+  useEffect(() => {
+    if (!auctionEnded || prevAuctionEndedRef.current || !listing) return;
+    prevAuctionEndedRef.current = true;
+
+    const bidAmount = listing.currentBid || listing.startingBid || 0;
+
+    // Notify the winner
+    if (listing.highestBidder) {
+      createNotification({
+        type: "auction_won",
+        targetEmail: listing.highestBidder,
+        fromEmail: listing.sellerEmail || "",
+        title: "You Won the Auction! 🎉",
+        message: `Congratulations! You won the auction for "${listing.title}" with a bid of $${bidAmount}.\n\nComplete your purchase within 24 hours to secure the item. Payment is protected in escrow until you confirm delivery.`,
+        listingId: listing.id,
+        listingTitle: listing.title,
+        listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
+        total: bidAmount,
+      });
+    }
+
+    // Notify the seller
+    if (listing.sellerEmail) {
+      createNotification({
+        type: "purchase",
+        targetEmail: listing.sellerEmail,
+        fromEmail: listing.highestBidder || "",
+        title: "Auction Ended — Winner Found! 🎉",
+        message: listing.highestBidder
+          ? `Your auction for "${listing.title}" has ended with a winning bid of $${bidAmount} from ${listing.highestBidder}. Coordinate delivery once payment is received.`
+          : `Your auction for "${listing.title}" has ended with no bids. You can relist the item.`,
+        listingId: listing.id,
+        listingTitle: listing.title,
+        listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
+        total: bidAmount,
+      });
+    }
+  }, [auctionEnded, listing]);
 
   useEffect(() => {
     let mounted = true;
@@ -553,6 +612,19 @@ export default function ListingPage() {
           listingId: listing.id,
           listingTitle: listing.title,
           listingImage: listing.images?.[0] || listing.imageUrl,
+          total: Number(newMax),
+        });
+        // Bid confirmation to bidder
+        await createNotification({
+          targetEmail: user.email || "",
+          fromEmail: listing.sellerEmail || "",
+          type: "bid_confirmation",
+          title: "Bid Placed",
+          message: `Your bid of $${newMax} has been placed on "${listing.title}".\n\nWe'll notify you if you're outbid.`,
+          listingId: listing.id,
+          listingTitle: listing.title,
+          listingImage: listing.images?.[0] || listing.imageUrl,
+          total: Number(newMax),
         });
       } catch (_) {}
 
@@ -894,14 +966,29 @@ export default function ListingPage() {
                     </span>
                   )}
                 </div>
-                {user?.email === listing.highestBidder && (
-                  <div className="text-[10px] text-emerald-400">✓ You're winning</div>
-                )}
-                {user && listing.bidCount > 0 && user.email !== listing.highestBidder && user.email !== listing.sellerEmail && (
-                  <div className="text-[10px] text-amber-400">You've been outbid</div>
-                )}
-                {listing.auctionEndsAt && (
-                  <div className="text-[10px] text-[var(--muted)]">Ends in {Math.max(0, Math.floor(((listing.auctionEndsAt?.seconds ? new Date(listing.auctionEndsAt.seconds * 1000).getTime() : 0) - Date.now()) / 3600000))}h</div>
+                {auctionEnded ? (
+                  <>
+                    {user?.email === listing.highestBidder ? (
+                      <div className="text-[10px] text-emerald-400 font-bold">🎉 You won this auction!</div>
+                    ) : user?.email !== listing.sellerEmail ? (
+                      <div className="text-[10px] text-red-400">Auction ended — you didn't win</div>
+                    ) : (
+                      <div className="text-[10px] text-amber-400">Auction ended — winner: {listing.highestBidder || "unknown"}</div>
+                    )}
+                    <div className="text-[10px] text-[var(--muted)]">Auction ended</div>
+                  </>
+                ) : (
+                  <>
+                    {user?.email === listing.highestBidder && (
+                      <div className="text-[10px] text-emerald-400">✓ You're winning</div>
+                    )}
+                    {user && listing.bidCount > 0 && user.email !== listing.highestBidder && user.email !== listing.sellerEmail && (
+                      <div className="text-[10px] text-amber-400">You've been outbid</div>
+                    )}
+                    {listing.auctionEndsAt && (
+                      <div className="text-[10px] text-[var(--muted)]">Ends in {Math.max(0, Math.floor(((listing.auctionEndsAt?.seconds ? new Date(listing.auctionEndsAt.seconds * 1000).getTime() : 0) - Date.now()) / 3600000))}h</div>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -948,7 +1035,7 @@ export default function ListingPage() {
                     <span>Condition: {listing.condition}</span>
                   </div>
                 )}
-                {listing.stockQuantity !== undefined && (
+                {listing.stockQuantity != null && listing.stockQuantity > 0 && (
                   <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
                     <span>📦 {listing.stockQuantity} Available</span>
                   </div>
@@ -1078,7 +1165,7 @@ export default function ListingPage() {
                     )}
                   </div>
                 )}
-                {listing.stockQuantity !== undefined && (
+                {listing.stockQuantity != null && listing.stockQuantity > 0 && (
                   <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
                     <span className="shrink-0 text-amber-400">📦</span>
                     <span>{listing.stockQuantity} Available</span>
@@ -1205,17 +1292,26 @@ Property Status: 🟢 Inquiry Active`;
             )}
 
             {/* 5. BUY BUTTONS */}
-            {listing.status !== "sold" && !isExpired && listing.stockQuantity !== 0 && listing.type !== "service" && listing.type !== "job" && listing.type !== "property" && (
+            {listing.status !== "sold" && !isExpired && (listing.stockQuantity == null || listing.stockQuantity > 0) && listing.type !== "service" && listing.type !== "job" && listing.type !== "property" && (
             <div className="flex gap-2">
               {user && user.email !== listing.sellerEmail ? (
                 <>
-                  <button
-                    onClick={() => setShowCheckout(true)}
-                    className="flex-1 rounded-lg bg-sky-500 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-sky-400"
-                  >
-                    Buy Now
-                  </button>
-                  {(listing.saleType === "auction" || listing.saleType === "auction_buy_now") && user && user.email !== listing.sellerEmail && (
+                  {isAuctionWinner ? (
+                    <button
+                      onClick={() => { setWinningBid(listing.currentBid || listing.startingBid || 0); setShowCheckout(true); }}
+                      className="flex-1 rounded-lg bg-emerald-500 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-emerald-400"
+                    >
+                      Pay Now — ${listing.currentBid || listing.startingBid || 0}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setShowCheckout(true)}
+                      className="flex-1 rounded-lg bg-sky-500 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-sky-400"
+                    >
+                      Buy Now
+                    </button>
+                  )}
+                  {!auctionEnded && (listing.saleType === "auction" || listing.saleType === "auction_buy_now") && user && user.email !== listing.sellerEmail && (
                     <button onClick={() => { setShowBidModal(true); setBidAmount(String(getMinimumNextBid(listing.currentBid || listing.startingBid || 0))); }}
                       className="flex-1 rounded-lg border border-amber-500/40 bg-amber-500/10 py-2.5 text-[13px] font-bold text-amber-400 transition hover:bg-amber-500/20">
                       Bid Now
@@ -1578,7 +1674,7 @@ Service Status: 🟢 Inquiry Active`;
             {/* 7. SELLER CARD */}
             <div>
               <Link
-                href={user?.email === listing.sellerEmail ? "#" : `/seller/${listing.sellerUsername || listing.sellerEmail}`}
+                href={user?.email === listing.sellerEmail ? "#" : `/seller/${listing.sellerEmail || listing.sellerUsername}`}
                 className="block"
               >
                 <div className="flex items-center gap-3">
@@ -1798,7 +1894,8 @@ Service Status: 🟢 Inquiry Active`;
         <CheckoutModal
           listing={{ ...listing, rentalDays, pickupDate, returnDate }}
           buyerEmail={user.email}
-          onClose={() => setShowCheckout(false)}
+          onClose={() => { setShowCheckout(false); setWinningBid(null); }}
+          winningBid={winningBid || undefined}
         />
       )}
       {showPromote && (

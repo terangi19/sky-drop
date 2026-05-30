@@ -23,3 +23,6 @@ auth.setPersistence?.(browserLocalPersistence).catch(() => {});
 
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+
+// Re-export for convenience — all files import from here
+export { onAuthStateChanged } from "firebase/auth";

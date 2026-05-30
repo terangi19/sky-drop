@@ -9,7 +9,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import {
-  onAuthStateChanged,
   signOut,
   User,
 } from "firebase/auth";
@@ -27,6 +26,7 @@ import {
 import {
   auth,
   db,
+  onAuthStateChanged,
 } from "../lib/firebase";
 
 import NotificationBell from "./NotificationBell";

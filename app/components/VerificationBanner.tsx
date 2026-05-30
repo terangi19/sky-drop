@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { onAuthStateChanged, sendEmailVerification } from "firebase/auth";
-import { auth } from "../lib/firebase";
+import { sendEmailVerification } from "firebase/auth";
+import { auth, onAuthStateChanged } from "../lib/firebase";
 
 export default function VerificationBanner() {
   const [user, setUser] = useState<any>(null);

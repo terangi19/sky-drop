@@ -16,11 +16,10 @@ import {
 } from "firebase/firestore";
 
 import {
-  onAuthStateChanged,
   User,
 } from "firebase/auth";
 
-import { db, auth } from "../../lib/firebase";
+import { db, auth, onAuthStateChanged } from "../../lib/firebase";
 
 interface Listing {
   id: string;

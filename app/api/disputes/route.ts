@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "../../lib/stripe-server";
-import { getAdminAuth, getAdminDb } from "../../lib/firebase-admin";
+import { verifyIdToken, getAdminDb } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 
 export async function POST(req: NextRequest) {
@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     const idToken = authHeader.slice(7);
     let decodedToken;
     try {
-      decodedToken = await getAdminAuth().verifyIdToken(idToken);
+      decodedToken = await verifyIdToken(idToken);
     } catch {
       return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
     }
@@ -32,13 +32,19 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Missing payment intent ID or purchase ID" }, { status: 400 });
       }
 
+      const ADMIN_EMAILS = ["rangitr16@gmail.com"];
+
       const purchaseDoc = await getAdminDb().collection("purchases").doc(purchaseId).get();
       if (!purchaseDoc.exists) {
         return NextResponse.json({ error: "Purchase not found" }, { status: 404 });
       }
       const purchaseData = purchaseDoc.data()!;
-      if (purchaseData.buyerEmail !== decodedToken.email && purchaseData.sellerEmail !== decodedToken.email) {
+      if (purchaseData.buyerEmail !== decodedToken.email && !ADMIN_EMAILS.includes(decodedToken.email || "")) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      }
+
+      if (purchaseData.fundsReleased) {
+        return NextResponse.json({ error: "Funds already released, cannot refund" }, { status: 400 });
       }
 
       const refundAmount = amount ? Math.round(Number(amount) * 100) : undefined;
@@ -48,6 +54,12 @@ export async function POST(req: NextRequest) {
         amount: refundAmount,
         reason: "requested_by_customer",
         metadata: { purchaseId, reason: reason || "Dispute resolved in buyer's favor" },
+      });
+
+      await getAdminDb().collection("purchases").doc(purchaseId).update({
+        status: "refunded",
+        refundedAt: new Date(),
+        refundId: refund.id,
       });
 
       return NextResponse.json({ success: true, refundId: refund.id, status: refund.status });

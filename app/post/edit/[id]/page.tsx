@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 
 
 
-import { onAuthStateChanged, User } from "firebase/auth";
+import { User } from "firebase/auth";
 
 import {
   doc,
@@ -18,6 +18,7 @@ import ThemeToggle from "../../../components/ThemeToggle";
 import {
   auth,
   db,
+  onAuthStateChanged,
 } from "../../../lib/firebase";
 
 export default function EditListingPage({

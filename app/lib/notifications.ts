@@ -1,5 +1,5 @@
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { db } from "./firebase";
+import { db, auth } from "./firebase";
 import { buildEmailHtml, notificationToEmail } from "./email";
 
 interface NotificationInput {
@@ -12,6 +12,19 @@ interface NotificationInput {
   listingTitle?: string;
   listingImage?: string;
   total?: number;
+  buyerName?: string;
+  sellerName?: string;
+  orderId?: string;
+}
+
+function formatDate(): string {
+  const d = new Date();
+  return d.toLocaleDateString("en-NZ", { day: "numeric", month: "long", year: "numeric" });
+}
+
+function truncateOrderId(id?: string): string {
+  if (!id) return "";
+  return id.length > 8 ? id.slice(-8).toUpperCase() : id.toUpperCase();
 }
 
 export async function createNotification(input: NotificationInput) {
@@ -61,22 +74,55 @@ export async function createNotification(input: NotificationInput) {
   // Email notification
   try {
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://skydrop.nz";
-    const url = input.listingId ? `${baseUrl}/post/listing/${input.listingId}` : `${baseUrl}/messages`;
+    const listingUrl = input.listingId ? `${baseUrl}/post/listing/${input.listingId}` : "";
+    const messagesUrl = `${baseUrl}/messages`;
+    const purchasesUrl = `${baseUrl}/purchases`;
+    const salesUrl = `${baseUrl}/sales`;
+
     const email = notificationToEmail(input.type, input.title, input.listingTitle, input.total);
+
+    const isBuyerEmail = ["purchase_confirmation", "order_confirmed", "item_shipped", "delivered",
+      "bid_confirmation", "auction_won", "auction_lost", "offer_accepted", "offer_declined",
+      "service_completed", "item_returned",
+    ].includes(input.type);
+
+    const primaryCta = isBuyerEmail
+      ? { label: "View Order", url: listingUrl || purchasesUrl, primary: true }
+      : { label: "Open Sales", url: listingUrl || salesUrl, primary: true };
+
+    const secondaryCta = listingUrl
+      ? { label: "Open Messages", url: messagesUrl, primary: false }
+      : undefined;
+
+    const ctas = [primaryCta, secondaryCta].filter(Boolean) as { label: string; url: string; primary?: boolean }[];
+
     const html = buildEmailHtml({
       to: input.targetEmail,
       subject: email.subject,
-      title: input.title,
-      message: email.message + (input.listingTitle ? `\n\nListing: ${input.listingTitle}` : ""),
-      cta: "View on Sky Drop",
-      ctaUrl: url,
-      footerNote: "Stay safe — never pay outside Sky Drop. Keep all communication in our chat.",
+      title: email.title,
+      message: input.message || email.message,
+      listingImage: input.listingImage,
+      listingTitle: input.listingTitle,
+      sellerName: input.sellerName,
+      buyerName: input.buyerName,
+      orderId: input.orderId ? truncateOrderId(input.orderId) : undefined,
+      date: formatDate(),
+      total: input.total ? `$${input.total.toFixed(2)}` : undefined,
+      statusBadge: email.statusBadge,
+      summaryRows: email.summaryRows,
+      whatHappensNext: email.whatHappensNext,
+      ctas,
+      showTrustSection: true,
     });
-    await fetch("/api/send-email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ to: input.targetEmail, subject: email.subject, html }),
-    });
+
+    const token = await auth.currentUser?.getIdToken();
+    if (token) {
+      await fetch("/api/send-notification-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ to: input.targetEmail, subject: email.subject, html }),
+      });
+    }
   } catch (e) {
     console.info("[Notification] Email send skipped or failed:", e);
   }

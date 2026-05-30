@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState, useMemo } from "react";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { User } from "firebase/auth";
 import { collection, deleteDoc, doc, getDoc, onSnapshot, orderBy, query } from "firebase/firestore";
-import { auth, db } from "../lib/firebase";
+import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 

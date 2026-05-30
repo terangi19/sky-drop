@@ -2,8 +2,8 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp, Timestamp, query, where, getDocs } from "firebase/firestore";
-import { db, storage } from "../../lib/firebase";
+import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp, query, where, getDocs } from "firebase/firestore";
+import { auth, db, storage } from "../../lib/firebase";
 import stripePromise from "../../lib/stripe-client";
 import { ref, getDownloadURL } from "firebase/storage";
 
@@ -72,13 +72,56 @@ function SuccessInner() {
           return;
         }
 
-        // Mark listing as sold
-        try {
-          await updateDoc(listingRef, { status: "sold" });
-        } catch (e) { console.error("Failed to mark listing as sold:", e); }
+        // Determine purchase type
+        const isBadge = !!badgeForSale && !!sellerEmail && !!buyerEmail;
+        const isDigital = digitalParam === "digital" && !!digitalStoragePath;
+        const isService = digitalParam === "service" && !!sellerEmailParam && !!buyerEmail;
+
+        // Resolve digital download URL if needed
+        let resolvedDigitalURL = "";
+        if (isDigital) {
+          try {
+            resolvedDigitalURL = await getDownloadURL(ref(storage, digitalStoragePath));
+          } catch (e) { console.error("Failed to resolve digital URL:", e); }
+        }
+
+        // Call server-side atomic purchase creation
+        const token = await auth.currentUser?.getIdToken();
+        const createRes = await fetch("/api/create-purchase", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            listingId,
+            listingTitle: listingData.title || title,
+            listingImage: listingData.imageUrl || "",
+            sellerEmail: isService ? sellerEmailParam : sellerEmail,
+            buyerName: buyerEmail,
+            deliveryMethod: isBadge ? "badge" : isDigital ? "digital" : isService ? "service" : "pickup",
+            total: Number(listingData.price || price) + 1,
+            processingFee: 1.00,
+            badgeTransfer: badgeForSale || "",
+            type: isBadge ? "badge" : isDigital ? "digital" : isService ? "service" : "physical",
+            digitalFileURL: resolvedDigitalURL,
+            digitalFileName: isDigital ? (digitalFileName || "File") : "",
+            status: isDigital ? "delivered" : isBadge ? "pending" : isService ? "in_progress" : "pending",
+            disputeDeadline: isDigital ? new Date(Date.now() + 48 * 3600000).toISOString() : isService ? new Date(Date.now() + 7 * 86400000).toISOString() : null,
+            stripePaymentIntentId: paymentIntentResult.paymentIntent.id,
+            collectionName,
+          }),
+        });
+        const createData = await createRes.json();
+        if (!createRes.ok) {
+          console.error("Purchase creation failed:", createData.error);
+          setStatus("done");
+          return;
+        }
+        const purchaseId = createData.purchaseId;
 
         // Auto-transfer badge if applicable
-        if (badgeForSale && sellerEmail && buyerEmail) {
+        if (isBadge) {
           try {
             const { autoTransferBadge } = await import("../../lib/xpValidation");
             const sellerSnap = await getDocs(query(collection(db, "profiles"), where("email", "==", sellerEmail)));
@@ -86,79 +129,10 @@ function SuccessInner() {
             const sellerId = sellerSnap.docs[0]?.id;
             const buyerId = buyerSnap.docs[0]?.id;
             if (sellerId && buyerId) {
-              const purchaseRef = await addDoc(collection(db, "purchases"), {
-                listingId,
-                listingTitle: listingData.title || title,
-                listingPrice: listingData.price || price,
-                listingImage: listingData.imageUrl || "",
-                sellerEmail,
-                buyerEmail,
-                buyerName: buyerEmail,
-                deliveryMethod: "badge",
-                badgeTransfer: badgeForSale,
-                total: Number(listingData.price || price) + 1,
-                processingFee: 1.00,
-                status: "pending",
-                paidAt: serverTimestamp(),
-                createdAt: serverTimestamp(),
-              });
-              await autoTransferBadge(sellerId, buyerId, badgeForSale, purchaseRef.id, sellerEmail);
+              await autoTransferBadge(sellerId, buyerId, badgeForSale, purchaseId, sellerEmail);
             }
           } catch (e) {
             console.error("Auto badge transfer failed:", e);
-          }
-        }
-
-        // Auto-deliver digital purchase
-        if (digitalParam === "digital" && digitalStoragePath && sellerEmail && buyerEmail) {
-          try {
-            const digitalFileURL = await getDownloadURL(ref(storage, digitalStoragePath));
-            await addDoc(collection(db, "purchases"), {
-              listingId,
-              listingTitle: listingData.title || title,
-              listingPrice: listingData.price || price,
-              listingImage: listingData.imageUrl || "",
-              sellerEmail,
-              buyerEmail,
-              buyerName: buyerEmail,
-              deliveryMethod: "digital",
-              digitalFileURL,
-              digitalFileName: digitalFileName || "File",
-              type: "digital",
-              status: "delivered",
-              paidAt: serverTimestamp(),
-              deliveredAt: serverTimestamp(),
-              disputeDeadline: Timestamp.fromMillis(Date.now() + 48 * 3600000),
-              total: Number(listingData.price || price) + 1,
-              processingFee: 1.00,
-              createdAt: serverTimestamp(),
-            });
-          } catch (e) {
-            console.error("Digital purchase create failed:", e);
-          }
-        }
-
-        // Handle service purchase (redirect path from OfferPaymentModal)
-        if (digitalParam === "service" && sellerEmailParam && buyerEmail && listingId) {
-          try {
-            await addDoc(collection(db, "purchases"), {
-              listingId,
-              listingTitle: listingData.title || title,
-              listingPrice: listingData.price || price,
-              listingImage: listingData.imageUrl || "",
-              sellerEmail: sellerEmailParam,
-              buyerEmail,
-              buyerName: buyerEmail,
-              deliveryMethod: "service",
-              status: "in_progress",
-              paidAt: serverTimestamp(),
-              total: Number(price),
-              processingFee: 1.00,
-              disputeDeadline: Timestamp.fromMillis(Date.now() + 7 * 86400000),
-              createdAt: serverTimestamp(),
-            });
-          } catch (e) {
-            console.error("Service purchase create failed:", e);
           }
         }
 

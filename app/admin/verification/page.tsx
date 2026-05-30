@@ -20,12 +20,12 @@ import {
   where,
 } from "firebase/firestore";
 import {
-  onAuthStateChanged,
   User,
 } from "firebase/auth";
 import {
   auth,
   db,
+  onAuthStateChanged,
 } from "../../lib/firebase";
 import { createNotification } from "../../lib/notifications";
 const ADMIN_EMAILS = ["rangitr16@gmail.com"];
@@ -176,9 +176,10 @@ export default function AdminVerificationPage() {
         await createNotification({
           targetEmail: data.sellerEmail,
           fromEmail: user!.email!,
-          type: "listing",
+          type: "listing_rejected",
           title: "Digital Listing Rejected",
           message: `Your digital listing "${data.title}" was rejected. Reason: ${reason}`,
+          listingTitle: data.title,
         });
       }
       setRejectInputs((prev) => { const next = { ...prev }; delete next[`dig_${listingId}`]; return next; });
@@ -203,9 +204,10 @@ export default function AdminVerificationPage() {
         await createNotification({
           targetEmail: data.sellerEmail,
           fromEmail: user!.email!,
-          type: "listing",
+          type: "listing_rejected",
           title: "Listing Rejected",
           message: `Your listing "${data.title}" was rejected. Reason: ${reason}`,
+          listingTitle: data.title,
         });
       }
       setRejectInputs((prev) => { const next = { ...prev }; delete next[`lst_${listingId}`]; return next; });

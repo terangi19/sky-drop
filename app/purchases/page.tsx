@@ -4,9 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { User } from "firebase/auth";
 import { addDoc, collection, doc, onSnapshot, orderBy, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
-import { auth, db } from "../lib/firebase";
+import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import { createNotification } from "../lib/notifications";
 import { awardXP } from "../lib/xp";
 import { showToast } from "../components/Toast";
@@ -142,11 +142,11 @@ export default function PurchasesPage() {
     return () => unsub();
   }, [user?.email]);
 
-  // Auto-confirm shipped items after 14 days + trigger fund release
+  // Auto-confirm shipped items after 14 days
   useEffect(() => {
     const now = Date.now();
     for (const p of purchases) {
-      if (p.status === "shipped" && p.createdAt?.seconds && (now - p.createdAt.seconds * 1000) > 14 * 86400000) {
+      if (p.status === "shipped" && !p.disputeStatus && p.createdAt?.seconds && (now - p.createdAt.seconds * 1000) > 14 * 86400000) {
         updateStatus(p.id, "delivered").catch((e) => console.error("Failed to auto-confirm delivery:", e));
       }
     }
@@ -162,13 +162,45 @@ export default function PurchasesPage() {
         await createNotification({
           targetEmail: purchase.sellerEmail,
           fromEmail: user!.email!,
-          type: "order_update",
+          type: "delivered",
           title: "Buyer Confirmed Receipt",
-          message: `${user!.email} confirmed receipt of "${purchase.listingTitle}".`,
+          message: `${user!.email} confirmed receipt of "${purchase.listingTitle}". Funds will be released after a short verification.`,
           listingId: purchase.listingId,
           listingTitle: purchase.listingTitle,
           listingImage: purchase.listingImage,
+          total: purchase.total,
         });
+
+        // Attempt to release funds from escrow
+        try {
+          const token = await auth.currentUser?.getIdToken();
+          const res = await fetch("/api/release-payment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
+            body: JSON.stringify({ purchaseId: id }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            await createNotification({
+              targetEmail: purchase.buyerEmail,
+              fromEmail: user!.email!,
+              type: "payment_released",
+              title: "Transaction Complete",
+              message: `Payment for "${purchase.listingTitle}" has been released to the seller. Transaction complete! Thanks for using Sky Drop.`,
+              listingId: purchase.listingId,
+              listingTitle: purchase.listingTitle,
+              listingImage: purchase.listingImage,
+              total: purchase.total,
+            });
+            showToast("Funds released to seller!", "success");
+          } else {
+            showToast(data.error || "Funds will be released once verified.", "info");
+          }
+        } catch (e) {
+          console.error("Release payment error:", e);
+          showToast("Could not release funds immediately. Auto-release pending.", "info");
+        }
+
         setReviewModal(purchase);
       }
     } catch (e) {
@@ -331,7 +363,7 @@ export default function PurchasesPage() {
                           <Link href={`/post/listing/${p.listingId}`} className="text-sm font-bold text-[var(--foreground)] transition hover:text-emerald-400 line-clamp-1">{p.listingTitle}</Link>
                           <p className="mt-0.5 text-sm font-semibold text-emerald-400">${Number(p.listingPrice).toFixed(2)}</p>
                           <div className="mt-0.5 flex items-center gap-2 text-[11px] text-zinc-500">
-                            <Link href={`/seller/${p.sellerEmail?.split("@")[0] || p.sellerEmail}`} className="hover:text-emerald-400 transition-colors">{p.sellerEmail?.split("@")[0] || "—"}</Link>
+                            <Link href={`/seller/${p.sellerEmail}`} className="hover:text-emerald-400 transition-colors">{p.sellerEmail?.split("@")[0] || "—"}</Link>
                             {p.createdAt?.seconds && <span>· {formatDate(p.createdAt)}</span>}
                           </div>
                         </div>
@@ -505,7 +537,7 @@ export default function PurchasesPage() {
                   await createNotification({
                     targetEmail: process.env.NEXT_PUBLIC_ADMIN_EMAIL || "rangitr16@gmail.com",
                     fromEmail: user!.email!,
-                    type: "order_update",
+                    type: "dispute_opened",
                     title: "New Dispute Opened",
                     message: `Dispute opened for "${disputeModal.listingTitle}" — ${disputeReason}`,
                     listingId: disputeModal.listingId,

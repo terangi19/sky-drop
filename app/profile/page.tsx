@@ -26,15 +26,14 @@ import {
 import {
   deleteUser,
   EmailAuthProvider,
-  onAuthStateChanged,
   reauthenticateWithCredential,
-  RecaptchaVerifier,
-  signInWithPhoneNumber,
   updatePassword,
   User,
 } from "firebase/auth";
+import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { auth, db, storage } from "../lib/firebase";
+import { auth, db, storage, onAuthStateChanged } from "../lib/firebase";
+import { sendPhoneCode, verifyPhoneCode, displayPhone } from "../lib/phone-auth";
 import { checkImage } from "../lib/nsfw";
 import { getLevelInfo } from "../lib/xp";
 import { showToast } from "../components/Toast";
@@ -532,24 +531,16 @@ const [poaUploading, setPoaUploading] = useState(false);
   // Phone verification
   async function handleSendPhoneCode() {
     if (!user || !phone) return;
-    setPhoneMsg("Preparing verification...");
-    try {
-      const verifier = new RecaptchaVerifier(auth, "recaptcha-container", {
-        size: "invisible",
-      });
-      const confirmation = await signInWithPhoneNumber(auth, phone, verifier);
-      (window as any).confirmationResult = confirmation;
+    setPhoneMsg("Sending code...");
+    setPhoneCode("");
+    const result = await sendPhoneCode(phone);
+    if (result.sent) {
       setPhoneSent(true);
-      setPhoneMsg("Code sent! Check your phone.");
-    } catch (e: any) {
-      console.error(e);
-      if (e.code === "auth/operation-not-allowed") {
-        setPhoneMsg("Phone auth not enabled in Firebase Console. Enable Phone provider in Authentication > Sign-in methods.");
-      } else if (e.code === "auth/invalid-phone-number") {
-        setPhoneMsg("Invalid phone number. Use format: +64 21 123 4567");
-      } else {
-        setPhoneMsg(e.message || "Failed to send code.");
-      }
+      setPhoneMsg(result.viaEmail
+        ? `Code sent to ${user.email}`
+        : `Verification code sent to ${displayPhone(result.formattedPhone || phone)}`);
+    } else {
+      setPhoneMsg(result.error || "Failed to send verification code.");
     }
   }
 
@@ -557,17 +548,21 @@ const [poaUploading, setPoaUploading] = useState(false);
     if (phoneCode.length !== 6) return;
     setPhoneVerifying(true);
     setPhoneMsg("Verifying...");
-    try {
-      const confirmation = (window as any).confirmationResult;
-      if (!confirmation) { setPhoneMsg("No code sent. Click Send Code first."); setPhoneVerifying(false); return; }
-      await confirmation.confirm(phoneCode);
+    const result = await verifyPhoneCode(phoneCode);
+    if (result.ok) {
       setPhoneVerified(true);
-      setPhoneMsg("Phone verified!");
-      await setDoc(doc(db, "profiles", user.uid), { phoneVerified: true }, { merge: true });
+      setPhoneMsg("Phone verified ✓");
       setPhoneCode("");
       setPhoneSent(false);
-    } catch (e: any) {
-      setPhoneMsg(e.message || "Invalid code.");
+      if (user) {
+        await setDoc(doc(db, "profiles", user.uid), {
+          phoneNumber: phone,
+          phoneVerified: true,
+          phoneVerifiedAt: serverTimestamp(),
+        }, { merge: true });
+      }
+    } else {
+      setPhoneMsg(result.error || "Invalid code.");
     }
     setPhoneVerifying(false);
   }
@@ -579,8 +574,18 @@ const [poaUploading, setPoaUploading] = useState(false);
     setPhoneSent(false);
     setPhoneMsg("");
     if (user) {
-      await setDoc(doc(db, "profiles", user.uid), { phone: "", phoneVerified: false }, { merge: true });
+      await setDoc(doc(db, "profiles", user.uid), {
+        phoneNumber: "",
+        phoneVerified: false,
+        phoneVerifiedAt: null,
+      }, { merge: true });
     }
+  }
+
+  function handlePhoneInput(e: React.ChangeEvent<HTMLInputElement>) {
+    const v = e.target.value;
+    const digits = v.replace(/\D/g, "");
+    if (digits.length <= 12) setPhone(v);
   }
 
   async function deleteListing(id: string) {
@@ -1310,35 +1315,35 @@ const [poaUploading, setPoaUploading] = useState(false);
                   <div>
                     <p className="mb-2 text-xs font-bold text-[var(--muted)]">Phone {phoneVerified && <span className="text-emerald-400 ml-1">✓ Verified</span>}</p>
                     <div className="flex gap-2">
-                      <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
-                        placeholder="+64 21 123 4567"
-                        disabled={phoneVerified}
+                      <input type="tel" value={phone} onChange={handlePhoneInput}
+                        placeholder="021 123 4567"
+                        disabled={phoneSent && !phoneVerified}
                         className="flex-1 rounded-xl border border-zinc-800/50 bg-zinc-800/30 px-3 py-2.5 text-sm text-[var(--foreground)] outline-none transition-all duration-200 placeholder:text-zinc-600 focus:border-sky-500/40 focus:ring-2 focus:ring-sky-500/10 disabled:opacity-50" />
                       {!phoneVerified && (
-                        <button onClick={handleSendPhoneCode} disabled={!phone || phoneSent}
-                          className="rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:bg-sky-400 active:scale-[0.97] disabled:opacity-40">
-                          {phoneSent ? "Sent" : "Send Code"}
+                        <button onClick={handleSendPhoneCode} disabled={!phone || phoneVerifying}
+                          className="rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-bold text-white transition-all duration-200 hover:bg-sky-400 active:scale-[0.97] disabled:opacity-40">
+                          {phoneVerifying ? "..." : phoneSent ? "Resend Code" : "Send Code"}
                         </button>
                       )}
                     </div>
                     {phoneSent && !phoneVerified && (
                       <div className="flex gap-2 mt-2">
-                        <input type="text" value={phoneCode} onChange={(e) => setPhoneCode(e.target.value)}
-                          placeholder="6-digit code"
+                        <input type="text" value={phoneCode} onChange={(e) => setPhoneCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                          placeholder="Enter code"
                           className="flex-1 rounded-xl border border-zinc-800/50 bg-zinc-800/30 px-3 py-2.5 text-sm text-[var(--foreground)] outline-none transition-all duration-200 placeholder:text-zinc-600 focus:border-sky-500/40 focus:ring-2 focus:ring-sky-500/10" />
                         <button onClick={handleVerifyPhoneCode} disabled={phoneCode.length !== 6 || phoneVerifying}
-                          className="rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:bg-emerald-400 active:scale-[0.97] disabled:opacity-40">
+                          className="rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-bold text-white transition-all duration-200 hover:bg-emerald-400 active:scale-[0.97] disabled:opacity-40">
                           {phoneVerifying ? "..." : "Verify"}
                         </button>
                       </div>
                     )}
                     {phoneVerified && (
                       <button onClick={handleRemovePhone}
-                        className="mt-2 text-xs text-[var(--muted)] transition-colors hover:text-red-400">
+                        className="mt-2 text-xs text-zinc-500 transition-colors hover:text-red-400">
                         Remove phone number
                       </button>
                     )}
-                    {phoneMsg && <p className="text-center text-xs text-[var(--muted)] mt-1">{phoneMsg}</p>}
+                    {phoneMsg && <p className={`text-center text-xs mt-1 ${phoneMsg.includes("✓") ? "text-emerald-400" : "text-zinc-400"}`}>{phoneMsg}</p>}
                   </div>
                 </div>
               </div>
