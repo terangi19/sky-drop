@@ -88,7 +88,7 @@ function PaymentForm({ total, listingId, title, price, buyerEmail, onSuccess, on
     const { error: submitError } = await stripe.confirmPayment({
       elements,
       confirmParams: {
-        return_url: `${window.location.origin}/checkout/success?listingId=${encodeURIComponent(listingId)}&title=${encodeURIComponent(title)}&price=${encodeURIComponent(price)}&buyerEmail=${encodeURIComponent(buyerEmail)}&collectionName=${encodeURIComponent(collectionName || "listings")}${badgeForSale ? `&badgeForSale=${encodeURIComponent(badgeForSale)}&sellerEmail=${encodeURIComponent(sellerEmail || "")}` : ""}${type === "digital" ? `&type=digital&digitalStoragePath=${encodeURIComponent(digitalStoragePath || digitalFileURL || "")}&digitalFileName=${encodeURIComponent(digitalFileName || "")}` : ""}${type === "rental" ? `&type=rental` : ""}`,
+        return_url: `${window.location.origin}/checkout/success?listingId=${encodeURIComponent(listingId)}&title=${encodeURIComponent(title)}&price=${encodeURIComponent(price)}&buyerEmail=${encodeURIComponent(buyerEmail)}&sellerEmail=${encodeURIComponent(sellerEmail || "")}&collectionName=${encodeURIComponent(collectionName || "listings")}${badgeForSale ? `&badgeForSale=${encodeURIComponent(badgeForSale)}` : ""}${type === "digital" ? `&type=digital&digitalStoragePath=${encodeURIComponent(digitalStoragePath || digitalFileURL || "")}&digitalFileName=${encodeURIComponent(digitalFileName || "")}` : ""}${type === "rental" ? `&type=rental` : ""}`,
       },
       redirect: "if_required",
     });

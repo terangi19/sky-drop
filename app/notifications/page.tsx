@@ -87,16 +87,23 @@ export default function NotificationsPage() {
       orderBy("createdAt", "desc"),
       limit(PAGE_SIZE)
     );
-    const unsub = onSnapshot(q, (snap) => {
-      const items: NotificationItem[] = [];
-      snap.forEach((d) => {
-        items.push({ id: d.id, ...d.data() } as NotificationItem);
-      });
-      setNotifications(items);
-      setLastDoc(snap.docs[snap.docs.length - 1] || null);
-      setHasMore(snap.docs.length === PAGE_SIZE);
-      setLoading(false);
-    });
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const items: NotificationItem[] = [];
+        snap.forEach((d) => {
+          items.push({ id: d.id, ...d.data() } as NotificationItem);
+        });
+        setNotifications(items);
+        setLastDoc(snap.docs[snap.docs.length - 1] || null);
+        setHasMore(snap.docs.length === PAGE_SIZE);
+        setLoading(false);
+      },
+      (err) => {
+        console.error("Notifications snapshot error:", err);
+        setLoading(false);
+      }
+    );
     return unsub;
   }, [user?.email]);
 

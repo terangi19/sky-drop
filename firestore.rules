@@ -77,7 +77,7 @@ service cloud.firestore {
       allow read: if request.auth != null
         && resource.data.targetEmail == request.auth.token.email;
       allow create: if request.auth != null
-        && request.resource.data.targetEmail == request.auth.token.email;
+        && request.resource.data.fromEmail == request.auth.token.email;
       allow update: if request.auth != null
         && resource.data.targetEmail == request.auth.token.email;
     }

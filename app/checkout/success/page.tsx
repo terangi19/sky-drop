@@ -66,7 +66,7 @@ function SuccessInner() {
             listingId,
             listingTitle: title,
             listingImage: "",
-            sellerEmail: isService ? sellerEmailParam : buyerEmail,
+            sellerEmail: sellerEmailParam || buyerEmail,
             buyerName: buyerEmail,
             deliveryMethod: isBadge ? "badge" : isDigital ? "digital" : isService ? "service" : "pickup",
             total: Number(price) + 1,

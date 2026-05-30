@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
@@ -45,8 +45,9 @@ const statusStyles: Record<string, string> = {
 };
 
 function formatDate(ts: any): string {
-  if (!ts?.seconds) return "";
-  return new Date(ts.seconds * 1000).toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" });
+  if (!ts) return "";
+  if (ts.seconds) return new Date(ts.seconds * 1000).toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" });
+  return new Date(ts).toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" });
 }
 
 function statusLabel(status: string): string {
@@ -79,6 +80,7 @@ export default function SalesPage() {
   const [error, setError] = useState("");
   const [confirmAction, setConfirmAction] = useState<{ id: string; status: string; label: string } | null>(null);
   const [sellerStripeId, setSellerStripeId] = useState("");
+  const [filter, setFilter] = useState("active");
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => setUser(u));
@@ -107,6 +109,22 @@ export default function SalesPage() {
     });
     return () => unsub();
   }, [user?.email]);
+
+  const counts = useMemo(() => {
+    const c: Record<string, number> = { all: sales.length };
+    for (const s of sales) {
+      const key = s.status === "completed" || s.status === "cancelled" ? s.status : "active";
+      c[key] = (c[key] || 0) + 1;
+    }
+    return c;
+  }, [sales]);
+
+  const filtered = useMemo(() => {
+    let items = [...sales];
+    if (filter === "active") items = items.filter((s) => !["completed", "cancelled"].includes(s.status));
+    else if (filter !== "all") items = items.filter((s) => s.status === filter);
+    return items;
+  }, [sales, filter]);
 
   async function updateStatus(purchaseId: string, newStatus: string) {
     try {
@@ -206,7 +224,24 @@ export default function SalesPage() {
             <span className="text-white drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">Sales</span>
           </h1>
           <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl">Track your sales, manage orders, and get paid — all in one place. When a buyer confirms delivery, release your funds securely through our escrow system. Every transaction is protected from listing to payout.</p>
-          <p className="relative mt-2 text-sm text-zinc-500">{sales.length} total</p>
+          <p className="relative mt-2 text-sm text-zinc-500">{filtered.length} of {sales.length} total</p>
+        </div>
+
+        {/* Status filter tabs */}
+        <div className="flex gap-1.5 overflow-x-auto mb-6">
+          {[
+            { key: "active", label: "Active" },
+            { key: "completed", label: "Completed" },
+            { key: "cancelled", label: "Cancelled" },
+            { key: "all", label: "All" },
+          ].map((tab) => (
+            <button key={tab.key} onClick={() => setFilter(tab.key)}
+              className={`shrink-0 rounded-lg px-3.5 py-2 text-xs font-bold transition-all duration-200 ${
+                filter === tab.key ? "bg-gradient-to-b from-indigo-500/20 to-indigo-500/10 text-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.06)]" : "text-zinc-500 hover:text-zinc-300"
+              }`}>
+              {tab.label}{counts[tab.key] > 0 ? ` (${counts[tab.key]})` : ""}
+            </button>
+          ))}
         </div>
 
         {!sellerStripeId && (
@@ -234,22 +269,22 @@ export default function SalesPage() {
               </div>
             ))}
           </div>
-        ) : sales.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div className="mx-auto max-w-md mt-16 text-center">
             <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/[0.03] border border-white/[0.06]">
               <svg className="h-8 w-8 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h2 className="text-2xl font-black tracking-tight text-white">No sales yet</h2>
-            <p className="mt-2 text-sm text-zinc-500">When someone buys your items, they'll show up here.</p>
+            <h2 className="text-2xl font-black tracking-tight text-white">No {filter === "active" ? "active " : filter === "completed" ? "completed " : filter === "cancelled" ? "cancelled " : ""}sales yet</h2>
+            <p className="mt-2 text-sm text-zinc-500">{filter === "all" ? "When someone buys your items, they'll show up here." : `No sales match the "${filter}" filter.`}</p>
             <Link href="/post/ai" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-indigo-500/30 active:scale-[0.97]">
               Create a Listing
             </Link>
           </div>
         ) : (
           <div className="space-y-3">
-            {sales.map((s) => (
+            {filtered.map((s) => (
               <div key={s.id} className="rounded-2xl border border-white/[0.04] bg-white/[0.02] p-4 sm:p-5 transition-all duration-200 hover:bg-white/[0.04]">
                 <div className="flex items-start gap-3 sm:gap-4">
                   <Link href={`/post/listing/${s.listingId}`} className="shrink-0">
@@ -270,7 +305,7 @@ export default function SalesPage() {
                         <div className="mt-0.5 flex items-center gap-2 text-[11px] text-zinc-500">
                           <span>{s.buyerName || s.buyerEmail?.split("@")[0] || "—"}</span>
                           <span>· {s.deliveryMethod}</span>
-                          {s.createdAt?.seconds && <span>· {formatDate(s.createdAt)}</span>}
+                          {s.createdAt && <span>· {formatDate(s.createdAt)}</span>}
                         </div>
                       </div>
                       <span className={`shrink-0 rounded-full border px-3 py-0.5 text-[10px] font-bold ${statusStyles[s.status] || "bg-zinc-800/50 text-zinc-500 border-zinc-700/50"}`}>
