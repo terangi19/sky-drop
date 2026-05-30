@@ -639,6 +639,7 @@ export default function TradeFeedPage() {
           <div className="flex gap-0.5">
             {["All", "WTS", "WTB", "Trading"].map((t) => (
               <button key={t} onClick={() => setSelectedType(t)}
+                title={t === "WTS" ? "Want to Sell" : t === "WTB" ? "Want to Buy" : t === "Trading" ? "Open to trades" : ""}
                 className={`rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition ${
                   selectedType === t
                     ? t === "WTB" ? "text-emerald-400 bg-emerald-500/[0.06]" : t === "Trading" ? "text-violet-400 bg-violet-500/[0.06]" : "text-sky-400 bg-sky-500/[0.06]"
@@ -658,6 +659,7 @@ export default function TradeFeedPage() {
           <button onClick={() => setShowMyTrades(!showMyTrades)}
             className={`rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition ${showMyTrades ? "text-sky-400 bg-sky-500/[0.06]" : "text-zinc-500 hover:text-zinc-300"}`}>My Trades</button>
         </div>
+        <p className="text-[10px] text-zinc-600 text-center mt-2">WTS = Want to Sell · WTB = Want to Buy · Trading = Open to offers</p>
 
         {/* ── MAIN CONTENT ── */}
         <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_240px]">
