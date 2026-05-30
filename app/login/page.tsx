@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import { showToast } from "../components/Toast";
 
 import {
   createUserWithEmailAndPassword,
@@ -61,7 +62,7 @@ export default function AuthPage() {
   async function handleAuth(e: React.FormEvent) {
     e.preventDefault();
     if (!email || !password) return;
-    if (!isLogin && !phone.trim()) { alert("Phone number is required."); return; }
+    if (!isLogin && !phone.trim()) { showToast("Phone number is required.", "error"); return; }
 
     try {
       setLoading(true);
@@ -161,8 +162,8 @@ Your account is ready. Now go explore.`,
           }
         }
 
-        alert("Account created! A verification email has been sent to your inbox. Please verify to unlock full features.");
-        setIsLogin(true);
+        showToast("Account created! Check your email to verify.");
+        router.push("/profile");
       }
 
       setEmail("");
@@ -170,7 +171,7 @@ Your account is ready. Now go explore.`,
 
     } catch (error: any) {
       console.error(error);
-      alert(error.message);
+      showToast(error.message, "error");
     }
 
     setLoading(false);
@@ -178,15 +179,15 @@ Your account is ready. Now go explore.`,
 
   async function handleResetPassword() {
     if (!email) {
-      alert("Enter your email address first.");
+      showToast("Enter your email address first.", "error");
       return;
     }
     try {
       await sendPasswordResetEmail(auth, email);
       setResetSent(true);
-      alert("Password reset email sent! Check your inbox.");
+      showToast("Password reset email sent! Check your inbox.");
     } catch (e: any) {
-      alert(e.message);
+      showToast(e.message, "error");
     }
   }
 

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import { showToast } from "./Toast";
 
 const REPORT_REASONS = [
   "Scam/fraud",
@@ -52,7 +53,7 @@ export default function ReportModal({
       const elapsed = Date.now() - Number(lastReport);
       const hoursLeft = Math.ceil((24 * 60 * 60 * 1000 - elapsed) / (1000 * 60 * 60));
       if (elapsed < 24 * 60 * 60 * 1000) {
-        alert(`You already reported this ${type}. Please wait ${hoursLeft}h before reporting again.`);
+        showToast(`You already reported this ${type}. Please wait ${hoursLeft}h before reporting again.`, "info");
         return;
       }
     }
@@ -75,7 +76,7 @@ export default function ReportModal({
       setSent(true);
     } catch (e) {
       console.error(e);
-      alert("Failed to submit report.");
+      showToast("Failed to submit report.", "error");
     }
     setSending(false);
   }

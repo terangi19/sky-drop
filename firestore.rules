@@ -31,7 +31,6 @@ service cloud.firestore {
       allow update: if request.auth != null
         && (isSeller()
           || (resource.data.saleType is string && resource.data.saleType.matches('auction.*') && isAuctionBidUpdate())
-          || (request.resource.data.status == "sold" && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']))
           || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views']));
       allow delete: if request.auth != null && isSeller();
     }
@@ -268,6 +267,11 @@ service cloud.firestore {
         && (resource.data.buyerEmail == request.auth.token.email
           || resource.data.sellerEmail == request.auth.token.email
           || isAdmin());
+    }
+
+    match /adminAuditLog/{entryId} {
+      allow create: if request.auth != null && isAdmin();
+      allow read: if request.auth != null && isAdmin();
     }
 
     match /{document=**} {

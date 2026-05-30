@@ -8,6 +8,7 @@ import { collection, deleteDoc, doc, onSnapshot, query, where } from "firebase/f
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import { showToast } from "../components/Toast";
 import PromoteModal from "../components/PromoteModal";
 
 interface Listing {
@@ -107,7 +108,7 @@ export default function ListListPage() {
   const deleteListing = async (id: string) => {
     const listing = listings.find(l => l.id === id);
     if (!listing || listing.sellerEmail !== user?.email) {
-      alert("You can only delete your own listings");
+      showToast("You can only delete your own listings", "error");
       return;
     }
     const col = (listing as any)._collection === "tradePosts" ? "tradePosts" : "listings";
@@ -115,7 +116,7 @@ export default function ListListPage() {
       await deleteDoc(doc(db, col, id));
     } catch (error) {
       console.error(error);
-      alert("Failed to delete");
+      showToast("Failed to delete", "error");
     }
   };
 

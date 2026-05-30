@@ -7,6 +7,7 @@ import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import ThemeToggle from "../components/ThemeToggle";
+import { showToast } from "../components/Toast";
 
 import {
   addDoc,
@@ -31,7 +32,6 @@ import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { detectScam } from "../lib/scamdetection";
 import { detectSuspiciousPrice } from "../lib/pricedetection";
 import { checkImage } from "../lib/nsfw";
-import { showToast } from "../components/Toast";
 import { createPendingXP, trackListingCreated } from "../lib/xpValidation";
 import { useProfile } from "../contexts/ProfileContext";
 import DigitalAssetUpload from "../components/DigitalAssetUpload";
@@ -166,22 +166,22 @@ export default function PostPage() {
 
   async function createListing() {
     if (!user?.email) {
-      alert("Please login first.");
+      showToast("Please login first.", "error");
       return;
     }
 
     if (restricted) {
-      alert("Your account is temporarily restricted while we review reports.");
+      showToast("Your account is temporarily restricted while we review reports.", "error");
       return;
     }
 
     if (!title || !description || (listingType !== "service" && !price)) {
-      alert("Fill all required fields.");
+      showToast("Fill all required fields.", "error");
       return;
     }
 
     if ((listingType === "physical" || listingType === "vehicle") && !pickupAvailable && !shippingAvailable) {
-      alert("Select at least one delivery method (pickup or shipping).");
+      showToast("Select at least one delivery method (pickup or shipping).", "error");
       return;
     }
 
@@ -189,31 +189,31 @@ export default function PostPage() {
 
     if (listingType === "digital") {
       if (!digitalFileURL) {
-        alert("Upload the digital file you're selling.");
+        showToast("Upload the digital file you're selling.", "error");
         return;
       }
       const profileSnap = await getDoc(doc(db, "profiles", user.uid));
-      if (!profileSnap.exists()) { alert("Profile not found. Complete your profile first."); return; }
+      if (!profileSnap.exists()) { showToast("Profile not found. Complete your profile first.", "error"); return; }
       const profileData = profileSnap.data();
     }
 
     if (listingType === "event") {
       if (!eventDate || !venue) {
-        alert("Enter the event date and venue.");
+        showToast("Enter the event date and venue.", "error");
         return;
       }
     }
 
     if (listingType === "vehicle") {
       if (!vehicleMake || !vehicleModel) {
-        alert("Enter the vehicle make and model.");
+        showToast("Enter the vehicle make and model.", "error");
         return;
       }
     }
 
     if (listingType === "job") {
       if (!jobCompany) {
-        alert("Enter the company name.");
+        showToast("Enter the company name.", "error");
         return;
       }
     }
@@ -467,10 +467,24 @@ export default function PostPage() {
         trackListingCreated(user.uid, title);
       }
 
+      // Check Stripe Connect — prompt if not set up
+      try {
+        const profileSnap = await getDoc(doc(db, "profiles", user.uid));
+        if (profileSnap.exists()) {
+          const profileData = profileSnap.data();
+          if (!profileData.stripeAccountId) {
+            showToast("⚠️ Connect Stripe to receive payouts — go to Profile", "info");
+            setTimeout(() => { window.location.href = "/profile?tab=payouts"; }, 1500);
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (e) { console.error("Stripe check error:", e); }
+
       router.push("/");
     } catch (error) {
       console.error(error);
-      alert("Failed to create listing.");
+      showToast("Failed to create listing.", "error");
     }
 
     setLoading(false);

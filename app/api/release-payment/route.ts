@@ -2,12 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "../../lib/stripe-server";
 import { verifyIdToken, getAdminDb } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
+import { isAdminEmail, writeAuditLog } from "../../lib/admin-utils";
+import { notifyAdmin, writeFailureRecord } from "../../lib/admin-alerts";
+import * as Sentry from "@sentry/nextjs";
 
 function isDisputeActive(disputeStatus?: string): boolean {
   return !!disputeStatus && ["open", "pending", "under_review"].includes(disputeStatus);
 }
 
 export async function POST(req: NextRequest) {
+  let decodedToken: any;
+  let purchaseId: string | undefined;
+  let purchase: any;
+
   try {
     const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
     const { allowed } = rateLimit(`release:${ip}`, 30, 60_000);
@@ -24,14 +31,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const idToken = authHeader.slice(7);
-    let decodedToken;
     try {
       decodedToken = await verifyIdToken(idToken);
     } catch {
       return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
     }
 
-    const { purchaseId } = await req.json();
+    const body = await req.json();
+    purchaseId = body.purchaseId;
     if (!purchaseId) {
       return NextResponse.json({ error: "Missing purchaseId" }, { status: 400 });
     }
@@ -40,12 +47,13 @@ export async function POST(req: NextRequest) {
     if (!purchaseDoc.exists) {
       return NextResponse.json({ error: "Purchase not found" }, { status: 404 });
     }
-    const purchase = purchaseDoc.data()!;
+    purchase = purchaseDoc.data()!;
 
-    // Must be either the seller or the buyer
+    // Must be either the seller, the buyer, or an admin
     const isSeller = purchase.sellerEmail === decodedToken.email;
     const isBuyer = purchase.buyerEmail === decodedToken.email;
-    if (!isSeller && !isBuyer) {
+    const isAdmin = isAdminEmail(decodedToken.email || "");
+    if (!isSeller && !isBuyer && !isAdmin) {
       return NextResponse.json({ error: "Not authorized for this purchase" }, { status: 403 });
     }
 
@@ -57,14 +65,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Funds already released for this purchase" }, { status: 400 });
     }
 
-    // Block release during active dispute
-    if (isDisputeActive(purchase.disputeStatus)) {
+    // Block release during active dispute (unless admin overriding)
+    if (isDisputeActive(purchase.disputeStatus) && !isAdmin) {
       return NextResponse.json({ error: "Funds frozen — a dispute is in progress" }, { status: 400 });
     }
 
     // Only the buyer can trigger release (they confirmed receipt)
     // Seller cannot trigger release — must wait for buyer confirmation or auto-release
-    if (isSeller) {
+    // Admin can bypass all restrictions
+    if (isAdmin) {
+      // Admin can release regardless of dispute or timing
+    } else if (isSeller) {
       // Check if auto-release window has passed (72 hours after deliveredAt or 14 days after createdAt)
       const deliveredAt = purchase.deliveredAt?.toMillis?.() || purchase.deliveredAt?.seconds * 1000;
       const createdAt = purchase.createdAt?.toMillis?.() || purchase.createdAt?.seconds * 1000;
@@ -95,21 +106,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No funds to release" }, { status: 400 });
     }
 
-    const profileDoc = await getAdminDb().collection("profiles").doc(decodedToken.uid).get();
-    const stripeAccountId = profileDoc.data()?.stripeConnectId;
-    if (!stripeAccountId) {
-      return NextResponse.json({ error: "No Stripe Connect account linked. Set up payouts in your profile." }, { status: 400 });
-    }
-
-    // For seller auto-release, use the seller's Stripe account
-    let sellerStripeAccountId = stripeAccountId;
-    if (isBuyer) {
+    // Admin always pays to the seller; seller uses own account; buyer pays to seller
+    let sellerStripeAccountId: string | undefined;
+    if (isAdmin || isBuyer) {
       const sellerProfileDocs = await getAdminDb().collection("profiles").where("email", "==", purchase.sellerEmail).limit(1).get();
       const sellerProfile = sellerProfileDocs.docs[0]?.data();
-      sellerStripeAccountId = sellerProfile?.stripeConnectId;
-      if (!sellerStripeAccountId) {
-        return NextResponse.json({ error: "Seller has not set up payouts." }, { status: 400 });
-      }
+      sellerStripeAccountId = sellerProfile?.stripeAccountId;
+    } else {
+      const profileDoc = await getAdminDb().collection("profiles").doc(decodedToken.uid).get();
+      sellerStripeAccountId = profileDoc.data()?.stripeAccountId;
+    }
+    if (!sellerStripeAccountId) {
+      return NextResponse.json({ error: "Seller has not set up payouts." }, { status: 400 });
     }
 
     const idempotencyKey = `release-${purchaseId}`;
@@ -124,7 +132,7 @@ export async function POST(req: NextRequest) {
       if (purchaseTxData.fundsReleased) {
         throw new Error("Funds already released for this purchase");
       }
-      if (isDisputeActive(purchaseTxData.disputeStatus)) {
+      if (isDisputeActive(purchaseTxData.disputeStatus) && !isAdmin) {
         throw new Error("Funds frozen — dispute in progress");
       }
 
@@ -146,9 +154,46 @@ export async function POST(req: NextRequest) {
       });
     });
 
+    await writeAuditLog({
+      action: isAdmin ? "admin_force_release_payment" : "release_payment",
+      actorEmail: decodedToken.email || "",
+      purchaseId,
+      amount: Math.round(amount / 100),
+      metadata: { transferId: transfer.id, strikerTransferId: transfer.id, adminOverride: isAdmin },
+    });
+
     return NextResponse.json({ success: true, transferId: transfer.id });
   } catch (e: any) {
     console.error("[release-payment] Error:", e?.code || e?.message || e);
+    Sentry.captureException(e, { tags: { type: "payment-release" }, extra: { purchaseId, listingTitle: purchase?.listingTitle } });
+
+    const errorMsg = e?.message || e?.code || "Unknown error";
+    await writeFailureRecord("paymentReleaseFailures", {
+      purchaseId,
+      sellerEmail: purchase?.sellerEmail || "unknown",
+      buyerEmail: purchase?.buyerEmail || "unknown",
+      stripeTransferError: errorMsg,
+    });
+    await writeAuditLog({
+      action: "release_payment_failed",
+      actorEmail: decodedToken?.email || "unknown",
+      purchaseId,
+      metadata: { error: errorMsg, listingTitle: purchase?.listingTitle },
+    });
+    await notifyAdmin({
+      type: "payment_release_failure",
+      title: "Escrow Payment Release Failed",
+      message: `Purchase ${purchaseId}: ${errorMsg}`,
+      metadata: {
+        purchaseId,
+        sellerEmail: purchase?.sellerEmail,
+        buyerEmail: purchase?.buyerEmail,
+        listingTitle: purchase?.listingTitle,
+        amount: purchase?.total,
+        error: errorMsg,
+      },
+    });
+
     return NextResponse.json({ error: e.message || "Failed to release funds" }, { status: 500 });
   }
 }

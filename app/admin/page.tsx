@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import ThemeToggle from "../components/ThemeToggle";
+import { showToast } from "../components/Toast";
 import { useRouter } from "next/navigation";
 
 import {
@@ -42,6 +43,7 @@ export default function AdminPage() {
 
   const [pendingDigital, setPendingDigital] = useState(0);
   const [openDisputes, setOpenDisputes] = useState(0);
+  const [adminAlerts, setAdminAlerts] = useState<any[]>([]);
   const router = useRouter();
 
   // ADMIN EMAILS
@@ -117,6 +119,15 @@ export default function AdminPage() {
     return () => unsub();
   }, []);
 
+  useEffect(() => {
+    const q = query(collection(db, "adminNotifications"), orderBy("createdAt", "desc"));
+    const unsub = onSnapshot(q, (snap) => {
+      const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setAdminAlerts(items.slice(0, 20));
+    });
+    return () => unsub();
+  }, []);
+
   async function deleteReport(
     id: string
   ) {
@@ -137,15 +148,11 @@ export default function AdminPage() {
         )
       );
 
-      alert(
-        "Report removed."
-      );
+      showToast("Report removed.");
     } catch (error) {
       console.error(error);
 
-      alert(
-        "Failed to remove report."
-      );
+      showToast("Failed to remove report.", "error");
     }
   }
 
@@ -292,6 +299,48 @@ export default function AdminPage() {
               {pendingDigital} pending →
             </h2>
           </a>
+        </div>
+
+        {/* SYSTEM ALERTS */}
+        <div className="mb-12">
+          <h2 className="text-4xl font-black flex items-center gap-3">
+            System Alerts
+            {adminAlerts.filter(a => !a.read).length > 0 && (
+              <span className="rounded-full bg-red-500 px-3 py-0.5 text-sm font-bold text-white">
+                {adminAlerts.filter(a => !a.read).length} new
+              </span>
+            )}
+          </h2>
+          <div className="mt-6 grid gap-3">
+            {adminAlerts.length === 0 ? (
+              <div className="rounded-2xl border border-zinc-800/50 bg-zinc-900/30 p-6 text-center text-sm text-zinc-500">
+                No alerts
+              </div>
+            ) : (
+              adminAlerts.slice(0, 10).map((alert) => (
+                <div key={alert.id} className={`rounded-2xl border p-4 ${!alert.read ? "border-red-500/20 bg-red-500/[0.03]" : "border-zinc-800/30 bg-zinc-900/20"}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className={`text-sm font-bold ${!alert.read ? "text-red-400" : "text-zinc-400"}`}>
+                        {!alert.read && <span className="mr-2 inline-block h-2 w-2 rounded-full bg-red-500" />}
+                        {alert.title}
+                      </p>
+                      <p className="mt-1 text-xs text-zinc-500 line-clamp-2">{alert.message}</p>
+                    </div>
+                    <span className="shrink-0 text-[10px] text-zinc-600">
+                      {alert.createdAt?.toDate?.() ? new Date(alert.createdAt.toDate()).toLocaleString() : ""}
+                    </span>
+                  </div>
+                  {alert.metadata && (
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-[10px] text-zinc-600 hover:text-zinc-400">Details</summary>
+                      <pre className="mt-1 overflow-x-auto rounded-lg bg-black/30 p-2 text-[10px] text-zinc-500">{JSON.stringify(alert.metadata, null, 2)}</pre>
+                    </details>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
         </div>
 
         {/* REPORTS */}

@@ -38,6 +38,7 @@ interface Purchase {
   digitalFileName?: string;
   disputeDeadline?: any;
   disputeStatus?: string;
+  fundsReleased?: boolean;
   stripePaymentIntentId?: string;
   rentalDays?: number;
   rentalStart?: any;
@@ -367,9 +368,16 @@ export default function PurchasesPage() {
                             {p.createdAt?.seconds && <span>· {formatDate(p.createdAt)}</span>}
                           </div>
                         </div>
-                        <span className={`shrink-0 rounded-full border px-3 py-0.5 text-[10px] font-bold ${STATUS_STYLES[p.status] || "bg-zinc-800/50 text-zinc-500 border-zinc-700/50"}`}>
-                          {STATUS_LABELS[p.status] || p.status}
-                        </span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className={`shrink-0 rounded-full border px-3 py-0.5 text-[10px] font-bold ${STATUS_STYLES[p.status] || "bg-zinc-800/50 text-zinc-500 border-zinc-700/50"}`}>
+                            {STATUS_LABELS[p.status] || p.status}
+                          </span>
+                          {!p.fundsReleased && p.status !== "cancelled" && p.status !== "refunded" && p.status !== "failed" && (
+                            <span className="shrink-0 rounded-full border border-amber-500/15 bg-amber-500/[0.04] px-2.5 py-0.5 text-[9px] font-medium text-amber-400/70">
+                              🔒 Escrow
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       <div className="mt-2 flex items-center gap-2 text-[11px] text-zinc-500">

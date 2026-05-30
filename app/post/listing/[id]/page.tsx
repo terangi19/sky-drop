@@ -458,8 +458,10 @@ export default function ListingPage() {
         receiver: listing.sellerEmail,
         participants: [user.email, listing.sellerEmail],
         type: "offer",
+        offerType: "make",
+        offerAmount: Number(offerAmount),
+        offerStatus: "pending",
         text: `Offer: $${offerAmount}`,
-        offer: { amount: Number(offerAmount), status: "pending" },
         listingId: listing.id,
         listingTitle: listing.title,
         listingImage: listing.images?.[0] || listing.imageUrl || "",
@@ -675,7 +677,12 @@ export default function ListingPage() {
   if (!listing) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[var(--background)]">
-        <p className="text-[var(--muted)]">Listing not found.</p>
+        <div className="text-center">
+          <p className="text-[var(--muted)] mb-4">Listing not found.</p>
+          <Link href="/" className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">
+            Browse Marketplace
+          </Link>
+        </div>
       </main>
     );
   }
@@ -816,7 +823,7 @@ export default function ListingPage() {
         <div className="flex flex-col items-center justify-center py-24">
           <span className="text-5xl mb-4">🔍</span>
           <p className="text-lg font-bold text-[var(--foreground)]">{loading ? "Loading..." : "Listing not found"}</p>
-          {!loading && <Link href="/" className="mt-4 text-sm text-sky-400 hover:underline">Browse listings</Link>}
+          {!loading && <Link href="/" className="mt-6 inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">Browse Marketplace</Link>}
         </div>
       ) : (<>
       <section className="relative z-10 mx-auto max-w-5xl px-6 py-8">
@@ -1545,10 +1552,12 @@ Service Status: 🟢 Inquiry Active`;
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
                     Message Seller
                   </button>
-                  <button onClick={() => setShowOffer(true)}
-                    className="rounded-lg border border-zinc-700 px-4 py-3 text-[12px] font-medium text-[var(--foreground)] transition hover:border-zinc-600">
-                    Make Offer
-                  </button>
+                  {listing.acceptOffers && (
+                    <button onClick={() => setShowOffer(true)}
+                      className="rounded-lg border border-zinc-700 px-4 py-3 text-[12px] font-medium text-[var(--foreground)] transition hover:border-zinc-600">
+                      Make Offer
+                    </button>
+                  )}
                 </>
               ) : user?.email === listing.sellerEmail ? (
                 <div className="flex gap-2 w-full">
@@ -1654,11 +1663,12 @@ Service Status: 🟢 Inquiry Active`;
             </div>
             )}
 
-            {/* Safe Trading Reminder */}
+            {/* Escrow & Safe Trading */}
             {user && user.email !== listing.sellerEmail && (
-              <p className="text-[11px] text-[var(--muted)]">
-                🔒 Keep payments and messages inside Sky Drop.
-              </p>
+              <div className="rounded-lg border border-amber-500/10 bg-amber-500/[0.03] px-3.5 py-2.5">
+                <p className="text-[11px] font-semibold text-amber-400/90">🔒 Escrow Protected Purchase</p>
+                <p className="mt-0.5 text-[10px] leading-relaxed text-zinc-500">Your payment is held securely. The seller is paid only after you confirm delivery.</p>
+              </div>
             )}
 
             {/* Unverified Seller Notice */}

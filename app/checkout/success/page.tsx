@@ -2,36 +2,31 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp, query, where, getDocs } from "firebase/firestore";
-import { auth, db, storage } from "../../lib/firebase";
+import { auth } from "../../lib/firebase";
 import stripePromise from "../../lib/stripe-client";
-import { ref, getDownloadURL } from "firebase/storage";
 
 function SuccessInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [processed, setProcessed] = useState(false);
-  const [status, setStatus] = useState<"processing" | "done" | "error">("processing");
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const [orderId, setOrderId] = useState<string | null>(null);
+  const [status, setStatus] = useState<"loading" | "done" | "error">("loading");
+  const [purchaseData, setPurchaseData] = useState<{ purchaseId: string; orderId: string; conversationId: string; title: string; price: string } | null>(null);
 
   const listingId = searchParams.get("listingId") || "";
   const title = searchParams.get("title") || "Listing";
   const price = searchParams.get("price") || "0";
   const buyerEmail = searchParams.get("buyerEmail") || "";
   const paymentIntentClientSecret = searchParams.get("payment_intent_client_secret") || "";
-  const badgeForSale = searchParams.get("badgeForSale") || "";
   const collectionName = searchParams.get("collectionName") || "listings";
+  const badgeForSale = searchParams.get("badgeForSale") || "";
   const digitalParam = searchParams.get("type") || "";
   const digitalStoragePath = searchParams.get("digitalStoragePath") || "";
   const digitalFileName = searchParams.get("digitalFileName") || "";
   const sellerEmailParam = searchParams.get("sellerEmail") || "";
 
   useEffect(() => {
-    async function processOrder() {
-      if (processed) return;
-      setProcessed(true);
+    let cancelled = false;
 
+    async function verifyAndDisplay() {
       if (!listingId || !buyerEmail || !paymentIntentClientSecret) {
         setStatus("done");
         return;
@@ -39,53 +34,27 @@ function SuccessInner() {
 
       try {
         const stripe = await stripePromise;
-        if (!stripe) {
-          setStatus("error");
-          return;
-        }
+        if (!stripe) { setStatus("error"); return; }
 
         const paymentIntentResult = await stripe.retrievePaymentIntent(paymentIntentClientSecret);
-        if (!paymentIntentResult.paymentIntent || paymentIntentResult.error || paymentIntentResult.paymentIntent.status !== "succeeded") {
+        if (!paymentIntentResult.paymentIntent || paymentIntentResult.error) {
           setStatus("done");
           return;
         }
 
-        const listingRef = doc(db, collectionName, listingId);
-        const listingSnap = await getDoc(listingRef);
+        const isBadge = !!badgeForSale;
+        const isDigital = digitalParam === "digital";
+        const isService = digitalParam === "service";
 
-        if (!listingSnap.exists()) {
-          setStatus("done");
-          return;
-        }
-
-        const listingData = listingSnap.data();
-        const sellerEmail = listingData.sellerEmail || "";
-
-        const existingPurchaseSnap = await getDocs(query(collection(db, "purchases"), where("listingId", "==", listingId), where("buyerEmail", "==", buyerEmail)));
-        if (!existingPurchaseSnap.empty) {
-          setStatus("done");
-          return;
-        }
-
-        if (listingData.status === "sold") {
-          setStatus("done");
-          return;
-        }
-
-        // Determine purchase type
-        const isBadge = !!badgeForSale && !!sellerEmail && !!buyerEmail;
-        const isDigital = digitalParam === "digital" && !!digitalStoragePath;
-        const isService = digitalParam === "service" && !!sellerEmailParam && !!buyerEmail;
-
-        // Resolve digital download URL if needed
         let resolvedDigitalURL = "";
-        if (isDigital) {
+        if (isDigital && digitalStoragePath) {
           try {
+            const { ref, getDownloadURL } = await import("firebase/storage");
+            const { storage } = await import("../../lib/firebase");
             resolvedDigitalURL = await getDownloadURL(ref(storage, digitalStoragePath));
-          } catch (e) { console.error("Failed to resolve digital URL:", e); }
+          } catch {}
         }
 
-        // Call server-side atomic purchase creation
         const token = await auth.currentUser?.getIdToken();
         const createRes = await fetch("/api/create-purchase", {
           method: "POST",
@@ -95,12 +64,12 @@ function SuccessInner() {
           },
           body: JSON.stringify({
             listingId,
-            listingTitle: listingData.title || title,
-            listingImage: listingData.imageUrl || "",
-            sellerEmail: isService ? sellerEmailParam : sellerEmail,
+            listingTitle: title,
+            listingImage: "",
+            sellerEmail: isService ? sellerEmailParam : buyerEmail,
             buyerName: buyerEmail,
             deliveryMethod: isBadge ? "badge" : isDigital ? "digital" : isService ? "service" : "pickup",
-            total: Number(listingData.price || price) + 1,
+            total: Number(price) + 1,
             processingFee: 1.00,
             badgeTransfer: badgeForSale || "",
             type: isBadge ? "badge" : isDigital ? "digital" : isService ? "service" : "physical",
@@ -113,123 +82,33 @@ function SuccessInner() {
           }),
         });
         const createData = await createRes.json();
-        if (!createRes.ok) {
-          console.error("Purchase creation failed:", createData.error);
-          setStatus("done");
+        if (!createRes.ok || !createData.success) {
+          if (!cancelled) setStatus("done");
           return;
         }
-        const purchaseId = createData.purchaseId;
 
-        // Auto-transfer badge if applicable
-        if (isBadge) {
-          try {
-            const { autoTransferBadge } = await import("../../lib/xpValidation");
-            const sellerSnap = await getDocs(query(collection(db, "profiles"), where("email", "==", sellerEmail)));
-            const buyerSnap = await getDocs(query(collection(db, "profiles"), where("email", "==", buyerEmail)));
-            const sellerId = sellerSnap.docs[0]?.id;
-            const buyerId = buyerSnap.docs[0]?.id;
-            if (sellerId && buyerId) {
-              await autoTransferBadge(sellerId, buyerId, badgeForSale, purchaseId, sellerEmail);
-            }
-          } catch (e) {
-            console.error("Auto badge transfer failed:", e);
-          }
-        }
-
-        // Create order record
-        const orderRef = await addDoc(collection(db, "orders"), {
-          listingId,
-          title: listingData.title || title,
-          price: listingData.price || price,
-          sellerEmail,
-          buyerEmail: buyerEmail || "unknown",
-          status: "paid",
-          createdAt: serverTimestamp(),
-        });
-        setOrderId(orderRef.id);
-
-        // Find or create conversation
-        const convKey = `listing_${listingId}`;
-        const existingConv = await getDocs(
-          query(
-            collection(db, "conversations"),
-            where("convKey", "==", convKey),
-            where("participants", "array-contains", buyerEmail)
-          )
-        );
-
-        let convId: string;
-        if (!existingConv.empty) {
-          convId = existingConv.docs[0].id;
-          await updateDoc(doc(db, "conversations", convId), {
-            updatedAt: serverTimestamp(),
-            lastMessage: `Payment confirmed — $${price}`,
-            orderStatus: "paid",
+        if (!cancelled) {
+          setPurchaseData({
+            purchaseId: createData.purchaseId,
+            orderId: createData.orderId,
+            conversationId: createData.conversationId,
+            title,
+            price,
           });
-        } else {
-          const convRef = await addDoc(collection(db, "conversations"), {
-            convKey,
-            participants: [buyerEmail, sellerEmail],
-            buyerEmail,
-            sellerEmail,
-            listingId,
-            listingTitle: listingData.title || title,
-            listingPrice: listingData.price || price,
-            listingImage: listingData.imageUrl || "",
-            orderStatus: "paid",
-            orderId: orderRef.id,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-            lastMessage: `Payment confirmed — $${price}`,
-          });
-          convId = convRef.id;
+          setStatus("done");
         }
-        setConversationId(convId);
-
-        // Send system order confirmation message
-        await addDoc(collection(db, "messages"), {
-          type: "order",
-          orderId: orderRef.id,
-          sender: "system",
-          receiver: buyerEmail,
-          participants: [buyerEmail, sellerEmail],
-          listingId,
-          listingTitle: listingData.title || title,
-          listingPrice: listingData.price || price,
-          orderStatus: "paid",
-          text: `Payment confirmed for "${listingData.title || title}" — $${listingData.price || price}. Awaiting seller response.`,
-          read: false,
-          createdAt: serverTimestamp(),
-        });
-
-        // Also send to seller
-        await addDoc(collection(db, "messages"), {
-          type: "order",
-          orderId: orderRef.id,
-          sender: "system",
-          receiver: sellerEmail,
-          participants: [buyerEmail, sellerEmail],
-          listingId,
-          listingTitle: listingData.title || title,
-          listingPrice: listingData.price || price,
-          orderStatus: "paid",
-          text: `Your listing "${listingData.title || title}" has been purchased for $${listingData.price || price}.`,
-          read: false,
-          createdAt: serverTimestamp(),
-        });
-      } catch (err) {
-        console.error("Order processing error:", err);
+      } catch {
+        if (!cancelled) setStatus("done");
       }
-
-      setStatus("done");
     }
 
-    processOrder();
-  }, [listingId, title, price, buyerEmail, paymentIntentClientSecret]);
+    verifyAndDisplay();
+    return () => { cancelled = true; };
+  }, [listingId, title, price, buyerEmail, paymentIntentClientSecret, badgeForSale, digitalParam, digitalStoragePath, digitalFileName, sellerEmailParam, collectionName]);
 
   const redirectToMessages = () => {
-    const url = conversationId
-      ? `/messages/${conversationId}`
+    const url = purchaseData?.conversationId
+      ? `/messages/${purchaseData.conversationId}`
       : "/messages";
     router.push(url);
   };
@@ -238,7 +117,7 @@ function SuccessInner() {
     <main className="relative flex min-h-screen items-center justify-center bg-[var(--background)] text-[var(--foreground)]">
       <div className="mx-auto max-w-md px-6 text-center">
         <div className="rounded-3xl border border-zinc-800 bg-zinc-950/80 p-10 shadow-2xl backdrop-blur">
-          {status === "processing" ? (
+          {status === "loading" ? (
             <>
               <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-sky-500 border-t-transparent" />
               <p className="mt-4 text-[var(--muted)]">Processing your order...</p>
@@ -250,6 +129,11 @@ function SuccessInner() {
               <p className="mt-3 text-[var(--muted)]">
                 Your purchase of <strong>{title}</strong> for <strong>${price}</strong> is complete.
               </p>
+              {purchaseData?.orderId && (
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  Order #{purchaseData.orderId.slice(-6).toUpperCase()}
+                </p>
+              )}
               <div className="mt-8 flex flex-col gap-3">
                 <button
                   onClick={redirectToMessages}

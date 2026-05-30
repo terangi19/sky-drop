@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 
-
+import { showToast } from "../../../components/Toast";
 
 import { User } from "firebase/auth";
 
@@ -196,14 +196,12 @@ export default function EditListingPage({
   async function handleSave() {
 
     if (!user) {
-      alert("Login first.");
+      showToast("Login first.", "error");
       return;
     }
 
     if (sellerId && user.uid !== sellerId) {
-      alert(
-        "You can only edit your own listings."
-      );
+      showToast("You can only edit your own listings.", "error");
       return;
     }
 
@@ -235,15 +233,13 @@ export default function EditListingPage({
         }
       );
 
-      alert("Listing updated.");
+      showToast("Listing updated.");
 
     } catch (error) {
 
       console.error(error);
 
-      alert(
-        "Failed to update listing."
-      );
+      showToast("Failed to update listing.", "error");
     }
 
     setSaving(false);

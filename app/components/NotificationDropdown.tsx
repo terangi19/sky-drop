@@ -274,6 +274,12 @@ export default function NotificationDropdown({
           </div>
         )}
       </div>
+      {notifications.length > 0 && (
+        <Link href="/notifications"
+          className="block border-t border-white/[0.04] px-4 py-2.5 text-center text-[11px] font-bold text-sky-400 transition hover:bg-white/[0.02]">
+          View All →
+        </Link>
+      )}
     </div>
   );
 }

@@ -357,7 +357,7 @@ export default function Home() {
     // Verify ownership
     const listing = listings.find(l => l.id === id);
     if (!listing || listing.sellerEmail !== user?.email) {
-      alert("You can only delete your own listings");
+      showToast("You can only delete your own listings", "error");
       return;
     }
 
@@ -374,17 +374,13 @@ export default function Home() {
       cancelPendingXPByListing(user!.uid, id);
       trackListingDeleted(user!.uid, listing.title || "");
 
-      alert(
-        "Listing deleted."
-      );
+      showToast("Listing deleted.");
 
      } catch (error) {
        console.error(
          error
        );
-       alert(
-         "Failed to delete listing."
-       );
+       showToast("Failed to delete listing.", "error");
      }
    }
 
@@ -638,7 +634,7 @@ export default function Home() {
       });
     } catch (e) {
       console.error("Failed to send offer:", e);
-      alert("Failed to send offer.");
+      showToast("Failed to send offer.", "error");
     }
     setShowOfferModal(false);
     setOfferListing(null);
@@ -717,7 +713,7 @@ export default function Home() {
           <div className="relative px-6 py-10 sm:px-10 sm:py-12">
             <div className="mx-auto max-w-3xl text-center">
               <div className="inline-flex items-center gap-2 rounded-full border border-sky-500/15 bg-sky-500/5 px-3.5 py-1 text-[10px] font-semibold text-sky-400 mb-5 tracking-wider uppercase">
-                {filteredListings.length} listings available
+                🇳🇿 New Zealand's Marketplace
               </div>
 
               <h1 className="text-4xl font-black tracking-tight sm:text-5xl lg:text-6xl leading-none">
@@ -727,7 +723,7 @@ export default function Home() {
               </h1>
               <p className="mt-4 max-w-xl mx-auto text-sm leading-relaxed text-zinc-400">
                 {user
-                  ? `${filteredListings.length} listings from trusted sellers across New Zealand`
+                  ? "Post what you don't need. Find what you've been looking for."
                   : "Browse listings, message sellers, and buy with confidence. All payments are protected."}
               </p>
             </div>
@@ -769,39 +765,82 @@ export default function Home() {
             </div>
 
             {/* BROWSE CATEGORIES */}
-            <div className="mt-6">
-              <p className="text-center text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500 mb-3">Browse Categories</p>
-              <div className="flex flex-wrap justify-center gap-2.5">
+            <div className="mt-8">
+              <div className="flex flex-wrap justify-center gap-3">
                 <button
                   onClick={() => setSelectedCategory("All")}
-                  className={`flex flex-col items-center gap-1.5 rounded-xl border px-4 py-3.5 transition-all duration-200 ${
+                  className={`flex flex-col items-center gap-2 rounded-2xl border px-6 py-4 transition-all duration-200 min-w-[88px] ${
                     selectedCategory === "All"
                       ? "border-sky-500/40 bg-sky-500/10 shadow-[0_0_25px_rgba(14,165,233,0.15)]"
-                      : "border-white/[0.04] bg-white/[0.02] hover:bg-white/[0.04] hover:-translate-y-0.5"
+                      : "border-white/[0.05] bg-white/[0.03] hover:bg-white/[0.06] hover:-translate-y-1 hover:border-white/[0.10]"
                   }`}
                 >
-                  <span className={`text-lg ${selectedCategory === "All" ? "" : "opacity-50"}`}>✨</span>
-                  <span className={`text-[10px] font-bold ${selectedCategory === "All" ? "text-sky-400" : "text-zinc-400"}`}>All</span>
+                  <span className={`text-2xl ${selectedCategory === "All" ? "" : "opacity-60"}`}>✨</span>
+                  <span className={`text-xs font-bold ${selectedCategory === "All" ? "text-sky-400" : "text-zinc-400"}`}>All</span>
                 </button>
                 {activeCategories.map((cat) => (
                   <button
                     key={cat.name}
                     onClick={() => setSelectedCategory(cat.name)}
-                    className={`flex flex-col items-center gap-1.5 rounded-xl border px-4 py-3.5 transition-all duration-200 ${
+                    className={`flex flex-col items-center gap-2 rounded-2xl border px-6 py-4 transition-all duration-200 min-w-[88px] ${
                       selectedCategory === cat.name
                         ? "border-sky-500/40 bg-sky-500/10 shadow-[0_0_25px_rgba(14,165,233,0.15)]"
-                        : "border-white/[0.04] bg-white/[0.02] hover:bg-white/[0.04] hover:-translate-y-0.5"
+                        : "border-white/[0.05] bg-white/[0.03] hover:bg-white/[0.06] hover:-translate-y-1 hover:border-white/[0.10]"
                     }`}
                   >
-                    <span className={`text-2xl ${selectedCategory === cat.name ? "" : "opacity-50"}`}>{cat.emoji}</span>
-                    <span className={`text-[11px] font-bold ${selectedCategory === cat.name ? "text-sky-400" : "text-zinc-400"}`}>{cat.name}</span>
+                    <span className={`text-3xl ${selectedCategory === cat.name ? "" : "opacity-60"}`}>{cat.emoji}</span>
+                    <span className={`text-xs font-bold ${selectedCategory === cat.name ? "text-sky-400" : "text-zinc-400"}`}>{cat.name}</span>
                   </button>
                 ))}
                 <Link href="/digital"
-                  className="flex flex-col items-center gap-1.5 rounded-xl border border-sky-500/10 bg-sky-500/[0.03] px-4 py-3.5 transition-all duration-200 hover:border-sky-500/30 hover:bg-sky-500/[0.06] hover:-translate-y-0.5">
+                  className="flex flex-col items-center gap-2 rounded-2xl border border-sky-500/15 bg-sky-500/[0.04] px-6 py-4 transition-all duration-200 min-w-[88px] hover:border-sky-500/35 hover:bg-sky-500/[0.08] hover:-translate-y-1">
                   <span className="text-2xl opacity-70">📥</span>
-                  <span className="text-[11px] font-bold text-sky-400">Digital</span>
+                  <span className="text-xs font-bold text-sky-400">Digital</span>
                 </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* TRUST SIGNALS */}
+      <section className="relative z-10 mx-auto max-w-[1800px] px-4 pb-1.5">
+        <div className="relative overflow-hidden rounded-2xl border border-white/[0.03] bg-gradient-to-r from-emerald-500/[0.03] via-transparent to-sky-500/[0.03]">
+          <div className="grid grid-cols-2 gap-px divide-x divide-white/[0.03] lg:grid-cols-4">
+            <div className="flex items-center gap-3 px-5 py-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-lg">
+                🔒
+              </div>
+              <div>
+                <p className="text-[13px] font-bold text-white">Escrow Protected</p>
+                <p className="text-[11px] text-zinc-500">Funds held until you're happy</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 px-5 py-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/10 text-lg">
+                🛡️
+              </div>
+              <div>
+                <p className="text-[13px] font-bold text-white">Secure Payments</p>
+                <p className="text-[11px] text-zinc-500">Protected by Stripe & escrow</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 px-5 py-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-lg">
+                ✓
+              </div>
+              <div>
+                <p className="text-[13px] font-bold text-white">Verified Sellers</p>
+                <p className="text-[11px] text-zinc-500">Real profiles with reviews</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 px-5 py-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-lg">
+                ⭐
+              </div>
+              <div>
+                <p className="text-[13px] font-bold text-white">Trusted Marketplace</p>
+                <p className="text-[11px] text-zinc-500">Built for New Zealand</p>
               </div>
             </div>
           </div>
@@ -818,25 +857,31 @@ export default function Home() {
               <p className="text-[13px] font-bold uppercase tracking-[0.22em] text-white">🔥 Hot This Week</p>
             </div>
           </div>
-          <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
+          <div className="flex gap-4 overflow-x-auto pb-1 scrollbar-none">
             {hotItems.map((item: any) => (
             <div key={item.id} onClick={() => { saveRecentlyViewed(item); router.push(`/post/listing/${item.id}`); }}
-              className="group shrink-0 w-56 cursor-pointer rounded-2xl border border-white/[0.04] bg-white/[0.02] p-3 transition-all duration-300 hover:bg-white/[0.04] hover:border-orange-500/30 hover:-translate-y-1 hover:shadow-[0_10px_30px_-10px_rgba(251,146,60,0.2)]">
+              className="group shrink-0 w-72 cursor-pointer rounded-2xl border border-white/[0.04] bg-white/[0.02] p-3 transition-all duration-300 hover:bg-white/[0.04] hover:border-orange-500/30 hover:-translate-y-1 hover:shadow-[0_10px_30px_-10px_rgba(251,146,60,0.2)]">
               <div className="relative overflow-hidden rounded-xl">
                 {item.images?.[0] || item.imageUrl || item.image ? (
-                   <img src={item.images?.[0] || item.imageUrl || item.image || ""} alt={item.title} loading="lazy" className="h-20 w-full rounded-xl object-cover transition-all duration-500 group-hover:scale-110" />
+                   <img src={item.images?.[0] || item.imageUrl || item.image || ""} alt={item.title} loading="lazy" className="h-36 w-full rounded-xl object-cover transition-all duration-500 group-hover:scale-105" />
                 ) : (
-                  <div className="h-20 rounded-xl bg-gradient-to-br from-orange-500/10 via-red-500/10 to-amber-500/10 flex items-center justify-center text-xs text-zinc-500">SD</div>
+                  <div className="h-36 rounded-xl bg-gradient-to-br from-orange-500/10 via-red-500/10 to-amber-500/10 flex items-center justify-center text-xs text-zinc-500">SD</div>
                 )}
                 <div className="absolute top-2 left-2">
-                  <span className="rounded-full bg-orange-500/90 px-2 py-0.5 text-[8px] font-bold text-white backdrop-blur-sm">🔥 Trending</span>
+                  <span className="rounded-full bg-orange-500/90 px-2.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm">🔥 Trending</span>
                 </div>
               </div>
-              <div className="mt-2.5 flex items-start justify-between gap-2">
+              <div className="mt-3 flex items-start justify-between gap-2">
                 <p className="truncate text-sm font-bold text-white flex-1">{item.title}</p>
-                <p className="shrink-0 text-sm font-black text-orange-400">${item.price}</p>
+                <p className="shrink-0 text-base font-black text-orange-400">${item.price}</p>
               </div>
-              <p className="mt-1 text-[10px] text-zinc-500">👁 {(item as any).views || 0} views</p>
+              {item.location && (
+                <p className="mt-1 text-[11px] text-zinc-500">📍 {item.location}</p>
+              )}
+              <div className="mt-1.5 flex items-center gap-3 text-[11px] text-zinc-500">
+                {item.createdAt?.seconds != null && <span>{timeAgo(item.createdAt.seconds)}</span>}
+                <span className="flex items-center gap-1">👁 {(item as any).views || 0}</span>
+              </div>
             </div>
           ))}
           </div>

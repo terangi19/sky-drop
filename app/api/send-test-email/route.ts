@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { verifyIdToken } from "../../lib/firebase-admin";
+import { isAdminEmail } from "../../lib/admin-utils";
 import { buildEmailHtml, notificationToEmail } from "../../lib/email";
 
 const ALL_TYPES = [
@@ -69,6 +71,21 @@ const CTAS: Record<string, { label: string; url: string; primary: boolean }[]> =
 
 export async function GET(req: NextRequest) {
   try {
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const idToken = authHeader.slice(7);
+    let decodedToken;
+    try {
+      decodedToken = await verifyIdToken(idToken);
+    } catch {
+      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
+    }
+    if (!isAdminEmail(decodedToken.email)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const to = "rangitr16@gmail.com";
     const listingTitle = "Sony WH-1000XM5 — Like New";
     const total = 349;

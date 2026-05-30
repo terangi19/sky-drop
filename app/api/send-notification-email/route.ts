@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
+import { isAdminEmail } from "../../lib/admin-utils";
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,8 +16,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const idToken = authHeader.slice(7);
+    let decodedToken;
     try {
-      await verifyIdToken(idToken);
+      decodedToken = await verifyIdToken(idToken);
     } catch {
       return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
     }
@@ -28,6 +30,10 @@ export async function POST(req: NextRequest) {
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
       return NextResponse.json({ error: "Invalid recipient email" }, { status: 400 });
+    }
+
+    if (to !== decodedToken.email && !isAdminEmail(decodedToken.email)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const transport = {

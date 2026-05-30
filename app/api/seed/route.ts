@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken, getAdminDb } from "../../lib/firebase-admin";
+import { isAdminEmail } from "../../lib/admin-utils";
 
 const sellers = [
   { email: "seller1@skydrop.nz", name: "TechTrader", uid: "seed_s1" },
@@ -27,8 +28,6 @@ const listings = [
   { type: "property", title: "Apartment - Wellington CBD", price: "550000", description: "1-bedroom apartment. Great views, secure parking.", condition: "Used - Good", category: "Houses", location: "Wellington", pickupAvailable: true, shippingAvailable: false, saleType: "buy_now", propertyType: "Apartment", bedrooms: 1, bathrooms: 1, floorArea: 55, parking: 1 },
 ];
 
-const ADMIN_EMAILS = ["rangitr16@gmail.com"];
-
 export async function GET(req: NextRequest) {
   try {
     const authHeader = req.headers.get("authorization");
@@ -38,7 +37,7 @@ export async function GET(req: NextRequest) {
     const idToken = authHeader.slice(7);
     try {
       const decoded = await verifyIdToken(idToken);
-      if (!ADMIN_EMAILS.includes(decoded.email || "")) {
+      if (!isAdminEmail(decoded.email)) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
     } catch {

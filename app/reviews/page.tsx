@@ -5,9 +5,11 @@ import {
   useState,
 } from "react";
 
+import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import ThemeToggle from "../components/ThemeToggle";
+import { showToast } from "../components/Toast";
 
 import {
   addDoc,
@@ -94,51 +96,32 @@ export default function ReviewsPage() {
 
   async function submitReview() {
     if (!user?.email) {
-      alert(
-        "You must be logged in."
-      );
-
+      showToast("You must be logged in.", "error");
       return;
     }
 
-    if (
-      !sellerEmail.trim() ||
-      !reviewText.trim()
-    ) {
-      alert(
-        "Fill all fields."
-      );
-
+    if (!sellerEmail.trim() || !reviewText.trim()) {
+      showToast("Fill all fields.", "error");
       return;
     }
 
     try {
-      await addDoc(
-        collection(db, "reviews"),
-        {
-          sellerEmail,
-          rating,
-          reviewText,
-          reviewer:
-            user.email,
-          createdAt:
-            serverTimestamp(),
-        }
-      );
+      await addDoc(collection(db, "reviews"), {
+        sellerEmail,
+        rating,
+        reviewText,
+        reviewer: user.email,
+        createdAt: serverTimestamp(),
+      });
 
       setSellerEmail("");
       setReviewText("");
       setRating(5);
 
-      alert(
-        "Review submitted."
-      );
+      showToast("Review submitted.");
     } catch (error) {
       console.error(error);
-
-      alert(
-        "Failed to submit review."
-      );
+      showToast("Failed to submit review.", "error");
     }
   }
 
@@ -253,6 +236,10 @@ export default function ReviewsPage() {
                 <h2 className="text-3xl font-black">
                   No reviews yet
                 </h2>
+                <p className="mt-2 text-sm text-[var(--muted)]">Complete a purchase to leave a review.</p>
+                <Link href="/" className="mt-6 inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">
+                  Browse Marketplace
+                </Link>
               </div>
             ) : (
               reviews.map(

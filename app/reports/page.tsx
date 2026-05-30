@@ -8,6 +8,7 @@ import {
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import ThemeToggle from "../components/ThemeToggle";
+import { showToast } from "../components/Toast";
 
 import {
   addDoc,
@@ -79,18 +80,18 @@ export default function ReportsPage() {
 
   async function submitReport() {
     if (!user?.email) {
-      alert("You must be logged in.");
+      showToast("You must be logged in.", "error");
       return;
     }
     if (!reportedUser.trim() || !reason.trim() || !details.trim()) {
-      alert("Fill all fields.");
+      showToast("Fill all fields.", "error");
       return;
     }
     const cooldownKey = `report_cooldown_${reportedUser.trim()}`;
     let lastReport = null;
     try { lastReport = localStorage.getItem(cooldownKey); } catch (e) { console.error("Failed to read report cooldown:", e); }
     if (lastReport && Date.now() - Number(lastReport) < 300000) {
-      alert("Please wait 5 minutes between reports.");
+      showToast("Please wait 5 minutes between reports.", "info");
       return;
     }
     try {
@@ -112,15 +113,10 @@ export default function ReportsPage() {
       setReason("");
       setDetails("");
 
-      alert(
-        "Report submitted."
-      );
+      showToast("Report submitted.");
     } catch (error) {
       console.error(error);
-
-      alert(
-        "Failed to submit report."
-      );
+      showToast("Failed to submit report.", "error");
     }
   }
 

@@ -479,6 +479,9 @@ export default function SellerPage() {
                   <div className="flex flex-col items-center justify-center py-8 text-center">
                     <svg className="mb-2 h-8 w-8 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
                     <p className="text-sm font-medium text-[var(--muted)]">No active listings</p>
+                    <button onClick={() => router.push("/")} className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">
+                      Browse Marketplace
+                    </button>
                   </div>
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-2">

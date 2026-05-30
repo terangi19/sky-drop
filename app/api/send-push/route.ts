@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
+import { isAdminEmail } from "../../lib/admin-utils";
 
 interface PushPayload {
   targetEmail: string;
@@ -29,14 +30,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
     }
 
-    const ADMIN_EMAILS = ["rangitr16@gmail.com"];
-
     const { targetEmail, title, message, url } = await req.json() as PushPayload;
     if (!targetEmail || !title) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    if (targetEmail !== decoded.email && !ADMIN_EMAILS.includes(decoded.email || "")) {
+    if (targetEmail !== decoded.email && !isAdminEmail(decoded.email)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

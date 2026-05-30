@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
+import { isAdminEmail } from "../../lib/admin-utils";
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,8 +23,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
     }
 
-    const ADMIN_EMAILS = ["rangitr16@gmail.com"];
-
     const { to, subject, html } = await req.json();
     if (!to || !subject || !html) {
       return NextResponse.json({ error: "Missing to, subject, or html" }, { status: 400 });
@@ -33,7 +32,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid recipient email" }, { status: 400 });
     }
 
-    if (to !== decoded.email && !ADMIN_EMAILS.includes(decoded.email || "")) {
+    if (to !== decoded.email && !isAdminEmail(decoded.email)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

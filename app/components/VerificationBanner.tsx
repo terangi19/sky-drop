@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { sendEmailVerification } from "firebase/auth";
 import { auth, onAuthStateChanged } from "../lib/firebase";
+import { showToast } from "./Toast";
 
 export default function VerificationBanner() {
   const [user, setUser] = useState<any>(null);
@@ -38,7 +39,7 @@ export default function VerificationBanner() {
       setSent(true);
       setTimeout(() => setSent(false), 4000);
     } catch (e: any) {
-      alert(e.message);
+      showToast(e.message, "error");
     }
     setSending(false);
   }

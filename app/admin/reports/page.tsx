@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
 import ThemeToggle from "../../components/ThemeToggle";
+import { showToast } from "../../components/Toast";
 import {
   collection,
   deleteDoc,
@@ -88,7 +89,7 @@ export default function AdminReportsPage() {
         restrictionReason: "Pending review of reports",
         restrictedAt: Timestamp.now(),
       }, { merge: true });
-      alert("User restricted.");
+      showToast("User restricted.");
     } catch (e) { console.error(e); }
   }
 

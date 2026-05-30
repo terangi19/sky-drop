@@ -78,11 +78,19 @@ export default function SalesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [confirmAction, setConfirmAction] = useState<{ id: string; status: string; label: string } | null>(null);
+  const [sellerStripeId, setSellerStripeId] = useState("");
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => setUser(u));
     return () => unsub();
   }, []);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    getDoc(doc(db, "profiles", user.uid)).then((snap) => {
+      if (snap.exists()) setSellerStripeId(snap.data().stripeAccountId || "");
+    }).catch(() => {});
+  }, [user?.uid]);
 
   useEffect(() => {
     if (!user?.email) return;
@@ -200,6 +208,13 @@ export default function SalesPage() {
           <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl">Track your sales, manage orders, and get paid — all in one place. When a buyer confirms delivery, release your funds securely through our escrow system. Every transaction is protected from listing to payout.</p>
           <p className="relative mt-2 text-sm text-zinc-500">{sales.length} total</p>
         </div>
+
+        {!sellerStripeId && (
+          <div className="mb-6 rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-4 text-sm">
+            <p className="font-bold text-amber-400">⚠️ Stripe Not Connected</p>
+            <p className="mt-1 text-amber-400/70">Connect Stripe to receive payouts from your sales. <Link href="/profile?tab=payouts" className="text-sky-400 underline hover:text-sky-300">Go to Profile →</Link></p>
+          </div>
+        )}
 
         {error && (
           <div className="mb-6 rounded-xl border border-red-800/40 bg-red-900/20 p-4 text-sm text-red-400">{error}</div>

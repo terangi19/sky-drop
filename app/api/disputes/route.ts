@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "../../lib/stripe-server";
 import { verifyIdToken, getAdminDb } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
+import { isAdminEmail, writeAuditLog } from "../../lib/admin-utils";
+import { notifyAdmin } from "../../lib/admin-alerts";
 
 export async function POST(req: NextRequest) {
   try {
@@ -32,14 +34,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Missing payment intent ID or purchase ID" }, { status: 400 });
       }
 
-      const ADMIN_EMAILS = ["rangitr16@gmail.com"];
-
       const purchaseDoc = await getAdminDb().collection("purchases").doc(purchaseId).get();
       if (!purchaseDoc.exists) {
         return NextResponse.json({ error: "Purchase not found" }, { status: 404 });
       }
       const purchaseData = purchaseDoc.data()!;
-      if (purchaseData.buyerEmail !== decodedToken.email && !ADMIN_EMAILS.includes(decodedToken.email || "")) {
+      if (purchaseData.buyerEmail !== decodedToken.email && !isAdminEmail(decodedToken.email)) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
       }
 
@@ -62,7 +62,97 @@ export async function POST(req: NextRequest) {
         refundId: refund.id,
       });
 
+      await writeAuditLog({
+        action: "refund",
+        actorEmail: decodedToken.email || "",
+        purchaseId,
+        amount: refundAmount ? Math.round(refundAmount / 100) : undefined,
+        metadata: { reason, stripeRefundId: refund.id },
+      });
+
+      await notifyAdmin({
+        type: "dispute_resolved",
+        title: "Dispute Resolved — Refund Issued",
+        message: `Purchase ${purchaseId}: $${refundAmount ? (refundAmount / 100).toFixed(2) : "full"} refunded to buyer. Reason: ${reason || "N/A"}`,
+        metadata: { purchaseId, refundId: refund.id, reason, amount: refundAmount },
+      });
+
       return NextResponse.json({ success: true, refundId: refund.id, status: refund.status });
+    }
+
+    if (action === "release") {
+      const { purchaseId } = body;
+      if (!purchaseId) {
+        return NextResponse.json({ error: "Missing purchase ID" }, { status: 400 });
+      }
+      if (!isAdminEmail(decodedToken.email)) {
+        return NextResponse.json({ error: "Admin only" }, { status: 403 });
+      }
+
+      const purchaseDoc = await getAdminDb().collection("purchases").doc(purchaseId).get();
+      if (!purchaseDoc.exists) {
+        return NextResponse.json({ error: "Purchase not found" }, { status: 404 });
+      }
+      const purchaseData = purchaseDoc.data()!;
+
+      if (purchaseData.fundsReleased) {
+        return NextResponse.json({ error: "Funds already released" }, { status: 400 });
+      }
+
+      // Look up seller's Stripe Connect account
+      const sellerProfileDocs = await getAdminDb().collection("profiles").where("email", "==", purchaseData.sellerEmail).limit(1).get();
+      const sellerProfile = sellerProfileDocs.docs[0]?.data();
+      const sellerStripeAccountId = sellerProfile?.stripeAccountId;
+      if (!sellerStripeAccountId) {
+        return NextResponse.json({ error: "Seller has not set up payouts" }, { status: 400 });
+      }
+
+      const amount = Math.round((Number(purchaseData.total) - 1.00) * 100);
+      if (amount <= 0) {
+        return NextResponse.json({ error: "No funds to release" }, { status: 400 });
+      }
+
+      if (!process.env.STRIPE_SECRET_KEY) {
+        return NextResponse.json({ error: "Payments not configured" }, { status: 500 });
+      }
+
+      const idempotencyKey = `dispute-release-${purchaseId}`;
+      const transfer = await getStripe().transfers.create(
+        {
+          amount,
+          currency: "nzd",
+          destination: sellerStripeAccountId,
+          metadata: { purchaseId, listingTitle: purchaseData.listingTitle || "", disputeRelease: "true" },
+        },
+        { idempotencyKey }
+      );
+
+      await getAdminDb().collection("purchases").doc(purchaseId).update({
+        fundsReleased: true,
+        fundsReleasedAt: new Date(),
+        stripeTransferId: transfer.id,
+        status: "completed",
+        disputeStatus: "resolved_seller",
+        disputeResolvedAt: new Date(),
+        disputeResolvedBy: decodedToken.email,
+      });
+
+      await writeAuditLog({
+        action: "admin_dispute_release_payment",
+        actorEmail: decodedToken.email || "",
+        purchaseId,
+        amount: Math.round(amount / 100),
+        metadata: { transferId: transfer.id, disputeResolution: "seller_wins" },
+      });
+
+      await notifyAdmin({
+        type: "dispute_resolved",
+        title: "Dispute Resolved — Payment Released to Seller",
+        message: `Purchase ${purchaseId}: $${(amount / 100).toFixed(2)} released to seller.`,
+        metadata: { purchaseId, transferId: transfer.id, amount: Math.round(amount / 100) },
+      });
+
+      return NextResponse.json({ success: true, transferId: transfer.id });
     }
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });

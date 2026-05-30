@@ -1,24 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "../../../lib/stripe-server";
 import { getAdminDb } from "../../../lib/firebase-admin";
+import { createPurchaseWithAdmin } from "../../../lib/purchase-service";
+import { notifyAdmin, writeFailureRecord } from "../../../lib/admin-alerts";
+import * as Sentry from "@sentry/nextjs";
 
 export async function POST(req: NextRequest) {
+  const sig = req.headers.get("stripe-signature");
+  if (!sig) return NextResponse.json({ error: "Missing signature" }, { status: 400 });
+
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!webhookSecret) return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
+
+  const buf = Buffer.from(await req.arrayBuffer());
+  const stripe = getStripe();
+  let event;
   try {
-    const sig = req.headers.get("stripe-signature");
-    if (!sig) return NextResponse.json({ error: "Missing signature" }, { status: 400 });
+    event = stripe.webhooks.constructEvent(buf, sig, webhookSecret);
+  } catch (sigErr: any) {
+    await writeFailureRecord("webhookFailures", {
+      eventType: "signature_verification_failed",
+      stripeEventId: null,
+      error: sigErr.message || "Invalid signature",
+    });
+    await notifyAdmin({
+      type: "webhook_failure",
+      title: "Stripe Webhook Signature Verification Failed",
+      message: sigErr.message || "Invalid signature",
+      metadata: { stripeEventId: null },
+    });
+    return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+  }
 
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-    if (!webhookSecret) return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
-
-    const buf = Buffer.from(await req.arrayBuffer());
-    const stripe = getStripe();
-    let event;
-    try {
-      event = stripe.webhooks.constructEvent(buf, sig, webhookSecret);
-    } catch {
-      return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
-    }
-
+  try {
     if (event.type === "payment_intent.succeeded") {
       const pi = event.data.object as any;
       const meta = pi.metadata || {};
@@ -53,8 +67,7 @@ export async function POST(req: NextRequest) {
             createdAt: new Date(),
           });
         }
-        const listingRef = db.collection("listings").doc(meta.listingId);
-        batch.update(listingRef, {
+        batch.update(db.collection("listings").doc(meta.listingId), {
           promotedUntil: new Date(Date.now() + 3 * 86400000),
         });
         await batch.commit();
@@ -63,88 +76,65 @@ export async function POST(req: NextRequest) {
 
       if (meta.listingId && meta.buyerUid && meta.title) {
         const db = getAdminDb();
-        const listingDoc = await db.collection("listings").doc(meta.listingId).get();
-        if (!listingDoc.exists) return NextResponse.json({ received: true });
-        const listing = listingDoc.data()!;
 
-        // Idempotency: check by stripePaymentIntentId first
         const existingByPi = await db.collection("purchases")
           .where("stripePaymentIntentId", "==", pi.id)
           .limit(1)
           .get();
         if (!existingByPi.empty) return NextResponse.json({ received: true });
 
-        // Use deterministic purchase ID if buyerEmail is available
-        const buyerEmail = meta.buyerEmail || "";
-        const purchaseId = buyerEmail
-          ? `${meta.listingId}_${buyerEmail.replace(/[@.]/g, "_")}`
-          : undefined;
+        const listingDoc = await db.collection("listings").doc(meta.listingId).get();
+        if (!listingDoc.exists) return NextResponse.json({ received: true });
+        const listing = listingDoc.data()!;
 
-        // Idempotency: check by deterministic ID
-        if (purchaseId) {
-          const existingByDoc = await db.collection("purchases").doc(purchaseId).get();
-          if (existingByDoc.exists) return NextResponse.json({ received: true });
-        }
+        const buyerEmail = meta.buyerEmail || `${meta.buyerUid}@firebase.user`;
+
+        const purchaseId = `${meta.listingId}_${buyerEmail.replace(/[@.]/g, "_")}`;
+        const existingById = await db.collection("purchases").doc(purchaseId).get();
+        if (existingById.exists) return NextResponse.json({ received: true });
 
         const total = Number(pi.amount_received || 0) / 100;
-        const purchaseData: Record<string, unknown> = {
+
+        await createPurchaseWithAdmin({
           listingId: meta.listingId,
           listingTitle: meta.title,
           listingPrice: listing.price || "",
           listingImage: (listing.images?.[0] || listing.imageUrl || listing.image || ""),
           sellerEmail: listing.sellerEmail || "",
-          buyerEmail: buyerEmail,
-          buyerName: meta.buyerName || buyerEmail || meta.buyerUid,
+          buyerEmail,
+          buyerName: meta.buyerName || buyerEmail,
           deliveryMethod: "pending",
-          total,
           processingFee: 1.00,
-          status: "pending",
-          paidAt: new Date(),
+          total,
+          type: listing.type || "physical",
           stripePaymentIntentId: pi.id,
-          createdAt: new Date(),
-        };
-
-        // Use batch for atomicity
-        const batch = db.batch();
-        if (purchaseId) {
-          batch.set(db.collection("purchases").doc(purchaseId), purchaseData);
-        } else {
-          batch.set(db.collection("purchases").doc(), purchaseData);
-        }
-        batch.update(db.collection("listings").doc(meta.listingId), { status: "sold" });
-        await batch.commit();
-
-        const convKey = `listing_${meta.listingId}`;
-        const existingConvs = await db.collection("conversations")
-          .where("convKey", "==", convKey)
-          .where("participants", "array-contains", buyerEmail || meta.buyerUid)
-          .limit(1).get();
-
-        if (existingConvs.empty) {
-          const convRef = await db.collection("conversations").add({
-            convKey,
-            participants: [listing.sellerEmail, buyerEmail || meta.buyerUid],
-            listingId: meta.listingId,
-            listingTitle: meta.title,
-            orderStatus: "paid",
-            createdAt: new Date(),
-          });
-          const systemMsg = {
-            text: `🛒 Order placed for "${meta.title}". Payment confirmed.`,
-            sender: "system",
-            participants: [listing.sellerEmail, buyerEmail || meta.buyerUid],
-            type: "order",
-            conversationId: convRef.id,
-            createdAt: new Date(),
-          };
-          await db.collection("messages").add(systemMsg);
-        }
+          collectionName: "listings",
+        });
       }
     }
 
     return NextResponse.json({ received: true });
   } catch (e: any) {
     console.error("[stripe-webhook] Error:", e);
+    Sentry.captureException(e, { tags: { type: "stripe-webhook" }, extra: { eventType: event?.type, eventId: event?.id } });
+
+    await writeFailureRecord("webhookFailures", {
+      eventType: event.type,
+      stripeEventId: event.id,
+      error: e.message || "Unknown webhook error",
+    });
+
+    await notifyAdmin({
+      type: "webhook_failure",
+      title: "Stripe Webhook Processing Failed",
+      message: `Event ${event.id} (${event.type}) failed: ${e.message || "Unknown error"}`,
+      metadata: {
+        eventType: event.type,
+        stripeEventId: event.id,
+        error: e.message,
+      },
+    });
+
     return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 });
   }
 }

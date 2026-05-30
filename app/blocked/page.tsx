@@ -7,6 +7,7 @@ import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import { showToast } from "../components/Toast";
 
 export default function BlockedPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -40,8 +41,8 @@ export default function BlockedPage() {
 
   async function blockUser() {
     const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail) { alert("Enter an email."); return; }
-    if (blockedUsers.some((b) => b.email === cleanEmail)) { alert("User already blocked."); return; }
+    if (!cleanEmail) { showToast("Enter an email.", "error"); return; }
+    if (blockedUsers.some((b) => b.email === cleanEmail)) { showToast("User already blocked.", "info"); return; }
 
     // Look up the user's UID by email
     let uid = cleanEmail;

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
 import ThemeToggle from "../../components/ThemeToggle";
+import { showToast } from "../../components/Toast";
 import {
   addDoc,
   collection,
@@ -136,7 +137,7 @@ export default function AdminVerificationPage() {
 
   async function handleReject(profileId: string) {
     const reason = rejectInputs[profileId]?.trim();
-    if (!reason) { alert("Enter a rejection reason."); return; }
+    if (!reason) { showToast("Enter a rejection reason.", "error"); return; }
     try {
       await setDoc(doc(db, "profiles", profileId), {
         proofOfAddress: { status: "rejected", rejectionReason: reason, reviewedAt: Timestamp.now(), reviewedBy: user?.email || "admin" },
@@ -167,7 +168,7 @@ export default function AdminVerificationPage() {
 
   async function handleRejectDigital(listingId: string) {
     const reason = rejectInputs[`dig_${listingId}`]?.trim();
-    if (!reason) { alert("Enter a rejection reason."); return; }
+    if (!reason) { showToast("Enter a rejection reason.", "error"); return; }
     try {
       await updateDoc(doc(db, "tradePosts", listingId), { status: "rejected" });
       const snap = await getDoc(doc(db, "tradePosts", listingId));
@@ -195,7 +196,7 @@ export default function AdminVerificationPage() {
 
   async function handleRejectListing(listingId: string) {
     const reason = rejectInputs[`lst_${listingId}`]?.trim();
-    if (!reason) { alert("Enter a rejection reason."); return; }
+    if (!reason) { showToast("Enter a rejection reason.", "error"); return; }
     try {
       await updateDoc(doc(db, "listings", listingId), { status: "rejected" });
       const snap = await getDoc(doc(db, "listings", listingId));

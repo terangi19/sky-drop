@@ -103,8 +103,8 @@ export default function SponsorDropModal({ listing, sellerEmail, userId, onClose
       });
       const data = await res.json();
       if (data.clientSecret) setClientSecret(data.clientSecret);
-      else { setStep("confirm"); alert("Payment service unavailable."); }
-    } catch { setStep("confirm"); alert("Could not connect."); }
+      else { setStep("confirm"); showToast("Payment service unavailable.", "error"); }
+    } catch { setStep("confirm"); showToast("Could not connect.", "error"); }
   }
 
   return (

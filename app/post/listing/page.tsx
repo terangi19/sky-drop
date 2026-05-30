@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 
+import Link from "next/link";
 import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
+import { showToast } from "../../components/Toast";
 
 import {
   collection,
@@ -135,9 +137,7 @@ export default function ListingPage() {
   ) {
     if (!user) {
 
-      alert(
-        "Login first to save favorites."
-      );
+      showToast("Failed to delete listing.", "error");
 
       return;
     }
@@ -205,7 +205,7 @@ export default function ListingPage() {
 
     const item = listings.find((l: any) => l.id === id);
     if (!item || item.sellerEmail !== user?.email) {
-      alert("You can only delete your own listings");
+      showToast("You can only delete your own listings", "error");
       return;
     }
 
@@ -223,9 +223,8 @@ export default function ListingPage() {
 
       console.error(error);
 
-      alert(
-        "Failed to delete."
-      );
+      showToast("Listing deleted.");
+
     }
   }
 
@@ -352,6 +351,16 @@ export default function ListingPage() {
             <p className="mt-2 text-[var(--foreground)]">
               Try another search or category.
             </p>
+
+            <div className="mt-6 flex items-center justify-center gap-3">
+              <button onClick={() => { setSearch(""); setSelectedCategory("All"); }}
+                className="rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-xs font-bold text-[var(--foreground)] transition hover:bg-zinc-700 active:scale-[0.97]">
+                Clear Filters
+              </button>
+              <Link href="/" className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">
+                Browse All
+              </Link>
+            </div>
 
           </div>
 

@@ -70,6 +70,9 @@ export async function POST(req: NextRequest) {
         if (!sellerProfile.emailVerified) {
           return NextResponse.json({ error: "Seller has not verified their email." }, { status: 403 });
         }
+        if (!sellerProfile.stripeAccountId) {
+          return NextResponse.json({ error: "This seller has not set up payouts yet." }, { status: 400 });
+        }
       }
     }
 

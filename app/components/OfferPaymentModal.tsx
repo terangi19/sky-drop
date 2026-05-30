@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import stripePromise from "../lib/stripe-client";
-import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 import { createNotification } from "../lib/notifications";
 import { calculateTrustScore } from "../lib/trustscore";
@@ -18,6 +18,7 @@ interface Props {
   buyerEmail: string;
   listingImage?: string;
   listingPrice?: string;
+  purchaseId?: string;
   onSuccess: (purchaseId: string) => void;
   onClose: () => void;
 }
@@ -55,6 +56,13 @@ function PaymentForm({ total, listingId, title, buyerEmail, sellerEmail, onSucce
       {error && (
         <div className="rounded-lg border border-red-800/40 bg-red-900/20 p-3 text-xs text-red-400">{error}</div>
       )}
+      <div className="flex items-center justify-center gap-1.5 text-[11px] text-[var(--muted)]">
+        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+        </svg>
+        Payments protected by <span className="font-semibold tracking-tight">Stripe</span>
+      </div>
       <button type="submit" disabled={!stripe}
         className="w-full rounded-xl bg-sky-500 py-3 text-sm font-bold text-white transition hover:bg-sky-400 disabled:opacity-50">
         Pay ${total.toFixed(2)}
@@ -67,7 +75,7 @@ function PaymentForm({ total, listingId, title, buyerEmail, sellerEmail, onSucce
   );
 }
 
-export default function OfferPaymentModal({ amount, listingTitle, listingId, sellerEmail, buyerEmail, listingImage, listingPrice, onSuccess, onClose }: Props) {
+export default function OfferPaymentModal({ amount, listingTitle, listingId, sellerEmail, buyerEmail, listingImage, listingPrice, purchaseId: initialPurchaseId, onSuccess, onClose }: Props) {
   const [name, setName] = useState("");
   const [step, setStep] = useState<"form" | "card" | "processing" | "success">("form");
   const [clientSecret, setClientSecret] = useState("");
@@ -108,11 +116,14 @@ export default function OfferPaymentModal({ amount, listingTitle, listingId, sel
         setStep("form");
         return;
       }
-      const realPrice = Number(listingData.price);
-      if (listingData.type !== "service" && realPrice !== amount) {
-        setIntentError("Price has changed. Please ask the seller for an updated offer.");
-        setStep("form");
-        return;
+      // For offer payments, the offer amount may differ from listing price — skip price check
+      if (!initialPurchaseId) {
+        const realPrice = Number(listingData.price);
+        if (listingData.type !== "service" && realPrice !== amount) {
+          setIntentError("Price has changed. Please ask the seller for an updated offer.");
+          setStep("form");
+          return;
+        }
       }
 
       // Check seller is not restricted and has acceptable trust
@@ -169,69 +180,78 @@ export default function OfferPaymentModal({ amount, listingTitle, listingId, sel
     setStep("processing");
     try {
       const token = await auth.currentUser?.getIdToken();
-      const createRes = await fetch("/api/create-purchase", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { "Authorization": `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
+      if (!token) { setStep("form"); return; }
+
+      let resultPurchaseId = "";
+      let resultOrderId = "";
+
+      if (initialPurchaseId) {
+        // Offer payment — purchase already exists, update via /api/pay-offer
+        const payRes = await fetch("/api/pay-offer", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+          body: JSON.stringify({
+            purchaseId: initialPurchaseId,
+            stripePaymentIntentId: paymentIntentId || "",
+            total,
+          }),
+        });
+        const payData = await payRes.json();
+        if (!payRes.ok) {
+          console.error("Offer payment failed:", payData.error);
+          setStep("form");
+          return;
+        }
+        resultPurchaseId = payData.purchaseId || initialPurchaseId;
+        resultOrderId = payData.orderId || "";
+      } else {
+        // Direct purchase (service buy-now)
+        const createRes = await fetch("/api/create-purchase", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+          body: JSON.stringify({
+            listingId,
+            listingTitle,
+            listingPrice: listingPrice || String(amount),
+            listingImage: listingImage || "",
+            sellerEmail,
+            buyerName: name.trim(),
+            deliveryMethod: "service",
+            total,
+            processingFee: 1.00,
+            type: "service",
+            status: "in_progress",
+            disputeDeadline: new Date(Date.now() + 7 * 86400000).toISOString(),
+            stripePaymentIntentId: paymentIntentId || "",
+            collectionName: "listings",
+          }),
+        });
+        const createData = await createRes.json();
+        if (!createRes.ok) {
+          console.error("Purchase creation failed:", createData.error);
+          setStep("form");
+          return;
+        }
+        resultPurchaseId = createData.purchaseId;
+
+        await createNotification({
+          type: "purchase",
+          targetEmail: sellerEmail,
+          fromEmail: buyerEmail,
+          title: "Service booked! 🎉",
+          message: `${name.trim()} just paid for "${listingTitle}" ($${amount}). Check your sales page to begin.`,
           listingId,
           listingTitle,
-          listingPrice: listingPrice || String(amount),
           listingImage: listingImage || "",
-          sellerEmail,
-          buyerName: name.trim(),
-          deliveryMethod: "service",
           total,
-          processingFee: 1.00,
-          type: "service",
-          status: "in_progress",
-          disputeDeadline: new Date(Date.now() + 7 * 86400000).toISOString(),
-          stripePaymentIntentId: paymentIntentId || "",
-          collectionName: "listings",
-        }),
-      });
-      const createData = await createRes.json();
-      if (!createRes.ok) {
-        console.error("Purchase creation failed:", createData.error);
-        setStep("form");
-        return;
+        });
       }
 
-      const purchaseId = createData.purchaseId;
-      setPurchaseId(purchaseId);
-
-      await createNotification({
-        type: "purchase",
-        targetEmail: sellerEmail,
-        fromEmail: buyerEmail,
-        title: "Service booked! 🎉",
-        message: `${name.trim()} just paid for "${listingTitle}" ($${amount}). Check your sales page to begin.`,
-        listingId,
-        listingTitle,
-        listingImage: listingImage || "",
-        total,
-      });
-
-      try {
-        await addDoc(collection(db, "messages"), {
-          type: "order_event",
-          sender: "system",
-          receiver: buyerEmail,
-          participants: [buyerEmail, sellerEmail],
-          listingId,
-          listingTitle,
-          text: `Payment of $${total.toFixed(2)} confirmed. Seller has been notified.`,
-          read: false,
-          createdAt: serverTimestamp(),
-        });
-      } catch {}
-
+      setPurchaseId(resultPurchaseId);
       setStep("success");
       playSuccess();
     } catch (e) {
-      console.error("Purchase record failed:", e);
+      console.error("Payment record failed:", e);
       setStep("form");
     }
   }
@@ -259,6 +279,9 @@ export default function OfferPaymentModal({ amount, listingTitle, listingId, sel
             <div className="mt-3 flex items-center justify-center gap-1 text-xs text-zinc-400">
               <span className="text-emerald-400">✓</span>
               <span>Seller has been notified</span>
+            </div>
+            <div className="mt-2 rounded-lg border border-amber-500/15 bg-amber-500/[0.04] px-3 py-2 text-left text-[10px] leading-relaxed text-amber-400/80">
+              🔒 Your payment is held securely in escrow. Funds are released to the seller only after you confirm delivery.
             </div>
             <p className="mt-2 text-[10px] text-zinc-500">You have 7 days to report an issue after the seller marks this as delivered.</p>
             <button onClick={() => onSuccess(purchaseId)}

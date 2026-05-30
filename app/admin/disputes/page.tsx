@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
 import ThemeToggle from "../../components/ThemeToggle";
+import { showToast } from "../../components/Toast";
 import {
   collection,
   doc,
@@ -117,7 +118,7 @@ export default function AdminDisputesPage() {
       });
       const data = await res.json();
       if (!data.success) {
-        alert("Refund failed: " + (data.error || "Unknown error"));
+        showToast("Refund failed: " + (data.error || "Unknown error"), "error");
         setActionLoading(null);
         return;
       }
@@ -138,7 +139,7 @@ export default function AdminDisputesPage() {
       setAdminNotes((prev) => { const n = { ...prev }; delete n[dispute.id]; return n; });
     } catch (e) {
       console.error(e);
-      alert("Refund processing failed.");
+      showToast("Refund processing failed.", "error");
     }
     setActionLoading(null);
   }

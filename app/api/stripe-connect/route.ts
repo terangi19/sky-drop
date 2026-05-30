@@ -29,6 +29,13 @@ export async function POST(req: NextRequest) {
     const s = getStripe();
 
     if (action === "create") {
+      // Deduplicate: if profile already has a Stripe account, return existing
+      const existingProfile = await getAdminDb().collection("profiles").doc(decodedToken.uid).get();
+      const existingAccountId = existingProfile.data()?.stripeAccountId;
+      if (existingAccountId) {
+        return NextResponse.json({ accountId: existingAccountId });
+      }
+
       const account = await s.accounts.create({
         type: "express",
         email,
@@ -36,7 +43,7 @@ export async function POST(req: NextRequest) {
       });
 
       await getAdminDb().collection("profiles").doc(decodedToken.uid).set({
-        stripeConnectId: account.id,
+        stripeAccountId: account.id,
         stripeConnectOnboarded: false,
       }, { merge: true });
 
@@ -45,7 +52,7 @@ export async function POST(req: NextRequest) {
 
     if (action === "onboard") {
       const profileDoc = await getAdminDb().collection("profiles").doc(decodedToken.uid).get();
-      if (!profileDoc.exists || profileDoc.data()!.stripeConnectId !== accountId) {
+        if (!profileDoc.exists || profileDoc.data()!.stripeAccountId !== accountId) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
       }
 
@@ -64,7 +71,7 @@ export async function POST(req: NextRequest) {
 
       await getAdminDb().runTransaction(async (transaction) => {
         const profileDoc = await transaction.get(profileRef);
-        if (!profileDoc.exists || profileDoc.data()!.stripeConnectId !== accountId) {
+      if (!profileDoc.exists || profileDoc.data()!.stripeAccountId !== accountId) {
           throw new Error("Unauthorized");
         }
         const profileData = profileDoc.data()!;

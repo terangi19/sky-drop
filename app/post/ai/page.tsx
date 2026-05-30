@@ -515,6 +515,20 @@ export default function AIPostPage() {
           trackListingCreated(user.uid, title);
         }
         showToast("Listing created!", "success");
+        // Check Stripe Connect — prompt if not set up
+        try {
+          const profileSnap = await getDoc(doc(db, "profiles", user.uid));
+          if (profileSnap.exists()) {
+            const profileData = profileSnap.data();
+            if (!profileData.stripeAccountId) {
+              showToast("⚠️ Connect Stripe to receive payouts — go to Profile", "info");
+              setTimeout(() => { window.location.href = "/profile?tab=payouts"; }, 1500);
+              setLoading(false);
+              setConfirmedSubmit(false);
+              return;
+            }
+          }
+        } catch (e) { console.error("Stripe check error:", e); }
       }
       setImagePreviews([]); setImageFiles([]); setExistingImages([]);
       setTitle(""); setDescription(""); setPrice("");

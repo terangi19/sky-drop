@@ -592,39 +592,26 @@ function MessagesPage() {
         listingTitle: listingCard?.title || null,
         createdAt: serverTimestamp(),
       });
-      // When offer is accepted by seller, create purchase or prompt payment
-      if (type === "accept" && chatListingId && amount) {
-        let listingData: any = null;
+      // When offer is accepted, create purchase via API (server-side atomic transaction)
+      if (type === "accept" && chatListingId && amount && user.email) {
         try {
-          const { getDoc, doc: fd } = await import("firebase/firestore");
-          const snap = await getDoc(fd(db, "listings", chatListingId));
-          if (snap.exists()) listingData = snap.data();
-        } catch {}
-        const isService = listingData?.type === "service";
-        // For services, skip purchase creation — buyer pays via Stripe first
-        if (!isService) {
-          try {
-            await addDoc(collection(db, "purchases"), {
+          const token = await user.getIdToken();
+          await fetch("/api/accept-offer", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+            body: JSON.stringify({
               listingId: chatListingId,
-              listingTitle: listingCard?.title || "",
-              listingPrice: listingCard?.price || amount,
-              listingImage: listingCard?.images?.[0] || listingCard?.image || listingCard?.imageUrl || "",
-              sellerEmail: user.email,
               buyerEmail: chatUser,
-              buyerName: chatUser.split("@")[0] || "",
-              deliveryMethod: "pickup",
-              total: Number(amount),
-              status: "seller_confirming",
-              createdAt: serverTimestamp(),
-            });
-          } catch (e2) { console.error("Failed to create purchase from offer:", e2); }
-          if (chatListingId) {
-            try {
-              const { updateDoc, doc: fd, getDoc } = await import("firebase/firestore");
-              const snap = await getDoc(fd(db, "listings", chatListingId));
-              if (snap.exists()) await updateDoc(fd(db, "listings", chatListingId), { status: "sold" });
-            } catch (e3) { console.error("Failed to mark listing as sold:", e3); }
-          }
+              amount: Number(amount),
+              offerMessageId: msgRef.id,
+              listingTitle: listingCard?.title || "",
+              listingPrice: listingCard?.price || "",
+              listingImage: listingCard?.images?.[0] || listingCard?.image || listingCard?.imageUrl || "",
+            }),
+          });
+        } catch (e2) {
+          console.error("Failed to accept offer via API:", e2);
+          showToast("Failed to accept offer. Please try again.", "error");
         }
       }
       const notifType = type === "accept" ? "offer_accepted" : type === "decline" ? "offer_declined" : type === "make" ? "offer" : "offer";
@@ -769,6 +756,9 @@ function MessagesPage() {
                   </div>
                   <p className="mt-4 text-[13px] font-medium text-[var(--foreground)]">No conversations yet</p>
                   <p className="mt-1 text-[11px] text-[var(--muted)]">Messages about listings will appear here.</p>
+                  <Link href="/" className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 px-3 py-1.5 text-[11px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">
+                    Browse Marketplace
+                  </Link>
                 </div>
               ) : (
                 conversations.map(([key, convo]: any) => {
@@ -1178,8 +1168,8 @@ function MessagesPage() {
                                       <button onClick={() => sendOffer("counter", msg.offerAmount)} className="flex-1 rounded-lg bg-amber-500 py-2.5 text-[10px] font-bold text-white transition hover:bg-amber-400">Counter</button>
                                     </div>
                                   )}
-                                  {/* Pay Now for accepted service offers */}
-                                  {!isOwn && msg.offerStatus === "accepted" && listingCard?.type === "service" && !hasPurchaseInChat && (
+                                  {/* Pay Now for accepted offers */}
+                                  {!isOwn && msg.offerStatus === "accepted" && !hasPurchaseInChat && (
                                     <div className="mt-3">
                                       <button onClick={() => setPendingPayment({
                                         amount: msg.offerAmount,
@@ -1410,6 +1400,7 @@ function MessagesPage() {
           buyerEmail={pendingPayment.buyerEmail}
           listingImage={pendingPayment.listingImage}
           listingPrice={pendingPayment.listingPrice}
+          purchaseId={`${pendingPayment.listingId}_${pendingPayment.buyerEmail}`}
           onSuccess={() => {
             setPendingPayment(null);
             setHasPurchaseInChat(true);

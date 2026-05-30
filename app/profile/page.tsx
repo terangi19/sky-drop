@@ -172,6 +172,8 @@ const [poaDocumentURL, setPoaDocumentURL] = useState("");
 const [poaRejectionReason, setPoaRejectionReason] = useState("");
 const [poaFile, setPoaFile] = useState<File | null>(null);
 const [poaUploading, setPoaUploading] = useState(false);
+const [sellBadge, setSellBadge] = useState<string | null>(null);
+const [sellBadgePrice, setSellBadgePrice] = useState("50");
 
 
   const bannerRef = useRef<HTMLInputElement>(null);
@@ -444,7 +446,7 @@ const [poaUploading, setPoaUploading] = useState(false);
   // Save profile
   async function saveProfile() {
     if (!user) return;
-    if (!username.trim()) { alert("Enter a username."); return; }
+    if (!username.trim()) { showToast("Enter a username.", "error"); return; }
     try {
       setSaving("Saving...");
       await setDoc(doc(db, "profiles", user.uid), {
@@ -512,7 +514,7 @@ const [poaUploading, setPoaUploading] = useState(false);
 
   // Delete account
   async function deleteAccount() {
-    if (deleteConfirm !== "DELETE") { alert('Type DELETE to confirm.'); return; }
+    if (deleteConfirm !== "DELETE") { showToast('Type DELETE to confirm.', "error"); return; }
     if (!user) return;
     try {
       setSaving("Deleting...");
@@ -520,9 +522,9 @@ const [poaUploading, setPoaUploading] = useState(false);
       await deleteUser(user);
     } catch (e: any) {
       if (e.code === "auth/requires-recent-login") {
-        alert("Please log out and log back in, then try again.");
+        showToast("Please log out and log back in, then try again.", "error");
       } else {
-        alert("Delete failed. Re-login and try again.");
+        showToast("Delete failed. Re-login and try again.", "error");
       }
     }
     setSaving("");
@@ -922,7 +924,12 @@ const [poaUploading, setPoaUploading] = useState(false);
                     ))}
                   </div>
                 ) : activeListings.length === 0 ? (
-                  <p className="py-4 text-center text-sm text-[var(--muted)]">No active listings yet.</p>
+                  <div className="py-4 text-center">
+                    <p className="text-sm text-[var(--muted)] mb-3">No active listings yet.</p>
+                    <Link href="/post/ai" className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 px-4 py-2.5 text-[12px] font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:brightness-110 active:scale-[0.97]">
+                      Create Your First Listing
+                    </Link>
+                  </div>
                 ) : (
                   <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
                     {activeListings.map((item) => (
@@ -1042,6 +1049,34 @@ const [poaUploading, setPoaUploading] = useState(false);
                     ))}
                   </div>
                 )}
+              </div>
+
+              {/* Seller Onboarding Checklist */}
+              <div className="rounded-xl border border-zinc-800/50 bg-zinc-900/60 p-5 transition-all duration-200 hover:border-zinc-700/50">
+                <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.15em] text-[var(--muted)]">Seller Checklist</h2>
+                <div className="space-y-2">
+                  {[
+                    { label: "Complete Profile", done: !!(profile.bio && profile.photoURL), link: "#" },
+                    { label: "Connect Stripe", done: !!stripeAccountId, link: "/profile" },
+                    { label: "Watch Messages", done: false, link: "/messages" },
+                    { label: "Respond to Offers", done: false, link: "/messages" },
+                    { label: "Get Your First Sale", done: soldListings.length > 0, link: "/sales" },
+                  ].map((item) => (
+                    <Link key={item.label} href={item.link}
+                      className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs transition hover:bg-zinc-800/50">
+                      <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold ${
+                        item.done
+                          ? "bg-emerald-500/20 text-emerald-400"
+                          : "border border-zinc-700 text-zinc-500"
+                      }`}>
+                        {item.done ? "✓" : ""}
+                      </span>
+                      <span className={`${item.done ? "text-emerald-400/60 line-through" : "text-[var(--foreground)]"}`}>
+                        {item.label}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
               </div>
 
               {/* Trust Summary */}
@@ -1175,25 +1210,10 @@ const [poaUploading, setPoaUploading] = useState(false);
                               <svg className="h-full w-full p-0.5 text-zinc-900" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
                             )}
                           </div>
-                          <button onClick={async (e) => {
+                          <button onClick={(e) => {
                             e.stopPropagation();
-                            const badgeName = badge === "epic" ? "💎 Epic" : "👑 The Five";
-                            const rarity = badge === "legendary" ? "Only 5 of these exist on Sky Drop. " : "";
-                            if (!confirm(`${badgeName} Badge\n\n${rarity}Selling transfers your badge to the buyer. This cannot be undone.\n\nAre you sure you want to list it?`)) return;
-                            const price = prompt("Enter price ($):", "50");
-                            if (!price || isNaN(Number(price)) || Number(price) <= 0) return;
-                            const existing = await getDocs(query(collection(db, "tradePosts"), where("sellerEmail", "==", user!.email), where("badgeForSale", "==", badge), where("status", "==", "live")));
-                            if (!existing.empty) { alert("You already have an active listing for this badge."); return; }
-                            const title = badge === "epic" ? "💎 Epic Seller Badge" : "👑 The Five Badge";
-                            const ref = await addDoc(collection(db, "tradePosts"), {
-                              type: "WTS", title, price, message: badge === "epic" ? "Epic Seller badge for sale." : "👑 The Five badge for sale. Only 5 exist on Sky Drop.",
-                              sellerEmail: user!.email, sellerUsername: username || user!.email,
-                              badgeForSale: badge, status: "live", saleType: "buy_now",
-                              replies: [], images: [], views: 1, offers: 0,
-                              createdAt: serverTimestamp(),
-                            });
-                            showToast("Badge listed for sale! View it in Trade Feed.", "success");
-                            router.push("/trade-feed");
+                            setSellBadgePrice("50");
+                            setSellBadge(badge);
                           }} className="shrink-0 rounded-md bg-zinc-800 px-2 py-1 text-[9px] font-bold text-[var(--muted)] transition hover:bg-sky-500/20 hover:text-sky-400">
                             Sell
                           </button>
@@ -1381,6 +1401,55 @@ const [poaUploading, setPoaUploading] = useState(false);
         </div>
       </div>
       <div id="recaptcha-container" />
+
+      {/* Sell Badge Modal */}
+      {sellBadge && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setSellBadge(null)}>
+          <div className="w-full max-w-sm rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-center text-lg font-black text-[var(--foreground)]">
+              {sellBadge === "epic" ? "💎 Epic" : "👑 The Five"} Badge
+            </h3>
+            <p className="mt-2 text-center text-sm text-[var(--muted)]">
+              {sellBadge === "legendary" ? "Only 5 of these exist on Sky Drop. " : ""}
+              Selling transfers your badge to the buyer. This cannot be undone.
+            </p>
+            <div className="mt-4">
+              <label className="mb-1 block text-xs font-bold text-[var(--muted)]">Price ($)</label>
+              <input type="number" min="1" step="0.01" value={sellBadgePrice} onChange={(e) => setSellBadgePrice(e.target.value)}
+                className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm text-[var(--foreground)] outline-none focus:border-sky-500/40"
+                autoFocus />
+            </div>
+            <div className="mt-6 flex gap-3">
+              <button onClick={() => setSellBadge(null)}
+                className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700 active:scale-[0.97] transition-all">
+                Cancel
+              </button>
+              <button onClick={async () => {
+                const price = sellBadgePrice.trim();
+                if (!price || isNaN(Number(price)) || Number(price) <= 0) {
+                  showToast("Enter a valid price.", "error");
+                  return;
+                }
+                const existing = await getDocs(query(collection(db, "tradePosts"), where("sellerEmail", "==", user!.email), where("badgeForSale", "==", sellBadge), where("status", "==", "live")));
+                if (!existing.empty) { showToast("You already have an active listing for this badge.", "info"); setSellBadge(null); return; }
+                const title = sellBadge === "epic" ? "💎 Epic Seller Badge" : "👑 The Five Badge";
+                const ref = await addDoc(collection(db, "tradePosts"), {
+                  type: "WTS", title, price, message: sellBadge === "epic" ? "Epic Seller badge for sale." : "👑 The Five badge for sale. Only 5 exist on Sky Drop.",
+                  sellerEmail: user!.email, sellerUsername: username || user!.email,
+                  badgeForSale: sellBadge, status: "live", saleType: "buy_now",
+                  replies: [], images: [], views: 1, offers: 0,
+                  createdAt: serverTimestamp(),
+                });
+                setSellBadge(null);
+                showToast("Badge listed for sale! View it in Trade Feed.", "success");
+                router.push("/trade-feed");
+              }} className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">
+                List for Sale
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
