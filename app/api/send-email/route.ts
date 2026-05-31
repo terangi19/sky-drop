@@ -6,7 +6,7 @@ import { isAdminEmail } from "../../lib/admin-utils";
 export async function POST(req: NextRequest) {
   try {
     const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const { allowed } = rateLimit(`email:${ip}`, 20, 60_000);
+    const { allowed } = await rateLimit(`email:${ip}`, 20, 60_000);
     if (!allowed) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }
@@ -48,7 +48,10 @@ export async function POST(req: NextRequest) {
     if (transport.host && transport.auth.user) {
       const nodemailer = await import("nodemailer");
       const transporter = nodemailer.default.createTransport(transport);
-      await transporter.sendMail({ from: process.env.SMTP_FROM || "noreply@skydrop.nz", to, subject, html });
+      await transporter.sendMail({
+        from: { name: "Sky Drop", address: process.env.SMTP_FROM || process.env.SMTP_USER || "noreply@skydrop.nz" },
+        to, subject, html,
+      });
     }
 
     return NextResponse.json({ success: true });
@@ -57,3 +60,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Failed" }, { status: 500 });
   }
 }
+

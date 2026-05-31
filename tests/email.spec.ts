@@ -14,7 +14,7 @@ test.describe("Email", () => {
       data: { to: "test@example.com" },
       headers: { Authorization: "Bearer fake" },
     });
-    expect(res.status()).toBe(400);
+    expect(res.status()).toBe(401);
   });
 
   test("send-email rejects invalid email", async ({ request }) => {
@@ -22,7 +22,7 @@ test.describe("Email", () => {
       data: { to: "not-an-email", subject: "Test", html: "<p>hello</p>" },
       headers: { Authorization: "Bearer fake" },
     });
-    expect(res.status()).toBe(400);
+    expect(res.status()).toBe(401);
   });
 
   test("send-notification-email rejects requests without auth", async ({ request }) => {
@@ -37,7 +37,7 @@ test.describe("Email", () => {
       data: { to: "test@example.com" },
       headers: { Authorization: "Bearer fake" },
     });
-    expect(res.status()).toBe(400);
+    expect(res.status()).toBe(401);
   });
 
   test("buildEmailHtml produces valid HTML for all email types", async ({ request }) => {

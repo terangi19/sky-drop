@@ -30,9 +30,13 @@ function PaymentForm({ total, listingId, title, buyerEmail, sellerEmail, onSucce
   const elements = useElements();
   const [error, setError] = useState("");
 
+  const [submitting, setSubmitting] = useState(false);
+
   async function handlePay(e: React.FormEvent) {
     e.preventDefault();
     if (!stripe || !elements) return;
+    if (submitting) return;
+    setSubmitting(true);
     setError("");
 
     const { error: submitError } = await stripe.confirmPayment({
@@ -43,6 +47,7 @@ function PaymentForm({ total, listingId, title, buyerEmail, sellerEmail, onSucce
       redirect: "if_required",
     });
 
+    setSubmitting(false);
     if (submitError) {
       setError("Payment failed. Please try another card or try again.");
     } else {
@@ -63,9 +68,9 @@ function PaymentForm({ total, listingId, title, buyerEmail, sellerEmail, onSucce
         </svg>
         Payments protected by <span className="font-semibold tracking-tight">Stripe</span>
       </div>
-      <button type="submit" disabled={!stripe}
+      <button type="submit" disabled={!stripe || submitting}
         className="w-full rounded-xl bg-sky-500 py-3 text-sm font-bold text-white transition hover:bg-sky-400 disabled:opacity-50">
-        Pay ${total.toFixed(2)}
+        {submitting ? "Processing..." : `Pay $${total.toFixed(2)}`}
       </button>
       <button type="button" onClick={onBack}
         className="w-full rounded-xl border border-zinc-700 py-3 text-sm font-bold text-zinc-400 transition hover:border-zinc-600 hover:text-white">

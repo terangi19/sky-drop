@@ -1,5 +1,5 @@
 "use client";
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Navbar from "../components/Navbar";
@@ -84,6 +84,7 @@ function MessagesPage() {
   const [scamWarning, setScamWarning] = useState(false);
   const [pendingMessage, setPendingMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [showUnreadOnly, setShowUnreadOnly] = useState(false);
   // Typing
   const [otherTyping, setOtherTyping] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -96,6 +97,18 @@ function MessagesPage() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [isMobile, setIsMobile] = useState(false);
+
+  // Keyboard-avoiding: scroll message input into view when keyboard opens on mobile
+  useEffect(() => {
+    if (typeof window === "undefined" || !("visualViewport" in window)) return;
+    const onResize = () => {
+      if (window.innerWidth < 768) {
+        document.querySelector('[class*="px-5"][class*="py-2.5"]')?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    };
+    window.visualViewport!.addEventListener("resize", onResize);
+    return () => window.visualViewport!.removeEventListener("resize", onResize);
+  }, []);
   // Feature 3: Seller verification
   const [sellerProfile, setSellerProfile] = useState<any>(null);
   const [sellerTrust, setSellerTrust] = useState<{ score: number; level: string } | null>(null);
@@ -105,6 +118,11 @@ function MessagesPage() {
   // Feature 7: Image sending
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [fileAttachment, setFileAttachment] = useState<{ name: string; size: number; data: string } | null>(null);
+  const fileAttachInputRef = useRef<HTMLInputElement>(null);
+  const [sendingAttachment, setSendingAttachment] = useState(false);
+  const [blockConfirmTarget, setBlockConfirmTarget] = useState<string | null>(null);
+  const [clearAllConfirm, setClearAllConfirm] = useState(false);
   const messageInputRef = useRef<HTMLInputElement>(null);
   const [showSafetyWarning, setShowSafetyWarning] = useState(false);
   const [riskyKeyword, setRiskyKeyword] = useState<string | null>(null);
@@ -183,7 +201,8 @@ function MessagesPage() {
       if (prefill && !message) {
         setMessage(prefill);
         localStorage.removeItem("skyJobPrefill");
-        setTimeout(() => messageInputRef.current?.focus(), 100);
+        const timer = setTimeout(() => messageInputRef.current?.focus(), 100);
+        return () => clearTimeout(timer);
       }
     } catch {}
   }, [chatUser, message]);
@@ -263,6 +282,7 @@ function MessagesPage() {
   // Mark as read
   useEffect(() => {
     if (!chatUser || !user?.email) return;
+    let cancelled = false;
     const relevant = messages.filter((m: any) => {
       if (!m.participants?.includes(chatUser)) return false;
       if (chatListingId) return m.listingId === chatListingId;
@@ -277,9 +297,12 @@ function MessagesPage() {
     // Also mark corresponding notification documents as read
     if (unreadMsgs.length > 0 || chatListingId) {
       getDocs(query(collection(db, "notifications"), where("listingId", "==", chatListingId || ""), where("read", "==", false))).then((snap) => {
+        if (cancelled) return;
         snap.docs.forEach((d) => updateDoc(doc(db, "notifications", d.id), { read: true }).catch((e) => console.error("Failed to mark notification read:", e)));
       }).catch((e) => console.error("Failed to fetch notifications to mark read:", e));
     }
+
+    return () => { cancelled = true; };
   }, [chatUser, user, messages, chatListingId]);
   // Fetch usernames
   async function fetchUsername(email: string) {
@@ -301,22 +324,6 @@ function MessagesPage() {
     let mounted = true;
     const msgQuery = query(collection(db, "messages"), where("participants", "array-contains", user.email), limit(100));
 
-    getDocs(msgQuery).then((snap) => {
-      if (!mounted) return;
-      const items = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((msg: any) => {
-        const other = msg.participants?.find((p: string) => p !== user.email);
-        return other && !blockedUsers.includes(other);
-      });
-      items.sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
-      setDebugInfo(`${items.length} loaded`);
-      setMessages(items);
-      setLoading(false);
-      items.forEach((msg: any) => { fetchUsername(msg.sender); fetchUsername(msg.receiver); });
-    }).catch((e: any) => {
-      setDebugInfo(`Error: ${e.message}`);
-      if (mounted) setLoading(false);
-    });
-
     const unsub = onSnapshot(msgQuery, (snap) => {
       if (!mounted) return;
       const items = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((msg: any) => {
@@ -326,6 +333,8 @@ function MessagesPage() {
       items.sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
       setMessages(items);
       setLoading(false);
+      if (snap.metadata?.hasPendingWrites) return;
+      items.forEach((msg: any) => { fetchUsername(msg.sender); fetchUsername(msg.receiver); });
     }, (err) => { setDebugInfo(`Error: ${err.message}`); if (mounted) setLoading(false); });
 
     return () => { mounted = false; unsub(); };
@@ -346,13 +355,13 @@ function MessagesPage() {
       setUnreadMap(raw);
     }, [messages, user?.email]);
     // Compute filteredMessages for chat view
-    const filteredMessages = messages
+    const filteredMessages = useMemo(() => messages
       .filter((msg: any) => {
         if (!msg.participants?.includes(chatUser)) return false;
         if (chatListingId) return msg.listingId === chatListingId;
         return !msg.listingId;
       })
-      .reverse();
+      .reverse(), [messages, chatUser, chatListingId]);
     // Auto-scroll
     useEffect(() => {
       if (chatEndRef.current && filteredMessages.length > 0) {
@@ -374,25 +383,32 @@ function MessagesPage() {
     reader.onload = (ev) => { setImagePreview(ev.target?.result as string); };
     reader.readAsDataURL(file);
   }
-  function dataURLtoBlob(dataUrl: string): Blob {
-    const parts = dataUrl.split(",");
-    const mime = parts[0].match(/:(.*?);/)![1];
-    const bytes = atob(parts[1]);
-    const arr = new Uint8Array(bytes.length);
-    for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
-    return new Blob([arr], { type: mime });
+  function dataURLtoBlob(dataUrl: string): Blob | null {
+    try {
+      const parts = dataUrl.split(",");
+      if (parts.length < 2) return null;
+      const mimeMatch = parts[0].match(/:(.*?);/);
+      const mime = mimeMatch?.[1] || "application/octet-stream";
+      const bytes = atob(parts[1]);
+      const arr = new Uint8Array(bytes.length);
+      for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+      return new Blob([arr], { type: mime });
+    } catch { return null; }
   }
 
   async function sendImageMessage() {
-    if (!imagePreview || !user?.email || !chatUser) return;
+    if (!imagePreview || !user?.email || !chatUser || sendingAttachment) return;
     const activeListingTitle = chatListingId ? messages.find((m: any) => m.listingId === chatListingId && m.listingTitle)?.listingTitle : null;
+    setSendingAttachment(true);
     try {
       const blob = dataURLtoBlob(imagePreview);
+      if (!blob) { showToast("Failed to process image", "error"); setSendingAttachment(false); return; }
       const file = new File([blob], "chat.jpg", { type: "image/jpeg" });
       const nsfwResult = await checkImage(file);
       if (!nsfwResult.safe) {
         showToast(`Image flagged: ${nsfwResult.reason}`, "error");
         setImagePreview(null);
+        setSendingAttachment(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
         return;
       }
@@ -421,7 +437,56 @@ function MessagesPage() {
       });
       setImagePreview(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e); showToast("Failed to send image", "error"); }
+    setSendingAttachment(false);
+  }
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setFileAttachment({ name: file.name, size: file.size, data: ev.target?.result as string });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function sendFileMessage() {
+    if (!fileAttachment || !user?.email || !chatUser || sendingAttachment) return;
+    const activeListingTitle = chatListingId ? messages.find((m: any) => m.listingId === chatListingId && m.listingTitle)?.listingTitle : null;
+    setSendingAttachment(true);
+    try {
+      const blob = dataURLtoBlob(fileAttachment.data);
+      if (!blob) { showToast("Failed to process file", "error"); setSendingAttachment(false); return; }
+      const { ref, uploadBytes, getDownloadURL } = await import("firebase/storage");
+      const storageRef = ref(storage, `chat_files/${user.uid}/${Date.now()}_${fileAttachment.name}`);
+      const snap = await uploadBytes(storageRef, blob);
+      const fileUrl = await getDownloadURL(snap.ref);
+      await addDoc(collection(db, "messages"), {
+        type: "file",
+        fileUrl,
+        fileName: fileAttachment.name,
+        fileSize: fileAttachment.size,
+        text: "",
+        sender: user.email,
+        receiver: chatUser,
+        participants: [user.email, chatUser],
+        ...(chatListingId ? { listingId: chatListingId, listingTitle: activeListingTitle || null } : {}),
+        createdAt: serverTimestamp(),
+      });
+      createNotification({
+        targetEmail: chatUser,
+        fromEmail: user.email,
+        type: "message",
+        title: "New file from " + (user.email?.split("@")[0] || "someone"),
+        message: `Sent a file: ${fileAttachment.name}`,
+        listingId: chatListingId || undefined,
+        listingTitle: activeListingTitle || undefined,
+      });
+      setFileAttachment(null);
+      if (fileAttachInputRef.current) fileAttachInputRef.current.value = "";
+    } catch (e) { console.error(e); showToast("Failed to send file", "error"); }
+    setSendingAttachment(false);
   }
   // Send text message
   async function sendMessage(skipSafety = false) {
@@ -542,7 +607,7 @@ function MessagesPage() {
       await addDoc(collection(db, "reports"), { reportedUserEmail: email, reporterUserEmail: user.email, type: "user", status: "pending", createdAt: serverTimestamp(), description: "Reported from messages" });
       localStorage.setItem(cooldownKey, String(Date.now()));
       showToast("User reported", "success");
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e); showToast("Failed to report user", "error"); }
     setShowMenu(false);
   }
   async function clearConversation() {
@@ -564,20 +629,21 @@ function MessagesPage() {
     } catch {}
     setShowMenu(false); setChatUser(""); setChatListingId(null);
   }
-  async function clearAllMessages() {
+  async function executeClearAllMessages() {
     if (!user?.email) return;
-    if (!confirm("Delete all your messages? This cannot be undone.")) return;
+    setClearAllConfirm(false);
     const ids = [...new Set(messages.map((m: any) => m.id))];
-    for (const id of ids) {
-      deleteDoc(doc(db, "messages", id)).catch((e) => console.error("Failed to delete message:", e));
-    }
-    setShowClearAll(false);
+    const results = await Promise.allSettled(ids.map((id) => deleteDoc(doc(db, "messages", id))));
+    const failed = results.filter((r) => r.status === "rejected").length;
     setChatUser("");
     setChatListingId(null);
+    if (failed === 0) showToast("All messages cleared", "info");
+    else showToast(`Cleared ${ids.length - failed} messages (${failed} failed)`, failed === ids.length ? "error" : "info");
   }
   // Feature 3: Offer system with status
   async function sendOffer(type: string, amount?: string) {
-    if (!user?.email || !chatUser) return;
+    if (!user?.email || !chatUser || sendingOffer) return;
+    setSendingOffer(true);
     try {
       const msgRef = await addDoc(collection(db, "messages"), {
         type: "offer",
@@ -596,7 +662,7 @@ function MessagesPage() {
       if (type === "accept" && chatListingId && amount && user.email) {
         try {
           const token = await user.getIdToken();
-          await fetch("/api/accept-offer", {
+          const res = await fetch("/api/accept-offer", {
             method: "POST",
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
             body: JSON.stringify({
@@ -609,12 +675,13 @@ function MessagesPage() {
               listingImage: listingCard?.images?.[0] || listingCard?.image || listingCard?.imageUrl || "",
             }),
           });
+          if (!res.ok) { const errData = await res.json(); throw new Error(errData.error || "Failed to accept offer"); }
         } catch (e2) {
           console.error("Failed to accept offer via API:", e2);
           showToast("Failed to accept offer. Please try again.", "error");
         }
       }
-      const notifType = type === "accept" ? "offer_accepted" : type === "decline" ? "offer_declined" : type === "make" ? "offer" : "offer";
+      const notifType = type === "accept" ? "offer_accepted" : type === "decline" ? "offer_declined" : type === "make" ? "offer" : "counter_offer";
       createNotification({
         targetEmail: chatUser,
         fromEmail: user.email,
@@ -630,10 +697,12 @@ function MessagesPage() {
         listingImage: listingCard?.images?.[0] || listingCard?.image || listingCard?.imageUrl || undefined,
         total: amount ? Number(amount) : undefined,
       });
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e); showToast("Failed to send offer", "error"); }
+    setSendingOffer(false);
   }
   const [offerAmount, setOfferAmount] = useState("");
   const [showOfferInput, setShowOfferInput] = useState(false);
+  const [sendingOffer, setSendingOffer] = useState(false);
   const [pendingPayment, setPendingPayment] = useState<{amount: string; listingId: string; listingTitle: string; listingImage: string; listingPrice: string; sellerEmail: string; buyerEmail: string} | null>(null);
   // â€”â€” Computed values â€”â€”
   const conversationMap = new Map<string, any>();
@@ -655,6 +724,9 @@ function MessagesPage() {
       const text = (c.msg.text || "").toLowerCase();
       return name.includes(q) || title.includes(q) || text.includes(q);
     });
+  }
+  if (showUnreadOnly) {
+    conversations = conversations.filter(([key]) => (conversationUnread[key] || 0) > 0);
   }
   function getDisplayName(email: string) { return usernames[email] || email; }
   const isOwnListing = listingCard?.sellerEmail === user?.email;
@@ -690,6 +762,34 @@ function MessagesPage() {
   // â€”â€” Render â€”â€”
   return (
     <>
+      {/* Block User Confirmation Modal */}
+      {blockConfirmTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setBlockConfirmTarget(null)}>
+          <div className="mx-4 w-full max-w-sm rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-black text-red-400">Block User</h3>
+            <p className="mt-2 text-sm text-[var(--foreground)]">Block {blockConfirmTarget}? They won't be able to message you, and their messages will be hidden.</p>
+            <div className="mt-5 flex gap-3">
+              <button onClick={() => setBlockConfirmTarget(null)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700">Cancel</button>
+              <button onClick={() => { blockUser(blockConfirmTarget); setBlockConfirmTarget(null); }} className="flex-1 rounded-xl bg-red-500 py-3 text-sm font-bold text-white hover:bg-red-400">Block</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Clear All Messages Confirmation Modal */}
+      {clearAllConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setClearAllConfirm(false)}>
+          <div className="mx-4 w-full max-w-sm rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-black text-red-400">Clear All Messages</h3>
+            <p className="mt-2 text-sm text-[var(--foreground)]">Delete all your messages? This cannot be undone.</p>
+            <div className="mt-5 flex gap-3">
+              <button onClick={() => setClearAllConfirm(false)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700">Cancel</button>
+              <button onClick={executeClearAllMessages} className="flex-1 rounded-xl bg-red-500 py-3 text-sm font-bold text-white hover:bg-red-400">Delete All</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Scam Warning Modal */}
       {scamWarning && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => { setScamWarning(false); setPendingMessage(""); }}>
@@ -723,24 +823,36 @@ function MessagesPage() {
         </div>
       )}
       <section className="relative z-10 mx-auto flex max-w-7xl px-6 py-12">
-        <div className="flex h-[750px] w-full overflow-hidden rounded-[40px] border border-[var(--card-border)] bg-[var(--card)] shadow-2xl backdrop-blur-xl">
+        <div className="flex h-[calc(100dvh-12rem)] w-full overflow-hidden rounded-[40px] border border-[var(--card-border)] bg-[var(--card)] shadow-2xl backdrop-blur-xl">
           {/* SIDEBAR */}
           <div className={`flex w-[340px] flex-col border-r border-[var(--card-border)] ${isMobile && mobileView === "chat" ? "hidden" : "flex"} ${isMobile ? "w-full" : ""}`}>
             <div className="border-b border-[var(--card-border)] p-5">
               <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-black text-sky-400">Inbox</h1>
                 {messages.length > 0 && (
-                  <button onClick={clearAllMessages} className="text-[10px] text-red-400 underline decoration-red-400/30 underline-offset-2 transition hover:text-red-300 hover:decoration-red-400/60">
+                  <button onClick={() => setClearAllConfirm(true)} className="text-[10px] text-red-400 underline decoration-red-400/30 underline-offset-2 transition hover:text-red-300 hover:decoration-red-400/60">
                     Clear all
                   </button>
                 )}
               </div>
-              <div className="relative mt-3">
-                <svg className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <input type="text" placeholder="Search conversations..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] py-2.5 pl-9 pr-4 text-[13px] text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-500" />
+              <div className="mt-3 flex gap-2">
+                <div className="relative flex-1">
+                  <svg className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <input type="text" placeholder="Search conversations..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] py-2.5 pl-9 pr-4 text-[13px] text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-500" />
+                </div>
+                <button onClick={() => setShowUnreadOnly((prev) => !prev)}
+                  className={`flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl border transition ${
+                    showUnreadOnly
+                      ? "border-red-500/40 bg-red-500/10 text-red-400"
+                      : "border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--muted)] hover:border-red-400 hover:text-red-400"
+                  }`} title="Show unread only">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                </button>
               </div>
 
             </div>
@@ -788,7 +900,7 @@ function MessagesPage() {
                           {hasOffer && <span className="ml-1 shrink-0 text-[10px]">💰</span>}
                         </div>
                         <p className={`mt-0.5 truncate text-[11px] ${unreadCount > 0 ? "font-medium text-[var(--foreground)]" : "text-[var(--muted)]"}`}>
-                          {convo.msg.text || (convo.msg.type === "image" ? "📷 Photo" : convo.msg.type === "offer" ? `💰 Offer: $${convo.msg.offerAmount || ""}` : convo.msg.type === "purchase" ? "🛒 Purchase request" : "")}
+                          {convo.msg.text || (convo.msg.type === "image" ? "📷 Photo" : convo.msg.type === "file" ? `📎 ${convo.msg.fileName || "File"}` : convo.msg.type === "offer" ? `💰 Offer: $${convo.msg.offerAmount || ""}` : convo.msg.type === "purchase" ? "🛒 Purchase request" : "")}
                         </p>
                         {convo.listingTitle && (
                           <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-[8px] font-medium text-sky-400 truncate max-w-full">{convo.listingTitle}</span>
@@ -900,7 +1012,7 @@ function MessagesPage() {
                         <svg className="h-3.5 w-3.5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg>
                         Report user
                       </button>
-                      <button onClick={() => blockUser(chatUser)} className="flex w-full items-center gap-2 px-4 py-3 text-left text-[12px] text-[var(--foreground)] hover:bg-white/[0.05]">
+                      <button onClick={() => setBlockConfirmTarget(chatUser)} className="flex w-full items-center gap-2 px-4 py-3 text-left text-[12px] text-[var(--foreground)] hover:bg-white/[0.05]">
                         <svg className="h-3.5 w-3.5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
                         Block user
                       </button>
@@ -1163,9 +1275,9 @@ function MessagesPage() {
                                   {/* Action buttons â€” only on received pending offers */}
                                   {!isOwn && msg.offerStatus === "pending" && (
                                     <div className="mt-3 flex gap-1.5">
-                                      <button onClick={() => sendOffer("accept", msg.offerAmount)} className="flex-1 rounded-lg bg-emerald-500 py-2.5 text-[10px] font-bold text-white transition hover:bg-emerald-400">Accept</button>
-                                      <button onClick={() => sendOffer("decline")} className="flex-1 rounded-lg bg-zinc-700 py-2.5 text-[10px] font-bold text-[var(--foreground)] transition hover:bg-zinc-600">Decline</button>
-                                      <button onClick={() => sendOffer("counter", msg.offerAmount)} className="flex-1 rounded-lg bg-amber-500 py-2.5 text-[10px] font-bold text-white transition hover:bg-amber-400">Counter</button>
+                                      <button disabled={sendingOffer} onClick={() => sendOffer("accept", msg.offerAmount)} className="flex-1 rounded-lg bg-emerald-500 py-2.5 text-[10px] font-bold text-white transition hover:bg-emerald-400 disabled:opacity-50">Accept</button>
+                                      <button disabled={sendingOffer} onClick={() => sendOffer("decline")} className="flex-1 rounded-lg bg-zinc-700 py-2.5 text-[10px] font-bold text-[var(--foreground)] transition hover:bg-zinc-600 disabled:opacity-50">Decline</button>
+                                      <button disabled={sendingOffer} onClick={() => sendOffer("counter", msg.offerAmount)} className="flex-1 rounded-lg bg-amber-500 py-2.5 text-[10px] font-bold text-white transition hover:bg-amber-400 disabled:opacity-50">Counter</button>
                                     </div>
                                   )}
                                   {/* Pay Now for accepted offers */}
@@ -1267,6 +1379,37 @@ function MessagesPage() {
                             </div>
                           );
                         }
+                        // File attachment message
+                        if (msg.type === "file") {
+                          const isPdf = msg.fileName?.toLowerCase().endsWith(".pdf");
+                          return (
+                            <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
+                              <div className="max-w-[75%]">
+                                <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer"
+                                  className={`flex items-center gap-3 rounded-2xl px-4 py-3 shadow-lg transition hover:opacity-80 ${
+                                    isOwn ? "rounded-br-md bg-sky-500/15" : "rounded-bl-md bg-zinc-800/60"
+                                  }`}>
+                                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-800 text-lg">
+                                    {isPdf ? "📄" : "📎"}
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate text-[13px] font-medium text-[var(--foreground)]">{msg.fileName}</p>
+                                    <p className="text-[10px] text-[var(--muted)]">
+                                      {msg.fileSize ? `${(msg.fileSize / 1024).toFixed(1)} KB` : ""}
+                                      {isPdf && " · PDF"}
+                                    </p>
+                                  </div>
+                                  <svg className="h-4 w-4 shrink-0 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                  </svg>
+                                </a>
+                                <div className="mt-1 flex justify-end px-1">
+                                  <span className={`text-[9px] ${isOwn ? "text-white/60" : "text-[var(--muted)]"}`}>{formatFullTime(msg.createdAt) || formatTime(msg.createdAt)}</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
                         // Order event (system message)
                         if (msg.type === "order_event") {
                           return (
@@ -1342,6 +1485,18 @@ function MessagesPage() {
                       <button onClick={sendImageMessage} className="rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white hover:bg-sky-400">Send</button>
                     </div>
                   )}
+                  {/* File attachment preview */}
+                  {fileAttachment && (
+                    <div className="mb-2 flex items-center gap-3 rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] p-2">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-zinc-800 text-lg">📎</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="truncate text-[11px] font-medium text-[var(--foreground)]">{fileAttachment.name}</p>
+                        <p className="text-[9px] text-[var(--muted)]">{(fileAttachment.size / 1024).toFixed(1)} KB</p>
+                      </div>
+                      <button onClick={() => { setFileAttachment(null); if (fileAttachInputRef.current) fileAttachInputRef.current.value = ""; }} className="text-[11px] text-red-400 hover:text-red-300">Remove</button>
+                      <button onClick={sendFileMessage} className="rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white hover:bg-sky-400">Send</button>
+                    </div>
+                  )}
                   {/* Offer input */}
                   {showOfferInput && (
                     <div className="mb-2 flex items-center gap-2">
@@ -1359,6 +1514,13 @@ function MessagesPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
                     </button>
+                    {/* File attach button */}
+                    <button onClick={() => fileAttachInputRef.current?.click()}
+                      className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--muted)] transition hover:border-amber-400 hover:text-amber-400">
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                      </svg>
+                    </button>
                     {/* Offer button */}
                     {(chatListingId || getSearchParam("listing")) && user?.email !== chatUser && (
                       <button onClick={() => setShowOfferInput((prev) => !prev)}
@@ -1371,7 +1533,8 @@ function MessagesPage() {
                       </button>
                     )}
                     <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
-                    <input ref={messageInputRef} type="text" placeholder="Type a message..." value={message}
+                    <input ref={fileAttachInputRef} type="file" onChange={handleFileSelect} className="hidden" />
+                    <input ref={messageInputRef} type="text" placeholder="Type a message..." value={message} maxLength={2000}
                       onChange={(e) => {
                         setMessage(e.target.value);
                         if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current);

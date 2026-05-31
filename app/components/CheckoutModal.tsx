@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { addDoc, collection, doc, getDocs, query, serverTimestamp, where } from "firebase/firestore";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import stripePromise from "../lib/stripe-client";
-import { auth, db, storage } from "../lib/firebase";
+import { auth, db, storage, onAuthStateChanged } from "../lib/firebase";
 import { ref, getDownloadURL } from "firebase/storage";
 import { createNotification } from "../lib/notifications";
 import { showToast } from "./Toast";
@@ -73,6 +73,7 @@ function PaymentForm({ total, listingId, title, price, buyerEmail, onSuccess, on
   const stripe = useStripe();
   const elements = useElements();
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const [elementReady, setElementReady] = useState(false);
 
@@ -83,6 +84,8 @@ function PaymentForm({ total, listingId, title, price, buyerEmail, onSuccess, on
       setError("Payment form is still loading. Please wait...");
       return;
     }
+    if (submitting) return;
+    setSubmitting(true);
     setError("");
 
     const { error: submitError } = await stripe.confirmPayment({
@@ -93,6 +96,7 @@ function PaymentForm({ total, listingId, title, price, buyerEmail, onSuccess, on
       redirect: "if_required",
     });
 
+    setSubmitting(false);
     if (submitError) {
       setError("Payment failed. Please try another payment method or try again.");
     } else {
@@ -117,10 +121,10 @@ function PaymentForm({ total, listingId, title, price, buyerEmail, onSuccess, on
       )}
       <button
         type="submit"
-        disabled={!stripe || !elementReady}
+        disabled={!stripe || !elementReady || submitting}
         className="w-full rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-sky-400 disabled:opacity-50"
       >
-        Pay ${total.toFixed(2)}
+        {submitting ? "Processing..." : `Pay $${total.toFixed(2)}`}
       </button>
       <button
         type="button"
@@ -184,6 +188,17 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  // If user logs out during checkout, close modal
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => {
+      if (!u) {
+        showToast("Session expired. Please sign in again.", "error");
+        safeClose();
+      }
+    });
+    return () => unsub();
   }, []);
 
   useEffect(() => {

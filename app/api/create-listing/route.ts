@@ -80,7 +80,7 @@ async function createListingViaRest(idToken: string, listingData: Record<string,
 export async function POST(req: NextRequest) {
   try {
     const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const { allowed } = rateLimit(`create-listing:${ip}`, 5, 60_000);
+    const { allowed } = await rateLimit(`create-listing:${ip}`, 5, 60_000);
     if (!allowed) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }
@@ -147,20 +147,29 @@ export async function POST(req: NextRequest) {
     let salesCount = 0;
 
     if (isAdminInitialized()) {
-      if (numericPrice > 0 && isPriceSuspicious(numericPrice, category)) {
-        const sellerProfiles = await getAdminDb().collection("profiles")
-          .where("email", "==", token.email).limit(1).get();
-
-        let reportsCount = 0;
-        if (!sellerProfiles.empty) {
-          const profile = sellerProfiles.docs[0].data();
-          salesCount = profile.salesCount || 0;
-          reportsCount = profile.reportsCount || 0;
-          if (profile.restricted) {
-            return NextResponse.json({ error: "Your account is restricted. Contact support." }, { status: 403 });
-          }
+      // Fetch seller profile once and reuse
+      const sellerProfileSnap = await getAdminDb().collection("profiles")
+        .where("email", "==", token.email).limit(1).get();
+      let reportsCount = 0;
+      let sellerProfile: FirebaseFirestore.DocumentData | null = null;
+      if (!sellerProfileSnap.empty) {
+        sellerProfile = sellerProfileSnap.docs[0].data();
+        salesCount = sellerProfile.salesCount || 0;
+        reportsCount = sellerProfile.reportsCount || 0;
+        if (sellerProfile.restricted) {
+          return NextResponse.json({ error: "Your account is restricted. Contact support." }, { status: 403 });
         }
+        // Require email verified to sell
+        if (!token.email_verified) {
+          return NextResponse.json({ error: "Please verify your email address before creating a listing." }, { status: 403 });
+        }
+        // Require phone to sell
+        if (!sellerProfile.phone || !sellerProfile.phoneVerified) {
+          return NextResponse.json({ error: "Please add and verify your phone number in Profile to create listings." }, { status: 403 });
+        }
+      }
 
+      if (numericPrice > 0 && isPriceSuspicious(numericPrice, category)) {
         if (salesCount < 3 || reportsCount > 0) {
           return NextResponse.json({
             error: `Price seems unusually low for "${category}". Please set a realistic price or contact support.`,
@@ -186,19 +195,19 @@ export async function POST(req: NextRequest) {
         .where("status", "==", "live")
         .get();
 
-      const sellerProfiles = await getAdminDb().collection("profiles")
-        .where("email", "==", token.email).limit(1).get();
-
-      if (!sellerProfiles.empty) {
-        salesCount = sellerProfiles.docs[0].data().salesCount || 0;
-      }
-
       const maxListings = salesCount >= 10 ? 100 : salesCount >= 3 ? 25 : 5;
       if (activeListings.size >= maxListings) {
         return NextResponse.json({
           error: `You can only have ${maxListings} active listings. Complete some sales to unlock more.`,
         }, { status: 400 });
       }
+    }
+
+    let status: string;
+    if (listingType === "digital" || (salesCount < 3 && isAdminInitialized())) {
+      status = "pending_review";
+    } else {
+      status = "live";
     }
 
     const listingData: Record<string, unknown> = {
@@ -213,7 +222,7 @@ export async function POST(req: NextRequest) {
       sellerId: token.uid,
       createdAt: new Date(),
       type: listingType || "physical",
-      status: "live",
+      status,
       views: 0,
       bidCount: 0,
       stockQuantity: 1,
@@ -253,3 +262,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Failed to create listing" }, { status: 500 });
   }
 }
+

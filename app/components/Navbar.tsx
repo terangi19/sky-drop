@@ -251,10 +251,6 @@ export default function Navbar() {
           {/* NAV */}
           {user && (
             <nav className="hidden md:flex items-center gap-5 text-sm font-medium text-[var(--foreground)]">
-              <Link href="/trade-feed" className="flex items-center gap-1.5 transition hover:text-sky-400">
-                <span className="font-bold">Trade Live</span>
-                <span className="flex h-1.5 w-1.5 rounded-full bg-red-500/80" />
-              </Link>
               <Link href="/post/ai" className="transition hover:text-sky-400">Sell</Link>
               <div className="relative group">
                 <button className="flex items-center gap-1 transition hover:text-sky-400 cursor-pointer">
@@ -274,17 +270,8 @@ export default function Navbar() {
                   <Link href="/rentals" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-[var(--foreground)] hover:bg-zinc-800/60 transition-colors">
                     <span className="text-base">🔑</span> Rentals
                   </Link>
-                  <Link href="/events" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-[var(--foreground)] hover:bg-zinc-800/60 transition-colors">
-                    <span className="text-base">🎟</span> Events
-                  </Link>
                   <Link href="/vehicles" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-[var(--foreground)] hover:bg-zinc-800/60 transition-colors">
                     <span className="text-base">🚗</span> Vehicles
-                  </Link>
-                  <Link href="/jobs" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-[var(--foreground)] hover:bg-zinc-800/60 transition-colors">
-                    <span className="text-base">💼</span> Jobs
-                  </Link>
-                  <Link href="/property" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-[var(--foreground)] hover:bg-zinc-800/60 transition-colors">
-                    <span className="text-base">🏠</span> Property
                   </Link>
                 </div>
               </div>
@@ -313,12 +300,6 @@ export default function Navbar() {
           {mobileMenuOpen && (
             <div className="absolute top-full left-0 right-0 z-50 border-b border-zinc-800/50 bg-zinc-950/95 backdrop-blur-xl md:hidden">
               <div className="flex flex-col gap-0.5 px-4 py-3">
-                <Link href="/trade-feed" className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}>
-                    <span className="flex items-center gap-1.5">
-                      <span>Trade Live</span>
-                      <span className="flex h-2 w-2 rounded-full bg-red-500" />
-                    </span>
-                </Link>
                 <Link href="/post/ai" className="rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}>Sell</Link>
                 <div className="my-1.5 mx-4 border-t border-zinc-800/40" />
                 <div className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Browse</div>
@@ -326,10 +307,7 @@ export default function Navbar() {
                 <Link href="/digital" className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}><span>📥</span> Digital Store</Link>
                 <Link href="/services" className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}><span>🤝</span> Services</Link>
                 <Link href="/rentals" className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}><span>🔑</span> Rentals</Link>
-                <Link href="/events" className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}><span>🎟</span> Events</Link>
                 <Link href="/vehicles" className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}><span>🚗</span> Vehicles</Link>
-                <Link href="/jobs" className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}><span>💼</span> Jobs</Link>
-                <Link href="/property" className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}><span>🏠</span> Property</Link>
                 <div className="my-1.5 mx-4 border-t border-zinc-800/40" />
                 <Link href="/list-list" className="rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}>My Listings</Link>
                 <Link href="/watchlist" className="rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}>Watchlist</Link>
@@ -357,11 +335,11 @@ export default function Navbar() {
             </Link>
           )}
 
-          {/* INBOX — desktop only */}
+          {/* INBOX — responsive */}
           {user && (
             <Link
               href="/messages"
-              className="hidden md:flex relative h-9 w-9 items-center justify-center rounded-lg transition hover:bg-zinc-800/50"
+              className="relative h-9 w-9 items-center justify-center rounded-lg transition hover:bg-zinc-800/50 flex"
             >
               <svg className="h-4 w-4 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -382,9 +360,9 @@ export default function Navbar() {
             </Link>
           )}
 
-          {/* NOTIFICATIONS — desktop only */}
+          {/* NOTIFICATIONS — responsive */}
           {user && (
-            <div className="hidden md:block relative">
+            <div className="relative">
               <div
                 onClick={() =>
                   setShowNotifications(
@@ -447,41 +425,47 @@ export default function Navbar() {
       {/* Mobile bottom bar */}
       {user && (
       <nav className="fixed bottom-0 left-0 right-0 z-[9999] border-t border-white/[0.04] backdrop-blur-xl md:hidden" style={{ backgroundColor: "var(--nav-bg)" }}>
-          <div className="flex items-center justify-around py-1" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 4px) + 4px)" }}>
+          <div className="flex items-center justify-around py-2" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 4px) + 4px)" }}>
             <Link href="/"
-              className={`flex flex-col items-center gap-px px-3 py-1 rounded-xl transition active:scale-95 ${pathname === "/" ? "text-sky-400" : `${user ? "text-[var(--muted)]" : "text-zinc-500"}`}`}>
+              className={`flex flex-col items-center gap-px px-3 py-1.5 rounded-xl transition active:scale-95 ${pathname === "/" ? "text-sky-400" : `${user ? "text-[var(--muted)]" : "text-zinc-500"}`}`}>
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
               </svg>
-              <span className="text-[8px] font-semibold">Home</span>
+              <span className="text-[10px] font-semibold">Home</span>
             </Link>
             <Link href="/messages"
-              className={`flex flex-col items-center gap-px px-3 py-1 rounded-xl transition active:scale-95 ${pathname === "/messages" ? "text-sky-400" : `${user ? "text-[var(--muted)]" : "text-zinc-500"}`}`}>
+              className={`flex flex-col items-center gap-px px-3 py-1.5 rounded-xl transition active:scale-95 ${pathname === "/messages" ? "text-sky-400" : `${user ? "text-[var(--muted)]" : "text-zinc-500"}`}`}>
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
-              <span className="text-[8px] font-semibold">Inbox</span>
+              <span className="text-[10px] font-semibold">Inbox</span>
             </Link>
-            <Link href="/trade-feed"
-              className={`flex flex-col items-center gap-px px-3 py-1 rounded-xl transition active:scale-95 ${pathname === "/trade-feed" ? "text-sky-400" : `${user ? "text-[var(--muted)]" : "text-zinc-500"}`}`}>
+            <button
+              onClick={() => setShowNotifications(!showNotifications)}
+              className={`flex flex-col items-center gap-px px-3 py-1.5 rounded-xl transition active:scale-95 relative ${showNotifications ? "text-sky-400" : "text-[var(--muted)]"}`}>
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
               </svg>
-              <span className="text-[8px] font-semibold">Trade Live</span>
-            </Link>
+              {activityCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-sky-500 px-1 text-[7px] font-bold text-white">
+                  {activityCount > 9 ? "9+" : activityCount}
+                </span>
+              )}
+              <span className="text-[10px] font-semibold">Alerts</span>
+            </button>
             <Link href="/post/ai"
-              className={`flex flex-col items-center gap-px px-3 py-1 rounded-xl transition active:scale-95 ${pathname === "/post/ai" ? "text-sky-400" : `${user ? "text-[var(--muted)]" : "text-zinc-500"}`}`}>
+              className={`flex flex-col items-center gap-px px-3 py-1.5 rounded-xl transition active:scale-95 ${pathname === "/post/ai" ? "text-sky-400" : `${user ? "text-[var(--muted)]" : "text-zinc-500"}`}`}>
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
               </svg>
-              <span className="text-[8px] font-semibold">Sell</span>
+              <span className="text-[10px] font-semibold">Sell</span>
             </Link>
             <button onClick={() => setMobileMenuOpen(true)}
-              className="flex flex-col items-center gap-px px-3 py-1 rounded-xl transition active:scale-95 text-[var(--muted)]">
+              className="flex flex-col items-center gap-px px-3 py-1.5 rounded-xl transition active:scale-95 text-[var(--muted)]">
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
               </svg>
-              <span className="text-[8px] font-semibold">Menu</span>
+              <span className="text-[10px] font-semibold">Menu</span>
             </button>
           </div>
         </nav>

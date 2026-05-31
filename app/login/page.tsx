@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import Navbar from "../components/Navbar";
@@ -10,7 +11,6 @@ import { showToast } from "../components/Toast";
 import {
   createUserWithEmailAndPassword,
   sendEmailVerification,
-  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   RecaptchaVerifier,
   signInWithPhoneNumber,
@@ -20,6 +20,7 @@ import { addDoc, collection, doc, getDocs, increment, query, serverTimestamp, se
 import { auth, db } from "../lib/firebase";
 import { createNotification } from "../lib/notifications";
 import { buildEmailHtml } from "../lib/email";
+import { formatNZPhone } from "../lib/phone-auth";
 
 export default function AuthPage() {
   const router = useRouter();
@@ -40,8 +41,6 @@ export default function AuthPage() {
   const confirmationResultRef = useRef<any>(null);
   const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
 
-  const [showReset, setShowReset] = useState(false);
-  const [resetSent, setResetSent] = useState(false);
   const [redirectTo, setRedirectTo] = useState("");
 
   useEffect(() => {
@@ -62,18 +61,37 @@ export default function AuthPage() {
   async function handleAuth(e: React.FormEvent) {
     e.preventDefault();
     if (!email || !password) return;
-    if (!isLogin && !phone.trim()) { showToast("Phone number is required.", "error"); return; }
+    if (!isLogin) {
+      const pwErrors: string[] = [];
+      if (password.length < 8) pwErrors.push("at least 8 characters");
+      if (!/[A-Z]/.test(password)) pwErrors.push("an uppercase letter");
+      if (!/[0-9]/.test(password)) pwErrors.push("a number");
+      if (pwErrors.length > 0) {
+        showToast("Password needs " + pwErrors.join(", "), "error");
+        return;
+      }
+      if (phone.trim()) {
+        const formattedPhone = formatNZPhone(phone);
+        if (!formattedPhone.startsWith("+642") || formattedPhone.length < 11) {
+          showToast("Enter a valid NZ phone number (e.g. 021 123 4567)", "error");
+          return;
+        }
+        const existingPhone = await getDocs(query(collection(db, "profiles"), where("phone", "==", formattedPhone)));
+        if (!existingPhone.empty) {
+          showToast("This phone number is already registered to another account.", "error");
+          return;
+        }
+      }
+    }
 
     try {
       setLoading(true);
 
       if (isLogin) {
         const cred = await signInWithEmailAndPassword(auth, email, password);
-        router.push(redirectTo || "/profile");
+        router.push(redirectTo || "/");
       } else {
         const cred = await createUserWithEmailAndPassword(auth, email, password);
-
-        await sendEmailVerification(cred.user);
 
         // Save basic profile
         const user = auth.currentUser;
@@ -81,7 +99,7 @@ export default function AuthPage() {
           const code = Math.random().toString(36).substring(2, 8).toUpperCase();
           const profileData: Record<string, any> = {
             email: user.email,
-            phone,
+            phone: phone.trim() || "",
             phoneVerified: false,
             referralCode: code,
             memberSince: Timestamp.now(),
@@ -149,7 +167,7 @@ Here's how to get started:
 • Stay safe — Never pay outside Sky Drop. Keep all communication in our chat.
 
 Your account is ready. Now go explore.`,
-              ctas: [{ label: "Browse Listings", url: "https://skydrop.nz", primary: true }],
+              ctas: [{ label: "Browse Listings", url: process.env.NEXT_PUBLIC_URL || "https://skydrop.nz", primary: true }],
             });
             const token = await auth.currentUser?.getIdToken();
             await fetch("/api/send-email", {
@@ -162,8 +180,8 @@ Your account is ready. Now go explore.`,
           }
         }
 
-        showToast("Account created! Check your email to verify.");
-        router.push("/profile");
+        showToast("Welcome to Sky Drop! Start browsing listings.", "success");
+        router.push("/");
       }
 
       setEmail("");
@@ -175,20 +193,6 @@ Your account is ready. Now go explore.`,
     }
 
     setLoading(false);
-  }
-
-  async function handleResetPassword() {
-    if (!email) {
-      showToast("Enter your email address first.", "error");
-      return;
-    }
-    try {
-      await sendPasswordResetEmail(auth, email);
-      setResetSent(true);
-      showToast("Password reset email sent! Check your inbox.");
-    } catch (e: any) {
-      showToast(e.message, "error");
-    }
   }
 
   async function handleVerifyPhone() {
@@ -284,7 +288,7 @@ Your account is ready. Now go explore.`,
               {!isLogin && (
                 <input
                   type="tel"
-                  placeholder="Phone Number"
+                  placeholder="Phone (optional — needed for selling)"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   className="w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 outline-none focus:border-sky-400"
@@ -320,42 +324,12 @@ Your account is ready. Now go explore.`,
                   : "Create Account"}
               </button>
 
-              {resetSent ? (
-                <p className="w-full text-xs text-right text-emerald-400">Reset link sent!</p>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleResetPassword}
-                  className="w-full text-xs text-right text-[var(--muted)] hover:text-sky-400 transition-colors"
-                >
-                  Forgot password?
-                </button>
-              )}
-
-              {showReset && (
-                <div className="rounded-xl border border-zinc-700 bg-zinc-900 p-4">
-                  <p className="text-sm text-[var(--muted)] mb-3">
-                    Enter your email and we'll send a reset link.
-                  </p>
-                  <div className="flex gap-2">
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Your email"
-                      className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-sky-400"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleResetPassword}
-                      disabled={resetSent}
-                      className="rounded-lg bg-sky-500 px-4 py-2 text-sm font-bold hover:bg-sky-400 disabled:opacity-50"
-                    >
-                      {resetSent ? "Sent" : "Send"}
-                    </button>
-                  </div>
-                </div>
-              )}
+              <Link
+                href="/forgot-password"
+                className="w-full text-xs text-right text-[var(--muted)] hover:text-sky-400 transition-colors"
+              >
+                Forgot password?
+              </Link>
             </form>
           )}
 

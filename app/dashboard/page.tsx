@@ -7,10 +7,6 @@ import Background from "../components/Background";
 import { User } from "firebase/auth";
 import { collection, doc, limit, onSnapshot, query, where } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
-import DropTokenList from "../components/DropTokenList";
-import SponsorDropModal from "../components/SponsorDropModal";
-import LootCrateModal from "../components/LootCrateModal";
-import DailyChallenges from "../components/DailyChallenges";
 import { getLevelInfo } from "../lib/xp";
 import { trackChallenge } from "../lib/challenges";
 
@@ -223,12 +219,13 @@ export default function DashboardPage() {
         <div className="mt-8">
           <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-zinc-500">Quick Actions</h2>
           <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {[
+            {([
               { href: "/post", icon: "M12 4v16m8-8H4", label: "Create Listing", color: "text-sky-400" },
               { href: "/sales", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4", label: "Sales", color: "text-emerald-400" },
               { href: "/messages", icon: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z", label: "Messages", color: "text-sky-400" },
               { href: "/profile", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z", label: "Profile", color: "text-sky-400" },
-            ].map((a) => (
+              ...(user?.email === "rangitr16@gmail.com" ? [{ href: "/admin", icon: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z", label: "Admin", color: "text-amber-400" }] : []),
+            ]).map((a) => (
               <Link key={a.href} href={a.href} className="flex flex-col items-center gap-2 rounded-2xl border border-white/[0.04] bg-white/[0.02] p-5 transition-all duration-200 hover:bg-white/[0.04] hover:border-white/[0.08] active:scale-[0.98] group">
                 <svg className={`h-6 w-6 ${a.color} group-hover:scale-110 transition-transform duration-200`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d={a.icon} />
@@ -247,35 +244,6 @@ export default function DashboardPage() {
           <Link href="/profile" className="mt-4 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">
             Manage Payout Settings
           </Link>
-        </div>
-
-        {/* Sections grid: XP + Drop Tokens + Challenges */}
-        <div className="mt-8 grid gap-4 sm:grid-cols-2">
-          {/* XP & Level */}
-          <div className="rounded-2xl border border-white/[0.04] bg-white/[0.02] p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-zinc-500">Level {getLevelInfo(xp).level}</p>
-                <p className="text-xl font-black text-[var(--foreground)]">{xp} XP</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs text-zinc-600">{getLevelInfo(xp).progress}/{getLevelInfo(xp).xpToNext}</p>
-              </div>
-            </div>
-            <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-zinc-800">
-              <div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-400 transition-all duration-500" style={{ width: `${(getLevelInfo(xp).progress / getLevelInfo(xp).xpToNext) * 100}%` }} />
-            </div>
-          </div>
-          {/* Sky Crate */}
-          <LootCrateModal userId={user.uid} userEmail={user.email!} onClose={() => {}} inline />
-        </div>
-
-        {/* Daily Challenges + Drop Tokens */}
-        <div className="mt-6">
-          <DailyChallenges userId={user.uid} />
-        </div>
-        <div className="mt-6">
-          <DropTokenList userId={user.uid} userEmail={user.email!} />
         </div>
 
         {/* Expiring soon */}
@@ -328,36 +296,6 @@ export default function DashboardPage() {
             </Link>
           )}
         </div>
-
-        {/* Sponsor a Drop */}
-        {listings.length > 0 && (
-          <div className="mt-8 rounded-2xl border border-amber-500/10 bg-gradient-to-b from-amber-500/3 to-transparent p-5 sm:p-6">
-            <div className="flex items-start sm:items-center justify-between gap-4 flex-col sm:flex-row">
-              <div>
-                <h2 className="text-sm font-bold text-[var(--foreground)]">🎁 Sponsor a Drop</h2>
-                <p className="mt-1 text-xs text-zinc-500">Send users to your listing for $5. Your page becomes the next drop target.</p>
-              </div>
-              <button onClick={() => { setSponsorListing(listings[0]); setShowSponsor(true); }}
-                className="shrink-0 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-amber-500/20 transition hover:shadow-xl active:scale-[0.97]">
-                Sponsor — $5
-              </button>
-            </div>
-            {listings.length > 1 && (
-              <div className="mt-4 flex gap-1.5 overflow-x-auto">
-                {listings.map((l) => (
-                  <button key={l.id} onClick={() => { setSponsorListing(l); setShowSponsor(true); }}
-                    className={`shrink-0 rounded-lg border px-3 py-1.5 text-[10px] font-bold transition ${
-                      sponsorListing?.id === l.id ? "border-amber-500/50 bg-amber-500/10 text-amber-400" : "border-white/[0.06] text-zinc-500 hover:border-white/[0.12] hover:text-zinc-300"
-                    }`}>{l.title.slice(0, 20)}</button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {showSponsor && sponsorListing && user && (
-          <SponsorDropModal listing={sponsorListing} sellerEmail={user.email!} userId={user.uid} onClose={() => setShowSponsor(false)} />
-        )}
 
         <Link href="/dashboard/applications"
           className="mt-8 flex items-center justify-between rounded-2xl border border-cyan-500/10 bg-gradient-to-b from-cyan-500/3 to-transparent p-5 transition hover:border-cyan-500/20">

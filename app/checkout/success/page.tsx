@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { auth } from "../../lib/firebase";
 import stripePromise from "../../lib/stripe-client";
@@ -23,7 +23,11 @@ function SuccessInner() {
   const digitalFileName = searchParams.get("digitalFileName") || "";
   const sellerEmailParam = searchParams.get("sellerEmail") || "";
 
+  const hasRun = useRef(false);
+
   useEffect(() => {
+    if (hasRun.current) return;
+    hasRun.current = true;
     let cancelled = false;
 
     async function verifyAndDisplay() {
@@ -136,8 +140,14 @@ function SuccessInner() {
               )}
               <div className="mt-8 flex flex-col gap-3">
                 <button
+                  onClick={() => router.push("/")}
+                  className="rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-3 font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:shadow-xl active:scale-[0.97]"
+                >
+                  Continue Shopping
+                </button>
+                <button
                   onClick={redirectToMessages}
-                  className="rounded-xl bg-sky-500 px-6 py-3 font-bold transition hover:bg-sky-400"
+                  className="rounded-xl border border-zinc-700 px-6 py-3 font-bold text-[var(--foreground)] transition hover:bg-zinc-800"
                 >
                   View Messages
                 </button>

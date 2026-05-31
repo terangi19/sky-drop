@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
@@ -30,6 +30,7 @@ interface Purchase {
   createdAt?: any;
   badgeTransfer?: string;
   disputeStatus?: string;
+  trackingNumber?: string;
 }
 
 const statusStyles: Record<string, string> = {
@@ -75,15 +76,17 @@ const nextStatus: Record<string, { label: string; status: string }> = {
 
 export default function SalesPage() {
   const [user, setUser] = useState<User | null>(null);
+  const userEmailRef = useRef<string | null>(null);
   const [sales, setSales] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [confirmAction, setConfirmAction] = useState<{ id: string; status: string; label: string } | null>(null);
+  const [trackingNumber, setTrackingNumber] = useState("");
   const [sellerStripeId, setSellerStripeId] = useState("");
   const [filter, setFilter] = useState("active");
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => setUser(u));
+    const unsub = onAuthStateChanged(auth, (u) => { setUser(u); userEmailRef.current = u?.email || null; });
     return () => unsub();
   }, []);
 
@@ -133,10 +136,11 @@ export default function SalesPage() {
       const purchase = sales.find((s) => s.id === purchaseId);
       if (!purchase) return;
 
+      const currentEmail = userEmailRef.current || user?.email || "";
       if (newStatus === "seller_confirming") {
         await createNotification({
           targetEmail: purchase.buyerEmail,
-          fromEmail: user!.email!,
+          fromEmail: currentEmail,
           type: "order_confirmed",
           title: "Order Confirmed",
           message: `Your order for "${purchase.listingTitle}" has been confirmed by the seller. They'll prepare your item and update the status when shipped.`,
@@ -201,8 +205,23 @@ export default function SalesPage() {
       if (newStatus === "delivered") {
         await awardXP(user!.uid, 50);
       }
+
+      if (newStatus === "completed") {
+        await createNotification({
+          targetEmail: purchase.buyerEmail,
+          fromEmail: user!.email!,
+          type: "service_completed",
+          title: "Service Completed",
+          message: `Your service "${purchase.listingTitle}" has been marked as complete by the seller. Please confirm you're satisfied to release payment.`,
+          listingId: purchase.listingId,
+          listingTitle: purchase.listingTitle,
+          listingImage: purchase.listingImage,
+        });
+      }
     } catch (e) {
       console.error("Failed to update status:", e);
+      showToast("Failed to update status", "error");
+      throw e;
     }
   }
 
@@ -356,9 +375,26 @@ export default function SalesPage() {
           <div className="mx-4 w-full max-w-sm rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-center text-lg font-black text-[var(--foreground)]">Mark as {confirmAction.label}?</h3>
             <p className="mt-2 text-center text-sm text-[var(--muted)]">This will update the order status and notify the buyer.</p>
+            {confirmAction.status === "shipped" && (
+              <div className="mt-4">
+                <label className="mb-1 block text-xs font-bold text-[var(--muted)]">Tracking Number (optional)</label>
+                <input type="text" value={trackingNumber} onChange={(e) => setTrackingNumber(e.target.value)}
+                  placeholder="e.g. NZ123456789"
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500 placeholder:text-[var(--muted)]" />
+              </div>
+            )}
             <div className="mt-6 flex gap-3">
-              <button onClick={() => setConfirmAction(null)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700 active:scale-[0.97] transition-all">Cancel</button>
-              <button onClick={async () => { await updateStatus(confirmAction.id, confirmAction.status); setConfirmAction(null); }}
+              <button onClick={() => { setConfirmAction(null); setTrackingNumber(""); }} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700 active:scale-[0.97] transition-all">Cancel</button>
+              <button onClick={async () => {
+                try {
+                  if (confirmAction.status === "shipped" && trackingNumber.trim()) {
+                    await updateDoc(doc(db, "purchases", confirmAction.id), { trackingNumber: trackingNumber.trim() });
+                  }
+                  await updateStatus(confirmAction.id, confirmAction.status);
+                  setConfirmAction(null);
+                  setTrackingNumber("");
+                } catch {}
+              }}
                 className="flex-1 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-500/20 transition hover:shadow-xl active:scale-[0.97]">Confirm</button>
             </div>
           </div>

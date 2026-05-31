@@ -7,7 +7,7 @@ import { rateLimit } from "../../lib/rate-limit";
 export async function POST(req: NextRequest) {
   try {
     const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const { allowed } = rateLimit(`stripe-connect:${ip}`, 10, 60_000);
+    const { allowed } = await rateLimit(`stripe-connect:${ip}`, 10, 60_000);
     if (!allowed) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }
@@ -76,7 +76,11 @@ export async function POST(req: NextRequest) {
         }
         const profileData = profileDoc.data()!;
         const balance = profileData.earningsBalance || 0;
-        withdrawAmount = Math.round(Number(amount) * 100);
+        const parsed = Number(amount);
+        if (!amount || isNaN(parsed) || parsed <= 0) {
+          throw new Error("Invalid withdrawal amount");
+        }
+        withdrawAmount = Math.round(parsed * 100);
         if (balance < withdrawAmount) {
           throw new Error("Insufficient balance");
         }
@@ -99,3 +103,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: e.message || "Failed" }, { status: 500 });
   }
 }
+

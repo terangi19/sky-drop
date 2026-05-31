@@ -35,7 +35,9 @@ export default function VerificationBanner() {
     if (!user || sending) return;
     setSending(true);
     try {
-      await sendEmailVerification(user);
+      await sendEmailVerification(user, {
+        url: (typeof window !== "undefined" ? window.location.origin : process.env.NEXT_PUBLIC_URL) + "/profile",
+      });
       setSent(true);
       setTimeout(() => setSent(false), 4000);
     } catch (e: any) {
@@ -47,24 +49,24 @@ export default function VerificationBanner() {
   if (!user || user.emailVerified || dismissed) return null;
 
   return (
-    <div className="relative z-[99999] flex items-center justify-between gap-4 border-b border-amber-500/20 bg-amber-500/10 px-6 py-3 text-sm">
+    <div className="relative z-[99999] flex items-center justify-between gap-4 border-b border-sky-500/15 bg-sky-500/5 px-6 py-2.5 text-sm">
       <div className="flex items-center gap-2">
-        <span className="text-amber-400">&#9888;</span>
-        <span className="text-[var(--foreground)]">
-          Please verify your email to unlock full Sky Drop features.
+        <span className="text-sky-400 text-xs">✉</span>
+        <span className="text-xs text-[var(--muted)]">
+          Verify your email to create listings and sell items.
         </span>
       </div>
       <div className="flex items-center gap-3">
         <button
           onClick={handleResend}
           disabled={sending}
-          className="rounded-lg border border-amber-500/30 px-3 py-1.5 text-xs font-bold text-amber-400 transition hover:bg-amber-500/10 disabled:opacity-50"
+          className="rounded-lg border border-sky-500/20 px-2.5 py-1 text-[11px] font-medium text-sky-400 transition hover:bg-sky-500/10 disabled:opacity-50"
         >
-          {sending ? "Sending..." : sent ? "Sent!" : "Resend verification"}
+          {sending ? "Sending..." : sent ? "Sent!" : "Send verification"}
         </button>
         <button
           onClick={handleDismiss}
-          className="text-[var(--muted)] transition hover:text-[var(--foreground)]"
+          className="text-[var(--muted)] transition hover:text-[var(--foreground)] text-xs"
           aria-label="Dismiss"
         >
           ✕

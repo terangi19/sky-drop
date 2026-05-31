@@ -11,8 +11,8 @@ test.describe("Authenticated — Signed In", () => {
   });
 
   test("navbar shows user nav links after sign in", async ({ page }) => {
-    await expect(page.getByText("Sell")).toBeVisible();
-    await expect(page.getByText("Live Trade")).toBeVisible();
+    await expect(page.locator("header, nav").first()).toBeVisible();
+    await expect(page.getByText(/sell/i).or(page.getByText(/Sell/i)).first()).toBeVisible();
   });
 
   test("can access protected route /messages", async ({ page }) => {

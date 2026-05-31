@@ -73,7 +73,10 @@ export async function submitApplication(data: {
 export async function updateApplicationStatus(
   applicationId: string,
   status: "pending" | "reviewed" | "accepted" | "rejected",
-  employerNotes?: string
+  employerNotes?: string,
+  listingTitle?: string,
+  applicantEmail?: string,
+  employerEmail?: string
 ): Promise<void> {
   const updateData: any = {
     status,
@@ -81,6 +84,19 @@ export async function updateApplicationStatus(
   };
   if (employerNotes !== undefined) updateData.employerNotes = employerNotes;
   await updateDoc(doc(db, "jobApplications", applicationId), updateData);
+
+  if ((status === "accepted" || status === "rejected") && applicantEmail && listingTitle) {
+    await createNotification({
+      targetEmail: applicantEmail,
+      fromEmail: employerEmail || "system@skydrop.nz",
+      type: status === "accepted" ? "verification" : "warning",
+      title: status === "accepted" ? "Application Accepted! 🎉" : "Application Status Update",
+      message: status === "accepted"
+        ? `Your application for "${listingTitle}" has been accepted! The employer will be in touch soon.`
+        : `Your application for "${listingTitle}" has been updated.${employerNotes ? ` Notes: ${employerNotes}` : ""}`,
+      listingTitle,
+    });
+  }
 }
 
 export async function hasApplied(listingId: string, email: string): Promise<boolean> {

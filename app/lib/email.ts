@@ -262,7 +262,7 @@ function trustSection(): string {
 }
 
 export function buildEmailHtml(data: EmailData): string {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://skydrop.nz";
+  const baseUrl = process.env.NEXT_PUBLIC_URL || "https://skydrop.nz";
 
   return `
 <!DOCTYPE html>
@@ -688,6 +688,18 @@ export function notificationToEmail(type: string, title: string, listingTitle?: 
             ? `Your offer of **$${total.toFixed(2)}** on **${listingTitle}** was declined by the seller.\n\nYou can browse similar listings or send the seller a new offer through messages.`
             : `Your offer on **${listingTitle}** was declined.`
           : `Your offer was declined.`,
+        statusBadge: badge,
+        whatHappensNext: steps,
+      };
+    case "counter_offer":
+      return {
+        subject: `🔄 Counter Offer — ${listingTitle || ""}`,
+        title: "Counter Offer Received 🔄",
+        message: listingTitle
+          ? total
+            ? `The seller has sent a counter offer of **$${total.toFixed(2)}** on **${listingTitle}**.\n\nReply in messages to accept, decline, or negotiate.`
+            : `The seller has sent a counter offer on **${listingTitle}**.`
+          : `You received a counter offer.`,
         statusBadge: badge,
         whatHappensNext: steps,
       };

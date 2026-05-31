@@ -22,17 +22,27 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (user) => {
+    if (auth.currentUser) {
+      setChecking(false);
+      return;
+    }
+    let timer = setTimeout(() => {
       const isPublic = PUBLIC_ROUTES.some((route) =>
         pathname.startsWith(route)
       );
-      if (!isPublic && !user) {
-        router.replace("/login");
+      if (!isPublic) {
+        router.replace("/login?redirect=" + encodeURIComponent(pathname));
       } else {
         setChecking(false);
       }
+    }, 1500);
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        clearTimeout(timer);
+        setChecking(false);
+      }
     });
-    return () => unsub();
+    return () => { unsub(); clearTimeout(timer); };
   }, [pathname, router]);
 
   if (checking) return null;

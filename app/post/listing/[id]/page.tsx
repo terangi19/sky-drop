@@ -277,7 +277,7 @@ export default function ListingPage() {
       showToast("You've been outbid! 💰", "error");
     }
     prevHighestBidderRef.current = current || null;
-  }, [listing?.highestBidder, user?.email, listing]);
+  }, [listing?.highestBidder, user?.email]);
 
   useEffect(() => {
     if (!listing?.sellerEmail) return;
@@ -301,10 +301,13 @@ export default function ListingPage() {
   // Fetch seller's other listings
   useEffect(() => {
     if (!listing?.sellerEmail || !listingId) return;
+    let cancelled = false;
     getDocs(query(collection(db, "listings"), where("sellerEmail", "==", listing.sellerEmail))).then((snap) => {
+      if (cancelled) return;
       const items = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((l: any) => l.id !== listingId && l.status !== "sold");
       setSellerListings(items.slice(0, 5));
     }).catch((e) => console.error("Failed to fetch seller listings:", e));
+    return () => { cancelled = true; };
   }, [listing?.sellerEmail, listingId]);
 
   useEffect(() => {
@@ -347,17 +350,37 @@ export default function ListingPage() {
     if (!listing) return;
     const image = listing.images?.[0] || listing.imageUrl || listing.image || "";
     const desc = (listing.description || "").slice(0, 160);
+    const createdElements: Element[] = [];
     const updateMeta = (name: string, content: string) => {
       let el = document.querySelector(`meta[name="${name}"], meta[property="${name}"]`);
-      if (!el) { el = document.createElement("meta"); el.setAttribute(name.startsWith("og:") ? "property" : "name", name); document.head.appendChild(el); }
+      if (!el) { el = document.createElement("meta"); el.setAttribute(name.startsWith("og:") ? "property" : "name", name); document.head.appendChild(el); createdElements.push(el); }
       el.setAttribute("content", content);
     };
-    document.title = `${listing.title} — $${listing.price} — Sky Drop`;
+    document.title = `${listing.title} — $${listing.price} — Sky Drop NZ`;
     updateMeta("description", desc);
     updateMeta("og:title", `${listing.title} — $${listing.price}`);
     updateMeta("og:description", desc);
-    if (image) updateMeta("og:image", image);
+    updateMeta("og:site_name", "Sky Drop");
+    if (image) {
+      updateMeta("og:image", image);
+      updateMeta("og:image:width", "1200");
+      updateMeta("og:image:height", "630");
+    } else {
+      updateMeta("og:image", "https://skydrop.nz/og-default.svg");
+      updateMeta("og:image:width", "1200");
+      updateMeta("og:image:height", "630");
+    }
     updateMeta("og:type", "website");
+    updateMeta("og:locale", "en_NZ");
+    updateMeta("twitter:card", "summary_large_image");
+    updateMeta("twitter:title", `${listing.title} — $${listing.price}`);
+    updateMeta("twitter:description", desc);
+    if (image) updateMeta("twitter:image", image);
+
+    // Canonical URL
+    let canonicalEl = document.querySelector("link[rel='canonical']");
+    if (!canonicalEl) { canonicalEl = document.createElement("link"); canonicalEl.setAttribute("rel", "canonical"); document.head.appendChild(canonicalEl); }
+    canonicalEl.setAttribute("href", window.location.href.split("?")[0]);
 
     // JSON-LD structured data
     const existingLd = document.querySelector("#sky-drop-ld");
@@ -381,6 +404,11 @@ export default function ListingPage() {
       },
     });
     document.head.appendChild(ld);
+
+    return () => {
+      createdElements.forEach((el) => el.remove());
+      document.querySelector("#sky-drop-ld")?.remove();
+    };
   }, [listing]);
 
   async function saveToWatchlist() {
@@ -394,6 +422,7 @@ export default function ListingPage() {
     if (user?.uid) {
       setDoc(doc(db, "users", user.uid, "watchlist", listing.id), {
         id: listing.id, title: listing.title, price: listing.price, imageUrl: listing.imageUrl || listing.image || "",
+        savedPrice: listing.price,
         savedAt: new Date().toISOString(),
       }).catch((e) => console.error("Watchlist save failed:", e));
     }
@@ -993,7 +1022,17 @@ export default function ListingPage() {
                       <div className="text-[10px] text-amber-400">You've been outbid</div>
                     )}
                     {listing.auctionEndsAt && (
-                      <div className="text-[10px] text-[var(--muted)]">Ends in {Math.max(0, Math.floor(((listing.auctionEndsAt?.seconds ? new Date(listing.auctionEndsAt.seconds * 1000).getTime() : 0) - Date.now()) / 3600000))}h</div>
+                      <div className="text-[10px] text-[var(--muted)]">
+                        {(() => {
+                          const end = listing.auctionEndsAt?.seconds ? new Date(listing.auctionEndsAt.seconds * 1000).getTime() : 0;
+                          const diff = Math.max(0, end - Date.now());
+                          const h = Math.floor(diff / 3600000);
+                          const m = Math.floor((diff % 3600000) / 60000);
+                          const s = Math.floor((diff % 60000) / 1000);
+                          if (h > 0) return `Ends in ${h}h ${m}m`;
+                          return `Ends in ${m}m ${s}s`;
+                        })()}
+                      </div>
                     )}
                   </>
                 )}
@@ -1030,11 +1069,11 @@ export default function ListingPage() {
                   <span>Rental — Pickup from {listing.location || "seller's location"}</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-emerald-400 font-bold">
-                  <span>${Number(listing.price).toFixed(2)}/day{listing.rentalPriceWeekly ? ` · $${Number(listing.rentalPriceWeekly).toFixed(2)}/wk` : ""}{listing.rentalPriceMonthly ? ` · $${Number(listing.rentalPriceMonthly).toFixed(2)}/mo` : ""}</span>
+                  <span>${(Number(listing.price) || 0).toFixed(2)}/day{listing.rentalPriceWeekly ? ` · $${Number(listing.rentalPriceWeekly).toFixed(2)}/wk` : ""}{listing.rentalPriceMonthly ? ` · $${Number(listing.rentalPriceMonthly).toFixed(2)}/mo` : ""}</span>
                 </div>
                 {listing.rentalDeposit && (
                   <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
-                    <span className="text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">🔒 $${Number(listing.rentalDeposit).toFixed(2)} refundable deposit</span>
+                    <span className="text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">🔒 $${(Number(listing.rentalDeposit) || 0).toFixed(2)} refundable deposit</span>
                   </div>
                 )}
                 {listing.condition && (
@@ -1291,7 +1330,7 @@ Property Status: 🟢 Inquiry Active`;
                   </button>
                 </div>
               ) : (
-                <button onClick={() => showToast("Sign in first", "info")} className="flex-1 rounded-lg border border-zinc-700 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-zinc-800">
+                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="flex-1 rounded-lg border border-zinc-700 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-zinc-800">
                   Sign in
                 </button>
               )}
@@ -1299,7 +1338,7 @@ Property Status: 🟢 Inquiry Active`;
             )}
 
             {/* 5. BUY BUTTONS */}
-            {listing.status !== "sold" && !isExpired && (listing.stockQuantity == null || listing.stockQuantity > 0) && listing.type !== "service" && listing.type !== "job" && listing.type !== "property" && (
+            {listing.status !== "sold" && !isExpired && (listing.stockQuantity == null || listing.stockQuantity > 0) && listing.type !== "service" && listing.type !== "job" && listing.type !== "property" && listing.type !== "rental" && !userPurchased && (
             <div className="flex gap-2">
               {user && user.email !== listing.sellerEmail ? (
                 <>
@@ -1344,7 +1383,7 @@ Property Status: 🟢 Inquiry Active`;
                   </button>
                 </div>
               ) : (
-                <button onClick={() => showToast("Sign in first", "info")} className="flex-1 rounded-lg border border-zinc-700 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-zinc-800">
+                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="flex-1 rounded-lg border border-zinc-700 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-zinc-800">
                   Sign in
                 </button>
               )}
@@ -1453,7 +1492,7 @@ Application Status: 🟢 Active`;
                   </Link>
                 </div>
               ) : (
-                <button onClick={() => showToast("Sign in first", "info")} className="flex-1 rounded-lg border border-zinc-700 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-zinc-800">
+                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="flex-1 rounded-lg border border-zinc-700 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-zinc-800">
                   Sign in to Apply
                 </button>
               )}
@@ -1566,7 +1605,7 @@ Service Status: 🟢 Inquiry Active`;
                   </Link>
                 </div>
               ) : (
-                <button onClick={() => showToast("Sign in first", "info")} className="flex-1 rounded-lg border border-zinc-700 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-zinc-800">
+                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="flex-1 rounded-lg border border-zinc-700 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-zinc-800">
                   Sign in
                 </button>
               )}
@@ -1609,7 +1648,7 @@ Service Status: 🟢 Inquiry Active`;
                         <div className="rounded-lg bg-zinc-800/40 px-3 py-2 text-xs">
                           <div className="space-y-1">
                             <p className="font-medium text-emerald-400 text-[11px]">
-                              ${Number(listing.price).toFixed(2)}/day
+                              ${(Number(listing.price) || 0).toFixed(2)}/day
                               {listing.rentalPriceWeekly ? ` · $${Number(listing.rentalPriceWeekly).toFixed(2)}/wk` : ""}
                               {listing.rentalPriceMonthly ? ` · $${Number(listing.rentalPriceMonthly).toFixed(2)}/mo` : ""}
                             </p>
@@ -1621,7 +1660,7 @@ Service Status: 🟢 Inquiry Active`;
                           {listing.rentalDeposit && (
                             <div className="mt-0.5 flex items-center justify-between text-[var(--muted)]">
                               <span className="text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">🔒 Refundable Deposit</span>
-                              <span>$${Number(listing.rentalDeposit).toFixed(2)}</span>
+                              <span>$${(Number(listing.rentalDeposit) || 0).toFixed(2)}</span>
                             </div>
                           )}
                           <div className="mt-0.5 flex items-center justify-between text-[var(--muted)]">
@@ -1655,7 +1694,7 @@ Service Status: 🟢 Inquiry Active`;
                     </Link>
                   </div>
                 ) : (
-                  <button onClick={() => showToast("Sign in first", "info")} className="flex-1 rounded-lg border border-zinc-700 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-zinc-800">
+                  <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="flex-1 rounded-lg border border-zinc-700 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-zinc-800">
                     Sign in
                   </button>
                 )}
@@ -1665,10 +1704,10 @@ Service Status: 🟢 Inquiry Active`;
 
             {/* Escrow & Safe Trading */}
             {user && user.email !== listing.sellerEmail && (
-              <div className="rounded-lg border border-amber-500/10 bg-amber-500/[0.03] px-3.5 py-2.5">
+              <a href="/escrow" target="_blank" rel="noopener noreferrer" className="rounded-lg border border-amber-500/10 bg-amber-500/[0.03] px-3.5 py-2.5 block transition hover:bg-amber-500/[0.06]">
                 <p className="text-[11px] font-semibold text-amber-400/90">🔒 Escrow Protected Purchase</p>
-                <p className="mt-0.5 text-[10px] leading-relaxed text-zinc-500">Your payment is held securely. The seller is paid only after you confirm delivery.</p>
-              </div>
+                <p className="mt-0.5 text-[10px] leading-relaxed text-zinc-500">Your payment is held securely. The seller is paid only after you confirm delivery. <span className="text-amber-400/70 underline">Learn how escrow works →</span></p>
+              </a>
             )}
 
             {/* Unverified Seller Notice */}
@@ -1715,6 +1754,9 @@ Service Status: 🟢 Inquiry Active`;
                     <div className="mt-0.5 flex items-center gap-2 text-[11px] text-[var(--muted)]">
                       <span>{'★'.repeat(sellerStars)}{sellerHasHalf ? '½' : ''} {(sellerStatsData?.avg || 0).toFixed(1)}</span>
                       <span>{sellerStatsData?.count || 0} sale{(sellerStatsData?.count || 0) !== 1 ? "s" : ""}</span>
+                      {sellerProfile?.memberSince && (
+                        <span>· {(sellerProfile.memberSince as any).seconds ? new Date((sellerProfile.memberSince as any).seconds * 1000).getFullYear() : ""}</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1799,7 +1841,7 @@ Service Status: 🟢 Inquiry Active`;
                         {answeringId === q.id ? (
                           <div className="flex gap-2">
                             <input type="text" value={answerText} onChange={(e) => setAnswerText(e.target.value)}
-                              placeholder="Type your answer..."
+                              placeholder="Type your answer..." maxLength={500}
                               className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800/80 px-3 py-1.5 text-[11px] text-[var(--foreground)] outline-none transition focus:border-emerald-500" />
                             <button onClick={async () => {
                               if (!answerText.trim()) return;
@@ -1868,10 +1910,24 @@ Service Status: 🟢 Inquiry Active`;
               )}
             </div>
 
-            {/* 9. WATCHLIST */}
-            <button onClick={saveToWatchlist} className="flex w-full items-center justify-center gap-1.5 py-2.5 text-xs text-[var(--muted)] transition hover:text-[var(--foreground)]">
-              ♡ Save to Watchlist
-            </button>
+            {/* 9. WATCHLIST & SHARE */}
+            <div className="flex gap-2">
+              <button onClick={saveToWatchlist} className="flex items-center justify-center gap-1.5 py-2.5 text-xs text-[var(--muted)] transition hover:text-[var(--foreground)] flex-1">
+                ♡ Save to Watchlist
+              </button>
+              <button onClick={async () => {
+                try {
+                  await navigator.share({ title: listing.title, text: `${listing.title} — $${listing.price} on Sky Drop`, url: window.location.href });
+                } catch {
+                  navigator.clipboard?.writeText(window.location.href).then(() => showToast("Link copied!", "success")).catch(() => {});
+                }
+              }} className="flex items-center justify-center gap-1.5 py-2.5 text-xs text-[var(--muted)] transition hover:text-[var(--foreground)] flex-1">
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
+                </svg>
+                Share
+              </button>
+            </div>
           </div>
         </div>
 

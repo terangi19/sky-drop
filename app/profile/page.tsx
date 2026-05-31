@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import ThemeToggle from "../components/ThemeToggle";
+import { sanitizeHtml } from "../lib/sanitize";
 import {
   addDoc,
   arrayUnion,
@@ -450,14 +451,14 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
     try {
       setSaving("Saving...");
       await setDoc(doc(db, "profiles", user.uid), {
-        username: username.trim(),
-        displayName: displayName.trim(),
-        bio: bio.trim(),
+        username: sanitizeHtml(username.trim()),
+        displayName: sanitizeHtml(displayName.trim()),
+        bio: sanitizeHtml(bio.trim()),
         region,
-        discord: discord.trim(),
-        instagram: instagram.trim(),
-        tiktok: tiktok.trim(),
-        website: website.trim(),
+        discord: sanitizeHtml(discord.trim()),
+        instagram: sanitizeHtml(instagram.trim()),
+        tiktok: sanitizeHtml(tiktok.trim()),
+        website: sanitizeHtml(website.trim()),
         hideOnline,
         isPublic,
         showViews,
@@ -484,7 +485,7 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
         const tradeSnap = await getDocs(query(collection(db, "tradePosts"), where("sellerEmail", "==", user.email)));
         tradeSnap.docs.forEach((doc_) => batch.update(doc_.ref, { sellerUsername: username.trim() }));
         await batch.commit();
-      } catch {}
+      } catch { showToast("Profile saved, but some listings could not be updated.", "info"); }
 
       setContextUsername(username.trim());
       setProfile((p) => ({ ...p, username: username.trim(), displayName: displayName.trim(), bio: bio.trim() }));
@@ -520,6 +521,8 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
       setSaving("Deleting...");
       await deleteDoc(doc(db, "profiles", user.uid));
       await deleteUser(user);
+      showToast("Account deleted.", "success");
+      router.push("/");
     } catch (e: any) {
       if (e.code === "auth/requires-recent-login") {
         showToast("Please log out and log back in, then try again.", "error");
@@ -595,7 +598,8 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
     try {
       await deleteDoc(doc(db, "listings", id));
       setListingToDelete(null);
-    } catch (e) { console.error(e); }
+      showToast("Listing deleted", "success");
+    } catch (e) { console.error(e); showToast("Failed to delete listing", "error"); }
   }
 
   async function handleStripeConnect() {
@@ -621,7 +625,7 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
         const linkData = await linkRes.json();
         if (linkData.url) window.location.href = linkData.url;
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e); showToast("Failed to connect Stripe", "error"); }
     setStripeConnecting(false);
   }
 
@@ -636,7 +640,7 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
       });
       const data = await res.json();
       if (data.url) window.location.href = data.url;
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e); showToast("Failed to open Stripe onboarding", "error"); }
   }
 
   const initial = (username || user?.email?.split("@")[0] || "U").charAt(0).toUpperCase();
@@ -747,8 +751,19 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
                   </div>
                 ) : (
                   <div className="relative">
-                    <div className="flex h-[72px] w-[72px] sm:h-24 sm:w-24 items-center justify-center rounded-xl border-[3px] border-zinc-900 bg-gradient-to-br from-sky-500 via-violet-500 to-purple-600 text-2xl sm:text-3xl font-black text-white shadow-lg">
-                      {initial}
+                    <div className="flex h-[72px] w-[72px] sm:h-24 sm:w-24 items-center justify-center rounded-xl border-[3px] border-zinc-900 bg-zinc-950 shadow-lg">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" className="h-10 w-10 sm:h-12 sm:w-12">
+                        <circle cx="16" cy="16" r="14" fill="none" stroke="#38bdf8" strokeWidth="0.4" opacity="0.12" />
+                        <circle cx="16" cy="16" r="12" fill="none" stroke="#38bdf8" strokeWidth="0.3" opacity="0.08" />
+                        <path d="M2 9 C2 4, 8 1, 16 1 C24 1, 30 4, 30 9" fill="none" stroke="#38bdf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M8 9 C8 5.5, 12 3, 16 3 C20 3, 24 5.5, 24 9" fill="none" stroke="#38bdf8" strokeWidth="0.6" opacity="0.3" strokeLinecap="round" />
+                        <line x1="6" y1="9.5" x2="10" y2="18" stroke="#38bdf8" strokeWidth="0.8" opacity="0.35" strokeLinecap="round" />
+                        <line x1="26" y1="9.5" x2="22" y2="18" stroke="#38bdf8" strokeWidth="0.8" opacity="0.35" strokeLinecap="round" />
+                        <line x1="16" y1="9.5" x2="16" y2="18" stroke="#38bdf8" strokeWidth="0.8" opacity="0.35" strokeLinecap="round" />
+                        <rect x="10.5" y="18" width="11" height="9" rx="1.5" ry="1.5" fill="none" stroke="#38bdf8" strokeWidth="1.8" strokeLinejoin="round" />
+                        <line x1="11" y1="21" x2="21" y2="21" stroke="#38bdf8" strokeWidth="1.2" opacity="0.5" strokeLinecap="round" />
+                        <path d="M18 23 L21 23 L21 20" fill="none" stroke="#38bdf8" strokeWidth="1" opacity="0.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
                     </div>
                     <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/0 transition-all duration-300 group-hover/avatar:bg-black/50">
                       <span className="text-xs font-bold text-white opacity-0 transition-all duration-300 group-hover/avatar:opacity-100">Add</span>
@@ -846,13 +861,13 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-bold text-zinc-500">Username</label>
                     <input type="text" value={username} onChange={(e) => setUsername(e.target.value)}
-                      placeholder="Sky335i"
+                      placeholder="Sky335i" maxLength={30}
                       className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 text-sm text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-bold text-zinc-500">Display Name</label>
                     <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)}
-                      placeholder="John Smith"
+                      placeholder="John Smith" maxLength={50}
                       className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 text-sm text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
                   </div>
                   <div className="space-y-1.5">
@@ -1168,7 +1183,7 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
                             setPoaStatus("pending");
                             setPoaDocumentURL(url);
                             setPoaFile(null);
-                          } catch (e) { console.error(e); }
+                          } catch (e) { console.error(e); showToast("Failed to upload document", "error"); }
                           setPoaUploading(false);
                         }} disabled={poaUploading} className="w-full rounded-xl bg-sky-500 py-2 text-xs font-bold text-[var(--foreground)] hover:bg-sky-400 transition disabled:opacity-50">
                           {poaUploading ? "Uploading..." : "Submit Document"}
@@ -1210,13 +1225,6 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
                               <svg className="h-full w-full p-0.5 text-zinc-900" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
                             )}
                           </div>
-                          <button onClick={(e) => {
-                            e.stopPropagation();
-                            setSellBadgePrice("50");
-                            setSellBadge(badge);
-                          }} className="shrink-0 rounded-md bg-zinc-800 px-2 py-1 text-[9px] font-bold text-[var(--muted)] transition hover:bg-sky-500/20 hover:text-sky-400">
-                            Sell
-                          </button>
                       </label>
                     ))}
                     {profile.profileBadge && (
@@ -1402,7 +1410,8 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
       </div>
       <div id="recaptcha-container" />
 
-      {/* Sell Badge Modal */}
+      {/* Profile main content continues */}
+
       {sellBadge && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setSellBadge(null)}>
           <div className="w-full max-w-sm rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>

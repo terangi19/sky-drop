@@ -11,5 +11,11 @@
       "src": "/api/(.*)",
       "dest": "/api/$1"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/expire-offers",
+      "schedule": "*/15 * * * *"
+    }
   ]
 }

@@ -78,6 +78,11 @@ export default function LootCrateModal({ userId, userEmail, onClose, inline }: {
   }, [reward]);
   const particles = useRef<{ x: number; y: number; delay: number; size: number; color: string; drift: number }[]>([]);
   const rarityRef = useRef<Rarity>("common");
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => { mountedRef.current = false; };
+  }, []);
 
   useEffect(() => {
     const q = query(collection(db, "dropTokens"), where("ownerId", "==", userId), where("status", "==", "available"));
@@ -202,6 +207,7 @@ export default function LootCrateModal({ userId, userEmail, onClose, inline }: {
 
     setPhase("explosion");
     setShake(false);
+    if (!mountedRef.current) return;
 
     if (flashRef.current) {
       flashRef.current.style.opacity = rarityRef.current === "legendary" ? "0.9" : "0.8";
@@ -239,6 +245,7 @@ export default function LootCrateModal({ userId, userEmail, onClose, inline }: {
     }
 
     setPhase("reveal");
+    if (!mountedRef.current) return;
 
     try {
       if (rarity === "legendary") {

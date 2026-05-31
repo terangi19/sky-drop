@@ -88,6 +88,8 @@ body {
 :root.light .text-zinc-600 { color: #52525b !important; }
 :root.light .text-zinc-700 { color: #3f3f46 !important; }
 :root.light .text-zinc-800 { color: #27272a !important; }
+:root.light .text-zinc-900 { color: #1a1a2e !important; }
+:root.light .text-zinc-950 { color: #0f0f1a !important; }
 :root.light .text-white { color: var(--foreground) !important; }
 :root.light .text-white\/60 { color: rgba(26, 26, 46, 0.6) !important; }
 :root.light .text-white\/70 { color: rgba(26, 26, 46, 0.7) !important; }

@@ -3,7 +3,7 @@ import { getAdminDb } from "./firebase-admin";
 const ADMIN_EMAIL = "rangitr16@gmail.com";
 
 interface AdminAlertInput {
-  type: "webhook_failure" | "payment_release_failure" | "dispute_opened" | "dispute_resolved" | "stripe_error";
+  type: "webhook_failure" | "payment_release_failure" | "dispute_opened" | "dispute_resolved" | "stripe_error" | "payment_failed" | "dispute_created" | "dispute_closed";
   title: string;
   message: string;
   metadata?: Record<string, unknown>;

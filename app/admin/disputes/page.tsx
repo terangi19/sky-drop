@@ -6,13 +6,18 @@ import Background from "../../components/Background";
 import ThemeToggle from "../../components/ThemeToggle";
 import { showToast } from "../../components/Toast";
 import {
+  addDoc,
   collection,
+  deleteDoc,
   doc,
+  getDoc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
-  updateDoc,
   Timestamp,
+  updateDoc,
+  where,
 } from "firebase/firestore";
 import {
   User,
@@ -23,7 +28,7 @@ import {
   onAuthStateChanged,
 } from "../../lib/firebase";
 
-const ADMIN_EMAILS = ["rangitr16@gmail.com"];
+const FALLBACK_ADMIN_EMAILS = ["rangitr16@gmail.com"];
 
 const DISPUTE_REASON_LABELS: Record<string, string> = {
   not_received: "Not Received",
@@ -45,6 +50,7 @@ const STATUS_STYLES: Record<string, string> = {
 
 export default function AdminDisputesPage() {
   const [user, setUser] = useState<User | null>(null);
+  const [adminEmails, setAdminEmails] = useState<string[]>(FALLBACK_ADMIN_EMAILS);
   const [disputes, setDisputes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -54,6 +60,15 @@ export default function AdminDisputesPage() {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (currentUser) => setUser(currentUser));
     return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    getDoc(doc(db, "config", "adminEmails")).then((snap) => {
+      if (snap.exists()) {
+        const emails = snap.data().emails;
+        if (Array.isArray(emails) && emails.length > 0) setAdminEmails(emails.map((e: string) => e.toLowerCase()));
+      }
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -68,7 +83,7 @@ export default function AdminDisputesPage() {
     return () => unsub();
   }, []);
 
-  const isAdmin = user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase());
+  const isAdmin = user?.email && adminEmails.includes(user.email.toLowerCase());
 
   async function handleReview(disputeId: string) {
     setActionLoading(disputeId);

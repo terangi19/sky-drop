@@ -84,12 +84,13 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 const TIMELINE_STEPS = ["pending", "seller_confirming", "shipped", "delivered"];
-const SERVICE_TIMELINE_STEPS = ["pending", "in_progress", "delivered"];
+const SERVICE_TIMELINE_STEPS = ["pending", "in_progress", "completed", "delivered"];
 const RENTAL_TIMELINE_STEPS = ["pending", "rented", "returned", "completed"];
 
 function formatDate(ts: any): string {
-  if (!ts?.seconds) return "";
-  return new Date(ts.seconds * 1000).toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" });
+  if (!ts) return "";
+  if (ts.seconds) return new Date(ts.seconds * 1000).toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" });
+  return new Date(ts).toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" });
 }
 
 function statusIndex(s: string, isService?: boolean, isRental?: boolean): number {
@@ -145,12 +146,15 @@ export default function PurchasesPage() {
 
   // Auto-confirm shipped items after 14 days
   useEffect(() => {
-    const now = Date.now();
-    for (const p of purchases) {
-      if (p.status === "shipped" && !p.disputeStatus && p.createdAt?.seconds && (now - p.createdAt.seconds * 1000) > 14 * 86400000) {
-        updateStatus(p.id, "delivered").catch((e) => console.error("Failed to auto-confirm delivery:", e));
+    const timer = setTimeout(() => {
+      const now = Date.now();
+      for (const p of purchases) {
+        if (p.status === "shipped" && !p.disputeStatus && p.createdAt?.seconds && (now - p.createdAt.seconds * 1000) > 14 * 86400000) {
+          updateStatus(p.id, "delivered").catch((e) => console.error("Failed to auto-confirm delivery:", e));
+        }
       }
-    }
+    }, 5000);
+    return () => clearTimeout(timer);
   }, [purchases]);
 
   async function updateStatus(id: string, status: string, badge?: string) {
@@ -215,7 +219,7 @@ export default function PurchasesPage() {
       await updateDoc(doc(db, "purchases", editAddress.id), { shippingAddress: newAddress.trim() });
       setEditAddress(null);
       setNewAddress("");
-    } catch (e) { console.error("Failed to update address:", e); }
+    } catch (e) { console.error("Failed to update address:", e); showToast("Failed to save address", "error"); }
   }
 
   const counts = useMemo(() => {
@@ -248,6 +252,7 @@ export default function PurchasesPage() {
   function nextAction(p: Purchase): { label: string; action: string; color: string; badge?: string } | null {
     if (p.status === "shipped") return { label: "Confirm Received", action: "delivered", color: "bg-emerald-500" };
     if (p.deliveryMethod === "service" && p.status === "in_progress") return { label: "Mark Completed", action: "delivered", color: "bg-violet-500" };
+    if (p.deliveryMethod === "service" && p.status === "completed") return { label: "Confirm Received", action: "delivered", color: "bg-emerald-500" };
     if (p.deliveryMethod === "rental" && p.status === "rented") return { label: "Return Item", action: "returned", color: "bg-sky-500" };
     return null;
   }
@@ -365,7 +370,7 @@ export default function PurchasesPage() {
                           <p className="mt-0.5 text-sm font-semibold text-emerald-400">${Number(p.listingPrice).toFixed(2)}</p>
                           <div className="mt-0.5 flex items-center gap-2 text-[11px] text-zinc-500">
                             <Link href={`/seller/${p.sellerEmail}`} className="hover:text-emerald-400 transition-colors">{p.sellerEmail?.split("@")[0] || "—"}</Link>
-                            {p.createdAt?.seconds && <span>· {formatDate(p.createdAt)}</span>}
+                            {p.createdAt && <span>· {formatDate(p.createdAt)}</span>}
                           </div>
                         </div>
                         <div className="flex items-center gap-1.5 flex-wrap">
@@ -418,7 +423,7 @@ export default function PurchasesPage() {
                             Edit Address
                           </button>
                         )}
-                        {["delivered", "shipped", "seller_confirming"].includes(p.status) && !p.disputeStatus && (
+                        {["delivered", "shipped", "seller_confirming"].includes(p.status) && !p.disputeStatus && !p.fundsReleased && (!p.disputeDeadline || new Date(p.disputeDeadline.seconds * 1000 || p.disputeDeadline) > new Date()) && (
                           <button onClick={() => { setDisputeModal(p); setDisputeReason(""); setDisputeDescription(""); }}
                             className="rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-1.5 text-[11px] font-bold text-red-400 transition hover:bg-red-500/10 active:scale-[0.97]">
                             ⚠️ Dispute
@@ -467,7 +472,7 @@ export default function PurchasesPage() {
                       try {
                         await addDoc(collection(db, "reviews"), { sellerEmail: reviewModal.sellerEmail, buyerEmail: user?.email, listingId: reviewModal.listingId, listingTitle: reviewModal.listingTitle, rating: reviewRating, reviewText: reviewText.trim(), createdAt: serverTimestamp() });
                         setReviewModal(null); setReviewRating(0); setReviewText("");
-                      } catch (e) { console.error(e); }
+                      } catch (e) { console.error(e); showToast("Failed to submit review", "error"); setReviewSending(false); return; }
                       setReviewSending(false);
                     }} className="flex-1 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:shadow-xl active:scale-[0.97] disabled:opacity-50">
                       {reviewSending ? "Sending..." : "Submit Review"}
@@ -548,6 +553,15 @@ export default function PurchasesPage() {
                     type: "dispute_opened",
                     title: "New Dispute Opened",
                     message: `Dispute opened for "${disputeModal.listingTitle}" — ${disputeReason}`,
+                    listingId: disputeModal.listingId,
+                    listingTitle: disputeModal.listingTitle,
+                  });
+                  await createNotification({
+                    targetEmail: disputeModal.sellerEmail,
+                    fromEmail: user!.email!,
+                    type: "dispute_opened",
+                    title: "A dispute has been opened on your sale",
+                    message: `Buyer opened a dispute for "${disputeModal.listingTitle}" — Reason: ${disputeReason}. Admin will review both sides.`,
                     listingId: disputeModal.listingId,
                     listingTitle: disputeModal.listingTitle,
                   });

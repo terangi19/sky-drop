@@ -1,4 +1,4 @@
-const BASE_URL = "https://skydrop.nz";
+const BASE_URL = process.env.NEXT_PUBLIC_URL || "https://skydrop.nz";
 
 export const dynamic = "force-dynamic";
 

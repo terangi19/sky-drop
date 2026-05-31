@@ -15,9 +15,11 @@ import {
 import Navbar from "../../../components/Navbar";
 import ThemeToggle from "../../../components/ThemeToggle";
 
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import {
   auth,
   db,
+  storage,
   onAuthStateChanged,
 } from "../../../lib/firebase";
 
@@ -184,11 +186,8 @@ export default function EditListingPage({
     const remaining = 8 - images.length;
     const toAdd = files.slice(0, remaining);
     for (const file of toAdd) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        setImages((prev) => [...prev, reader.result as string]);
-      };
-      reader.readAsDataURL(file);
+      const url = URL.createObjectURL(file);
+      setImages((prev) => [...prev, url]);
     }
     if (e.target) e.target.value = "";
   };
@@ -209,6 +208,18 @@ export default function EditListingPage({
 
       setSaving(true);
 
+      // Upload any new images (blob URLs) to Firebase Storage
+      const uploadedImages = await Promise.all(images.map(async (img) => {
+        if (img.startsWith("blob:")) {
+          const response = await fetch(img);
+          const blob = await response.blob();
+          const storageRef = ref(storage, `listings/${user.uid}/${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`);
+          await uploadBytes(storageRef, blob);
+          return await getDownloadURL(storageRef);
+        }
+        return img;
+      }));
+
       await updateDoc(
         doc(db, "listings", id),
         {
@@ -217,8 +228,8 @@ export default function EditListingPage({
           location,
           category,
           description,
-          images,
-          imageUrl: images[0] || "",
+          images: uploadedImages,
+          imageUrl: uploadedImages[0] || "",
           pickupAvailable,
           shippingAvailable,
           pickupArea,
@@ -291,33 +302,34 @@ export default function EditListingPage({
           <div className="space-y-6">
           <div>
             <label className="block text-xs font-medium text-[var(--muted)] uppercase tracking-wider mb-1.5">Title</label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full rounded-2xl border border-white/10 bg-zinc-900 px-3.5 py-2.5 text-sm outline-none focus:border-sky-500 transition-colors"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-[var(--muted)] uppercase tracking-wider mb-1.5">Price ($)</label>
-              <input
-                type="number"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                className="w-full rounded-2xl border border-white/10 bg-zinc-900 px-3.5 py-2.5 text-sm outline-none focus:border-sky-500 transition-colors"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-[var(--muted)] uppercase tracking-wider mb-1.5">Location</label>
               <input
                 type="text"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                maxLength={80}
                 className="w-full rounded-2xl border border-white/10 bg-zinc-900 px-3.5 py-2.5 text-sm outline-none focus:border-sky-500 transition-colors"
               />
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-[var(--muted)] uppercase tracking-wider mb-1.5">Price ($)</label>
+                <input
+                  type="number"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  className="w-full rounded-2xl border border-white/10 bg-zinc-900 px-3.5 py-2.5 text-sm outline-none focus:border-sky-500 transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[var(--muted)] uppercase tracking-wider mb-1.5">Location</label>
+                <input
+                  type="text"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  className="w-full rounded-2xl border border-white/10 bg-zinc-900 px-3.5 py-2.5 text-sm outline-none focus:border-sky-500 transition-colors"
+                />
+              </div>
           </div>
 
           <div>

@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const { allowed } = rateLimit(`release:${ip}`, 30, 60_000);
+    const { allowed } = await rateLimit(`release:${ip}`, 30, 60_000);
     if (!allowed) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }
@@ -132,6 +132,9 @@ export async function POST(req: NextRequest) {
       if (purchaseTxData.fundsReleased) {
         throw new Error("Funds already released for this purchase");
       }
+      if (purchaseTxData.status !== "delivered") {
+        throw new Error("Purchase must be in 'delivered' status to release funds");
+      }
       if (isDisputeActive(purchaseTxData.disputeStatus) && !isAdmin) {
         throw new Error("Funds frozen — dispute in progress");
       }
@@ -197,3 +200,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: e.message || "Failed to release funds" }, { status: 500 });
   }
 }
+

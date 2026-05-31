@@ -6,7 +6,6 @@ import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import ThemeToggle from "../components/ThemeToggle";
 import { showToast } from "../components/Toast";
-import { useRouter } from "next/navigation";
 
 import {
   collection,
@@ -44,7 +43,6 @@ export default function AdminPage() {
   const [pendingDigital, setPendingDigital] = useState(0);
   const [openDisputes, setOpenDisputes] = useState(0);
   const [adminAlerts, setAdminAlerts] = useState<any[]>([]);
-  const router = useRouter();
 
   // ADMIN EMAILS
   const adminEmails = [
@@ -52,27 +50,22 @@ export default function AdminPage() {
   ];
 
   useEffect(() => {
+    if (auth.currentUser) {
+      setUser(auth.currentUser);
+      setChecking(false);
+      return;
+    }
     const unsubscribe =
       onAuthStateChanged(
         auth,
         (currentUser) => {
           setUser(currentUser);
+          setChecking(false);
         }
       );
 
     return () => unsubscribe();
   }, []);
-
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        router.replace("/login");
-      } else {
-        setChecking(false);
-      }
-    });
-    return () => unsub();
-  }, [router]);
 
   useEffect(() => {
     const reportsQuery = query(

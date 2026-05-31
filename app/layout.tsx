@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     template: "%s — Sky Drop",
   },
   description: "New Zealand's community marketplace. Buy and sell cars, tech, gaming, fashion and more. Free to list, secure payments, built for Kiwis.",
-  metadataBase: new URL("https://skydrop.nz"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_URL || "https://skydrop.co.nz"),
   openGraph: {
     type: "website",
     siteName: "Sky Drop",
@@ -87,6 +87,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
     >
       <body className="min-h-full flex flex-col bg-[var(--background)] text-[var(--foreground)]">
+        <script defer data-domain="skydrop.co.nz" src="https://plausible.io/js/script.js"></script>
         <script dangerouslySetInnerHTML={{
           __html: `
             (function(){

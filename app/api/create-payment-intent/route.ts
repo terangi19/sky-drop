@@ -6,7 +6,7 @@ import { rateLimit } from "../../lib/rate-limit";
 export async function POST(req: NextRequest) {
   try {
     const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const { allowed } = rateLimit(`payment:${ip}`, 10, 60_000);
+    const { allowed } = await rateLimit(`payment:${ip}`, 10, 60_000);
     if (!allowed) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }
@@ -32,8 +32,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    const amount = Math.round(Number(price) * 100);
-    if (amount < 50) {
+    const requestedAmount = Math.round(Number(price) * 100);
+    if (requestedAmount < 50) {
       return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
     }
 
@@ -60,6 +60,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "You cannot purchase your own listing" }, { status: 400 });
       }
 
+      // Verify price matches listing
+      const listingPrice = Number(listingData.price);
+      if (listingPrice > 0 && Math.abs(listingPrice - Number(price)) > 0.01) {
+        return NextResponse.json({ error: "Price mismatch. Please refresh the listing." }, { status: 400 });
+      }
+
       // Seller trust check
       const sellerProfiles = await getAdminDb().collection("profiles").where("email", "==", listingData.sellerEmail).limit(1).get();
       if (!sellerProfiles.empty) {
@@ -78,7 +84,7 @@ export async function POST(req: NextRequest) {
 
     const paymentIntent = await getStripe().paymentIntents.create(
       {
-        amount: Math.round(Number(price) * 100),
+        amount: requestedAmount,
         currency: "nzd",
         description: `Sky Drop: ${title}`,
         metadata: { listingId, title, buyerUid: decodedToken.uid, buyerEmail: decodedToken.email || "" },
@@ -93,3 +99,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Payment could not be processed. Please try again." }, { status: 500 });
   }
 }
+

@@ -20,6 +20,7 @@ import {
 
 import {
   User,
+  sendEmailVerification,
 } from "firebase/auth";
 
 import {
@@ -75,7 +76,7 @@ export default function PostPage() {
    const [shipsWithinDays, setShipsWithinDays] = useState("");
     const [stockQuantity, setStockQuantity] = useState("");
     const [expiresIn, setExpiresIn] = useState("14");
-   const [listingType, setListingType] = useState<"physical" | "digital" | "service" | "event" | "vehicle" | "job" | "property">("physical");
+   const [listingType, setListingType] = useState<"physical" | "digital" | "service" | "event" | "vehicle" | "job" | "property" | "rental">("physical");
     const [digitalFileURL, setDigitalFileURL] = useState("");
     const [digitalFileName, setDigitalFileName] = useState("");
     const [digitalStoragePath, setDigitalStoragePath] = useState("");
@@ -119,6 +120,16 @@ export default function PostPage() {
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const progressSteps = [
+    { label: "Details", check: !!(title && description) },
+    { label: "Photos", check: imagePreviews.length > 0 },
+    { label: "Price", check: !!(price && category) },
+    { label: "Type", check: !!(listingType && (listingType === "physical" || listingType === "vehicle" || listingType === "rental" ? (pickupAvailable || shippingAvailable) : listingType === "digital" ? !!digitalFileURL : listingType === "event" ? !!(eventDate && venue) : listingType === "job" ? !!jobCompany : listingType === "property" ? !!propertyType : true)) },
+    { label: "Submit", check: false },
+  ];
+  const completedSteps = progressSteps.filter(s => s.check).length;
+  const progressPercent = Math.round((completedSteps / (progressSteps.length - 1)) * 100);
 
   useEffect(() => {
     const unsubscribe =
@@ -175,12 +186,43 @@ export default function PostPage() {
       return;
     }
 
+    // Check email verified + phone before allowing listing
+    if (user?.uid) {
+      const profileSnap = await getDoc(doc(db, "profiles", user.uid));
+      if (profileSnap.exists()) {
+        const profileData = profileSnap.data();
+        if (!user.emailVerified) {
+          try {
+            await sendEmailVerification(user, { url: window.location.origin + "/post" });
+            showToast("Verification email sent! Check your inbox to verify your email.", "success");
+          } catch {
+            showToast("Please verify your email address before creating a listing.", "error");
+          }
+          return;
+        }
+        if (!profileData.phone || !profileData.phoneVerified) {
+          showToast("Please add and verify your phone number in Profile to create listings.", "error");
+          return;
+        }
+      }
+    }
+
     if (!title || !description || (listingType !== "service" && !price)) {
       showToast("Fill all required fields.", "error");
       return;
     }
 
-    if ((listingType === "physical" || listingType === "vehicle") && !pickupAvailable && !shippingAvailable) {
+    if (title.trim().length < 3) {
+      showToast("Title must be at least 3 characters.", "error");
+      return;
+    }
+
+    if (price && (Number(price) < 1 || Number(price) > 999999)) {
+      showToast("Price must be between $1 and $999,999.", "error");
+      return;
+    }
+
+    if ((listingType === "physical" || listingType === "vehicle" || listingType === "rental") && !pickupAvailable && !shippingAvailable) {
       showToast("Select at least one delivery method (pickup or shipping).", "error");
       return;
     }
@@ -240,6 +282,8 @@ export default function PostPage() {
 
       const images: string[] = [];
       setUploadProgress(0);
+
+      // NSFW check all images first before uploading
       for (const file of imageFiles) {
         const nsfwResult = await checkImage(file);
         if (!nsfwResult.safe) {
@@ -247,15 +291,24 @@ export default function PostPage() {
           setLoading(false);
           return;
         }
-        const storageRef = ref(storage, `listings/${user.uid}/${Date.now()}_${file.name}`);
-        const task = uploadBytesResumable(storageRef, file);
-        await new Promise<void>((resolve, reject) => {
-          task.on("state_changed", () => {}, reject, async () => {
-            images.push(await getDownloadURL(task.snapshot.ref));
-            setUploadProgress((prev) => prev + 1);
-            resolve();
+      }
+
+      // Upload all images in parallel
+      if (imageFiles.length > 0) {
+        const uploadTasks = imageFiles.map(async (file) => {
+          const storageRef = ref(storage, `listings/${user.uid}/${Date.now()}_${file.name}`);
+          const task = uploadBytesResumable(storageRef, file);
+          return new Promise<string>((resolve, reject) => {
+            task.on("state_changed", (snap) => {
+              setUploadProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100));
+            }, reject, async () => {
+              resolve(await getDownloadURL(task.snapshot.ref));
+            });
           });
         });
+        const results = await Promise.all(uploadTasks);
+        images.push(...results);
+        setUploadProgress(100);
       }
 
       const listingData: any = listingType === "digital" ? {
@@ -316,6 +369,28 @@ export default function PostPage() {
         saleType: "buy_now",
         expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000),
         status: "live",
+      } : listingType === "rental" ? {
+        title,
+        description,
+        price: String(price),
+        category,
+        location,
+        condition,
+        acceptOffers,
+        images,
+        imageUrl: images[0] || "",
+        sellerEmail: user.email,
+        sellerUsername: username,
+        sellerId: user.uid,
+        createdAt: serverTimestamp(),
+        type: "rental",
+        status: "live",
+        pickupAvailable: true,
+        shippingAvailable: false,
+        pickupArea,
+        stockQuantity: stockQuantity ? Number(stockQuantity) : null,
+        saleType: "buy_now",
+        expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000),
       } : listingType === "vehicle" ? {
         title,
         description,
@@ -467,16 +542,13 @@ export default function PostPage() {
         trackListingCreated(user.uid, title);
       }
 
-      // Check Stripe Connect — prompt if not set up
+      // Check Stripe Connect — warn but don't block listing creation
       try {
         const profileSnap = await getDoc(doc(db, "profiles", user.uid));
         if (profileSnap.exists()) {
           const profileData = profileSnap.data();
           if (!profileData.stripeAccountId) {
-            showToast("⚠️ Connect Stripe to receive payouts — go to Profile", "info");
-            setTimeout(() => { window.location.href = "/profile?tab=payouts"; }, 1500);
-            setLoading(false);
-            return;
+            showToast("⚠️ Remember to connect Stripe in Profile to receive payouts", "info");
           }
         }
       } catch (e) { console.error("Stripe check error:", e); }
@@ -575,6 +647,24 @@ export default function PostPage() {
           </p>
         </div>
 
+        {/* PROGRESS INDICATOR */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold text-[var(--muted)]">Listing Progress</span>
+            <span className="text-xs font-bold text-sky-400">{progressPercent}%</span>
+          </div>
+          <div className="flex gap-1">
+            {progressSteps.map((step, i) => (
+              <div key={step.label} className={`flex-1 h-2 rounded-full transition-all duration-500 ${i < completedSteps ? "bg-sky-500" : i === completedSteps && completedSteps < progressSteps.length - 1 ? "bg-sky-500/30" : "bg-zinc-700/50"}`} />
+            ))}
+          </div>
+          <div className="flex justify-between mt-1.5">
+            {progressSteps.map((step) => (
+              <span key={step.label} className={`text-[9px] font-medium ${step.check ? "text-sky-400" : "text-[var(--muted)]"}`}>{step.label}</span>
+            ))}
+          </div>
+        </div>
+
         <div className="rounded-[40px] border border-white/10 bg-black/40 p-8 shadow-2xl backdrop-blur-xl">
           <div className="space-y-6">
             {/* TITLE */}
@@ -592,6 +682,7 @@ export default function PostPage() {
                   )
                 }
                 placeholder="BMW 335i"
+                maxLength={80}
                 className="w-full rounded-2xl border border-white/10 bg-zinc-900 px-5 py-4 text-[var(--foreground)] outline-none transition focus:border-sky-400"
               />
             </div>
@@ -611,6 +702,7 @@ export default function PostPage() {
                 }
                 placeholder="Describe your item..."
                 rows={6}
+                maxLength={5000}
                 className="w-full rounded-2xl border border-white/10 bg-zinc-900 px-5 py-4 text-[var(--foreground)] outline-none transition focus:border-sky-400"
               />
             </div>
@@ -653,6 +745,8 @@ export default function PostPage() {
                 onChange={(e) => {
                   const files = Array.from(e.target.files || []);
                   if (files.length === 0) return;
+                  const oversized = files.find((f) => f.size > 10 * 1024 * 1024);
+                  if (oversized) { showToast(`"${oversized.name}" exceeds 10MB limit`, "error"); if (e.target) e.target.value = ""; return; }
                   const remaining = 8 - imagePreviews.length;
                   const toAdd = files.slice(0, remaining);
                   for (const file of toAdd) {
@@ -684,6 +778,7 @@ export default function PostPage() {
                   )
                 }
                 placeholder="5000"
+                min={0}
                 className="w-full rounded-2xl border border-white/10 bg-zinc-900 px-5 py-4 text-[var(--foreground)] outline-none transition focus:border-sky-400"
               />
             </div>
@@ -744,8 +839,8 @@ export default function PostPage() {
                 </select>
               </div>
 
-             {/* CONDITION — physical, vehicle & property */}
-             {(listingType === "physical" || listingType === "vehicle" || listingType === "property") && (
+             {/* CONDITION — physical, vehicle, rental & property */}
+             {(listingType === "physical" || listingType === "vehicle" || listingType === "property" || listingType === "rental") && (
              <div>
                <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">
                  Condition
@@ -820,8 +915,8 @@ export default function PostPage() {
                 </div>
               )}
 
-             {/* ACCEPT OFFERS — physical, vehicle & property */}
-             {(listingType === "physical" || listingType === "vehicle" || listingType === "property") && (
+              {/* ACCEPT OFFERS — physical, vehicle, rental & property */}
+             {(listingType === "physical" || listingType === "vehicle" || listingType === "property" || listingType === "rental") && (
              <div className="flex items-start">
                <div className="flex items-center h-4">
                  <input
@@ -883,6 +978,12 @@ export default function PostPage() {
                       <p className="mt-1 text-xs font-bold text-[var(--foreground)]">Job</p>
                       <p className="text-[10px] text-[var(--muted)]">Post a job listing</p>
                     </button>
+                    <button onClick={() => { setListingType("rental"); setCategory("Other"); }}
+                      className={`rounded-xl border p-3 text-left transition-all ${listingType === "rental" ? "border-sky-500/40 bg-sky-500/10" : "border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600"}`}>
+                      <span className="text-lg">🔑</span>
+                      <p className="mt-1 text-xs font-bold text-[var(--foreground)]">Rental</p>
+                      <p className="text-[10px] text-[var(--muted)]">Rent out an item</p>
+                    </button>
                     <button onClick={() => { setListingType("property"); setCategory("Property"); }}
                       className={`rounded-xl border p-3 text-left transition-all ${listingType === "property" ? "border-sky-500/40 bg-sky-500/10" : "border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600"}`}>
                       <span className="text-lg">🏠</span>
@@ -892,8 +993,8 @@ export default function PostPage() {
                   </div>
                 </div>
 
-                {/* DELIVERY OPTIONS — physical & vehicle */}
-                {(listingType === "physical" || listingType === "vehicle") && (
+                {/* DELIVERY OPTIONS — physical, vehicle & rental */}
+                {(listingType === "physical" || listingType === "vehicle" || listingType === "rental") && (
                <div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
                  <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">
                    Delivery Options
@@ -1224,8 +1325,41 @@ export default function PostPage() {
                   </div>
                 )}
 
-                {/* LOCATION — physical, vehicle & property */}
-                {(listingType === "physical" || listingType === "vehicle" || listingType === "property") && (
+                {/* RENTAL DETAILS */}
+                {listingType === "rental" && (
+                  <div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
+                    <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Rental Details</label>
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Daily rate ($)</label>
+                          <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="e.g. 50"
+                            className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Refundable deposit ($)</label>
+                          <input type="number" placeholder="e.g. 200"
+                            className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Weekly rate (optional)</label>
+                          <input type="number" placeholder="e.g. 300"
+                            className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Monthly rate (optional)</label>
+                          <input type="number" placeholder="e.g. 1000"
+                            className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* LOCATION — physical, vehicle, rental & property */}
+                {(listingType === "physical" || listingType === "vehicle" || listingType === "property" || listingType === "rental") && (
                <div>
                  <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">
                    Location

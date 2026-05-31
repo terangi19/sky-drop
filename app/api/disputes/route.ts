@@ -8,7 +8,7 @@ import { notifyAdmin } from "../../lib/admin-alerts";
 export async function POST(req: NextRequest) {
   try {
     const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const { allowed } = rateLimit(`dispute:${ip}`, 5, 60_000);
+    const { allowed } = await rateLimit(`dispute:${ip}`, 5, 60_000);
     if (!allowed) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }
@@ -47,7 +47,8 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Funds already released, cannot refund" }, { status: 400 });
       }
 
-      const refundAmount = amount ? Math.round(Number(amount) * 100) : undefined;
+      const parsedAmount = Number(amount);
+      const refundAmount = amount && !isNaN(parsedAmount) ? Math.round(parsedAmount * 100) : undefined;
 
       const refund = await getStripe().refunds.create({
         payment_intent: stripePaymentIntentId,
@@ -76,6 +77,24 @@ export async function POST(req: NextRequest) {
         message: `Purchase ${purchaseId}: $${refundAmount ? (refundAmount / 100).toFixed(2) : "full"} refunded to buyer. Reason: ${reason || "N/A"}`,
         metadata: { purchaseId, refundId: refund.id, reason, amount: refundAmount },
       });
+
+      const db = getAdminDb();
+      const now = new Date();
+      for (const email of [purchaseData.buyerEmail, purchaseData.sellerEmail]) {
+        await db.collection("notifications").add({
+          targetEmail: email,
+          fromEmail: "system@skydrop.nz",
+          type: "dispute_resolved",
+          title: email === purchaseData.buyerEmail ? "Dispute Resolved — Refund Issued" : "Dispute Resolved — Refund Issued to Buyer",
+          message: email === purchaseData.buyerEmail
+            ? `Your dispute for "${purchaseData.listingTitle || ""}" has been resolved. A refund of $${refundAmount ? (refundAmount / 100).toFixed(2) : "full"} has been issued.`
+            : `A dispute for "${purchaseData.listingTitle || ""}" has been resolved. A refund has been issued to the buyer.`,
+          listingId: purchaseData.listingId || "",
+          listingTitle: purchaseData.listingTitle || "",
+          read: false,
+          createdAt: now,
+        });
+      }
 
       return NextResponse.json({ success: true, refundId: refund.id, status: refund.status });
     }
@@ -152,6 +171,24 @@ export async function POST(req: NextRequest) {
         metadata: { purchaseId, transferId: transfer.id, amount: Math.round(amount / 100) },
       });
 
+      const db2 = getAdminDb();
+      const now2 = new Date();
+      for (const email of [purchaseData.buyerEmail, purchaseData.sellerEmail]) {
+        await db2.collection("notifications").add({
+          targetEmail: email,
+          fromEmail: "system@skydrop.nz",
+          type: "dispute_resolved",
+          title: email === purchaseData.sellerEmail ? "Dispute Resolved — Payment Released" : "Dispute Resolved — Funds Released to Seller",
+          message: email === purchaseData.sellerEmail
+            ? `The dispute for "${purchaseData.listingTitle || ""}" has been resolved in your favor. Payment of $${(amount / 100).toFixed(2)} has been released.`
+            : `The dispute for "${purchaseData.listingTitle || ""}" has been resolved. Funds have been released to the seller.`,
+          listingId: purchaseData.listingId || "",
+          listingTitle: purchaseData.listingTitle || "",
+          read: false,
+          createdAt: now2,
+        });
+      }
+
       return NextResponse.json({ success: true, transferId: transfer.id });
     }
 
@@ -161,3 +198,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Could not process request. Please try again." }, { status: 500 });
   }
 }
+

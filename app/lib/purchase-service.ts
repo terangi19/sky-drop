@@ -353,29 +353,36 @@ export async function createPurchaseWithRest(
   };
 
   await firestoreCreate(projectId, idToken, `purchases/${purchaseId}`, purchaseData);
-  if (Object.keys(listingUpdate).length > 0) {
-    await firestoreUpdate(projectId, idToken, `${colRef}/${input.listingId}`, listingUpdate);
+
+  try {
+    if (Object.keys(listingUpdate).length > 0) {
+      await firestoreUpdate(projectId, idToken, `${colRef}/${input.listingId}`, listingUpdate);
+    }
+
+    const orderId = await firestoreCreateWithId(projectId, idToken, `orders`, orderData);
+
+    const convSnap = await firestoreGet(projectId, idToken, `conversations/${convId}`);
+    if (!convSnap) {
+      await firestoreCreate(projectId, idToken, `conversations/${convId}`, convData);
+      await firestoreUpdate(projectId, idToken, `purchases/${purchaseId}`, { conversationId: convId });
+    } else {
+      await firestoreUpdate(projectId, idToken, `conversations/${convId}`, {
+        updatedAt: now,
+        lastMessage: `Payment confirmed — $${(input.total || 0).toFixed(2)}`,
+        orderStatus: "paid",
+      });
+    }
+
+    await firestoreUpdate(projectId, idToken, `purchases/${purchaseId}`, { orderId });
+    await firestoreCreate(projectId, idToken, `messages/${makeMsgId()}`, buyerMsg);
+    await firestoreCreate(projectId, idToken, `messages/${makeMsgId()}`, sellerMsg);
+
+    return { purchaseId, orderId, conversationId: convId, existing: false };
+  } catch (err) {
+    // Clean up purchase if subsequent writes fail
+    try { await firestoreDelete(projectId, idToken, `purchases/${purchaseId}`); } catch {}
+    throw err;
   }
-
-  const orderId = await firestoreCreateWithId(projectId, idToken, `orders`, orderData);
-
-  const convSnap = await firestoreGet(projectId, idToken, `conversations/${convId}`);
-  if (!convSnap) {
-    await firestoreCreate(projectId, idToken, `conversations/${convId}`, convData);
-    await firestoreUpdate(projectId, idToken, `purchases/${purchaseId}`, { conversationId: convId });
-  } else {
-    await firestoreUpdate(projectId, idToken, `conversations/${convId}`, {
-      updatedAt: now,
-      lastMessage: `Payment confirmed — $${(input.total || 0).toFixed(2)}`,
-      orderStatus: "paid",
-    });
-  }
-
-  await firestoreUpdate(projectId, idToken, `purchases/${purchaseId}`, { orderId });
-  await firestoreCreate(projectId, idToken, `messages/${makeMsgId()}`, buyerMsg);
-  await firestoreCreate(projectId, idToken, `messages/${makeMsgId()}`, sellerMsg);
-
-  return { purchaseId, orderId, conversationId: convId, existing: false };
 }
 
 export interface AcceptOfferInput {
@@ -427,7 +434,9 @@ export async function acceptOfferWithAdmin(input: AcceptOfferInput): Promise<Acc
     const listingDoc = await tx.get(listingRef);
     if (!listingDoc.exists) throw new Error("Listing not found");
     const listing = listingDoc.data()!;
-    if (listing.status === "sold") throw new Error("This listing has already been sold");
+  if (listing.status === "sold") throw new Error("This listing has already been sold");
+  if (listing.stockQuantity != null && listing.stockQuantity <= 0) throw new Error("This item is out of stock");
+  if (listing.sellerEmail === input.buyerEmail) throw new Error("You cannot purchase your own listing");
     if (listing.sellerEmail !== input.sellerEmail) throw new Error("You are not the seller of this listing");
     if (listing.sellerEmail === input.buyerEmail) throw new Error("You cannot accept your own offer");
 
@@ -1041,4 +1050,9 @@ async function firestoreUpdate(projectId: string, idToken: string, path: string,
     body: JSON.stringify({ fields }),
   });
   if (!res.ok) throw new Error(`Firestore PATCH error: ${res.status} ${await res.text()}`);
+}
+
+async function firestoreDelete(projectId, idToken, path) {
+  const url = 'https://firestore.googleapis.com/v1/projects/' + projectId + '/databases/(default)/documents/' + path;
+  await fetch(url, { method: 'DELETE', headers: { Authorization: 'Bearer ' + idToken } });
 }

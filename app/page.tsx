@@ -39,7 +39,9 @@ import {
   where,
 } from "firebase/firestore";
 
-import { auth, db, onAuthStateChanged } from "./lib/firebase";
+import { auth, db, storage, onAuthStateChanged } from "./lib/firebase";
+import { ref, deleteObject } from "firebase/storage";
+import { cdnUrl, cdnUrls } from "./lib/cdn";
 
 interface Listing {
   id: string;
@@ -236,25 +238,23 @@ export default function Home() {
   useEffect(() => {
     if (!authReady) return;
     let mounted = true;
-
-    const listingItems: any[] = [];
-    const tradeItems: any[] = [];
+    let listingItems: any[] = [];
+    let tradeItems: any[] = [];
 
     function merge() {
       if (!mounted) return;
       const combined = [...listingItems, ...tradeItems];
-      const physical = combined.filter((i: any) => i.status !== "flagged" && i.status !== "pending_review" && i.type !== "digital" && i.type !== "service" && i.type !== "event" && i.type !== "vehicle" && i.type !== "job" && i.type !== "property" && i.type !== "rental");
-      physical.sort((a, b) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
-      setListings(physical.slice(0, 50));
+      const filtered = combined.filter((i: any) => i.status !== "flagged" && i.status !== "pending_review");
+      filtered.sort((a, b) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
+      setListings(filtered.slice(0, 100));
       setLoading(false);
     }
 
     const unsub1 = onSnapshot(
-      query(collection(db, "listings"), orderBy("createdAt", "desc"), limit(50)),
+      query(collection(db, "listings"), orderBy("createdAt", "desc"), limit(100)),
       (snap) => {
         if (!mounted) return;
-        listingItems.length = 0;
-        for (const d of snap.docs) listingItems.push({ id: d.id, ...d.data() });
+        listingItems = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         merge();
       },
       () => { merge(); }
@@ -264,8 +264,7 @@ export default function Home() {
       query(collection(db, "tradePosts"), orderBy("createdAt", "desc"), limit(50)),
       (snap) => {
         if (!mounted) return;
-        tradeItems.length = 0;
-        for (const d of snap.docs) tradeItems.push({ id: d.id, ...d.data() });
+        tradeItems = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         merge();
       },
       () => { merge(); }
@@ -281,18 +280,20 @@ export default function Home() {
     return () => window.removeEventListener("scroll", onScroll);
   }, [visibleCount]);
 
-  // Review stats + live toast feed
+  // Review stats — refetch when listings data or length changes
   useEffect(() => {
-    // Fetch seller review stats for visible listings
-    const fetchReviewStats = async () => {
+    if (listings.length === 0) return;
+    let cancelled = false;
+    (async () => {
       const uniqueEmails = [...new Set(listings.map((l: any) => l.sellerEmail).filter(Boolean))] as string[];
-      if (uniqueEmails.length === 0) return;
+      if (uniqueEmails.length === 0 || cancelled) return;
       const chunkSize = 10;
       const stats: Record<string, { avg: number; count: number }> = {};
       for (let i = 0; i < uniqueEmails.length; i += chunkSize) {
         const chunk = uniqueEmails.slice(i, i + chunkSize);
         try {
           const snap = await getDocs(query(collection(db, "reviews"), where("sellerEmail", "in", chunk)));
+          if (cancelled) return;
           const grouped: Record<string, number[]> = {};
           snap.docs.forEach((d) => {
             const data = d.data();
@@ -311,22 +312,24 @@ export default function Home() {
           }
         } catch (e) { console.error(e); }
       }
-      setSellerReviewStats(stats);
-    };
-    if (listings.length > 0) fetchReviewStats();
-  }, []);
+      if (!cancelled) setSellerReviewStats(stats);
+    })();
+    return () => { cancelled = true; };
+  }, [listings]);
 
   // Fetch seller profile badges (legendary/epic)
   useEffect(() => {
     if (listings.length === 0) return;
-    const fetchBadges = async () => {
+    let cancelled = false;
+    (async () => {
       const uniqueEmails = [...new Set(listings.map((l: any) => l.sellerEmail).filter(Boolean))] as string[];
-      if (uniqueEmails.length === 0) return;
+      if (uniqueEmails.length === 0 || cancelled) return;
       const badges: Record<string, string> = {};
       for (let i = 0; i < uniqueEmails.length; i += 10) {
         const chunk = uniqueEmails.slice(i, i + 10);
         try {
           const snap = await getDocs(query(collection(db, "profiles"), where("email", "in", chunk)));
+          if (cancelled) return;
           snap.docs.forEach((d) => {
             const data = d.data();
             const email = data.email as string;
@@ -334,10 +337,10 @@ export default function Home() {
           });
         } catch (e) { console.error("Badge fetch error:", e); }
       }
-      setSellerBadges(badges);
-    };
-    fetchBadges();
-  }, [listings.length]);
+      if (!cancelled) setSellerBadges(badges);
+    })();
+    return () => { cancelled = true; };
+  }, [listings]);
 
   // Infinite scroll via IntersectionObserver
   useEffect(() => {
@@ -349,6 +352,27 @@ export default function Home() {
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
+
+  function saveSearch() {
+    if (!search && selectedCategory === "All") return;
+    const label = search || selectedCategory;
+    const newSearch = { query: search, category: selectedCategory, label };
+    const updated = [newSearch, ...savedSearches.filter(s => s.label !== label)].slice(0, 6);
+    setSavedSearches(updated);
+    localStorage.setItem("savedSearches", JSON.stringify(updated));
+    showToast("Search saved!");
+  }
+
+  function removeSavedSearch(label: string) {
+    const updated = savedSearches.filter(s => s.label !== label);
+    setSavedSearches(updated);
+    localStorage.setItem("savedSearches", JSON.stringify(updated));
+  }
+
+  function applySavedSearch(saved: { query: string; category: string }) {
+    setSearch(saved.query);
+    setSelectedCategory(saved.category);
+  }
 
   async function deleteListing(id: string) {
 
@@ -362,6 +386,16 @@ export default function Home() {
     }
 
     try {
+
+      // Delete images from Storage
+      const listingImages = (listing.images as string[]) || [];
+      const allImages = [listing.imageUrl, listing.image, ...listingImages].filter(Boolean) as string[];
+      await Promise.all(allImages.map(async (url) => {
+        try {
+          const storageRef = ref(storage, url);
+          await deleteObject(storageRef);
+        } catch {}
+      }));
 
       await deleteDoc(
         doc(
@@ -438,7 +472,7 @@ export default function Home() {
        setDoc(doc(db, "users", user.uid, "watchlist", item.id), {
          id: item.id, title: item.title, price: item.price, imageUrl: item.imageUrl || item.image || "",
          savedAt: new Date().toISOString(),
-       });
+       }).catch((e) => { console.error("Watchlist save failed:", e); showToast("Failed to save to watchlist", "error"); });
      }
 
      showToast("Added to watchlist!");
@@ -469,9 +503,9 @@ export default function Home() {
       if (user?.uid) {
         setDoc(doc(db, "users", user.uid, "watchlist", item.id), {
           id: item.id, title: item.title, price: item.price, imageUrl: item.imageUrl || item.image || "",
+          savedPrice: item.price,
           savedAt: new Date().toISOString(),
-        });
-
+        }).catch((e) => { console.error("Watchlist save failed:", e); showToast("Failed to save to watchlist", "error"); });
       }
       showToast("Added to watchlist!");
     }
@@ -644,14 +678,26 @@ export default function Home() {
   const hotItems = useMemo(() => [...listings].filter(l => l.status !== "sold").slice(0, 6) as any[], [listings]);
   const hotMaxViews = useMemo(() => Math.max(...hotItems.map((i: any) => i.views || 0), 1), [hotItems]);
 
+  const savedSearchMatchCounts = useMemo(() => {
+    return savedSearches.map((s) => {
+      const q = s.query.toLowerCase();
+      const cat = s.category;
+      const count = listings.filter((l) => {
+        if (l.status === "sold") return false;
+        const matchesQuery = !q || (l.title?.toLowerCase().includes(q) || l.description?.toLowerCase().includes(q) || l.category?.toLowerCase().includes(q));
+        const matchesCategory = cat === "All" || l.category === cat;
+        return matchesQuery && matchesCategory;
+      }).length;
+      return { label: s.label, count };
+    });
+  }, [listings, savedSearches]);
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)] transition-colors duration-300">
 
       <Background />
 
       <Navbar />
-
-      <ThemeToggle />
 
       {/* OFFER MODAL */}
       {showOfferModal && offerListing && (
@@ -665,6 +711,7 @@ export default function Home() {
                 type="number"
                 value={offerAmount}
                 onChange={(e) => setOfferAmount(e.target.value)}
+                min={1}
                 placeholder={`e.g. ${Math.floor(Number(offerListing.price) * 0.8)}`}
                 className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)] outline-none focus:border-sky-500"
               />
@@ -752,6 +799,15 @@ export default function Home() {
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                       </button>
                     )}
+                    {(search || selectedCategory !== "All") && (
+                      <button onClick={saveSearch}
+                        className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-white/[0.06] hover:text-sky-400"
+                        title="Save search">
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                        </svg>
+                      </button>
+                    )}
                     <button onClick={() => searchRef.current?.focus()}
                       className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 px-3 py-2 text-[13px] font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.97]">
                       <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -765,7 +821,8 @@ export default function Home() {
             </div>
 
             {/* BROWSE CATEGORIES */}
-            <div className="mt-8">
+            <p className="mt-10 mb-3 text-center text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Browse Categories</p>
+            <div className="mt-0">
               <div className="flex flex-wrap justify-center gap-3">
                 <button
                   onClick={() => setSelectedCategory("All")}
@@ -799,6 +856,24 @@ export default function Home() {
                 </Link>
               </div>
             </div>
+
+            {/* SAVED SEARCHES */}
+            {savedSearches.length > 0 && (
+              <div className="mt-5 flex flex-wrap justify-center gap-2">
+                {savedSearches.map((s) => (
+                  <div key={s.label} className="group flex items-center gap-1 rounded-full border border-sky-500/15 bg-sky-500/5 px-3 py-1 text-[11px] text-sky-400 transition hover:border-sky-500/30 hover:bg-sky-500/10">
+                    <button onClick={() => applySavedSearch(s)} className="flex items-center gap-1">
+                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                      </svg>
+                      {s.label || s.query}
+                      {(() => { const m = savedSearchMatchCounts.find(m => m.label === s.label); if (m && m.count > 0) return <span className="ml-1 rounded-full bg-sky-500/20 px-1.5 py-0.5 text-[9px] font-bold text-sky-400">{m.count}</span>; return null; })()}
+                    </button>
+                    <button onClick={() => removeSavedSearch(s.label)} className="text-sky-400/50 hover:text-red-400 ml-0.5" title="Remove saved search">&times;</button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -863,7 +938,7 @@ export default function Home() {
               className="group shrink-0 w-72 cursor-pointer rounded-2xl border border-white/[0.04] bg-white/[0.02] p-3 transition-all duration-300 hover:bg-white/[0.04] hover:border-orange-500/30 hover:-translate-y-1 hover:shadow-[0_10px_30px_-10px_rgba(251,146,60,0.2)]">
               <div className="relative overflow-hidden rounded-xl">
                 {item.images?.[0] || item.imageUrl || item.image ? (
-                   <img src={item.images?.[0] || item.imageUrl || item.image || ""} alt={item.title} loading="lazy" className="h-36 w-full rounded-xl object-cover transition-all duration-500 group-hover:scale-105" />
+                   <img src={cdnUrl(item.images?.[0] || item.imageUrl || item.image || "")} alt={item.title} loading="lazy" className="h-36 w-full rounded-xl object-cover transition-all duration-500 group-hover:scale-105" />
                 ) : (
                   <div className="h-36 rounded-xl bg-gradient-to-br from-orange-500/10 via-red-500/10 to-amber-500/10 flex items-center justify-center text-xs text-zinc-500">SD</div>
                 )}
@@ -1011,7 +1086,7 @@ export default function Home() {
                   <>
                   <div className="relative overflow-hidden">
                       <img
-                        src={item.images?.[0] || item.imageUrl || item.image || ""}
+                        src={cdnUrl(item.images?.[0] || item.imageUrl || item.image || "")}
                         alt={item.title}
                         loading="lazy"
                         onLoad={(e) => { (e.target as HTMLImageElement).style.opacity = "1"; }}
@@ -1041,6 +1116,11 @@ export default function Home() {
                           <span className="rounded-full bg-sky-500/90 px-2.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm shadow-lg">📥 Digital</span>
                         )}
                       </div>
+                      {item.status !== "sold" && (item as any).images?.length > 1 && (
+                        <div className="absolute top-3 right-3">
+                          <span className="rounded-full bg-black/60 px-2 py-0.5 text-[9px] font-medium text-white backdrop-blur-sm">📷 {(item as any).images.length}</span>
+                        </div>
+                      )}
                       {item.status !== "sold" && item.expiresAt?.toMillis?.() < Date.now() && (
                         <div className="absolute top-3 right-3">
                           <span className="rounded-full bg-zinc-800/90 px-2.5 py-0.5 text-[9px] font-bold text-zinc-400 backdrop-blur-sm">Expired</span>
@@ -1105,23 +1185,25 @@ export default function Home() {
                             {item.condition === "New" ? "🆕 New" : item.condition}
                           </span>
                         )}
-                     </div>
+                      </div>
 
-                      <button
-                        onClick={(e) => { e.stopPropagation(); toggleWatchlist(item); }}
-                        className={`relative text-base transition-all duration-200 hover:scale-110 active:scale-95 ${
-                          isInWatchlist(item.id)
-                            ? "text-red-400" : "text-zinc-500 hover:text-red-400"
-                        }`}
-                      >
-                        {isInWatchlist(item.id) ? "❤️" : "♡"}
-                      </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleWatchlist(item); }}
+                          className={`relative text-base transition-all duration-200 hover:scale-110 active:scale-95 ${
+                            isInWatchlist(item.id)
+                              ? "text-red-400" : "text-zinc-500 hover:text-red-400"
+                          }`}
+                        >
+                          {isInWatchlist(item.id) ? "❤️" : "♡"}
+                        </button>
 
-                  </div>
+                    </div>
 
-                  <h2 className="mt-2.5 line-clamp-1 text-[17px] font-black tracking-tight text-white group-hover:text-sky-400 transition-colors duration-150">
-                    {item.title}
-                  </h2>
+                    <div className="flex items-center gap-2 mt-2.5">
+                      <h2 className="flex-1 line-clamp-1 text-[17px] font-black tracking-tight text-white group-hover:text-sky-400 transition-colors duration-150">
+                        {item.title}
+                      </h2>
+                    </div>
 
                   <p className="mt-1.5 line-clamp-2 text-[12px] leading-relaxed text-zinc-500">
                     {item.description}
@@ -1139,8 +1221,8 @@ export default function Home() {
                    <div className="mt-3 flex items-center gap-3 text-[11px] text-zinc-500">
                     {item.location && <span className="flex items-center gap-1">📍 {item.location}</span>}
                     {item.createdAt?.seconds != null && <span>{timeAgo(item.createdAt.seconds)}</span>}
-                    {item.pickupAvailable && <span>📍 Pickup</span>}
-                    {item.shippingAvailable && <span>📦 Shipping</span>}
+                    {item?.pickupAvailable && <span>📍 Pickup</span>}
+                    {item?.shippingAvailable && <span>📦 Shipping</span>}
                     <span className="ml-auto flex items-center gap-1">👁 {item.views || 0}</span>
                   </div>
 
@@ -1336,7 +1418,7 @@ onClick={() => router.push(`/post/listing/${item.id}`)}
                      className="group shrink-0 w-56 rounded-xl border border-zinc-700/60 bg-zinc-900/80 p-3 cursor-pointer hover:border-sky-500/40 hover:-translate-y-0.5 hover:shadow-[0_8px_25px_rgba(0,0,0,0.25)] transition-all duration-300"
                 >
                 {item.images?.[0] || item.imageUrl || item.image ? (
-                    <img src={item.images?.[0] || item.imageUrl || item.image || ""} alt={item.title} loading="lazy" onError={(e) => { (e.target as HTMLImageElement).src = ""; (e.target as HTMLImageElement).classList.add("hidden"); }} className="h-20 w-full rounded-lg object-cover" />
+                    <img src={cdnUrl(item.images?.[0] || item.imageUrl || item.image || "")} alt={item.title} loading="lazy" onError={(e) => { (e.target as HTMLImageElement).src = ""; (e.target as HTMLImageElement).classList.add("hidden"); }} className="h-20 w-full rounded-lg object-cover" />
                 ) : (
                     <div className="h-20 w-full rounded-lg bg-gradient-to-br from-sky-500/15 via-violet-500/15 to-purple-600/15 flex items-center justify-center text-[var(--foreground)] text-xs">
                         <div className="text-center">
@@ -1365,7 +1447,7 @@ onClick={() => router.push(`/post/listing/${item.id}`)}
             {listings.filter(l => l.status === "sold").slice(0, 6).map((item) => (
               <div key={item.id} className="shrink-0 w-44 rounded-xl border border-zinc-800/40 bg-zinc-900/50 p-3 opacity-80">
                 {item.images?.[0] || item.imageUrl || item.image ? (
-                   <img src={item.images?.[0] || item.imageUrl || item.image || ""} alt={item.title} loading="lazy" className="h-20 w-full rounded-lg object-cover" />
+                   <img src={cdnUrl(item.images?.[0] || item.imageUrl || item.image || "")} alt={item.title} loading="lazy" className="h-20 w-full rounded-lg object-cover" />
                 ) : (
                   <div className="h-20 w-full rounded-lg bg-gradient-to-br from-sky-500/10 via-violet-500/10 to-purple-600/10 flex items-center justify-center text-xs text-[var(--muted)]">SD</div>
                 )}

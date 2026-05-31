@@ -11,6 +11,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -76,7 +77,8 @@ export default function ListingPage() {
   useEffect(() => {
     const listingsQuery = query(
       collection(db, "listings"),
-      orderBy("createdAt", "desc")
+      orderBy("createdAt", "desc"),
+      limit(50)
     );
 
     const unsubscribe =
@@ -136,9 +138,7 @@ export default function ListingPage() {
     item: any
   ) {
     if (!user) {
-
-      showToast("Failed to delete listing.", "error");
-
+      showToast("Please log in to save favorites.", "error");
       return;
     }
 

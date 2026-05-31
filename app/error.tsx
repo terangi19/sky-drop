@@ -3,6 +3,8 @@
 import Link from "next/link";
 
 export default function Error({ error, reset }: { error: Error; reset: () => void }) {
+  console.error("[ErrorBoundary]", error);
+  try { if (typeof window !== "undefined") { const Sentry = (window as any).Sentry; if (Sentry) Sentry.captureException(error); } } catch {}
   return (
     <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)] flex items-center justify-center">
       <div className="mx-auto max-w-md text-center px-6">

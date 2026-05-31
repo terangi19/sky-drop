@@ -163,6 +163,18 @@ export default function AdminVerificationPage() {
     if (!confirm("Approve this digital listing?")) return;
     try {
       await updateDoc(doc(db, "tradePosts", listingId), { status: "live" });
+      const snap = await getDoc(doc(db, "tradePosts", listingId));
+      const data = snap.data();
+      if (data?.sellerEmail) {
+        await createNotification({
+          targetEmail: data.sellerEmail,
+          fromEmail: user!.email!,
+          type: "verification",
+          title: "Digital Listing Approved",
+          message: `Your digital listing "${data.title}" has been approved and is now live.`,
+          listingTitle: data.title,
+        });
+      }
     } catch (e) { console.error(e); }
   }
 
@@ -191,6 +203,19 @@ export default function AdminVerificationPage() {
     if (!confirm("Approve this listing? It will go live immediately.")) return;
     try {
       await updateDoc(doc(db, "listings", listingId), { status: "live" });
+      const snap = await getDoc(doc(db, "listings", listingId));
+      const data = snap.data();
+      if (data?.sellerEmail) {
+        await createNotification({
+          targetEmail: data.sellerEmail,
+          fromEmail: user!.email!,
+          type: "verification",
+          title: "Listing Approved",
+          message: `Your listing "${data.title}" has been approved and is now live on the marketplace.`,
+          listingTitle: data.title,
+          listingId: listingId,
+        });
+      }
     } catch (e) { console.error(e); }
   }
 

@@ -44,6 +44,7 @@ const TYPE_META: Record<string, { icon: string; color: string }> = {
   purchase_confirmation: { icon: "📦", color: "bg-sky-500/20" },
   offer_accepted: { icon: "✅", color: "bg-emerald-500/20" },
   offer_declined: { icon: "❌", color: "bg-red-500/20" },
+  counter_offer: { icon: "🔄", color: "bg-amber-500/20" },
   dispute_opened: { icon: "⚠️", color: "bg-red-500/20" },
 };
 

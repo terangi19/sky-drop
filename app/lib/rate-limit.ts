@@ -1,23 +1,54 @@
 const store = new Map<string, { count: number; resetAt: number }>();
 
-export function rateLimit(key: string, maxRequests: number, windowMs: number): { allowed: boolean; remaining: number } {
+export async function rateLimit(key: string, maxRequests: number, windowMs: number): Promise<{ allowed: boolean; remaining: number }> {
   const now = Date.now();
-  const entry = store.get(key);
 
-  if (!entry || now > entry.resetAt) {
+  // Fast in-memory check
+  const memEntry = store.get(key);
+  if (memEntry && now > memEntry.resetAt) {
+    store.delete(key);
+  } else if (memEntry && memEntry.count >= maxRequests) {
+    return { allowed: false, remaining: 0 };
+  }
+
+  // Firestore-backed check (persistent across instances)
+  try {
+    const { getAdminDb, isAdminInitialized } = await import("./firebase-admin");
+    if (isAdminInitialized()) {
+      const db = getAdminDb();
+      const fsKey = key.replace(/[^a-zA-Z0-9_-]/g, "_");
+      const ref = db.collection("rateLimits").doc(fsKey);
+      const snap = await ref.get();
+      let data = snap.data();
+      let count = 1;
+      let resetAt = now + windowMs;
+
+      if (data && now < data.resetAt?.toMillis?.()) {
+        count = (data.count || 0) + 1;
+        resetAt = data.resetAt.toMillis();
+        if (count > maxRequests) {
+          store.set(key, { count, resetAt });
+          return { allowed: false, remaining: 0 };
+        }
+      }
+
+      await ref.set({ count, resetAt: new Date(resetAt), key }, { merge: true });
+      store.set(key, { count, resetAt });
+      return { allowed: true, remaining: maxRequests - count };
+    }
+  } catch {}
+
+  // Fall back to in-memory only
+  if (!memEntry || now > memEntry.resetAt) {
     store.set(key, { count: 1, resetAt: now + windowMs });
     return { allowed: true, remaining: maxRequests - 1 };
   }
 
-  if (entry.count >= maxRequests) {
-    return { allowed: false, remaining: 0 };
-  }
-
-  entry.count++;
-  return { allowed: true, remaining: maxRequests - entry.count };
+  memEntry.count++;
+  return { allowed: true, remaining: maxRequests - memEntry.count };
 }
 
-// Clean up stale entries every 5 minutes
+// Clean up stale in-memory entries every 5 minutes
 setInterval(() => {
   const now = Date.now();
   for (const [key, entry] of store) {

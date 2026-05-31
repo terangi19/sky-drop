@@ -77,24 +77,18 @@ export async function POST(req: NextRequest) {
       if (meta.listingId && meta.buyerUid && meta.title) {
         const db = getAdminDb();
 
-        const existingByPi = await db.collection("purchases")
-          .where("stripePaymentIntentId", "==", pi.id)
-          .limit(1)
-          .get();
-        if (!existingByPi.empty) return NextResponse.json({ received: true });
-
         const listingDoc = await db.collection("listings").doc(meta.listingId).get();
         if (!listingDoc.exists) return NextResponse.json({ received: true });
         const listing = listingDoc.data()!;
 
         const buyerEmail = meta.buyerEmail || `${meta.buyerUid}@firebase.user`;
-
-        const purchaseId = `${meta.listingId}_${buyerEmail.replace(/[@.]/g, "_")}`;
-        const existingById = await db.collection("purchases").doc(purchaseId).get();
-        if (existingById.exists) return NextResponse.json({ received: true });
-
         const total = Number(pi.amount_received || 0) / 100;
 
+        const listingType = listing.type || "physical";
+        const deliveryMethod = listingType === "digital" ? "digital" : listingType === "service" ? "service" : listingType === "rental" ? "rental" : "shipping";
+
+        // createPurchaseWithAdmin uses a Firestore transaction internally
+        // and returns existing purchase data if already created
         await createPurchaseWithAdmin({
           listingId: meta.listingId,
           listingTitle: meta.title,
@@ -103,12 +97,154 @@ export async function POST(req: NextRequest) {
           sellerEmail: listing.sellerEmail || "",
           buyerEmail,
           buyerName: meta.buyerName || buyerEmail,
-          deliveryMethod: "pending",
+          deliveryMethod,
           processingFee: 1.00,
           total,
-          type: listing.type || "physical",
+          type: listingType,
           stripePaymentIntentId: pi.id,
           collectionName: "listings",
+        });
+      }
+    }
+
+    if (event.type === "payment_intent.payment_failed") {
+      const pi = event.data.object as any;
+      const meta = pi.metadata || {};
+      const db = getAdminDb();
+
+      await writeFailureRecord("webhookFailures", {
+        eventType: "payment_intent.payment_failed",
+        stripeEventId: event.id,
+        paymentIntentId: pi.id,
+        error: pi.last_payment_error?.message || "Payment failed",
+        metadata: meta,
+      });
+
+      await notifyAdmin({
+        type: "payment_failed",
+        title: "Payment Failed",
+        message: `Payment intent ${pi.id} failed: ${pi.last_payment_error?.message || "Unknown error"}`,
+        metadata: {
+          paymentIntentId: pi.id,
+          listingId: meta.listingId || "unknown",
+          error: pi.last_payment_error?.message,
+        },
+      });
+
+      if (meta.listingId && meta.buyerEmail) {
+        const buyerEmail = meta.buyerEmail || `${meta.buyerUid}@firebase.user`;
+        const purchaseId = `${meta.listingId}_${buyerEmail.replace(/[@.]/g, "_")}`;
+        const purchaseRef = db.collection("purchases").doc(purchaseId);
+        const purchaseDoc = await purchaseRef.get();
+        if (purchaseDoc.exists) {
+          await purchaseRef.update({
+            status: "payment_failed",
+            failedReason: pi.last_payment_error?.message || "Payment failed",
+            failedAt: new Date(),
+          });
+        }
+      }
+    }
+
+    if (event.type === "charge.dispute.created") {
+      const dispute = event.data.object as any;
+      const chargeId = dispute.charge as string;
+      const db = getAdminDb();
+
+      let paymentIntentId = "";
+      let listingId = "";
+      let buyerEmail = "";
+      let sellerEmail = "";
+
+      try {
+        const charge = await stripe.charges.retrieve(chargeId, { expand: ["payment_intent"] });
+        const pi = charge.payment_intent as any;
+        paymentIntentId = pi?.id || "";
+        listingId = pi?.metadata?.listingId || "";
+        buyerEmail = pi?.metadata?.buyerEmail || "";
+        sellerEmail = pi?.metadata?.sellerEmail || "";
+      } catch {}
+
+      await db.collection("disputes").doc(dispute.id).set({
+        stripeDisputeId: dispute.id,
+        chargeId,
+        paymentIntentId,
+        listingId,
+        buyerEmail,
+        sellerEmail,
+        amount: dispute.amount / 100,
+        reason: dispute.reason,
+        status: dispute.status,
+        createdAt: new Date(dispute.created * 1000),
+        updatedAt: new Date(),
+      });
+
+      await notifyAdmin({
+        type: "dispute_created",
+        title: "Dispute Created",
+        message: `Dispute ${dispute.id} — Reason: ${dispute.reason}, Amount: $${(dispute.amount / 100).toFixed(2)}`,
+        metadata: {
+          disputeId: dispute.id,
+          chargeId,
+          paymentIntentId,
+          listingId,
+          reason: dispute.reason,
+          amount: dispute.amount / 100,
+        },
+      });
+
+      if (paymentIntentId) {
+        const purchases = await db.collection("purchases")
+          .where("stripePaymentIntentId", "==", paymentIntentId)
+          .limit(1)
+          .get();
+        if (!purchases.empty) {
+          await purchases.docs[0].ref.update({
+            disputeStatus: "disputed",
+            disputedAt: new Date(),
+            disputeId: dispute.id,
+          });
+        }
+      }
+    }
+
+    if (event.type === "charge.dispute.closed") {
+      const dispute = event.data.object as any;
+      const db = getAdminDb();
+
+      const disputeRef = db.collection("disputes").doc(dispute.id);
+      const disputeDoc = await disputeRef.get();
+      if (disputeDoc.exists) {
+        await disputeRef.update({
+          status: dispute.status,
+          closedAt: new Date(),
+        });
+      } else {
+        await disputeRef.set({
+          stripeDisputeId: dispute.id,
+          status: dispute.status,
+          closedAt: new Date(),
+        });
+      }
+
+      await notifyAdmin({
+        type: "dispute_closed",
+        title: "Dispute Closed",
+        message: `Dispute ${dispute.id} closed with status: ${dispute.status}`,
+        metadata: {
+          disputeId: dispute.id,
+          status: dispute.status,
+        },
+      });
+
+      const purchases = await db.collection("purchases")
+        .where("disputeId", "==", dispute.id)
+        .limit(1)
+        .get();
+      if (!purchases.empty) {
+        await purchases.docs[0].ref.update({
+          disputeStatus: dispute.status === "won" ? "dispute_won" : dispute.status === "lost" ? "dispute_lost" : "dispute_closed",
+          disputeClosedAt: new Date(),
         });
       }
     }

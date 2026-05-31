@@ -18,6 +18,8 @@ interface WatchlistItem {
   category?: string;
   status?: string;
   expiresAt?: any;
+  savedPrice?: string;
+  savedAt?: string;
   [key: string]: unknown;
 }
 
@@ -281,6 +283,9 @@ export default function WatchlistPage() {
                         {isHot && <span className="rounded-full bg-orange-500/90 backdrop-blur-sm px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg">🔥 Hot</span>}
                         {item.status === "sold" && <span className="rounded-full bg-red-500/90 backdrop-blur-sm px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg">Sold</span>}
                         {item.status !== "sold" && isExpired && <span className="rounded-full bg-zinc-700/90 backdrop-blur-sm px-2.5 py-0.5 text-[9px] font-bold text-zinc-300 shadow-lg">Expired</span>}
+                        {item.status !== "sold" && item.savedPrice && item.price && Number(item.savedPrice) > Number(item.price) && (
+                          <span className="rounded-full bg-emerald-500/90 backdrop-blur-sm px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg animate-pulse">📉 ${Math.round(Number(item.savedPrice) - Number(item.price))} off</span>
+                        )}
                       </div>
                     </div>
 
