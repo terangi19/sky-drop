@@ -76,7 +76,7 @@ export default function PostPage() {
    const [shipsWithinDays, setShipsWithinDays] = useState("");
     const [stockQuantity, setStockQuantity] = useState("");
     const [expiresIn, setExpiresIn] = useState("14");
-   const [listingType, setListingType] = useState<"physical" | "digital" | "service" | "event" | "vehicle" | "job" | "property" | "rental">("physical");
+   const [listingType, setListingType] = useState<"physical" | "digital" | "service" | "vehicle" | "rental">("physical");
     const [digitalFileURL, setDigitalFileURL] = useState("");
     const [digitalFileName, setDigitalFileName] = useState("");
     const [digitalStoragePath, setDigitalStoragePath] = useState("");
@@ -125,7 +125,7 @@ export default function PostPage() {
     { label: "Details", check: !!(title && description) },
     { label: "Photos", check: imagePreviews.length > 0 },
     { label: "Price", check: !!(price && category) },
-    { label: "Type", check: !!(listingType && (listingType === "physical" || listingType === "vehicle" || listingType === "rental" ? (pickupAvailable || shippingAvailable) : listingType === "digital" ? !!digitalFileURL : listingType === "event" ? !!(eventDate && venue) : listingType === "job" ? !!jobCompany : listingType === "property" ? !!propertyType : true)) },
+    { label: "Type", check: !!(listingType && (listingType === "physical" || listingType === "vehicle" || listingType === "rental" ? (pickupAvailable || shippingAvailable) : listingType === "digital" ? !!digitalFileURL : listingType === "service" ? true : true)) },
     { label: "Submit", check: false },
   ];
   const completedSteps = progressSteps.filter(s => s.check).length;
@@ -239,23 +239,9 @@ export default function PostPage() {
       const profileData = profileSnap.data();
     }
 
-    if (listingType === "event") {
-      if (!eventDate || !venue) {
-        showToast("Enter the event date and venue.", "error");
-        return;
-      }
-    }
-
     if (listingType === "vehicle") {
       if (!vehicleMake || !vehicleModel) {
         showToast("Enter the vehicle make and model.", "error");
-        return;
-      }
-    }
-
-    if (listingType === "job") {
-      if (!jobCompany) {
-        showToast("Enter the company name.", "error");
         return;
       }
     }
@@ -344,28 +330,6 @@ export default function PostPage() {
         createdAt: serverTimestamp(),
         type: "service",
         serviceDuration,
-        saleType: "buy_now",
-        expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000),
-        status: "live",
-      } : listingType === "event" ? {
-        title,
-        description,
-        price: String(price),
-        category,
-        acceptOffers: false,
-        images,
-        imageUrl: images[0] || "",
-        sellerEmail: user.email,
-        sellerUsername: username,
-        sellerId: user.uid,
-        createdAt: serverTimestamp(),
-        type: "event",
-        eventDate,
-        eventTime,
-        venue,
-        ticketQuantity: ticketQuantity ? Number(ticketQuantity) : null,
-        stockQuantity: ticketQuantity ? Number(ticketQuantity) : null,
-        ticketType,
         saleType: "buy_now",
         expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000),
         status: "live",
@@ -972,23 +936,11 @@ export default function PostPage() {
                       <p className="mt-1 text-xs font-bold text-[var(--foreground)]">Vehicle</p>
                       <p className="text-[10px] text-[var(--muted)]">Sell a car, bike, boat</p>
                     </button>
-                    <button onClick={() => { setListingType("job"); setCategory("Jobs"); }}
-                      className={`rounded-xl border p-3 text-left transition-all ${listingType === "job" ? "border-sky-500/40 bg-sky-500/10" : "border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600"}`}>
-                      <span className="text-lg">💼</span>
-                      <p className="mt-1 text-xs font-bold text-[var(--foreground)]">Job</p>
-                      <p className="text-[10px] text-[var(--muted)]">Post a job listing</p>
-                    </button>
                     <button onClick={() => { setListingType("rental"); setCategory("Other"); }}
                       className={`rounded-xl border p-3 text-left transition-all ${listingType === "rental" ? "border-sky-500/40 bg-sky-500/10" : "border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600"}`}>
                       <span className="text-lg">🔑</span>
                       <p className="mt-1 text-xs font-bold text-[var(--foreground)]">Rental</p>
                       <p className="text-[10px] text-[var(--muted)]">Rent out an item</p>
-                    </button>
-                    <button onClick={() => { setListingType("property"); setCategory("Property"); }}
-                      className={`rounded-xl border p-3 text-left transition-all ${listingType === "property" ? "border-sky-500/40 bg-sky-500/10" : "border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600"}`}>
-                      <span className="text-lg">🏠</span>
-                      <p className="mt-1 text-xs font-bold text-[var(--foreground)]">Property</p>
-                      <p className="text-[10px] text-[var(--muted)]">List real estate</p>
                     </button>
                   </div>
                 </div>
