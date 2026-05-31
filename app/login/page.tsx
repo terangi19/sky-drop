@@ -352,35 +352,6 @@ Your account is ready. Now go explore.`,
                   Already have an account? Login
                 </button>
               )}
-              <button
-                onClick={async () => {
-                  try {
-                    setLoading(true);
-                    await signInWithEmailAndPassword(auth, "test@skydrop.nz", "test123456");
-                    router.push("/");
-                  } catch {
-                    try {
-                      const cred = await createUserWithEmailAndPassword(auth, "test@skydrop.nz", "test123456");
-                      await setDoc(doc(db, "profiles", cred.user.uid), {
-                        email: "test@skydrop.nz",
-                        username: "tester",
-                        phone: "",
-                        phoneVerified: false,
-                        referralCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
-                        memberSince: Timestamp.now(),
-                        lastActive: Timestamp.now(),
-                        createdAt: serverTimestamp(),
-                      });
-                      router.push("/");
-                    } catch {}
-                  }
-                  setLoading(false);
-                }}
-                disabled={loading}
-                className="mt-3 w-full rounded-lg border border-dashed border-zinc-700 py-2.5 text-xs font-bold text-zinc-500 transition hover:border-zinc-600 hover:text-zinc-400 disabled:opacity-50"
-              >
-                {loading ? "..." : "🧪 Test Login (test@skydrop.nz / test123456)"}
-              </button>
             </>
           )}
 
