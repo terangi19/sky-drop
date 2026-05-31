@@ -76,7 +76,7 @@ export default function PostPage() {
    const [shipsWithinDays, setShipsWithinDays] = useState("");
     const [stockQuantity, setStockQuantity] = useState("");
     const [expiresIn, setExpiresIn] = useState("14");
-   const [listingType, setListingType] = useState<"physical" | "digital" | "service" | "vehicle" | "rental">("physical");
+   const [listingType, setListingType] = useState<"physical" | "digital" | "service" | "event" | "vehicle" | "job" | "property" | "rental">("physical");
     const [digitalFileURL, setDigitalFileURL] = useState("");
     const [digitalFileName, setDigitalFileName] = useState("");
     const [digitalStoragePath, setDigitalStoragePath] = useState("");
@@ -394,59 +394,6 @@ export default function PostPage() {
         vehicleFuelType,
         vehicleTransmission,
         vehicleColour,
-      } : listingType === "job" ? {
-        title,
-        description,
-        price: String(price),
-        category,
-        acceptOffers: false,
-        images,
-        imageUrl: images[0] || "",
-        sellerEmail: user.email,
-        sellerUsername: username,
-        sellerId: user.uid,
-        createdAt: serverTimestamp(),
-        type: "job",
-        location,
-        jobCompany,
-        jobEmploymentType,
-        salaryMin: salaryMin ? Number(salaryMin) : null,
-        salaryMax: salaryMax ? Number(salaryMax) : null,
-        saleType: "buy_now",
-        expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000),
-        status: "live",
-      } : listingType === "property" ? {
-        title,
-        description,
-        price: String(price),
-        category,
-        location,
-        condition,
-        acceptOffers,
-        images,
-        imageUrl: images[0] || "",
-        sellerEmail: user.email,
-        sellerUsername: username,
-        sellerId: user.uid,
-        createdAt: serverTimestamp(),
-        pickupAvailable,
-        shippingAvailable: false,
-        saleType,
-        startingBid: saleType !== "buy_now" && startingBid ? Number(startingBid) : null,
-        reservePrice: (saleType === "auction" || saleType === "auction_buy_now") && reservePrice ? Number(reservePrice) : null,
-        auctionEndsAt: (saleType === "auction" || saleType === "auction_buy_now") ? new Date(Date.now() + Number(auctionDuration) * 86400000) : null,
-        expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000),
-        currentBid: null,
-        bidCount: 0,
-        highestBidder: null,
-        type: "property",
-        status: "live",
-        propertyType,
-        bedrooms: bedrooms ? Number(bedrooms) : null,
-        bathrooms: bathrooms ? Number(bathrooms) : null,
-        landArea: landArea ? Number(landArea) : null,
-        floorArea: floorArea ? Number(floorArea) : null,
-        parking: parking ? Number(parking) : null,
       } : {
         title,
         description,
@@ -923,12 +870,6 @@ export default function PostPage() {
                       <span className="text-lg">🤝</span>
                       <p className="mt-1 text-xs font-bold text-[var(--foreground)]">Service</p>
                       <p className="text-[10px] text-[var(--muted)]">Offer a service</p>
-                    </button>
-                    <button onClick={() => { setListingType("event"); setCategory("Concerts & Gigs"); setPickupAvailable(false); setShippingAvailable(false); }}
-                      className={`rounded-xl border p-3 text-left transition-all ${listingType === "event" ? "border-sky-500/40 bg-sky-500/10" : "border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600"}`}>
-                      <span className="text-lg">🎟</span>
-                      <p className="mt-1 text-xs font-bold text-[var(--foreground)]">Event</p>
-                      <p className="text-[10px] text-[var(--muted)]">Sell event tickets</p>
                     </button>
                     <button onClick={() => { setListingType("vehicle"); setCategory("Cars"); }}
                       className={`rounded-xl border p-3 text-left transition-all ${listingType === "vehicle" ? "border-sky-500/40 bg-sky-500/10" : "border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600"}`}>
