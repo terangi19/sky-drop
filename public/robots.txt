@@ -1,5 +1,3 @@
 User-agent: *
 Allow: /
 Sitemap: https://skydrop.co.nz/sitemap.xml
-
-# Live deploy
