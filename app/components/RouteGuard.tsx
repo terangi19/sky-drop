@@ -14,6 +14,7 @@ const PUBLIC_ROUTES = [
   "/reset-password",
   "/terms",
   "/privacy",
+  "/forgot-password",
 ];
 
 export function RouteGuard({ children }: { children: React.ReactNode }) {
