@@ -180,7 +180,7 @@ Your account is ready. Now go explore.`,
           }
         }
 
-        showToast("Welcome to Sky Drop! Start browsing listings.", "success");
+        showToast("Welcome to Sky Drop! Start browsing listings. Check spam for verification.", "success");
         router.push("/");
       }
 

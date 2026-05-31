@@ -194,7 +194,7 @@ export default function PostPage() {
         if (!user.emailVerified) {
           try {
             await sendEmailVerification(user, { url: window.location.origin + "/post" });
-            showToast("Verification email sent! Check your inbox to verify your email.", "success");
+            showToast("Verification email sent! Check your inbox (and spam) to verify your email.", "success");
           } catch {
             showToast("Please verify your email address before creating a listing.", "error");
           }

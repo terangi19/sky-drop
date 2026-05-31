@@ -53,7 +53,7 @@ export default function VerificationBanner() {
       <div className="flex items-center gap-2">
         <span className="text-sky-400 text-xs">✉</span>
         <span className="text-xs text-[var(--muted)]">
-          Verify your email to create listings and sell items.
+          Verify your email to create listings and sell items. Check spam for the email.
         </span>
       </div>
       <div className="flex items-center gap-3">
