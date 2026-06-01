@@ -11,12 +11,14 @@ import {
   doc,
   getDoc,
   getDocs,
+  increment,
   onSnapshot,
   limit,
   orderBy,
   query,
   setDoc,
   Timestamp,
+  updateDoc,
   where,
 } from "firebase/firestore";
 import { User } from "firebase/auth";
@@ -98,6 +100,7 @@ export default function SellerPage() {
   const [following, setFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const [sellerUid, setSellerUid] = useState("");
+  const [followerCount, setFollowerCount] = useState(0);
   const [showReportModal, setShowReportModal] = useState(false);
   const [sellerReportsCount, setSellerReportsCount] = useState(0);
   const [isBlocked, setIsBlocked] = useState(false);
@@ -162,6 +165,15 @@ export default function SellerPage() {
     return () => unsub();
   }, [currentUser?.uid, sellerUid]);
 
+  // Follower count from profile
+  useEffect(() => {
+    if (!sellerUid) { setFollowerCount(0); return; }
+    const unsub = onSnapshot(doc(db, "profiles", sellerUid), (d) => {
+      if (d.exists()) setFollowerCount(d.data().followers ?? 0);
+    });
+    return () => unsub();
+  }, [sellerUid]);
+
   // Count reports for this seller
   useEffect(() => {
     if (!profile?.email) return;
@@ -185,11 +197,14 @@ export default function SellerPage() {
   // Follow/unfollow
   async function toggleFollow() {
     if (!currentUser?.uid || !sellerUid) return;
+    if (currentUser.uid === sellerUid) return;
     setFollowLoading(true);
     try {
       const ref = doc(db, "followers", `${sellerUid}_${currentUser.uid}`);
+      const profileRef = doc(db, "profiles", sellerUid);
       if (following) {
         await deleteDoc(ref);
+        await updateDoc(profileRef, { followers: increment(-1) });
       } else {
         await setDoc(ref, {
           sellerId: sellerUid,
@@ -198,6 +213,7 @@ export default function SellerPage() {
           followerEmail: currentUser.email,
           createdAt: Timestamp.now(),
         });
+        await updateDoc(profileRef, { followers: increment(1) });
       }
     } catch (e) { console.error(e); }
     setFollowLoading(false);
@@ -371,7 +387,7 @@ export default function SellerPage() {
                     { icon: "★", label: "Rating", value: avgRating > 0 ? avgRating.toFixed(1) : "—" },
                     { icon: "💰", label: "Sales", value: String(soldListings.length) },
                     { icon: "📦", label: "Listings", value: String(activeListings.length) },
-                    { icon: "⚡", label: "Response", value: profile.responseTime ? `${profile.responseTime}m` : "—" },
+                    { icon: "👥", label: "Followers", value: String(followerCount) },
                   ].map((s) => (
                     <div key={s.label} className="rounded-xl border border-white/[0.04] bg-white/[0.02] px-3 py-2.5 text-center transition-all duration-200 hover:bg-white/[0.04]">
                       <p className="text-sm font-black text-[var(--foreground)]">{s.value}</p>
@@ -381,7 +397,7 @@ export default function SellerPage() {
                 </div>
 
                 {/* Follow button */}
-                {!isOwn && currentUser && (
+                {!isOwn && currentUser ? (
                   <button onClick={toggleFollow} disabled={followLoading}
                     className={`mt-3 rounded-xl px-5 py-2.5 text-xs font-bold transition-all duration-200 ${
                       following
@@ -390,6 +406,11 @@ export default function SellerPage() {
                     }`}>
                     {followLoading ? "..." : following ? "Following" : "Follow"}
                   </button>
+                ) : !isOwn && (
+                  <a href="/login"
+                    className="mt-3 inline-block rounded-xl border border-zinc-700 bg-zinc-800/40 px-5 py-2.5 text-xs font-bold text-[var(--muted)] transition hover:border-zinc-500 hover:text-[var(--foreground)]">
+                    Log in to follow
+                  </a>
                 )}
 
                 {/* Trust Score */}

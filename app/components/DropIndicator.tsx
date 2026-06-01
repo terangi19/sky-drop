@@ -212,12 +212,7 @@ export default function DropIndicator() {
           Next in <span className="font-bold text-amber-400">{nextDropIn}</span>
         </div>
       )}
-      {!drop && (
-        <div className="fixed top-16 right-4 z-[10000] rounded-full border border-zinc-800 bg-zinc-950/95 backdrop-blur-xl px-4 py-2 text-xs text-[var(--muted)] shadow-lg animate-pulse">
-          <span className="mr-1.5">🎁</span>
-          Loading...
-        </div>
-      )}
+
       {showModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowModal(false)}>
           <div className="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-950 p-6 text-center shadow-2xl animate-fade-in-up" onClick={(e) => e.stopPropagation()}>
