@@ -458,36 +458,39 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
       setSaving("Saving...");
       const sanitizedUsername = sanitizeHtml(newUsername);
 
-      // Step 1: Read current profile and update it via updateDoc (explicitly an update operation)
-      const profileRef = doc(db, "profiles", user.uid);
-      const profileSnap = await getDoc(profileRef);
-      const currentData = profileSnap.data() as ProfileData | undefined;
-
-      await updateDoc(profileRef, {
-        username: sanitizedUsername,
-        displayName: sanitizeHtml(displayName.trim()),
-        bio: sanitizeHtml(bio.trim()),
-        region,
-        discord: sanitizeHtml(discord.trim()),
-        instagram: sanitizeHtml(instagram.trim()),
-        tiktok: sanitizeHtml(tiktok.trim()),
-        website: sanitizeHtml(website.trim()),
-        hideOnline,
-        isPublic,
-        showViews,
-        allowFollowers,
-        notifEmail,
-        notifMessages,
-        notifAlerts,
-        notifWatchlist,
-        notifOffers,
-        notifPriceDrop,
-        phone,
-        phoneVerified,
-        email: user.email,
-        memberSince: currentData?.memberSince || Timestamp.now(),
-        lastActive: Timestamp.now(),
+      // Step 1: Save via server API route (bypasses client-side auth token race)
+      const token = await auth.currentUser?.getIdToken(true);
+      if (!token) { showToast("Please sign in again", "error"); return; }
+      const res = await fetch("/api/save-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          username: sanitizedUsername,
+          displayName: sanitizeHtml(displayName.trim()),
+          bio: sanitizeHtml(bio.trim()),
+          region,
+          discord: sanitizeHtml(discord.trim()),
+          instagram: sanitizeHtml(instagram.trim()),
+          tiktok: sanitizeHtml(tiktok.trim()),
+          website: sanitizeHtml(website.trim()),
+          hideOnline,
+          isPublic,
+          showViews,
+          allowFollowers,
+          notifEmail,
+          notifMessages,
+          notifAlerts,
+          notifWatchlist,
+          notifOffers,
+          notifPriceDrop,
+          phone,
+          phoneVerified,
+        }),
       });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Save failed");
+      }
 
       // Step 2: Best-effort username reservation (may fail if usernames collection rules not deployed)
       if (sanitizedUsername) {
