@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken, isAdminInitialized, getServerDb } from "../../lib/firebase-admin";
+import { verifyIdToken } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
-import { createPurchaseWithAdmin, createPurchaseWithRest } from "../../lib/purchase-service";
+import { createPurchaseWithAdmin } from "../../lib/purchase-service";
 import type { CreatePurchaseInput } from "../../lib/purchase-service";
 import { validateSellerForCheckout } from "../../lib/seller-payments";
+import {
+  adminGetListing,
+  adminGetSellerProfileByEmail,
+  requireAdminForCheckout,
+} from "../../lib/checkout-server";
 
 export async function POST(req: NextRequest) {
   try {
@@ -37,27 +42,22 @@ export async function POST(req: NextRequest) {
     }
 
     const collectionName = body.collectionName || "listings";
-    console.log(`[create-purchase] listingId=${listingId}, collection=${collectionName}, isAdminInit=${isAdminInitialized()}`);
-    const db = getServerDb(idToken);
-    console.log(`[create-purchase] db type: ${isAdminInitialized() ? "AdminSDK" : "RestAPI"}`);
-    const listingDoc = await db.collection(collectionName).doc(listingId).get();
-    if (!listingDoc.exists) {
+    requireAdminForCheckout();
+
+    const listingData = await adminGetListing(collectionName, listingId);
+    if (!listingData) {
       return NextResponse.json({ error: "Listing not found" }, { status: 404 });
     }
-    const listingData = listingDoc.data()!;
-    if (!listingData.sellerEmail) {
+    const sellerEmail = String(listingData.sellerEmail || "");
+    if (!sellerEmail) {
       return NextResponse.json({ error: "Listing has no seller" }, { status: 400 });
     }
-    if (listingData.sellerEmail === buyerEmail) {
+    if (sellerEmail === buyerEmail) {
       return NextResponse.json({ error: "You cannot purchase your own listing" }, { status: 400 });
     }
 
-    console.log(`[create-purchase] fetching seller profile: email=${listingData.sellerEmail}`);
-    const sellerProfiles = await db.collection("profiles").where("email", "==", listingData.sellerEmail).limit(1).get();
-    console.log(`[create-purchase] seller profiles found: ${sellerProfiles.size}`);
-    const sellerError = validateSellerForCheckout(
-      sellerProfiles.empty ? null : sellerProfiles.docs[0].data()
-    );
+    const sellerProfile = await adminGetSellerProfileByEmail(sellerEmail);
+    const sellerError = validateSellerForCheckout(sellerProfile);
     if (sellerError) {
       const status = sellerError.includes("restricted") || sellerError.includes("verified") ? 403 : 400;
       return NextResponse.json({ error: sellerError }, { status });
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
       listingTitle: body.listingTitle || "",
       listingPrice: body.listingPrice || "",
       listingImage: body.listingImage || "",
-      sellerEmail: listingData.sellerEmail,
+      sellerEmail,
       buyerEmail,
       buyerName: body.buyerName || buyerEmail,
       buyerPhone: body.buyerPhone || "",
@@ -93,29 +93,20 @@ export async function POST(req: NextRequest) {
       collectionName: body.collectionName || "listings",
     };
 
-    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "sky-drop-de459";
-
-    if (isAdminInitialized()) {
-      const result = await createPurchaseWithAdmin(input);
-      return NextResponse.json({ success: true, ...result });
-    }
-    if (process.env.NODE_ENV === "production") {
-      return NextResponse.json({
-        error: "Server payments not configured. Ensure FIREBASE_SERVICE_ACCOUNT is set in Vercel environment variables (Production environment, not just Preview).",
-      }, { status: 500 });
-    }
-    const result = await createPurchaseWithRest(input, projectId, idToken);
+    const result = await createPurchaseWithAdmin(input);
     return NextResponse.json({ success: true, ...result });
-  } catch (e: any) {
-    const msg = e?.message || e || "Failed to create purchase";
-    const stack = e?.stack || "";
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Failed to create purchase";
     console.error("[create-purchase] Error:", msg);
-    console.error("[create-purchase] Stack:", stack);
-    console.error("[create-purchase] Env:", JSON.stringify({
-      nodeEnv: process.env.NODE_ENV,
-      isAdminInit: isAdminInitialized(),
-      hasServiceAccount: !!process.env.FIREBASE_SERVICE_ACCOUNT,
-    }));
+    if (msg.includes("CHECKOUT_SERVER_NOT_CONFIGURED")) {
+      return NextResponse.json(
+        {
+          error:
+            "Purchase could not be recorded. FIREBASE_SERVICE_ACCOUNT must be set on the server.",
+        },
+        { status: 503 }
+      );
+    }
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

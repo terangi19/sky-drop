@@ -2,10 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { addDoc, collection, getDocs, query, serverTimestamp, where } from "firebase/firestore";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import stripePromise from "../lib/stripe-client";
-import { auth, db, storage, onAuthStateChanged } from "../lib/firebase";
+import { auth, storage, onAuthStateChanged } from "../lib/firebase";
 import { getFreshIdToken } from "../lib/api-auth";
 import { ref, getDownloadURL } from "firebase/storage";
 import { createNotification } from "../lib/notifications";
@@ -215,31 +214,17 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
     }
   }, [step]);
 
-  // Auto-fill saved info + shipping address from profile
+  // Auto-fill from last checkout (no Firestore — avoids permission errors in checkout)
   useEffect(() => {
-    (async () => {
-      try {
-        // Load from localStorage checkout history
-        const saved = localStorage.getItem("checkoutInfo");
-        if (saved) {
-          const info = JSON.parse(saved);
-          if (info.name) setName(info.name);
-          if (info.phone) setPhone(info.phone);
-        }
-        // Load saved shipping address from Firestore profile
-        if (buyerEmail) {
-          const snap = await getDocs(query(collection(db, "profiles"), where("email", "==", buyerEmail)));
-          if (!snap.empty) {
-            const data = snap.docs[0].data();
-            if (data.shippingName && !name) setName(data.shippingName);
-            if (data.shippingPhone && !phone) setPhone(data.shippingPhone);
-            const parts = [data.shippingAddress, data.shippingCity, data.shippingPostcode, data.shippingCountry].filter(Boolean);
-            if (parts.length > 0 && !address) setAddress(parts.join(", "));
-          }
-        }
-      } catch {}
-    })();
-  }, [buyerEmail]);
+    try {
+      const saved = localStorage.getItem("checkoutInfo");
+      if (!saved) return;
+      const info = JSON.parse(saved);
+      if (info.name) setName(info.name);
+      if (info.phone) setPhone(info.phone);
+      if (info.address) setAddress(info.address);
+    } catch {}
+  }, []);
 
   function safeClose() {
     document.body.style.overflow = "";
@@ -366,7 +351,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
   async function handlePaymentSuccess() {
     setStep("processing");
     try {
-      const token = await auth.currentUser?.getIdToken();
+      const token = await getFreshIdToken();
 
       let resolvedDigitalURL = "";
       if (isDigital) {
@@ -423,21 +408,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
 
       const purchaseId = createData.purchaseId;
 
-      // Auto-transfer badge if applicable
-      if (isBadge && listing.badgeForSale) {
-        try {
-          const sellerSnap = await getDocs(query(collection(db, "profiles"), where("email", "==", listing.sellerEmail)));
-          const buyerSnap = await getDocs(query(collection(db, "profiles"), where("email", "==", buyerEmail)));
-          const sellerId = sellerSnap.docs[0]?.id;
-          const buyerId = buyerSnap.docs[0]?.id;
-          if (sellerId && buyerId) {
-            const { autoTransferBadge } = await import("../lib/xpValidation");
-            await autoTransferBadge(sellerId, buyerId, listing.badgeForSale, purchaseId!, listing.sellerEmail);
-          }
-        } catch (e) {
-          console.error("Auto badge transfer failed:", e);
-        }
-      }
+      // Badge transfer runs server-side in create-purchase when configured
 
       await createNotification({
         type: isAuction ? "purchase" : "purchase",
@@ -488,7 +459,14 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
 
       setOrderId(purchaseId);
       try {
-        localStorage.setItem("checkoutInfo", JSON.stringify({ name: name.trim(), phone: phone.trim() }));
+        localStorage.setItem(
+          "checkoutInfo",
+          JSON.stringify({
+            name: name.trim(),
+            phone: phone.trim(),
+            address: address.trim(),
+          })
+        );
       } catch {}
 
           setStep(isBadge || isDigital || isRental || isEvent ? "success" : "share_address");
@@ -511,16 +489,22 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
       ? `Hi, please ship to:\n\n${address.trim()}\n\n${phone.trim() ? `Contact: ${phone.trim()}\n\n` : ""}Thanks!`
       : "Hi, I'd like to arrange pickup for this item. Thanks!";
 
-    await addDoc(collection(db, "messages"), {
-      type: "text",
-      text: shippingMsg,
-      sender: buyerEmail,
-      receiver: listing.sellerEmail,
-      participants: [buyerEmail, listing.sellerEmail],
-      listingId: listing.id,
-      read: false,
-      createdAt: serverTimestamp(),
-    });
+    try {
+      const token = await getFreshIdToken();
+      if (token && listing.sellerEmail && listing.id) {
+        await fetch("/api/checkout-message", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            text: shippingMsg,
+            sellerEmail: listing.sellerEmail,
+            listingId: listing.id,
+          }),
+        });
+      }
+    } catch (e) {
+      console.error("Failed to send checkout message:", e);
+    }
 
     setStep("success");
   }

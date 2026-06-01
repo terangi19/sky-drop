@@ -13,7 +13,7 @@ service cloud.firestore {
     // Buyer checkout: hold listing for 15 minutes (see CheckoutModal / create-payment-intent)
     function isCheckoutReservationUpdate() {
       return request.auth != null
-        && resource.data.status != 'sold'
+        && (!('status' in resource.data) || resource.data.status != 'sold')
         && request.resource.data.reservedBy == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['reservedAt', 'reservedBy']);
