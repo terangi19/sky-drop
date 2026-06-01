@@ -9,6 +9,7 @@ import { User } from "firebase/auth";
 import { doc, getDoc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { auth, db, storage, onAuthStateChanged } from "../../lib/firebase";
+import { getFreshIdToken } from "../../lib/api-auth";
 import { createPendingXP, trackListingCreated } from "../../lib/xpValidation";
 import { checkImage } from "../../lib/nsfw";
 import { showToast } from "../../components/Toast";
@@ -508,15 +509,23 @@ export default function AIPostPage() {
         }
         showToast("Listing updated!", "success");
       } else {
-        const token = await auth.currentUser?.getIdToken();
+        const token = await getFreshIdToken();
+        if (!token) {
+          showToast("Please sign in again to create a listing.", "error");
+          setLoading(false);
+          return;
+        }
         const res = await fetch("/api/create-listing", {
           method: "POST",
-          headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({ ...listingData, expiresInDays: expiresIn, listingType }),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.success) {
           showToast(data.error || `Failed to create listing (${res.status})`, "error");
+          if (res.status === 401) {
+            setTimeout(() => { window.location.href = "/login?redirect=/post/ai"; }, 1500);
+          }
           setLoading(false);
           return;
         }

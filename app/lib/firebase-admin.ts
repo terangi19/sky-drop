@@ -4,6 +4,30 @@ import { getFirestore } from "firebase-admin/firestore";
 
 let app: App | null = null;
 
+function parseServiceAccountJson(): Record<string, unknown> {
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT?.trim();
+  if (!raw) {
+    throw new Error("FIREBASE_SERVICE_ACCOUNT is not set");
+  }
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed && typeof parsed === "object") {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    /* try double-encoded JSON (common Vercel copy-paste mistake) */
+  }
+  try {
+    const parsed = JSON.parse(JSON.parse(raw)) as unknown;
+    if (parsed && typeof parsed === "object") {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    /* fall through */
+  }
+  throw new Error("FIREBASE_SERVICE_ACCOUNT is invalid JSON");
+}
+
 function getAdminApp(): App {
   if (app) return app;
   const existing = getApps();
@@ -11,22 +35,24 @@ function getAdminApp(): App {
     app = existing[0];
     return app;
   }
-  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
-  if (serviceAccount) {
-    app = initializeApp({ credential: cert(JSON.parse(serviceAccount)) });
+  if (process.env.FIREBASE_SERVICE_ACCOUNT?.trim()) {
+    app = initializeApp({ credential: cert(parseServiceAccountJson()) });
     return app;
   }
-  // Fallback: Application Default Credentials (works on Google Cloud, Cloud Run, App Engine, etc.)
-  try {
-    app = initializeApp({ credential: applicationDefault() });
-    return app;
-  } catch {
-    throw new Error(
-      "Firebase Admin SDK not initialized. " +
-      "Set the FIREBASE_SERVICE_ACCOUNT environment variable with your service account JSON, " +
-      "or deploy to a Google Cloud environment (Cloud Run, App Engine) for Application Default Credentials."
-    );
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    try {
+      app = initializeApp({ credential: applicationDefault() });
+      return app;
+    } catch {
+      throw new Error(
+        "Firebase Admin SDK could not use GOOGLE_APPLICATION_CREDENTIALS. " +
+          "Set FIREBASE_SERVICE_ACCOUNT to your service account JSON instead."
+      );
+    }
   }
+  throw new Error(
+    "Firebase Admin SDK not initialized. Set FIREBASE_SERVICE_ACCOUNT on the server."
+  );
 }
 
 let _auth: ReturnType<typeof getAuth> | null = null;
@@ -42,29 +68,61 @@ export function getAdminDb() {
 }
 
 export function isAdminInitialized(): boolean {
-  return !!process.env.FIREBASE_SERVICE_ACCOUNT || !!process.env.GOOGLE_APPLICATION_CREDENTIALS || !!process.env.GOOGLE_CLOUD_PROJECT;
+  return !!process.env.FIREBASE_SERVICE_ACCOUNT?.trim() || !!process.env.GOOGLE_APPLICATION_CREDENTIALS;
 }
 
-// Verify a Firebase ID token — uses Admin SDK in production, decodes JWT in dev
+// Verify a Firebase ID token — Admin SDK when service account is configured
 export async function verifyIdToken(idToken: string): Promise<{ uid: string; email?: string; email_verified?: boolean }> {
-  if (isAdminInitialized()) {
-    const decoded = await getAdminAuth().verifyIdToken(idToken);
-    return { uid: decoded.uid, email: decoded.email, email_verified: decoded.email_verified };
+  const trimmed = idToken?.trim();
+  if (!trimmed) {
+    throw new Error("Missing authentication token");
   }
-  // In production, Admin SDK must be available — no unverified fallback
+
+  if (isAdminInitialized()) {
+    try {
+      const decoded = await getAdminAuth().verifyIdToken(trimmed, true);
+      return {
+        uid: decoded.uid,
+        email: decoded.email,
+        email_verified: decoded.email_verified,
+      };
+    } catch (e: unknown) {
+      const err = e as { code?: string; message?: string; errorInfo?: { code?: string } };
+      const code = err.code || err.errorInfo?.code || "";
+      console.error("[verifyIdToken] Admin verify failed:", code, err.message);
+      if (code === "auth/id-token-expired") {
+        throw new Error("Session expired. Please sign out and sign in again.");
+      }
+      if (code === "auth/argument-error" || code === "auth/invalid-id-token") {
+        throw new Error("Invalid session. Please sign out and sign in again.");
+      }
+      throw new Error("Invalid or expired token");
+    }
+  }
+
   if (process.env.NODE_ENV === "production") {
     throw new Error(
-      "FIREBASE_SERVICE_ACCOUNT not set. Production requires Admin SDK for authentication."
+      "Server auth is not configured. Set FIREBASE_SERVICE_ACCOUNT in Vercel environment variables."
     );
   }
-  // Dev fallback: decode JWT payload without signature verification (local dev only)
+
+  // Local dev only — decode JWT without signature verification
   try {
-    const parts = idToken.split(".");
+    const parts = trimmed.split(".");
     if (parts.length !== 3) throw new Error("Invalid token format");
     const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
     if (!payload.sub) throw new Error("Invalid token payload");
-    return { uid: payload.sub, email: payload.email, email_verified: payload.email_verified };
-  } catch {
+    const exp = typeof payload.exp === "number" ? payload.exp : 0;
+    if (exp > 0 && exp * 1000 < Date.now()) {
+      throw new Error("Session expired. Please sign out and sign in again.");
+    }
+    return {
+      uid: payload.sub,
+      email: payload.email,
+      email_verified: payload.email_verified,
+    };
+  } catch (e: unknown) {
+    if (e instanceof Error && e.message.includes("Session expired")) throw e;
     throw new Error("Invalid or expired token");
   }
 }

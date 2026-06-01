@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken, getAdminDb, isAdminInitialized } from "../../lib/firebase-admin";
+import { verifyIdToken, getAdminDb, getServerDb, isAdminInitialized } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import { sanitizeListingContent } from "../../lib/sanitize";
 
@@ -35,51 +35,7 @@ function sellerHasVerifiedPhone(profile: Record<string, unknown>): boolean {
 
 
 
-function toFirestoreValue(val: unknown): Record<string, unknown> {
-  if (val === null || val === undefined) return { nullValue: null };
-  if (typeof val === "string") return { stringValue: val };
-  if (typeof val === "number") return { doubleValue: val };
-  if (typeof val === "boolean") return { booleanValue: val };
-  if (val instanceof Date) return { timestampValue: val.toISOString() };
-  if (Array.isArray(val)) return { arrayValue: { values: val.map(toFirestoreValue) } };
-  if (typeof val === "object") {
-    const fields: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(val as Record<string, unknown>)) {
-      fields[k] = toFirestoreValue(v);
-    }
-    return { mapValue: { fields } };
-  }
-  return { stringValue: String(val) };
-}
 
-async function createListingViaRest(idToken: string, listingData: Record<string, unknown>): Promise<string> {
-  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "sky-drop-de459";
-  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/listings`;
-
-  const fields: Record<string, unknown> = {};
-  for (const [key, val] of Object.entries(listingData)) {
-    fields[key] = toFirestoreValue(val);
-  }
-
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${idToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ fields }),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Firestore REST API error (${res.status}): ${errText}`);
-  }
-
-  const data = await res.json();
-  const docPath: string = data.name || "";
-  const docId = docPath.split("/").pop() || "";
-  return docId;
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -97,8 +53,10 @@ export async function POST(req: NextRequest) {
     let token;
     try {
       token = await verifyIdToken(idToken);
-    } catch {
-      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
+    } catch (authErr: unknown) {
+      const message =
+        authErr instanceof Error ? authErr.message : "Invalid or expired token";
+      return NextResponse.json({ error: message }, { status: 401 });
     }
 
     const body = await req.json();
@@ -262,14 +220,9 @@ export async function POST(req: NextRequest) {
     delete finalData.expiresInDays;
     delete finalData.listingType;
 
-    let listingId: string;
-
-    if (isAdminInitialized()) {
-      const ref = await getAdminDb().collection("listings").add(finalData);
-      listingId = ref.id;
-    } else {
-      listingId = await createListingViaRest(idToken, finalData);
-    }
+    const db = getServerDb(idToken);
+    const ref = await db.collection("listings").add(finalData);
+    const listingId = ref.id;
 
     return NextResponse.json({
       success: true,

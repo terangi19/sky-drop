@@ -29,6 +29,7 @@ import {
   storage,
   onAuthStateChanged,
 } from "../lib/firebase";
+import { getFreshIdToken } from "../lib/api-auth";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { sanitizeListingContent } from "../lib/sanitize";
 import { detectScam } from "../lib/scamdetection";
@@ -441,16 +442,25 @@ export default function PostPage() {
       listingData.expiresInDays = expiresIn;
       listingData.listingType = listingType;
 
-      const token = await auth.currentUser?.getIdToken();
+      const token = await getFreshIdToken();
+      if (!token) {
+        showToast("Please sign in again to create a listing.", "error");
+        setLoading(false);
+        return;
+      }
       const res = await fetch("/api/create-listing", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(listingData),
       });
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok || !data.success) {
-        showToast(data.error || `Failed to create listing (${res.status})`, "error");
+        const msg = data.error || `Failed to create listing (${res.status})`;
+        showToast(msg, "error");
+        if (res.status === 401) {
+          setTimeout(() => { window.location.href = "/login?redirect=/post"; }, 1500);
+        }
         setLoading(false);
         return;
       }
