@@ -458,12 +458,12 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
       setSaving("Saving...");
       const sanitizedUsername = sanitizeHtml(newUsername);
 
-      // Step 1: Read current profile and update it
+      // Step 1: Read current profile and update it via updateDoc (explicitly an update operation)
       const profileRef = doc(db, "profiles", user.uid);
       const profileSnap = await getDoc(profileRef);
       const currentData = profileSnap.data() as ProfileData | undefined;
 
-      await setDoc(profileRef, {
+      await updateDoc(profileRef, {
         username: sanitizedUsername,
         displayName: sanitizeHtml(displayName.trim()),
         bio: sanitizeHtml(bio.trim()),
@@ -487,7 +487,7 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
         email: user.email,
         memberSince: currentData?.memberSince || Timestamp.now(),
         lastActive: Timestamp.now(),
-      }, { merge: true });
+      });
 
       // Step 2: Best-effort username reservation (may fail if usernames collection rules not deployed)
       if (sanitizedUsername) {
