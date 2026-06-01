@@ -117,7 +117,7 @@ const regions = [
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { setUsername: setContextUsername } = useProfile();
+  const { username: contextUsername, setUsername: setContextUsername } = useProfile();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState("");
@@ -820,7 +820,7 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
                 </Link>
                 <div className="flex flex-wrap items-center gap-2.5">
                   <h1 className="text-xl sm:text-2xl font-black tracking-tight text-[var(--foreground)]">
-                    {displayName || username || "No Name"}
+                    {displayName || contextUsername || username || "No Name"}
                   </h1>
                   <span title={`Level ${levelInfo.level} — ${profile.xp || 0} XP`} className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-bold text-amber-400 border border-amber-500/20">
                     Level {levelInfo.level}
@@ -843,7 +843,7 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
                     </span>
                   )}
                 </div>
-                <p className="mt-0.5 text-sm text-[var(--muted)]">@{username || "username"}</p>
+                <p className="mt-0.5 text-sm text-[var(--muted)]">@{contextUsername || username || "username"}</p>
                 <p className="text-xs text-[var(--muted)]">{user?.email} · Joined {memberDate}</p>
 
                 {/* Badges */}

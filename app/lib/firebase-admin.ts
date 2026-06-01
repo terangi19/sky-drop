@@ -68,7 +68,7 @@ export async function verifyIdToken(idToken: string): Promise<{ uid: string; ema
 // Authenticates using the Firebase ID token passed from the client.
 
 function getProjectId(): string {
-  return process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "";
+  return process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "sky-drop-de459";
 }
 
 function docPath(path: string): string {
