@@ -37,7 +37,9 @@ export async function POST(req: NextRequest) {
     }
 
     const collectionName = body.collectionName || "listings";
+    console.log(`[create-purchase] listingId=${listingId}, collection=${collectionName}, isAdminInit=${isAdminInitialized()}`);
     const db = getServerDb(idToken);
+    console.log(`[create-purchase] db type: ${isAdminInitialized() ? "AdminSDK" : "RestAPI"}`);
     const listingDoc = await db.collection(collectionName).doc(listingId).get();
     if (!listingDoc.exists) {
       return NextResponse.json({ error: "Listing not found" }, { status: 404 });
@@ -50,7 +52,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "You cannot purchase your own listing" }, { status: 400 });
     }
 
+    console.log(`[create-purchase] fetching seller profile: email=${listingData.sellerEmail}`);
     const sellerProfiles = await db.collection("profiles").where("email", "==", listingData.sellerEmail).limit(1).get();
+    console.log(`[create-purchase] seller profiles found: ${sellerProfiles.size}`);
     const sellerError = validateSellerForCheckout(
       sellerProfiles.empty ? null : sellerProfiles.docs[0].data()
     );
@@ -103,8 +107,16 @@ export async function POST(req: NextRequest) {
     const result = await createPurchaseWithRest(input, projectId, idToken);
     return NextResponse.json({ success: true, ...result });
   } catch (e: any) {
-    console.error("[create-purchase] Error:", e?.message || e);
-    return NextResponse.json({ error: e.message || "Failed to create purchase" }, { status: 500 });
+    const msg = e?.message || e || "Failed to create purchase";
+    const stack = e?.stack || "";
+    console.error("[create-purchase] Error:", msg);
+    console.error("[create-purchase] Stack:", stack);
+    console.error("[create-purchase] Env:", JSON.stringify({
+      nodeEnv: process.env.NODE_ENV,
+      isAdminInit: isAdminInitialized(),
+      hasServiceAccount: !!process.env.FIREBASE_SERVICE_ACCOUNT,
+    }));
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 

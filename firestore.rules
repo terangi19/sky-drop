@@ -10,6 +10,14 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys()
         .hasOnly(['currentBid', 'currentMaxBid', 'secondMaxBid', 'highestBidder', 'bidCount', 'auctionEndsAt', 'auctionExtended']);
     }
+    // Buyer checkout: hold listing for 15 minutes (see CheckoutModal / create-payment-intent)
+    function isCheckoutReservationUpdate() {
+      return request.auth != null
+        && resource.data.status != 'sold'
+        && request.resource.data.reservedBy == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['reservedAt', 'reservedBy']);
+    }
     function isAdmin() {
       return request.auth.token.admin == true
         || (exists(/databases/$(database)/documents/config/adminEmails)
@@ -32,6 +40,7 @@ service cloud.firestore {
       allow update: if request.auth != null
         && (isSeller()
           || (resource.data.saleType is string && resource.data.saleType.matches('auction.*') && isAuctionBidUpdate())
+          || isCheckoutReservationUpdate()
           || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views']));
       allow delete: if request.auth != null && isSeller();
     }
@@ -91,15 +100,16 @@ service cloud.firestore {
     }
 
     // Notifications: client may read own and mark as read.
-    // Create restricted to fields-only — no fundsReleased etc.
     match /notifications/{notificationId} {
       allow read: if request.auth != null
         && resource.data.targetEmail == request.auth.token.email;
       allow create: if request.auth != null
-        && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['targetEmail', 'fromEmail', 'type', 'title', 'message',
-                    'listingId', 'listingTitle', 'read', 'createdAt', 'updatedAt',
-                    'purchaseId', 'reviewId', 'offerId', 'conversationId'])
+        && request.resource.data.targetEmail is string
+        && request.resource.data.fromEmail is string
+        && request.resource.data.type is string
+        && request.resource.data.title is string
+        && request.resource.data.message is string
+        && request.resource.data.read == false
         && request.resource.data.targetEmail != request.auth.token.email;
       allow update: if request.auth != null
         && resource.data.targetEmail == request.auth.token.email
@@ -131,6 +141,7 @@ service cloud.firestore {
       allow create: if request.auth != null && isEmailVerified();
       allow update: if request.auth != null
         && (resource.data.sellerEmail == request.auth.token.email
+          || isCheckoutReservationUpdate()
           || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views']));
       allow delete: if request.auth != null
         && resource.data.sellerEmail == request.auth.token.email;

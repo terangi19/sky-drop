@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { addDoc, collection, doc, getDocs, query, runTransaction, serverTimestamp, where } from "firebase/firestore";
+import { addDoc, collection, getDocs, query, serverTimestamp, where } from "firebase/firestore";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import stripePromise from "../lib/stripe-client";
 import { auth, db, storage, onAuthStateChanged } from "../lib/firebase";
+import { getFreshIdToken } from "../lib/api-auth";
 import { ref, getDownloadURL } from "firebase/storage";
 import { createNotification } from "../lib/notifications";
 import { showToast } from "./Toast";
@@ -15,6 +16,9 @@ import { playConfetti, playSuccess } from "../lib/sounds";
 
 interface ListingData {
   id?: string;
+  status?: string;
+  expiresAt?: unknown;
+  highestBidder?: string;
   title: string;
   price: string;
   images?: string[];
@@ -248,6 +252,18 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
     setIntentError("");
   }
 
+  function listingTimestampMs(value: unknown): number | null {
+    if (!value) return null;
+    if (typeof (value as { toMillis?: () => number }).toMillis === "function") {
+      return (value as { toMillis: () => number }).toMillis();
+    }
+    if (typeof (value as { seconds?: number }).seconds === "number") {
+      return (value as { seconds: number }).seconds * 1000;
+    }
+    const t = new Date(value as string | number).getTime();
+    return Number.isFinite(t) ? t : null;
+  }
+
   async function handleContinue() {
     if (!isValid || step !== "form") return;
     if (listing.stockQuantity != null && listing.stockQuantity <= 0) {
@@ -266,53 +282,32 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
         return;
       }
 
-      const listingRef = doc(db, collectionName, listing.id);
-      let realPrice: number;
-      let realShipping: number;
-      let realRentalDays: number;
-      let realDeposit: number;
+      if (!listing.id) {
+        throw new Error("Listing not found.");
+      }
+      if (listing.status === "sold") {
+        throw new Error("This listing has already sold.");
+      }
+      const expiresMs = listingTimestampMs(listing.expiresAt);
+      if (expiresMs != null && expiresMs < Date.now()) {
+        throw new Error("This listing has expired.");
+      }
+      if (listing.stockQuantity != null && listing.stockQuantity <= 0) {
+        throw new Error("This item is out of stock.");
+      }
+      if (winningBid) {
+        if (Math.round(Number(listing.currentBid) * 100) !== Math.round(winningBid * 100)) {
+          throw new Error("The winning bid amount has changed. Please refresh and try again.");
+        }
+        if (listing.highestBidder !== buyerEmail) {
+          throw new Error("You are no longer the highest bidder.");
+        }
+      }
 
-      await runTransaction(db, async (transaction) => {
-        const snap = await transaction.get(listingRef);
-        if (!snap.exists()) {
-          throw new Error("Listing not found.");
-        }
-        const d = snap.data();
-        if (d.status === "sold") {
-          throw new Error("This listing has already sold.");
-        }
-        if (d.expiresAt?.toMillis?.() < Date.now()) {
-          throw new Error("This listing has expired.");
-        }
-        if (d.stockQuantity != null && d.stockQuantity <= 0) {
-          throw new Error("This item is out of stock.");
-        }
-        if (d.reservedAt?.toMillis) {
-          const elapsed = Date.now() - d.reservedAt.toMillis();
-          if (elapsed < 15 * 60 * 1000 && d.reservedBy && d.reservedBy !== user.uid) {
-            throw new Error("Someone else is checking out this item. Please try again.");
-          }
-        }
-        if (winningBid) {
-          if (Math.round(Number(d.currentBid) * 100) !== Math.round(winningBid * 100)) {
-            throw new Error("The winning bid amount has changed. Please refresh and try again.");
-          }
-          if (d.highestBidder !== buyerEmail) {
-            throw new Error("You are no longer the highest bidder.");
-          }
-        }
-
-        transaction.update(listingRef, {
-          reservedAt: serverTimestamp(),
-          reservedBy: user.uid,
-        });
-
-        realPrice = winningBid || Number(d.price);
-        realShipping = d.shippingFee && !d.freeShipping ? Number(d.shippingFee) : 0;
-        realRentalDays = d.rentalDays ?? listing.rentalDays ?? 1;
-        realDeposit = deliveryMethod === "rental" ? Number(d.rentalDeposit) || 0 : 0;
-      });
-
+      const realPrice = winningBid || Number(listing.price);
+      const realShipping = listing.shippingFee && !listing.freeShipping ? Number(listing.shippingFee) : 0;
+      const realRentalDays = listing.rentalDays ?? 1;
+      const realDeposit = deliveryMethod === "rental" ? Number(listing.rentalDeposit) || 0 : 0;
       const realRentalTotal = realPrice * Number(realRentalDays);
       const realTotal = (deliveryMethod === "badge"
         ? realPrice
@@ -322,16 +317,24 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
             ? realPrice + realShipping
             : realPrice) + 1.00;
 
-      const token = await user.getIdToken();
+      const token = await getFreshIdToken();
+      if (!token) {
+        setIntentError("Please sign in again to continue.");
+        setStep("form");
+        return;
+      }
       const res = await fetch("/api/create-payment-intent", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           title: listing.title,
           price: String(realTotal),
           listingId: listing.id,
           imageUrl: listing.images?.[0] || listing.imageUrl || listing.image || "",
           collectionName,
+          deliveryMethod,
+          winningBid: winningBid || null,
+          shippingFee: deliveryMethod === "shipping" ? realShipping : 0,
         }),
       });
       let data: any;
@@ -340,16 +343,21 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
         setClientSecret(data.clientSecret);
         setPaymentIntentId(data.paymentIntentId || "");
       } else {
-        setIntentError(data.error || `Server returned ${res.status} ${res.statusText}`);
+        const apiErr = data.error || `Could not start checkout (${res.status})`;
+        setIntentError(apiErr);
         setStep("form");
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("[CheckoutModal] create-payment-intent error:", e);
+      const err = e as { code?: string; message?: string };
+      const msg = err?.message || "";
       const txErrors = ["already sold", "expired", "out of stock", "Someone else", "not found", "bid amount", "highest bidder"];
-      if (txErrors.some((msg) => e.message?.includes(msg))) {
-        setIntentError(e.message);
+      if (err?.code === "permission-denied" || msg.includes("insufficient permissions")) {
+        setIntentError("Checkout could not start. Please refresh the page and try again.");
+      } else if (txErrors.some((t) => msg.includes(t))) {
+        setIntentError(msg);
       } else {
-        setIntentError(e.message || "Could not connect to payment server. Please try again.");
+        setIntentError(msg || "Could not connect to payment server. Please try again.");
       }
       setStep("form");
     }
