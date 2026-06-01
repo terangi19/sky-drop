@@ -46,19 +46,20 @@ export async function POST(req: NextRequest) {
       phoneVerified,
     } = body;
 
-    if (!username || typeof username !== "string" || !username.trim()) {
+    const trimmedUsername = typeof username === "string" ? username.trim() : "";
+    if (!trimmedUsername) {
       return NextResponse.json({ error: "Username is required" }, { status: 400 });
     }
 
     const db = getServerDb(idToken);
     const profileRef = db.collection("profiles").doc(decodedToken.uid);
+    const usernameKey = trimmedUsername.toLowerCase();
 
-    // Read existing to preserve memberSince
     const existingSnap = await profileRef.get();
     const existingData = existingSnap.exists ? existingSnap.data() : {};
 
-    await profileRef.update({
-      username: username.trim(),
+    const profileData = {
+      username: trimmedUsername,
       displayName: displayName || "",
       bio: bio || "",
       region: region || "",
@@ -81,11 +82,36 @@ export async function POST(req: NextRequest) {
       email: decodedToken.email || "",
       memberSince: existingData?.memberSince || new Date(),
       lastActive: new Date(),
-    });
+    };
 
-    return NextResponse.json({ success: true });
-  } catch (e: any) {
+    // Always save profile first — username reservation must not block this
+    await profileRef.set(profileData, { merge: true });
+
+    // Reserve username (best-effort; rules may only allow create on first claim)
+    try {
+      const usernameRef = db.collection("usernames").doc(usernameKey);
+      const usernameSnap = await usernameRef.get();
+      if (usernameSnap.exists) {
+        const owner = usernameSnap.data()?.uid;
+        if (owner && owner !== decodedToken.uid) {
+          return NextResponse.json({ error: "Username already taken" }, { status: 409 });
+        }
+      }
+      await usernameRef.set({ uid: decodedToken.uid }, { merge: true });
+    } catch (usernameErr) {
+      console.warn("save-profile: username reservation failed (profile still saved):", usernameErr);
+    }
+
+    return NextResponse.json({ success: true, username: trimmedUsername });
+  } catch (e: unknown) {
     console.error("save-profile error:", e);
-    return NextResponse.json({ error: e.message || "Failed to save profile" }, { status: 500 });
+    const message = e instanceof Error ? e.message : "Failed to save profile";
+    if (message.includes("NOT_FOUND") || message.includes("404")) {
+      return NextResponse.json(
+        { error: "Profile document missing — try saving again." },
+        { status: 500 }
+      );
+    }
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

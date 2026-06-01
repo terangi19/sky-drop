@@ -1,9 +1,8 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
-import { isDevAuthEnabled, getMockUser } from "../lib/dev-auth";
 
 interface ProfileContextType {
   username: string;
@@ -19,21 +18,32 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [username, setUsername] = useState("");
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user?.uid) {
-        try {
-          const profileSnap = await getDoc(doc(db, "profiles", user.uid));
-          if (profileSnap.exists()) {
-            setUsername(profileSnap.data().username || "");
-          }
-        } catch (error) {
-          console.error(error);
-        }
-      } else {
+    let profileUnsub: (() => void) | undefined;
+
+    const authUnsub = onAuthStateChanged(auth, (user) => {
+      profileUnsub?.();
+      profileUnsub = undefined;
+
+      if (!user?.uid) {
         setUsername("");
+        return;
       }
+
+      profileUnsub = onSnapshot(
+        doc(db, "profiles", user.uid),
+        (snap) => {
+          setUsername(snap.exists() ? String(snap.data()?.username || "") : "");
+        },
+        (error) => {
+          console.error("ProfileContext snapshot error:", error);
+        }
+      );
     });
-    return () => unsubscribe();
+
+    return () => {
+      authUnsub();
+      profileUnsub?.();
+    };
   }, []);
 
   return (

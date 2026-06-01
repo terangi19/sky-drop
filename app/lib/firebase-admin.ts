@@ -282,7 +282,8 @@ function createRestDb(idToken: string) {
           if (opts?.merge) {
             const existing = await restGet(idToken, path);
             if (existing) {
-              await restUpdate(idToken, path, { ...existing, ...data });
+              // Patch only fields being written (true merge) — spreading existing broke saves
+              await restUpdate(idToken, path, data);
             } else {
               await restSet(idToken, path, data);
             }

@@ -24,6 +24,7 @@ import {
   Timestamp,
   updateDoc,
   where,
+  writeBatch,
 } from "firebase/firestore";
 import {
   deleteUser,
@@ -181,66 +182,91 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
 
   const bannerRef = useRef<HTMLInputElement>(null);
   const avatarRef = useRef<HTMLInputElement>(null);
+  const referralInitRef = useRef(false);
+
+  const applyProfileData = useCallback((data: ProfileData) => {
+    const uname = data.username || "";
+    setProfile(data);
+    setUsername(uname);
+    setContextUsername(uname);
+    setDisplayName(data.displayName || "");
+    setBio(data.bio || "");
+    setRegion(data.region || "");
+    setDiscord(data.discord || "");
+    setInstagram(data.instagram || "");
+    setTiktok(data.tiktok || "");
+    setWebsite(data.website || "");
+    setHideOnline(data.hideOnline || false);
+    setIsPublic(data.isPublic !== false);
+    setShowViews(data.showViews !== false);
+    setAllowFollowers(data.allowFollowers !== false);
+    setNotifEmail(data.notifEmail !== false);
+    setNotifMessages(data.notifMessages !== false);
+    setNotifAlerts(data.notifAlerts !== false);
+    setNotifWatchlist(data.notifWatchlist !== false);
+    setNotifOffers(data.notifOffers !== false);
+    setNotifPriceDrop(data.notifPriceDrop || false);
+    setPhone(data.phone || "");
+    setPhoneVerified(data.phoneVerified || false);
+    setShippingName(data.shippingName || "");
+    setShippingPhone(data.shippingPhone || "");
+    setShippingAddress(data.shippingAddress || "");
+    setShippingCity(data.shippingCity || "");
+    setShippingPostcode(data.shippingPostcode || "");
+    setShippingCountry(data.shippingCountry || "New Zealand");
+    setStripeAccountId(data.stripeAccountId || "");
+    setReferralCode(data.referralCode || "");
+    setReferredBy(data.referredBy || "");
+    const poa = data.proofOfAddress || {};
+    setPoaStatus(poa.status || "unsubmitted");
+    setPoaDocumentURL(poa.documentURL || "");
+    setPoaRejectionReason(poa.rejectionReason || "");
+  }, [setContextUsername]);
 
   // Auth
   useEffect(() => {
-    let mounted = true;
-    const unsub = onAuthStateChanged(auth, async (currentUser) => {
-      if (!mounted) return;
+    const unsub = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      if (currentUser?.uid) {
-        try {
-          const snap = await getDoc(doc(db, "profiles", currentUser.uid));
-          if (snap.exists()) {
-            const data = snap.data() as ProfileData;
-            setProfile(data);
-            setUsername(data.username || "");
-            setDisplayName(data.displayName || "");
-            setBio(data.bio || "");
-            setRegion(data.region || "");
-            setDiscord(data.discord || "");
-            setInstagram(data.instagram || "");
-            setTiktok(data.tiktok || "");
-            setWebsite(data.website || "");
-            setHideOnline(data.hideOnline || false);
-            setIsPublic(data.isPublic !== false);
-            setShowViews(data.showViews !== false);
-            setAllowFollowers(data.allowFollowers !== false);
-            setNotifEmail(data.notifEmail !== false);
-            setNotifMessages(data.notifMessages !== false);
-            setNotifAlerts(data.notifAlerts !== false);
-            setNotifWatchlist(data.notifWatchlist !== false);
-            setNotifOffers(data.notifOffers !== false);
-            setNotifPriceDrop(data.notifPriceDrop || false);
-            setPhone(data.phone || "");
-            setPhoneVerified(data.phoneVerified || false);
-            setShippingName(data.shippingName || "");
-            setShippingPhone(data.shippingPhone || "");
-            setShippingAddress(data.shippingAddress || "");
-            setShippingCity(data.shippingCity || "");
-            setShippingPostcode(data.shippingPostcode || "");
-            setShippingCountry(data.shippingCountry || "New Zealand");
-            setStripeAccountId(data.stripeAccountId || "");
-            setReferralCode(data.referralCode || "");
-            setReferredBy(data.referredBy || "");
-            const poa = data.proofOfAddress || {};
-            setPoaStatus(poa.status || "unsubmitted");
-            setPoaDocumentURL(poa.documentURL || "");
-            setPoaRejectionReason(poa.rejectionReason || "");
-
-
-            if (!data.referralCode) {
-              const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-              setReferralCode(newCode);
-              await updateDoc(doc(db, "profiles", currentUser.uid), { referralCode: newCode }).catch((e) => console.error("Failed to save referral code:", e));
-            }
-          }
-        } catch (e) { console.error(e); }
+      if (!currentUser) {
+        setLoading(false);
+        referralInitRef.current = false;
       }
-      if (mounted) setLoading(false);
     });
-    return () => { mounted = false; unsub(); };
+    return () => unsub();
   }, []);
+
+  // Live profile sync (keeps username after save + refresh)
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const unsub = onSnapshot(
+      doc(db, "profiles", user.uid),
+      async (snap) => {
+        if (snap.exists()) {
+          const data = snap.data() as ProfileData;
+          applyProfileData(data);
+
+          if (!data.referralCode && !referralInitRef.current) {
+            referralInitRef.current = true;
+            const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+            setReferralCode(newCode);
+            await setDoc(
+              doc(db, "profiles", user.uid),
+              { referralCode: newCode },
+              { merge: true }
+            ).catch((e) => console.error("Failed to save referral code:", e));
+          }
+        }
+        setLoading(false);
+      },
+      (err) => {
+        console.error("Profile snapshot error:", err);
+        setLoading(false);
+      }
+    );
+
+    return () => unsub();
+  }, [user?.uid, applyProfileData]);
 
   // Update lastActive on mount
   useEffect(() => {
@@ -456,70 +482,82 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
     if (!newUsername) { showToast("Enter a username.", "error"); return; }
     try {
       setSaving("Saving...");
-      const sanitizedUsername = sanitizeHtml(newUsername);
 
-      // Step 1: Save via server API route (bypasses client-side auth token race)
+      const profilePayload = {
+        username: newUsername,
+        displayName: displayName.trim(),
+        bio: bio.trim(),
+        region,
+        discord: discord.trim(),
+        instagram: instagram.trim(),
+        tiktok: tiktok.trim(),
+        website: website.trim(),
+        hideOnline,
+        isPublic,
+        showViews,
+        allowFollowers,
+        notifEmail,
+        notifMessages,
+        notifAlerts,
+        notifWatchlist,
+        notifOffers,
+        notifPriceDrop,
+        phone,
+        phoneVerified,
+        email: user.email || "",
+        lastActive: Timestamp.now(),
+        memberSince: profile.memberSince || Timestamp.now(),
+      };
+
+      // 1. Save to Firestore from client first (survives API / username-reservation failures)
+      await setDoc(doc(db, "profiles", user.uid), profilePayload, { merge: true });
+
+      try {
+        const usernameRef = doc(db, "usernames", newUsername.toLowerCase());
+        await setDoc(usernameRef, { uid: user.uid }, { merge: true });
+      } catch {
+        /* usernames collection optional */
+      }
+
+      // 2. Server sync (validation + admin write on production)
       const token = await auth.currentUser?.getIdToken(true);
       if (!token) { showToast("Please sign in again", "error"); return; }
       const res = await fetch("/api/save-profile", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          username: sanitizedUsername,
-          displayName: sanitizeHtml(displayName.trim()),
-          bio: sanitizeHtml(bio.trim()),
-          region,
-          discord: sanitizeHtml(discord.trim()),
-          instagram: sanitizeHtml(instagram.trim()),
-          tiktok: sanitizeHtml(tiktok.trim()),
-          website: sanitizeHtml(website.trim()),
-          hideOnline,
-          isPublic,
-          showViews,
-          allowFollowers,
-          notifEmail,
-          notifMessages,
-          notifAlerts,
-          notifWatchlist,
-          notifOffers,
-          notifPriceDrop,
-          phone,
-          phoneVerified,
-        }),
+        body: JSON.stringify(profilePayload),
       });
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Save failed");
-      }
-
-      // Step 2: Best-effort username reservation (may fail if usernames collection rules not deployed)
-      if (sanitizedUsername) {
-        try {
-          const usernameRef = doc(db, "usernames", sanitizedUsername);
-          const usernameSnap = await getDoc(usernameRef);
-          if (!usernameSnap.exists()) {
-            await setDoc(usernameRef, { uid: user.uid });
-          }
-        } catch { /* usernames collection not available — username uniqueness not enforced */ }
+        const err = await res.json().catch(() => ({}));
+        const msg = err.error || "Save failed";
+        if (res.status === 409) {
+          throw new Error("Username already taken");
+        }
+        // Profile already saved client-side — warn but don't roll back
+        console.warn("save-profile API:", msg);
+        showToast("Saved locally. Server sync had an issue — refresh to confirm.", "info");
       }
 
       // Update sellerUsername on all listings
       try {
-        const { getDocs, query, collection, where, writeBatch } = await import("firebase/firestore");
         const listingsSnap = await getDocs(query(collection(db, "listings"), where("sellerEmail", "==", user.email)));
         const batch = writeBatch(db);
         listingsSnap.docs.forEach((doc_) => batch.update(doc_.ref, { sellerUsername: newUsername }));
         const tradeSnap = await getDocs(query(collection(db, "tradePosts"), where("sellerEmail", "==", user.email)));
         tradeSnap.docs.forEach((doc_) => batch.update(doc_.ref, { sellerUsername: newUsername }));
         await batch.commit();
-      } catch { showToast("Profile saved, but some listings could not be updated.", "info"); }
+      } catch {
+        showToast("Profile saved, but some listings could not be updated.", "info");
+      }
 
+      setUsername(newUsername);
       setContextUsername(newUsername);
       setProfile((p) => ({ ...p, username: newUsername, displayName: displayName.trim(), bio: bio.trim() }));
       flashSaved();
-    } catch (e: any) {
-      setSaving(e?.message === "Username already taken" ? "Username taken" : "Save failed");
-      showToast(e?.message === "Username already taken" ? "Username already taken." : "Save failed", "error");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Save failed";
+      setSaving(message === "Username already taken" ? "Username taken" : "Save failed");
+      showToast(message === "Username already taken" ? "Username already taken." : message, "error");
       setTimeout(() => setSaving(""), 2000);
     }
   }
