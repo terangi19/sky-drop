@@ -759,8 +759,8 @@ export default function Home() {
 
           <div className="relative px-6 py-10 sm:px-10 sm:py-12">
             <div className="mx-auto max-w-3xl text-center">
-              <div className="inline-flex items-center gap-2 rounded-full border border-sky-500/15 bg-sky-500/5 px-3.5 py-1 text-[10px] font-semibold text-sky-400 mb-5 tracking-wider uppercase">
-                🇳🇿 New Zealand's Marketplace
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.06] bg-white/[0.03] px-4 py-1 text-[11px] font-medium text-zinc-400 mb-5">
+                Welcome to Sky Drop
               </div>
 
               <h1 className="text-4xl font-black tracking-tight sm:text-5xl lg:text-6xl leading-none">
