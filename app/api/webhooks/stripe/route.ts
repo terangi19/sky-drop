@@ -32,8 +32,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
+  const eventRef = getAdminDb().collection("webhookEvents").doc(event.id);
+
   try {
-    const eventRef = getAdminDb().collection("webhookEvents").doc(event.id);
 
     const alreadyProcessed = await getAdminDb().runTransaction(async (tx) => {
       const snap = await tx.get(eventRef);
