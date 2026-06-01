@@ -634,24 +634,33 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
     setStripeConnecting(true);
     try {
       const token = await auth.currentUser?.getIdToken();
+      if (!token) { showToast("Please sign in again", "error"); setStripeConnecting(false); return; }
+
       const res = await fetch("/api/stripe-connect", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ action: "create", email: user.email }),
       });
       const data = await res.json();
-      if (data.accountId) {
-        await setDoc(doc(db, "profiles", user.uid), { stripeAccountId: data.accountId }, { merge: true });
-        setStripeAccountId(data.accountId);
-        const token2 = await auth.currentUser?.getIdToken();
-        const linkRes = await fetch("/api/stripe-connect", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...(token2 ? { "Authorization": `Bearer ${token2}` } : {}) },
-          body: JSON.stringify({ action: "onboard", accountId: data.accountId }),
-        });
-        const linkData = await linkRes.json();
-        if (linkData.url) window.location.href = linkData.url;
-      }
+      if (!res.ok) { showToast(data.error || "Failed to create Stripe account", "error"); setStripeConnecting(false); return; }
+      if (!data.accountId) { showToast("No account ID returned from Stripe", "error"); setStripeConnecting(false); return; }
+
+      await setDoc(doc(db, "profiles", user.uid), { stripeAccountId: data.accountId }, { merge: true });
+      setStripeAccountId(data.accountId);
+
+      const token2 = await auth.currentUser?.getIdToken();
+      if (!token2) { showToast("Please sign in again", "error"); setStripeConnecting(false); return; }
+
+      const linkRes = await fetch("/api/stripe-connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token2}` },
+        body: JSON.stringify({ action: "onboard", accountId: data.accountId }),
+      });
+      const linkData = await linkRes.json();
+      if (!linkRes.ok) { showToast(linkData.error || "Failed to open Stripe onboarding", "error"); setStripeConnecting(false); return; }
+      if (!linkData.url) { showToast("No onboarding URL returned", "error"); setStripeConnecting(false); return; }
+
+      window.location.href = linkData.url;
     } catch (e) { console.error(e); showToast("Failed to connect Stripe", "error"); }
     setStripeConnecting(false);
   }
@@ -660,13 +669,18 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
     if (!stripeAccountId) return;
     try {
       const token = await auth.currentUser?.getIdToken();
+      if (!token) { showToast("Please sign in again", "error"); return; }
+
       const res = await fetch("/api/stripe-connect", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ action: "onboard", accountId: stripeAccountId }),
       });
       const data = await res.json();
-      if (data.url) window.location.href = data.url;
+      if (!res.ok) { showToast(data.error || "Failed to open Stripe onboarding", "error"); return; }
+      if (!data.url) { showToast("No onboarding URL returned", "error"); return; }
+
+      window.location.href = data.url;
     } catch (e) { console.error(e); showToast("Failed to open Stripe onboarding", "error"); }
   }
 
