@@ -201,7 +201,8 @@ export default function PostPage() {
           }
           return;
         }
-        if (!profileData.phone || !profileData.phoneVerified) {
+        const profilePhone = String(profileData.phone || profileData.phoneNumber || "").trim();
+        if (!profilePhone || !profileData.phoneVerified) {
           showToast("Please add and verify your phone number in Profile to create listings.", "error");
           return;
         }
@@ -446,10 +447,10 @@ export default function PostPage() {
         headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
         body: JSON.stringify(listingData),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
-      if (!data.success) {
-        showToast(data.error || "Failed to create listing", "error");
+      if (!res.ok || !data.success) {
+        showToast(data.error || `Failed to create listing (${res.status})`, "error");
         setLoading(false);
         return;
       }

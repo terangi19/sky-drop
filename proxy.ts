@@ -41,20 +41,16 @@ export async function proxy(request: NextRequest) {
   if (pathname.startsWith("/admin")) {
     const token = request.cookies.get(COOKIE_NAME)?.value;
 
-    if (token) {
-      // Cookie exists — verify it's valid; redirect to login if expired/tampered
-      if (!(await verifySessionCookie(token))) {
-        const loginUrl = new URL("/login", request.url);
-        loginUrl.searchParams.set("redirect", pathname);
-        return NextResponse.redirect(loginUrl);
-      }
+    if (!token || !(await verifySessionCookie(token))) {
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(loginUrl);
     }
-    // No cookie: allow through (client-side will set it via /api/auth/session)
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: "/admin/:path*",
+  matcher: ["/admin", "/admin/:path*"],
 };

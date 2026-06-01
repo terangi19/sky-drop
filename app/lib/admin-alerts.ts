@@ -1,6 +1,12 @@
 import { getAdminDb } from "./firebase-admin";
 
-const ADMIN_EMAIL = "rangitr16@gmail.com";
+function getAdminAlertEmail(): string {
+  if (process.env.NOTIFICATION_EMAIL) return process.env.NOTIFICATION_EMAIL;
+  if (typeof process !== "undefined" && process.env?.ADMIN_EMAILS) {
+    return process.env.ADMIN_EMAILS.split(",")[0].trim();
+  }
+  return "rangitr16@gmail.com";
+}
 
 interface AdminAlertInput {
   type: "webhook_failure" | "payment_release_failure" | "dispute_opened" | "dispute_resolved" | "stripe_error" | "payment_failed" | "dispute_created" | "dispute_closed";
@@ -27,7 +33,7 @@ export async function notifyAdmin(input: AdminAlertInput): Promise<void> {
     // Also write to the notifications collection for in-app display
     await db.collection("notifications").add({
       type: input.type,
-      targetEmail: ADMIN_EMAIL,
+      targetEmail: getAdminAlertEmail(),
       fromEmail: "system",
       title: input.title,
       message: input.message,
@@ -50,7 +56,7 @@ export async function notifyAdmin(input: AdminAlertInput): Promise<void> {
         const transporter = nodemailer.default.createTransport(transport);
         await transporter.sendMail({
           from: process.env.SMTP_FROM || "noreply@skydrop.nz",
-          to: ADMIN_EMAIL,
+          to: getAdminAlertEmail(),
           subject: `[Sky Drop] ${input.title}`,
           html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
             <h2 style="color:#ef4444;">${input.title}</h2>

@@ -69,30 +69,41 @@ service cloud.firestore {
         && request.auth.token.email in resource.data.participants;
     }
 
+    // Purchases: server-side writes via API routes + webhook.
+    // Client may only update status/tracking — never sensitive/stripe fields.
     match /purchases/{purchaseId} {
       allow read: if request.auth != null
         && (resource.data.buyerEmail == request.auth.token.email
           || resource.data.sellerEmail == request.auth.token.email);
-      allow create: if request.auth != null
-        && request.resource.data.buyerEmail == request.auth.token.email;
+      allow create: if false; // server-only (Admin SDK / REST API in API routes)
       allow update: if request.auth != null
         && (resource.data.buyerEmail == request.auth.token.email
           || resource.data.sellerEmail == request.auth.token.email)
-        // Block seller from setting status to "delivered" (only buyer can confirm receipt)
+        // Only allow status/tracking/delivery fields from client; blocks everything else
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'deliveredAt', 'tracking', 'updatedAt', 'reviewed'])
+        // Seller cannot set delivered status (buyer confirms receipt)
         && !(resource.data.sellerEmail == request.auth.token.email
           && request.resource.data.status == "delivered")
-        // During active dispute, only allow changing disputeStatus field
+        // During active dispute, only disputeStatus field may change
         && (!isDisputeActive()
           || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['disputeStatus', 'updatedAt']));
     }
 
+    // Notifications: client may read own and mark as read.
+    // Create restricted to fields-only — no fundsReleased etc.
     match /notifications/{notificationId} {
       allow read: if request.auth != null
         && resource.data.targetEmail == request.auth.token.email;
       allow create: if request.auth != null
-        && request.resource.data.fromEmail == request.auth.token.email;
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['targetEmail', 'fromEmail', 'type', 'title', 'message',
+                    'listingId', 'listingTitle', 'read', 'createdAt', 'updatedAt',
+                    'purchaseId', 'reviewId', 'offerId', 'conversationId'])
+        && request.resource.data.targetEmail != request.auth.token.email;
       allow update: if request.auth != null
-        && resource.data.targetEmail == request.auth.token.email;
+        && resource.data.targetEmail == request.auth.token.email
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'updatedAt']);
     }
 
     // Reviews: only real buyers can review, one per purchase
@@ -196,7 +207,7 @@ service cloud.firestore {
     }
 
     match /config/{docId} {
-      allow read: if true;
+      allow read: if request.auth != null;
       allow write: if request.auth != null && isAdmin();
     }
 

@@ -28,7 +28,7 @@ import {
   onAuthStateChanged,
 } from "../../lib/firebase";
 
-const FALLBACK_ADMIN_EMAILS = ["rangitr16@gmail.com"];
+import { isAdminEmail } from "../../lib/admin-check";
 
 const DISPUTE_REASON_LABELS: Record<string, string> = {
   not_received: "Not Received",
@@ -50,7 +50,6 @@ const STATUS_STYLES: Record<string, string> = {
 
 export default function AdminDisputesPage() {
   const [user, setUser] = useState<User | null>(null);
-  const [adminEmails, setAdminEmails] = useState<string[]>(FALLBACK_ADMIN_EMAILS);
   const [disputes, setDisputes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -60,15 +59,6 @@ export default function AdminDisputesPage() {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (currentUser) => setUser(currentUser));
     return () => unsub();
-  }, []);
-
-  useEffect(() => {
-    getDoc(doc(db, "config", "adminEmails")).then((snap) => {
-      if (snap.exists()) {
-        const emails = snap.data().emails;
-        if (Array.isArray(emails) && emails.length > 0) setAdminEmails(emails.map((e: string) => e.toLowerCase()));
-      }
-    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -83,7 +73,7 @@ export default function AdminDisputesPage() {
     return () => unsub();
   }, []);
 
-  const isAdmin = user?.email && adminEmails.includes(user.email.toLowerCase());
+  const isAdmin = isAdminEmail(user?.email);
 
   async function handleReview(disputeId: string) {
     setActionLoading(disputeId);

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken, getServerDb, isAdminInitialized } from "../../../lib/firebase-admin";
-import { isAdminEmail } from "../../../lib/admin-utils";
+import { isAdminEmail } from "../../../lib/admin-check";
 
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 10;

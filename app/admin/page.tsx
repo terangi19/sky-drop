@@ -26,6 +26,7 @@ import {
   db,
   onAuthStateChanged,
 } from "../lib/firebase";
+import { isAdminEmail } from "../lib/admin-check";
 
 export default function AdminPage() {
   const [user, setUser] =
@@ -43,11 +44,6 @@ export default function AdminPage() {
   const [pendingDigital, setPendingDigital] = useState(0);
   const [openDisputes, setOpenDisputes] = useState(0);
   const [adminAlerts, setAdminAlerts] = useState<any[]>([]);
-
-  // ADMIN EMAILS
-  const adminEmails = [
-    "rangitr16@gmail.com",
-  ];
 
   useEffect(() => {
     if (auth.currentUser) {
@@ -152,11 +148,7 @@ export default function AdminPage() {
   if (checking) return <main className="flex min-h-screen items-center justify-center bg-[var(--background)]"><p className="text-sm text-[var(--muted)]">Checking...</p></main>;
 
   // ACCESS CHECK
-  const isAdmin =
-    user?.email &&
-    adminEmails.includes(
-      user.email.toLowerCase()
-    );
+  const isAdmin = isAdminEmail(user?.email);
 
   // BLOCK NON ADMINS
   if (!isAdmin) {

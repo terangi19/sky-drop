@@ -45,6 +45,30 @@ function makeConversationId(listingId: string, buyerEmail: string): string {
   return `conv_${listingId}_${buyerEmail.replace(/[@.]/g, "_")}`;
 }
 
+/** Always use the listing's seller — never trust client-supplied sellerEmail. */
+export function resolveSellerEmailFromListing(
+  listing: Record<string, unknown>,
+  inputSellerEmail?: string
+): string {
+  const listingSeller = String(listing.sellerEmail || "").trim();
+  if (!listingSeller) throw new Error("Listing has no seller");
+  const clientSeller = typeof inputSellerEmail === "string" ? inputSellerEmail.trim() : "";
+  if (clientSeller && clientSeller !== listingSeller) {
+    console.warn("[purchase] Client sellerEmail ignored (mismatch with listing)", {
+      clientSeller,
+      listingSeller,
+    });
+  }
+  return listingSeller;
+}
+
+export function sellerPayoutCents(purchase: { total?: number; processingFee?: number }): number {
+  const total = Number(purchase.total) || 0;
+  const fee = Number(purchase.processingFee);
+  const processingFee = Number.isFinite(fee) && fee >= 0 ? fee : 1.0;
+  return Math.round((total - processingFee) * 100);
+}
+
 export async function createPurchaseWithAdmin(input: CreatePurchaseInput): Promise<CreatePurchaseResult> {
   const db = getAdminDb();
   const purchaseId = makePurchaseId(input.listingId, input.buyerEmail);
@@ -77,6 +101,8 @@ export async function createPurchaseWithAdmin(input: CreatePurchaseInput): Promi
     if (listing.sellerEmail === input.buyerEmail) {
       throw new Error("You cannot purchase your own listing");
     }
+
+    const sellerEmail = resolveSellerEmailFromListing(listing, input.sellerEmail);
 
     const purchaseRef = db.collection("purchases").doc(purchaseId);
     const existingPurchase = await tx.get(purchaseRef);
@@ -114,22 +140,26 @@ export async function createPurchaseWithAdmin(input: CreatePurchaseInput): Promi
       listingTitle: input.listingTitle || listing.title || "",
       listingPrice: input.winningBid ? String(input.winningBid) : input.listingPrice || listing.price || "",
       listingImage: input.listingImage || listing.images?.[0] || listing.imageUrl || listing.image || "",
-      sellerEmail: input.sellerEmail,
+      sellerEmail,
       buyerEmail: input.buyerEmail,
       buyerName: input.buyerName || input.buyerEmail,
       buyerPhone: input.buyerPhone || "",
       deliveryMethod: input.deliveryMethod || "pickup",
       shippingAddress: input.shippingAddress || "",
       shippingFee: input.shippingFee || 0,
-      processingFee: input.processingFee || 1.00,
-      total: input.total || Number(listing.price || 0) + 1,
+      processingFee: input.processingFee ?? 1.00,
+      total: input.total || Number(listing.price || 0) + (input.processingFee ?? 1.00),
       badgeTransfer: input.badgeTransfer || "",
       type,
       digitalFileURL: input.digitalFileURL || "",
       digitalFileName: input.digitalFileName || "",
       status: computedStatus,
       paidAt: now,
-      deliveredAt: input.deliveredAt ? new Date(input.deliveredAt) : null,
+      deliveredAt: input.deliveredAt
+        ? new Date(input.deliveredAt)
+        : computedStatus === "delivered"
+          ? now
+          : null,
       disputeDeadline: input.disputeDeadline ? new Date(input.disputeDeadline) : null,
       stripePaymentIntentId: input.stripePaymentIntentId,
       createdAt: now,
@@ -146,7 +176,7 @@ export async function createPurchaseWithAdmin(input: CreatePurchaseInput): Promi
       listingId: input.listingId,
       title: input.listingTitle || listing.title || "",
       price: input.listingPrice || listing.price || "",
-      sellerEmail: input.sellerEmail,
+      sellerEmail,
       buyerEmail: input.buyerEmail,
       status: "paid",
       purchaseId,
@@ -171,9 +201,9 @@ export async function createPurchaseWithAdmin(input: CreatePurchaseInput): Promi
     } else {
       const convData: Record<string, any> = {
         convKey: `listing_${input.listingId}`,
-        participants: [input.buyerEmail, input.sellerEmail],
+        participants: [input.buyerEmail, sellerEmail],
         buyerEmail: input.buyerEmail,
-        sellerEmail: input.sellerEmail,
+        sellerEmail,
         listingId: input.listingId,
         listingTitle: input.listingTitle || listing.title || "",
         listingPrice: input.listingPrice || listing.price || "",
@@ -195,7 +225,7 @@ export async function createPurchaseWithAdmin(input: CreatePurchaseInput): Promi
       orderId,
       sender: "system",
       receiver: input.buyerEmail,
-      participants: [input.buyerEmail, input.sellerEmail],
+      participants: [input.buyerEmail, sellerEmail],
       listingId: input.listingId,
       listingTitle: input.listingTitle || listing.title || "",
       listingPrice: input.listingPrice || listing.price || "",
@@ -210,8 +240,8 @@ export async function createPurchaseWithAdmin(input: CreatePurchaseInput): Promi
       type: "order",
       orderId,
       sender: "system",
-      receiver: input.sellerEmail,
-      participants: [input.buyerEmail, input.sellerEmail],
+      receiver: sellerEmail,
+      participants: [input.buyerEmail, sellerEmail],
       listingId: input.listingId,
       listingTitle: input.listingTitle || listing.title || "",
       listingPrice: input.listingPrice || listing.price || "",
@@ -244,6 +274,8 @@ export async function createPurchaseWithRest(
     if (listing.status === "sold") throw new Error("This listing has already been sold");
     if (listing.stockQuantity != null && listing.stockQuantity <= 0) throw new Error("This item is out of stock");
     if (listing.sellerEmail === input.buyerEmail) throw new Error("You cannot purchase your own listing");
+
+    const sellerEmail = resolveSellerEmailFromListing(listing, input.sellerEmail);
 
     const existingPurchase = await get(`purchases/${purchaseId}`);
     if (existingPurchase) {
@@ -280,15 +312,15 @@ export async function createPurchaseWithRest(
       listingTitle: input.listingTitle || listing.title || "",
       listingPrice: input.winningBid ? String(input.winningBid) : input.listingPrice || listing.price || "",
       listingImage: input.listingImage || listing.images?.[0] || listing.imageUrl || listing.image || "",
-      sellerEmail: input.sellerEmail,
+      sellerEmail,
       buyerEmail: input.buyerEmail,
       buyerName: input.buyerName || input.buyerEmail,
       buyerPhone: input.buyerPhone || "",
       deliveryMethod: input.deliveryMethod || "pickup",
       shippingAddress: input.shippingAddress || "",
       shippingFee: input.shippingFee || 0,
-      processingFee: input.processingFee || 1.00,
-      total: input.total || Number(listing.price || 0) + 1,
+      processingFee: input.processingFee ?? 1.00,
+      total: input.total || Number(listing.price || 0) + (input.processingFee ?? 1.00),
       badgeTransfer: input.badgeTransfer || "",
       type,
       digitalFileURL: input.digitalFileURL || "",
@@ -297,7 +329,7 @@ export async function createPurchaseWithRest(
       stripePaymentIntentId: input.stripePaymentIntentId,
       createdAt: now,
       paidAt: now,
-      deliveredAt: input.deliveredAt || null,
+      deliveredAt: input.deliveredAt || (computedStatus === "delivered" ? now : null),
       disputeDeadline: input.disputeDeadline || null,
     };
     if (input.rentalStart) purchaseData.rentalStart = input.rentalStart;
@@ -311,7 +343,7 @@ export async function createPurchaseWithRest(
       listingId: input.listingId,
       title: input.listingTitle || listing.title || "",
       price: input.listingPrice || listing.price || "",
-      sellerEmail: input.sellerEmail,
+      sellerEmail,
       buyerEmail: input.buyerEmail,
       status: "paid",
       purchaseId,
@@ -333,9 +365,9 @@ export async function createPurchaseWithRest(
     } else {
       const convData: Record<string, any> = {
         convKey: `listing_${input.listingId}`,
-        participants: [input.buyerEmail, input.sellerEmail],
+        participants: [input.buyerEmail, sellerEmail],
         buyerEmail: input.buyerEmail,
-        sellerEmail: input.sellerEmail,
+        sellerEmail,
         listingId: input.listingId,
         listingTitle: input.listingTitle || listing.title || "",
         listingPrice: input.listingPrice || listing.price || "",
@@ -354,7 +386,7 @@ export async function createPurchaseWithRest(
       type: "order",
       sender: "system",
       receiver: input.buyerEmail,
-      participants: [input.buyerEmail, input.sellerEmail],
+      participants: [input.buyerEmail, sellerEmail],
       listingId: input.listingId,
       listingTitle: input.listingTitle || listing.title || "",
       listingPrice: input.listingPrice || listing.price || "",
@@ -366,8 +398,8 @@ export async function createPurchaseWithRest(
     const sellerMsg: Record<string, any> = {
       type: "order",
       sender: "system",
-      receiver: input.sellerEmail,
-      participants: [input.buyerEmail, input.sellerEmail],
+      receiver: sellerEmail,
+      participants: [input.buyerEmail, sellerEmail],
       listingId: input.listingId,
       listingTitle: input.listingTitle || listing.title || "",
       listingPrice: input.listingPrice || listing.price || "",

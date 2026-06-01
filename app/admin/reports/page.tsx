@@ -24,7 +24,7 @@ import {
   onAuthStateChanged,
 } from "../../lib/firebase";
 
-const ADMIN_EMAILS = ["rangitr16@gmail.com"];
+import { isAdminEmail } from "../../lib/admin-check";
 
 export default function AdminReportsPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -45,7 +45,7 @@ export default function AdminReportsPage() {
     return () => unsub();
   }, []);
 
-  const isAdmin = user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase());
+  const isAdmin = isAdminEmail(user?.email);
 
   if (!isAdmin) {
     return (

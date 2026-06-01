@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "../../../lib/firebase-admin";
 
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
   const expectedToken = process.env.CRON_SECRET;
-  if (expectedToken && authHeader !== `Bearer ${expectedToken}`) {
+  if (!expectedToken) {
+    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 });
+  }
+  const authHeader = req.headers.get("authorization");
+  if (authHeader !== `Bearer ${expectedToken}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

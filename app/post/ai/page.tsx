@@ -514,9 +514,9 @@ export default function AIPostPage() {
           headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
           body: JSON.stringify({ ...listingData, expiresInDays: expiresIn, listingType }),
         });
-        const data = await res.json();
-        if (!data.success) {
-          showToast(data.error || "Failed to create listing", "error");
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+          showToast(data.error || `Failed to create listing (${res.status})`, "error");
           setLoading(false);
           return;
         }

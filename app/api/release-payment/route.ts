@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "../../lib/stripe-server";
 import { verifyIdToken, getServerDb } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
-import { isAdminEmail, writeAuditLog } from "../../lib/admin-utils";
+import { sellerPayoutCents } from "../../lib/purchase-service";
+import { isAdminEmail } from "../../lib/admin-check";
+import { writeAuditLog } from "../../lib/admin-utils";
 import { notifyAdmin, writeFailureRecord } from "../../lib/admin-alerts";
 import * as Sentry from "@sentry/nextjs";
 
@@ -63,8 +65,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Purchase must be in 'delivered' status to release funds" }, { status: 400 });
     }
 
-    if (purchase.fundsReleased) {
-      return NextResponse.json({ error: "Funds already released for this purchase" }, { status: 400 });
+    if (purchase.fundsReleased || purchase.stripeTransferId) {
+      return NextResponse.json({
+        success: true,
+        transferId: purchase.stripeTransferId || null,
+        message: "Funds already released",
+      });
     }
 
     // Block release during active dispute (unless admin overriding)
@@ -98,12 +104,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Verify deliveredAt exists (buyer confirmed)
-    if (!purchase.deliveredAt && !isBuyer) {
-      return NextResponse.json({ error: "Buyer has not confirmed receipt yet" }, { status: 400 });
+    if (!purchase.deliveredAt && !isAdmin) {
+      return NextResponse.json(
+        { error: "Buyer has not confirmed receipt yet" },
+        { status: 400 }
+      );
     }
 
-    const amount = Math.round((Number(purchase.total) - 1.00) * 100);
+    const amount = sellerPayoutCents(purchase);
     if (amount <= 0) {
       return NextResponse.json({ error: "No funds to release" }, { status: 400 });
     }
@@ -131,7 +139,7 @@ export async function POST(req: NextRequest) {
         throw new Error("Purchase not found");
       }
       const purchaseTxData = purchaseTx.data()!;
-      if (purchaseTxData.fundsReleased) {
+      if (purchaseTxData.fundsReleased || purchaseTxData.stripeTransferId) {
         throw new Error("Funds already released for this purchase");
       }
       if (purchaseTxData.status !== "delivered") {
@@ -172,6 +180,12 @@ export async function POST(req: NextRequest) {
     }
 
     if (!updated) {
+      // Last resort: try to persist at least stripeTransferId so future retries are idempotent
+      try {
+        await db.collection("purchases").doc(purchaseId).update({
+          stripeTransferId: transfer.id,
+        });
+      } catch {}
       throw new Error("Failed to update purchase record after Stripe transfer succeeded");
     }
 

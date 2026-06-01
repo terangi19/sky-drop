@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "../../lib/stripe-server";
-import { verifyIdToken, getServerDb, isAdminInitialized } from "../../lib/firebase-admin";
+import { verifyIdToken, getServerDb } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
+import { validateSellerForCheckout } from "../../lib/seller-payments";
 
-async function readListing(listingId: string, idToken: string) {
+async function readListing(listingId: string, idToken: string, collectionName = "listings") {
   const db = getServerDb(idToken);
-  const doc = await db.collection("listings").doc(listingId).get();
+  const doc = await db.collection(collectionName).doc(listingId).get();
   if (!doc.exists) return null;
   return doc.data();
 }
@@ -34,7 +35,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
     }
 
-    const { title, price, listingId, collectionName } = await req.json();
+    const { title, price, listingId, collectionName: collectionNameBody } = await req.json();
+    const collectionName = typeof collectionNameBody === "string" && collectionNameBody ? collectionNameBody : "listings";
     if (!listingId || !price || !title) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
@@ -45,7 +47,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Server-side listing verification (always runs)
-    const listingData = await readListing(listingId, idToken);
+    const listingData = await readListing(listingId, idToken, collectionName);
     if (!listingData) {
       return NextResponse.json({ error: "Listing not found" }, { status: 404 });
     }
@@ -76,22 +78,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Price mismatch. Please refresh the listing." }, { status: 400 });
     }
 
-    // Seller trust check
     const db = getServerDb(idToken);
-    if (isAdminInitialized()) {
-      const sellerProfiles = await db.collection("profiles").where("email", "==", listingData.sellerEmail).limit(1).get();
-      if (!sellerProfiles.empty) {
-        const sellerProfile = sellerProfiles.docs[0].data();
-        if (sellerProfile.restricted) {
-          return NextResponse.json({ error: "This seller is restricted." }, { status: 403 });
-        }
-        if (!sellerProfile.emailVerified) {
-          return NextResponse.json({ error: "Seller has not verified their email." }, { status: 403 });
-        }
-        if (!sellerProfile.stripeAccountId) {
-          return NextResponse.json({ error: "This seller has not set up payouts yet." }, { status: 400 });
-        }
-      }
+    const sellerProfiles = await db.collection("profiles").where("email", "==", listingData.sellerEmail).limit(1).get();
+    const sellerError = validateSellerForCheckout(
+      sellerProfiles.empty ? null : sellerProfiles.docs[0].data()
+    );
+    if (sellerError) {
+      const status = sellerError.includes("restricted") || sellerError.includes("verified") ? 403 : 400;
+      return NextResponse.json({ error: sellerError }, { status });
     }
 
     const paymentIntent = await getStripe().paymentIntents.create(
@@ -99,7 +93,14 @@ export async function POST(req: NextRequest) {
         amount: requestedAmount,
         currency: "nzd",
         description: `Sky Drop: ${title}`,
-        metadata: { listingId, title, buyerUid: decodedToken.uid, buyerEmail: decodedToken.email || "", collectionName: collectionName || "listings" },
+        metadata: {
+          listingId,
+          title,
+          buyerUid: decodedToken.uid,
+          buyerEmail: decodedToken.email || "",
+          sellerEmail: listingData.sellerEmail,
+          collectionName,
+        },
         automatic_payment_methods: { enabled: true },
       },
       { idempotencyKey: `payment-${listingId}-${decodedToken.uid}` }

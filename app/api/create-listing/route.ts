@@ -28,6 +28,11 @@ function isPriceSuspicious(price: number, category?: string): boolean {
   return price < CATEGORY_PRICE_THRESHOLDS[category];
 }
 
+function sellerHasVerifiedPhone(profile: Record<string, unknown>): boolean {
+  const phone = String(profile.phone || profile.phoneNumber || "").trim();
+  return !!phone && profile.phoneVerified === true;
+}
+
 
 
 function toFirestoreValue(val: unknown): Record<string, unknown> {
@@ -102,7 +107,10 @@ export async function POST(req: NextRequest) {
     const allowedFields: string[] = [
       "images", "sellerUsername", "expiresInDays",
       "condition", "location", "pickupAvailable", "shippingAvailable",
-      "shippingFee", "freeShipping", "stockQuantity", "saleType", "acceptOffers",
+      "pickupArea", "shippingFee", "freeShipping", "shipsWithinDays",
+      "stockQuantity", "saleType", "acceptOffers",
+      "startingBid", "reservePrice", "auctionEndsAt",
+      "digitalStoragePath", "digitalFileName",
       "serviceDuration", "rentalPriceWeekly", "rentalPriceMonthly", "rentalDeposit",
       "eventDate", "eventTime", "venue", "ticketQuantity", "ticketType",
       "vehicleMake", "vehicleModel", "vehicleYear", "vehicleOdometer",
@@ -162,10 +170,11 @@ export async function POST(req: NextRequest) {
         if (!token.email_verified) {
           return NextResponse.json({ error: "Please verify your email address before creating a listing." }, { status: 403 });
         }
-        // Require phone to sell
-        if (!sellerProfile.phone || !sellerProfile.phoneVerified) {
+        if (!sellerHasVerifiedPhone(sellerProfile)) {
           return NextResponse.json({ error: "Please add and verify your phone number in Profile to create listings." }, { status: 403 });
         }
+      } else {
+        return NextResponse.json({ error: "Please complete your profile before creating a listing." }, { status: 403 });
       }
 
       if (numericPrice > 0 && isPriceSuspicious(numericPrice, category)) {
@@ -209,39 +218,49 @@ export async function POST(req: NextRequest) {
       status = "live";
     }
 
-    const listingData: Record<string, unknown> = {
-      title: sanitizedTitle,
-      description: sanitizedDesc,
-      price: String(numericPrice),
-      category: category || "Other",
-      images: clientData.images || [],
-      imageUrl: (clientData.images || [])[0] || "",
-      sellerEmail: token.email,
-      sellerUsername: clientData.sellerUsername || token.email?.split("@")[0] || "",
-      sellerId: token.uid,
-      createdAt: new Date(),
-      type: listingType || "physical",
-      status,
-      views: 0,
-      bidCount: 0,
-      stockQuantity: 1,
-      ...clientData,
-    };
-
-    delete listingData.createdAt;
-    delete listingData.expiresAt;
-    delete listingData.auctionEndsAt;
-
+    const saleType = String(clientData.saleType || body.saleType || "buy_now");
     const now = new Date();
     const expiresAt = clientData.expiresInDays
       ? new Date(Date.now() + Number(clientData.expiresInDays) * 86400000)
       : new Date(Date.now() + 60 * 86400000);
 
-    const finalData = {
-      ...listingData,
+    let auctionEndsAt: Date | null = null;
+    if (body.auctionEndsAt) {
+      auctionEndsAt = new Date(body.auctionEndsAt);
+    } else if (
+      (saleType === "auction" || saleType === "auction_buy_now") &&
+      clientData.auctionEndsAt
+    ) {
+      auctionEndsAt = new Date(clientData.auctionEndsAt as string);
+    }
+
+    const finalData: Record<string, unknown> = {
+      title: sanitizedTitle,
+      description: sanitizedDesc,
+      price: String(numericPrice),
+      category: category || "Other",
+      images: clientData.images || [],
+      imageUrl: (Array.isArray(clientData.images) ? clientData.images[0] : "") || "",
+      sellerEmail: token.email,
+      sellerUsername: clientData.sellerUsername || token.email?.split("@")[0] || "",
+      sellerId: token.uid,
+      type: listingType || "physical",
+      status,
+      views: 0,
+      bidCount: 0,
+      stockQuantity: clientData.stockQuantity ?? 1,
       createdAt: now,
       expiresAt,
+      ...clientData,
+      saleType,
     };
+
+    if (auctionEndsAt && !isNaN(auctionEndsAt.getTime())) {
+      finalData.auctionEndsAt = auctionEndsAt;
+    }
+
+    delete finalData.expiresInDays;
+    delete finalData.listingType;
 
     let listingId: string;
 
@@ -258,7 +277,14 @@ export async function POST(req: NextRequest) {
     });
   } catch (e: any) {
     console.error("[create-listing] Error:", e?.message || e);
-    return NextResponse.json({ error: "Failed to create listing" }, { status: 500 });
+    const message = e instanceof Error ? e.message : "Failed to create listing";
+    const safeMessage =
+      message.includes("Firestore") || message.includes("PERMISSION_DENIED")
+        ? "Could not save listing. Try again or contact support."
+        : message.length < 200
+          ? message
+          : "Failed to create listing";
+    return NextResponse.json({ error: safeMessage }, { status: 500 });
   }
 }
 

@@ -168,7 +168,7 @@ Here's how to get started:
 • Stay safe — Never pay outside Sky Drop. Keep all communication in our chat.
 
 Your account is ready. Now go explore.`,
-              ctas: [{ label: "Browse Listings", url: process.env.NEXT_PUBLIC_URL || "https://skydrop.nz", primary: true }],
+              ctas: [{ label: "Browse Listings", url: process.env.NEXT_PUBLIC_URL || "https://skydrop.co.nz", primary: true }],
             });
             const token = await auth.currentUser?.getIdToken();
             await fetch("/api/send-email", {
@@ -297,16 +297,7 @@ Your account is ready. Now go explore.`,
               )}
 
               {!isLogin && (
-                <input
-                  type="text"
-                  placeholder="Referral code (optional)"
-                  value={inviteCode}
-                  onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                  className="w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 outline-none focus:border-sky-400"
-                />
-              )}
-              {!isLogin && !inviteCode.trim() && (
-                <p className="-mt-2 text-[10px] text-amber-400/70">Use a referral code and get 5 free Drop Tokens 🎁</p>
+                <input type="hidden" value={inviteCode} readOnly />
               )}
 
               {phoneMsg && (

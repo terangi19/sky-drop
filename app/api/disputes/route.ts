@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "../../lib/stripe-server";
 import { verifyIdToken, getServerDb } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
-import { isAdminEmail, writeAuditLog } from "../../lib/admin-utils";
+import { sellerPayoutCents } from "../../lib/purchase-service";
+import { isAdminEmail } from "../../lib/admin-check";
+import { writeAuditLog } from "../../lib/admin-utils";
 import { notifyAdmin } from "../../lib/admin-alerts";
 
 export async function POST(req: NextRequest) {
@@ -31,9 +33,9 @@ export async function POST(req: NextRequest) {
     const { action } = body;
 
     if (action === "refund") {
-      const { purchaseId, stripePaymentIntentId, amount, reason } = body;
-      if (!stripePaymentIntentId || !purchaseId) {
-        return NextResponse.json({ error: "Missing payment intent ID or purchase ID" }, { status: 400 });
+      const { purchaseId, amount, reason } = body;
+      if (!purchaseId) {
+        return NextResponse.json({ error: "Missing purchase ID" }, { status: 400 });
       }
 
       const purchaseDoc = await db.collection("purchases").doc(purchaseId).get();
@@ -45,6 +47,11 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
       }
 
+      const piId = purchaseData.stripePaymentIntentId;
+      if (!piId) {
+        return NextResponse.json({ error: "No PaymentIntent on this purchase" }, { status: 400 });
+      }
+
       if (purchaseData.fundsReleased) {
         return NextResponse.json({ error: "Funds already released, cannot refund" }, { status: 400 });
       }
@@ -53,7 +60,7 @@ export async function POST(req: NextRequest) {
       const refundAmount = amount && !isNaN(parsedAmount) ? Math.round(parsedAmount * 100) : undefined;
 
       const refund = await getStripe().refunds.create({
-        payment_intent: stripePaymentIntentId,
+        payment_intent: piId,
         amount: refundAmount,
         reason: "requested_by_customer",
         metadata: { purchaseId, reason: reason || "Dispute resolved in buyer's favor" },
@@ -127,7 +134,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Seller has not set up payouts" }, { status: 400 });
       }
 
-      const amount = Math.round((Number(purchaseData.total) - 1.00) * 100);
+      const amount = sellerPayoutCents(purchaseData);
       if (amount <= 0) {
         return NextResponse.json({ error: "No funds to release" }, { status: 400 });
       }

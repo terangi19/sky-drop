@@ -74,6 +74,7 @@ interface ProfileData {
   following?: number;
   profileViews?: number;
   phone?: string;
+  phoneNumber?: string;
   phoneVerified?: boolean;
   profileBadge?: string;
   badges?: string[];
@@ -206,7 +207,7 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
     setNotifWatchlist(data.notifWatchlist !== false);
     setNotifOffers(data.notifOffers !== false);
     setNotifPriceDrop(data.notifPriceDrop || false);
-    setPhone(data.phone || "");
+    setPhone(data.phone || data.phoneNumber || "");
     setPhoneVerified(data.phoneVerified || false);
     setShippingName(data.shippingName || "");
     setShippingPhone(data.shippingPhone || "");
@@ -509,17 +510,12 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
         memberSince: profile.memberSince || Timestamp.now(),
       };
 
-      // 1. Save to Firestore from client first (survives API / username-reservation failures)
-      await setDoc(doc(db, "profiles", user.uid), profilePayload, { merge: true });
-
-      try {
-        const usernameRef = doc(db, "usernames", newUsername.toLowerCase());
-        await setDoc(usernameRef, { uid: user.uid }, { merge: true });
-      } catch {
-        /* usernames collection optional */
+      const usernameKey = newUsername.toLowerCase();
+      const existingUname = await getDoc(doc(db, "usernames", usernameKey));
+      if (existingUname.exists() && existingUname.data()?.uid !== user.uid) {
+        throw new Error("Username already taken");
       }
 
-      // 2. Server sync (validation + admin write on production)
       const token = await auth.currentUser?.getIdToken(true);
       if (!token) { showToast("Please sign in again", "error"); return; }
       const res = await fetch("/api/save-profile", {
@@ -533,9 +529,14 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
         if (res.status === 409) {
           throw new Error("Username already taken");
         }
-        // Profile already saved client-side — warn but don't roll back
-        console.warn("save-profile API:", msg);
-        showToast("Saved locally. Server sync had an issue — refresh to confirm.", "info");
+        throw new Error(msg);
+      }
+
+      await setDoc(doc(db, "profiles", user.uid), profilePayload, { merge: true });
+      try {
+        await setDoc(doc(db, "usernames", usernameKey), { uid: user.uid }, { merge: true });
+      } catch {
+        /* usernames collection optional */
       }
 
       // Update sellerUsername on all listings
@@ -627,6 +628,7 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
       setPhoneSent(false);
       if (user) {
         await setDoc(doc(db, "profiles", user.uid), {
+          phone,
           phoneNumber: phone,
           phoneVerified: true,
           phoneVerifiedAt: serverTimestamp(),
@@ -963,26 +965,6 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
                   {saving ? "Saving..." : "Save Profile"}
                 </button>
               </div>
-
-              {/* Referral Code */}
-              {referralCode && (
-                <div className="rounded-xl border border-zinc-800/50 bg-zinc-900/60 p-5 transition-all duration-200 hover:border-zinc-700/50">
-                  <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.15em] text-[var(--muted)]">Referral Code</h2>
-                  <p className="text-[10px] text-[var(--muted)]">Share your code — when someone signs up and completes verification, you both earn rewards!</p>
-                  <div className="mt-3 flex gap-2">
-                    <div className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800/50 px-3 py-2.5 text-sm font-bold tracking-wider text-amber-400 select-all">
-                      {referralCode}
-                    </div>
-                    <button onClick={() => { navigator.clipboard.writeText(referralCode); }} className="rounded-xl bg-sky-500 px-4 py-2.5 text-xs font-bold text-[var(--foreground)] hover:bg-sky-400 transition">
-                      Copy
-                    </button>
-                  </div>
-                  <p className="mt-2 text-[10px] text-[var(--muted)]">
-                    Share: <span className="text-sky-400 select-all">{window?.location?.origin || "https://sky-drop.vercel.app"}/login?ref={referralCode}</span>
-                  </p>
-
-                </div>
-              )}
 
               {/* Activity Feed */}
               {activity.length > 0 && (

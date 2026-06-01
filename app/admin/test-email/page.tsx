@@ -7,7 +7,7 @@ import { buildEmailHtml, notificationToEmail } from "../../lib/email";
 import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
 
-const ADMIN_EMAILS = ["rangitr16@gmail.com"];
+import { isAdminEmail } from "../../lib/admin-check";
 
 const ALL_TYPES = [
   "purchase", "bid", "outbid", "question", "offer",
@@ -128,7 +128,7 @@ export default function TestEmailPage() {
 
   if (checking) return <main className="flex min-h-screen items-center justify-center bg-[var(--background)]"><p className="text-sm text-zinc-500">Loading...</p></main>;
 
-  const isAdmin = user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase());
+  const isAdmin = isAdminEmail(user?.email);
 
   if (!user || !isAdmin) {
     return (

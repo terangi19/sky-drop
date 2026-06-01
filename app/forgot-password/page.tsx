@@ -22,7 +22,7 @@ export default function ForgotPasswordPage() {
     setSending(true);
     try {
       await sendPasswordResetEmail(auth, email.trim(), {
-        url: (process.env.NEXT_PUBLIC_URL || "https://skydrop.nz") + "/login",
+        url: (process.env.NEXT_PUBLIC_URL || "https://skydrop.co.nz") + "/login",
       });
       setSent(true);
     } catch {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken, isAdminInitialized } from "../../lib/firebase-admin";
+import { getStripe } from "../../lib/stripe-server";
 import { rateLimit } from "../../lib/rate-limit";
 import { payOfferWithAdmin, payOfferWithRest } from "../../lib/purchase-service";
 import type { PayOfferInput } from "../../lib/purchase-service";
@@ -34,6 +35,24 @@ export async function POST(req: NextRequest) {
     const buyerEmail = decodedToken.email || "";
     if (!buyerEmail) {
       return NextResponse.json({ error: "Could not determine buyer email" }, { status: 400 });
+    }
+
+    // Verify the PaymentIntent with Stripe before trusting client-provided PI ID
+    const stripe = getStripe();
+    let paymentIntent;
+    try {
+      paymentIntent = await stripe.paymentIntents.retrieve(stripePaymentIntentId);
+    } catch {
+      return NextResponse.json({ error: "Invalid PaymentIntent ID" }, { status: 400 });
+    }
+
+    if (paymentIntent.status !== "succeeded") {
+      return NextResponse.json({ error: `Payment has not succeeded (status: ${paymentIntent.status})` }, { status: 400 });
+    }
+
+    const totalCents = Math.round((Number(total) || 0) * 100);
+    if (totalCents > 0 && paymentIntent.amount !== totalCents) {
+      return NextResponse.json({ error: "PaymentIntent amount does not match purchase total" }, { status: 400 });
     }
 
     const input: PayOfferInput = {

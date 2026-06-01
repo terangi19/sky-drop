@@ -1,12 +1,3 @@
-export const ADMIN_EMAILS = ["rangitr16@gmail.com"];
-
-export function isAdminEmail(email?: string | null): boolean {
-  if (!email) return false;
-  return ADMIN_EMAILS.includes(email.toLowerCase());
-}
-
-import { getAdminDb } from "./firebase-admin";
-
 export interface AuditLogEntry {
   action: string;
   actorEmail: string;
@@ -20,6 +11,8 @@ export interface AuditLogEntry {
   metadata?: Record<string, unknown>;
   timestamp: Date;
 }
+
+import { getAdminDb } from "./firebase-admin";
 
 export async function writeAuditLog(entry: Omit<AuditLogEntry, "timestamp">): Promise<void> {
   try {

@@ -51,7 +51,13 @@ export async function verifyIdToken(idToken: string): Promise<{ uid: string; ema
     const decoded = await getAdminAuth().verifyIdToken(idToken);
     return { uid: decoded.uid, email: decoded.email, email_verified: decoded.email_verified };
   }
-  // Dev fallback: decode JWT payload without signature verification
+  // In production, Admin SDK must be available — no unverified fallback
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "FIREBASE_SERVICE_ACCOUNT not set. Production requires Admin SDK for authentication."
+    );
+  }
+  // Dev fallback: decode JWT payload without signature verification (local dev only)
   try {
     const parts = idToken.split(".");
     if (parts.length !== 3) throw new Error("Invalid token format");

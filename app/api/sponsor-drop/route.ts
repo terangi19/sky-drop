@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "../../lib/stripe-server";
-import { verifyIdToken, getAdminDb } from "../../lib/firebase-admin";
+import { verifyIdToken, getServerDb } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 
 export async function POST(req: NextRequest) {
@@ -32,7 +32,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "You can only sponsor your own listings" }, { status: 403 });
     }
 
-    const listingDoc = await getAdminDb().collection("listings").doc(listingId).get();
+    const db = getServerDb(idToken);
+    const listingDoc = await db.collection("listings").doc(listingId).get();
     if (!listingDoc.exists) {
       return NextResponse.json({ error: "Listing not found" }, { status: 404 });
     }

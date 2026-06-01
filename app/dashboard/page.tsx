@@ -9,6 +9,7 @@ import { collection, doc, limit, onSnapshot, query, where } from "firebase/fires
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import { getLevelInfo } from "../lib/xp";
 import { trackChallenge } from "../lib/challenges";
+import { isAdminEmail } from "../lib/admin-check";
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -224,7 +225,7 @@ export default function DashboardPage() {
               { href: "/sales", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4", label: "Sales", color: "text-emerald-400" },
               { href: "/messages", icon: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z", label: "Messages", color: "text-sky-400" },
               { href: "/profile", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z", label: "Profile", color: "text-sky-400" },
-              ...(user?.email === "rangitr16@gmail.com" ? [{ href: "/admin", icon: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z", label: "Admin", color: "text-amber-400" }] : []),
+              ...(isAdminEmail(user?.email) ? [{ href: "/admin", icon: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z", label: "Admin", color: "text-amber-400" }] : []),
             ]).map((a) => (
               <Link key={a.href} href={a.href} className="flex flex-col items-center gap-2 rounded-2xl border border-white/[0.04] bg-white/[0.02] p-5 transition-all duration-200 hover:bg-white/[0.04] hover:border-white/[0.08] active:scale-[0.98] group">
                 <svg className={`h-6 w-6 ${a.color} group-hover:scale-110 transition-transform duration-200`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

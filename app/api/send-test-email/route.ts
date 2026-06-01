@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken } from "../../lib/firebase-admin";
-import { isAdminEmail } from "../../lib/admin-utils";
+import { isAdminEmail } from "../../lib/admin-check";
 import { buildEmailHtml, notificationToEmail } from "../../lib/email";
 
 const ALL_TYPES = [

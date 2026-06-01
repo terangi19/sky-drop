@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
-import { isAdminEmail } from "../../lib/admin-utils";
+import { isAdminEmail } from "../../lib/admin-check";
 
 export async function POST(req: NextRequest) {
   try {

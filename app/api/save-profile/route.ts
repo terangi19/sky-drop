@@ -58,6 +58,15 @@ export async function POST(req: NextRequest) {
     const existingSnap = await profileRef.get();
     const existingData = existingSnap.exists ? existingSnap.data() : {};
 
+    const usernameRef = db.collection("usernames").doc(usernameKey);
+    const usernameSnap = await usernameRef.get();
+    if (usernameSnap.exists) {
+      const owner = usernameSnap.data()?.uid;
+      if (owner && owner !== decodedToken.uid) {
+        return NextResponse.json({ error: "Username already taken" }, { status: 409 });
+      }
+    }
+
     const profileData = {
       username: trimmedUsername,
       displayName: displayName || "",
@@ -84,19 +93,9 @@ export async function POST(req: NextRequest) {
       lastActive: new Date(),
     };
 
-    // Always save profile first — username reservation must not block this
     await profileRef.set(profileData, { merge: true });
 
-    // Reserve username (best-effort; rules may only allow create on first claim)
     try {
-      const usernameRef = db.collection("usernames").doc(usernameKey);
-      const usernameSnap = await usernameRef.get();
-      if (usernameSnap.exists) {
-        const owner = usernameSnap.data()?.uid;
-        if (owner && owner !== decodedToken.uid) {
-          return NextResponse.json({ error: "Username already taken" }, { status: 409 });
-        }
-      }
       await usernameRef.set({ uid: decodedToken.uid }, { merge: true });
     } catch (usernameErr) {
       console.warn("save-profile: username reservation failed (profile still saved):", usernameErr);

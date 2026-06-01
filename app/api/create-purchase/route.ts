@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken, isAdminInitialized } from "../../lib/firebase-admin";
+import { verifyIdToken, isAdminInitialized, getServerDb } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import { createPurchaseWithAdmin, createPurchaseWithRest } from "../../lib/purchase-service";
 import type { CreatePurchaseInput } from "../../lib/purchase-service";
+import { validateSellerForCheckout } from "../../lib/seller-payments";
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,9 +26,9 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { listingId, sellerEmail, stripePaymentIntentId } = body;
-    if (!listingId || !sellerEmail || !stripePaymentIntentId) {
-      return NextResponse.json({ error: "Missing required fields: listingId, sellerEmail, stripePaymentIntentId" }, { status: 400 });
+    const { listingId, stripePaymentIntentId } = body;
+    if (!listingId || !stripePaymentIntentId) {
+      return NextResponse.json({ error: "Missing required fields: listingId, stripePaymentIntentId" }, { status: 400 });
     }
 
     const buyerEmail = decodedToken.email || "";
@@ -35,12 +36,35 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Could not determine buyer email" }, { status: 400 });
     }
 
+    const collectionName = body.collectionName || "listings";
+    const db = getServerDb(idToken);
+    const listingDoc = await db.collection(collectionName).doc(listingId).get();
+    if (!listingDoc.exists) {
+      return NextResponse.json({ error: "Listing not found" }, { status: 404 });
+    }
+    const listingData = listingDoc.data()!;
+    if (!listingData.sellerEmail) {
+      return NextResponse.json({ error: "Listing has no seller" }, { status: 400 });
+    }
+    if (listingData.sellerEmail === buyerEmail) {
+      return NextResponse.json({ error: "You cannot purchase your own listing" }, { status: 400 });
+    }
+
+    const sellerProfiles = await db.collection("profiles").where("email", "==", listingData.sellerEmail).limit(1).get();
+    const sellerError = validateSellerForCheckout(
+      sellerProfiles.empty ? null : sellerProfiles.docs[0].data()
+    );
+    if (sellerError) {
+      const status = sellerError.includes("restricted") || sellerError.includes("verified") ? 403 : 400;
+      return NextResponse.json({ error: sellerError }, { status });
+    }
+
     const input: CreatePurchaseInput = {
       listingId: body.listingId,
       listingTitle: body.listingTitle || "",
       listingPrice: body.listingPrice || "",
       listingImage: body.listingImage || "",
-      sellerEmail: body.sellerEmail,
+      sellerEmail: listingData.sellerEmail,
       buyerEmail,
       buyerName: body.buyerName || buyerEmail,
       buyerPhone: body.buyerPhone || "",

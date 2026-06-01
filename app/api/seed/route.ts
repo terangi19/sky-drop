@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken, getAdminDb } from "../../lib/firebase-admin";
-import { isAdminEmail } from "../../lib/admin-utils";
+import { isAdminEmail } from "../../lib/admin-check";
 
 const sellers = [
   { email: "seller1@skydrop.nz", name: "TechTrader", uid: "seed_s1" },

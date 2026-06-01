@@ -262,7 +262,7 @@ function trustSection(): string {
 }
 
 export function buildEmailHtml(data: EmailData): string {
-  const baseUrl = process.env.NEXT_PUBLIC_URL || "https://skydrop.nz";
+  const baseUrl = process.env.NEXT_PUBLIC_URL || "https://skydrop.co.nz";
 
   return `
 <!DOCTYPE html>

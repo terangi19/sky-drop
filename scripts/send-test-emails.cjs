@@ -5,7 +5,7 @@ const nodemailer = require("nodemailer");
 require("dotenv").config({ path: require("path").join(__dirname, "..", ".env.local") });
 
 const TO = "skyrewi3@gmail.com";
-const BASE_URL = process.env.NEXT_PUBLIC_URL || "https://skydrop.nz";
+const BASE_URL = process.env.NEXT_PUBLIC_URL || "https://skydrop.co.nz";
 
 const transport = {
   host: process.env.SMTP_HOST || "smtp.mailersend.net",
