@@ -151,13 +151,27 @@ export async function POST(req: NextRequest) {
       { idempotencyKey }
     );
 
-    // Step 3: Update purchase record (outside transaction; idempotent re-attempt possible)
-    await getAdminDb().collection("purchases").doc(purchaseId).update({
-      fundsReleased: true,
-      fundsReleasedAt: new Date(),
-      stripeTransferId: transfer.id,
-      status: "completed",
-    });
+    // Step 3: Update purchase record with retry (outside transaction; idempotent re-attempt possible)
+    let updated = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        await getAdminDb().collection("purchases").doc(purchaseId).update({
+          fundsReleased: true,
+          fundsReleasedAt: new Date(),
+          stripeTransferId: transfer.id,
+          status: "completed",
+        });
+        updated = true;
+        break;
+      } catch (writeErr) {
+        if (attempt < 2) await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+        else throw writeErr;
+      }
+    }
+
+    if (!updated) {
+      throw new Error("Failed to update purchase record after Stripe transfer succeeded");
+    }
 
     await writeAuditLog({
       action: isAdmin ? "admin_force_release_payment" : "release_payment",
