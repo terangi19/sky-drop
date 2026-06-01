@@ -164,6 +164,7 @@ const [phoneSent, setPhoneSent] = useState(false);
 const [phoneMsg, setPhoneMsg] = useState("");
 const [phoneVerifying, setPhoneVerifying] = useState(false);
 const [followingList, setFollowingList] = useState<{sellerEmail: string; sellerId: string; createdAt: Timestamp}[]>([]);
+const [followerCount, setFollowerCount] = useState(0);
 const [stripeAccountId, setStripeAccountId] = useState("");
 const [stripeConnecting, setStripeConnecting] = useState(false);
 const [referralCode, setReferralCode] = useState("");
@@ -257,6 +258,16 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
     return () => unsub();
   }, [user?.uid]);
 
+  // Fetch follower count
+  useEffect(() => {
+    if (!user?.uid) return;
+    const q = query(collection(db, "followers"), where("sellerId", "==", user.uid));
+    const unsub = onSnapshot(q, (snap) => {
+      setFollowerCount(snap.size);
+    });
+    return () => unsub();
+  }, [user?.uid]);
+
   // Listings (no composite index needed — sorted client-side)
   useEffect(() => {
     if (!user?.email) return;
@@ -290,20 +301,13 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
   const activeListings = useMemo(() => listings.filter((l) => l.status !== "sold"), [listings]);
   const soldListings = useMemo(() => listings.filter((l) => l.status === "sold"), [listings]);
 
-  const stats = useMemo(() => {
-    const e = user?.email || "";
-    let h = 0;
-    for (let i = 0; i < e.length; i++) { h = ((h << 5) - h) + e.charCodeAt(i); h |= 0; }
-    const abs = Math.abs(h);
-    return {
-      rating: 42 + (abs % 8),
-      sales: soldListings.length || 0,
-      responseTime: profile.responseTime || 1 + (abs % 25),
-      followers: profile.followers || 8 + (abs % 200),
-      following: profile.following || 3 + (abs % 50),
-      views: profile.profileViews || 50 + (abs % 500),
-    };
-  }, [user?.email, soldListings.length, profile]);
+  const stats = useMemo(() => ({
+    sales: soldListings.length || 0,
+    responseTime: profile.responseTime || 0,
+    followers: followerCount,
+    following: followingList.length,
+    views: 0,
+  }), [soldListings.length, profile.responseTime, followerCount, followingList.length]);
 
   // Activity feed
   const activity = useMemo(() => {
@@ -650,7 +654,6 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
 
   const levelInfo = getLevelInfo(profile.xp || 0);
   const statItems = [
-    { icon: "★", label: "Rating", value: (stats.rating / 10).toFixed(1) },
     { icon: "💰", label: "Sales", value: String(stats.sales) },
     { icon: "📦", label: "Listings", value: String(activeListings.length) },
     { icon: "⚡", label: "Response", value: `${stats.responseTime}m` },
