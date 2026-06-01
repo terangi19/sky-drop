@@ -373,8 +373,7 @@ export default function SellerPage() {
 
                 <p className="mt-0.5 text-sm font-semibold text-[var(--foreground)]">@{username}</p>
                 <p className="text-xs text-[var(--muted)]">
-                  {sellerEmail}
-                  {memberDate && <span> · Joined {memberDate}</span>}
+                  {memberDate && <span>Joined {memberDate}</span>}
                 </p>
 
                 {/* Badges */}

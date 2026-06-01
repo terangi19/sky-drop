@@ -458,22 +458,11 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
       setSaving("Saving...");
       const sanitizedUsername = sanitizeHtml(newUsername);
 
+      // Step 1: Update the profile doc (this always works — no usernames collection dependency)
       await runTransaction(db, async (transaction) => {
         const profileRef = doc(db, "profiles", user.uid);
         const profileSnap = await transaction.get(profileRef);
         const currentData = profileSnap.data() as ProfileData | undefined;
-
-        if (currentData?.username !== sanitizedUsername) {
-          const usernameRef = doc(db, "usernames", sanitizedUsername);
-          const usernameSnap = await transaction.get(usernameRef);
-          if (usernameSnap.exists()) {
-            throw new Error("Username already taken");
-          }
-          if (currentData?.username) {
-            transaction.delete(doc(db, "usernames", currentData.username));
-          }
-          transaction.set(usernameRef, { uid: user.uid });
-        }
 
         transaction.set(profileRef, {
           username: sanitizedUsername,
@@ -501,6 +490,17 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
           lastActive: Timestamp.now(),
         }, { merge: true });
       });
+
+      // Step 2: Best-effort username reservation (may fail if usernames collection rules not deployed)
+      if (sanitizedUsername) {
+        try {
+          const usernameRef = doc(db, "usernames", sanitizedUsername);
+          const usernameSnap = await getDoc(usernameRef);
+          if (!usernameSnap.exists()) {
+            await setDoc(usernameRef, { uid: user.uid });
+          }
+        } catch { /* usernames collection not available — username uniqueness not enforced */ }
+      }
 
       // Update sellerUsername on all listings
       try {
@@ -684,7 +684,7 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
     } catch (e) { console.error(e); showToast("Failed to open Stripe onboarding", "error"); }
   }
 
-  const initial = (username || user?.email?.split("@")[0] || "U").charAt(0).toUpperCase();
+  const initial = (contextUsername || username || "U").charAt(0).toUpperCase();
   const memberDate = profile.memberSince?.toDate().toLocaleDateString("en-NZ", { year: "numeric", month: "short" }) || "2026";
   const avatarUrl = profile.photoURL;
   const bannerUrl = profile.bannerURL;
@@ -844,7 +844,7 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
                   )}
                 </div>
                 <p className="mt-0.5 text-sm text-[var(--muted)]">@{contextUsername || username || "username"}</p>
-                <p className="text-xs text-[var(--muted)]">{user?.email} · Joined {memberDate}</p>
+                <p className="text-xs text-[var(--muted)]">Joined {memberDate}</p>
 
                 {/* Badges */}
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">

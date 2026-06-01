@@ -463,7 +463,7 @@ export default function ListingPage() {
 
                   <p className="truncate text-sm text-[var(--foreground)]">
 
-                    {item.sellerEmail === user?.email ? "You" : (item.sellerEmail || "Unknown seller")}
+                    {item.sellerEmail === user?.email ? "You" : (item.sellerUsername || "Seller")}
 
                   </p>
 
