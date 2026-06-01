@@ -4,6 +4,12 @@ import { verifyIdToken, getServerDb } from "../../lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { rateLimit } from "../../lib/rate-limit";
 
+async function logStripeKeyInfo() {
+  const key = process.env.STRIPE_SECRET_KEY || "";
+  const prefix = key.slice(0, 7);
+  console.log("[Stripe Connect] Key prefix:", prefix, "| length:", key.length);
+}
+
 export async function POST(req: NextRequest) {
   try {
     const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
@@ -28,6 +34,12 @@ export async function POST(req: NextRequest) {
     const { action, accountId, email, amount } = body;
     const s = getStripe();
 
+    logStripeKeyInfo();
+
+    const balance = await s.balance.retrieve();
+    console.log("[Stripe Connect] Balance livemode:", balance.livemode);
+    console.log("[Stripe Connect] Balance available currencies:", balance.available.map((b: any) => b.currency));
+
     const db = getServerDb(idToken);
 
     if (action === "create") {
@@ -38,11 +50,22 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ accountId: existingAccountId });
       }
 
-      const account = await s.accounts.create({
-        type: "express",
-        email,
-        capabilities: { transfers: { requested: true } },
-      });
+      let account;
+      try {
+        account = await s.accounts.create({
+          type: "express",
+          email,
+          capabilities: { transfers: { requested: true } },
+        });
+      } catch (createErr: any) {
+        console.error("[Stripe Connect] Full accounts.create error:", JSON.stringify(createErr, Object.getOwnPropertyNames(createErr)));
+        console.error("[Stripe Connect] Error type:", createErr.type);
+        console.error("[Stripe Connect] Error code:", createErr.code);
+        console.error("[Stripe Connect] Error statusCode:", createErr.statusCode);
+        console.error("[Stripe Connect] Error param:", createErr.param);
+        console.error("[Stripe Connect] Error stack:", createErr.stack);
+        throw createErr;
+      }
 
       await db.collection("profiles").doc(decodedToken.uid).set({
         stripeAccountId: account.id,
