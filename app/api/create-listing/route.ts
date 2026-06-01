@@ -170,7 +170,7 @@ export async function POST(req: NextRequest) {
     }
 
     let status: string;
-    if (listingType === "digital" || (salesCount < 3 && isAdminInitialized())) {
+    if (listingType === "digital") {
       status = "pending_review";
     } else {
       status = "live";
