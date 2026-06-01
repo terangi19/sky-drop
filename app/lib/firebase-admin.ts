@@ -322,6 +322,13 @@ async function restQuery(
 
 export function getServerDb(idToken?: string) {
   if (isAdminInitialized()) return getAdminDb();
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "FIREBASE_SERVICE_ACCOUNT is not set in Production environment. " +
+      "Go to Vercel → Project → Settings → Environment Variables and add it " +
+      "with scope 'Production' (not just Preview/Development)."
+    );
+  }
   if (!idToken) {
     throw new Error(
       "Firestore not available: FIREBASE_SERVICE_ACCOUNT not set and no idToken provided. " +

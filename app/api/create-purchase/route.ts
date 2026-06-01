@@ -94,10 +94,14 @@ export async function POST(req: NextRequest) {
     if (isAdminInitialized()) {
       const result = await createPurchaseWithAdmin(input);
       return NextResponse.json({ success: true, ...result });
-    } else {
-      const result = await createPurchaseWithRest(input, projectId, idToken);
-      return NextResponse.json({ success: true, ...result });
     }
+    if (process.env.NODE_ENV === "production") {
+      return NextResponse.json({
+        error: "Server payments not configured. Ensure FIREBASE_SERVICE_ACCOUNT is set in Vercel environment variables (Production environment, not just Preview).",
+      }, { status: 500 });
+    }
+    const result = await createPurchaseWithRest(input, projectId, idToken);
+    return NextResponse.json({ success: true, ...result });
   } catch (e: any) {
     console.error("[create-purchase] Error:", e?.message || e);
     return NextResponse.json({ error: e.message || "Failed to create purchase" }, { status: 500 });
