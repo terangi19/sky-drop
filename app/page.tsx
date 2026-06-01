@@ -765,13 +765,13 @@ export default function Home() {
 
               <h1 className="text-4xl font-black tracking-tight sm:text-5xl lg:text-6xl leading-none">
                 <span className="bg-gradient-to-r from-white via-sky-200 to-white bg-clip-text text-transparent">
-                  {user ? "Your next great find starts here" : "Welcome to Sky Drop"}
+                  New Zealand's Modern Marketplace
                 </span>
               </h1>
               <p className="mt-4 max-w-xl mx-auto text-sm leading-relaxed text-zinc-400">
                 {user
-                  ? "Post what you don't need. Find what you've been looking for."
-                  : "Browse listings, message sellers, and buy with confidence. All payments are protected."}
+                  ? "Manage your listings, connect with buyers, and trade across New Zealand."
+                  : "Free listings, escrow payments, live trade feeds, and a community-driven marketplace built for New Zealand."}
               </p>
             </div>
 
