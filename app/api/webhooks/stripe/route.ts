@@ -33,6 +33,24 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const eventRef = getAdminDb().collection("webhookEvents").doc(event.id);
+
+    const alreadyProcessed = await getAdminDb().runTransaction(async (tx) => {
+      const snap = await tx.get(eventRef);
+      if (snap.exists) return true;
+      tx.set(eventRef, {
+        eventId: event.id,
+        type: event.type,
+        status: "processing",
+        createdAt: new Date(),
+      });
+      return false;
+    });
+
+    if (alreadyProcessed) {
+      return NextResponse.json({ received: true });
+    }
+
     if (event.type === "payment_intent.succeeded") {
       const pi = event.data.object as any;
       const meta = pi.metadata || {};
@@ -42,6 +60,7 @@ export async function POST(req: NextRequest) {
           promotedUntil: new Date(Date.now() + 7 * 86400000),
           bumpedAt: new Date(),
         });
+        await eventRef.update({ status: "completed", processedAt: new Date() });
         return NextResponse.json({ received: true });
       }
 
@@ -71,6 +90,7 @@ export async function POST(req: NextRequest) {
           promotedUntil: new Date(Date.now() + 3 * 86400000),
         });
         await batch.commit();
+        await eventRef.update({ status: "completed", processedAt: new Date() });
         return NextResponse.json({ received: true });
       }
 
@@ -78,7 +98,10 @@ export async function POST(req: NextRequest) {
         const db = getAdminDb();
 
         const listingDoc = await db.collection("listings").doc(meta.listingId).get();
-        if (!listingDoc.exists) return NextResponse.json({ received: true });
+        if (!listingDoc.exists) {
+          await eventRef.update({ status: "completed", processedAt: new Date() });
+          return NextResponse.json({ received: true });
+        }
         const listing = listingDoc.data()!;
 
         const buyerEmail = meta.buyerEmail || `${meta.buyerUid}@firebase.user`;
@@ -102,7 +125,7 @@ export async function POST(req: NextRequest) {
           total,
           type: listingType,
           stripePaymentIntentId: pi.id,
-          collectionName: "listings",
+          collectionName: meta.collectionName || "listings",
         });
       }
     }
@@ -249,8 +272,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    await eventRef.update({ status: "completed", processedAt: new Date() });
     return NextResponse.json({ received: true });
   } catch (e: any) {
+    try { await eventRef.delete(); } catch {}
     console.error("[stripe-webhook] Error:", e);
     Sentry.captureException(e, { tags: { type: "stripe-webhook" }, extra: { eventType: event?.type, eventId: event?.id } });
 

@@ -3,13 +3,13 @@
 import { useEffect, useState, useRef } from "react";
 
 import { showToast } from "../../../components/Toast";
+import { sanitizeListingContent } from "../../../lib/sanitize";
 
 import { User } from "firebase/auth";
 
 import {
   doc,
   getDoc,
-  updateDoc,
 } from "firebase/firestore";
 
 import Navbar from "../../../components/Navbar";
@@ -155,11 +155,11 @@ export default function EditListingPage({
           data.images || (data.imageUrl ? [data.imageUrl] : [])
         );
 
-        setPickupAvailable(data.pickupAvailable === true);
-        setShippingAvailable(data.shippingAvailable === true);
+        setPickupAvailable(data.pickupAvailable === true || data.pickupAvailable === "true");
+        setShippingAvailable(data.shippingAvailable === true || data.shippingAvailable === "true");
         setPickupArea(data.pickupArea || "");
         setShippingFee(data.shippingFee ? String(data.shippingFee) : "");
-        setFreeShipping(data.freeShipping === true);
+        setFreeShipping(data.freeShipping === true || data.freeShipping === "true");
         setShipsWithinDays(data.shipsWithinDays ? String(data.shipsWithinDays) : "");
         setStockQuantity(data.stockQuantity ? String(data.stockQuantity) : "");
         setSaleType(data.saleType || "buy_now");
@@ -199,8 +199,8 @@ export default function EditListingPage({
       return;
     }
 
-    if (sellerId && user.uid !== sellerId) {
-      showToast("You can only edit your own listings.", "error");
+    if (!sellerId || user.uid !== sellerId) {
+      showToast("You don't have permission to edit this listing.", "error");
       return;
     }
 
@@ -220,16 +220,18 @@ export default function EditListingPage({
         return img;
       }));
 
-      await updateDoc(
-        doc(db, "listings", id),
-        {
-          title,
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch("/api/update-listing", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
+        body: JSON.stringify({
+          listingId: id,
+          title: sanitizeListingContent(title),
           price,
-          location,
+          location: sanitizeListingContent(location),
           category,
-          description,
+          description: sanitizeListingContent(description),
           images: uploadedImages,
-          imageUrl: uploadedImages[0] || "",
           pickupAvailable,
           shippingAvailable,
           pickupArea,
@@ -240,10 +242,15 @@ export default function EditListingPage({
           saleType,
           startingBid: saleType !== "buy_now" && startingBid ? Number(startingBid) : null,
           reservePrice: (saleType === "auction" || saleType === "auction_buy_now") && reservePrice ? Number(reservePrice) : null,
-          expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000),
-        }
-      );
-
+          expiresInDays: expiresIn,
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        showToast(data.error || "Failed to update listing", "error");
+        setSaving(false);
+        return;
+      }
       showToast("Listing updated.");
 
     } catch (error) {

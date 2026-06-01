@@ -16,13 +16,14 @@ import {
   limit,
   orderBy,
   query,
+  runTransaction,
   setDoc,
   Timestamp,
   updateDoc,
   where,
 } from "firebase/firestore";
-import { User } from "firebase/auth";
-import { auth, db, onAuthStateChanged } from "../../lib/firebase";
+import { db } from "../../lib/firebase";
+import { useAuth } from "../../contexts/AuthContext";
 import { useParams } from "next/navigation";
 import ReportModal from "../../components/ReportModal";
 import { calculateTrustScore } from "../../lib/trustscore";
@@ -92,7 +93,7 @@ export default function SellerPage() {
   const params = useParams();
   const username = decodeURIComponent((params.username as string) || "");
 
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const { user: currentUser } = useAuth();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [listings, setListings] = useState<Listing[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -104,12 +105,6 @@ export default function SellerPage() {
   const [showReportModal, setShowReportModal] = useState(false);
   const [sellerReportsCount, setSellerReportsCount] = useState(0);
   const [isBlocked, setIsBlocked] = useState(false);
-
-  // Auth
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => setCurrentUser(u));
-    return () => unsub();
-  }, []);
 
   // Load profile by username or email
   useEffect(() => {
@@ -202,21 +197,26 @@ export default function SellerPage() {
     setFollowing(newFollowing);
     setFollowLoading(true);
     try {
-      const ref = doc(db, "followers", `${sellerUid}_${currentUser.uid}`);
-      const profileRef = doc(db, "profiles", sellerUid);
-      if (newFollowing) {
-        await setDoc(ref, {
-          sellerId: sellerUid,
-          followerId: currentUser.uid,
-          sellerEmail: profile?.email,
-          followerEmail: currentUser.email,
-          createdAt: Timestamp.now(),
-        });
-        await updateDoc(profileRef, { followers: increment(1) });
-      } else {
-        await deleteDoc(ref);
-        await updateDoc(profileRef, { followers: increment(-1) });
-      }
+      await runTransaction(db, async (transaction) => {
+        const ref = doc(db, "followers", `${sellerUid}_${currentUser.uid}`);
+        const profileRef = doc(db, "profiles", sellerUid);
+        if (newFollowing) {
+          transaction.set(ref, {
+            sellerId: sellerUid,
+            followerId: currentUser.uid,
+            sellerEmail: profile?.email,
+            followerEmail: currentUser.email,
+            createdAt: Timestamp.now(),
+          });
+          transaction.update(profileRef, { followers: increment(1) });
+        } else {
+          const profileSnap = await transaction.get(profileRef);
+          const currentFollowers = profileSnap.data()?.followers ?? 0;
+          if (currentFollowers <= 0) return;
+          transaction.delete(ref);
+          transaction.update(profileRef, { followers: increment(-1) });
+        }
+      });
     } catch (e) {
       setFollowing(!newFollowing);
       console.error(e);

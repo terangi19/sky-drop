@@ -8,17 +8,18 @@ import ThemeToggle from "../components/ThemeToggle";
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
   limit,
   onSnapshot,
+  orderBy,
   query,
   serverTimestamp,
   updateDoc,
   where,
   setDoc,
-  deleteDoc,
 } from "firebase/firestore";
 import {
   User,
@@ -604,6 +605,25 @@ function MessagesPage() {
     const last = localStorage.getItem(cooldownKey);
     if (last && Date.now() - Number(last) < 86400000) { showToast("Already reported", "info"); setShowMenu(false); return; }
     try {
+      // Server-side cooldown: check for recent report from this user for this target
+      const cooldownQuery = query(
+        collection(db, "reports"),
+        where("reporterUserEmail", "==", user.email),
+        where("reportedUserEmail", "==", email),
+        orderBy("createdAt", "desc"),
+        limit(1)
+      );
+      const recentSnap = await getDocs(cooldownQuery);
+      if (!recentSnap.empty) {
+        const lastReport = recentSnap.docs[0].data();
+        const lastTime = lastReport.createdAt?.toMillis?.();
+        if (lastTime && Date.now() - lastTime < 10 * 60 * 1000) {
+          showToast("Already reported", "info");
+          setShowMenu(false);
+          return;
+        }
+      }
+
       await addDoc(collection(db, "reports"), { reportedUserEmail: email, reporterUserEmail: user.email, type: "user", status: "pending", createdAt: serverTimestamp(), description: "Reported from messages" });
       localStorage.setItem(cooldownKey, String(Date.now()));
       showToast("User reported", "success");

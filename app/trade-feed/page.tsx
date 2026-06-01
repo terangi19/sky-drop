@@ -357,8 +357,8 @@ export default function TradeFeedPage() {
     }
     // Check if user is restricted
     try {
-      const profileSnap = await getDoc(doc(db, "profiles", user.uid));
-      if (profileSnap.exists() && profileSnap.data().restricted === true) {
+      const profileSnap = await getDoc(doc(db, "profiles", user?.uid));
+      if (profileSnap.exists() && (profileSnap.data().restricted === true || profileSnap.data().restricted === "true")) {
         showToast("Your account is restricted. You cannot create posts.", "error");
         return;
       }
@@ -374,7 +374,7 @@ export default function TradeFeedPage() {
           setPosting(false);
           return;
         }
-        const storageRef = ref(storage, `trade_posts/${user.uid}/${Date.now()}_${file.name}`);
+        const storageRef = ref(storage, `trade_posts/${user?.uid}/${Date.now()}_${file.name}`);
         const snap = await uploadBytes(storageRef, file);
         images.push(await getDownloadURL(snap.ref));
       }
@@ -480,7 +480,7 @@ export default function TradeFeedPage() {
 
   async function toggleWatchlist(post: any) {
     if (!user?.uid) { showToast("Sign in first", "info"); return; }
-    const ref_ = doc(db, "users", user.uid, "watchlist", post.id);
+      const ref_ = doc(db, "users", user?.uid, "watchlist", post?.id);
     try {
       const snap = await getDoc(ref_);
       if (snap.exists()) { await deleteDoc(ref_); showToast("Removed from watchlist", "info"); }

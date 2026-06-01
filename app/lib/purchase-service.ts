@@ -233,156 +233,154 @@ export async function createPurchaseWithRest(
   const purchaseId = makePurchaseId(input.listingId, input.buyerEmail);
   const convId = makeConversationId(input.listingId, input.buyerEmail);
   const colRef = input.collectionName || "listings";
-  const now = new Date().toISOString();
 
-  const listing = await firestoreGet(projectId, idToken, `${colRef}/${input.listingId}`);
-  if (!listing) throw new Error("Listing not found");
-  if (listing.status === "sold") throw new Error("This listing has already been sold");
+  let orderId = "";
+  let conversationId = "";
+  let isExisting = false;
 
-  const existingPurchase = await firestoreGet(projectId, idToken, `purchases/${purchaseId}`);
-  if (existingPurchase) {
-    return {
-      purchaseId,
-      orderId: existingPurchase.orderId || "",
-      conversationId: existingPurchase.conversationId || "",
-      existing: true,
-    };
-  }
+  await runRestTransaction(projectId, idToken, async ({ get, create, update }) => {
+    const listing = await get(`${colRef}/${input.listingId}`);
+    if (!listing) throw new Error("Listing not found");
+    if (listing.status === "sold") throw new Error("This listing has already been sold");
+    if (listing.stockQuantity != null && listing.stockQuantity <= 0) throw new Error("This item is out of stock");
+    if (listing.sellerEmail === input.buyerEmail) throw new Error("You cannot purchase your own listing");
 
-  const type = input.type || "physical";
-  const computedStatus = input.status === "delivered" ? "delivered"
-    : type === "rental" ? "rented"
-    : type === "service" ? "in_progress"
-    : "pending";
-
-  const purchaseData: Record<string, any> = {
-    listingId: input.listingId,
-    listingTitle: input.listingTitle || listing.title || "",
-    listingPrice: input.winningBid ? String(input.winningBid) : input.listingPrice || listing.price || "",
-    listingImage: input.listingImage || listing.images?.[0] || listing.imageUrl || listing.image || "",
-    sellerEmail: input.sellerEmail,
-    buyerEmail: input.buyerEmail,
-    buyerName: input.buyerName || input.buyerEmail,
-    buyerPhone: input.buyerPhone || "",
-    deliveryMethod: input.deliveryMethod || "pickup",
-    shippingAddress: input.shippingAddress || "",
-    shippingFee: input.shippingFee || 0,
-    processingFee: input.processingFee || 1.00,
-    total: input.total || Number(listing.price || 0) + 1,
-    badgeTransfer: input.badgeTransfer || "",
-    type,
-    digitalFileURL: input.digitalFileURL || "",
-    digitalFileName: input.digitalFileName || "",
-    status: computedStatus,
-    stripePaymentIntentId: input.stripePaymentIntentId,
-    createdAt: now,
-    paidAt: now,
-    deliveredAt: input.deliveredAt || null,
-    disputeDeadline: input.disputeDeadline || null,
-  };
-
-  if (input.rentalStart) purchaseData.rentalStart = input.rentalStart;
-  if (input.rentalEnd) purchaseData.rentalEnd = input.rentalEnd;
-  if (input.rentalDays) purchaseData.rentalDays = input.rentalDays;
-  if (input.badgeTransfer) purchaseData.badgeTransfer = input.badgeTransfer;
-
-  const listingUpdate: Record<string, any> = {};
-  if (typeof listing.stockQuantity === "number") {
-    if (listing.stockQuantity > 1) {
-      listingUpdate.stockQuantity = listing.stockQuantity - 1;
-    } else {
-      listingUpdate.stockQuantity = 0;
-      if (type !== "rental") listingUpdate.status = "sold";
+    const existingPurchase = await get(`purchases/${purchaseId}`);
+    if (existingPurchase) {
+      orderId = existingPurchase.orderId || "";
+      conversationId = existingPurchase.conversationId || "";
+      isExisting = true;
+      return;
     }
-  } else if (type !== "rental") {
-    listingUpdate.status = "sold";
-  }
 
-  const orderData: Record<string, any> = {
-    listingId: input.listingId,
-    title: input.listingTitle || listing.title || "",
-    price: input.listingPrice || listing.price || "",
-    sellerEmail: input.sellerEmail,
-    buyerEmail: input.buyerEmail,
-    status: "paid",
-    purchaseId,
-    createdAt: now,
-  };
+    const type = input.type || "physical";
+    const now = new Date().toISOString();
+    const computedStatus = input.status === "delivered" ? "delivered"
+      : type === "rental" ? "rented"
+      : type === "service" ? "in_progress"
+      : "pending";
 
-  const convData: Record<string, any> = {
-    convKey: `listing_${input.listingId}`,
-    participants: [input.buyerEmail, input.sellerEmail],
-    buyerEmail: input.buyerEmail,
-    sellerEmail: input.sellerEmail,
-    listingId: input.listingId,
-    listingTitle: input.listingTitle || listing.title || "",
-    listingPrice: input.listingPrice || listing.price || "",
-    listingImage: input.listingImage || listing.images?.[0] || listing.imageUrl || listing.image || "",
-    orderStatus: "paid",
-    createdAt: now,
-    updatedAt: now,
-    lastMessage: `Payment confirmed — $${(input.total || 0).toFixed(2)}`,
-  };
-
-  const buyerMsg: Record<string, any> = {
-    type: "order",
-    sender: "system",
-    receiver: input.buyerEmail,
-    participants: [input.buyerEmail, input.sellerEmail],
-    listingId: input.listingId,
-    listingTitle: input.listingTitle || listing.title || "",
-    listingPrice: input.listingPrice || listing.price || "",
-    orderStatus: "paid",
-    text: `Payment confirmed for "${input.listingTitle || listing.title || ""}" — $${(input.total || 0).toFixed(2)}. Awaiting seller response.`,
-    read: false,
-    createdAt: now,
-  };
-
-  const sellerMsg: Record<string, any> = {
-    type: "order",
-    sender: "system",
-    receiver: input.sellerEmail,
-    participants: [input.buyerEmail, input.sellerEmail],
-    listingId: input.listingId,
-    listingTitle: input.listingTitle || listing.title || "",
-    listingPrice: input.listingPrice || listing.price || "",
-    orderStatus: "paid",
-    text: `Your listing "${input.listingTitle || listing.title || ""}" has been purchased for $${(input.total || 0).toFixed(2)}.`,
-    read: false,
-    createdAt: now,
-  };
-
-  await firestoreCreate(projectId, idToken, `purchases/${purchaseId}`, purchaseData);
-
-  try {
+    const listingUpdate: Record<string, any> = {};
+    if (typeof listing.stockQuantity === "number") {
+      if (listing.stockQuantity > 1) {
+        listingUpdate.stockQuantity = listing.stockQuantity - 1;
+      } else {
+        listingUpdate.stockQuantity = 0;
+        if (type !== "rental") listingUpdate.status = "sold";
+      }
+    } else if (type !== "rental") {
+      listingUpdate.status = "sold";
+    }
     if (Object.keys(listingUpdate).length > 0) {
-      await firestoreUpdate(projectId, idToken, `${colRef}/${input.listingId}`, listingUpdate);
+      update(`${colRef}/${input.listingId}`, listingUpdate, Object.keys(listingUpdate));
     }
 
-    const orderId = await firestoreCreateWithId(projectId, idToken, `orders`, orderData);
+    const purchaseData: Record<string, any> = {
+      listingId: input.listingId,
+      listingTitle: input.listingTitle || listing.title || "",
+      listingPrice: input.winningBid ? String(input.winningBid) : input.listingPrice || listing.price || "",
+      listingImage: input.listingImage || listing.images?.[0] || listing.imageUrl || listing.image || "",
+      sellerEmail: input.sellerEmail,
+      buyerEmail: input.buyerEmail,
+      buyerName: input.buyerName || input.buyerEmail,
+      buyerPhone: input.buyerPhone || "",
+      deliveryMethod: input.deliveryMethod || "pickup",
+      shippingAddress: input.shippingAddress || "",
+      shippingFee: input.shippingFee || 0,
+      processingFee: input.processingFee || 1.00,
+      total: input.total || Number(listing.price || 0) + 1,
+      badgeTransfer: input.badgeTransfer || "",
+      type,
+      digitalFileURL: input.digitalFileURL || "",
+      digitalFileName: input.digitalFileName || "",
+      status: computedStatus,
+      stripePaymentIntentId: input.stripePaymentIntentId,
+      createdAt: now,
+      paidAt: now,
+      deliveredAt: input.deliveredAt || null,
+      disputeDeadline: input.disputeDeadline || null,
+    };
+    if (input.rentalStart) purchaseData.rentalStart = input.rentalStart;
+    if (input.rentalEnd) purchaseData.rentalEnd = input.rentalEnd;
+    if (input.rentalDays) purchaseData.rentalDays = input.rentalDays;
 
-    const convSnap = await firestoreGet(projectId, idToken, `conversations/${convId}`);
-    if (!convSnap) {
-      await firestoreCreate(projectId, idToken, `conversations/${convId}`, convData);
-      await firestoreUpdate(projectId, idToken, `purchases/${purchaseId}`, { conversationId: convId });
-    } else {
-      await firestoreUpdate(projectId, idToken, `conversations/${convId}`, {
+    create(`purchases/${purchaseId}`, purchaseData);
+
+    const newOrderId = generateDocId();
+    const orderData: Record<string, any> = {
+      listingId: input.listingId,
+      title: input.listingTitle || listing.title || "",
+      price: input.listingPrice || listing.price || "",
+      sellerEmail: input.sellerEmail,
+      buyerEmail: input.buyerEmail,
+      status: "paid",
+      purchaseId,
+      createdAt: now,
+    };
+    create(`orders/${newOrderId}`, orderData);
+    orderId = newOrderId;
+
+    update(`purchases/${purchaseId}`, { orderId }, ["orderId"]);
+
+    const convSnap = await get(`conversations/${convId}`);
+    if (convSnap) {
+      update(`conversations/${convId}`, {
         updatedAt: now,
         lastMessage: `Payment confirmed — $${(input.total || 0).toFixed(2)}`,
         orderStatus: "paid",
-      });
+      }, ["updatedAt", "lastMessage", "orderStatus"]);
+      conversationId = convId;
+    } else {
+      const convData: Record<string, any> = {
+        convKey: `listing_${input.listingId}`,
+        participants: [input.buyerEmail, input.sellerEmail],
+        buyerEmail: input.buyerEmail,
+        sellerEmail: input.sellerEmail,
+        listingId: input.listingId,
+        listingTitle: input.listingTitle || listing.title || "",
+        listingPrice: input.listingPrice || listing.price || "",
+        listingImage: input.listingImage || listing.images?.[0] || listing.imageUrl || listing.image || "",
+        orderStatus: "paid",
+        createdAt: now,
+        updatedAt: now,
+        lastMessage: `Payment confirmed — $${(input.total || 0).toFixed(2)}`,
+      };
+      create(`conversations/${convId}`, convData);
+      conversationId = convId;
+      update(`purchases/${purchaseId}`, { conversationId }, ["conversationId"]);
     }
 
-    await firestoreUpdate(projectId, idToken, `purchases/${purchaseId}`, { orderId });
-    await firestoreCreate(projectId, idToken, `messages/${makeMsgId()}`, buyerMsg);
-    await firestoreCreate(projectId, idToken, `messages/${makeMsgId()}`, sellerMsg);
+    const buyerMsg: Record<string, any> = {
+      type: "order",
+      sender: "system",
+      receiver: input.buyerEmail,
+      participants: [input.buyerEmail, input.sellerEmail],
+      listingId: input.listingId,
+      listingTitle: input.listingTitle || listing.title || "",
+      listingPrice: input.listingPrice || listing.price || "",
+      orderStatus: "paid",
+      text: `Payment confirmed for "${input.listingTitle || listing.title || ""}" — $${(input.total || 0).toFixed(2)}. Awaiting seller response.`,
+      read: false,
+      createdAt: now,
+    };
+    const sellerMsg: Record<string, any> = {
+      type: "order",
+      sender: "system",
+      receiver: input.sellerEmail,
+      participants: [input.buyerEmail, input.sellerEmail],
+      listingId: input.listingId,
+      listingTitle: input.listingTitle || listing.title || "",
+      listingPrice: input.listingPrice || listing.price || "",
+      orderStatus: "paid",
+      text: `Your listing "${input.listingTitle || listing.title || ""}" has been purchased for $${(input.total || 0).toFixed(2)}.`,
+      read: false,
+      createdAt: now,
+    };
+    create(`messages/${makeMsgId()}`, buyerMsg);
+    create(`messages/${makeMsgId()}`, sellerMsg);
+  });
 
-    return { purchaseId, orderId, conversationId: convId, existing: false };
-  } catch (err) {
-    // Clean up purchase if subsequent writes fail
-    try { await firestoreDelete(projectId, idToken, `purchases/${purchaseId}`); } catch {}
-    throw err;
-  }
+  return { purchaseId, orderId, conversationId, existing: isExisting };
 }
 
 export interface AcceptOfferInput {
@@ -809,142 +807,155 @@ export async function payOfferWithRest(
   idToken: string
 ): Promise<PayOfferResult> {
   const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "sky-drop-de459";
-  const now = new Date().toISOString();
 
-  const purchase = await firestoreGet(projectId, idToken, `purchases/${input.purchaseId}`);
-  if (!purchase) throw new Error("Purchase not found");
+  let orderId = "";
+  let conversationId = "";
+  let isExisting = false;
 
-  if (purchase.status === "pending" || purchase.status === "paid") {
-    return {
-      purchaseId: input.purchaseId,
-      orderId: purchase.orderId || "",
-      conversationId: purchase.conversationId || "",
-      existing: true,
-    };
-  }
+  await runRestTransaction(projectId, idToken, async ({ get, create, update }) => {
+    const purchase = await get(`purchases/${input.purchaseId}`);
+    if (!purchase) throw new Error("Purchase not found");
 
-  if (purchase.status !== "offer_accepted") {
-    throw new Error(`Cannot pay for purchase with status "${purchase.status}"`);
-  }
-
-  const deadline = purchase.paymentDeadline;
-  if (deadline && new Date(deadline).getTime() < Date.now()) {
-    throw new Error("Payment deadline has passed. Please ask the seller to re-accept your offer.");
-  }
-
-  const colRef = purchase.collectionName || "listings";
-  const listing = await firestoreGet(projectId, idToken, `${colRef}/${purchase.listingId}`);
-  if (!listing) throw new Error("Listing not found");
-
-  if (listing.status === "sold") {
-    await firestoreUpdate(projectId, idToken, `purchases/${input.purchaseId}`, {
-      status: "failed",
-      failedReason: "Listing already sold to another buyer",
-    } as Record<string, unknown>);
-    throw new Error("This listing has already been sold to another buyer");
-  }
-
-  const listingUpdate: Record<string, unknown> = {};
-  if (typeof listing.stockQuantity === "number") {
-    if (listing.stockQuantity > 1) {
-      listingUpdate.stockQuantity = listing.stockQuantity - 1;
-    } else {
-      listingUpdate.stockQuantity = 0;
-      if (purchase.type !== "rental") listingUpdate.status = "sold";
+    if (purchase.status === "pending" || purchase.status === "paid") {
+      orderId = purchase.orderId || "";
+      conversationId = purchase.conversationId || "";
+      isExisting = true;
+      return;
     }
-  } else if (purchase.type !== "rental") {
-    listingUpdate.status = "sold";
-  }
-  if (Object.keys(listingUpdate).length > 0) {
-    await firestoreUpdate(projectId, idToken, `${colRef}/${purchase.listingId}`, listingUpdate);
-  }
 
-  const orderData: Record<string, unknown> = {
-    listingId: purchase.listingId,
-    title: purchase.listingTitle || listing.title || "",
-    price: purchase.listingPrice || listing.price || "",
-    sellerEmail: purchase.sellerEmail,
-    buyerEmail: purchase.buyerEmail,
-    status: "paid",
-    purchaseId: input.purchaseId,
-    createdAt: now,
-  };
-  const orderId = await firestoreCreateWithId(projectId, idToken, "orders", orderData);
+    if (purchase.status !== "offer_accepted") {
+      throw new Error(`Cannot pay for purchase with status "${purchase.status}"`);
+    }
 
-  const disputeDeadline = purchase.type === "digital"
-    ? new Date(Date.now() + 48 * 3600000).toISOString()
-    : purchase.type === "service"
-    ? new Date(Date.now() + 7 * 86400000).toISOString()
-    : null;
+    const deadline = purchase.paymentDeadline;
+    if (deadline && new Date(deadline).getTime() < Date.now()) {
+      throw new Error("Payment deadline has passed. Please ask the seller to re-accept your offer.");
+    }
 
-  await firestoreUpdate(projectId, idToken, `purchases/${input.purchaseId}`, {
-    status: "pending",
-    paidAt: now,
-    stripePaymentIntentId: input.stripePaymentIntentId,
-    orderId,
-    total: input.total || purchase.total,
-    disputeDeadline,
-  } as Record<string, unknown>);
+    if (input.buyerEmail && purchase.buyerEmail !== input.buyerEmail) {
+      throw new Error("You are not the buyer for this purchase");
+    }
 
-  const convId = makeConversationId(purchase.listingId, purchase.buyerEmail);
-  const convSnap = await firestoreGet(projectId, idToken, `conversations/${convId}`);
-  if (!convSnap) {
-    await firestoreCreate(projectId, idToken, `conversations/${convId}`, {
-      convKey: `listing_${purchase.listingId}`,
-      participants: [purchase.buyerEmail, purchase.sellerEmail],
-      buyerEmail: purchase.buyerEmail,
+    const colRef = purchase.collectionName || "listings";
+    const listing = await get(`${colRef}/${purchase.listingId}`);
+    if (!listing) throw new Error("Listing not found");
+
+    if (listing.status === "sold") {
+      update(`purchases/${input.purchaseId}`, {
+        status: "failed",
+        failedReason: "Listing already sold to another buyer",
+      } as Record<string, unknown>, ["status", "failedReason"]);
+      throw new Error("This listing has already been sold to another buyer");
+    }
+
+    const now = new Date().toISOString();
+    const listingUpdate: Record<string, unknown> = {};
+    if (typeof listing.stockQuantity === "number") {
+      if (listing.stockQuantity > 1) {
+        listingUpdate.stockQuantity = listing.stockQuantity - 1;
+      } else {
+        listingUpdate.stockQuantity = 0;
+        if (purchase.type !== "rental") listingUpdate.status = "sold";
+      }
+    } else if (purchase.type !== "rental") {
+      listingUpdate.status = "sold";
+    }
+    if (Object.keys(listingUpdate).length > 0) {
+      update(`${colRef}/${purchase.listingId}`, listingUpdate, Object.keys(listingUpdate));
+    }
+
+    const newOrderId = generateDocId();
+    const orderData: Record<string, unknown> = {
+      listingId: purchase.listingId,
+      title: purchase.listingTitle || listing.title || "",
+      price: purchase.listingPrice || listing.price || "",
       sellerEmail: purchase.sellerEmail,
+      buyerEmail: purchase.buyerEmail,
+      status: "paid",
+      purchaseId: input.purchaseId,
+      createdAt: now,
+    };
+    create(`orders/${newOrderId}`, orderData);
+    orderId = newOrderId;
+
+    const disputeDeadline = purchase.type === "digital"
+      ? new Date(Date.now() + 48 * 3600000).toISOString()
+      : purchase.type === "service"
+      ? new Date(Date.now() + 7 * 86400000).toISOString()
+      : null;
+
+    update(`purchases/${input.purchaseId}`, {
+      status: "pending",
+      paidAt: now,
+      stripePaymentIntentId: input.stripePaymentIntentId,
+      orderId,
+      total: input.total || purchase.total,
+      disputeDeadline,
+    } as Record<string, unknown>, ["status", "paidAt", "stripePaymentIntentId", "orderId", "total", "disputeDeadline"]);
+
+    const convId = makeConversationId(purchase.listingId, purchase.buyerEmail);
+    const convSnap = await get(`conversations/${convId}`);
+    if (convSnap) {
+      update(`conversations/${convId}`, {
+        updatedAt: now,
+        lastMessage: `Payment confirmed — $${(input.total || purchase.total || 0).toFixed(2)}`,
+        orderStatus: "paid",
+      } as Record<string, unknown>, ["updatedAt", "lastMessage", "orderStatus"]);
+      conversationId = convId;
+    } else {
+      const convData: Record<string, unknown> = {
+        convKey: `listing_${purchase.listingId}`,
+        participants: [purchase.buyerEmail, purchase.sellerEmail],
+        buyerEmail: purchase.buyerEmail,
+        sellerEmail: purchase.sellerEmail,
+        listingId: purchase.listingId,
+        listingTitle: purchase.listingTitle || listing.title || "",
+        listingPrice: purchase.listingPrice || listing.price || "",
+        listingImage: purchase.listingImage || listing.images?.[0] || listing.imageUrl || listing.image || "",
+        orderStatus: "paid",
+        orderId,
+        createdAt: now,
+        updatedAt: now,
+        lastMessage: `Payment confirmed — $${(input.total || purchase.total || 0).toFixed(2)}`,
+      };
+      create(`conversations/${convId}`, convData);
+      conversationId = convId;
+      update(`purchases/${input.purchaseId}`, { conversationId } as Record<string, unknown>, ["conversationId"]);
+    }
+
+    const buyerMsg: Record<string, unknown> = {
+      type: "order",
+      orderId,
+      sender: "system",
+      receiver: purchase.buyerEmail,
+      participants: [purchase.buyerEmail, purchase.sellerEmail],
       listingId: purchase.listingId,
       listingTitle: purchase.listingTitle || listing.title || "",
       listingPrice: purchase.listingPrice || listing.price || "",
-      listingImage: purchase.listingImage || listing.images?.[0] || listing.imageUrl || listing.image || "",
       orderStatus: "paid",
-      orderId,
+      text: `Payment confirmed for "${purchase.listingTitle || listing.title || ""}" — $${(input.total || purchase.total || 0).toFixed(2)}. Awaiting seller response.`,
+      read: false,
       createdAt: now,
-      updatedAt: now,
-      lastMessage: `Payment confirmed — $${(input.total || purchase.total || 0).toFixed(2)}`,
-    } as Record<string, unknown>);
-    await firestoreUpdate(projectId, idToken, `purchases/${input.purchaseId}`, { conversationId: convId } as Record<string, unknown>);
-  } else {
-    await firestoreUpdate(projectId, idToken, `conversations/${convId}`, {
-      updatedAt: now,
-      lastMessage: `Payment confirmed — $${(input.total || purchase.total || 0).toFixed(2)}`,
-      orderStatus: "paid",
+    };
+    const sellerMsg: Record<string, unknown> = {
+      type: "order",
       orderId,
-    } as Record<string, unknown>);
-  }
+      sender: "system",
+      receiver: purchase.sellerEmail,
+      participants: [purchase.buyerEmail, purchase.sellerEmail],
+      listingId: purchase.listingId,
+      listingTitle: purchase.listingTitle || listing.title || "",
+      listingPrice: purchase.listingPrice || listing.price || "",
+      orderStatus: "paid",
+      text: `Your listing "${purchase.listingTitle || listing.title || ""}" has been purchased for $${(input.total || purchase.total || 0).toFixed(2)}.`,
+      read: false,
+      createdAt: now,
+    };
+    create(`messages/${makeMsgId()}`, buyerMsg);
+    create(`messages/${makeMsgId()}`, sellerMsg);
+  });
 
-  await firestoreCreate(projectId, idToken, `messages/${makeMsgId()}`, {
-    type: "order",
-    orderId,
-    sender: "system",
-    receiver: purchase.buyerEmail,
-    participants: [purchase.buyerEmail, purchase.sellerEmail],
-    listingId: purchase.listingId,
-    listingTitle: purchase.listingTitle || listing.title || "",
-    listingPrice: purchase.listingPrice || listing.price || "",
-    orderStatus: "paid",
-    text: `Payment confirmed for "${purchase.listingTitle || listing.title || ""}" — $${(input.total || purchase.total || 0).toFixed(2)}. Awaiting seller response.`,
-    read: false,
-    createdAt: now,
-  } as Record<string, unknown>);
-
-  await firestoreCreate(projectId, idToken, `messages/${makeMsgId()}`, {
-    type: "order",
-    orderId,
-    sender: "system",
-    receiver: purchase.sellerEmail,
-    participants: [purchase.buyerEmail, purchase.sellerEmail],
-    listingId: purchase.listingId,
-    listingTitle: purchase.listingTitle || listing.title || "",
-    listingPrice: purchase.listingPrice || listing.price || "",
-    orderStatus: "paid",
-    text: `Your listing "${purchase.listingTitle || listing.title || ""}" has been purchased for $${(input.total || purchase.total || 0).toFixed(2)}.`,
-    read: false,
-    createdAt: now,
-  } as Record<string, unknown>);
-
-  return { purchaseId: input.purchaseId, orderId, conversationId: convId, existing: false };
+  return { purchaseId: input.purchaseId, orderId, conversationId, existing: isExisting };
 }
 
 let _msgCounter = 0;
@@ -1054,5 +1065,149 @@ async function firestoreUpdate(projectId: string, idToken: string, path: string,
 
 async function firestoreDelete(projectId, idToken, path) {
   const url = 'https://firestore.googleapis.com/v1/projects/' + projectId + '/databases/(default)/documents/' + path;
-  await fetch(url, { method: 'DELETE', headers: { Authorization: 'Bearer ' + idToken } });
+  await fetch(url, { method: 'DELETE', headers: { Authorization: 'Bearer ' + idToken } }).catch(() => {});
+}
+
+// ==================== Firestore REST Transaction Support ====================
+
+function generateDocId(): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let id = "";
+  for (let i = 0; i < 20; i++) {
+    id += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return id;
+}
+
+function docPath(projectId: string, path: string): string {
+  return `projects/${projectId}/databases/(default)/documents/${path}`;
+}
+
+async function beginRestTransaction(projectId: string, idToken: string): Promise<string> {
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:beginTransaction`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${idToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  if (!res.ok) throw new Error(`Begin transaction error: ${res.status} ${await res.text()}`);
+  const data = await res.json();
+  return data.transaction;
+}
+
+async function restTransactionGet(projectId: string, idToken: string, path: string, transaction: string): Promise<any> {
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${path}?transaction=${encodeURIComponent(transaction)}`;
+  const res = await fetch(url, {
+    headers: { "Authorization": `Bearer ${idToken}` },
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Firestore GET error: ${res.status} ${await res.text()}`);
+  const data = await res.json();
+  return data.fields ? fromFirestoreValue({ mapValue: { fields: data.fields } }) : data;
+}
+
+interface RestWrite {
+  update?: {
+    name: string;
+    fields: Record<string, unknown>;
+  };
+  updateMask?: { fieldPaths: string[] };
+}
+
+async function commitRestTransaction(
+  projectId: string,
+  idToken: string,
+  transaction: string,
+  writes: RestWrite[]
+): Promise<void> {
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:commit`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${idToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ transaction, writes }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Commit transaction error: ${res.status} ${text}`);
+  }
+}
+
+interface TxHelpers {
+  get: (path: string) => Promise<any>;
+  create: (path: string, data: Record<string, unknown>) => void;
+  update: (path: string, data: Record<string, unknown>, fieldPaths?: string[]) => void;
+}
+
+async function runRestTransaction<T>(
+  projectId: string,
+  idToken: string,
+  fn: (helpers: TxHelpers) => Promise<T>,
+  maxRetries = 3
+): Promise<T> {
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const txId = await beginRestTransaction(projectId, idToken);
+    const writes: RestWrite[] = [];
+    let result: T;
+
+    try {
+      const helpers: TxHelpers = {
+        get: (path: string) => restTransactionGet(projectId, idToken, path, txId),
+        create: (path: string, data: Record<string, unknown>) => {
+          writes.push({
+            update: {
+              name: docPath(projectId, path),
+              fields: toFirestoreFields(data),
+            },
+          });
+        },
+        update: (path: string, data: Record<string, unknown>, fieldPaths?: string[]) => {
+          const write: RestWrite = {
+            update: {
+              name: docPath(projectId, path),
+              fields: toFirestoreFields(data),
+            },
+          };
+          if (fieldPaths && fieldPaths.length > 0) {
+            write.updateMask = { fieldPaths };
+          }
+          writes.push(write);
+        },
+      };
+
+      result = await fn(helpers);
+    } catch (err) {
+      // Rollback on error
+      const rollbackUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:rollback`;
+      try {
+        await fetch(rollbackUrl, {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${idToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ transaction: txId }),
+        });
+      } catch {}
+      throw err;
+    }
+
+    try {
+      await commitRestTransaction(projectId, idToken, txId, writes);
+      return result!;
+    } catch (err: any) {
+      lastError = err as Error;
+      const msg = String(err?.message || "");
+      if (msg.includes("ABORTED") || msg.includes("aborted") || msg.includes("UNAVAILABLE")) {
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastError || new Error("Transaction failed after max retries");
+}
+
+function toFirestoreFields(data: Record<string, unknown>): Record<string, unknown> {
+  const fields: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(data)) {
+    fields[key] = toFirestoreValue(val);
+  }
+  return fields;
 }

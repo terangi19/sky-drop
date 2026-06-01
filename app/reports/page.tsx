@@ -13,10 +13,13 @@ import { showToast } from "../components/Toast";
 import {
   addDoc,
   collection,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
+  where,
+  limit,
 } from "firebase/firestore";
 
 import {
@@ -95,6 +98,24 @@ export default function ReportsPage() {
       return;
     }
     try {
+      // Server-side cooldown: check for recent report from this reporter for this user
+      const cooldownQuery = query(
+        collection(db, "reports"),
+        where("reporter", "==", user.email),
+        where("reportedUser", "==", reportedUser.trim()),
+        orderBy("createdAt", "desc"),
+        limit(1)
+      );
+      const recentSnap = await getDocs(cooldownQuery);
+      if (!recentSnap.empty) {
+        const lastReport = recentSnap.docs[0].data();
+        const lastTime = lastReport.createdAt?.toMillis?.();
+        if (lastTime && Date.now() - lastTime < 10 * 60 * 1000) {
+          showToast("Please wait before reporting again.", "info");
+          return;
+        }
+      }
+
       await addDoc(
         collection(db, "reports"),
         {

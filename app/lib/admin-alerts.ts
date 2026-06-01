@@ -24,18 +24,16 @@ export async function notifyAdmin(input: AdminAlertInput): Promise<void> {
       createdAt: timestamp,
     });
 
-    // Also write to the admin user's notifications collection for in-app display
-    const userSnap = await db.collection("profiles").where("email", "==", ADMIN_EMAIL).limit(1).get();
-    if (!userSnap.empty) {
-      const adminUid = userSnap.docs[0].id;
-      await db.collection("users").doc(adminUid).collection("notifications").add({
-        type: input.type,
-        title: input.title,
-        message: input.message,
-        read: false,
-        createdAt: timestamp,
-      });
-    }
+    // Also write to the notifications collection for in-app display
+    await db.collection("notifications").add({
+      type: input.type,
+      targetEmail: ADMIN_EMAIL,
+      fromEmail: "system",
+      title: input.title,
+      message: input.message,
+      read: false,
+      createdAt: timestamp,
+    });
 
     // Send email
     try {

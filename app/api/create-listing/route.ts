@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken, getAdminDb, isAdminInitialized } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
+import { sanitizeListingContent } from "../../lib/sanitize";
 
 const SCAM_KEYWORDS = [
   "bank transfer only", "crypto only", "pay outside", "whatsapp",
@@ -27,9 +28,7 @@ function isPriceSuspicious(price: number, category?: string): boolean {
   return price < CATEGORY_PRICE_THRESHOLDS[category];
 }
 
-function sanitize(input: string): string {
-  return input ? input.replace(/[<>]/g, "").slice(0, 5000).trim() : "";
-}
+
 
 function toFirestoreValue(val: unknown): Record<string, unknown> {
   if (val === null || val === undefined) return { nullValue: null };
@@ -128,8 +127,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Title and description are required" }, { status: 400 });
     }
 
-    const sanitizedTitle = sanitize(title);
-    const sanitizedDesc = sanitize(description);
+    const sanitizedTitle = sanitizeListingContent(title);
+    const sanitizedDesc = sanitizeListingContent(description);
 
     if (sanitizedTitle.length < 3) {
       return NextResponse.json({ error: "Title must be at least 3 characters" }, { status: 400 });

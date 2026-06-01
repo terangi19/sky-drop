@@ -530,6 +530,8 @@ export default function ListingPage() {
           if (current.auctionEndsAt && current.auctionEndsAt.toMillis() < Date.now()) throw new Error("Auction has ended");
           if (current.soldTo || current.status === "sold") throw new Error("Listing is no longer available");
           if (amount < minNext) throw new Error("Minimum bid is $" + minNext);
+          if (current.reservePrice && amount < current.reservePrice)
+            throw new Error("Bid must meet the reserve price of $" + current.reservePrice);
           transaction.update(ref, {
             currentBid: amount,
             highestBidder: user.email,
@@ -567,6 +569,9 @@ export default function ListingPage() {
         const currentBid = current.currentBid || startingBid;
         const currentMaxBid = current.currentMaxBid || 0;
         const secondMaxBid = current.secondMaxBid || 0;
+
+        if (current.reservePrice && newMax < current.reservePrice)
+          throw new Error("Bid must meet the reserve price of $" + current.reservePrice);
 
         if (!current.highestBidder) {
           if (newMax < startingBid)

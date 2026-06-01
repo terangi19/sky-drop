@@ -28,6 +28,7 @@ export function clearMockUser() {
 
 export function isDevAuthEnabled(): boolean {
   if (typeof window === "undefined") return false;
+  if (process.env.NODE_ENV !== "development") return false;
   if (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_DEV_AUTH === "true") return true;
   return window.location.search.includes("dev=1");
 }

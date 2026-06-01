@@ -15,7 +15,6 @@ function SuccessInner() {
   const title = searchParams.get("title") || "Listing";
   const price = searchParams.get("price") || "0";
   const buyerEmail = searchParams.get("buyerEmail") || "";
-  const paymentIntentClientSecret = searchParams.get("payment_intent_client_secret") || "";
   const collectionName = searchParams.get("collectionName") || "listings";
   const badgeForSale = searchParams.get("badgeForSale") || "";
   const digitalParam = searchParams.get("type") || "";
@@ -29,6 +28,14 @@ function SuccessInner() {
     if (hasRun.current) return;
     hasRun.current = true;
     let cancelled = false;
+
+    const paymentIntentClientSecret = searchParams.get("payment_intent_client_secret") || "";
+
+    if (paymentIntentClientSecret) {
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete("payment_intent_client_secret");
+      window.history.replaceState({}, "", cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
+    }
 
     async function verifyAndDisplay() {
       if (!listingId || !buyerEmail || !paymentIntentClientSecret) {
@@ -108,7 +115,7 @@ function SuccessInner() {
 
     verifyAndDisplay();
     return () => { cancelled = true; };
-  }, [listingId, title, price, buyerEmail, paymentIntentClientSecret, badgeForSale, digitalParam, digitalStoragePath, digitalFileName, sellerEmailParam, collectionName]);
+  }, [listingId, title, price, buyerEmail, badgeForSale, digitalParam, digitalStoragePath, digitalFileName, sellerEmailParam, collectionName, searchParams]);
 
   const redirectToMessages = () => {
     const url = purchaseData?.conversationId

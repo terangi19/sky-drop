@@ -2,14 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { addDoc, collection, doc, getDocs, query, serverTimestamp, where } from "firebase/firestore";
+import { addDoc, collection, doc, getDocs, query, runTransaction, serverTimestamp, where } from "firebase/firestore";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import stripePromise from "../lib/stripe-client";
 import { auth, db, storage, onAuthStateChanged } from "../lib/firebase";
 import { ref, getDownloadURL } from "firebase/storage";
 import { createNotification } from "../lib/notifications";
 import { showToast } from "./Toast";
-import { safeGetDoc } from "../lib/firestore";
+
 import AnimatedCheckmark from "./AnimatedCheckmark";
 import { playConfetti, playSuccess } from "../lib/sounds";
 
@@ -65,7 +65,7 @@ interface CheckoutModalProps {
 }
 
 type DeliveryMethod = "pickup" | "shipping" | "badge" | "digital" | "rental" | "event" | null;
-type Step = "form" | "card" | "processing" | "share_address" | "success";
+type Step = "form" | "card" | "processing" | "share_address" | "success" | "error";
 
 function PaymentForm({ total, listingId, title, price, buyerEmail, onSuccess, onBack, badgeForSale, sellerEmail, collectionName, type, digitalFileURL, digitalFileName, digitalStoragePath }: {
   total: number; listingId: string; title: string; price: string; buyerEmail: string; onSuccess: () => void; onBack: () => void; badgeForSale?: string; sellerEmail?: string; collectionName?: string; type?: string; digitalFileURL?: string; digitalFileName?: string; digitalStoragePath?: string;
@@ -158,6 +158,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
   const [paymentIntentId, setPaymentIntentId] = useState("");
   const [intentError, setIntentError] = useState("");
   const [orderId, setOrderId] = useState("");
+  const [purchaseError, setPurchaseError] = useState("");
   const [showConfetti, setShowConfetti] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -258,52 +259,61 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
     setIntentError("");
 
     try {
-      // Verify the real price from Firestore
-      const snap = await safeGetDoc(doc(db, collectionName, listing.id));
-      if (!snap) {
-        setIntentError("Could not verify listing. Please try again.");
+      const user = auth.currentUser;
+      if (!user) {
+        setIntentError("You must be signed in.");
         setStep("form");
         return;
       }
-      if (!snap.exists()) {
-        setIntentError("Listing not found.");
-        setStep("form");
-        return;
-      }
-      const snapData = snap.data();
-      if (snapData.status === "sold") {
-        setIntentError("This listing has already sold.");
-        setStep("form");
-        return;
-      }
-      if (snapData.expiresAt?.toMillis?.() < Date.now()) {
-        setIntentError("This listing has expired.");
-        setStep("form");
-        return;
-      }
-      if (snapData.stockQuantity != null && snapData.stockQuantity <= 0) {
-        setIntentError("This item is out of stock.");
-        setStep("form");
-        return;
-      }
-      if (winningBid) {
-        const currentBid = Number(snapData.currentBid);
-        if (Math.round(currentBid * 100) !== Math.round(winningBid * 100)) {
-          setIntentError("The winning bid amount has changed. Please refresh and try again.");
-          setStep("form");
-          return;
+
+      const listingRef = doc(db, collectionName, listing.id);
+      let realPrice: number;
+      let realShipping: number;
+      let realRentalDays: number;
+      let realDeposit: number;
+
+      await runTransaction(db, async (transaction) => {
+        const snap = await transaction.get(listingRef);
+        if (!snap.exists()) {
+          throw new Error("Listing not found.");
         }
-        if (snapData.highestBidder !== buyerEmail) {
-          setIntentError("You are no longer the highest bidder.");
-          setStep("form");
-          return;
+        const d = snap.data();
+        if (d.status === "sold") {
+          throw new Error("This listing has already sold.");
         }
-      }
-      const realPrice = winningBid || Number(snapData.price);
-      const realShipping = snapData.shippingFee && !snapData.freeShipping ? Number(snapData.shippingFee) : 0;
-      const realRentalDays = snapData.rentalDays ?? listing.rentalDays ?? 1;
+        if (d.expiresAt?.toMillis?.() < Date.now()) {
+          throw new Error("This listing has expired.");
+        }
+        if (d.stockQuantity != null && d.stockQuantity <= 0) {
+          throw new Error("This item is out of stock.");
+        }
+        if (d.reservedAt?.toMillis) {
+          const elapsed = Date.now() - d.reservedAt.toMillis();
+          if (elapsed < 15 * 60 * 1000 && d.reservedBy && d.reservedBy !== user.uid) {
+            throw new Error("Someone else is checking out this item. Please try again.");
+          }
+        }
+        if (winningBid) {
+          if (Math.round(Number(d.currentBid) * 100) !== Math.round(winningBid * 100)) {
+            throw new Error("The winning bid amount has changed. Please refresh and try again.");
+          }
+          if (d.highestBidder !== buyerEmail) {
+            throw new Error("You are no longer the highest bidder.");
+          }
+        }
+
+        transaction.update(listingRef, {
+          reservedAt: serverTimestamp(),
+          reservedBy: user.uid,
+        });
+
+        realPrice = winningBid || Number(d.price);
+        realShipping = d.shippingFee && !d.freeShipping ? Number(d.shippingFee) : 0;
+        realRentalDays = d.rentalDays ?? listing.rentalDays ?? 1;
+        realDeposit = deliveryMethod === "rental" ? Number(d.rentalDeposit) || 0 : 0;
+      });
+
       const realRentalTotal = realPrice * Number(realRentalDays);
-      const realDeposit = deliveryMethod === "rental" ? Number(snapData.rentalDeposit) || 0 : 0;
       const realTotal = (deliveryMethod === "badge"
         ? realPrice
         : deliveryMethod === "rental"
@@ -312,7 +322,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
             ? realPrice + realShipping
             : realPrice) + 1.00;
 
-      const token = await auth.currentUser?.getIdToken();
+      const token = await user.getIdToken();
       const res = await fetch("/api/create-payment-intent", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
@@ -321,6 +331,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
           price: String(realTotal),
           listingId: listing.id,
           imageUrl: listing.images?.[0] || listing.imageUrl || listing.image || "",
+          collectionName,
         }),
       });
       const data = await res.json();
@@ -332,7 +343,12 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
         setStep("form");
       }
     } catch (e: any) {
-      setIntentError("Could not connect to payment server. Please try again.");
+      const txErrors = ["already sold", "expired", "out of stock", "Someone else", "not found", "bid amount", "highest bidder"];
+      if (txErrors.some((msg) => e.message?.includes(msg))) {
+        setIntentError(e.message);
+      } else {
+        setIntentError("Could not connect to payment server. Please try again.");
+      }
       setStep("form");
     }
   }
@@ -387,8 +403,11 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
 
       const createData = await createRes.json();
       if (!createRes.ok) {
+        const errMsg = createData.error || "Purchase creation failed. Your payment was received but we couldn't create the purchase record.";
         console.error("Purchase creation failed:", createData.error);
-        setStep("share_address");
+        showToast("Payment received! But purchase setup failed. Please retry.", "error");
+        setPurchaseError(errMsg);
+        setStep("error");
         return;
       }
 
@@ -463,10 +482,18 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
       } catch {}
 
           setStep(isBadge || isDigital || isRental || isEvent ? "success" : "share_address");
-    } catch (e) {
+    } catch (e: any) {
+      const errMsg = e?.message || "An unexpected error occurred while creating your purchase. Your payment was received.";
       console.error("Purchase record failed:", e);
-      setStep("share_address");
+      showToast("Payment received! But purchase setup failed. Please retry.", "error");
+      setPurchaseError(errMsg);
+      setStep("error");
     }
+  }
+
+  async function handleRetryPurchase() {
+    setPurchaseError("");
+    await handlePaymentSuccess();
   }
 
   async function handleSendAddress() {
@@ -498,7 +525,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
       <div
         ref={modalRef}
         className={`w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl overflow-hidden transition-all duration-300 ${
-          step === "success" || step === "share_address" ? "max-w-sm" : ""
+          step === "success" || step === "share_address" || step === "error" ? "max-w-sm" : ""
         }`}
         onClick={(e) => e.stopPropagation()}
         style={{ animation: "slideUp 0.25s ease-out" }}
@@ -554,6 +581,35 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                   {deliveryMethod === "shipping" ? "Send Address" : "Send Message"}
                 </button>
               )}
+            </div>
+          </div>
+        ) : step === "error" ? (
+          <div className="flex flex-col px-6 py-8 text-center">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/20">
+              <svg className="h-7 w-7 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            <h2 className="mt-4 text-lg font-black text-[var(--foreground)]">Payment Received</h2>
+            <p className="mt-1 text-xs text-[var(--muted)]">Your card was charged ${total.toFixed(2)}</p>
+            <div className="mt-4 rounded-lg border border-amber-500/20 bg-amber-500/[0.04] px-4 py-3 text-left text-xs text-amber-400/90">
+              <p className="font-semibold">Purchase setup failed</p>
+              <p className="mt-1 text-[var(--muted)]">{purchaseError}</p>
+              <p className="mt-2 text-[var(--muted)]">Your payment was successful, but we couldn&apos;t complete the purchase. Please try again — you won&apos;t be charged twice.</p>
+            </div>
+            <div className="mt-5 flex gap-2">
+              <button
+                onClick={safeClose}
+                className="flex-1 rounded-xl border border-zinc-700 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-zinc-800"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleRetryPurchase}
+                className="flex-1 rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-sky-400"
+              >
+                Retry
+              </button>
             </div>
           </div>
         ) : step === "success" ? (

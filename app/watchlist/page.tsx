@@ -41,21 +41,24 @@ export default function WatchlistPage() {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      if (currentUser?.uid) {
-        const q = query(collection(db, "users", currentUser.uid, "watchlist"), orderBy("savedAt", "desc"));
-        const unsubWatch = onSnapshot(q, (snap) => {
-          const items = snap.docs.map((d) => ({ id: d.id, ...d.data() } as WatchlistItem));
-          setWatchlist(items);
-          try { localStorage.setItem("watchlist", JSON.stringify(items)); } catch (e) { console.error("Failed to save watchlist:", e); }
-          setLoading(false);
-        }, () => setLoading(false));
-        return () => unsubWatch();
-      } else {
+      if (!currentUser?.uid) {
         setLoading(false);
       }
     });
     return () => unsub();
   }, []);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    const q = query(collection(db, "users", user.uid, "watchlist"), orderBy("savedAt", "desc"));
+    const unsubWatch = onSnapshot(q, (snap) => {
+      const items = snap.docs.map((d) => ({ id: d.id, ...d.data() } as WatchlistItem));
+      setWatchlist(items);
+      try { localStorage.setItem("watchlist", JSON.stringify(items)); } catch (e) { console.error("Failed to save watchlist:", e); }
+      setLoading(false);
+    }, () => setLoading(false));
+    return () => unsubWatch();
+  }, [user?.uid]);
 
   // Fetch views & bidCount for watchlist items
   useEffect(() => {

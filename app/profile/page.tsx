@@ -19,6 +19,7 @@ import {
   orderBy,
   query,
   serverTimestamp,
+  runTransaction,
   setDoc,
   Timestamp,
   updateDoc,
@@ -451,51 +452,73 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
   // Save profile
   async function saveProfile() {
     if (!user) return;
-    if (!username.trim()) { showToast("Enter a username.", "error"); return; }
+    const newUsername = username.trim();
+    if (!newUsername) { showToast("Enter a username.", "error"); return; }
     try {
       setSaving("Saving...");
-      await setDoc(doc(db, "profiles", user.uid), {
-        username: sanitizeHtml(username.trim()),
-        displayName: sanitizeHtml(displayName.trim()),
-        bio: sanitizeHtml(bio.trim()),
-        region,
-        discord: sanitizeHtml(discord.trim()),
-        instagram: sanitizeHtml(instagram.trim()),
-        tiktok: sanitizeHtml(tiktok.trim()),
-        website: sanitizeHtml(website.trim()),
-        hideOnline,
-        isPublic,
-        showViews,
-        allowFollowers,
-        notifEmail,
-        notifMessages,
-        notifAlerts,
-        notifWatchlist,
-        notifOffers,
-        notifPriceDrop,
-        phone,
-        phoneVerified,
-        email: user.email,
-        memberSince: profile.memberSince || Timestamp.now(),
-        lastActive: Timestamp.now(),
-      }, { merge: true });
+      const sanitizedUsername = sanitizeHtml(newUsername);
+
+      await runTransaction(db, async (transaction) => {
+        const profileRef = doc(db, "profiles", user.uid);
+        const profileSnap = await transaction.get(profileRef);
+        const currentData = profileSnap.data() as ProfileData | undefined;
+
+        if (currentData?.username !== sanitizedUsername) {
+          const usernameRef = doc(db, "usernames", sanitizedUsername);
+          const usernameSnap = await transaction.get(usernameRef);
+          if (usernameSnap.exists()) {
+            throw new Error("Username already taken");
+          }
+          if (currentData?.username) {
+            transaction.delete(doc(db, "usernames", currentData.username));
+          }
+          transaction.set(usernameRef, { uid: user.uid });
+        }
+
+        transaction.set(profileRef, {
+          username: sanitizedUsername,
+          displayName: sanitizeHtml(displayName.trim()),
+          bio: sanitizeHtml(bio.trim()),
+          region,
+          discord: sanitizeHtml(discord.trim()),
+          instagram: sanitizeHtml(instagram.trim()),
+          tiktok: sanitizeHtml(tiktok.trim()),
+          website: sanitizeHtml(website.trim()),
+          hideOnline,
+          isPublic,
+          showViews,
+          allowFollowers,
+          notifEmail,
+          notifMessages,
+          notifAlerts,
+          notifWatchlist,
+          notifOffers,
+          notifPriceDrop,
+          phone,
+          phoneVerified,
+          email: user.email,
+          memberSince: currentData?.memberSince || Timestamp.now(),
+          lastActive: Timestamp.now(),
+        }, { merge: true });
+      });
 
       // Update sellerUsername on all listings
       try {
         const { getDocs, query, collection, where, writeBatch } = await import("firebase/firestore");
         const listingsSnap = await getDocs(query(collection(db, "listings"), where("sellerEmail", "==", user.email)));
         const batch = writeBatch(db);
-        listingsSnap.docs.forEach((doc_) => batch.update(doc_.ref, { sellerUsername: username.trim() }));
+        listingsSnap.docs.forEach((doc_) => batch.update(doc_.ref, { sellerUsername: newUsername }));
         const tradeSnap = await getDocs(query(collection(db, "tradePosts"), where("sellerEmail", "==", user.email)));
-        tradeSnap.docs.forEach((doc_) => batch.update(doc_.ref, { sellerUsername: username.trim() }));
+        tradeSnap.docs.forEach((doc_) => batch.update(doc_.ref, { sellerUsername: newUsername }));
         await batch.commit();
       } catch { showToast("Profile saved, but some listings could not be updated.", "info"); }
 
-      setContextUsername(username.trim());
-      setProfile((p) => ({ ...p, username: username.trim(), displayName: displayName.trim(), bio: bio.trim() }));
+      setContextUsername(newUsername);
+      setProfile((p) => ({ ...p, username: newUsername, displayName: displayName.trim(), bio: bio.trim() }));
       flashSaved();
-    } catch {
-      setSaving("Save failed");
+    } catch (e: any) {
+      setSaving(e?.message === "Username already taken" ? "Username taken" : "Save failed");
+      showToast(e?.message === "Username already taken" ? "Username already taken." : "Save failed", "error");
       setTimeout(() => setSaving(""), 2000);
     }
   }
@@ -807,7 +830,7 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
                   )}
                 </div>
                 <p className="mt-0.5 text-sm text-[var(--muted)]">@{username || "username"}</p>
-                <p className="text-xs text-[var(--muted)]">{user.email} · Joined {memberDate}</p>
+                <p className="text-xs text-[var(--muted)]">{user?.email} · Joined {memberDate}</p>
 
                 {/* Badges */}
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">

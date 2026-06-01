@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
 
     const idempotencyKey = `release-${purchaseId}`;
 
-    let transfer;
+    // Step 1: Verify purchase state atomically (read-only Firestore transaction)
     await getAdminDb().runTransaction(async (transaction) => {
       const purchaseTx = await transaction.get(getAdminDb().collection("purchases").doc(purchaseId));
       if (!purchaseTx.exists) {
@@ -138,23 +138,25 @@ export async function POST(req: NextRequest) {
       if (isDisputeActive(purchaseTxData.disputeStatus) && !isAdmin) {
         throw new Error("Funds frozen — dispute in progress");
       }
+    });
 
-      transfer = await getStripe().transfers.create(
-        {
-          amount,
-          currency: "nzd",
-          destination: sellerStripeAccountId,
-          metadata: { purchaseId, listingTitle: purchase.listingTitle },
-        },
-        { idempotencyKey }
-      );
+    // Step 2: Create Stripe transfer (outside transaction — point of no return)
+    const transfer = await getStripe().transfers.create(
+      {
+        amount,
+        currency: "nzd",
+        destination: sellerStripeAccountId,
+        metadata: { purchaseId, listingTitle: purchase.listingTitle },
+      },
+      { idempotencyKey }
+    );
 
-      transaction.update(getAdminDb().collection("purchases").doc(purchaseId), {
-        fundsReleased: true,
-        fundsReleasedAt: new Date(),
-        stripeTransferId: transfer.id,
-        status: "completed",
-      });
+    // Step 3: Update purchase record (outside transaction; idempotent re-attempt possible)
+    await getAdminDb().collection("purchases").doc(purchaseId).update({
+      fundsReleased: true,
+      fundsReleasedAt: new Date(),
+      stripeTransferId: transfer.id,
+      status: "completed",
     });
 
     await writeAuditLog({

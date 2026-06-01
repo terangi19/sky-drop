@@ -117,7 +117,14 @@ export default function Navbar() {
     function merge() {
       const dismissed = loadDismissed();
       const combined = [...msgItems, ...purchaseItems];
-      const filtered = combined.filter((n) => !dismissed.has(n.id));
+      const seen = new Set<string>();
+      const deduped = combined.filter((n) => {
+        const key = `${n.listingId}|${n.senderEmail}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      const filtered = deduped.filter((n) => !dismissed.has(n.id));
       filtered.sort((a, b) => {
         const ta = a.time === "Now" ? Date.now() : new Date(a.time).getTime();
         const tb = b.time === "Now" ? Date.now() : new Date(b.time).getTime();
@@ -163,7 +170,7 @@ export default function Navbar() {
       merge();
     }, (err) => { console.error("Msg notification error:", err); merge(); });
 
-    const purchaseQ = query(collection(db, "notifications"), where("targetEmail", "==", user.email));
+    const purchaseQ = query(collection(db, "notifications"), where("targetEmail", "==", user.email), limit(20));
     const unsub2 = onSnapshot(purchaseQ, (snap) => {
       purchaseItems.length = 0;
       const items = snap.docs.filter((d) => d.data().read === false).map((d) => ({ id: d.id, ...d.data() }) as Record<string, unknown>);
@@ -179,17 +186,17 @@ export default function Navbar() {
           senderEmail: fromEmail || "",
           listingTitle: (n.listingTitle as string) || "",
           listingId: listingId || "",
-          type: "purchase",
+          type: (n.type as string) || "purchase",
           time: createdAt?.toDate ? createdAt.toDate().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Now",
           href: `/messages?user=${encodeURIComponent(fromEmail || "")}&listing=${encodeURIComponent(listingId || "")}`,
           unread: true,
         });
       }
       merge();
-    }, (err) => console.error("Purchase notification error:", err));
+    }, (err) => { console.error("Purchase notification error:", err); merge(); });
 
     return () => { unsub1(); unsub2(); };
-  }, [user]);
+  }, [user?.email, user?.uid]);
 
   const msgCount = Math.max(0, notifications.filter((n) => n.type === "message" || n.type === "offer").length);
   const activityCount = Math.max(0, notifications.filter((n) => n.type !== "message" && n.type !== "offer").length);

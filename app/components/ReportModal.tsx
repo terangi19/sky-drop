@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, getDocs, query, where, orderBy, limit, serverTimestamp } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { showToast } from "./Toast";
 
@@ -60,6 +60,26 @@ export default function ReportModal({
 
     setSending(true);
     try {
+      // Server-side cooldown: check for recent report from this user for this target
+      const cooldownQuery = query(
+        collection(db, "reports"),
+        where("reporterUserId", "==", reporterUserId),
+        where("type", "==", type),
+        where(type === "listing" ? "listingId" : "reportedUserEmail", "==", type === "listing" ? targetId : targetUserEmail),
+        orderBy("createdAt", "desc"),
+        limit(1)
+      );
+      const recentSnap = await getDocs(cooldownQuery);
+      if (!recentSnap.empty) {
+        const lastReport = recentSnap.docs[0].data();
+        const lastTime = lastReport.createdAt?.toMillis?.();
+        if (lastTime && Date.now() - lastTime < 10 * 60 * 1000) {
+          showToast("Please wait before reporting again.", "info");
+          setSending(false);
+          return;
+        }
+      }
+
       await addDoc(collection(db, "reports"), {
         type,
         listingId: type === "listing" ? targetId : null,

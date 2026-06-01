@@ -70,6 +70,10 @@ export default function ListListPage() {
         setLoading(false);
         return merged;
       });
+    }, (error) => {
+      console.error(error);
+      if (!cancelled) setLoading(false);
+      showToast("Failed to load listings: " + error.message, "error");
     });
 
     const q2 = query(collection(db, "tradePosts"), where("sellerEmail", "==", user.email));
@@ -82,6 +86,10 @@ export default function ListListPage() {
         setLoading(false);
         return merged;
       });
+    }, (error) => {
+      console.error(error);
+      if (!cancelled) setLoading(false);
+      showToast("Failed to load trade posts: " + error.message, "error");
     });
 
     return () => { cancelled = true; unsub1(); unsub2(); };

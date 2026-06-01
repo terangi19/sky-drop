@@ -97,6 +97,11 @@ export default function ListingPage() {
           setListings(items as any);
 
           setLoading(false);
+        },
+        (error) => {
+          console.error(error);
+          setLoading(false);
+          showToast("Failed to load listings: " + error.message, "error");
         }
       );
 
@@ -128,6 +133,10 @@ export default function ListingPage() {
             );
 
           setFavorites(saved);
+        },
+        (error) => {
+          console.error(error);
+          showToast("Failed to load favorites: " + error.message, "error");
         }
       );
 
@@ -221,9 +230,9 @@ export default function ListingPage() {
 
     } catch (error) {
 
-      console.error(error);
+      console.error("Delete failed:", error);
 
-      showToast("Listing deleted.");
+      showToast("Failed to delete listing. Please try again.", "error");
 
     }
   }

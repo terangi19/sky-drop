@@ -30,6 +30,7 @@ import {
   onAuthStateChanged,
 } from "../lib/firebase";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { sanitizeListingContent } from "../lib/sanitize";
 import { detectScam } from "../lib/scamdetection";
 import { detectSuspiciousPrice } from "../lib/pricedetection";
 import { checkImage } from "../lib/nsfw";
@@ -159,7 +160,7 @@ export default function PostPage() {
                 profileSnap.exists()
               ) {
                 const data = profileSnap.data();
-                setRestricted(data.restricted === true);
+                setRestricted(data.restricted === true || data.restricted === "true");
 
               }
             } catch (error) {
@@ -266,6 +267,11 @@ export default function PostPage() {
     try {
       setLoading(true);
 
+      // Sanitize inputs before sending
+      const safeTitle = sanitizeListingContent(title);
+      const safeDescription = sanitizeListingContent(description);
+      const safeLocation = sanitizeListingContent(location);
+
       const images: string[] = [];
       setUploadProgress(0);
 
@@ -298,8 +304,8 @@ export default function PostPage() {
       }
 
       const listingData: any = listingType === "digital" ? {
-        title,
-        description,
+        title: safeTitle,
+        description: safeDescription,
         price: String(price),
         category,
         condition: "Digital",
@@ -317,8 +323,8 @@ export default function PostPage() {
         expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000),
         status: listingStatus,
       } : listingType === "service" ? {
-        title,
-        description,
+        title: safeTitle,
+        description: safeDescription,
         price: String(price),
         category,
         acceptOffers: true,
@@ -334,11 +340,11 @@ export default function PostPage() {
         expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000),
         status: "live",
       } : listingType === "rental" ? {
-        title,
-        description,
+        title: safeTitle,
+        description: safeDescription,
         price: String(price),
         category,
-        location,
+        location: safeLocation,
         condition,
         acceptOffers,
         images,
@@ -356,11 +362,11 @@ export default function PostPage() {
         saleType: "buy_now",
         expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000),
       } : listingType === "vehicle" ? {
-        title,
-        description,
+        title: safeTitle,
+        description: safeDescription,
         price: String(price),
         category,
-        location,
+        location: safeLocation,
         condition,
         acceptOffers,
         images,
@@ -395,11 +401,11 @@ export default function PostPage() {
         vehicleTransmission,
         vehicleColour,
       } : {
-        title,
-        description,
+        title: safeTitle,
+        description: safeDescription,
         price: String(price),
         category,
-        location,
+        location: safeLocation,
         condition,
         acceptOffers,
         images,
@@ -450,7 +456,7 @@ export default function PostPage() {
 
       if (listingType !== "digital") {
         createPendingXP(user.uid, "listing", data.listingId, data.listingId);
-        trackListingCreated(user.uid, title);
+        trackListingCreated(user.uid, safeTitle);
       }
 
       // Check Stripe Connect — warn but don't block listing creation

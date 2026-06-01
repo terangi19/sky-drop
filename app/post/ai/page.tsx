@@ -6,7 +6,7 @@ import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
 import ThemeToggle from "../../components/ThemeToggle";
 import { User } from "firebase/auth";
-import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, Timestamp, updateDoc, where } from "firebase/firestore";
+import { doc, getDoc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { auth, db, storage, onAuthStateChanged } from "../../lib/firebase";
 import { createPendingXP, trackListingCreated } from "../../lib/xpValidation";
@@ -494,7 +494,18 @@ export default function AIPostPage() {
 
       let newId = editId;
       if (editId) {
-        await updateDoc(doc(db, "listings", editId), listingData);
+        const token = await auth.currentUser?.getIdToken();
+        const res = await fetch("/api/update-listing", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
+          body: JSON.stringify({ listingId: editId, ...listingData, expiresInDays: expiresIn }),
+        });
+        const data = await res.json();
+        if (!data.success) {
+          showToast(data.error || "Failed to update listing", "error");
+          setLoading(false);
+          return;
+        }
         showToast("Listing updated!", "success");
       } else {
         const token = await auth.currentUser?.getIdToken();
