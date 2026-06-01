@@ -108,8 +108,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ clientSecret: paymentIntent.client_secret, paymentIntentId: paymentIntent.id });
   } catch (err: any) {
-    console.error("[create-payment-intent] Error:", err?.code || err?.message || err);
-    return NextResponse.json({ error: "Payment could not be processed. Please try again." }, { status: 500 });
+    const msg = err?.message || err?.code || err || "Payment could not be processed. Please try again.";
+    console.error("[create-payment-intent] Error:", msg);
+    return NextResponse.json({ error: process.env.NODE_ENV === "development" ? msg : "Payment could not be processed. Please try again." }, { status: 500 });
   }
 }
 

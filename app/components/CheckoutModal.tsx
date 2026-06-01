@@ -334,20 +334,22 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
           collectionName,
         }),
       });
-      const data = await res.json();
+      let data: any;
+      try { data = await res.json(); } catch { data = {}; }
       if (data.clientSecret) {
         setClientSecret(data.clientSecret);
         setPaymentIntentId(data.paymentIntentId || "");
       } else {
-        setIntentError(data.error || "Payment initialization failed. Please try again.");
+        setIntentError(data.error || `Server returned ${res.status} ${res.statusText}`);
         setStep("form");
       }
     } catch (e: any) {
+      console.error("[CheckoutModal] create-payment-intent error:", e);
       const txErrors = ["already sold", "expired", "out of stock", "Someone else", "not found", "bid amount", "highest bidder"];
       if (txErrors.some((msg) => e.message?.includes(msg))) {
         setIntentError(e.message);
       } else {
-        setIntentError("Could not connect to payment server. Please try again.");
+        setIntentError(e.message || "Could not connect to payment server. Please try again.");
       }
       setStep("form");
     }
