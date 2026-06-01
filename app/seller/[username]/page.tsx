@@ -198,14 +198,13 @@ export default function SellerPage() {
   async function toggleFollow() {
     if (!currentUser?.uid || !sellerUid) return;
     if (currentUser.uid === sellerUid) return;
+    const newFollowing = !following;
+    setFollowing(newFollowing);
     setFollowLoading(true);
     try {
       const ref = doc(db, "followers", `${sellerUid}_${currentUser.uid}`);
       const profileRef = doc(db, "profiles", sellerUid);
-      if (following) {
-        await deleteDoc(ref);
-        await updateDoc(profileRef, { followers: increment(-1) });
-      } else {
+      if (newFollowing) {
         await setDoc(ref, {
           sellerId: sellerUid,
           followerId: currentUser.uid,
@@ -214,8 +213,14 @@ export default function SellerPage() {
           createdAt: Timestamp.now(),
         });
         await updateDoc(profileRef, { followers: increment(1) });
+      } else {
+        await deleteDoc(ref);
+        await updateDoc(profileRef, { followers: increment(-1) });
       }
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      setFollowing(!newFollowing);
+      console.error(e);
+    }
     setFollowLoading(false);
   }
 
