@@ -458,38 +458,36 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
       setSaving("Saving...");
       const sanitizedUsername = sanitizeHtml(newUsername);
 
-      // Step 1: Update the profile doc (this always works — no usernames collection dependency)
-      await runTransaction(db, async (transaction) => {
-        const profileRef = doc(db, "profiles", user.uid);
-        const profileSnap = await transaction.get(profileRef);
-        const currentData = profileSnap.data() as ProfileData | undefined;
+      // Step 1: Read current profile and update it
+      const profileRef = doc(db, "profiles", user.uid);
+      const profileSnap = await getDoc(profileRef);
+      const currentData = profileSnap.data() as ProfileData | undefined;
 
-        transaction.set(profileRef, {
-          username: sanitizedUsername,
-          displayName: sanitizeHtml(displayName.trim()),
-          bio: sanitizeHtml(bio.trim()),
-          region,
-          discord: sanitizeHtml(discord.trim()),
-          instagram: sanitizeHtml(instagram.trim()),
-          tiktok: sanitizeHtml(tiktok.trim()),
-          website: sanitizeHtml(website.trim()),
-          hideOnline,
-          isPublic,
-          showViews,
-          allowFollowers,
-          notifEmail,
-          notifMessages,
-          notifAlerts,
-          notifWatchlist,
-          notifOffers,
-          notifPriceDrop,
-          phone,
-          phoneVerified,
-          email: user.email,
-          memberSince: currentData?.memberSince || Timestamp.now(),
-          lastActive: Timestamp.now(),
-        }, { merge: true });
-      });
+      await setDoc(profileRef, {
+        username: sanitizedUsername,
+        displayName: sanitizeHtml(displayName.trim()),
+        bio: sanitizeHtml(bio.trim()),
+        region,
+        discord: sanitizeHtml(discord.trim()),
+        instagram: sanitizeHtml(instagram.trim()),
+        tiktok: sanitizeHtml(tiktok.trim()),
+        website: sanitizeHtml(website.trim()),
+        hideOnline,
+        isPublic,
+        showViews,
+        allowFollowers,
+        notifEmail,
+        notifMessages,
+        notifAlerts,
+        notifWatchlist,
+        notifOffers,
+        notifPriceDrop,
+        phone,
+        phoneVerified,
+        email: user.email,
+        memberSince: currentData?.memberSince || Timestamp.now(),
+        lastActive: Timestamp.now(),
+      }, { merge: true });
 
       // Step 2: Best-effort username reservation (may fail if usernames collection rules not deployed)
       if (sanitizedUsername) {
