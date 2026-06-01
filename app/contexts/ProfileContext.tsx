@@ -24,7 +24,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         try {
           const profileSnap = await getDoc(doc(db, "profiles", user.uid));
           if (profileSnap.exists()) {
-            setUsername(profileSnap.data().username || "");
+            setUsername(profileSnap.data().username || user.displayName || user.email?.split("@")[0] || "");
           }
         } catch (error) {
           console.error(error);

@@ -99,6 +99,7 @@ export default function AuthPage() {
           const code = Math.random().toString(36).substring(2, 8).toUpperCase();
           const profileData: Record<string, any> = {
             email: user.email,
+            username: user.email?.split("@")[0] || "",
             phone: phone.trim() || "",
             phoneVerified: false,
             referralCode: code,
