@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "../../lib/stripe-server";
-import { verifyIdToken, getAdminDb } from "../../lib/firebase-admin";
+import { verifyIdToken, getServerDb } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import { isAdminEmail, writeAuditLog } from "../../lib/admin-utils";
 import { notifyAdmin } from "../../lib/admin-alerts";
@@ -25,6 +25,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
     }
 
+    const db = getServerDb(idToken);
+
     const body = await req.json();
     const { action } = body;
 
@@ -34,7 +36,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Missing payment intent ID or purchase ID" }, { status: 400 });
       }
 
-      const purchaseDoc = await getAdminDb().collection("purchases").doc(purchaseId).get();
+      const purchaseDoc = await db.collection("purchases").doc(purchaseId).get();
       if (!purchaseDoc.exists) {
         return NextResponse.json({ error: "Purchase not found" }, { status: 404 });
       }
@@ -57,7 +59,7 @@ export async function POST(req: NextRequest) {
         metadata: { purchaseId, reason: reason || "Dispute resolved in buyer's favor" },
       });
 
-      await getAdminDb().collection("purchases").doc(purchaseId).update({
+      await db.collection("purchases").doc(purchaseId).update({
         status: "refunded",
         refundedAt: new Date(),
         refundId: refund.id,
@@ -78,7 +80,6 @@ export async function POST(req: NextRequest) {
         metadata: { purchaseId, refundId: refund.id, reason, amount: refundAmount },
       });
 
-      const db = getAdminDb();
       const now = new Date();
       for (const email of [purchaseData.buyerEmail, purchaseData.sellerEmail]) {
         await db.collection("notifications").add({
@@ -108,7 +109,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Admin only" }, { status: 403 });
       }
 
-      const purchaseDoc = await getAdminDb().collection("purchases").doc(purchaseId).get();
+      const purchaseDoc = await db.collection("purchases").doc(purchaseId).get();
       if (!purchaseDoc.exists) {
         return NextResponse.json({ error: "Purchase not found" }, { status: 404 });
       }
@@ -119,7 +120,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Look up seller's Stripe Connect account
-      const sellerProfileDocs = await getAdminDb().collection("profiles").where("email", "==", purchaseData.sellerEmail).limit(1).get();
+      const sellerProfileDocs = await db.collection("profiles").where("email", "==", purchaseData.sellerEmail).limit(1).get();
       const sellerProfile = sellerProfileDocs.docs[0]?.data();
       const sellerStripeAccountId = sellerProfile?.stripeAccountId;
       if (!sellerStripeAccountId) {
@@ -146,7 +147,7 @@ export async function POST(req: NextRequest) {
         { idempotencyKey }
       );
 
-      await getAdminDb().collection("purchases").doc(purchaseId).update({
+      await db.collection("purchases").doc(purchaseId).update({
         fundsReleased: true,
         fundsReleasedAt: new Date(),
         stripeTransferId: transfer.id,
@@ -171,7 +172,7 @@ export async function POST(req: NextRequest) {
         metadata: { purchaseId, transferId: transfer.id, amount: Math.round(amount / 100) },
       });
 
-      const db2 = getAdminDb();
+      const db2 = db;
       const now2 = new Date();
       for (const email of [purchaseData.buyerEmail, purchaseData.sellerEmail]) {
         await db2.collection("notifications").add({

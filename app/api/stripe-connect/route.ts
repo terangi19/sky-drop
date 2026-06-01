@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "../../lib/stripe-server";
-import { verifyIdToken, getAdminDb } from "../../lib/firebase-admin";
+import { verifyIdToken, getServerDb } from "../../lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { rateLimit } from "../../lib/rate-limit";
 
@@ -28,9 +28,11 @@ export async function POST(req: NextRequest) {
     const { action, accountId, email, amount } = body;
     const s = getStripe();
 
+    const db = getServerDb(idToken);
+
     if (action === "create") {
       // Deduplicate: if profile already has a Stripe account, return existing
-      const existingProfile = await getAdminDb().collection("profiles").doc(decodedToken.uid).get();
+      const existingProfile = await db.collection("profiles").doc(decodedToken.uid).get();
       const existingAccountId = existingProfile.data()?.stripeAccountId;
       if (existingAccountId) {
         return NextResponse.json({ accountId: existingAccountId });
@@ -42,7 +44,7 @@ export async function POST(req: NextRequest) {
         capabilities: { transfers: { requested: true } },
       });
 
-      await getAdminDb().collection("profiles").doc(decodedToken.uid).set({
+      await db.collection("profiles").doc(decodedToken.uid).set({
         stripeAccountId: account.id,
         stripeConnectOnboarded: false,
       }, { merge: true });
@@ -51,7 +53,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "onboard") {
-      const profileDoc = await getAdminDb().collection("profiles").doc(decodedToken.uid).get();
+      const profileDoc = await db.collection("profiles").doc(decodedToken.uid).get();
         if (!profileDoc.exists || profileDoc.data()!.stripeAccountId !== accountId) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
       }
@@ -66,10 +68,10 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "withdraw") {
-      const profileRef = getAdminDb().collection("profiles").doc(decodedToken.uid);
+      const profileRef = db.collection("profiles").doc(decodedToken.uid);
       let withdrawAmount: number;
 
-      await getAdminDb().runTransaction(async (transaction) => {
+      await db.runTransaction(async (transaction) => {
         const profileDoc = await transaction.get(profileRef);
       if (!profileDoc.exists || profileDoc.data()!.stripeAccountId !== accountId) {
           throw new Error("Unauthorized");

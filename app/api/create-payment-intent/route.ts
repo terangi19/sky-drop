@@ -1,46 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "../../lib/stripe-server";
-import { verifyIdToken, getAdminDb, isAdminInitialized } from "../../lib/firebase-admin";
+import { verifyIdToken, getServerDb, isAdminInitialized } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 
 async function readListing(listingId: string, idToken: string) {
-  if (isAdminInitialized()) {
-    const doc = await getAdminDb().collection("listings").doc(listingId).get();
-    if (!doc.exists) return null;
-    return doc.data();
-  }
-  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "sky-drop-de459";
-  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/listings/${listingId}`;
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${idToken}` },
-  });
-  if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`Firestore error: ${res.status}`);
-  const body = await res.json();
-  if (!body.fields) return null;
-  const obj: Record<string, any> = {};
-  for (const [k, v] of Object.entries(body.fields)) {
-    obj[k] = convertFirestoreValue(v as any);
-  }
-  return obj;
-}
-
-function convertFirestoreValue(val: any): any {
-  if (val === null || val === undefined) return null;
-  if (val.stringValue !== undefined) return val.stringValue;
-  if (val.doubleValue !== undefined) return val.doubleValue;
-  if (val.integerValue !== undefined) return Number(val.integerValue);
-  if (val.timestampValue) return new Date(val.timestampValue);
-  if (val.nullValue !== undefined) return null;
-  if (val.arrayValue?.values) return val.arrayValue.values.map(convertFirestoreValue);
-  if (val.mapValue?.fields) {
-    const result: Record<string, any> = {};
-    for (const [k, v] of Object.entries(val.mapValue.fields)) {
-      result[k] = convertFirestoreValue(v);
-    }
-    return result;
-  }
-  return val;
+  const db = getServerDb(idToken);
+  const doc = await db.collection("listings").doc(listingId).get();
+  if (!doc.exists) return null;
+  return doc.data();
 }
 
 export async function POST(req: NextRequest) {
@@ -110,8 +77,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Seller trust check
+    const db = getServerDb(idToken);
     if (isAdminInitialized()) {
-      const sellerProfiles = await getAdminDb().collection("profiles").where("email", "==", listingData.sellerEmail).limit(1).get();
+      const sellerProfiles = await db.collection("profiles").where("email", "==", listingData.sellerEmail).limit(1).get();
       if (!sellerProfiles.empty) {
         const sellerProfile = sellerProfiles.docs[0].data();
         if (sellerProfile.restricted) {

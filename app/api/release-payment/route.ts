@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "../../lib/stripe-server";
-import { verifyIdToken, getAdminDb } from "../../lib/firebase-admin";
+import { verifyIdToken, getServerDb } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import { isAdminEmail, writeAuditLog } from "../../lib/admin-utils";
 import { notifyAdmin, writeFailureRecord } from "../../lib/admin-alerts";
@@ -37,13 +37,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
     }
 
+    const db = getServerDb(idToken);
+
     const body = await req.json();
     purchaseId = body.purchaseId;
     if (!purchaseId) {
       return NextResponse.json({ error: "Missing purchaseId" }, { status: 400 });
     }
 
-    const purchaseDoc = await getAdminDb().collection("purchases").doc(purchaseId).get();
+    const purchaseDoc = await db.collection("purchases").doc(purchaseId).get();
     if (!purchaseDoc.exists) {
       return NextResponse.json({ error: "Purchase not found" }, { status: 404 });
     }
@@ -89,7 +91,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Double-check no dispute was opened since the start of this request
-      const freshDoc = await getAdminDb().collection("purchases").doc(purchaseId).get();
+      const freshDoc = await db.collection("purchases").doc(purchaseId).get();
       const freshData = freshDoc.data()!;
       if (isDisputeActive(freshData.disputeStatus)) {
         return NextResponse.json({ error: "Cannot release — dispute in progress" }, { status: 400 });
@@ -109,11 +111,11 @@ export async function POST(req: NextRequest) {
     // Admin always pays to the seller; seller uses own account; buyer pays to seller
     let sellerStripeAccountId: string | undefined;
     if (isAdmin || isBuyer) {
-      const sellerProfileDocs = await getAdminDb().collection("profiles").where("email", "==", purchase.sellerEmail).limit(1).get();
+      const sellerProfileDocs = await db.collection("profiles").where("email", "==", purchase.sellerEmail).limit(1).get();
       const sellerProfile = sellerProfileDocs.docs[0]?.data();
       sellerStripeAccountId = sellerProfile?.stripeAccountId;
     } else {
-      const profileDoc = await getAdminDb().collection("profiles").doc(decodedToken.uid).get();
+      const profileDoc = await db.collection("profiles").doc(decodedToken.uid).get();
       sellerStripeAccountId = profileDoc.data()?.stripeAccountId;
     }
     if (!sellerStripeAccountId) {
@@ -123,8 +125,8 @@ export async function POST(req: NextRequest) {
     const idempotencyKey = `release-${purchaseId}`;
 
     // Step 1: Verify purchase state atomically (read-only Firestore transaction)
-    await getAdminDb().runTransaction(async (transaction) => {
-      const purchaseTx = await transaction.get(getAdminDb().collection("purchases").doc(purchaseId));
+    await db.runTransaction(async (transaction) => {
+      const purchaseTx = await transaction.get(db.collection("purchases").doc(purchaseId));
       if (!purchaseTx.exists) {
         throw new Error("Purchase not found");
       }
@@ -155,7 +157,7 @@ export async function POST(req: NextRequest) {
     let updated = false;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        await getAdminDb().collection("purchases").doc(purchaseId).update({
+        await db.collection("purchases").doc(purchaseId).update({
           fundsReleased: true,
           fundsReleasedAt: new Date(),
           stripeTransferId: transfer.id,

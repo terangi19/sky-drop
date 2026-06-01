@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken, getAdminDb, isAdminInitialized } from "../../../lib/firebase-admin";
+import { verifyIdToken, getServerDb, isAdminInitialized } from "../../../lib/firebase-admin";
 import { isAdminEmail } from "../../../lib/admin-utils";
 
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -44,10 +44,9 @@ export async function POST(req: NextRequest) {
     // Check membership in the admin-users Firestore collection
     let dbAdmin = false;
     try {
-      if (isAdminInitialized()) {
-        const adminDoc = await getAdminDb().collection("admin-users").doc(uid).get();
-        dbAdmin = adminDoc.exists && adminDoc.data()?.role === "admin";
-      }
+      const db2 = getServerDb(idToken);
+      const adminDoc = await db2.collection("admin-users").doc(uid).get();
+      dbAdmin = adminDoc.exists && adminDoc.data()?.role === "admin";
     } catch {}
 
     if (!isAdminEmail(email) && !dbAdmin) {
