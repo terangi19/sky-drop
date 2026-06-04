@@ -742,8 +742,8 @@ export default function Home() {
 
       {/* HERO / SEARCH SECTION */}
       <section className="relative z-10 mx-auto max-w-[1920px] px-4 pt-6">
-        <div className="relative rounded-3xl border border-white/[0.04] bg-gradient-to-b from-white/[0.04] via-transparent to-transparent shadow-[0_0_150px_-20px_rgba(14,165,233,0.12)]">
-          <div className="absolute inset-0 overflow-hidden rounded-3xl bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(14,165,233,0.12),transparent)] pointer-events-none" />
+        <div className="relative overflow-hidden rounded-3xl border border-white/[0.04] bg-gradient-to-b from-white/[0.04] via-transparent to-transparent shadow-[0_0_150px_-20px_rgba(14,165,233,0.12)]">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(14,165,233,0.12),transparent)] pointer-events-none" />
 
           {/* LIVE BAR */}
           <div className="relative flex items-center justify-center px-6 py-2.5 text-[12px] text-[var(--muted)] border-b border-white/[0.04]">
@@ -763,22 +763,66 @@ export default function Home() {
             })()}
           </div>
 
-          {/* Sticky welcome + search (sits below main navbar) */}
-          <div className="sticky top-16 md:top-24 z-40 border-b border-white/[0.06] bg-[var(--background)]/90 backdrop-blur-xl shadow-[0_12px_40px_-20px_rgba(0,0,0,0.65)]">
-            <div className="relative px-6 py-5 sm:px-10 sm:py-6">
-              <div className="mx-auto max-w-3xl text-center">
-                <div className="inline-flex items-center gap-2 rounded-full border border-sky-400/30 bg-sky-500/[0.07] px-3 py-1 text-[10px] font-bold text-sky-300 mb-3 tracking-wider uppercase backdrop-blur-sm ring-1 ring-sky-400/10 sm:mb-4 sm:px-4 sm:py-1.5 sm:text-[11px]">
-                  NZ Marketplace
-                </div>
-                <h1 className="text-2xl font-black tracking-tight sm:text-4xl lg:text-5xl leading-none">
-                  <span className="bg-gradient-to-r from-white via-sky-200 to-white bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(56,189,248,0.25)]">
-                    Welcome to Sky Drop
-                  </span>
-                </h1>
+          <div className="relative px-6 py-10 sm:px-10 sm:py-12 overflow-hidden">
+            <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+              <div className="parachute-scene">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 240" className="w-56 h-72 md:w-72 md:h-96 opacity-[0.05]">
+                  <defs>
+                    <linearGradient id="canopyGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.8" />
+                      <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.2" />
+                    </linearGradient>
+                    <linearGradient id="boxGrad" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.6" />
+                      <stop offset="100%" stopColor="#7dd3fc" stopOpacity="0.2" />
+                    </linearGradient>
+                  </defs>
+                  <g className="canopy-group">
+                    <path d="M100 5 C50 5, 10 25, 5 55 L195 55 C190 25, 150 5, 100 5Z" fill="url(#canopyGrad)" stroke="#38bdf8" strokeWidth="1.8" strokeLinejoin="round" className="canopy" />
+                    <path d="M55 55 C60 40, 75 28, 100 28" stroke="#7dd3fc" strokeWidth="0.8" opacity="0.4" fill="none" />
+                    <path d="M145 55 C140 40, 125 28, 100 28" stroke="#7dd3fc" strokeWidth="0.8" opacity="0.4" fill="none" />
+                    <path d="M80 55 C82 42, 90 32, 100 32" stroke="#7dd3fc" strokeWidth="0.6" opacity="0.3" fill="none" />
+                    <path d="M120 55 C118 42, 110 32, 100 32" stroke="#7dd3fc" strokeWidth="0.6" opacity="0.3" fill="none" />
+                  </g>
+                  <g className="lines-group">
+                    <line x1="15" y1="55" x2="55" y2="140" stroke="#38bdf8" strokeWidth="0.8" opacity="0.35" className="line-l" />
+                    <line x1="185" y1="55" x2="145" y2="140" stroke="#38bdf8" strokeWidth="0.8" opacity="0.35" className="line-r" />
+                    <line x1="55" y1="55" x2="80" y2="140" stroke="#38bdf8" strokeWidth="0.6" opacity="0.25" className="line-ml" />
+                    <line x1="145" y1="55" x2="120" y2="140" stroke="#38bdf8" strokeWidth="0.6" opacity="0.25" className="line-mr" />
+                    <line x1="100" y1="55" x2="100" y2="140" stroke="#38bdf8" strokeWidth="0.6" opacity="0.25" className="line-c" />
+                  </g>
+                  <g className="box-group">
+                    <rect x="62" y="140" width="76" height="50" rx="5" fill="url(#boxGrad)" stroke="#38bdf8" strokeWidth="2" strokeLinejoin="round" className="box" />
+                    <line x1="65" y1="158" x2="135" y2="158" stroke="#38bdf8" strokeWidth="1.2" opacity="0.4" />
+                    <line x1="65" y1="175" x2="120" y2="175" stroke="#38bdf8" strokeWidth="0.8" opacity="0.2" />
+                    <path d="M135 155 L145 148" stroke="#38bdf8" strokeWidth="1.2" opacity="0.5" strokeLinecap="round" />
+                    <path d="M135 165 L148 160" stroke="#38bdf8" strokeWidth="0.8" opacity="0.3" strokeLinecap="round" />
+                  </g>
+                  <g className="glow-group">
+                    <ellipse cx="100" cy="200" rx="60" ry="8" fill="#38bdf8" opacity="0.08" className="shadow" />
+                  </g>
+                </svg>
               </div>
+            </div>
+            <style>{`@keyframes dropIn { 0% { transform: translateY(-180px) scale(1.3); opacity: 0; } 20% { transform: translateY(10px) scale(0.98); opacity: 1; } 35% { transform: translateY(-15px) scale(1.02); } 50% { transform: translateY(5px) scale(0.99); } 65% { transform: translateY(-5px) scale(1.01); } 80% { transform: translateY(2px) scale(1); } 100% { transform: translateY(0) scale(1); } } @keyframes sway { 0%,100% { transform: translateX(0) rotate(0deg); } 25% { transform: translateX(3px) rotate(0.5deg); } 50% { transform: translateX(-2px) rotate(-0.3deg); } 75% { transform: translateX(2px) rotate(0.4deg); } } @keyframes floatGlow { 0%,100% { opacity: 0.08; transform: scaleX(1); } 50% { opacity: 0.15; transform: scaleX(1.2); } } .parachute-scene { animation: dropIn 5s cubic-bezier(0.22, 1, 0.36, 1) forwards; } .parachute-scene:hover .canopy-group { animation: sway 4s ease-in-out infinite; } .parachute-scene .glow-group { animation: floatGlow 3s ease-in-out infinite; }`}</style>
+            <div className="mx-auto max-w-3xl text-center">
+              <div className="inline-flex items-center gap-2 rounded-full border border-sky-400/30 bg-sky-500/[0.07] px-4 py-1.5 text-[11px] font-bold text-sky-300 mb-6 tracking-wider uppercase backdrop-blur-sm shadow-[0_0_20px_rgba(56,189,248,0.15)] ring-1 ring-sky-400/10">
+                NZ Marketplace
+              </div>
+              <h1 className="text-4xl font-black tracking-tight sm:text-5xl lg:text-6xl leading-none">
+                <span className="bg-gradient-to-r from-white via-sky-200 to-white bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(56,189,248,0.25)]">
+                  Welcome to Sky Drop
+                </span>
+              </h1>
+              <p className="mt-4 max-w-xl mx-auto text-sm leading-relaxed text-zinc-400">
+                {user
+                  ? "Manage your listings, connect with buyers, and trade across New Zealand."
+                  : "Free listings, Stripe Checkout or Arrange Purchase, live trade feeds, and a community marketplace built for New Zealand."}
+              </p>
+            </div>
 
             {/* SEARCH */}
-            <div className="mx-auto mt-5 max-w-xl sm:mt-6">
+            <div className="mx-auto mt-8 max-w-xl">
               <div className="group relative">
                 <div className="absolute -inset-1 rounded-xl bg-gradient-to-r from-sky-500/40 via-violet-500/40 to-sky-500/40 opacity-0 blur-lg transition duration-500 group-focus-within:opacity-100" />
                 <div className="relative flex items-center rounded-xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-sm ring-0 transition-all duration-300 focus-within:ring-2 focus-within:ring-sky-500/30 focus-within:border-sky-500/40">
@@ -821,18 +865,9 @@ export default function Home() {
                 </div>
               </div>
             </div>
-            </div>
-          </div>
-
-          <div className="relative px-6 py-8 sm:px-10 sm:py-10">
-            <p className="mx-auto max-w-xl text-center text-sm leading-relaxed text-zinc-400">
-              {user
-                ? "Manage your listings, connect with buyers, and trade across New Zealand."
-                : "Free listings, Stripe Checkout or Arrange Purchase, live trade feeds, and a community marketplace built for New Zealand."}
-            </p>
 
             {/* BROWSE CATEGORIES */}
-            <p className="mt-8 mb-3 text-center text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500 sm:mt-10">Browse Categories</p>
+            <p className="mt-10 mb-3 text-center text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Browse Categories</p>
             <div className="mt-0">
               <div className="flex flex-wrap justify-center gap-3">
                 <button

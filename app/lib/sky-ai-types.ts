@@ -6,6 +6,14 @@ export type SkyAiListingContext = {
   price?: string;
   listingType?: string;
   location?: string;
+  vehicleMake?: string;
+  vehicleModel?: string;
+  vehicleYear?: string;
+  vehicleOdometer?: string;
+  vehicleColour?: string;
+  vehicleBodyType?: string;
+  vehicleFuelType?: string;
+  vehicleTransmission?: string;
 };
 
 export type SkyAiHistoryItem = {

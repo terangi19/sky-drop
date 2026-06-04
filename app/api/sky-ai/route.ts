@@ -93,23 +93,69 @@ function parseListingContext(body: unknown): SkyAiListingContext | null {
     price: pick("price"),
     listingType: pick("listingType"),
     location: pick("location"),
+    vehicleMake: pick("vehicleMake"),
+    vehicleModel: pick("vehicleModel"),
+    vehicleYear: pick("vehicleYear"),
+    vehicleOdometer: pick("vehicleOdometer"),
+    vehicleColour: pick("vehicleColour"),
+    vehicleBodyType: pick("vehicleBodyType"),
+    vehicleFuelType: pick("vehicleFuelType"),
+    vehicleTransmission: pick("vehicleTransmission"),
   };
   return Object.values(draft).some(Boolean) ? draft : null;
+}
+
+const MAX_SKY_AI_IMAGES = 4;
+
+function parseSkyAiImages(body: unknown): string[] {
+  if (!Array.isArray(body)) return [];
+  const out: string[] = [];
+  for (const item of body) {
+    if (typeof item !== "string") continue;
+    const s = item.trim();
+    if (!s.startsWith("data:image/")) continue;
+    if (s.length > 6_500_000) continue;
+    out.push(s);
+    if (out.length >= MAX_SKY_AI_IMAGES) break;
+  }
+  return out;
 }
 
 function buildMessages(
   message: string,
   pathname: string,
   history: SkyAiHistoryItem[],
-  listingContext: SkyAiListingContext | null
+  listingContext: SkyAiListingContext | null,
+  images: string[]
 ): OpenAI.Chat.ChatCompletionMessageParam[] {
+  const userContent: OpenAI.Chat.ChatCompletionMessageParam["content"] =
+    images.length > 0
+      ? [
+          {
+            type: "text",
+            text:
+              message ||
+              "The user uploaded product photo(s) for their Sky Drop listing. Describe what you see and fill the sell form with LISTING_FILL.",
+          },
+          ...images.map((url) => ({
+            type: "image_url" as const,
+            image_url: { url, detail: "low" as const },
+          })),
+        ]
+      : message;
+
   return [
-    { role: "system", content: buildSkyAiSystemPrompt(pathname, listingContext) },
+    {
+      role: "system",
+      content: buildSkyAiSystemPrompt(pathname, listingContext, {
+        hasImages: images.length > 0,
+      }),
+    },
     ...history.map((h) => ({
       role: h.role as "user" | "assistant",
       content: h.content,
     })),
-    { role: "user", content: message },
+    { role: "user", content: userContent },
   ];
 }
 
@@ -141,9 +187,13 @@ export async function POST(req: NextRequest) {
     let conversationId =
       typeof body.conversationId === "string" ? body.conversationId.trim() : "";
     const listingContext = parseListingContext(body.listingContext);
+    const images = parseSkyAiImages(body.images);
 
-    if (!message || message.length > 4000) {
-      return NextResponse.json({ error: "Message required (max 4000 chars)" }, { status: 400 });
+    if ((!message && images.length === 0) || message.length > 4000) {
+      return NextResponse.json(
+        { error: "Message or image required (max 4000 chars)" },
+        { status: 400 }
+      );
     }
 
     let history: SkyAiHistoryItem[] = [];
@@ -243,7 +293,7 @@ export async function POST(req: NextRequest) {
 
     const openai = new OpenAI({ apiKey });
     const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
-    const messages = buildMessages(message, pathname, history, listingContext);
+    const messages = buildMessages(message, pathname, history, listingContext, images);
 
     if (stream) {
       let completion;

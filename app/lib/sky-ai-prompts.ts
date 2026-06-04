@@ -1,6 +1,19 @@
+/** Shown on Quick Post (/post/ai) — listing-focused shortcuts */
+export const SKY_AI_SELL_QUICK_PROMPTS: { label: string; query: string }[] = [
+  { label: "Create listing", query: "Create my listing for me — fill title, description, price and open the sell page" },
+  { label: "List a service", query: "Help me list a service on Sky Drop — fill the sell form with listingType service" },
+  { label: "Sell digital", query: "Help me list a digital product on Sky Drop — fill the sell form with listingType digital" },
+  { label: "List rental", query: "Help me list something for rent on Sky Drop — fill rental rates and location" },
+  { label: "Improve description", query: "Improve my listing title and description" },
+  { label: "Price estimate", query: "Suggest a fair NZD price range for my item" },
+];
+
 export const SKY_AI_QUICK_PROMPTS: { label: string; query: string }[] = [
   { label: "What can you do?", query: "What can you do?" },
   { label: "Create listing", query: "Create my listing for me — fill title, description, price and open the sell page" },
+  { label: "List a service", query: "Help me list a service on Sky Drop — fill the sell form with listingType service" },
+  { label: "Sell digital", query: "Help me list a digital product on Sky Drop — fill the sell form with listingType digital" },
+  { label: "List rental", query: "Help me list something for rent on Sky Drop — fill rental rates and location" },
   { label: "Improve description", query: "Improve my listing title and description" },
   { label: "Price estimate", query: "Suggest a fair NZD price range for my item" },
   { label: "Safety tips", query: "Safety tips for buying and selling on Sky Drop" },
@@ -8,7 +21,11 @@ export const SKY_AI_QUICK_PROMPTS: { label: string; query: string }[] = [
 ];
 
 export const SKY_AI_WELCOME =
-  "Kia ora — I'm **Sky AI**, your assistant on Sky Drop.\n\nI know the platform end to end — listings, Stripe vs Arrange Purchase, Messages, disputes, and every main page.\n\nAsk anything — or tap **What can you do?**";
+  "Kia ora — I'm **Sky AI**, your assistant on Sky Drop.\n\nYou can list **physical items, digital downloads, services, rentals, and vehicles** — I can fill the Sell form for you.\n\nAsk anything — or tap **What can you do?**";
+
+/** First message when opening Sky AI on Quick Post (/post/ai) */
+export const SKY_AI_SELL_WELCOME =
+  "Kia ora — my name is **Sky** and I'm here to help u list ur product. Tell me every detail, or tap 📷 to send photos — I'll add them to your listing and fill the form for u 🙂";
 
 /** User is asking what the assistant can do — not requesting navigation. */
 export function isSkyAiGeneralQuestion(message: string): boolean {
@@ -29,10 +46,16 @@ export function isSkyAiGeneralQuestion(message: string): boolean {
 export function skyAiCapabilitiesReply(): string {
   return `Here's what I know and can do on **Sky Drop**:
 
-**Listings**
-• **Auto-fill** your Sell form (title, description, price, category, vehicle fields)
+**You can list**
+• **Physical** items (ship or pickup)
+• **Digital** products — templates, ebooks, art, software (/digital)
+• **Services** — design, writing, video, coaching (/services)
+• **Rentals** — gear, tools, vehicles by the day (/rentals)
+• **Vehicles** for sale
+
+**Sky AI**
+• **Auto-fill** Sell — including digital, service, and rental listings
 • Improve copy and suggest fair **NZD** prices
-• Explain listing types: physical, digital, services, vehicles, rentals, jobs, events, property
 
 **Payments & orders**
 • **Stripe Checkout** vs **Arrange Purchase** (bank transfer in Messages)

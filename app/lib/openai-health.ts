@@ -20,8 +20,19 @@ export type OpenAiHealth = {
   model: string;
 };
 
-let cache: { at: number; result: OpenAiHealth } | null = null;
-const CACHE_MS = 60_000;
+let successCache: { at: number; result: OpenAiHealth } | null = null;
+let failureCache: { at: number; result: OpenAiHealth } | null = null;
+const SUCCESS_CACHE_MS = 5 * 60_000;
+const FAILURE_CACHE_MS = 20_000;
+const OPENAI_PING_TIMEOUT_MS = 12_000;
+
+export function isCriticalOpenAiIssue(issue: OpenAiHealthIssue | undefined): boolean {
+  return (
+    issue === "not_configured" ||
+    issue === "auth_failed" ||
+    issue === "quota_exceeded"
+  );
+}
 
 /** Rule-based reply when OpenAI is unavailable — avoid useless generic one-liner. */
 export function skyAiRuleFallbackText(
@@ -47,20 +58,24 @@ export async function checkOpenAiHealth(): Promise<OpenAiHealth> {
   }
 
   const now = Date.now();
-  if (cache && now - cache.at < CACHE_MS) {
-    return cache.result;
+  if (successCache && now - successCache.at < SUCCESS_CACHE_MS) {
+    return successCache.result;
+  }
+  if (failureCache && now - failureCache.at < FAILURE_CACHE_MS) {
+    return failureCache.result;
   }
 
   const base: OpenAiHealth = { configured: true, ready: false, model };
   try {
-    const openai = new OpenAI({ apiKey: key });
+    const openai = new OpenAI({ apiKey: key, timeout: OPENAI_PING_TIMEOUT_MS });
     await openai.chat.completions.create({
       model,
       max_tokens: 1,
       messages: [{ role: "user", content: "ping" }],
     });
     const result: OpenAiHealth = { ...base, ready: true };
-    cache = { at: now, result };
+    successCache = { at: now, result };
+    failureCache = null;
     return result;
   } catch (err: unknown) {
     const mapped = openaiErrorResponse(err);
@@ -68,8 +83,16 @@ export async function checkOpenAiHealth(): Promise<OpenAiHealth> {
     if (mapped.code === "openai_auth_failed") issue = "auth_failed";
     else if (mapped.code === "openai_quota_exceeded") issue = "quota_exceeded";
     else if (mapped.code === "openai_rate_limit") issue = "rate_limit";
+
+    // Transient ping failures (timeout, rate limit) — assume ChatGPT works; chat will surface real errors.
+    if (issue === "rate_limit" || issue === "error") {
+      const optimistic: OpenAiHealth = { ...base, ready: true };
+      successCache = { at: now, result: optimistic };
+      return optimistic;
+    }
+
     const result: OpenAiHealth = { ...base, ready: false, issue };
-    cache = { at: now, result };
+    failureCache = { at: now, result };
     return result;
   }
 }

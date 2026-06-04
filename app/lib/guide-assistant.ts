@@ -178,27 +178,6 @@ export const GUIDE_DESTINATIONS: GuideDestination[] = [
     blurb: "Browse rental listings.",
   },
   {
-    id: "jobs",
-    title: "Jobs",
-    path: "/jobs",
-    keywords: ["jobs", "job", "employment", "hiring"],
-    blurb: "Browse job listings.",
-  },
-  {
-    id: "events",
-    title: "Events & tickets",
-    path: "/events",
-    keywords: ["events", "tickets", "gig", "concert"],
-    blurb: "Browse events and tickets.",
-  },
-  {
-    id: "property",
-    title: "Property",
-    path: "/property",
-    keywords: ["property", "house", "apartment", "real estate"],
-    blurb: "Browse property listings.",
-  },
-  {
     id: "disputes",
     title: "Disputes",
     path: "/disputes",
@@ -311,6 +290,29 @@ export function getGuideReply(query: string, currentPath: string): GuideReply {
       text: `Opening **${dest.title}** now…\n\n${dest.blurb}`,
       navigateTo: dest.path,
       destination: dest,
+    };
+  }
+
+  if (/\b(events?|jobs?|property|real estate|tickets?|concert|employment|hiring)\b/.test(normalized) &&
+    /\b(list|sell|post|create|listing)\b/.test(normalized)) {
+    return {
+      text: "Sky Drop doesn't support **events, jobs, or property** listings. You can sell **physical items, vehicles, digital products, services, or rentals** on **Sell** (`/post/ai`).",
+      navigateTo: "/post/ai",
+      destination: GUIDE_DESTINATIONS.find((d) => d.id === "post-ai"),
+    };
+  }
+
+  if (/\b(digital|download|template|ebook|service|freelance|rent|rental|hire)\b/.test(normalized) &&
+    /\b(can i|how do i|list|sell|post|offer)\b/.test(normalized)) {
+    const kind = /digital|template|ebook|download/.test(normalized)
+      ? "**digital products** on `/digital` — choose **Digital** on Sell"
+      : /service|freelance|design|coaching/.test(normalized)
+        ? "**services** on `/services` — choose **Service** on Sell"
+        : "**rentals** on `/rentals` — choose **Rental** on Sell";
+    return {
+      text: `Yes — Sky Drop supports ${kind}. Open **Sell** and I can help fill your listing.`,
+      navigateTo: "/post/ai",
+      destination: GUIDE_DESTINATIONS.find((d) => d.id === "post-ai"),
     };
   }
 

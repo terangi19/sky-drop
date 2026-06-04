@@ -24,6 +24,13 @@ import {
   SKY_AI_LISTING_FILL_EVENT,
   type SkyAiListingFill,
 } from "../../lib/sky-ai-listing-fill";
+import {
+  dataUrlToFile,
+  SKY_AI_LISTING_IMAGES_EVENT,
+  type SkyAiListingImagesDetail,
+} from "../../lib/sky-ai-images";
+import SkyAiChatPanel from "../../components/SkyAiChatPanel";
+import { SKY_AI_SELL_QUICK_PROMPTS, SKY_AI_SELL_WELCOME } from "../../lib/sky-ai-prompts";
 
 const objectToCategory: Record<string, string> = {
   "car": "Cars", "truck": "Cars", "bus": "Cars", "motorcycle": "Cars",
@@ -102,6 +109,8 @@ export default function AIPostPage() {
   const [scamAlert, setScamAlert] = useState<{ title: string; message: string; found: string[] } | null>(null);
   const [priceAlert, setPriceAlert] = useState(false);
   const [confirmedSubmit, setConfirmedSubmit] = useState(false);
+  const [skyChatOpen, setSkyChatOpen] = useState(false);
+  const [skyAutoQuery, setSkyAutoQuery] = useState<string | undefined>();
 
   const isDigital = listingType === "digital";
   const classifierRef = useRef<any>(null);
@@ -118,8 +127,32 @@ export default function AIPostPage() {
       price,
       listingType,
       location,
+      vehicleMake,
+      vehicleModel,
+      vehicleYear,
+      vehicleOdometer,
+      vehicleColour,
+      vehicleBodyType,
+      vehicleFuelType,
+      vehicleTransmission,
     });
-  }, [title, description, category, condition, price, listingType, location]);
+  }, [
+    title,
+    description,
+    category,
+    condition,
+    price,
+    listingType,
+    location,
+    vehicleMake,
+    vehicleModel,
+    vehicleYear,
+    vehicleOdometer,
+    vehicleColour,
+    vehicleBodyType,
+    vehicleFuelType,
+    vehicleTransmission,
+  ]);
 
   const applyFill = useCallback((fill: SkyAiListingFill) => {
     const ok = applySkyAiListingFill(fill, {
@@ -139,14 +172,29 @@ export default function AIPostPage() {
       setVehicleFuelType,
       setVehicleBodyType,
       setVehicleColour,
+      setRentalPriceWeekly,
+      setRentalPriceMonthly,
+      setRentalDeposit,
+      setPickupAvailable,
+      setShippingAvailable,
+      setAcceptOffers,
+      setSaleType,
+      setStockQuantity,
+      setServiceDuration,
     });
     if (ok) {
-      showToast("Sky AI filled your listing — add photos and publish");
+      const msg =
+        fill.listingType === "digital"
+          ? "Sky AI filled your listing — upload your digital file, then publish"
+          : imagePreviews.length > 0
+            ? "Sky AI filled your listing — review and publish"
+            : "Sky AI filled your listing — add photos and publish";
+      showToast(msg);
       setTimeout(() => {
         document.getElementById("listing-title")?.scrollIntoView({ behavior: "smooth", block: "center" });
       }, 300);
     }
-  }, []);
+  }, [imagePreviews.length]);
 
   useEffect(() => {
     const pending = consumePendingListingFill();
@@ -156,9 +204,47 @@ export default function AIPostPage() {
       const detail = (e as CustomEvent<SkyAiListingFill>).detail;
       if (detail) applyFill(detail);
     };
+
+    const onImages = async (e: Event) => {
+      const { dataUrls, names } = (e as CustomEvent<SkyAiListingImagesDetail>).detail || {};
+      if (!dataUrls?.length) return;
+
+      const room = Math.max(0, 8 - imagePreviews.length);
+      const addUrls = dataUrls.slice(0, room);
+      const addFiles = addUrls.map((url, i) =>
+        dataUrlToFile(url, names?.[i] || `sky-ai-${i + 1}.jpg`)
+      );
+      if (!addFiles.length) {
+        showToast("Listing already has 8 photos", "error");
+        return;
+      }
+
+      const isFirst = imagePreviews.length === 0;
+      setImagePreviews((prev) => [...prev, ...addUrls]);
+      setImageFiles((prev) => [...prev, ...addFiles]);
+
+      showToast(
+        addFiles.length === 1
+          ? "Sky AI added a photo to your listing"
+          : `Sky AI added ${addFiles.length} photos to your listing`
+      );
+
+      if (isFirst) {
+        setAnalyzing(true);
+        setDetected("");
+        await new Promise((r) => setTimeout(r, 500));
+        await runDetection();
+        setAnalyzing(false);
+      }
+    };
+
     window.addEventListener(SKY_AI_LISTING_FILL_EVENT, onFill);
-    return () => window.removeEventListener(SKY_AI_LISTING_FILL_EVENT, onFill);
-  }, [applyFill]);
+    window.addEventListener(SKY_AI_LISTING_IMAGES_EVENT, onImages);
+    return () => {
+      window.removeEventListener(SKY_AI_LISTING_FILL_EVENT, onFill);
+      window.removeEventListener(SKY_AI_LISTING_IMAGES_EVENT, onImages);
+    };
+  }, [applyFill, imagePreviews.length]);
 
   // Load model from CDN
   useEffect(() => {
@@ -700,6 +786,61 @@ export default function AIPostPage() {
             <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl">List your item in minutes. Add photos, set your price, and publish to thousands of buyers across New Zealand — all with built-in scam protection and Stripe-powered payments.</p>
           </div>
         </div>
+
+        {!editId && (
+          <div className="mb-8">
+            <div className="relative overflow-hidden rounded-2xl border border-sky-500/20 bg-gradient-to-br from-sky-500/[0.06] via-violet-500/[0.04] to-zinc-950/80 p-5 shadow-[0_0_40px_rgba(14,165,233,0.08)]">
+              <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-sky-500/10 blur-2xl pointer-events-none" />
+              <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex gap-3 min-w-0">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/30 to-violet-500/25 text-base shadow-[0_0_20px_rgba(56,189,248,0.2)] ring-1 ring-sky-400/30">
+                    ✦
+                  </span>
+                  <div className="min-w-0">
+                    <h2 className="text-base font-bold text-white">Sky AI</h2>
+                    <p className="mt-1 text-xs text-zinc-400 leading-relaxed">
+                      Give me the details about what you&apos;re selling — physical, digital, services, rentals, or vehicles — and I&apos;ll fill the form, price, and the rest for you 🙂
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSkyChatOpen((v) => !v)}
+                  className="shrink-0 rounded-xl bg-gradient-to-r from-sky-500 to-violet-500 px-4 py-2.5 text-sm font-bold text-white shadow-[0_0_20px_rgba(14,165,233,0.25)] hover:brightness-110 active:scale-[0.98]"
+                >
+                  {skyChatOpen ? "Hide chat" : "Open Sky AI"}
+                </button>
+              </div>
+              {!skyChatOpen && (
+                <div className="relative mt-4 flex flex-wrap gap-1.5">
+                  {SKY_AI_SELL_QUICK_PROMPTS.map((p) => (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => {
+                        setSkyChatOpen(true);
+                        setSkyAutoQuery(undefined);
+                        setTimeout(() => setSkyAutoQuery(p.query), 0);
+                      }}
+                      className="rounded-full border border-sky-500/25 bg-sky-500/10 px-2.5 py-1 text-[10px] font-semibold text-sky-300 hover:bg-sky-500/20"
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <SkyAiChatPanel
+                mode="inline"
+                open={skyChatOpen}
+                onOpenChange={setSkyChatOpen}
+                autoQuery={skyAutoQuery}
+                onAutoQueryConsumed={() => setSkyAutoQuery(undefined)}
+                quickPrompts={SKY_AI_SELL_QUICK_PROMPTS}
+                welcomeText={SKY_AI_SELL_WELCOME}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Form Card */}
         <div className="relative">
