@@ -1,11 +1,10 @@
-// Phone auth — tries Firebase SMS, falls back to email code delivery
 import { auth } from "./firebase";
-import { buildEmailHtml } from "./email";
-
-let _pendingCode: string | null = null;
-let _pendingPhone: string | null = null;
 
 const NZ_PREFIXES = ["021", "022", "027", "028", "029"];
+
+export function isPhoneDevMode(): boolean {
+  return typeof window !== "undefined" && window.location.hostname === "localhost";
+}
 
 export function formatNZPhone(input: string): string {
   const digits = input.replace(/\D/g, "");
@@ -20,117 +19,149 @@ export function formatNZPhone(input: string): string {
   return digits;
 }
 
-export function displayPhone(phone: string): string {
+export function maskPhone(phone: string): string {
   const d = phone.replace(/\D/g, "");
-  if (d.startsWith("642") && d.length >= 10) {
-    return `+64 ${d.slice(2, 4)} ${d.slice(4, 7)} ${d.slice(7)}`;
+  if (d.length <= 4) return phone;
+  return `***${d.slice(-4)}`;
+}
+
+function clearPhoneVerificationState() {
+  const w = window as any;
+  if (w.__recaptchaVerifier) {
+    try {
+      w.__recaptchaVerifier.clear();
+    } catch {}
   }
-  return phone;
+  w.__recaptchaVerifier = null;
+  w.__phoneConfirmation = null;
+  w.__phoneVerificationId = null;
+  w.__devPhoneCode = null;
+  w.__devFormattedPhone = null;
 }
 
 function errorMessage(e: any): string {
-  const msg = e?.message || e?.code || "";
-  if (msg.includes("operation-not-allowed") || msg.includes("OPERATION_NOT_ALLOWED"))
-    return "Phone auth not enabled in Firebase Console.";
-  if (msg.includes("invalid-phone-number") || msg.includes("INVALID_PHONE_NUMBER"))
-    return "Invalid phone number. Use format: 021 123 4567";
-  if (msg.includes("TOO_MANY_ATTEMPTS") || msg.includes("too-many-requests"))
-    return "Too many attempts. Wait a moment and try again.";
-  if (msg.includes("invalid-app-credential") || msg.includes("INVALID_APP_CREDENTIAL"))
-    return "Phone verification unavailable in dev mode. Code sent via email instead.";
-  if (msg.includes("SESSION_EXPIRED") || msg.includes("expired"))
+  const code = e?.code || "";
+  const msg = e?.message || code || "";
+  if (code === "auth/operation-not-allowed" || msg.includes("operation-not-allowed"))
+    return "Phone authentication is not enabled in Firebase. Enable Phone sign-in in Firebase Console → Authentication.";
+  if (code === "auth/invalid-phone-number" || msg.includes("invalid-phone-number"))
+    return "Invalid phone number. Use a valid NZ number like 021 123 4567.";
+  if (code === "auth/too-many-requests" || msg.includes("too-many-requests"))
+    return "Too many attempts. Wait a few minutes and try again.";
+  if (code === "auth/invalid-app-credential" || msg.includes("invalid-app-credential"))
+    return "SMS could not be sent (app verification failed). Check Firebase authorized domains and reCAPTCHA settings.";
+  if (code === "auth/captcha-check-failed" || msg.includes("captcha"))
+    return "Security check failed. Refresh the page and try again.";
+  if (code === "auth/code-expired" || msg.includes("expired"))
     return "Code expired. Request a new one.";
-  if (msg.includes("INVALID_CODE"))
-    return "Invalid code. Try again.";
+  if (code === "auth/invalid-verification-code" || msg.includes("invalid-verification-code"))
+    return "Invalid code. Check the SMS and try again.";
+  if (code === "auth/credential-already-in-use")
+    return "This phone number is already linked to another Sky Drop account.";
+  if (code === "auth/provider-already-linked")
+    return "This account already has a phone number linked. Try signing out and back in.";
+  if (code === "auth/requires-recent-login")
+    return "Please sign out, sign in again, then verify your phone.";
+  if (code === "auth/account-exists-with-different-credential")
+    return "This phone is tied to a different sign-in method. Contact support if you need help.";
   return msg || "Failed to send code.";
 }
 
-function generateCode(): string {
-  return String(Math.floor(100000 + Math.random() * 900000));
+async function createRecaptchaVerifier() {
+  const { RecaptchaVerifier } = await import("firebase/auth");
+  clearPhoneVerificationState();
+  const container = document.getElementById("recaptcha-container");
+  if (container) container.innerHTML = "";
+  const verifier = new RecaptchaVerifier(auth, "recaptcha-container", { size: "invisible" });
+  (window as any).__recaptchaVerifier = verifier;
+  return verifier;
 }
 
 export async function sendPhoneCode(phone: string): Promise<{
   sent: boolean;
   error?: string;
   formattedPhone?: string;
-  viaEmail?: boolean;
+  devMode?: boolean;
 }> {
   const formatted = formatNZPhone(phone);
 
-  // Try Firebase Phone Auth first
+  if (!formatted.startsWith("+642") || formatted.length < 11) {
+    return { sent: false, error: "Enter a valid NZ mobile number (e.g. 021 123 4567)." };
+  }
+
+  // Local dev — no SMS; use code 000000
+  if (isPhoneDevMode()) {
+    (window as any).__devPhoneCode = "000000";
+    (window as any).__devFormattedPhone = formatted;
+    return { sent: true, formattedPhone: formatted, devMode: true };
+  }
+
   try {
-    const { RecaptchaVerifier, signInWithPhoneNumber } = await import("firebase/auth");
+    const { PhoneAuthProvider, signInWithPhoneNumber } = await import("firebase/auth");
+    const verifier = await createRecaptchaVerifier();
 
-    if ((window as any).__recaptchaVerifier) {
-      try { (window as any).__recaptchaVerifier.clear(); } catch {}
+    // Logged-in users (profile): link phone to existing account — do NOT signInWithPhoneNumber
+    if (auth.currentUser) {
+      const provider = new PhoneAuthProvider(auth);
+      const verificationId = await provider.verifyPhoneNumber(formatted, verifier);
+      (window as any).__phoneVerificationId = verificationId;
+      (window as any).__phoneConfirmation = null;
+      return { sent: true, formattedPhone: formatted };
     }
-    (window as any).__recaptchaVerifier = null;
 
-    const container = document.getElementById("recaptcha-container");
-    if (container) container.innerHTML = "";
-
-    const verifier = new RecaptchaVerifier(auth, "recaptcha-container", { size: "invisible" });
-    (window as any).__recaptchaVerifier = verifier;
-
+    // No session (login/sign-up): standard phone sign-in flow
     const confirmation = await signInWithPhoneNumber(auth, formatted, verifier);
     (window as any).__phoneConfirmation = confirmation;
-    _pendingCode = null;
-    _pendingPhone = null;
+    (window as any).__phoneVerificationId = null;
 
     return { sent: true, formattedPhone: formatted };
   } catch (e: any) {
-    // If Firebase Phone Auth fails, fall back to email code delivery
-    if (auth?.currentUser?.email) {
-      const code = generateCode();
-      _pendingCode = code;
-      _pendingPhone = formatted;
-
-      try {
-        const token = await auth.currentUser.getIdToken();
-        const html = buildEmailHtml({
-          to: auth.currentUser.email,
-          subject: `Your phone verification code: ${code}`,
-          title: "Phone Verification Code",
-          message: `Your verification code is:\n\n**${code}**\n\nEnter this code in the app to verify your phone number.\n\nPhone: ${displayPhone(formatted)}\n\nThis code expires in 10 minutes.`,
-          ctas: [{ label: "Open Sky Drop", url: window.location.origin + "/profile", primary: true }],
-        });
-        await fetch("/api/send-notification-email", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ to: auth.currentUser.email, subject: `Your verification code: ${code}`, html }),
-        });
-        return { sent: true, formattedPhone: formatted, viaEmail: true };
-      } catch {}
-    }
-
+    clearPhoneVerificationState();
     return { sent: false, error: errorMessage(e) };
   }
 }
 
 export async function verifyPhoneCode(inputCode: string): Promise<{ ok: boolean; error?: string }> {
-  // Firebase path
-  const confirmation = (window as any).__phoneConfirmation;
-  if (confirmation) {
-    try {
-      await confirmation.confirm(inputCode);
-      (window as any).__phoneConfirmation = null;
-      (window as any).__recaptchaVerifier = null;
+  const code = inputCode.trim();
+
+  if (isPhoneDevMode()) {
+    if ((window as any).__devPhoneCode && code === (window as any).__devPhoneCode) {
+      clearPhoneVerificationState();
       return { ok: true };
-    } catch (e: any) {
-      return { ok: false, error: errorMessage(e) };
     }
+    return { ok: false, error: "Invalid code. On localhost use 000000 (no SMS is sent)." };
   }
 
-  // Email fallback path
-  if (_pendingCode && _pendingCode === inputCode.trim()) {
-    _pendingCode = null;
-    _pendingPhone = null;
-    return { ok: true };
+  const verificationId = (window as any).__phoneVerificationId as string | undefined;
+  const confirmation = (window as any).__phoneConfirmation;
+
+  if (!verificationId && !confirmation) {
+    return { ok: false, error: "No code sent. Tap Send code first." };
   }
 
-  if (_pendingCode) {
-    return { ok: false, error: "Invalid code. Check and try again." };
-  }
+  try {
+    const { PhoneAuthProvider, linkWithCredential } = await import("firebase/auth");
 
-  return { ok: false, error: "No code sent. Click Send Code first." };
+    if (verificationId && auth.currentUser) {
+      const credential = PhoneAuthProvider.credential(verificationId, code);
+      try {
+        await linkWithCredential(auth.currentUser, credential);
+      } catch (e: any) {
+        // Phone already linked to this account — still treat as verified for profile
+        if (e?.code !== "auth/provider-already-linked") throw e;
+      }
+      clearPhoneVerificationState();
+      return { ok: true };
+    }
+
+    if (confirmation) {
+      await confirmation.confirm(code);
+      clearPhoneVerificationState();
+      return { ok: true };
+    }
+
+    return { ok: false, error: "No code sent. Tap Send code first." };
+  } catch (e: any) {
+    return { ok: false, error: errorMessage(e) };
+  }
 }

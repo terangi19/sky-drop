@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
@@ -16,6 +16,14 @@ import { showToast } from "../../components/Toast";
 import DigitalAssetUpload from "../../components/DigitalAssetUpload";
 import { detectScam } from "../../lib/scamdetection";
 import { detectSuspiciousPrice } from "../../lib/pricedetection";
+import { getListingBlockReason } from "../../lib/seller-eligibility";
+import { syncListingDraftToSkyAi } from "../../lib/sky-ai-listing-context";
+import {
+  applySkyAiListingFill,
+  consumePendingListingFill,
+  SKY_AI_LISTING_FILL_EVENT,
+  type SkyAiListingFill,
+} from "../../lib/sky-ai-listing-fill";
 
 const objectToCategory: Record<string, string> = {
   "car": "Cars", "truck": "Cars", "bus": "Cars", "motorcycle": "Cars",
@@ -85,6 +93,7 @@ export default function AIPostPage() {
   const [floorArea, setFloorArea] = useState("");
   const [parking, setParking] = useState("");
   const [acceptOffers, setAcceptOffers] = useState(false);
+  const [paymentType, setPaymentType] = useState("stripe");
 
   const [editId, setEditId] = useState<string | null>(null);
   const [existingImages, setExistingImages] = useState<string[]>([]);
@@ -99,6 +108,57 @@ export default function AIPostPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const manualEdit = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    syncListingDraftToSkyAi({
+      title,
+      description,
+      category,
+      condition,
+      price,
+      listingType,
+      location,
+    });
+  }, [title, description, category, condition, price, listingType, location]);
+
+  const applyFill = useCallback((fill: SkyAiListingFill) => {
+    const ok = applySkyAiListingFill(fill, {
+      setTitle,
+      setDescription,
+      setCategory,
+      setCondition,
+      setPrice,
+      setListingType,
+      setLocation,
+      setPaymentType,
+      setVehicleMake,
+      setVehicleModel,
+      setVehicleYear,
+      setVehicleOdometer,
+      setVehicleTransmission,
+      setVehicleFuelType,
+      setVehicleBodyType,
+      setVehicleColour,
+    });
+    if (ok) {
+      showToast("Sky AI filled your listing — add photos and publish");
+      setTimeout(() => {
+        document.getElementById("listing-title")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 300);
+    }
+  }, []);
+
+  useEffect(() => {
+    const pending = consumePendingListingFill();
+    if (pending) applyFill(pending);
+
+    const onFill = (e: Event) => {
+      const detail = (e as CustomEvent<SkyAiListingFill>).detail;
+      if (detail) applyFill(detail);
+    };
+    window.addEventListener(SKY_AI_LISTING_FILL_EVENT, onFill);
+    return () => window.removeEventListener(SKY_AI_LISTING_FILL_EVENT, onFill);
+  }, [applyFill]);
 
   // Load model from CDN
   useEffect(() => {
@@ -327,6 +387,27 @@ export default function AIPostPage() {
       showToast(`Please fill in title and ${(saleType === "auction" || saleType === "auction_buy_now") ? "starting bid" : "price"}`, "error");
       return;
     }
+
+    if (!editId) {
+      try {
+        await user.reload();
+      } catch {
+        /* use cached user */
+      }
+      const profileSnap = user?.uid ? await getDoc(doc(db, "profiles", user.uid)) : null;
+      const profileData = profileSnap?.exists() ? profileSnap.data() : null;
+      const blockReason = getListingBlockReason({
+        authEmailVerified: auth.currentUser?.emailVerified ?? user.emailVerified,
+        phone: profileData ? String(profileData.phone || profileData.phoneNumber || "") : "",
+        phoneVerified: !!profileData?.phoneVerified || !!profileData?.verified,
+        authPhoneNumber: auth.currentUser?.phoneNumber,
+        profileExists: profileSnap?.exists(),
+      });
+      if (blockReason) {
+        showToast(blockReason, "error");
+        return;
+      }
+    }
     if (listingType === "physical" && !pickupAvailable && !shippingAvailable) {
       showToast("Select at least one delivery method (pickup or shipping).", "error");
       return;
@@ -396,7 +477,7 @@ export default function AIPostPage() {
 
       const baseData: Record<string, any> = {
         title, description, price: String(price), category, acceptOffers,
-        imageUrl: images[0] || "", images,
+        imageUrl: images[0] || "", images, paymentType,
       };
 
       if (editId) {
@@ -536,19 +617,21 @@ export default function AIPostPage() {
         }
         showToast("Listing created!", "success");
         // Check Stripe Connect — prompt if not set up
-        try {
-          const profileSnap = await getDoc(doc(db, "profiles", user.uid));
-          if (profileSnap.exists()) {
-            const profileData = profileSnap.data();
-            if (!profileData.stripeAccountId) {
-              showToast("⚠️ Connect Stripe to receive payouts — go to Profile", "info");
-              setTimeout(() => { window.location.href = "/profile?tab=payouts"; }, 1500);
-              setLoading(false);
-              setConfirmedSubmit(false);
-              return;
+        if (paymentType === "stripe") {
+          try {
+            const profileSnap = await getDoc(doc(db, "profiles", user.uid));
+            if (profileSnap.exists()) {
+              const profileData = profileSnap.data();
+              if (!profileData.stripeAccountId) {
+                showToast("⚠️ Connect Stripe to receive payouts — go to Profile", "info");
+                setTimeout(() => { window.location.href = "/profile?tab=payouts"; }, 1500);
+                setLoading(false);
+                setConfirmedSubmit(false);
+                return;
+              }
             }
-          }
-        } catch (e) { console.error("Stripe check error:", e); }
+          } catch (e) { console.error("Stripe check error:", e); }
+        }
       }
       setImagePreviews([]); setImageFiles([]); setExistingImages([]);
       setTitle(""); setDescription(""); setPrice("");
@@ -614,7 +697,7 @@ export default function AIPostPage() {
             <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
               <span className="text-white drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">{editId ? "Edit Listing" : "Quick Post"}</span>
             </h1>
-            <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl">List your item in minutes. Add photos, set your price, and publish to thousands of buyers across New Zealand — all with built-in scam protection and secure escrow payments.</p>
+            <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl">List your item in minutes. Add photos, set your price, and publish to thousands of buyers across New Zealand — all with built-in scam protection and Stripe-powered payments.</p>
           </div>
         </div>
 
@@ -721,7 +804,7 @@ export default function AIPostPage() {
         <div className="space-y-5">
           <div className="space-y-1.5">
             <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Title</label>
-            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" placeholder="What are you selling?" />
+            <input id="listing-title" type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" placeholder="What are you selling?" />
           </div>
 
           <div className="space-y-1.5">
@@ -842,6 +925,46 @@ export default function AIPostPage() {
                 </button>
               ))}
             </div>
+          </div>
+          )}
+
+          {(listingType === "physical" || listingType === "vehicle") && (
+          <div className="space-y-3">
+            <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Payment Type</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setPaymentType("stripe")}
+                className={`rounded-xl border px-4 py-3 text-xs font-bold text-left transition-all duration-200 active:scale-[0.97] ${
+                  paymentType === "stripe" ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.06)]" : "border-white/[0.06] bg-white/[0.02] text-zinc-500 hover:bg-white/[0.04] hover:border-white/[0.12]"
+                }`}>
+                <span className="flex items-center gap-1.5">
+                  <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0" fill="currentColor">
+                    <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.866 6.001 1.632V2.94c-1.608-.732-3.965-1.413-6.076-1.413-3.659 0-6.328 1.803-6.328 4.866 0 3.354 2.547 4.545 5.644 5.604 2.162.795 3.251 1.499 3.251 2.476 0 .968-.747 1.49-2.153 1.49-2.49 0-5.206-1.156-6.748-2.041v4.133c1.682.827 4.127 1.435 6.824 1.435 3.943 0 6.827-1.835 6.827-5.017.001-3.452-2.587-4.596-5.617-5.608z"/>
+                  </svg>
+                  <span className="font-bold tracking-tight">Stripe</span>
+                  <span className="text-[10px] font-normal text-zinc-500">Checkout</span>
+                </span>
+                <p className="mt-1 text-[9px] font-normal text-zinc-500">Buyers pay through Stripe</p>
+              </button>
+              <button type="button" onClick={() => setPaymentType("contact")}
+                className={`rounded-xl border px-4 py-3 text-xs font-bold text-left transition-all duration-200 active:scale-[0.97] ${
+                  paymentType === "contact" ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.06)]" : "border-white/[0.06] bg-white/[0.02] text-zinc-500 hover:bg-white/[0.04] hover:border-white/[0.12]"
+                }`}>
+                <span className="flex items-center gap-1.5">🤝 Arrange Purchase</span>
+                <p className="mt-1 text-[9px] font-normal text-zinc-500">Contact the seller to arrange payment, shipping, or collection</p>
+              </button>
+            </div>
+            {paymentType === "contact" && (
+              <p className="mt-2 text-[10px] text-emerald-400/90 leading-relaxed">
+                Sellers: add bank details in{" "}
+                <Link href="/profile#payment-settings" className="underline hover:text-emerald-300">
+                  Profile → Payment settings
+                </Link>{" "}
+                so buyers see how to pay in Messages.{" "}
+                <Link href="/seller-guidelines#arrange-payment" className="text-sky-400 underline hover:text-sky-300">
+                  Setup guide
+                </Link>
+              </p>
+            )}
           </div>
           )}
 

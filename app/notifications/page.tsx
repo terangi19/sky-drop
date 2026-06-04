@@ -20,6 +20,11 @@ import {
 import { User } from "firebase/auth";
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import { showToast } from "../components/Toast";
+import {
+  extractEmailsFromText,
+  publicHandleFromProfile,
+  sanitizePublicText,
+} from "../lib/public-display";
 
 interface NotificationItem {
   id: string;
@@ -67,6 +72,20 @@ export default function NotificationsPage() {
   const [lastDoc, setLastDoc] = useState<any>(null);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [publicHandles, setPublicHandles] = useState<Record<string, string>>({});
+
+  async function fetchPublicHandle(email: string) {
+    if (!email || publicHandles[email]) return;
+    try {
+      const snap = await getDocs(query(collection(db, "profiles"), where("email", "==", email)));
+      const handle = snap.empty
+        ? "User"
+        : publicHandleFromProfile(snap.docs[0].data() as { username?: string }, "User");
+      setPublicHandles((prev) => ({ ...prev, [email]: handle }));
+    } catch {
+      /* ignore */
+    }
+  }
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -107,6 +126,14 @@ export default function NotificationsPage() {
     );
     return unsub;
   }, [user?.email]);
+
+  useEffect(() => {
+    notifications.forEach((n) => {
+      if (n.fromEmail) fetchPublicHandle(n.fromEmail);
+      extractEmailsFromText(n.message || "").forEach((e) => fetchPublicHandle(e));
+      extractEmailsFromText(n.title || "").forEach((e) => fetchPublicHandle(e));
+    });
+  }, [notifications]);
 
   async function loadMore() {
     if (!lastDoc || !user?.email || loadingMore) return;
@@ -223,7 +250,9 @@ export default function NotificationsPage() {
                         <span className="shrink-0 text-[10px] text-zinc-500">{n.createdAt?.seconds ? formatTime(n.createdAt.seconds) : ""}</span>
                       </div>
                       {n.message && (
-                        <p className="mt-0.5 text-[12px] text-zinc-500 line-clamp-2">{n.message}</p>
+                        <p className="mt-0.5 text-[12px] text-zinc-500 line-clamp-2">
+                          {sanitizePublicText(n.message, publicHandles)}
+                        </p>
                       )}
                       {n.listingTitle && (
                         <p className="mt-0.5 text-[10px] text-sky-400/60">{n.listingTitle}</p>

@@ -27,6 +27,7 @@
     "next": "^16.2.6",
     "nodemailer": "^8.0.7",
     "nsfwjs": "^4.3.0",
+    "openai": "^6.42.0",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "stripe": "^22.1.1"

@@ -31,6 +31,18 @@ import { checkImage } from "../lib/nsfw";
 import { showToast } from "../components/Toast";
 import { createNotification } from "../lib/notifications";
 import OfferPaymentModal from "../components/OfferPaymentModal";
+import ArrangePaymentCopyBar from "../components/ArrangePaymentCopyBar";
+import StayOnSkyDropNotice from "../components/StayOnSkyDropNotice";
+import { STAY_ON_SKY_DROP_HEADLINE } from "../lib/conversation-safety";
+import {
+  extractEmailsFromText,
+  isEmailLike,
+  publicHandleFromProfile,
+  sanitizePublicText,
+  sellerProfileSlug,
+} from "../lib/public-display";
+import { canSellerConfirmArrangeSale, countSellerSales } from "../lib/arrange-purchase-status";
+import { getFreshIdToken } from "../lib/api-auth";
 // Feature 8: Expanded risky keywords
 const RISKY_KEYWORDS = [
   "pay outside", "bank transfer only", "crypto", "gift card",
@@ -208,6 +220,10 @@ function MessagesPage() {
     } catch {}
   }, [chatUser, message]);
 
+  useEffect(() => {
+    if (chatUser) fetchUsername(chatUser);
+  }, [chatUser]);
+
   // Fetch seller profile + trust score
   useEffect(() => {
     if (!chatUser) { setSellerProfile(null); setSellerTrust(null); return; }
@@ -217,7 +233,17 @@ function MessagesPage() {
         const snap = await getDocs(query(collection(db, "profiles"), where("email", "==", chatUser)));
         if (!snap.empty && !cancelled) {
           const data = snap.docs[0].data();
-          setSellerProfile({ id: snap.docs[0].id, ...data });
+          const purchaseSnap = await getDocs(
+            query(collection(db, "purchases"), where("sellerEmail", "==", chatUser))
+          );
+          const salesTotal = countSellerSales(
+            purchaseSnap.docs.map((d) => d.data() as { status?: string; paymentType?: string })
+          );
+          setSellerProfile({
+            id: snap.docs[0].id,
+            ...data,
+            sales: salesTotal,
+          });
           const trust = calculateTrustScore(data as any);
           setSellerTrust({ score: trust.score, level: trust.score >= 80 ? "Trusted" : trust.score >= 50 ? "Established" : "New" });
         } else if (!cancelled) {
@@ -307,13 +333,16 @@ function MessagesPage() {
   }, [chatUser, user, messages, chatListingId]);
   // Fetch usernames
   async function fetchUsername(email: string) {
-    if (usernames[email] || !email) return;
+    if (!email || email === "system" || usernames[email]) return;
     try {
       const snap = await getDocs(query(collection(db, "profiles"), where("email", "==", email)));
-      if (!snap.empty) {
-        setUsernames((prev) => ({ ...prev, [email]: snap.docs[0].data().username }));
-      }
-    } catch (e) { console.error("Failed to fetch username:", e); }
+      const handle = snap.empty
+        ? "User"
+        : publicHandleFromProfile(snap.docs[0].data() as { username?: string }, "User");
+      setUsernames((prev) => ({ ...prev, [email]: handle }));
+    } catch (e) {
+      console.error("Failed to fetch username:", e);
+    }
   }
   // Main messages listener
   useEffect(() => {
@@ -335,7 +364,12 @@ function MessagesPage() {
       setMessages(items);
       setLoading(false);
       if (snap.metadata?.hasPendingWrites) return;
-      items.forEach((msg: any) => { fetchUsername(msg.sender); fetchUsername(msg.receiver); });
+      items.forEach((msg: any) => {
+        fetchUsername(msg.sender);
+        fetchUsername(msg.receiver);
+        msg.participants?.forEach((p: string) => fetchUsername(p));
+        extractEmailsFromText(msg.text || "").forEach((e) => fetchUsername(e));
+      });
     }, (err) => { setDebugInfo(`Error: ${err.message}`); if (mounted) setLoading(false); });
 
     return () => { mounted = false; unsub(); };
@@ -345,6 +379,7 @@ function MessagesPage() {
       const map: Record<string, number> = {};
       const raw: Record<string, boolean> = {};
       messages.forEach((msg: any) => {
+        if (msg.receiver && msg.receiver !== user?.email) return;
         if (msg.sender !== user?.email && !msg.read) {
           const other = msg.participants?.find((p: string) => p !== user?.email);
           const key = `${other}||${msg.listingId || ""}`;
@@ -358,11 +393,13 @@ function MessagesPage() {
     // Compute filteredMessages for chat view
     const filteredMessages = useMemo(() => messages
       .filter((msg: any) => {
+        if (!user?.email || !msg.participants?.includes(user.email)) return false;
+        if (msg.receiver && msg.receiver !== user.email) return false;
         if (!msg.participants?.includes(chatUser)) return false;
         if (chatListingId) return msg.listingId === chatListingId;
         return !msg.listingId;
       })
-      .reverse(), [messages, chatUser, chatListingId]);
+      .reverse(), [messages, chatUser, chatListingId, user?.email]);
     // Auto-scroll
     useEffect(() => {
       if (chatEndRef.current && filteredMessages.length > 0) {
@@ -431,7 +468,7 @@ function MessagesPage() {
         targetEmail: chatUser,
         fromEmail: user.email,
         type: "message",
-        title: "New image from " + (user.email?.split("@")[0] || "someone"),
+        title: "New image from " + notificationSenderLabel(),
         message: "Sent an image",
         listingId: chatListingId || undefined,
         listingTitle: activeListingTitle || undefined,
@@ -479,8 +516,8 @@ function MessagesPage() {
         targetEmail: chatUser,
         fromEmail: user.email,
         type: "message",
-        title: "New file from " + (user.email?.split("@")[0] || "someone"),
-        message: `Sent a file: ${fileAttachment.name}`,
+        title: "New file from " + notificationSenderLabel(),
+        message: "Sent a file",
         listingId: chatListingId || undefined,
         listingTitle: activeListingTitle || undefined,
       });
@@ -568,7 +605,7 @@ function MessagesPage() {
         targetEmail: chatUser,
         fromEmail: user.email,
         type: "message",
-        title: "New message from " + (user.email?.split("@")[0] || "someone"),
+        title: "New message from " + notificationSenderLabel(),
         message: message.length > 100 ? message.slice(0, 100) + "..." : message,
         listingId: chatListingId || undefined,
         listingTitle: activeListingTitle || undefined,
@@ -587,7 +624,7 @@ function MessagesPage() {
         targetEmail: chatUser,
         fromEmail: user.email,
         type: "message",
-        title: "New message from " + (user.email?.split("@")[0] || "someone"),
+        title: "New message from " + notificationSenderLabel(),
         message: pendingMessage.length > 100 ? pendingMessage.slice(0, 100) + "..." : pendingMessage,
       });
     } catch (e) { console.error(e); }
@@ -727,11 +764,23 @@ function MessagesPage() {
   // â€”â€” Computed values â€”â€”
   const conversationMap = new Map<string, any>();
   messages.forEach((msg: any) => {
+    if (msg.receiver && msg.receiver !== user?.email) return;
     const otherUser = msg.participants?.find((p: string) => p !== user?.email);
     if (otherUser) {
       const key = `${otherUser}||${msg.listingId || ""}`;
-      if (!conversationMap.has(key)) {
-        conversationMap.set(key, { participant: otherUser, listingId: msg.listingId || null, listingTitle: msg.listingTitle || null, msg });
+      const msgTime = msg.createdAt?.toMillis?.() || msg.createdAt?.seconds * 1000 || 0;
+      const existing = conversationMap.get(key);
+      const existingTime =
+        existing?.msg?.createdAt?.toMillis?.() ||
+        existing?.msg?.createdAt?.seconds * 1000 ||
+        0;
+      if (!existing || msgTime >= existingTime) {
+        conversationMap.set(key, {
+          participant: otherUser,
+          listingId: msg.listingId || null,
+          listingTitle: msg.listingTitle || null,
+          msg,
+        });
       }
     }
   });
@@ -748,7 +797,19 @@ function MessagesPage() {
   if (showUnreadOnly) {
     conversations = conversations.filter(([key]) => (conversationUnread[key] || 0) > 0);
   }
-  function getDisplayName(email: string) { return usernames[email] || email; }
+  function getDisplayName(email: string) {
+    if (!email || email === "system") return "System";
+    return usernames[email] || "User";
+  }
+  function formatMessageText(text: string) {
+    return sanitizePublicText(text || "", usernames);
+  }
+  function notificationSenderLabel() {
+    if (!user?.email) return "Someone";
+    const handle = usernames[user.email];
+    if (handle && handle !== "User") return handle.startsWith("@") ? handle.slice(1) : handle;
+    return "Someone";
+  }
   const isOwnListing = listingCard?.sellerEmail === user?.email;
   const isAuction = listingCard?.saleType === "auction" || listingCard?.saleType === "auction_buy_now" || !!listingCard?.auctionEndsAt;
   const auctionEnded = (() => {
@@ -762,7 +823,38 @@ function MessagesPage() {
   const isAuctionSeller = auctionEnded && listingCard?.sellerEmail === user?.email;
   const [hasPurchaseInChat, setHasPurchaseInChat] = useState(false);
   const [purchaseData, setPurchaseData] = useState<any>(null);
+  const [confirmingArrangeSale, setConfirmingArrangeSale] = useState(false);
   const router = useRouter();
+
+  async function confirmArrangeSaleInChat() {
+    if (!purchaseData?.id) return;
+    setConfirmingArrangeSale(true);
+    try {
+      const token = await getFreshIdToken();
+      if (!token) {
+        showToast("Please sign in again.", "error");
+        return;
+      }
+      const res = await fetch("/api/confirm-arrange-sale", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ purchaseId: purchaseData.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast(data.error || "Could not confirm sale", "error");
+        return;
+      }
+      showToast("Marked as sold.", "success");
+    } catch {
+      showToast("Could not confirm sale", "error");
+    } finally {
+      setConfirmingArrangeSale(false);
+    }
+  }
   useEffect(() => {
     if (!chatUser || !user?.email) { setHasPurchaseInChat(false); return; }
     let mounted = true;
@@ -787,7 +879,7 @@ function MessagesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setBlockConfirmTarget(null)}>
           <div className="mx-4 w-full max-w-sm rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-black text-red-400">Block User</h3>
-            <p className="mt-2 text-sm text-[var(--foreground)]">Block {blockConfirmTarget}? They won't be able to message you, and their messages will be hidden.</p>
+            <p className="mt-2 text-sm text-[var(--foreground)]">Block {getDisplayName(blockConfirmTarget)}? They won&apos;t be able to message you, and their messages will be hidden.</p>
             <div className="mt-5 flex gap-3">
               <button onClick={() => setBlockConfirmTarget(null)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700">Cancel</button>
               <button onClick={() => { blockUser(blockConfirmTarget); setBlockConfirmTarget(null); }} className="flex-1 rounded-xl bg-red-500 py-3 text-sm font-bold text-white hover:bg-red-400">Block</button>
@@ -818,7 +910,9 @@ function MessagesPage() {
               <h3 className="text-lg font-black text-[var(--foreground)]">&#9888;&#65039; Safety Warning</h3>
               <button onClick={() => { setScamWarning(false); setPendingMessage(""); }} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
             </div>
-            <p className="mt-2 text-sm text-[var(--foreground)]">Your message contains words associated with suspicious activity. Be careful â€” legitimate buyers and sellers use Sky Drop messaging and secure payments.</p>
+            <p className="mt-2 text-sm text-[var(--foreground)]">
+              Your message contains words associated with suspicious activity. {STAY_ON_SKY_DROP_HEADLINE} so we can review disputes and reports — we cannot see SMS, email, or other apps.
+            </p>
             <div className="mt-4 flex gap-3">
               <button onClick={() => { setScamWarning(false); setPendingMessage(""); }} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700">Edit Message</button>
               <button onClick={sendPendingMessage} className="flex flex-1 items-center justify-center rounded-xl bg-amber-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-amber-400">Send Anyway</button>
@@ -834,7 +928,9 @@ function MessagesPage() {
               <h3 className="text-lg font-black text-amber-400">&#9888;&#65039; Payment Safety</h3>
               <button onClick={() => setShowSafetyWarning(false)} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
             </div>
-            <p className="mt-2 text-sm text-[var(--foreground)]">Your message mentions &ldquo;{riskyKeyword}&rdquo; â€” this is a common sign of off-platform transactions. Keep all payments and communication inside Sky Drop for buyer protection.</p>
+            <p className="mt-2 text-sm text-[var(--foreground)]">
+              Your message mentions &ldquo;{riskyKeyword}&rdquo; — often used to move deals off Sky Drop. {STAY_ON_SKY_DROP_HEADLINE}: Stripe disputes need your chat history here (Purchases → Open dispute within 7 days). Off-platform chats cannot be reviewed.
+            </p>
             <div className="mt-4 flex gap-3">
               <button onClick={() => setShowSafetyWarning(false)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700">Edit Message</button>
               <button onClick={() => { setShowSafetyWarning(false); sendMessage(true); }} className="flex flex-1 items-center justify-center rounded-xl bg-amber-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-amber-400">Send Anyway</button>
@@ -920,7 +1016,17 @@ function MessagesPage() {
                           {hasOffer && <span className="ml-1 shrink-0 text-[10px]">💰</span>}
                         </div>
                         <p className={`mt-0.5 truncate text-[11px] ${unreadCount > 0 ? "font-medium text-[var(--foreground)]" : "text-[var(--muted)]"}`}>
-                          {convo.msg.text || (convo.msg.type === "image" ? "📷 Photo" : convo.msg.type === "file" ? `📎 ${convo.msg.fileName || "File"}` : convo.msg.type === "offer" ? `💰 Offer: $${convo.msg.offerAmount || ""}` : convo.msg.type === "purchase" ? "🛒 Purchase request" : "")}
+                          {convo.msg.text
+                            ? formatMessageText(convo.msg.text)
+                            : convo.msg.type === "image"
+                              ? "📷 Photo"
+                              : convo.msg.type === "file"
+                                ? `📎 ${convo.msg.fileName || "File"}`
+                                : convo.msg.type === "offer"
+                                  ? `💰 Offer: $${convo.msg.offerAmount || ""}`
+                                  : convo.msg.type === "purchase"
+                                    ? "🛒 Purchase request"
+                                    : ""}
                         </p>
                         {convo.listingTitle && (
                           <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-[8px] font-medium text-sky-400 truncate max-w-full">{convo.listingTitle}</span>
@@ -982,7 +1088,15 @@ function MessagesPage() {
                                 )}
                               </>
                             )}
-                            <Link href={`/seller/${chatUser}`} onClick={() => setShowProfilePreview(false)}
+                            <Link
+                              href={`/seller/${encodeURIComponent(
+                                sellerProfileSlug({
+                                  username: sellerProfile?.username,
+                                  sellerEmail: chatUser,
+                                  email: chatUser,
+                                })
+                              )}`}
+                              onClick={() => setShowProfilePreview(false)}
                               className="mt-3 inline-block w-full rounded-xl bg-sky-500 py-2 text-[11px] font-bold text-white transition hover:bg-sky-400">
                               View Profile
                             </Link>
@@ -1067,6 +1181,9 @@ function MessagesPage() {
                 {/* Messages area */}
                 <div ref={messagesContainerRef} className="flex-1 overflow-y-auto scrollbar-thin px-5 py-4">
                    {/* Listing context card — purchased */}
+                  {hasPurchaseInChat && (
+                    <StayOnSkyDropNotice paymentType={purchaseData?.paymentType} />
+                  )}
                   {listingCard && hasPurchaseInChat && (
                     <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-zinc-900/60">
                       <div className="flex items-center gap-3 p-3">
@@ -1079,6 +1196,12 @@ function MessagesPage() {
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[13px] font-bold text-[var(--foreground)]">{listingCard.title || "Listing"}</p>
                           <p className="text-[12px] font-black text-sky-400">${purchaseData?.total || listingCard.price}</p>
+                          {(purchaseData?.tracking || purchaseData?.trackingNumber) &&
+                            ["shipped", "delivered"].includes(purchaseData?.status) && (
+                            <p className="mt-1 text-[10px] text-sky-400/90">
+                              Tracking: {purchaseData.tracking || purchaseData.trackingNumber}
+                            </p>
+                          )}
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className={`text-[10px] ${
                               purchaseData?.status === "delivered" || purchaseData?.status === "completed" ? "text-emerald-400" :
@@ -1087,7 +1210,11 @@ function MessagesPage() {
                               purchaseData?.status === "cancelled" ? "text-red-400" :
                               "text-amber-400"
                             }`}>
-                              {purchaseData?.status === "pending" ? "Awaiting seller confirmation" :
+                              {purchaseData?.status === "arrange_requested"
+                                ? purchaseData?.sellerEmail === user?.email
+                                  ? "Awaiting your confirmation"
+                                  : "Purchase request sent"
+                                : purchaseData?.status === "pending" ? "Awaiting seller confirmation" :
                                purchaseData?.status === "seller_confirming" ? "Confirmed" :
                                purchaseData?.status === "shipped" ? "Shipped" :
                                purchaseData?.status === "delivered" ? "Delivered" :
@@ -1103,6 +1230,20 @@ function MessagesPage() {
                           </div>
                         </div>
                         <div className="flex flex-col gap-1">
+                          {purchaseData?.sellerEmail === user?.email &&
+                            canSellerConfirmArrangeSale(
+                              purchaseData?.status || "",
+                              purchaseData?.paymentType
+                            ) && (
+                            <button
+                              type="button"
+                              onClick={confirmArrangeSaleInChat}
+                              disabled={confirmingArrangeSale}
+                              className="shrink-0 rounded-lg bg-emerald-500 px-3 py-1.5 text-[10px] font-bold text-white transition hover:bg-emerald-400 disabled:opacity-60"
+                            >
+                              {confirmingArrangeSale ? "Updating…" : "Mark sold"}
+                            </button>
+                          )}
                           <Link href={`/purchases`}
                             className="shrink-0 rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white text-center transition hover:bg-sky-400">
                             View Order
@@ -1439,11 +1580,17 @@ function MessagesPage() {
                                   <span className="text-sm">📦</span>
                                   <span className="text-[11px] font-bold text-sky-400">Order Event</span>
                                 </div>
-                                <p className="text-xs text-[var(--foreground)] leading-relaxed">{msg.text}</p>
+                                <p className="text-xs text-[var(--foreground)] leading-relaxed">{formatMessageText(msg.text)}</p>
                                 {msg.shippingAddress && (
                                   <div className="mt-2 rounded-lg bg-zinc-800/30 px-3 py-2 text-[10px] text-[var(--muted)]">
                                     <p>Shipping to:</p>
-                                    <p className="text-[var(--foreground)]">{msg.buyerName}</p>
+                                    <p className="text-[var(--foreground)]">
+                                      {msg.buyerName && !isEmailLike(msg.buyerName)
+                                        ? msg.buyerName.startsWith("@")
+                                          ? msg.buyerName
+                                          : `@${msg.buyerName}`
+                                        : "Buyer"}
+                                    </p>
                                     <p className="text-[var(--foreground)]">{msg.shippingAddress}</p>
                                     {msg.buyerPhone && <p className="text-[var(--foreground)]">📞 {msg.buyerPhone}</p>}
                                   </div>
@@ -1452,6 +1599,22 @@ function MessagesPage() {
                                   <p className="mt-1 text-[10px] text-[var(--muted)]">📍 Pickup — arrange with seller</p>
                                 )}
                                 <p className="mt-1 text-[8px] text-[var(--muted)] text-right">{formatTime(msg.createdAt)}</p>
+                              </div>
+                            </div>
+                          );
+                        }
+                        // Arrange / system starter
+                        if (msg.type === "system" && msg.sender === "system") {
+                          return (
+                            <div key={msg.id} className="flex justify-center">
+                              <div className="max-w-[90%] rounded-xl border border-emerald-500/15 bg-emerald-500/5 px-4 py-3 text-left">
+                                <p className="whitespace-pre-line text-[13px] leading-relaxed text-[var(--foreground)]">
+                                  {formatMessageText(msg.text)}
+                                </p>
+                                <ArrangePaymentCopyBar text={msg.text || ""} />
+                                <p className="mt-1.5 text-center text-[9px] text-[var(--muted)]">
+                                  {formatTime(msg.createdAt)}
+                                </p>
                               </div>
                             </div>
                           );
@@ -1467,7 +1630,7 @@ function MessagesPage() {
                                 {!isOwn && containsRiskyKeywords(msg.text || "") && (
                                   <span className="mb-1.5 inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[9px] font-bold text-amber-400">&#9888;&#65039; Off-platform mention</span>
                                 )}
-                                <p className="break-words whitespace-pre-line text-[14px] leading-relaxed">{msg.text}</p>
+                                <p className="break-words whitespace-pre-line text-[14px] leading-relaxed">{formatMessageText(msg.text)}</p>
                                 {/* Status + timestamp */}
                                 <div className="mt-1.5 flex items-center justify-end gap-1">
                                   <span className={`text-[9px] ${isOwn ? "text-white/60" : "text-[var(--muted)]"}`}>{formatTime(msg.createdAt)}</span>
@@ -1492,7 +1655,7 @@ function MessagesPage() {
                 </div>
                 {/* Safety warning above input */}
                 <div className="border-t border-[var(--card-border)] px-5 pt-2.5 pb-0">
-                  <p className="text-[9px] text-[var(--muted)] text-center">&#128274; Stay safe: keep payments and communication inside Sky Drop.</p>
+                  <StayOnSkyDropNotice paymentType={purchaseData?.paymentType} compact />
                 </div>
                 {/* Input area */}
                 <div className="px-5 py-2.5">

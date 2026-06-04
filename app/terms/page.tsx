@@ -24,7 +24,7 @@ const sections = [
   {
     title: "Payments",
     content:
-      "Payments are processed through our integrated payment system. Funds are held securely until the buyer confirms receipt or the holding period expires. Optional upgrades (like promoted listings) may incur a fee, which is clearly shown before purchase. Refunds and disputes are handled between buyer and seller in good faith.",
+      "Payments are processed through Stripe and sent directly to the seller's Stripe account. Sky Drop only receives a platform fee per transaction. Optional upgrades (like promoted listings) may incur a fee, which is clearly shown before purchase. Refunds and disputes are handled between buyer and seller in good faith.",
   },
   {
     title: "Prohibited Items",

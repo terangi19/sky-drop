@@ -184,7 +184,7 @@ async function seed() {
     await db.collection("profiles").doc(seller.uid).set({
       email: seller.email,
       username: seller.name,
-      displayName: seller.name,
+      // displayName removed
       createdAt: Timestamp.now(),
     }, { merge: true });
   }

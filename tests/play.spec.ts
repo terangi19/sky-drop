@@ -79,7 +79,7 @@ test.describe("PLAY", () => {
 
     // 4. PROTECTED ROUTES
     console.log("\n=== PROTECTED ===");
-    for (const r of ["/trade-feed", "/messages", "/post", "/post/ai", "/profile", "/watchlist", "/dashboard", "/purchases", "/sales", "/my-listings", "/reviews", "/reports"]) {
+    for (const r of ["/trade-feed", "/messages", "/post/ai", "/profile", "/watchlist", "/dashboard", "/purchases", "/sales", "/my-listings", "/reviews", "/reports"]) {
       await go(r);
       console.log(r + ": " + (page.url().includes("/login") ? "redirected" : "STAYED"));
     }

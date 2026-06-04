@@ -90,7 +90,7 @@ service cloud.firestore {
           || resource.data.sellerEmail == request.auth.token.email)
         // Only allow status/tracking/delivery fields from client; blocks everything else
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['status', 'deliveredAt', 'tracking', 'updatedAt', 'reviewed'])
+          .hasOnly(['status', 'deliveredAt', 'tracking', 'trackingNumber', 'updatedAt', 'reviewed'])
         // Seller cannot set delivered status (buyer confirms receipt)
         && !(resource.data.sellerEmail == request.auth.token.email
           && request.resource.data.status == "delivered")
@@ -307,6 +307,16 @@ service cloud.firestore {
     match /adminAuditLog/{entryId} {
       allow create: if request.auth != null && isAdmin();
       allow read: if request.auth != null && isAdmin();
+    }
+
+    match /skyAiConversations/{conversationId} {
+      allow read: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow write: if false;
+      match /messages/{messageId} {
+        allow read: if request.auth != null
+          && get(/databases/$(database)/documents/skyAiConversations/$(conversationId)).data.uid == request.auth.uid;
+        allow write: if false;
+      }
     }
 
     match /{document=**} {

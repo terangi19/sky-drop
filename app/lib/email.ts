@@ -397,17 +397,17 @@ const WHAT_HAPPENS_NEXT: Record<string, string[]> = {
     "Your seller is preparing your item for shipment",
     "You'll be notified the moment it's on its way",
     "Track delivery and prepare to receive your item",
-    "Confirm receipt to release payment from escrow",
+    "Funds are sent directly to the seller via Stripe — Sky Drop never holds them",
   ],
   item_shipped: [
     "Your item is on its way to you",
     "Track delivery using the shipping details provided",
     "Inspect the item as soon as it arrives",
-    "Confirm delivery on Sky Drop to release payment to the seller",
+    "Confirm delivery to complete your order — payment already went to the seller's Stripe account",
   ],
   delivered: [
     "Inspect your item carefully",
-    "Confirm delivery to release payment from escrow",
+    "Payment already went to the seller — confirm delivery to complete the order",
     "Leave a review for the seller to help the community",
   ],
   bid: [
@@ -431,7 +431,7 @@ const WHAT_HAPPENS_NEXT: Record<string, string[]> = {
     "Congratulations on winning the auction!",
     "Complete your purchase within 24 hours to secure the item",
     "Coordinate delivery or pickup with the seller",
-    "Funds are held securely until you confirm delivery",
+    "Payment goes directly to the seller via Stripe",
   ],
   auction_lost: [
     "Don't worry — there are plenty more listings to explore",
@@ -447,7 +447,7 @@ const WHAT_HAPPENS_NEXT: Record<string, string[]> = {
   offer_accepted: [
     "Your offer has been accepted by the seller!",
     "Complete your purchase to secure the item",
-    "Payment is protected in escrow until delivery",
+    "Payment sent directly to seller via Stripe",
     "Coordinate shipping or pickup with the seller",
   ],
   offer_declined: [
@@ -499,12 +499,12 @@ export function notificationToEmail(type: string, title: string, listingTitle?: 
       return {
         subject: `🛒 Order Confirmed — ${listingTitle || ""}`,
         title: "Purchase Confirmed 🛒",
-        message: `Your order has been confirmed and your payment is secure. Your funds are held in **escrow** — the seller only gets paid once you confirm delivery.\n\nKeep an eye on your messages — the seller may reach out with shipping or pickup details.`,
+        message: `Your order has been confirmed and your payment has gone directly to the seller's Stripe account — Sky Drop never holds your money.\n\nKeep an eye on your messages — the seller may reach out with shipping or pickup details.`,
         statusBadge: badge,
         summaryRows: listingTitle ? [
           { label: "Item", value: listingTitle },
           ...(total ? [{ label: "Total charged", value: `$${total.toFixed(2)}`, highlight: true }] : []),
-          { label: "Payment", value: "Held in escrow 🔒" },
+          { label: "Payment", value: "Sent to seller via Stripe 💳" },
         ] : undefined,
         whatHappensNext: steps,
         reviewPrompt: true,
@@ -514,13 +514,13 @@ export function notificationToEmail(type: string, title: string, listingTitle?: 
         subject: `📦 Order Confirmed — ${listingTitle || ""}`,
         title: "Order Confirmed ✅",
         message: listingTitle
-          ? `Your order for **${listingTitle}** has been confirmed by the seller — they're on it!\n\nYour payment stays safe in escrow until you confirm delivery. If anything doesn't look right, you can open a dispute within 7 days of delivery.`
+          ? `Your order for **${listingTitle}** has been confirmed by the seller — they're on it!\n\nYour payment has been sent directly to the seller via Stripe. If anything doesn't look right, you can open a dispute within 7 days of delivery.`
           : `Your order has been confirmed by the seller.`,
         statusBadge: badge,
         summaryRows: listingTitle ? [
           { label: "Item", value: listingTitle },
           ...(total ? [{ label: "Total charged", value: `$${total.toFixed(2)}`, highlight: true }] : []),
-          { label: "Payment", value: "Held in escrow 🔒" },
+          { label: "Payment", value: "Sent to seller via Stripe 💳" },
           { label: "Status", value: "Preparing order" },
         ] : undefined,
         whatHappensNext: steps,
@@ -627,7 +627,7 @@ export function notificationToEmail(type: string, title: string, listingTitle?: 
         title: "You Won the Auction! 🎉",
         message: listingTitle
           ? total
-            ? `Congratulations! You won **${listingTitle}** with a winning bid of **$${total.toFixed(2)}**.\n\nComplete your purchase within **24 hours** to secure the item. Your payment will be held securely in escrow until you confirm delivery.`
+            ? `Congratulations! You won **${listingTitle}** with a winning bid of **$${total.toFixed(2)}**.\n\nComplete your purchase within **24 hours** to secure the item. Your payment will be sent directly to the seller via Stripe upon completion.`
             : `Congratulations! You won the auction for **${listingTitle}**.`
           : `Congratulations! You won the auction.`,
         statusBadge: badge,
@@ -669,7 +669,7 @@ export function notificationToEmail(type: string, title: string, listingTitle?: 
         title: "Offer Accepted! ✅",
         message: listingTitle
           ? total
-            ? `Your offer of **$${total.toFixed(2)}** on **${listingTitle}** has been accepted by the seller!\n\nComplete your purchase now to secure the item. Payment is protected in escrow until delivery.`
+            ? `Your offer of **$${total.toFixed(2)}** on **${listingTitle}** has been accepted by the seller!\n\nComplete your purchase now to secure the item. Payment will be sent directly to the seller via Stripe.`
             : `Your offer on **${listingTitle}** has been accepted!`
           : `Your offer has been accepted!`,
         statusBadge: badge,

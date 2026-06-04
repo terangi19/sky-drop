@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import stripePromise from "../lib/stripe-client";
-import { auth, storage, onAuthStateChanged } from "../lib/firebase";
+import { auth, db, storage, onAuthStateChanged } from "../lib/firebase";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { getFreshIdToken } from "../lib/api-auth";
 import { ref, getDownloadURL } from "firebase/storage";
 import { createNotification } from "../lib/notifications";
@@ -12,6 +13,7 @@ import { showToast } from "./Toast";
 
 import AnimatedCheckmark from "./AnimatedCheckmark";
 import { playConfetti, playSuccess } from "../lib/sounds";
+import { isListingAvailableForPurchase } from "../lib/listing-availability";
 
 interface ListingData {
   id?: string;
@@ -70,8 +72,8 @@ interface CheckoutModalProps {
 type DeliveryMethod = "pickup" | "shipping" | "badge" | "digital" | "rental" | "event" | null;
 type Step = "form" | "card" | "processing" | "share_address" | "success" | "error";
 
-function PaymentForm({ total, listingId, title, price, buyerEmail, onSuccess, onBack, badgeForSale, sellerEmail, collectionName, type, digitalFileURL, digitalFileName, digitalStoragePath }: {
-  total: number; listingId: string; title: string; price: string; buyerEmail: string; onSuccess: () => void; onBack: () => void; badgeForSale?: string; sellerEmail?: string; collectionName?: string; type?: string; digitalFileURL?: string; digitalFileName?: string; digitalStoragePath?: string;
+function PaymentForm({ total, listingId, title, price, buyerEmail, paymentIntentId, onSuccess, onBack, badgeForSale, sellerEmail, collectionName, type, digitalFileURL, digitalFileName, digitalStoragePath }: {
+  total: number; listingId: string; title: string; price: string; buyerEmail: string; paymentIntentId: string; onSuccess: (confirmedPaymentIntentId: string) => void; onBack: () => void; badgeForSale?: string; sellerEmail?: string; collectionName?: string; type?: string; digitalFileURL?: string; digitalFileName?: string; digitalStoragePath?: string;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -91,7 +93,7 @@ function PaymentForm({ total, listingId, title, price, buyerEmail, onSuccess, on
     setSubmitting(true);
     setError("");
 
-    const { error: submitError } = await stripe.confirmPayment({
+    const { error: submitError, paymentIntent } = await stripe.confirmPayment({
       elements,
       confirmParams: {
         return_url: `${window.location.origin}/checkout/success?listingId=${encodeURIComponent(listingId)}&title=${encodeURIComponent(title)}&price=${encodeURIComponent(price)}&buyerEmail=${encodeURIComponent(buyerEmail)}&sellerEmail=${encodeURIComponent(sellerEmail || "")}&collectionName=${encodeURIComponent(collectionName || "listings")}${badgeForSale ? `&badgeForSale=${encodeURIComponent(badgeForSale)}` : ""}${type === "digital" ? `&type=digital&digitalStoragePath=${encodeURIComponent(digitalStoragePath || digitalFileURL || "")}&digitalFileName=${encodeURIComponent(digitalFileName || "")}` : ""}${type === "rental" ? `&type=rental` : ""}`,
@@ -102,9 +104,15 @@ function PaymentForm({ total, listingId, title, price, buyerEmail, onSuccess, on
     setSubmitting(false);
     if (submitError) {
       setError("Payment failed. Please try another payment method or try again.");
-    } else {
-      onSuccess();
+      return;
     }
+
+    const confirmedId = paymentIntent?.id || paymentIntentId;
+    if (!confirmedId) {
+      setError("Payment went through but the order reference was lost. Tap Retry on the next screen.");
+      return;
+    }
+    onSuccess(confirmedId);
   }
 
   return (
@@ -156,6 +164,9 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [postcode, setPostcode] = useState("");
+  const [country, setCountry] = useState("New Zealand");
   const [step, setStep] = useState<Step>("form");
   const [clientSecret, setClientSecret] = useState("");
   const [paymentIntentId, setPaymentIntentId] = useState("");
@@ -177,7 +188,16 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
   const rentalItemTotal = isRental ? itemPrice * (listing.rentalDays || 1) : itemPrice;
   const total = isAuction ? winningBid! + processingFee : isBadge || isDigital || isRental || isEvent ? rentalItemTotal + processingFee + rentalDepositAmount : (deliveryMethod === "shipping" ? itemPrice + shippingAmount : itemPrice) + processingFee;
 
-  const isValid = isBadge || isDigital || isRental || isEvent ? name.trim() : name.trim() && phone.trim() && (deliveryMethod !== "shipping" || address.trim()) && deliveryMethod;
+  const shippingDetailsComplete =
+    address.trim().length > 0 && city.trim().length > 0 && postcode.trim().length > 0;
+  const isValid = isBadge || isDigital || isRental || isEvent
+    ? name.trim()
+    : name.trim() && phone.trim() && deliveryMethod && (deliveryMethod !== "shipping" || shippingDetailsComplete);
+
+  function formatShippingAddress() {
+    const parts = [address.trim(), `${city.trim()} ${postcode.trim()}`.trim(), country.trim()].filter(Boolean);
+    return parts.join(", ");
+  }
 
   // Restore body scroll on unmount
   useEffect(() => {
@@ -214,16 +234,40 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
     }
   }, [step]);
 
-  // Auto-fill from last checkout (no Firestore — avoids permission errors in checkout)
+  // Auto-fill from last checkout or saved profile shipping fields
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("checkoutInfo");
-      if (!saved) return;
-      const info = JSON.parse(saved);
-      if (info.name) setName(info.name);
-      if (info.phone) setPhone(info.phone);
-      if (info.address) setAddress(info.address);
-    } catch {}
+    let cancelled = false;
+    (async () => {
+      try {
+        const saved = localStorage.getItem("checkoutInfo");
+        if (saved) {
+          const info = JSON.parse(saved);
+          if (info.name) setName(info.name);
+          if (info.phone) setPhone(info.phone);
+          if (info.address) setAddress(info.address);
+          if (info.city) setCity(info.city);
+          if (info.postcode) setPostcode(info.postcode);
+          if (info.country) setCountry(info.country);
+        }
+      } catch {}
+
+      const user = auth.currentUser;
+      if (!user || cancelled) return;
+      try {
+        const snap = await getDoc(doc(db, "profiles", user.uid));
+        if (!snap.exists() || cancelled) return;
+        const d = snap.data();
+        setName((prev) => prev || d.shippingName || "");
+        setPhone((prev) => prev || d.shippingPhone || "");
+        setAddress((prev) => prev || d.shippingAddress || "");
+        setCity((prev) => prev || d.shippingCity || "");
+        setPostcode((prev) => prev || d.shippingPostcode || "");
+        setCountry((prev) => (prev && prev !== "New Zealand" ? prev : d.shippingCountry || "New Zealand"));
+      } catch (e) {
+        console.error("Failed to load profile shipping info:", e);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   function safeClose() {
@@ -270,8 +314,8 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
       if (!listing.id) {
         throw new Error("Listing not found.");
       }
-      if (listing.status === "sold") {
-        throw new Error("This listing has already sold.");
+      if (!isListingAvailableForPurchase(listing)) {
+        throw new Error("This listing is no longer available.");
       }
       const expiresMs = listingTimestampMs(listing.expiresAt);
       if (expiresMs != null && expiresMs < Date.now()) {
@@ -348,9 +392,21 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
     }
   }
 
-  async function handlePaymentSuccess() {
+  async function handlePaymentSuccess(confirmedPaymentIntentId?: string) {
     setStep("processing");
+    const piId = confirmedPaymentIntentId || paymentIntentId;
+    if (confirmedPaymentIntentId) {
+      setPaymentIntentId(confirmedPaymentIntentId);
+    }
     try {
+      if (!piId) {
+        setPurchaseError(
+          "Missing payment reference. Tap Retry — your card may already have been charged."
+        );
+        setStep("error");
+        return;
+      }
+
       const token = await getFreshIdToken();
 
       let resolvedDigitalURL = "";
@@ -378,7 +434,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
           buyerName: name.trim(),
           buyerPhone: isAuction || isBadge || isDigital || isRental || isEvent ? "" : phone.trim(),
           deliveryMethod: isAuction ? "pickup" : isBadge ? "badge" : isDigital ? "digital" : isRental ? "rental" : isEvent ? "event" : deliveryMethod,
-          shippingAddress: deliveryMethod === "shipping" ? address.trim() : "",
+          shippingAddress: deliveryMethod === "shipping" ? formatShippingAddress() : "",
           shippingFee: deliveryMethod === "shipping" ? shippingAmount : 0,
           processingFee: 1.00,
           total,
@@ -390,7 +446,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
           rentalStart: isRental && listing.pickupDate ? new Date(listing.pickupDate).toISOString() : null,
           rentalEnd: isRental && listing.returnDate ? new Date(listing.returnDate).toISOString() : null,
           rentalDays: isRental ? (listing.rentalDays || 1) : null,
-          stripePaymentIntentId: paymentIntentId || "",
+          stripePaymentIntentId: piId,
           winningBid: winningBid || null,
           collectionName,
         }),
@@ -465,9 +521,31 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
             name: name.trim(),
             phone: phone.trim(),
             address: address.trim(),
+            city: city.trim(),
+            postcode: postcode.trim(),
+            country: country.trim(),
           })
         );
       } catch {}
+
+      if (deliveryMethod === "shipping" && auth.currentUser?.uid) {
+        try {
+          await setDoc(
+            doc(db, "profiles", auth.currentUser.uid),
+            {
+              shippingName: name.trim(),
+              shippingPhone: phone.trim(),
+              shippingAddress: address.trim(),
+              shippingCity: city.trim(),
+              shippingPostcode: postcode.trim(),
+              shippingCountry: country.trim(),
+            },
+            { merge: true }
+          );
+        } catch (e) {
+          console.error("Failed to save shipping info to profile:", e);
+        }
+      }
 
           setStep(isBadge || isDigital || isRental || isEvent ? "success" : "share_address");
     } catch (e: any) {
@@ -481,12 +559,12 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
 
   async function handleRetryPurchase() {
     setPurchaseError("");
-    await handlePaymentSuccess();
+    await handlePaymentSuccess(paymentIntentId);
   }
 
   async function handleSendAddress() {
     const shippingMsg = deliveryMethod === "shipping"
-      ? `Hi, please ship to:\n\n${address.trim()}\n\n${phone.trim() ? `Contact: ${phone.trim()}\n\n` : ""}Thanks!`
+      ? `Hi, please ship to:\n\n${formatShippingAddress()}\n\n${phone.trim() ? `Contact: ${phone.trim()}\n\n` : ""}Thanks!`
       : "Hi, I'd like to arrange pickup for this item. Thanks!";
 
     try {
@@ -513,7 +591,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4"
+      className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 animate-fade-in-backdrop"
       onClick={safeClose}
     >
       <div
@@ -551,8 +629,8 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
               <div className="rounded-lg bg-zinc-900/60 px-4 py-3 text-xs space-y-1">
                 <p className="font-bold text-[var(--foreground)]">{name.trim()}</p>
                 {phone.trim() && <p className="text-[var(--muted)]">📞 {phone.trim()}</p>}
-                {!isBadge && deliveryMethod === "shipping" && address.trim() && (
-                  <p className="text-[var(--muted)]">📍 {address.trim()}</p>
+                {!isBadge && deliveryMethod === "shipping" && formatShippingAddress() && (
+                  <p className="text-[var(--muted)]">📍 {formatShippingAddress()}</p>
                 )}
                 {!isBadge && deliveryMethod === "shipping" && (
                   <p className="pt-1 text-[10px] text-[var(--muted)]">Only shared if you send below.</p>
@@ -646,8 +724,8 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
               <div className="mt-2 flex items-center justify-between border-t border-zinc-800 pt-2 text-sm font-bold text-[var(--foreground)]"><span>Total Due Today</span><span>${total.toFixed(2)}</span></div>
               {isRental && listing.rentalDeposit && <p className="mt-1 text-[10px] text-amber-400/70">${Number(listing.rentalDeposit).toFixed(2)} refundable after safe return.</p>}
             </div>
-            <div className="mt-3 rounded-lg border border-amber-500/15 bg-amber-500/[0.04] px-3 py-2 text-left text-[10px] leading-relaxed text-amber-400/80">
-              🔒 Your payment is held securely in escrow. Funds are released to the seller only after you confirm delivery.
+            <div className="mt-3 rounded-lg border border-emerald-500/15 bg-emerald-500/[0.04] px-3 py-2 text-left text-[10px] leading-relaxed text-emerald-400/80">
+              💳 Secured by Stripe
             </div>
             <div className="mt-2 flex items-center justify-center gap-1 text-xs text-[var(--muted)]">
               <span className="text-emerald-400">✓</span>
@@ -746,8 +824,19 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                           className="w-full rounded-lg border border-zinc-800 bg-zinc-900/60 px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-500/40" />
                       )}
                       {deliveryMethod === "shipping" && (
-                        <input type="text" placeholder="Shipping address" value={address} onChange={(e) => setAddress(e.target.value)}
-                          className="w-full rounded-lg border border-zinc-800 bg-zinc-900/60 px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-500/40" />
+                        <div className="space-y-2 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
+                          <p className="text-[11px] font-medium text-zinc-400">Shipping address</p>
+                          <input type="text" placeholder="Street address" value={address} onChange={(e) => setAddress(e.target.value)}
+                            className="w-full rounded-lg border border-zinc-800 bg-zinc-900/60 px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-500/40" />
+                          <div className="grid grid-cols-2 gap-2">
+                            <input type="text" placeholder="City" value={city} onChange={(e) => setCity(e.target.value)}
+                              className="w-full rounded-lg border border-zinc-800 bg-zinc-900/60 px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-500/40" />
+                            <input type="text" placeholder="Postcode" value={postcode} onChange={(e) => setPostcode(e.target.value)}
+                              className="w-full rounded-lg border border-zinc-800 bg-zinc-900/60 px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-500/40" />
+                          </div>
+                          <input type="text" placeholder="Country" value={country} onChange={(e) => setCountry(e.target.value)}
+                            className="w-full rounded-lg border border-zinc-800 bg-zinc-900/60 px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-500/40" />
+                        </div>
                       )}
                     </div>
                   </div>
@@ -818,7 +907,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                     {isRental && listing.rentalDeposit && <p className="mt-1 text-[10px] text-amber-400/70">${Number(listing.rentalDeposit).toFixed(2)} refundable after safe return.</p>}
                   </div>
                   <Elements stripe={stripePromise} options={{ clientSecret }}>
-                    <PaymentForm total={total} listingId={listing.id} title={listing.title} price={String(total)} buyerEmail={buyerEmail} onSuccess={handlePaymentSuccess} onBack={resetToForm} badgeForSale={listing.badgeForSale} sellerEmail={listing.sellerEmail} collectionName={collectionName} type={listing.type} digitalFileURL={listing.digitalFileURL} digitalFileName={listing.digitalFileName} digitalStoragePath={listing.digitalStoragePath} />
+                    <PaymentForm total={total} listingId={listing.id} title={listing.title} price={String(total)} buyerEmail={buyerEmail} paymentIntentId={paymentIntentId} onSuccess={handlePaymentSuccess} onBack={resetToForm} badgeForSale={listing.badgeForSale} sellerEmail={listing.sellerEmail} collectionName={collectionName} type={listing.type} digitalFileURL={listing.digitalFileURL} digitalFileName={listing.digitalFileName} digitalStoragePath={listing.digitalStoragePath} />
                   </Elements>
                 </div>
               )}

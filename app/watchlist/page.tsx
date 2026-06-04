@@ -7,6 +7,7 @@ import { collection, deleteDoc, doc, getDoc, onSnapshot, orderBy, query } from "
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import { isListingVisibleInMarketplace } from "../lib/listing-availability";
 
 interface WatchlistItem {
   id: string;
@@ -284,9 +285,9 @@ export default function WatchlistPage() {
                       <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                       <div className="absolute top-3 left-3 flex flex-col gap-1.5">
                         {isHot && <span className="rounded-full bg-orange-500/90 backdrop-blur-sm px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg">🔥 Hot</span>}
-                        {item.status === "sold" && <span className="rounded-full bg-red-500/90 backdrop-blur-sm px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg">Sold</span>}
-                        {item.status !== "sold" && isExpired && <span className="rounded-full bg-zinc-700/90 backdrop-blur-sm px-2.5 py-0.5 text-[9px] font-bold text-zinc-300 shadow-lg">Expired</span>}
-                        {item.status !== "sold" && item.savedPrice && item.price && Number(item.savedPrice) > Number(item.price) && (
+                        {!isListingVisibleInMarketplace(item) && <span className="rounded-full bg-red-500/90 backdrop-blur-sm px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg">Sold</span>}
+                        {isListingVisibleInMarketplace(item) && isExpired && <span className="rounded-full bg-zinc-700/90 backdrop-blur-sm px-2.5 py-0.5 text-[9px] font-bold text-zinc-300 shadow-lg">Expired</span>}
+                        {isListingVisibleInMarketplace(item) && item.savedPrice && item.price && Number(item.savedPrice) > Number(item.price) && (
                           <span className="rounded-full bg-emerald-500/90 backdrop-blur-sm px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg animate-pulse">📉 ${Math.round(Number(item.savedPrice) - Number(item.price))} off</span>
                         )}
                       </div>

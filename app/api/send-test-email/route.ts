@@ -56,7 +56,7 @@ const CTAS: Record<string, { label: string; url: string; primary: boolean }[]> =
     { label: "Account Settings", url: "https://skydrop.nz/settings", primary: true },
   ],
   listing_rejected: [
-    { label: "Create Listing", url: "https://skydrop.nz/post", primary: true },
+    { label: "Create Listing", url: "https://skydrop.nz/post/ai", primary: true },
     { label: "Guidelines", url: "https://skydrop.nz/guidelines", primary: false },
   ],
   dispute_opened: [

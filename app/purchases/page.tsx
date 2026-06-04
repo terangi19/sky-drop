@@ -7,6 +7,7 @@ import Background from "../components/Background";
 import { User } from "firebase/auth";
 import { addDoc, collection, doc, onSnapshot, orderBy, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
+import { getFreshIdToken } from "../lib/api-auth";
 import { createNotification } from "../lib/notifications";
 import { awardXP } from "../lib/xp";
 import { showToast } from "../components/Toast";
@@ -31,7 +32,9 @@ interface Purchase {
   pickupArea?: string;
   badgeTransfer?: string;
   freeShipping?: boolean;
+  tracking?: string;
   trackingNumber?: string;
+  paymentType?: string;
   estimatedDays?: number;
   type?: string;
   digitalFileURL?: string;
@@ -144,72 +147,54 @@ export default function PurchasesPage() {
     return () => unsub();
   }, [user?.email]);
 
-  // Auto-confirm shipped items after 14 days
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const now = Date.now();
-      for (const p of purchases) {
-        if (p.status === "shipped" && !p.disputeStatus && p.createdAt?.seconds && (now - p.createdAt.seconds * 1000) > 14 * 86400000) {
-          updateStatus(p.id, "delivered").catch((e) => console.error("Failed to auto-confirm delivery:", e));
-        }
-      }
-    }, 5000);
-    return () => clearTimeout(timer);
-  }, [purchases]);
+  async function updateStatus(id: string, status: string) {
+    const token = await getFreshIdToken();
+    if (!token) {
+      showToast("Please sign in again.", "error");
+      return;
+    }
 
-  async function updateStatus(id: string, status: string, badge?: string) {
+    const res = await fetch("/api/update-purchase-status", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ purchaseId: id, status }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showToast(data.error || "Could not update order", "error");
+      return;
+    }
+
+    showToast(
+      status === "delivered" ? "Receipt confirmed. Thanks!" : "Order updated.",
+      "success"
+    );
+
+    const purchase = purchases.find((p) => p.id === id);
+    if (!purchase) return;
+
     try {
-      await updateDoc(doc(db, "purchases", id), { status, deliveredAt: serverTimestamp() });
-
-      const purchase = purchases.find((p) => p.id === id);
-      if (purchase && status === "delivered") {
-        await awardXP(user!.uid, 25);
+      if (status === "delivered") {
+        if (user?.uid) await awardXP(user.uid, 25);
+        const buyerLabel = user?.email ? user.email.split("@")[0] : "Buyer";
         await createNotification({
           targetEmail: purchase.sellerEmail,
-          fromEmail: user!.email!,
+          fromEmail: user?.email || purchase.buyerEmail,
           type: "delivered",
           title: "Buyer Confirmed Receipt",
-          message: `${user!.email} confirmed receipt of "${purchase.listingTitle}". Funds will be released after a short verification.`,
+          message: `${buyerLabel} confirmed receipt of "${purchase.listingTitle}". The order is complete.`,
           listingId: purchase.listingId,
           listingTitle: purchase.listingTitle,
           listingImage: purchase.listingImage,
           total: purchase.total,
         });
-
-        // Attempt to release funds from escrow
-        try {
-          const token = await auth.currentUser?.getIdToken();
-          const res = await fetch("/api/release-payment", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
-            body: JSON.stringify({ purchaseId: id }),
-          });
-          const data = await res.json();
-          if (data.success) {
-            await createNotification({
-              targetEmail: purchase.buyerEmail,
-              fromEmail: user!.email!,
-              type: "payment_released",
-              title: "Transaction Complete",
-              message: `Payment for "${purchase.listingTitle}" has been released to the seller. Transaction complete! Thanks for using Sky Drop.`,
-              listingId: purchase.listingId,
-              listingTitle: purchase.listingTitle,
-              listingImage: purchase.listingImage,
-              total: purchase.total,
-            });
-            showToast("Funds released to seller!", "success");
-          } else {
-            showToast(data.error || "Funds will be released once verified.", "info");
-          }
-        } catch (e) {
-          console.error("Release payment error:", e);
-          showToast("Could not release funds immediately. Auto-release pending.", "info");
-        }
-
         setReviewModal(purchase);
       }
     } catch (e) {
-      console.error("Failed to update:", e);
+      console.error("Post-confirm notifications:", e);
     }
   }
 
@@ -251,6 +236,9 @@ export default function PurchasesPage() {
 
   function nextAction(p: Purchase): { label: string; action: string; color: string; badge?: string } | null {
     if (p.status === "shipped") return { label: "Confirm Received", action: "delivered", color: "bg-emerald-500" };
+    if (p.deliveryMethod === "pickup" && p.status === "seller_confirming") {
+      return { label: "Confirm Received", action: "delivered", color: "bg-emerald-500" };
+    }
     if (p.deliveryMethod === "service" && p.status === "in_progress") return { label: "Mark Completed", action: "delivered", color: "bg-violet-500" };
     if (p.deliveryMethod === "service" && p.status === "completed") return { label: "Confirm Received", action: "delivered", color: "bg-emerald-500" };
     if (p.deliveryMethod === "rental" && p.status === "rented") return { label: "Return Item", action: "returned", color: "bg-sky-500" };
@@ -283,7 +271,7 @@ export default function PurchasesPage() {
           <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
             <span className="text-white drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">My Purchases</span>
           </h1>
-          <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl">Every purchase on Sky Drop is protected by our escrow system. Your payment is held securely until you confirm delivery — ensuring you never pay for something you haven't received. Track your orders, manage delivery, and shop with complete peace of mind.</p>
+          <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl">Your payment goes directly to the seller via Stripe. Track your orders, confirm delivery, manage disputes, and shop with confidence.</p>
           <p className="relative mt-2 text-sm text-zinc-500">{purchases.length} total · {counts.active || 0} active</p>
         </div>
 
@@ -369,7 +357,7 @@ export default function PurchasesPage() {
                           <Link href={`/post/listing/${p.listingId}`} className="text-sm font-bold text-[var(--foreground)] transition hover:text-emerald-400 line-clamp-1">{p.listingTitle}</Link>
                           <p className="mt-0.5 text-sm font-semibold text-emerald-400">${Number(p.listingPrice).toFixed(2)}</p>
                           <div className="mt-0.5 flex items-center gap-2 text-[11px] text-zinc-500">
-                            <Link href={`/seller/${p.sellerEmail}`} className="hover:text-emerald-400 transition-colors">{p.sellerEmail?.split("@")[0] || "—"}</Link>
+                            <Link href={`/seller/${p.sellerEmail}`} className="hover:text-emerald-400 transition-colors">Seller</Link>
                             {p.createdAt && <span>· {formatDate(p.createdAt)}</span>}
                           </div>
                         </div>
@@ -377,9 +365,14 @@ export default function PurchasesPage() {
                           <span className={`shrink-0 rounded-full border px-3 py-0.5 text-[10px] font-bold ${STATUS_STYLES[p.status] || "bg-zinc-800/50 text-zinc-500 border-zinc-700/50"}`}>
                             {STATUS_LABELS[p.status] || p.status}
                           </span>
-                          {!p.fundsReleased && p.status !== "cancelled" && p.status !== "refunded" && p.status !== "failed" && (
+                          {!p.fundsReleased && p.status !== "cancelled" && p.status !== "refunded" && p.status !== "failed" && !(p as any).destinationCharge && (
                             <span className="shrink-0 rounded-full border border-amber-500/15 bg-amber-500/[0.04] px-2.5 py-0.5 text-[9px] font-medium text-amber-400/70">
                               🔒 Escrow
+                            </span>
+                          )}
+                          {(p as any).destinationCharge && !p.fundsReleased && p.status !== "completed" && (
+                            <span className="shrink-0 rounded-full border border-emerald-500/15 bg-emerald-500/[0.04] px-2.5 py-0.5 text-[9px] font-medium text-emerald-400/70">
+                              💳 Paid to Seller
                             </span>
                           )}
                         </div>
@@ -387,8 +380,14 @@ export default function PurchasesPage() {
 
                       <div className="mt-2 flex items-center gap-2 text-[11px] text-zinc-500">
                         <span>{dl.icon} {dl.text}</span>
-                        {p.status === "shipped" && p.trackingNumber && <span className="text-zinc-600">· #{p.trackingNumber}</span>}
                       </div>
+                      {(p.tracking || p.trackingNumber) &&
+                        ["shipped", "delivered"].includes(p.status) && (
+                        <p className="mt-1.5 rounded-lg border border-sky-500/15 bg-sky-500/5 px-2.5 py-1.5 text-[11px] text-sky-300/90">
+                          <span className="font-bold text-sky-400">Tracking: </span>
+                          {p.tracking || p.trackingNumber}
+                        </p>
+                      )}
 
                       {/* Dispute status */}
                       {p.disputeStatus && p.disputeStatus !== "resolved_seller" && (
@@ -430,7 +429,7 @@ export default function PurchasesPage() {
                           </button>
                         )}
                         {action && !p.disputeStatus && (
-                          <button onClick={() => updateStatus(p.id, action.action, (action as any).badge)}
+                          <button onClick={() => updateStatus(p.id, action.action)}
                             className={`rounded-lg ${action.color} px-3 py-1.5 text-[11px] font-bold text-white shadow-lg transition hover:brightness-110 active:scale-[0.97]`}>
                             {action.label}
                           </button>
@@ -470,9 +469,38 @@ export default function PurchasesPage() {
                     <button disabled={!reviewRating || reviewSending} onClick={async () => {
                       setReviewSending(true);
                       try {
-                        await addDoc(collection(db, "reviews"), { sellerEmail: reviewModal.sellerEmail, buyerEmail: user?.email, listingId: reviewModal.listingId, listingTitle: reviewModal.listingTitle, rating: reviewRating, reviewText: reviewText.trim(), createdAt: serverTimestamp() });
-                        setReviewModal(null); setReviewRating(0); setReviewText("");
-                      } catch (e) { console.error(e); showToast("Failed to submit review", "error"); setReviewSending(false); return; }
+                        const token = await getFreshIdToken();
+                        if (!token) {
+                          showToast("Please sign in again.", "error");
+                          setReviewSending(false);
+                          return;
+                        }
+                        const res = await fetch("/api/submit-review", {
+                          method: "POST",
+                          headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${token}`,
+                          },
+                          body: JSON.stringify({
+                            purchaseId: reviewModal.id,
+                            rating: reviewRating,
+                            reviewText: reviewText.trim(),
+                          }),
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                          showToast(data.error || "Failed to submit review", "error");
+                          setReviewSending(false);
+                          return;
+                        }
+                        showToast("Review submitted. Thank you!", "success");
+                        setReviewModal(null);
+                        setReviewRating(0);
+                        setReviewText("");
+                      } catch (e) {
+                        console.error(e);
+                        showToast("Failed to submit review", "error");
+                      }
                       setReviewSending(false);
                     }} className="flex-1 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:shadow-xl active:scale-[0.97] disabled:opacity-50">
                       {reviewSending ? "Sending..." : "Submit Review"}
@@ -505,6 +533,9 @@ export default function PurchasesPage() {
           <div className="mx-4 w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-black text-[var(--foreground)]">Open a Dispute</h3>
             <p className="mt-1 text-sm text-[var(--muted)]">{disputeModal.listingTitle}</p>
+            <p className="mt-3 rounded-lg border border-sky-500/20 bg-sky-500/5 px-3 py-2 text-[11px] leading-relaxed text-zinc-400">
+              Admins review disputes using your <strong className="text-zinc-300">Sky Drop Messages</strong> with the seller — what was agreed, tracking, and timelines. Describe the issue below and mention anything important from chat. We cannot review SMS, WhatsApp, or email.
+            </p>
             <div className="mt-4 space-y-3">
               <div>
                 <label className="text-xs font-bold text-zinc-500 mb-1 block">Reason</label>

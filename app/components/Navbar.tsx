@@ -180,9 +180,10 @@ export default function Navbar() {
         const listingId = n.listingId as string | undefined;
         const createdAt = n.createdAt as { toDate?: () => Date } | undefined;
 
+        const title = (n.title as string) || "Purchase update";
         purchaseItems.push({
           id: n.id as string,
-          sender: fromName || fromEmail || "",
+          sender: title,
           senderEmail: fromEmail || "",
           listingTitle: (n.listingTitle as string) || "",
           listingId: listingId || "",
@@ -216,32 +217,24 @@ export default function Navbar() {
           >
             <div className="relative w-10 h-10 md:w-12 md:h-12 flex-shrink-0">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" className="w-full h-full">
-                {/* Outer ambient glow */}
                 <circle cx="16" cy="16" r="14" fill="none" stroke="#38bdf8" strokeWidth="0.4" opacity="0.12" />
                 <circle cx="16" cy="16" r="12" fill="none" stroke="#38bdf8" strokeWidth="0.3" opacity="0.08" />
-                {/* Parachute canopy — sharp geometric dome */}
                 <path d="M2 9 C2 4, 8 1, 16 1 C24 1, 30 4, 30 9"
                   fill="none" stroke="#38bdf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-[0_0_6px_rgba(56,189,248,0.35)]" />
-                {/* Canopy panel lines */}
                 <path d="M8 9 C8 5.5, 12 3, 16 3 C20 3, 24 5.5, 24 9"
                   fill="none" stroke="#38bdf8" strokeWidth="0.6" opacity="0.3" strokeLinecap="round" />
                 <path d="M5.5 8 C6 5, 10.5 2.5, 16 2.5"
                   fill="none" stroke="#38bdf8" strokeWidth="0.5" opacity="0.2" strokeLinecap="round" />
                 <path d="M26.5 8 C26 5, 21.5 2.5, 16 2.5"
                   fill="none" stroke="#38bdf8" strokeWidth="0.5" opacity="0.2" strokeLinecap="round" />
-                {/* Suspension lines */}
                 <line x1="6" y1="9.5" x2="10" y2="18" stroke="#38bdf8" strokeWidth="0.8" opacity="0.35" strokeLinecap="round" />
                 <line x1="26" y1="9.5" x2="22" y2="18" stroke="#38bdf8" strokeWidth="0.8" opacity="0.35" strokeLinecap="round" />
                 <line x1="16" y1="9.5" x2="16" y2="18" stroke="#38bdf8" strokeWidth="0.8" opacity="0.35" strokeLinecap="round" />
-                {/* Drop package — 3D glass box */}
                 <rect x="10.5" y="18" width="11" height="9" rx="1.5" ry="1.5"
                   fill="none" stroke="#38bdf8" strokeWidth="1.8" strokeLinejoin="round" className="drop-shadow-[0_0_8px_rgba(56,189,248,0.25)]" />
-                {/* Box lid */}
                 <line x1="11" y1="21" x2="21" y2="21" stroke="#38bdf8" strokeWidth="1.2" opacity="0.5" strokeLinecap="round" />
-                {/* Box glass highlight */}
                 <path d="M12.5 22.5 L15 22.5" stroke="#38bdf8" strokeWidth="0.8" opacity="0.3" strokeLinecap="round" />
                 <path d="M12.5 24.5 L17 24.5" stroke="#38bdf8" strokeWidth="0.8" opacity="0.2" strokeLinecap="round" />
-                {/* Arrow indicator — fast delivery */}
                 <path d="M18 23 L21 23 L21 20" fill="none" stroke="#38bdf8" strokeWidth="1" opacity="0.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
@@ -305,7 +298,7 @@ export default function Navbar() {
             </button>
           {/* MOBILE DROPDOWN */}
           {mobileMenuOpen && (
-            <div className="absolute top-full left-0 right-0 z-50 border-b border-zinc-800/50 bg-zinc-950/95 backdrop-blur-xl md:hidden">
+            <div className="absolute top-full left-0 right-0 z-50 border-b border-zinc-800/50 bg-zinc-950/95 backdrop-blur-xl md:hidden animate-fade-in-up">
               <div className="flex flex-col gap-0.5 px-4 py-3">
                 <Link href="/post/ai" className="rounded-xl px-4 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-800/60 active:bg-zinc-800/80 transition-colors" onClick={() => setMobileMenuOpen(false)}>Sell</Link>
                 <div className="my-1.5 mx-4 border-t border-zinc-800/40" />

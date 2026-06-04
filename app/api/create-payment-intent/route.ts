@@ -3,6 +3,7 @@ import { getStripe } from "../../lib/stripe-server";
 import { verifyIdToken } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import { validateSellerForCheckout } from "../../lib/seller-payments";
+import { isListingAvailableForPurchase } from "../../lib/listing-availability";
 import {
   adminGetListing,
   adminGetSellerProfileByEmail,
@@ -117,19 +118,25 @@ export async function POST(req: NextRequest) {
     if (!listingData) {
       return NextResponse.json({ error: "Listing not found" }, { status: 404 });
     }
-    if (listingData.status === "sold") {
-      return NextResponse.json({ error: "This listing has already sold" }, { status: 400 });
+    if (String(listingData.paymentType || "stripe") === "contact") {
+      return NextResponse.json(
+        {
+          error:
+            "This listing uses Arrange Purchase. Use the green Purchase button to message the seller — no Stripe required.",
+        },
+        { status: 400 }
+      );
+    }
+    if (!isListingAvailableForPurchase(listingData)) {
+      return NextResponse.json(
+        { error: "This listing is no longer available" },
+        { status: 400 }
+      );
     }
 
     const expiresMs = listingExpiresMs(listingData);
     if (expiresMs !== null && expiresMs < Date.now()) {
       return NextResponse.json({ error: "This listing has expired" }, { status: 400 });
-    }
-    if (
-      listingData.stockQuantity !== undefined &&
-      Number(listingData.stockQuantity) <= 0
-    ) {
-      return NextResponse.json({ error: "This item is out of stock" }, { status: 400 });
     }
 
     const reservedAgo = reservedMsAgo(listingData);
@@ -200,6 +207,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: sellerError }, { status });
     }
 
+    const sellerStripeAccountId = sellerProfile?.stripeAccountId as string | undefined;
+    if (!sellerStripeAccountId) {
+      return NextResponse.json({ error: "Seller has not set up payouts" }, { status: 400 });
+    }
+
+    const applicationFeeAmount = Math.round(PROCESSING_FEE * 100);
+
     const paymentIntent = await getStripe().paymentIntents.create(
       {
         amount: requestedAmount,
@@ -212,8 +226,14 @@ export async function POST(req: NextRequest) {
           buyerEmail: decodedToken.email || "",
           sellerEmail,
           collectionName,
+          destinationCharge: "true",
         },
         automatic_payment_methods: { enabled: true },
+        transfer_data: {
+          destination: sellerStripeAccountId,
+        },
+        on_behalf_of: sellerStripeAccountId,
+        application_fee_amount: applicationFeeAmount,
       },
       { idempotencyKey: `payment-${listingId}-${decodedToken.uid}` }
     );

@@ -19,23 +19,25 @@ export default function BuyerProtectionPage() {
 
         <h1 className="text-4xl sm:text-5xl font-black tracking-tight">Buyer Protection</h1>
         <p className="mt-4 text-lg text-[var(--muted)] leading-relaxed">
-          Sky Drop is New Zealand's safest marketplace. Every transaction is protected by our escrow system, dispute resolution process, and secure payment infrastructure.
+          Every transaction on Sky Drop is backed by Stripe-powered payments, dispute resolution, and a commitment to transparency about where we&apos;re at.
         </p>
 
-        <div className="mt-12 grid gap-6 sm:grid-cols-2">
-          <FeatureCard icon="🔒" title="Escrow Protection" description="Your payment is held securely until you confirm delivery. The seller never receives your money until you're satisfied." />
-          <FeatureCard icon="💳" title="Secure Payments" description="All payments are processed through Stripe, the world's leading payment processor. Your card details are never stored on our servers." />
-          <FeatureCard icon="⚖️" title="Dispute Resolution" description="If something goes wrong, open a dispute within 7 days. An admin will review the case and issue a refund if appropriate." />
-          <FeatureCard icon="✅" title="Verified Sellers" description="Sellers are reviewed and verified. Suspicious accounts are restricted and their listings removed." />
+        <div className="mt-12 space-y-4">
+          <h2 className="text-xl font-black text-white">What&apos;s in place now</h2>
+
+          <FeatureCard icon="💳" title="Payments through Stripe" description="All payments are processed by Stripe — a global payment provider. Stripe handles the processing, fraud detection, and security infrastructure." />
+          <FeatureCard icon="⚖️" title="Dispute resolution" description="If something goes wrong, open a dispute within 7 days of delivery. An admin reviews the case and can issue a refund. If the seller is at fault, Stripe pulls the refund from their account." />
+          <FeatureCard icon="📋" title="Verified seller profiles" description="Sellers must verify their email and connect a Stripe account to list items. New sellers have listing limits until they build a sales history. Suspicious accounts are reviewed." />
+          <FeatureCard icon="🤖" title="Content scanning" description="Listings are automatically scanned for scam language, suspicious pricing, and prohibited items before going live. Images are checked through moderation tooling." />
+          <FeatureCard icon="💬" title="Safe messaging" description="Our messaging system warns you if someone tries to take the conversation off-platform. Keep all communication on Sky Drop to stay protected." />
         </div>
 
-        <h2 className="mt-16 text-2xl font-black">How Buyer Protection Works</h2>
+        <div className="mt-12 space-y-4">
+          <h2 className="text-xl font-black text-white">How disputes work</h2>
 
-        <div className="mt-6 space-y-6">
-          <ProtectionStep number="1" title="You're in control" description="You only pay once. Funds are held in escrow — the seller can't access them until you confirm you've received the item as described." />
-          <ProtectionStep number="2" title="Inspect before releasing" description="When the item arrives, check it thoroughly. Only confirm delivery in your Purchases page when you're happy with what you received." />
-          <ProtectionStep number="3" title="7-day dispute window" description="If the item never arrives, is significantly different from the listing, or is damaged, open a dispute within 7 days. Your funds remain frozen until resolved." />
-          <ProtectionStep number="4" title="Fair resolution" description="An admin reviews all evidence from both sides. If the seller is at fault, you get a full refund. If the seller is in the right, payment is released to them." />
+          <ProtectionStep number="1" title="You confirm or dispute" description="When the item arrives, inspect it. If everything looks good, confirm delivery to complete the order. If something's wrong, open a dispute within 7 days." />
+          <ProtectionStep number="2" title="Dispute is reviewed" description="Once a dispute is opened, an admin reviews evidence from both sides — messages, photos, tracking info." />
+          <ProtectionStep number="3" title="Refund issued if at fault" description="If the seller is at fault, a full refund is issued through Stripe's payment system." />
         </div>
 
         <div className="mt-12 rounded-2xl border border-amber-500/15 bg-amber-500/[0.04] p-6">
@@ -48,7 +50,14 @@ export default function BuyerProtectionPage() {
           </ul>
         </div>
 
-        <div className="mt-12 text-center">
+        <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
+          <h3 className="font-bold text-white">💡 Start small</h3>
+          <p className="mt-2 text-sm text-[var(--muted)] leading-relaxed">
+            Sky Drop is a new platform. We recommend starting with smaller transactions while we continue building out our protections. Our <Link href="/escrow" className="text-sky-400 underline">Payments & Protection page</Link> has a full roadmap of what we&apos;re working on next.
+          </p>
+        </div>
+
+        <div className="mt-10 text-center">
           <Link href="/" className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">
             Browse Listings
           </Link>
@@ -61,11 +70,15 @@ export default function BuyerProtectionPage() {
 function FeatureCard({ icon, title, description }: { icon: string; title: string; description: string }) {
   return (
     <div className="rounded-xl border border-zinc-800/50 bg-zinc-900/60 p-5 transition hover:border-zinc-700/50">
-      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-500/10 text-lg">
-        {icon}
+      <div className="flex items-start gap-4">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-lg">
+          {icon}
+        </div>
+        <div>
+          <h3 className="text-sm font-bold text-[var(--foreground)]">{title}</h3>
+          <p className="mt-1 text-xs text-[var(--muted)] leading-relaxed">{description}</p>
+        </div>
       </div>
-      <h3 className="mt-3 text-sm font-bold text-[var(--foreground)]">{title}</h3>
-      <p className="mt-1 text-xs text-[var(--muted)] leading-relaxed">{description}</p>
     </div>
   );
 }

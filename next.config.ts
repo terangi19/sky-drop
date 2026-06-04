@@ -18,6 +18,15 @@ const nextConfig: NextConfig = {
     workerThreads: false,
     cpus: 2,
   },
+  async redirects() {
+    return [
+      {
+        source: "/post",
+        destination: "/post/ai",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {

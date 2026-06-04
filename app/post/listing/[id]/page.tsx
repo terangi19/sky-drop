@@ -18,6 +18,16 @@ import { detectScam } from "../../../lib/scamdetection";
 import { calculateTrustScore } from "../../../lib/trustscore";
 import { detectSuspiciousPrice } from "../../../lib/pricedetection";
 import { safeGetDoc, safeOnSnapshot, parseFirestoreError, isOnline } from "../../../lib/firestore";
+import { getFreshIdToken } from "../../../lib/api-auth";
+import {
+  isListingAvailableForPurchase,
+  isListingVisibleInMarketplace,
+} from "../../../lib/listing-availability";
+import {
+  countBuyerArrangeRequests,
+  countBuyerPurchasedQuantity,
+  getBuyerPurchaseUiState,
+} from "../../../lib/buyer-purchase-ui";
 
 function getBidIncrement(price: number): number {
   if (price < 50) return 1;
@@ -65,6 +75,7 @@ interface Listing {
   freeShipping?: boolean;
   shipsWithinDays?: number;
   stockQuantity?: number;
+  onePerBuyer?: boolean;
   saleType?: string;
   startingBid?: number;
   reservePrice?: number;
@@ -103,7 +114,6 @@ interface Listing {
 }
 
 interface SellerProfile {
-  displayName?: string;
   bio?: string;
   photoURL?: string;
   memberSince?: Timestamp;
@@ -135,10 +145,11 @@ export default function ListingPage() {
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showCheckout, setShowCheckout] = useState(false);
+  const [arrangingPurchase, setArrangingPurchase] = useState(false);
   const [winningBid, setWinningBid] = useState<number | null>(null);
   const [showPromote, setShowPromote] = useState(false);
   const [showJobApplication, setShowJobApplication] = useState(false);
-  const [userPurchased, setUserPurchased] = useState(false);
+  const [buyerPurchases, setBuyerPurchases] = useState<{ status?: string }[]>([]);
   const [sellerReviewData, setSellerReviewData] = useState<{ avg: number; count: number } | null>(null);
   const [bidAmount, setBidAmount] = useState("");
   const [autoBidEnabled, setAutoBidEnabled] = useState(true);
@@ -166,16 +177,57 @@ export default function ListingPage() {
     ? getAuctionEndTime(listing.auctionEndsAt) < Date.now() : false;
   const isAuctionWinner = auctionEnded && user?.email === listing.highestBidder;
 
-  // Auto-open checkout if navigated with ?buy=1
+  const isContactListing = (listing as { paymentType?: string })?.paymentType === "contact";
+
+  function openStripeCheckout() {
+    if (isContactListing) {
+      showToast("This listing uses Arrange Purchase — tap the green Purchase button to message the seller.", "info");
+      return;
+    }
+    setShowCheckout(true);
+  }
+
+  async function handleArrangePurchase() {
+    if (!user?.email || !listingId || arrangingPurchase) return;
+    setArrangingPurchase(true);
+    try {
+      const token = await getFreshIdToken();
+      if (!token) {
+        showToast("Please sign in again.", "error");
+        return;
+      }
+      const res = await fetch("/api/arrange-purchase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ listingId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        showToast(data.error || "Could not start purchase. Try again.", "error");
+        return;
+      }
+      router.push(
+        `/messages?user=${encodeURIComponent(data.sellerEmail || listing.sellerEmail || "")}&listing=${listingId}`
+      );
+    } catch (e) {
+      console.error("Arrange purchase failed:", e);
+      showToast("Could not start purchase. Try again.", "error");
+    } finally {
+      setArrangingPurchase(false);
+    }
+  }
+
+  // Auto-open Stripe checkout if navigated with ?buy=1 (not for Arrange Purchase listings)
   useEffect(() => {
     if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("buy") === "1" && user?.email && listing) {
+      if (isContactListing) return;
       if (isAuctionWinner) {
         setWinningBid(listing.currentBid || listing.startingBid || 0);
       }
-      const t = setTimeout(() => setShowCheckout(true), 0);
+      const t = setTimeout(() => openStripeCheckout(), 0);
       return () => clearTimeout(t);
     }
-  }, [user, listing, isAuctionWinner]);
+  }, [user, listing, isAuctionWinner, isContactListing]);
 
   // Notify winner + seller when auction ends
   const prevAuctionEndedRef = useRef(false);
@@ -192,7 +244,7 @@ export default function ListingPage() {
         targetEmail: listing.highestBidder,
         fromEmail: listing.sellerEmail || "",
         title: "You Won the Auction! 🎉",
-        message: `Congratulations! You won the auction for "${listing.title}" with a bid of $${bidAmount}.\n\nComplete your purchase within 24 hours to secure the item. Payment is protected in escrow until you confirm delivery.`,
+        message: `Congratulations! You won the auction for "${listing.title}" with a bid of $${bidAmount}.\n\nComplete your purchase within 24 hours to secure the item. Payment will be sent directly to the seller via Stripe.`,
         listingId: listing.id,
         listingTitle: listing.title,
         listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
@@ -258,15 +310,40 @@ export default function ListingPage() {
 
   useEffect(() => {
     if (!user?.email || !listingId) return;
-    let mounted = true;
-    (async () => {
-      try {
-        const snap = await getDocs(query(collection(db, "purchases"), where("listingId", "==", listingId), where("buyerEmail", "==", user.email)));
-        if (!snap.empty && mounted) setUserPurchased(true);
-      } catch (e) { console.error(e); }
-    })();
-    return () => { mounted = false; };
+    const q = query(
+      collection(db, "purchases"),
+      where("listingId", "==", listingId),
+      where("buyerEmail", "==", user.email)
+    );
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        setBuyerPurchases(snap.docs.map((d) => d.data() as { status?: string }));
+      },
+      (e) => console.error("Buyer purchases snapshot:", e)
+    );
+    return () => unsub();
   }, [user?.email, listingId]);
+
+  const buyerPurchasedQuantity = useMemo(
+    () => countBuyerPurchasedQuantity(buyerPurchases),
+    [buyerPurchases]
+  );
+
+  const buyerArrangeRequestCount = useMemo(
+    () => countBuyerArrangeRequests(buyerPurchases),
+    [buyerPurchases]
+  );
+
+  const purchaseUi = useMemo(
+    () =>
+      getBuyerPurchaseUiState(
+        listing,
+        buyerPurchasedQuantity,
+        buyerArrangeRequestCount
+      ),
+    [listing, buyerPurchasedQuantity, buyerArrangeRequestCount]
+  );
 
   // Outbid detection
   useEffect(() => {
@@ -304,7 +381,7 @@ export default function ListingPage() {
     let cancelled = false;
     getDocs(query(collection(db, "listings"), where("sellerEmail", "==", listing.sellerEmail))).then((snap) => {
       if (cancelled) return;
-      const items = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((l: any) => l.id !== listingId && l.status !== "sold");
+      const items = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((l: any) => l.id !== listingId && isListingVisibleInMarketplace(l));
       setSellerListings(items.slice(0, 5));
     }).catch((e) => console.error("Failed to fetch seller listings:", e));
     return () => { cancelled = true; };
@@ -398,7 +475,7 @@ export default function ListingPage() {
         "@type": "Offer",
         price: listing.price ? Number(listing.price) : undefined,
         priceCurrency: "NZD",
-        availability: listing.status === "sold" ? "https://schema.org/SoldOut" : "https://schema.org/InStock",
+        availability: !isListingVisibleInMarketplace(listing) ? "https://schema.org/SoldOut" : "https://schema.org/InStock",
         itemCondition: listing.condition === "New" ? "https://schema.org/NewCondition" : listing.condition === "Used - Like New" ? "https://schema.org/LikeNew" : "https://schema.org/UsedCondition",
         url: typeof window !== "undefined" ? window.location.href : "",
       },
@@ -528,7 +605,7 @@ export default function ListingPage() {
           const currentBid = current.currentBid || current.startingBid || 0;
           const minNext = getMinimumNextBid(currentBid);
           if (current.auctionEndsAt && current.auctionEndsAt.toMillis() < Date.now()) throw new Error("Auction has ended");
-          if (current.soldTo || current.status === "sold") throw new Error("Listing is no longer available");
+          if (!isListingAvailableForPurchase(current)) throw new Error("Listing is no longer available");
           if (amount < minNext) throw new Error("Minimum bid is $" + minNext);
           if (current.reservePrice && amount < current.reservePrice)
             throw new Error("Bid must meet the reserve price of $" + current.reservePrice);
@@ -563,7 +640,7 @@ export default function ListingPage() {
 
         if (current.auctionEndsAt && current.auctionEndsAt.toMillis() < Date.now())
           throw new Error("Auction has ended");
-        if (current.soldTo || current.status === "sold")
+        if (!isListingAvailableForPurchase(current))
           throw new Error("Listing is no longer available");
 
         const currentBid = current.currentBid || startingBid;
@@ -751,13 +828,13 @@ export default function ListingPage() {
   }
 
   return (
-    <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+    <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)] animate-page-enter">
       <Background />
       <Navbar />
 
       {showOffer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={resetOffer}>
-          <div className="mx-4 w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in-backdrop" onClick={resetOffer}>
+          <div className="mx-4 w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl animate-fade-in-scale" onClick={(e) => e.stopPropagation()}>
             {offerSent ? (
               <div className="py-4 text-center">
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/20">
@@ -976,10 +1053,10 @@ export default function ListingPage() {
             {/* 3. PRICE */}
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-black text-[var(--foreground)]">{listing.price ? `$${listing.price}` : listing.type === "service" ? "Price negotiable" : `$${listing.price}`}</span>
-              {listing.status === "sold" && (
+              {!isListingVisibleInMarketplace(listing) && (
                 <span className="rounded bg-red-600/90 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[var(--foreground)]">Sold</span>
               )}
-              {listing.status !== "sold" && listing.expiresAt?.toMillis?.() < Date.now() && (
+              {isListingVisibleInMarketplace(listing) && listing.expiresAt?.toMillis?.() < Date.now() && (
                 <span className="rounded bg-zinc-700/90 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[var(--muted)]">Expired</span>
               )}
               {(listing as any).promotedUntil?.toMillis?.() > Date.now() && (
@@ -987,9 +1064,9 @@ export default function ListingPage() {
               )}
             </div>
 
-            {userPurchased && (
+            {purchaseUi.showPurchasedBanner && purchaseUi.bannerText && (
               <div className="mt-2 flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5">
-                <span className="text-emerald-400 text-[11px]">✓ You purchased this item</span>
+                <span className="text-emerald-400 text-[11px]">✓ {purchaseUi.bannerText}</span>
               </div>
             )}
 
@@ -1343,20 +1420,35 @@ Property Status: 🟢 Inquiry Active`;
             )}
 
             {/* 5. BUY BUTTONS */}
-            {listing.status !== "sold" && !isExpired && (listing.stockQuantity == null || listing.stockQuantity > 0) && listing.type !== "service" && listing.type !== "job" && listing.type !== "property" && listing.type !== "rental" && !userPurchased && (
+            {isListingAvailableForPurchase(listing) && !isExpired && listing.type !== "service" && listing.type !== "job" && listing.type !== "property" && listing.type !== "rental" && (purchaseUi.canPurchaseMore || (isContactListing && buyerArrangeRequestCount > 0)) && (
             <div className="flex gap-2">
               {user && user.email !== listing.sellerEmail ? (
                 <>
-                  {isAuctionWinner ? (
+                  {(listing as any).paymentType === "contact" ? (
                     <button
-                      onClick={() => { setWinningBid(listing.currentBid || listing.startingBid || 0); setShowCheckout(true); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleArrangePurchase();
+                      }}
+                      disabled={arrangingPurchase}
+                      className="flex-1 rounded-lg bg-emerald-500 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-emerald-400 disabled:opacity-60"
+                    >
+                      {arrangingPurchase
+                        ? "Connecting…"
+                        : buyerArrangeRequestCount > 0
+                          ? "🤝 Open chat"
+                          : `🤝 Request purchase — $${listing.price}`}
+                    </button>
+                  ) : isAuctionWinner ? (
+                    <button
+                      onClick={() => { setWinningBid(listing.currentBid || listing.startingBid || 0); openStripeCheckout(); }}
                       className="flex-1 rounded-lg bg-emerald-500 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-emerald-400"
                     >
                       Pay Now — ${listing.currentBid || listing.startingBid || 0}
                     </button>
                   ) : (
                     <button
-                      onClick={() => setShowCheckout(true)}
+                      onClick={() => openStripeCheckout()}
                       className="flex-1 rounded-lg bg-sky-500 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-sky-400"
                     >
                       Buy Now
@@ -1368,7 +1460,7 @@ Property Status: 🟢 Inquiry Active`;
                       Bid Now
                     </button>
                   )}
-                  {listing.acceptOffers && (
+                  {(listing as any).paymentType !== "contact" && listing.acceptOffers && (
                     <button
                       onClick={() => setShowOffer(true)}
                         className="rounded-lg border border-zinc-700 px-3 py-3 text-[12px] font-medium text-[var(--muted)] transition hover:border-zinc-600 hover:text-[var(--foreground)]"
@@ -1680,7 +1772,7 @@ Service Status: 🟢 Inquiry Active`;
                       )}
                       <button onClick={() => {
                         if (rentalDays < 1) { showToast("Select pickup and return dates", "info"); return; }
-                        setShowCheckout(true);
+                        openStripeCheckout();
                       }}
                         className="w-full rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 py-3 text-[13px] font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:shadow-xl hover:shadow-emerald-500/30">
                         Rent Now {rentalDays > 0 ? `— $${(Number(listing.price) * rentalDays + 1).toFixed(2)}` : ""}
@@ -1707,12 +1799,24 @@ Service Status: 🟢 Inquiry Active`;
             </div>
             )}
 
-            {/* Escrow & Safe Trading */}
+            {/* Payment & Contact Info */}
             {user && user.email !== listing.sellerEmail && (
-              <a href="/escrow" target="_blank" rel="noopener noreferrer" className="rounded-lg border border-amber-500/10 bg-amber-500/[0.03] px-3.5 py-2.5 block transition hover:bg-amber-500/[0.06]">
-                <p className="text-[11px] font-semibold text-amber-400/90">🔒 Escrow Protected Purchase</p>
-                <p className="mt-0.5 text-[10px] leading-relaxed text-zinc-500">Your payment is held securely. The seller is paid only after you confirm delivery. <span className="text-amber-400/70 underline">Learn how escrow works →</span></p>
-              </a>
+              (listing as any).paymentType === "contact" ? (
+                <a href="/escrow#arrange" target="_blank" rel="noopener noreferrer" className="rounded-lg border border-emerald-500/10 bg-emerald-500/[0.03] px-3.5 py-2.5 block transition hover:bg-emerald-500/[0.06]">
+                  <p className="text-xs font-bold text-emerald-400">🤝 Arrange Purchase — ${(listing as any).price}</p>
+                  <p className="mt-0.5 text-[10px] leading-relaxed text-zinc-500">Tap Purchase to chat and agree payment with the seller. <span className="text-emerald-400/70 underline">How it works →</span></p>
+                </a>
+              ) : (
+                <a href="/escrow#stripe" target="_blank" rel="noopener noreferrer" className="rounded-lg border border-emerald-500/10 bg-emerald-500/[0.03] px-3.5 py-2.5 block transition hover:bg-emerald-500/[0.06]">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <svg viewBox="0 0 24 24" className="h-4 w-4 text-emerald-400 shrink-0" fill="currentColor">
+                      <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.866 6.001 1.632V2.94c-1.608-.732-3.965-1.413-6.076-1.413-3.659 0-6.328 1.803-6.328 4.866 0 3.354 2.547 4.545 5.644 5.604 2.162.795 3.251 1.499 3.251 2.476 0 .968-.747 1.49-2.153 1.49-2.49 0-5.206-1.156-6.748-2.041v4.133c1.682.827 4.127 1.435 6.824 1.435 3.943 0 6.827-1.835 6.827-5.017.001-3.452-2.587-4.596-5.617-5.608z"/>
+                    </svg>
+                    <span className="text-xs font-bold text-emerald-400">Stripe Secure Checkout</span>
+                  </div>
+                  <p className="text-[10px] leading-relaxed text-zinc-500">Your payment is processed by Stripe. <span className="text-emerald-400/70 underline">How it works →</span></p>
+                </a>
+              )
             )}
 
             {/* Unverified Seller Notice */}
@@ -1728,7 +1832,7 @@ Service Status: 🟢 Inquiry Active`;
             {/* 7. SELLER CARD */}
             <div>
               <Link
-                href={user?.email === listing.sellerEmail ? "#" : `/seller/${listing.sellerEmail || listing.sellerUsername}`}
+                href={user?.email === listing.sellerEmail ? "#" : `/seller/${listing.sellerUsername || listing.sellerEmail}`}
                 className="block"
               >
                 <div className="flex items-center gap-3">
@@ -1942,7 +2046,7 @@ Service Status: 🟢 Inquiry Active`;
         <section className="relative z-10 mx-auto max-w-5xl px-6 pb-10">
           <div className="flex items-center gap-2 mb-4">
             <div className="h-4 w-0.5 rounded-full bg-gradient-to-b from-sky-500 to-violet-500" />
-            <h2 className="text-sm font-bold text-white">More from {listing.sellerEmail?.split("@")[0]}</h2>
+            <h2 className="text-sm font-bold text-white">More from {listing.sellerUsername || listing.sellerEmail?.split("@")[0] || "this seller"}</h2>
           </div>
           <div className="mt-3 flex gap-3 overflow-x-auto pb-1 scrollbar-none">
             {sellerListings.map((l: any) => (
@@ -1961,7 +2065,7 @@ Service Status: 🟢 Inquiry Active`;
         </section>
       )}
 
-      {showCheckout && user?.email && (
+      {showCheckout && user?.email && !isContactListing && (
         <CheckoutModal
           listing={{ ...listing, rentalDays, pickupDate, returnDate }}
           buyerEmail={user.email}
@@ -1982,7 +2086,7 @@ Service Status: 🟢 Inquiry Active`;
           employerEmail={listing.sellerEmail || ""}
           employerId={listing.sellerId || ""}
           userEmail={user.email || ""}
-          userName={user.displayName || ""}
+          userName=""
           onClose={() => setShowJobApplication(false)}
           onSubmitted={() => {}}
         />

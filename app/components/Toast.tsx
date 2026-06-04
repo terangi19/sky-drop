@@ -48,10 +48,7 @@ export default function ToastContainer() {
               : t.type === "error"
                 ? "border-red-500/25 bg-red-500/15 text-red-400"
                 : "border-sky-500/25 bg-sky-500/15 text-sky-400"
-          }`}
-          style={{
-            animation: "toastIn 0.3s ease-out",
-          }}
+          } animate-toast-in`}
         >
           <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black ${
             t.type === "success" ? "bg-emerald-500/20" :
@@ -63,12 +60,6 @@ export default function ToastContainer() {
           {t.message}
         </div>
       ))}
-      <style jsx>{`
-        @keyframes toastIn {
-          from { transform: translateX(40px); opacity: 0; }
-          to { transform: translateX(0); opacity: 1; }
-        }
-      `}</style>
     </div>
   );
 }

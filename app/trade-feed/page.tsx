@@ -438,7 +438,7 @@ export default function TradeFeedPage() {
         targetEmail: post?.sellerEmail || "",
         fromEmail: user.email,
         title: "New reply on your trade",
-        message: `${user.email?.split("@")[0] || "Someone"}: ${text.trim().slice(0, 100)}`,
+        message: `${username || user.email?.split("@")[0] || "Someone"}: ${text.trim().slice(0, 100)}`,
         listingId: postId,
         listingTitle: post?.title || "a trade",
         read: false,
@@ -468,7 +468,7 @@ export default function TradeFeedPage() {
       fromEmail: user!.email!,
       type: "offer",
       title: "New offer received! 💰",
-      message: `${user?.email || "Someone"} sent an offer on "${post.title}".`,
+      message: `${username || user?.email?.split("@")[0] || "Someone"} sent an offer on "${post.title}".`,
       listingId: post.id,
       listingTitle: post.title,
       listingImage: post.images?.[0] || post.image || "",
@@ -910,7 +910,7 @@ export default function TradeFeedPage() {
                           <h3 className="mt-1.5 text-[15px] font-bold text-[var(--foreground)] leading-snug tracking-tight">{post.title}</h3>
                           {post.message && !isExpanded && <p className="mt-0.5 text-sm text-zinc-500 truncate">{post.message}</p>}
                           {replies.length > 0 && !isExpanded && (
-                            <p className="mt-0.5 text-xs text-zinc-600 truncate">💬 {replies[replies.length - 1].by?.split("@")[0]}: {replies[replies.length - 1].text}</p>
+                            <p className="mt-0.5 text-xs text-zinc-600 truncate">💬 {replies[replies.length - 1].username || replies[replies.length - 1].by?.split("@")[0] || "Someone"}: {replies[replies.length - 1].text}</p>
                           )}
 
                           {/* Price + Stats */}
@@ -925,7 +925,7 @@ export default function TradeFeedPage() {
 
                           {/* Seller + Actions row */}
                           <div className="mt-2.5 flex items-center gap-2 text-xs">
-                            <Link href={`/seller/${post.sellerEmail || post.sellerUsername}`} onClick={(e) => e.stopPropagation()}
+                            <Link href={`/seller/${post.sellerUsername || post.sellerEmail}`} onClick={(e) => e.stopPropagation()}
                               className="flex items-center gap-1.5 text-zinc-500 hover:text-sky-400 transition-colors">
                               <div className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-violet-500 text-[8px] font-bold text-white">
                                 {sellerName?.charAt(0).toUpperCase() || "?"}

@@ -260,7 +260,71 @@ body {
 }
 
 .animate-fade-in-up {
-  animation: fade-in-up 0.25s ease-out;
+  animation: fade-in-up 0.25s ease-out both;
+}
+
+/* ── UI FADE UTILITIES (modals, panels, pages) ── */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-in-backdrop {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-in-panel {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fade-in-scale {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.28s ease-out both;
+}
+
+.animate-fade-in-backdrop {
+  animation: fade-in-backdrop 0.22s ease-out both;
+}
+
+.animate-fade-in-panel {
+  animation: fade-in-panel 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-fade-in-scale {
+  animation: fade-in-scale 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-page-enter {
+  animation: page-enter 0.35s ease-out both;
+}
+
+.animate-toast-in {
+  animation: toastIn 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-fade-in-up,
+  .animate-fade-in-backdrop,
+  .animate-fade-in-panel,
+  .animate-fade-in-scale,
+  .animate-page-enter,
+  .animate-toast-in,
+  .animate-slide-down,
+  .fade-in {
+    animation: none !important;
+  }
 }
 
 /* ── LOOT CRATE ANIMATIONS ── */

@@ -14,6 +14,7 @@ import {
   limit,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import { isEmailLike, publicHandleFromProfile } from "../lib/public-display";
 
 type NotificationItem = {
   id: string;
@@ -94,8 +95,13 @@ export default function NotificationDropdown({
         const map: Record<string, string> = {};
         snap.forEach((d) => {
           const data = d.data();
-          const email = data.email;
-          if (email) map[email] = data.username || data.displayName || "";
+          const email = data.email as string | undefined;
+          if (email) {
+            map[email] = publicHandleFromProfile(
+              { username: data.username },
+              "User"
+            );
+          }
         });
         setUsernames((prev) => ({ ...prev, ...map }));
       } catch (e) { console.error("Failed to fetch usernames:", e); }
@@ -170,17 +176,14 @@ export default function NotificationDropdown({
                   TYPE_META[
                     notification.type
                   ] || TYPE_META.message;
-                const username =
-                  usernames[
-                    notification
-                      .senderEmail
-                  ] || "";
+                const mapped = usernames[notification.senderEmail] || "";
                 const displaySender =
-                  username ||
-                  notification.senderEmail?.split(
-                    "@"
-                  )[0] ||
-                  "Unknown";
+                  mapped ||
+                  (notification.sender && !isEmailLike(notification.sender)
+                    ? notification.sender.startsWith("@")
+                      ? notification.sender
+                      : `@${notification.sender}`
+                    : "User");
                 const isUnread =
                   notification.unread;
 

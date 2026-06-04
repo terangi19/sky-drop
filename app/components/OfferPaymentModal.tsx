@@ -9,6 +9,7 @@ import { createNotification } from "../lib/notifications";
 import { calculateTrustScore } from "../lib/trustscore";
 import { playSuccess } from "../lib/sounds";
 import AnimatedCheckmark from "./AnimatedCheckmark";
+import { isListingAvailableForPurchase } from "../lib/listing-availability";
 
 interface Props {
   amount: number;
@@ -106,18 +107,13 @@ export default function OfferPaymentModal({ amount, listingTitle, listingId, sel
         return;
       }
       const listingData = listingSnap.data();
-      if (listingData.status === "sold") {
-        setIntentError("This listing has already sold.");
+      if (!isListingAvailableForPurchase(listingData)) {
+        setIntentError("This listing is no longer available.");
         setStep("form");
         return;
       }
       if (listingData.expiresAt?.toMillis?.() < Date.now()) {
         setIntentError("This listing has expired.");
-        setStep("form");
-        return;
-      }
-      if (listingData.stockQuantity !== undefined && listingData.stockQuantity <= 0) {
-        setIntentError("This item is out of stock.");
         setStep("form");
         return;
       }
@@ -264,7 +260,7 @@ export default function OfferPaymentModal({ amount, listingTitle, listingId, sel
   const imageSrc = listingImage || "";
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4"
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 animate-fade-in-backdrop"
       onClick={onClose}>
       <div className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
@@ -285,8 +281,8 @@ export default function OfferPaymentModal({ amount, listingTitle, listingId, sel
               <span className="text-emerald-400">✓</span>
               <span>Seller has been notified</span>
             </div>
-            <div className="mt-2 rounded-lg border border-amber-500/15 bg-amber-500/[0.04] px-3 py-2 text-left text-[10px] leading-relaxed text-amber-400/80">
-              🔒 Your payment is held securely in escrow. Funds are released to the seller only after you confirm delivery.
+            <div className="mt-2 rounded-lg border border-emerald-500/15 bg-emerald-500/[0.04] px-3 py-2 text-left text-[10px] leading-relaxed text-emerald-400/80">
+              💳 Secured by Stripe
             </div>
             <p className="mt-2 text-[10px] text-zinc-500">You have 7 days to report an issue after the seller marks this as delivered.</p>
             <button onClick={() => onSuccess(purchaseId)}

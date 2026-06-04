@@ -112,7 +112,7 @@ export default function DisputesPage() {
                         <p className="text-sm font-bold text-[var(--foreground)] line-clamp-1">{d.listingTitle}</p>
                         <p className="mt-0.5 text-sm font-semibold text-emerald-400">${Number(d.listingPrice).toFixed(2)}</p>
                         <div className="mt-0.5 flex items-center gap-2 text-[11px] text-zinc-500">
-                          <span>Seller: {d.sellerEmail?.split("@")[0]}</span>
+                          <span>Seller: {d.sellerName || d.sellerEmail?.split("@")[0] || "Unknown"}</span>
                           <span>· {REASON_LABELS[d.reason] || d.reason}</span>
                           {d.createdAt?.toDate && <span>· {d.createdAt.toDate().toLocaleDateString()}</span>}
                         </div>

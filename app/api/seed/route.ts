@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
 
     for (const s of sellers) {
       await getAdminDb().collection("profiles").doc(s.uid).set({
-        email: s.email, username: s.name, displayName: s.name,
+        email: s.email, username: s.name,
         createdAt: new Date(),
       }, { merge: true });
       results.push(`Seller: ${s.name}`);

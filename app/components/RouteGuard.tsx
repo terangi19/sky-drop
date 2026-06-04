@@ -15,6 +15,9 @@ const PUBLIC_ROUTES = [
   "/terms",
   "/privacy",
   "/forgot-password",
+  "/seller-guidelines",
+  "/escrow",
+  "/buyer-protection",
 ];
 
 export function RouteGuard({ children }: { children: React.ReactNode }) {

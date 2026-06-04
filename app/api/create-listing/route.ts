@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken, getAdminDb, getServerDb, isAdminInitialized } from "../../lib/firebase-admin";
+import { verifyIdToken, getAdminDb, getServerDb, isAdminInitialized, getAdminAuth } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import { sanitizeListingContent } from "../../lib/sanitize";
+import { profileHasVerifiedPhone } from "../../lib/seller-eligibility";
 
 const SCAM_KEYWORDS = [
   "bank transfer only", "crypto only", "pay outside", "whatsapp",
@@ -28,9 +29,19 @@ function isPriceSuspicious(price: number, category?: string): boolean {
   return price < CATEGORY_PRICE_THRESHOLDS[category];
 }
 
-function sellerHasVerifiedPhone(profile: Record<string, unknown>): boolean {
-  const phone = String(profile.phone || profile.phoneNumber || "").trim();
-  return !!phone && profile.phoneVerified === true;
+async function getSellerProfileForUid(uid: string, email?: string | null) {
+  const db = getAdminDb();
+  const byUid = await db.collection("profiles").doc(uid).get();
+  if (byUid.exists) {
+    return byUid.data() as Record<string, unknown>;
+  }
+  if (email) {
+    const byEmail = await db.collection("profiles").where("email", "==", email).limit(1).get();
+    if (!byEmail.empty) {
+      return byEmail.docs[0].data() as Record<string, unknown>;
+    }
+  }
+  return null;
 }
 
 
@@ -75,6 +86,7 @@ export async function POST(req: NextRequest) {
       "vehicleFuelType", "vehicleTransmission", "vehicleBodyType", "vehicleColour",
       "jobCompany", "jobEmploymentType", "salaryMin", "salaryMax",
       "propertyType", "bedrooms", "bathrooms", "landArea", "floorArea", "parking",
+      "paymentType",
     ];
     const clientData: Record<string, unknown> = {};
     for (const key of allowedFields) {
@@ -112,24 +124,37 @@ export async function POST(req: NextRequest) {
     let salesCount = 0;
 
     if (isAdminInitialized()) {
-      // Fetch seller profile once and reuse
-      const sellerProfileSnap = await getAdminDb().collection("profiles")
-        .where("email", "==", token.email).limit(1).get();
+      const sellerProfile = await getSellerProfileForUid(token.uid, token.email);
       let reportsCount = 0;
-      let sellerProfile: FirebaseFirestore.DocumentData | null = null;
-      if (!sellerProfileSnap.empty) {
-        sellerProfile = sellerProfileSnap.docs[0].data();
-        salesCount = sellerProfile.salesCount || 0;
-        reportsCount = sellerProfile.reportsCount || 0;
+      if (sellerProfile) {
+        salesCount = Number(sellerProfile.salesCount) || 0;
+        reportsCount = Number(sellerProfile.reportsCount) || 0;
         if (sellerProfile.restricted) {
           return NextResponse.json({ error: "Your account is restricted. Contact support." }, { status: 403 });
         }
-        // Require email verified to sell
-        if (!token.email_verified) {
+        let emailVerified = !!token.email_verified;
+        if (!emailVerified) {
+          try {
+            const userRecord = await getAdminAuth().getUser(token.uid);
+            emailVerified = !!userRecord.emailVerified;
+          } catch {}
+        }
+        if (!emailVerified) {
           return NextResponse.json({ error: "Please verify your email address before creating a listing." }, { status: 403 });
         }
-        if (!sellerHasVerifiedPhone(sellerProfile)) {
-          return NextResponse.json({ error: "Please add and verify your phone number in Profile to create listings." }, { status: 403 });
+        if (body.paymentType !== "contact") {
+          let authPhone: string | undefined;
+          try {
+            const userRecord = await getAdminAuth().getUser(token.uid);
+            authPhone = userRecord.phoneNumber;
+          } catch {
+            /* use profile only */
+          }
+          if (!profileHasVerifiedPhone(sellerProfile, authPhone)) {
+            return NextResponse.json({
+              error: "Please add and verify your phone number in Profile → Identity verification.",
+            }, { status: 403 });
+          }
         }
       } else {
         return NextResponse.json({ error: "Please complete your profile before creating a listing." }, { status: 403 });
@@ -206,12 +231,16 @@ export async function POST(req: NextRequest) {
       status,
       views: 0,
       bidCount: 0,
-      stockQuantity: clientData.stockQuantity ?? 1,
+      paymentType: clientData.paymentType || "stripe",
       createdAt: now,
       expiresAt,
       ...clientData,
       saleType,
     };
+
+    if (clientData.stockQuantity != null) {
+      finalData.stockQuantity = Number(clientData.stockQuantity);
+    }
 
     if (auctionEndsAt && !isNaN(auctionEndsAt.getTime())) {
       finalData.auctionEndsAt = auctionEndsAt;

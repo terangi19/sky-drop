@@ -37,7 +37,7 @@ test.describe("Listings", () => {
   });
 
   test("create listing page loads for unauthenticated users", async ({ page }) => {
-    await page.goto("/post");
+    await page.goto("/post/ai");
     await page.waitForTimeout(3000);
     await expect(page.locator("main")).toBeVisible({ timeout: 10000 });
   });

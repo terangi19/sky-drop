@@ -159,7 +159,7 @@ export default function BlockedPage() {
                 <div key={b.uid} className="flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 transition hover:border-zinc-700">
                   <div className="min-w-0 flex-1">
                     <Link href={`/seller/${b.email}`} className="truncate text-sm font-bold text-[var(--foreground)] hover:text-sky-400 transition-colors">
-                      {b.email}
+                      {b.email?.split("@")[0] || "Blocked User"}
                     </Link>
                     <p className="text-[10px] text-[var(--muted)]">Synced across all devices</p>
                   </div>

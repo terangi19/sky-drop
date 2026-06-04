@@ -9,6 +9,7 @@ import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import { showToast } from "../components/Toast";
+import { isListingVisibleInMarketplace } from "../lib/listing-availability";
 import PromoteModal from "../components/PromoteModal";
 
 interface Listing {
@@ -130,8 +131,8 @@ export default function ListListPage() {
 
   const filteredListings = useMemo(() => {
     let items = listings;
-    if (activeTab === "active") items = items.filter((i) => i.status !== "sold");
-    if (activeTab === "sold") items = items.filter((i) => i.status === "sold");
+    if (activeTab === "active") items = items.filter((i) => isListingVisibleInMarketplace(i));
+    if (activeTab === "sold") items = items.filter((i) => !isListingVisibleInMarketplace(i));
     if (search.trim()) {
       const q = search.toLowerCase();
       items = items.filter((i) => i.title?.toLowerCase().includes(q));
@@ -139,8 +140,8 @@ export default function ListListPage() {
     return items;
   }, [listings, activeTab, search]);
 
-  const activeCount = listings.filter(i => i.status !== "sold").length;
-  const soldCount = listings.filter(i => i.status === "sold").length;
+  const activeCount = listings.filter((i) => isListingVisibleInMarketplace(i)).length;
+  const soldCount = listings.filter((i) => !isListingVisibleInMarketplace(i)).length;
 
   return (
     <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
@@ -235,7 +236,7 @@ export default function ListListPage() {
             const isOwner = user && item.sellerEmail === user.email;
             const imgSrc = item.images?.[0] || item.imageUrl || item.image || "";
             const isExpired = item.expiresAt?.toMillis?.() < Date.now();
-            const isSold = item.status === "sold";
+            const isSold = !isListingVisibleInMarketplace(item);
             return (
               <div key={item.id}
                 className={`group relative overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.02] transition-all duration-300 hover:-translate-y-1 hover:bg-white/[0.04] hover:border-sky-500/30 hover:shadow-[0_10px_40px_-10px_rgba(14,165,233,0.12)] cursor-pointer ${isSold || isExpired ? "opacity-60" : ""}`}

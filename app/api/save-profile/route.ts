@@ -25,7 +25,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       username,
-      displayName,
       bio,
       region,
       discord,
@@ -44,6 +43,9 @@ export async function POST(req: NextRequest) {
       notifPriceDrop,
       phone,
       phoneVerified,
+      bankAccountName,
+      bankAccountNumber,
+      bankReference,
     } = body;
 
     const trimmedUsername = typeof username === "string" ? username.trim() : "";
@@ -69,7 +71,6 @@ export async function POST(req: NextRequest) {
 
     const profileData = {
       username: trimmedUsername,
-      displayName: displayName || "",
       bio: bio || "",
       region: region || "",
       discord: discord || "",
@@ -86,9 +87,38 @@ export async function POST(req: NextRequest) {
       notifWatchlist: notifWatchlist !== false,
       notifOffers: notifOffers !== false,
       notifPriceDrop: !!notifPriceDrop,
-      phone: phone || "",
-      phoneVerified: !!phoneVerified,
+      phone:
+        (typeof phone === "string" && phone.trim()) ||
+        existingData?.phone ||
+        existingData?.phoneNumber ||
+        "",
+      phoneNumber:
+        (typeof phone === "string" && phone.trim()) ||
+        existingData?.phoneNumber ||
+        existingData?.phone ||
+        "",
+      phoneVerified:
+        existingData?.phoneVerified === true ||
+        existingData?.verified === true ||
+        phoneVerified === true,
+      verified:
+        existingData?.phoneVerified === true ||
+        existingData?.verified === true ||
+        phoneVerified === true,
       email: decodedToken.email || "",
+      emailVerified: !!decodedToken.email_verified,
+      bankAccountName:
+        typeof bankAccountName === "string"
+          ? bankAccountName.trim()
+          : existingData?.bankAccountName || "",
+      bankAccountNumber:
+        typeof bankAccountNumber === "string"
+          ? bankAccountNumber.trim()
+          : existingData?.bankAccountNumber || "",
+      bankReference:
+        typeof bankReference === "string"
+          ? bankReference.trim()
+          : existingData?.bankReference || "",
       memberSince: existingData?.memberSince || new Date(),
       lastActive: new Date(),
     };

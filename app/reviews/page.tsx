@@ -253,16 +253,12 @@ export default function ReviewsPage() {
                     <div className="flex flex-wrap items-center justify-between gap-4">
                       <div>
                         <h2 className="text-2xl font-black">
-                          {
-                            review.sellerEmail
-                          }
+                          {review.sellerEmail?.split("@")[0] || "Seller"}
                         </h2>
 
                         <p className="mt-1 text-sm text-[var(--muted)]">
                           Reviewed by{" "}
-                          {
-                            review.reviewer
-                          }
+                          {review.reviewer?.split("@")[0] || "Verified Buyer"}
                         </p>
                       </div>
 

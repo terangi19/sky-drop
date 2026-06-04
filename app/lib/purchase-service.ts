@@ -1,4 +1,19 @@
 import { getAdminDb, isAdminInitialized } from "./firebase-admin";
+import {
+  adminGetProfileByEmail,
+  adminGetPublicName,
+  resolveBuyerNameForStorage,
+} from "./profile-display-admin";
+import { publicHandleFromProfile } from "./public-display";
+import type { Firestore } from "firebase-admin/firestore";
+import {
+  assertListingAvailableForPurchase,
+  buildListingUpdateAfterSale,
+  isListingAvailableForPurchase,
+  listingStockCount,
+  listingTracksStock,
+} from "./listing-stock";
+import { incrementProfileSalesCount } from "./seller-sales-admin";
 
 export interface CreatePurchaseInput {
   listingId: string;
@@ -28,6 +43,7 @@ export interface CreatePurchaseInput {
   deliveredAt?: string | null;
   winningBid?: number | null;
   collectionName?: string;
+  destinationCharge?: boolean;
 }
 
 export interface CreatePurchaseResult {
@@ -37,12 +53,74 @@ export interface CreatePurchaseResult {
   existing: boolean;
 }
 
-function makePurchaseId(listingId: string, buyerEmail: string): string {
+export function makePurchaseId(listingId: string, buyerEmail: string): string {
   return `${listingId}_${buyerEmail.replace(/[@.]/g, "_")}`;
+}
+
+function purchaseDocIdFromPaymentIntent(stripePaymentIntentId: string): string {
+  return `pi_${stripePaymentIntentId.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+}
+
+/** One purchase doc per checkout when stock > 1 or Stripe PI is present. */
+export function resolvePurchaseDocRef(
+  db: Firestore,
+  listing: Record<string, unknown>,
+  listingId: string,
+  buyerEmail: string,
+  stripePaymentIntentId?: string
+) {
+  if (stripePaymentIntentId) {
+    return db.collection("purchases").doc(purchaseDocIdFromPaymentIntent(stripePaymentIntentId));
+  }
+  // Stock-tracked listings get one purchase doc per checkout (not one per buyer per listing).
+  if (listingTracksStock(listing)) {
+    return db.collection("purchases").doc();
+  }
+  return db.collection("purchases").doc(makePurchaseId(listingId, buyerEmail));
 }
 
 function makeConversationId(listingId: string, buyerEmail: string): string {
   return `conv_${listingId}_${buyerEmail.replace(/[@.]/g, "_")}`;
+}
+
+function listingExpiresMs(listing: Record<string, unknown>): number | null {
+  const expiresAt = listing.expiresAt as { toMillis?: () => number; _seconds?: number } | string | undefined;
+  if (!expiresAt) return null;
+  if (typeof expiresAt === "object" && typeof expiresAt.toMillis === "function") {
+    return expiresAt.toMillis();
+  }
+  if (typeof expiresAt === "object" && typeof expiresAt._seconds === "number") {
+    return expiresAt._seconds * 1000;
+  }
+  const t = new Date(expiresAt as string).getTime();
+  return Number.isFinite(t) ? t : null;
+}
+
+function listingIsExpired(listing: Record<string, unknown>): boolean {
+  const ms = listingExpiresMs(listing);
+  return ms !== null && ms < Date.now();
+}
+
+/** Idempotent recovery when webhook created the purchase before the client. */
+export async function findPurchaseByPaymentIntent(
+  stripePaymentIntentId: string
+): Promise<CreatePurchaseResult | null> {
+  if (!stripePaymentIntentId) return null;
+  const db = getAdminDb();
+  const snap = await db
+    .collection("purchases")
+    .where("stripePaymentIntentId", "==", stripePaymentIntentId)
+    .limit(1)
+    .get();
+  if (snap.empty) return null;
+  const doc = snap.docs[0];
+  const data = doc.data();
+  return {
+    purchaseId: doc.id,
+    orderId: String(data.orderId || ""),
+    conversationId: String(data.conversationId || ""),
+    existing: true,
+  };
 }
 
 /** Always use the listing's seller — never trust client-supplied sellerEmail. */
@@ -69,9 +147,17 @@ export function sellerPayoutCents(purchase: { total?: number; processingFee?: nu
   return Math.round((total - processingFee) * 100);
 }
 
+async function resolveBuyerIdentity(buyerEmail: string, inputName?: string) {
+  const profile = await adminGetProfileByEmail(buyerEmail);
+  return {
+    buyerName: resolveBuyerNameForStorage(inputName, profile, buyerEmail),
+    buyerHandle: publicHandleFromProfile(profile),
+  };
+}
+
 export async function createPurchaseWithAdmin(input: CreatePurchaseInput): Promise<CreatePurchaseResult> {
   const db = getAdminDb();
-  const purchaseId = makePurchaseId(input.listingId, input.buyerEmail);
+  const { buyerName } = await resolveBuyerIdentity(input.buyerEmail, input.buyerName);
   const convId = makeConversationId(input.listingId, input.buyerEmail);
   const colRef = input.collectionName || "listings";
   const now = input.paidAt ? new Date(input.paidAt) : new Date();
@@ -79,6 +165,8 @@ export async function createPurchaseWithAdmin(input: CreatePurchaseInput): Promi
   let orderId = "";
   let conversationId = "";
   let isExisting = false;
+  let purchaseId = "";
+  let sellerEmail = "";
 
   await db.runTransaction(async (tx) => {
     const listingRef = db.collection(colRef).doc(input.listingId);
@@ -88,24 +176,22 @@ export async function createPurchaseWithAdmin(input: CreatePurchaseInput): Promi
       throw new Error("Listing not found");
     }
 
-    const listing = listingDoc.data()!;
-    if (listing.status === "sold") {
-      throw new Error("This listing has already been sold");
-    }
-    if (listing.expiresAt?.toMillis?.() < Date.now()) {
-      throw new Error("This listing has expired");
-    }
-    if (listing.stockQuantity != null && listing.stockQuantity <= 0) {
-      throw new Error("This item is out of stock");
-    }
-    if (listing.sellerEmail === input.buyerEmail) {
-      throw new Error("You cannot purchase your own listing");
-    }
+    const listing = listingDoc.data()! as Record<string, unknown>;
+    const purchaseRef = resolvePurchaseDocRef(
+      db,
+      listing,
+      input.listingId,
+      input.buyerEmail,
+      input.stripePaymentIntentId || undefined
+    );
+    purchaseId = purchaseRef.id;
+    const convRef = db.collection("conversations").doc(convId);
 
-    const sellerEmail = resolveSellerEmailFromListing(listing, input.sellerEmail);
-
-    const purchaseRef = db.collection("purchases").doc(purchaseId);
     const existingPurchase = await tx.get(purchaseRef);
+    const convSnap = await tx.get(convRef);
+
+    sellerEmail = resolveSellerEmailFromListing(listing, input.sellerEmail);
+
     if (existingPurchase.exists) {
       const data = existingPurchase.data()!;
       orderId = data.orderId || "";
@@ -114,17 +200,18 @@ export async function createPurchaseWithAdmin(input: CreatePurchaseInput): Promi
       return;
     }
 
-    const listingUpdate: Record<string, any> = {};
-    if (typeof listing.stockQuantity === "number") {
-      if (listing.stockQuantity > 1) {
-        listingUpdate.stockQuantity = listing.stockQuantity - 1;
-      } else {
-        listingUpdate.stockQuantity = 0;
-        if (input.type !== "rental") listingUpdate.status = "sold";
-      }
-    } else if (input.type !== "rental") {
-      listingUpdate.status = "sold";
+    if (listingIsExpired(listing)) {
+      throw new Error("This listing has expired");
     }
+    assertListingAvailableForPurchase(listing);
+    if (listing.sellerEmail === input.buyerEmail) {
+      throw new Error("You cannot purchase your own listing");
+    }
+
+    const listingUpdate = buildListingUpdateAfterSale(listing, {
+      isRental: input.type === "rental",
+      soldTo: input.buyerEmail,
+    });
     if (Object.keys(listingUpdate).length > 0) {
       tx.update(listingRef, listingUpdate);
     }
@@ -142,7 +229,7 @@ export async function createPurchaseWithAdmin(input: CreatePurchaseInput): Promi
       listingImage: input.listingImage || listing.images?.[0] || listing.imageUrl || listing.image || "",
       sellerEmail,
       buyerEmail: input.buyerEmail,
-      buyerName: input.buyerName || input.buyerEmail,
+      buyerName,
       buyerPhone: input.buyerPhone || "",
       deliveryMethod: input.deliveryMethod || "pickup",
       shippingAddress: input.shippingAddress || "",
@@ -154,6 +241,7 @@ export async function createPurchaseWithAdmin(input: CreatePurchaseInput): Promi
       digitalFileURL: input.digitalFileURL || "",
       digitalFileName: input.digitalFileName || "",
       status: computedStatus,
+      destinationCharge: input.destinationCharge ?? true,
       paidAt: now,
       deliveredAt: input.deliveredAt
         ? new Date(input.deliveredAt)
@@ -186,9 +274,6 @@ export async function createPurchaseWithAdmin(input: CreatePurchaseInput): Promi
     orderId = orderRef.id;
 
     tx.update(purchaseRef, { orderId });
-
-    const convRef = db.collection("conversations").doc(convId);
-    const convSnap = await tx.get(convRef);
 
     if (convSnap.exists) {
       tx.update(convRef, {
@@ -252,6 +337,14 @@ export async function createPurchaseWithAdmin(input: CreatePurchaseInput): Promi
     });
   });
 
+  if (!isExisting) {
+    try {
+      await incrementProfileSalesCount(sellerEmail);
+    } catch (e) {
+      console.warn("[purchase] salesCount increment skipped:", e);
+    }
+  }
+
   return { purchaseId, orderId, conversationId, existing: isExisting };
 }
 
@@ -260,6 +353,7 @@ export async function createPurchaseWithRest(
   projectId: string,
   idToken: string
 ): Promise<CreatePurchaseResult> {
+  const { buyerName } = await resolveBuyerIdentity(input.buyerEmail, input.buyerName);
   const purchaseId = makePurchaseId(input.listingId, input.buyerEmail);
   const convId = makeConversationId(input.listingId, input.buyerEmail);
   const colRef = input.collectionName || "listings";
@@ -271,8 +365,7 @@ export async function createPurchaseWithRest(
   await runRestTransaction(projectId, idToken, async ({ get, create, update }) => {
     const listing = await get(`${colRef}/${input.listingId}`);
     if (!listing) throw new Error("Listing not found");
-    if (listing.status === "sold") throw new Error("This listing has already been sold");
-    if (listing.stockQuantity != null && listing.stockQuantity <= 0) throw new Error("This item is out of stock");
+    assertListingAvailableForPurchase(listing);
     if (listing.sellerEmail === input.buyerEmail) throw new Error("You cannot purchase your own listing");
 
     const sellerEmail = resolveSellerEmailFromListing(listing, input.sellerEmail);
@@ -292,17 +385,10 @@ export async function createPurchaseWithRest(
       : type === "service" ? "in_progress"
       : "pending";
 
-    const listingUpdate: Record<string, any> = {};
-    if (typeof listing.stockQuantity === "number") {
-      if (listing.stockQuantity > 1) {
-        listingUpdate.stockQuantity = listing.stockQuantity - 1;
-      } else {
-        listingUpdate.stockQuantity = 0;
-        if (type !== "rental") listingUpdate.status = "sold";
-      }
-    } else if (type !== "rental") {
-      listingUpdate.status = "sold";
-    }
+    const listingUpdate = buildListingUpdateAfterSale(listing, {
+      isRental: type === "rental",
+      soldTo: input.buyerEmail,
+    });
     if (Object.keys(listingUpdate).length > 0) {
       update(`${colRef}/${input.listingId}`, listingUpdate, Object.keys(listingUpdate));
     }
@@ -314,7 +400,7 @@ export async function createPurchaseWithRest(
       listingImage: input.listingImage || listing.images?.[0] || listing.imageUrl || listing.image || "",
       sellerEmail,
       buyerEmail: input.buyerEmail,
-      buyerName: input.buyerName || input.buyerEmail,
+      buyerName,
       buyerPhone: input.buyerPhone || "",
       deliveryMethod: input.deliveryMethod || "pickup",
       shippingAddress: input.shippingAddress || "",
@@ -450,6 +536,7 @@ export interface PayOfferResult {
 
 export async function acceptOfferWithAdmin(input: AcceptOfferInput): Promise<AcceptOfferResult> {
   const db = getAdminDb();
+  const { buyerName } = await resolveBuyerIdentity(input.buyerEmail);
   const purchaseId = makePurchaseId(input.listingId, input.buyerEmail);
   const convId = makeConversationId(input.listingId, input.buyerEmail);
   const colRef = input.collectionName || "listings";
@@ -461,36 +548,39 @@ export async function acceptOfferWithAdmin(input: AcceptOfferInput): Promise<Acc
 
   await db.runTransaction(async (tx) => {
     const listingRef = db.collection(colRef).doc(input.listingId);
+    const offerMsgRef = db.collection("messages").doc(input.offerMessageId);
+    const purchaseRef = db.collection("purchases").doc(purchaseId);
+    const convRef = db.collection("conversations").doc(convId);
+
     const listingDoc = await tx.get(listingRef);
+    const offerMsg = await tx.get(offerMsgRef);
+    const existingPurchase = await tx.get(purchaseRef);
+    const convSnap = await tx.get(convRef);
+
     if (!listingDoc.exists) throw new Error("Listing not found");
     const listing = listingDoc.data()!;
-  if (listing.status === "sold") throw new Error("This listing has already been sold");
-  if (listing.stockQuantity != null && listing.stockQuantity <= 0) throw new Error("This item is out of stock");
+  assertListingAvailableForPurchase(listing);
   if (listing.sellerEmail === input.buyerEmail) throw new Error("You cannot purchase your own listing");
     if (listing.sellerEmail !== input.sellerEmail) throw new Error("You are not the seller of this listing");
     if (listing.sellerEmail === input.buyerEmail) throw new Error("You cannot accept your own offer");
 
-    const offerMsgRef = db.collection("messages").doc(input.offerMessageId);
-    const offerMsg = await tx.get(offerMsgRef);
     if (!offerMsg.exists) throw new Error("Offer message not found");
     const offerData = offerMsg.data()!;
     if (offerData.type !== "offer") throw new Error("Message is not an offer");
     const currentStatus = offerData.offerStatus || offerData.offer?.status || "pending";
     if (currentStatus !== "pending") throw new Error(`Offer is already ${currentStatus}`);
 
-    tx.update(offerMsgRef, {
-      offerStatus: "accepted",
-      offerType: "accept",
-      updatedAt: now,
-    });
-
-    const purchaseRef = db.collection("purchases").doc(purchaseId);
-    const existingPurchase = await tx.get(purchaseRef);
     if (existingPurchase.exists) {
       conversationId = existingPurchase.data()!.conversationId || "";
       isExisting = true;
       return;
     }
+
+    tx.update(offerMsgRef, {
+      offerStatus: "accepted",
+      offerType: "accept",
+      updatedAt: now,
+    });
 
     const purchaseData: Record<string, any> = {
       listingId: input.listingId,
@@ -499,7 +589,7 @@ export async function acceptOfferWithAdmin(input: AcceptOfferInput): Promise<Acc
       listingImage: input.listingImage || listing.images?.[0] || listing.imageUrl || listing.image || "",
       sellerEmail: input.sellerEmail,
       buyerEmail: input.buyerEmail,
-      buyerName: input.buyerEmail.split("@")[0] || input.buyerEmail,
+      buyerName,
       deliveryMethod: "pickup",
       processingFee: 1.00,
       total: input.amount + 1,
@@ -512,8 +602,6 @@ export async function acceptOfferWithAdmin(input: AcceptOfferInput): Promise<Acc
     };
     tx.set(purchaseRef, purchaseData);
 
-    const convRef = db.collection("conversations").doc(convId);
-    const convSnap = await tx.get(convRef);
     if (convSnap.exists) {
       tx.update(convRef, {
         updatedAt: now,
@@ -602,26 +690,23 @@ export async function payOfferWithAdmin(input: PayOfferInput): Promise<PayOfferR
 
     const colRef = purchase.collectionName || "listings";
     const listingRef = db.collection(colRef).doc(purchase.listingId);
+    const convId = makeConversationId(purchase.listingId, purchase.buyerEmail);
+    const convRef = db.collection("conversations").doc(convId);
+
     const listingDoc = await tx.get(listingRef);
+    const convSnap = await tx.get(convRef);
     if (!listingDoc.exists) throw new Error("Listing not found");
     const listing = listingDoc.data()!;
 
-    if (listing.status === "sold") {
+    if (!isListingAvailableForPurchase(listing)) {
       tx.update(purchaseRef, { status: "failed", failedReason: "Listing already sold to another buyer" });
       throw new Error("This listing has already been sold to another buyer");
     }
 
-    const listingUpdate: Record<string, any> = {};
-    if (typeof listing.stockQuantity === "number") {
-      if (listing.stockQuantity > 1) {
-        listingUpdate.stockQuantity = listing.stockQuantity - 1;
-      } else {
-        listingUpdate.stockQuantity = 0;
-        if (purchase.type !== "rental") listingUpdate.status = "sold";
-      }
-    } else if (purchase.type !== "rental") {
-      listingUpdate.status = "sold";
-    }
+    const listingUpdate = buildListingUpdateAfterSale(listing, {
+      isRental: purchase.type === "rental",
+      soldTo: purchase.buyerEmail,
+    });
     if (Object.keys(listingUpdate).length > 0) {
       tx.update(listingRef, listingUpdate);
     }
@@ -665,9 +750,6 @@ export async function payOfferWithAdmin(input: PayOfferInput): Promise<PayOfferR
     offerAmount = purchase.total || 0;
     purchaseType = purchase.type || "physical";
 
-    const convId = makeConversationId(purchase.listingId, purchase.buyerEmail);
-    const convRef = db.collection("conversations").doc(convId);
-    const convSnap = await tx.get(convRef);
     if (convSnap.exists) {
       tx.update(convRef, {
         updatedAt: now,
@@ -737,6 +819,7 @@ export async function acceptOfferWithRest(
   projectId: string,
   idToken: string
 ): Promise<AcceptOfferResult> {
+  const { buyerName } = await resolveBuyerIdentity(input.buyerEmail);
   const purchaseId = makePurchaseId(input.listingId, input.buyerEmail);
   const convId = makeConversationId(input.listingId, input.buyerEmail);
   const colRef = input.collectionName || "listings";
@@ -745,7 +828,7 @@ export async function acceptOfferWithRest(
 
   const listing = await firestoreGet(projectId, idToken, `${colRef}/${input.listingId}`);
   if (!listing) throw new Error("Listing not found");
-  if (listing.status === "sold") throw new Error("This listing has already been sold");
+  assertListingAvailableForPurchase(listing);
   if (listing.sellerEmail !== input.sellerEmail) throw new Error("You are not the seller of this listing");
   if (listing.sellerEmail === input.buyerEmail) throw new Error("You cannot accept your own offer");
 
@@ -778,7 +861,7 @@ export async function acceptOfferWithRest(
     listingImage: input.listingImage || listing.images?.[0] || listing.imageUrl || listing.image || "",
     sellerEmail: input.sellerEmail,
     buyerEmail: input.buyerEmail,
-    buyerName: input.buyerEmail.split("@")[0] || input.buyerEmail,
+    buyerName,
     deliveryMethod: "pickup",
     processingFee: 1.00,
     total: input.amount + 1,
@@ -872,7 +955,7 @@ export async function payOfferWithRest(
     const listing = await get(`${colRef}/${purchase.listingId}`);
     if (!listing) throw new Error("Listing not found");
 
-    if (listing.status === "sold") {
+    if (!isListingAvailableForPurchase(listing)) {
       update(`purchases/${input.purchaseId}`, {
         status: "failed",
         failedReason: "Listing already sold to another buyer",
@@ -881,17 +964,10 @@ export async function payOfferWithRest(
     }
 
     const now = new Date().toISOString();
-    const listingUpdate: Record<string, unknown> = {};
-    if (typeof listing.stockQuantity === "number") {
-      if (listing.stockQuantity > 1) {
-        listingUpdate.stockQuantity = listing.stockQuantity - 1;
-      } else {
-        listingUpdate.stockQuantity = 0;
-        if (purchase.type !== "rental") listingUpdate.status = "sold";
-      }
-    } else if (purchase.type !== "rental") {
-      listingUpdate.status = "sold";
-    }
+    const listingUpdate = buildListingUpdateAfterSale(listing, {
+      isRental: purchase.type === "rental",
+      soldTo: purchase.buyerEmail,
+    });
     if (Object.keys(listingUpdate).length > 0) {
       update(`${colRef}/${purchase.listingId}`, listingUpdate, Object.keys(listingUpdate));
     }
@@ -1242,4 +1318,92 @@ function toFirestoreFields(data: Record<string, unknown>): Record<string, unknow
     fields[key] = toFirestoreValue(val);
   }
   return fields;
+}
+
+export {
+  buildArrangePurchaseBuyerMessage,
+  buildArrangePurchaseSellerMessage,
+  buildArrangePaymentDetailsMessage,
+} from "./arrange-payment-details";
+
+/** Purchase document fields for Arrange Purchase (contact) sales. */
+export function buildArrangePurchaseData(
+  listing: Record<string, unknown>,
+  listingId: string,
+  buyerEmail: string,
+  conversationId: string,
+  collectionName: string,
+  buyerPublicName = "Buyer"
+): Record<string, unknown> {
+  const sellerEmail = String(listing.sellerEmail || "");
+  const price = String(listing.price || "0");
+  const image =
+    (Array.isArray(listing.images) ? listing.images[0] : "") ||
+    String(listing.imageUrl || listing.image || "");
+  const now = new Date();
+
+  return {
+    listingId,
+    listingTitle: String(listing.title || "Item"),
+    listingPrice: price,
+    listingImage: image,
+    sellerEmail,
+    buyerEmail,
+    buyerName: buyerPublicName,
+    buyerPhone: "",
+    deliveryMethod: "pickup",
+    shippingAddress: "",
+    shippingFee: 0,
+    processingFee: 0,
+    total: Number(price) || 0,
+    type: String(listing.type || "physical"),
+    status: "arrange_requested",
+    paymentType: "contact",
+    collectionName,
+    conversationId,
+    destinationCharge: false,
+    paidAt: null,
+    createdAt: now,
+  };
+}
+
+/** Backfill purchase row for sold Arrange Purchase listings (pre-fix sales). */
+export async function repairMissingArrangePurchasesForSeller(
+  sellerEmail: string
+): Promise<number> {
+  const db = getAdminDb();
+  const snap = await db
+    .collection("listings")
+    .where("sellerEmail", "==", sellerEmail)
+    .where("status", "==", "sold")
+    .limit(100)
+    .get();
+
+  let repaired = 0;
+  for (const listingDoc of snap.docs) {
+    const listing = listingDoc.data() as Record<string, unknown>;
+    if (String(listing.paymentType || "") !== "contact") continue;
+    const buyerEmail = String(listing.soldTo || "");
+    if (!buyerEmail) continue;
+
+    const purchaseId = makePurchaseId(listingDoc.id, buyerEmail);
+    const purchaseRef = db.collection("purchases").doc(purchaseId);
+    const existing = await purchaseRef.get();
+    if (existing.exists) continue;
+
+    const convId = makeConversationId(listingDoc.id, buyerEmail);
+    const buyerPublicName = await adminGetPublicName(buyerEmail);
+    await purchaseRef.set(
+      buildArrangePurchaseData(
+        listing,
+        listingDoc.id,
+        buyerEmail,
+        convId,
+        "listings",
+        buyerPublicName
+      )
+    );
+    repaired += 1;
+  }
+  return repaired;
 }

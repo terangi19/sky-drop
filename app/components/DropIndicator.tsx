@@ -190,7 +190,7 @@ export default function DropIndicator() {
           className="fixed bottom-24 right-4 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-lg shadow-lg shadow-orange-500/30 animate-bounce cursor-pointer hover:scale-110 transition-all disabled:opacity-50"
           title="A drop has landed!">🎁</button>
       )}
-      {showActiveHint && drop?.sponsoredTitle && drop?.sponsoredId !== dismissedDropId ? (
+      {showActiveHint && drop?.sponsoredTitle && drop?.sponsoredId !== dismissedDropId && (
         <div className="fixed top-16 right-4 z-[10000] flex items-center gap-2 rounded-full border border-orange-500/30 bg-zinc-950/95 backdrop-blur-xl px-3 py-2 text-xs shadow-lg shadow-orange-500/20 animate-breathe-orange transition">
           {drop.sponsoredImage && <div className="h-7 w-7 shrink-0 overflow-hidden rounded-full border border-orange-500/40"><img src={drop.sponsoredImage} className="h-full w-full object-cover" /></div>}
           <button onClick={() => { if (drop.targetPage) router.push(drop.targetPage); }} className="text-left min-w-0 cursor-pointer">
@@ -199,11 +199,6 @@ export default function DropIndicator() {
           </button>
           <span className="shrink-0 rounded-full bg-amber-500/20 px-2 py-0.5 text-[9px] font-bold text-amber-400 animate-pulse">🎁</span>
           <button onClick={handleDismissHint} className="shrink-0 ml-0.5 rounded-full p-0.5 text-[var(--muted)] hover:text-[var(--foreground)] transition cursor-pointer" title="Dismiss">✕</button>
-        </div>
-      ) : showActiveHint && (
-        <div className="fixed top-16 right-4 z-[10000] rounded-full border border-amber-500/20 bg-zinc-950/95 backdrop-blur-xl px-4 py-2 text-xs text-amber-400 shadow-lg animate-fade-in-up">
-          <span className="mr-1.5">🎁</span>
-          {user ? "Drop live — find it!" : "Sign in to claim drop"}
         </div>
       )}
       {showCountdown && nextDropIn && (

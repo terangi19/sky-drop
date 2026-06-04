@@ -5,11 +5,14 @@ import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import { User } from "firebase/auth";
-import { collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, updateDoc, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, where } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
+import { getFreshIdToken } from "../lib/api-auth";
+import { canSellerConfirmArrangeSale } from "../lib/arrange-purchase-status";
 import { createNotification } from "../lib/notifications";
 import { awardXP } from "../lib/xp";
 import { showToast } from "../components/Toast";
+import { isEmailLike } from "../lib/public-display";
 
 interface Purchase {
   id: string;
@@ -30,10 +33,12 @@ interface Purchase {
   createdAt?: any;
   badgeTransfer?: string;
   disputeStatus?: string;
+  tracking?: string;
   trackingNumber?: string;
 }
 
 const statusStyles: Record<string, string> = {
+  arrange_requested: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   pending: "bg-amber-500/10 text-amber-400 border-amber-500/20",
   seller_confirming: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20",
   shipped: "bg-sky-500/10 text-sky-400 border-sky-500/20",
@@ -53,6 +58,7 @@ function formatDate(ts: any): string {
 
 function statusLabel(status: string): string {
   const labels: Record<string, string> = {
+    arrange_requested: "Purchase request",
     pending: "Pending",
     seller_confirming: "Confirmed",
     shipped: "Shipped",
@@ -84,6 +90,7 @@ export default function SalesPage() {
   const [trackingNumber, setTrackingNumber] = useState("");
   const [sellerStripeId, setSellerStripeId] = useState("");
   const [filter, setFilter] = useState("active");
+  const [confirmingSaleId, setConfirmingSaleId] = useState<string | null>(null);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => { setUser(u); userEmailRef.current = u?.email || null; });
@@ -96,6 +103,19 @@ export default function SalesPage() {
       if (snap.exists()) setSellerStripeId(snap.data().stripeAccountId || "");
     }).catch(() => {});
   }, [user?.uid]);
+
+  useEffect(() => {
+    if (!user?.email) return;
+    getFreshIdToken()
+      .then((token) => {
+        if (!token) return;
+        return fetch("/api/repair-arrange-sales", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      })
+      .catch(() => {});
+  }, [user?.email]);
 
   useEffect(() => {
     if (!user?.email) return;
@@ -129,14 +149,70 @@ export default function SalesPage() {
     return items;
   }, [sales, filter]);
 
-  async function updateStatus(purchaseId: string, newStatus: string) {
+  async function confirmArrangeSale(purchaseId: string) {
+    setConfirmingSaleId(purchaseId);
     try {
-      await updateDoc(doc(db, "purchases", purchaseId), { status: newStatus });
+      const token = await getFreshIdToken();
+      if (!token) {
+        showToast("Please sign in again.", "error");
+        return;
+      }
+      const res = await fetch("/api/confirm-arrange-sale", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ purchaseId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast(data.error || "Could not confirm sale", "error");
+        return;
+      }
+      showToast("Marked as sold. Listing updated.", "success");
+    } catch {
+      showToast("Could not confirm sale", "error");
+    } finally {
+      setConfirmingSaleId(null);
+    }
+  }
 
-      const purchase = sales.find((s) => s.id === purchaseId);
-      if (!purchase) return;
+  async function updateStatus(
+    purchaseId: string,
+    newStatus: string,
+    tracking?: string
+  ) {
+    const token = await getFreshIdToken();
+    if (!token) {
+      showToast("Please sign in again.", "error");
+      throw new Error("Not signed in");
+    }
 
-      const currentEmail = userEmailRef.current || user?.email || "";
+    const res = await fetch("/api/update-purchase-status", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        purchaseId,
+        status: newStatus,
+        tracking: tracking?.trim() || undefined,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = data.error || "Failed to update order";
+      showToast(msg, "error");
+      throw new Error(msg);
+    }
+
+    const purchase = sales.find((s) => s.id === purchaseId);
+    if (!purchase) return;
+
+    const currentEmail = userEmailRef.current || user?.email || "";
+    try {
       if (newStatus === "seller_confirming") {
         await createNotification({
           targetEmail: purchase.buyerEmail,
@@ -153,7 +229,7 @@ export default function SalesPage() {
       if (newStatus === "shipped") {
         await createNotification({
           targetEmail: purchase.buyerEmail,
-          fromEmail: user!.email!,
+          fromEmail: currentEmail,
           type: "item_shipped",
           title: "Item Shipped",
           message: `Your item "${purchase.listingTitle}" has been shipped and is on its way! Track delivery in your purchases page.`,
@@ -166,7 +242,7 @@ export default function SalesPage() {
       if (newStatus === "delivered" && purchase.deliveryMethod !== "service") {
         await createNotification({
           targetEmail: purchase.buyerEmail,
-          fromEmail: user!.email!,
+          fromEmail: currentEmail,
           type: "delivered",
           title: "Item Delivered",
           message: `Your purchase "${purchase.listingTitle}" has been marked as delivered. Please confirm receipt to release funds to the seller, or open a dispute within 7 days.`,
@@ -179,7 +255,7 @@ export default function SalesPage() {
       if (newStatus === "delivered" && purchase.deliveryMethod === "service") {
         await createNotification({
           targetEmail: purchase.buyerEmail,
-          fromEmail: user!.email!,
+          fromEmail: currentEmail,
           type: "service_completed",
           title: "Service Completed",
           message: `Your service "${purchase.listingTitle}" has been marked as complete. Please confirm you're satisfied to release payment.`,
@@ -192,7 +268,7 @@ export default function SalesPage() {
       if (newStatus === "returned" && purchase.deliveryMethod === "rental") {
         await createNotification({
           targetEmail: purchase.buyerEmail,
-          fromEmail: user!.email!,
+          fromEmail: currentEmail,
           type: "item_returned",
           title: "Item Returned",
           message: `The seller confirmed return of "${purchase.listingTitle}". Rental completed! Thanks for using Sky Drop.`,
@@ -202,14 +278,14 @@ export default function SalesPage() {
         });
       }
 
-      if (newStatus === "delivered") {
-        await awardXP(user!.uid, 50);
+      if (newStatus === "delivered" && user?.uid) {
+        await awardXP(user.uid, 50);
       }
 
       if (newStatus === "completed") {
         await createNotification({
           targetEmail: purchase.buyerEmail,
-          fromEmail: user!.email!,
+          fromEmail: currentEmail,
           type: "service_completed",
           title: "Service Completed",
           message: `Your service "${purchase.listingTitle}" has been marked as complete by the seller. Please confirm you're satisfied to release payment.`,
@@ -219,9 +295,7 @@ export default function SalesPage() {
         });
       }
     } catch (e) {
-      console.error("Failed to update status:", e);
-      showToast("Failed to update status", "error");
-      throw e;
+      console.error("Failed to send order notifications:", e);
     }
   }
 
@@ -242,7 +316,7 @@ export default function SalesPage() {
           <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
             <span className="text-white drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">Sales</span>
           </h1>
-          <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl">Track your sales, manage orders, and get paid — all in one place. When a buyer confirms delivery, release your funds securely through our escrow system. Every transaction is protected from listing to payout.</p>
+          <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl">Track your sales, manage orders, and get paid — all in one place. When a buyer pays, the money goes directly to your Stripe account. Every transaction is handled by Stripe from listing to payout.</p>
           <p className="relative mt-2 text-sm text-zinc-500">{filtered.length} of {sales.length} total</p>
         </div>
 
@@ -322,7 +396,13 @@ export default function SalesPage() {
                         <Link href={`/post/listing/${s.listingId}`} className="text-sm font-bold text-[var(--foreground)] transition hover:text-indigo-400 line-clamp-1">{s.listingTitle}</Link>
                         <p className="mt-0.5 text-sm font-semibold text-indigo-400">${s.listingPrice}</p>
                         <div className="mt-0.5 flex items-center gap-2 text-[11px] text-zinc-500">
-                          <span>{s.buyerName || s.buyerEmail?.split("@")[0] || "—"}</span>
+                          <span>
+                            {s.buyerName && !isEmailLike(s.buyerName)
+                              ? s.buyerName.startsWith("@")
+                                ? s.buyerName
+                                : `@${s.buyerName}`
+                              : "Buyer"}
+                          </span>
                           <span>· {s.deliveryMethod}</span>
                           {s.createdAt && <span>· {formatDate(s.createdAt)}</span>}
                         </div>
@@ -342,16 +422,29 @@ export default function SalesPage() {
                     )}
 
                     <div className="mt-3 flex items-center gap-2 flex-wrap">
+                      {canSellerConfirmArrangeSale(s.status, (s as { paymentType?: string }).paymentType) ? (
+                        <button
+                          onClick={() => confirmArrangeSale(s.id)}
+                          disabled={confirmingSaleId === s.id}
+                          className="rounded-lg bg-emerald-500 px-4 py-1.5 text-[11px] font-bold text-white transition hover:bg-emerald-400 disabled:opacity-60 active:scale-[0.97]"
+                        >
+                          {confirmingSaleId === s.id ? "Updating…" : "Mark sold to buyer"}
+                        </button>
+                      ) : null}
                       {nextStatus[s.status] && !s.disputeStatus && !(s as any).fundsReleased ? (
                         <button onClick={() => setConfirmAction({ id: s.id, status: nextStatus[s.status].status, label: nextStatus[s.status].label })}
                           className="rounded-lg bg-gradient-to-r from-indigo-500 to-violet-500 px-4 py-1.5 text-[11px] font-bold text-white shadow-lg shadow-indigo-500/20 transition hover:shadow-xl active:scale-[0.97]">
                           {nextStatus[s.status].label}
                         </button>
                       ) : null}
-                      {s.status === "delivered" && !(s as any).fundsReleased && (
+                      {(s as any).paymentType === "contact" ? (
+                        <span className="text-[11px] text-emerald-400/80 font-bold">🤝 Arrange Purchase — payment off-platform</span>
+                      ) : (s as any).destinationCharge ? (
+                        <span className="text-[11px] text-emerald-400 font-bold">✅ Funds sent to your Stripe account</span>
+                      ) : s.status === "delivered" && !(s as any).fundsReleased ? (
                         <span className="text-[11px] text-amber-400 font-bold">🔒 Funds Held in Escrow</span>
-                      )}
-                      {(s as any).fundsReleased && (
+                      ) : null}
+                      {(s as any).fundsReleased && !(s as any).destinationCharge && (
                         <span className="text-[11px] text-emerald-400 font-bold">✅ Funds Released</span>
                       )}
                       <Link href={`/messages?user=${encodeURIComponent(s.buyerEmail || "")}&listing=${s.listingId}`}
@@ -379,22 +472,30 @@ export default function SalesPage() {
               <div className="mt-4">
                 <label className="mb-1 block text-xs font-bold text-[var(--muted)]">Tracking Number (optional)</label>
                 <input type="text" value={trackingNumber} onChange={(e) => setTrackingNumber(e.target.value)}
-                  placeholder="e.g. NZ123456789"
+                  placeholder="e.g. AB123456789NZ"
                   className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500 placeholder:text-[var(--muted)]" />
               </div>
             )}
             <div className="mt-6 flex gap-3">
               <button onClick={() => { setConfirmAction(null); setTrackingNumber(""); }} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700 active:scale-[0.97] transition-all">Cancel</button>
-              <button onClick={async () => {
-                try {
-                  if (confirmAction.status === "shipped" && trackingNumber.trim()) {
-                    await updateDoc(doc(db, "purchases", confirmAction.id), { trackingNumber: trackingNumber.trim() });
+              <button
+                onClick={async () => {
+                  try {
+                    await updateStatus(
+                      confirmAction.id,
+                      confirmAction.status,
+                      confirmAction.status === "shipped" ? trackingNumber : undefined
+                    );
+                    showToast(`Marked as ${confirmAction.label.toLowerCase()}.`, "success");
+                    setConfirmAction(null);
+                    setTrackingNumber("");
+                  } catch (e) {
+                    const msg = e instanceof Error ? e.message : "Could not update order. Try again.";
+                    if (!msg.includes("Not signed in") && msg !== "Failed to update order") {
+                      showToast(msg, "error");
+                    }
                   }
-                  await updateStatus(confirmAction.id, confirmAction.status);
-                  setConfirmAction(null);
-                  setTrackingNumber("");
-                } catch {}
-              }}
+                }}
                 className="flex-1 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-500/20 transition hover:shadow-xl active:scale-[0.97]">Confirm</button>
             </div>
           </div>

@@ -10,6 +10,8 @@ import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import { getLevelInfo } from "../lib/xp";
 import { trackChallenge } from "../lib/challenges";
 import { isAdminEmail } from "../lib/admin-check";
+import { isListingVisibleInMarketplace } from "../lib/listing-availability";
+import { sumStripeCheckoutEarnings } from "../lib/seller-payments";
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -77,7 +79,7 @@ export default function DashboardPage() {
   const stats = useMemo(() => {
     const completed = sales.filter((s) => s.status === "delivered");
     const pending = sales.filter((s) => !["delivered", "cancelled"].includes(s.status));
-    const totalEarnings = completed.reduce((sum, s) => sum + (Number(s.total) || 0), 0);
+    const stripeEarnings = sumStripeCheckoutEarnings(sales, ["delivered"]);
     const avgRating = reviews.length > 0
       ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
       : "—";
@@ -86,8 +88,8 @@ export default function DashboardPage() {
       totalSales: sales.length,
       completedSales: completed.length,
       pendingOrders: pending.length,
-      totalEarnings,
-      activeListings: listings.filter((l) => l.status !== "sold").length,
+      stripeEarnings,
+      activeListings: listings.filter((l) => isListingVisibleInMarketplace(l)).length,
       avgRating,
       reviewCount: reviews.length,
       fullStars,
@@ -96,7 +98,7 @@ export default function DashboardPage() {
 
   const expiringSoon = useMemo(() =>
     listings.filter((l) => {
-      if (l.status === "sold" || !l.expiresAt?.toMillis) return false;
+      if (!isListingVisibleInMarketplace(l) || !l.expiresAt?.toMillis) return false;
       return l.expiresAt.toMillis() - Date.now() < 3 * 86400000 && l.expiresAt.toMillis() > Date.now();
     }),
     [listings]
@@ -178,7 +180,7 @@ export default function DashboardPage() {
             { label: "Total Sales", value: stats.totalSales, color: "text-[var(--foreground)]", icon: "📦" },
             { label: "Completed", value: stats.completedSales, color: "text-emerald-400", icon: "✅" },
             { label: "Pending", value: stats.pendingOrders, color: "text-amber-400", icon: "⏳" },
-            { label: "Earnings", value: `$${stats.totalEarnings.toFixed(2)}`, color: "text-sky-400", icon: "💰" },
+            { label: "Stripe earnings", value: `$${stats.stripeEarnings.toFixed(2)}`, color: "text-sky-400", icon: "💰" },
           ].map((s) => (
             <div key={s.label} className="rounded-2xl border border-white/[0.04] bg-white/[0.02] p-4 sm:p-5 transition-all duration-200 hover:bg-white/[0.04]">
               <p className="text-xs text-zinc-500">{s.icon} {s.label}</p>
@@ -221,7 +223,7 @@ export default function DashboardPage() {
           <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-zinc-500">Quick Actions</h2>
           <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
             {([
-              { href: "/post", icon: "M12 4v16m8-8H4", label: "Create Listing", color: "text-sky-400" },
+              { href: "/post/ai", icon: "M12 4v16m8-8H4", label: "Create Listing", color: "text-sky-400" },
               { href: "/sales", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4", label: "Sales", color: "text-emerald-400" },
               { href: "/messages", icon: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z", label: "Messages", color: "text-sky-400" },
               { href: "/profile", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z", label: "Profile", color: "text-sky-400" },
@@ -240,8 +242,12 @@ export default function DashboardPage() {
         {/* Payouts */}
         <div className="mt-8 rounded-2xl border border-white/[0.04] bg-white/[0.02] p-5 sm:p-6">
           <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-zinc-500">Payouts</h2>
-          <p className="mt-3 text-sm text-zinc-500">Available balance: <span className="font-bold text-sky-400">${stats.totalEarnings.toFixed(2)}</span></p>
-          <p className="text-xs text-zinc-600 mt-1">Set up Stripe Connect in your profile to withdraw funds.</p>
+          <p className="mt-3 text-sm text-zinc-500">
+            Stripe earnings (delivered): <span className="font-bold text-sky-400">${stats.stripeEarnings.toFixed(2)}</span>
+          </p>
+          <p className="text-xs text-zinc-600 mt-1">
+            Arrange Purchase sales are paid off-platform and are not included here. Connect Stripe in your profile for card payouts.
+          </p>
           <Link href="/profile" className="mt-4 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">
             Manage Payout Settings
           </Link>
@@ -271,7 +277,7 @@ export default function DashboardPage() {
           {sales.length === 0 ? (
             <div className="mt-4 rounded-2xl border border-white/[0.04] bg-white/[0.02] p-8 text-center">
               <p className="text-sm text-zinc-500">No orders yet. Create a listing to start selling.</p>
-              <Link href="/post" className="mt-4 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2 text-xs font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">Create Listing</Link>
+              <Link href="/post/ai" className="mt-4 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2 text-xs font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">Create Listing</Link>
             </div>
           ) : (
             <div className="mt-3 space-y-2">
@@ -279,7 +285,7 @@ export default function DashboardPage() {
                 <div key={s.id} className="flex items-center gap-3 rounded-2xl border border-white/[0.04] bg-white/[0.02] px-4 sm:px-5 py-3">
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-bold text-[var(--foreground)]">{s.listingTitle}</p>
-                    <p className="text-xs text-zinc-500">${Number(s.total).toFixed(2)} · {s.buyerName || s.buyerEmail?.split("@")[0]}</p>
+                    <p className="text-xs text-zinc-500">${Number(s.total).toFixed(2)} · {s.buyerName || "Buyer"}</p>
                   </div>
                   <span className={`shrink-0 rounded-full border px-3 py-0.5 text-[9px] font-bold ${
                     s.status === "delivered" ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400" :
@@ -298,17 +304,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <Link href="/dashboard/applications"
-          className="mt-8 flex items-center justify-between rounded-2xl border border-cyan-500/10 bg-gradient-to-b from-cyan-500/3 to-transparent p-5 transition hover:border-cyan-500/20">
-          <div className="flex items-center gap-3">
-            <span className="text-lg">📋</span>
-            <div>
-              <h2 className="text-sm font-bold text-[var(--foreground)]">Job Applications</h2>
-              <p className="mt-0.5 text-xs text-zinc-500">Review applicants for your job listings</p>
-            </div>
-          </div>
-          <span className="text-cyan-400 text-sm font-bold">View →</span>
-        </Link>
+        {/* Job Applications hidden for now */}
       </section>
     </main>
   );

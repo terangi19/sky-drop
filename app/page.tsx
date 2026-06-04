@@ -42,6 +42,7 @@ import {
 import { auth, db, storage, onAuthStateChanged } from "./lib/firebase";
 import { ref, deleteObject } from "firebase/storage";
 import { cdnUrl, cdnUrls } from "./lib/cdn";
+import { isListingVisibleInMarketplace } from "./lib/listing-availability";
 
 interface Listing {
   id: string;
@@ -58,6 +59,9 @@ interface Listing {
   condition?: string;
   location?: string;
   acceptOffers?: boolean;
+  paymentType?: string;
+  status?: string;
+  stockQuantity?: number;
   expiresAt?: Timestamp;
   saleType?: string;
   currentBid?: number;
@@ -419,7 +423,11 @@ export default function Home() {
    }
 
     function handleBuyNow(item: Listing) {
-        if (item.status === "sold") return;
+        if (!isListingVisibleInMarketplace(item)) return;
+        if (item.paymentType === "contact") {
+          router.push(`/post/listing/${item.id}`);
+          return;
+        }
         router.push(`/post/listing/${item.id}?buy=1`);
       }
 
@@ -553,11 +561,9 @@ export default function Home() {
               item.location ===
                 selectedRegion;
 
-            const isSold = item.status === "sold";
-
             const isVisible = (search === "" || matchesSearch) && (selectedCategory === "All" || matchesCategory) && (selectedCondition === "All" || matchesCondition) && (selectedRegion === "All" || matchesRegion);
 
-            return isVisible && !isSold;
+            return isVisible && isListingVisibleInMarketplace(item);
 
           }
         );
@@ -675,7 +681,7 @@ export default function Home() {
     setOfferAmount("");
   };
 
-  const hotItems = useMemo(() => [...listings].filter(l => l.status !== "sold").slice(0, 6) as any[], [listings]);
+  const hotItems = useMemo(() => [...listings].filter((l) => isListingVisibleInMarketplace(l)).slice(0, 6) as any[], [listings]);
   const hotMaxViews = useMemo(() => Math.max(...hotItems.map((i: any) => i.views || 0), 1), [hotItems]);
 
   const savedSearchMatchCounts = useMemo(() => {
@@ -683,7 +689,7 @@ export default function Home() {
       const q = s.query.toLowerCase();
       const cat = s.category;
       const count = listings.filter((l) => {
-        if (l.status === "sold") return false;
+        if (!isListingVisibleInMarketplace(l)) return false;
         const matchesQuery = !q || (l.title?.toLowerCase().includes(q) || l.description?.toLowerCase().includes(q) || l.category?.toLowerCase().includes(q));
         const matchesCategory = cat === "All" || l.category === cat;
         return matchesQuery && matchesCategory;
@@ -736,8 +742,8 @@ export default function Home() {
 
       {/* HERO / SEARCH SECTION */}
       <section className="relative z-10 mx-auto max-w-[1920px] px-4 pt-6">
-        <div className="relative overflow-hidden rounded-3xl border border-white/[0.04] bg-gradient-to-b from-white/[0.04] via-transparent to-transparent shadow-[0_0_150px_-20px_rgba(14,165,233,0.12)]">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(14,165,233,0.12),transparent)] pointer-events-none" />
+        <div className="relative rounded-3xl border border-white/[0.04] bg-gradient-to-b from-white/[0.04] via-transparent to-transparent shadow-[0_0_150px_-20px_rgba(14,165,233,0.12)]">
+          <div className="absolute inset-0 overflow-hidden rounded-3xl bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(14,165,233,0.12),transparent)] pointer-events-none" />
 
           {/* LIVE BAR */}
           <div className="relative flex items-center justify-center px-6 py-2.5 text-[12px] text-[var(--muted)] border-b border-white/[0.04]">
@@ -757,26 +763,22 @@ export default function Home() {
             })()}
           </div>
 
-          <div className="relative px-6 py-10 sm:px-10 sm:py-12">
-            <div className="mx-auto max-w-3xl text-center">
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.06] bg-white/[0.03] px-4 py-1 text-[11px] font-medium text-zinc-400 mb-5">
-                Welcome to Sky Drop
+          {/* Sticky welcome + search (sits below main navbar) */}
+          <div className="sticky top-16 md:top-24 z-40 border-b border-white/[0.06] bg-[var(--background)]/90 backdrop-blur-xl shadow-[0_12px_40px_-20px_rgba(0,0,0,0.65)]">
+            <div className="relative px-6 py-5 sm:px-10 sm:py-6">
+              <div className="mx-auto max-w-3xl text-center">
+                <div className="inline-flex items-center gap-2 rounded-full border border-sky-400/30 bg-sky-500/[0.07] px-3 py-1 text-[10px] font-bold text-sky-300 mb-3 tracking-wider uppercase backdrop-blur-sm ring-1 ring-sky-400/10 sm:mb-4 sm:px-4 sm:py-1.5 sm:text-[11px]">
+                  NZ Marketplace
+                </div>
+                <h1 className="text-2xl font-black tracking-tight sm:text-4xl lg:text-5xl leading-none">
+                  <span className="bg-gradient-to-r from-white via-sky-200 to-white bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(56,189,248,0.25)]">
+                    Welcome to Sky Drop
+                  </span>
+                </h1>
               </div>
 
-              <h1 className="text-4xl font-black tracking-tight sm:text-5xl lg:text-6xl leading-none">
-                <span className="bg-gradient-to-r from-white via-sky-200 to-white bg-clip-text text-transparent">
-                  New Zealand's Modern Marketplace
-                </span>
-              </h1>
-              <p className="mt-4 max-w-xl mx-auto text-sm leading-relaxed text-zinc-400">
-                {user
-                  ? "Manage your listings, connect with buyers, and trade across New Zealand."
-                  : "Free listings, escrow payments, live trade feeds, and a community-driven marketplace built for New Zealand."}
-              </p>
-            </div>
-
             {/* SEARCH */}
-            <div className="mx-auto mt-8 max-w-xl">
+            <div className="mx-auto mt-5 max-w-xl sm:mt-6">
               <div className="group relative">
                 <div className="absolute -inset-1 rounded-xl bg-gradient-to-r from-sky-500/40 via-violet-500/40 to-sky-500/40 opacity-0 blur-lg transition duration-500 group-focus-within:opacity-100" />
                 <div className="relative flex items-center rounded-xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-sm ring-0 transition-all duration-300 focus-within:ring-2 focus-within:ring-sky-500/30 focus-within:border-sky-500/40">
@@ -819,9 +821,18 @@ export default function Home() {
                 </div>
               </div>
             </div>
+            </div>
+          </div>
+
+          <div className="relative px-6 py-8 sm:px-10 sm:py-10">
+            <p className="mx-auto max-w-xl text-center text-sm leading-relaxed text-zinc-400">
+              {user
+                ? "Manage your listings, connect with buyers, and trade across New Zealand."
+                : "Free listings, Stripe Checkout or Arrange Purchase, live trade feeds, and a community marketplace built for New Zealand."}
+            </p>
 
             {/* BROWSE CATEGORIES */}
-            <p className="mt-10 mb-3 text-center text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Browse Categories</p>
+            <p className="mt-8 mb-3 text-center text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500 sm:mt-10">Browse Categories</p>
             <div className="mt-0">
               <div className="flex flex-wrap justify-center gap-3">
                 <button
@@ -849,11 +860,6 @@ export default function Home() {
                     <span className={`text-xs font-bold ${selectedCategory === cat.name ? "text-sky-400" : "text-zinc-400"}`}>{cat.name}</span>
                   </button>
                 ))}
-                <Link href="/digital"
-                  className="flex flex-col items-center gap-2 rounded-2xl border border-sky-500/15 bg-sky-500/[0.04] px-6 py-4 transition-all duration-200 min-w-[88px] hover:border-sky-500/35 hover:bg-sky-500/[0.08] hover:-translate-y-1">
-                  <span className="text-2xl opacity-70">📥</span>
-                  <span className="text-xs font-bold text-sky-400">Digital</span>
-                </Link>
               </div>
             </div>
 
@@ -887,8 +893,8 @@ export default function Home() {
                 🔒
               </div>
               <div>
-                <p className="text-[13px] font-bold text-white">Escrow Protected</p>
-                <p className="text-[11px] text-zinc-500">Funds held until you're happy</p>
+                <p className="text-[13px] font-bold text-white">Flexible Payments</p>
+                <p className="text-[11px] text-zinc-500">Stripe Checkout or Arrange in chat</p>
               </div>
             </div>
             <div className="flex items-center gap-3 px-5 py-4">
@@ -896,8 +902,8 @@ export default function Home() {
                 🛡️
               </div>
               <div>
-                <p className="text-[13px] font-bold text-white">Secure Payments</p>
-                <p className="text-[11px] text-zinc-500">Protected by Stripe & escrow</p>
+                <p className="text-[13px] font-bold text-white">Dispute Protection</p>
+                <p className="text-[11px] text-zinc-500">7-day dispute window</p>
               </div>
             </div>
             <div className="flex items-center gap-3 px-5 py-4">
@@ -911,10 +917,10 @@ export default function Home() {
             </div>
             <div className="flex items-center gap-3 px-5 py-4">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-lg">
-                ⭐
+                🇳🇿
               </div>
               <div>
-                <p className="text-[13px] font-bold text-white">Trusted Marketplace</p>
+                <p className="text-[13px] font-bold text-white">NZ Community</p>
                 <p className="text-[11px] text-zinc-500">Built for New Zealand</p>
               </div>
             </div>
@@ -923,7 +929,7 @@ export default function Home() {
       </section>
 
       {/* HOT THIS WEEK */}
-      {listings.filter(l => l.status !== "sold").length > 0 && (
+      {listings.filter((l) => isListingVisibleInMarketplace(l)).length > 0 && (
         <section className="relative z-10 mx-auto max-w-[1800px] px-4 pb-1.5">
           <div className="relative mb-4 pt-2">
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
@@ -1047,17 +1053,42 @@ export default function Home() {
 
         {!loading && filteredListings.length === 0 && (
           <div className="relative mx-auto max-w-md mt-12 text-center">
-            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/[0.03] border border-white/[0.06]">
-              <svg className="h-8 w-8 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h2 className="text-2xl font-black tracking-tight text-white">No listings found</h2>
-            <p className="mt-2 text-sm text-zinc-500">Try adjusting your filters or search.</p>
-            <button onClick={() => { setSelectedCategory("All"); setSelectedCondition("All"); setSelectedRegion("All"); setSearch(""); }}
-              className="mt-5 rounded-lg border border-sky-500/20 bg-sky-500/5 px-5 py-2.5 text-sm font-bold text-sky-400 transition hover:bg-sky-500/10 hover:border-sky-500/30">
-              Clear all filters
-            </button>
+            {listings.length === 0 ? (
+              <>
+                <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500/10 to-violet-500/10 border border-sky-500/20">
+                  <svg className="h-8 w-8 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                  </svg>
+                </div>
+                <h2 className="text-2xl font-black tracking-tight text-white">Welcome to Sky Drop</h2>
+                <p className="mt-2 text-sm text-zinc-500">No listings yet — be the first to list something!</p>
+                <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
+                  <Link href="/post/ai"
+                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                    Create a Listing
+                  </Link>
+                  <Link href="/about"
+                    className="inline-flex items-center gap-2 rounded-xl border border-zinc-600 px-6 py-3 text-sm font-bold text-zinc-300 transition hover:bg-zinc-800">
+                    Learn More
+                  </Link>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/[0.03] border border-white/[0.06]">
+                  <svg className="h-8 w-8 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h2 className="text-2xl font-black tracking-tight text-white">No listings found</h2>
+                <p className="mt-2 text-sm text-zinc-500">Try adjusting your filters or search.</p>
+                <button onClick={() => { setSelectedCategory("All"); setSelectedCondition("All"); setSelectedRegion("All"); setSearch(""); }}
+                  className="mt-5 rounded-lg border border-sky-500/20 bg-sky-500/5 px-5 py-2.5 text-sm font-bold text-sky-400 transition hover:bg-sky-500/10 hover:border-sky-500/30">
+                  Clear all filters
+                </button>
+              </>
+            )}
           </div>
         )}
 
@@ -1066,18 +1097,19 @@ export default function Home() {
           {(() => {
             const visible = filteredListings.slice(0, visibleCount);
             const maxViews = Math.max(...visible.map((i: any) => i.views || 0), 1);
-            return visible.map((item: any) => {
+            return visible.map((item: any, cardIndex: number) => {
 
-              const isPopular = item.status !== "sold";
+              const isPopular = isListingVisibleInMarketplace(item);
 
               return (
               <div
                 key={item.id}
-                className={`group relative overflow-hidden rounded-2xl transition-all duration-300 cursor-pointer ${
+                className={`group relative overflow-hidden rounded-2xl transition-all duration-300 cursor-pointer animate-fade-in-up ${
                   isPopular
                     ? "bg-gradient-to-b from-orange-500/[0.04] to-transparent border border-orange-500/20 shadow-[0_0_30px_rgba(251,146,60,0.12)] hover:border-orange-500/40 hover:shadow-[0_0_40px_rgba(251,146,60,0.25)] hover:-translate-y-1"
                     : "bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.04] hover:border-sky-500/30 hover:-translate-y-1 hover:shadow-[0_10px_40px_-10px_rgba(14,165,233,0.15)]"
                 }`}
+                style={{ animationDelay: `${Math.min(cardIndex, 10) * 40}ms` }}
                 onClick={() => { saveRecentlyViewed(item); router.push(`/post/listing/${item.id}`); }}
               >
                 {!isPopular && <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-white/[0.01] pointer-events-none" />}
@@ -1094,34 +1126,34 @@ export default function Home() {
                         className="aspect-[4/3] w-full object-cover transition-all duration-500 group-hover:scale-105 opacity-0"
                       />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                     {item.status === "sold" && (
+                     {!isListingVisibleInMarketplace(item) && (
                         <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm">
                           <span className="rounded-lg bg-red-600 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-white shadow-lg">Sold · ${item.price}</span>
                         </div>
                       )}
                       <div className="absolute top-3 left-3 flex flex-col gap-1.5">
-                        {item.status !== "sold" && (item.views || 0) > 3 && (
+                        {isListingVisibleInMarketplace(item) && (item.views || 0) > 3 && (
                           <span className="rounded-full bg-orange-500/90 px-2.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm shadow-lg">🔥 Hot</span>
                         )}
                         {(item as any).promotedUntil?.toMillis?.() > Date.now() && (
                           <span className="rounded-full bg-amber-500/90 px-2.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm shadow-lg">📈 Promoted</span>
                         )}
-                        {item.status !== "sold" && item.createdAt?.seconds && (Date.now() / 1000 - item.createdAt.seconds) < 86400 && (
+                        {isListingVisibleInMarketplace(item) && item.createdAt?.seconds && (Date.now() / 1000 - item.createdAt.seconds) < 86400 && (
                           <span className="rounded-full bg-emerald-500/90 px-2.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm shadow-lg">New</span>
                         )}
-                        {item.status !== "sold" && item.saleType && String(item.saleType).includes("auction") && (
+                        {isListingVisibleInMarketplace(item) && item.saleType && String(item.saleType).includes("auction") && (
                           <span className="rounded-full bg-amber-500/90 px-2.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm shadow-lg">⏰ Auction</span>
                         )}
-                        {(item as any).type === "digital" && item.status !== "sold" && (
+                        {(item as any).type === "digital" && isListingVisibleInMarketplace(item) && (
                           <span className="rounded-full bg-sky-500/90 px-2.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm shadow-lg">📥 Digital</span>
                         )}
                       </div>
-                      {item.status !== "sold" && (item as any).images?.length > 1 && (
+                      {isListingVisibleInMarketplace(item) && (item as any).images?.length > 1 && (
                         <div className="absolute top-3 right-3">
                           <span className="rounded-full bg-black/60 px-2 py-0.5 text-[9px] font-medium text-white backdrop-blur-sm">📷 {(item as any).images.length}</span>
                         </div>
                       )}
-                      {item.status !== "sold" && item.expiresAt?.toMillis?.() < Date.now() && (
+                      {isListingVisibleInMarketplace(item) && item.expiresAt?.toMillis?.() < Date.now() && (
                         <div className="absolute top-3 right-3">
                           <span className="rounded-full bg-zinc-800/90 px-2.5 py-0.5 text-[9px] font-bold text-zinc-400 backdrop-blur-sm">Expired</span>
                         </div>
@@ -1146,7 +1178,7 @@ export default function Home() {
                          <div className="text-[10px] uppercase tracking-widest opacity-50">Sky Drop</div>
                        </div>
                      </div>
-                     {item.status === "sold" && (
+                     {!isListingVisibleInMarketplace(item) && (
                         <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm">
                           <span className="rounded-lg bg-red-600 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-white shadow-lg">
                             Sold · ${item.price}
@@ -1154,10 +1186,10 @@ export default function Home() {
                         </div>
                       )}
                      <div className="absolute top-3 left-3 flex flex-col gap-1.5">
-                       {item.status !== "sold" && item.createdAt?.seconds && (Date.now() / 1000 - item.createdAt.seconds) < 86400 && (
+                       {isListingVisibleInMarketplace(item) && item.createdAt?.seconds && (Date.now() / 1000 - item.createdAt.seconds) < 86400 && (
                          <span className="rounded-full bg-emerald-500/90 px-2.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm shadow-lg">New</span>
                        )}
-                       {item.status !== "sold" && item.saleType && String(item.saleType).includes("auction") && (
+                       {isListingVisibleInMarketplace(item) && item.saleType && String(item.saleType).includes("auction") && (
                          <span className="rounded-full bg-amber-500/90 px-2.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm shadow-lg">⏰ Auction</span>
                        )}
                      </div>
@@ -1252,9 +1284,13 @@ export default function Home() {
                             <>
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleBuyNow(item); }}
-                                className="flex-1 rounded-md border border-sky-500/25 bg-sky-500/5 py-2.5 text-[12px] font-semibold text-sky-400/70 transition-all duration-150 hover:bg-sky-500/15 hover:text-sky-400 hover:border-sky-500/40 hover:shadow-[0_0_14px_rgba(14,165,233,0.12)] active:scale-95"
+                                className={`flex-1 rounded-md border py-2.5 text-[12px] font-semibold transition-all duration-150 active:scale-95 ${
+                                  item.paymentType === "contact"
+                                    ? "border-emerald-500/25 bg-emerald-500/5 text-emerald-400/70 hover:bg-emerald-500/15 hover:text-emerald-400 hover:border-emerald-500/40"
+                                    : "border-sky-500/25 bg-sky-500/5 text-sky-400/70 hover:bg-sky-500/15 hover:text-sky-400 hover:border-sky-500/40 hover:shadow-[0_0_14px_rgba(14,165,233,0.12)]"
+                                }`}
                               >
-                                Buy Now
+                                {item.paymentType === "contact" ? "Purchase" : "Buy Now"}
                               </button>
                               {(item.saleType === "auction" || item.saleType === "auction_buy_now") && (
                                 <Link
@@ -1265,7 +1301,7 @@ export default function Home() {
                                   Bid Now
                                 </Link>
                               )}
-                              {item.acceptOffers && (
+                              {item.acceptOffers && item.paymentType !== "contact" && (
                                 <Link
                                   href="#"
                                   onClick={(e) => {
@@ -1318,7 +1354,7 @@ export default function Home() {
 
                     {/* SELLER CARD */}
                     <Link
-                      href={user?.email === item.sellerEmail ? "#" : `/seller/${item.sellerEmail || item.sellerUsername}`}
+                      href={user?.email === item.sellerEmail ? "#" : `/seller/${item.sellerUsername || item.sellerEmail}`}
                       onClick={(e) => e.stopPropagation()}
                       className="block hover:cursor-pointer"
                     >
@@ -1437,14 +1473,14 @@ onClick={() => router.push(`/post/listing/${item.id}`)}
       )}
 
       {/* RECENTLY SOLD */}
-      {listings.filter(l => l.status === "sold").length > 0 && (
+      {listings.filter((l) => !isListingVisibleInMarketplace(l)).length > 0 && (
         <section className="relative z-10 mx-auto max-w-[1800px] px-4 pb-1.5">
           <div className="relative mb-3 pt-2">
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-zinc-700/50 to-transparent" />
             <p className="text-[13px] font-bold uppercase tracking-[0.22em] text-[var(--foreground)]">Recently Sold</p>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {listings.filter(l => l.status === "sold").slice(0, 6).map((item) => (
+            {listings.filter((l) => !isListingVisibleInMarketplace(l)).slice(0, 6).map((item) => (
               <div key={item.id} className="shrink-0 w-44 rounded-xl border border-zinc-800/40 bg-zinc-900/50 p-3 opacity-80">
                 {item.images?.[0] || item.imageUrl || item.image ? (
                    <img src={cdnUrl(item.images?.[0] || item.imageUrl || item.image || "")} alt={item.title} loading="lazy" className="h-20 w-full rounded-lg object-cover" />

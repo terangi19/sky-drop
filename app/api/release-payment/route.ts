@@ -78,22 +78,36 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Funds frozen — a dispute is in progress" }, { status: 400 });
     }
 
+    // Check if this was a destination charge — funds already with seller
+    if (purchase.destinationCharge) {
+      await db.collection("purchases").doc(purchaseId).update({
+        fundsReleased: true,
+        fundsReleasedAt: new Date(),
+        status: "completed",
+      });
+      return NextResponse.json({
+        success: true,
+        message: "Funds already transferred to seller via Stripe",
+      });
+    }
+
+    // Legacy flow (separate charges and transfers) — below
     // Only the buyer can trigger release (they confirmed receipt)
     // Seller cannot trigger release — must wait for buyer confirmation or auto-release
     // Admin can bypass all restrictions
     if (isAdmin) {
       // Admin can release regardless of dispute or timing
     } else if (isSeller) {
-      // Check if auto-release window has passed (72 hours after deliveredAt or 14 days after createdAt)
+      // Check if auto-release window has passed (14 days after deliveredAt or 14 days after createdAt)
       const deliveredAt = purchase.deliveredAt?.toMillis?.() || purchase.deliveredAt?.seconds * 1000;
       const createdAt = purchase.createdAt?.toMillis?.() || purchase.createdAt?.seconds * 1000;
       const now = Date.now();
       const autoReleaseElapsed = deliveredAt
-        ? (now - deliveredAt) > 72 * 3600000  // 72 hours after delivery confirmation
+        ? (now - deliveredAt) > 14 * 86400000  // 14 days after delivery confirmation
         : (now - createdAt) > 14 * 86400000;   // 14 days after purchase
 
       if (!autoReleaseElapsed) {
-        return NextResponse.json({ error: "Funds are held in escrow until the buyer confirms receipt. Auto-release will trigger after 3 days." }, { status: 400 });
+        return NextResponse.json({ error: "Funds are held in escrow until the buyer confirms receipt. Auto-release will trigger after 14 days." }, { status: 400 });
       }
 
       // Double-check no dispute was opened since the start of this request

@@ -27,10 +27,18 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useParams } from "next/navigation";
 import ReportModal from "../../components/ReportModal";
 import { calculateTrustScore } from "../../lib/trustscore";
+import { isListingVisibleInMarketplace } from "../../lib/listing-availability";
+import { countSellerSales } from "../../lib/arrange-purchase-status";
+import {
+  isEmailLike,
+  sellerProfileDisplayName,
+  stripAtPrefix,
+} from "../../lib/public-display";
+import { resolveSellerBySlug } from "../../lib/seller-profile-lookup";
 
 interface ProfileData {
   username?: string;
-  displayName?: string;
+  // displayName removed
   bio?: string;
   region?: string;
   photoURL?: string;
@@ -91,12 +99,15 @@ function timeAgo(seconds: number): string {
 export default function SellerPage() {
   const router = useRouter();
   const params = useParams();
-  const username = decodeURIComponent((params.username as string) || "");
+  const routeSlug = decodeURIComponent((params.username as string) || "");
 
   const { user: currentUser } = useAuth();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [listings, setListings] = useState<Listing[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [sellerPurchases, setSellerPurchases] = useState<
+    Array<{ status?: string; paymentType?: string }>
+  >([]);
   const [loading, setLoading] = useState(true);
   const [following, setFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
@@ -106,30 +117,26 @@ export default function SellerPage() {
   const [sellerReportsCount, setSellerReportsCount] = useState(0);
   const [isBlocked, setIsBlocked] = useState(false);
 
-  // Load profile by username or email
+  // Load profile by username (case-insensitive via usernames/) or email
   useEffect(() => {
-    if (!username) return;
+    if (!routeSlug) return;
     let cancelled = false;
+    setLoading(true);
+    setProfile(null);
+    setSellerUid("");
+    setListings([]);
 
     async function load() {
       try {
-        let snap = await getDocs(query(collection(db, "profiles"), where("username", "==", username)));
-        if (snap.empty) {
-          snap = await getDocs(query(collection(db, "profiles"), where("email", "==", username)));
+        const resolved = await resolveSellerBySlug(routeSlug);
+        if (!resolved || cancelled) {
+          if (!cancelled) setLoading(false);
+          return;
         }
-        if (snap.empty) {
-          const listingSnap = await getDocs(query(collection(db, "listings"), where("sellerEmail", "==", username), limit(1)));
-          if (!listingSnap.empty) {
-            const listingData = listingSnap.docs[0].data();
-            snap = await getDocs(query(collection(db, "profiles"), where("email", "==", listingData.sellerEmail)));
-          }
-        }
-        if (snap.empty || cancelled) { setLoading(false); return; }
 
-        const doc_ = snap.docs[0];
-        const data = doc_.data() as ProfileData;
+        const data = resolved.data as ProfileData;
         setProfile(data);
-        setSellerUid(doc_.id);
+        setSellerUid(resolved.uid);
 
         const email = data.email;
         if (!email) { setLoading(false); return; }
@@ -149,7 +156,17 @@ export default function SellerPage() {
 
     load();
     return () => { cancelled = true; };
-  }, [username]);
+  }, [routeSlug]);
+
+  // Canonical URL: replace email slugs only (keep lowercase username URLs working)
+  useEffect(() => {
+    if (!profile?.username) return;
+    const canonical = stripAtPrefix(String(profile.username).trim());
+    if (!canonical || isEmailLike(canonical)) return;
+    if (isEmailLike(routeSlug) || routeSlug === profile.email) {
+      router.replace(`/seller/${encodeURIComponent(canonical)}`);
+    }
+  }, [profile, routeSlug, router]);
 
   // Follow check
   useEffect(() => {
@@ -174,6 +191,23 @@ export default function SellerPage() {
     if (!profile?.email) return;
     const q = query(collection(db, "reports"), where("reportedUserEmail", "==", profile.email), where("status", "==", "pending"));
     const unsub = onSnapshot(q, (snap) => setSellerReportsCount(snap.size));
+    return () => unsub();
+  }, [profile?.email]);
+
+  useEffect(() => {
+    if (!profile?.email) {
+      setSellerPurchases([]);
+      return;
+    }
+    const q = query(
+      collection(db, "purchases"),
+      where("sellerEmail", "==", profile.email)
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      setSellerPurchases(
+        snap.docs.map((d) => d.data() as { status?: string; paymentType?: string })
+      );
+    });
     return () => unsub();
   }, [profile?.email]);
 
@@ -245,8 +279,12 @@ export default function SellerPage() {
   }
 
   // Computed
-  const activeListings = useMemo(() => listings.filter((l) => l.status !== "sold"), [listings]);
-  const soldListings = useMemo(() => listings.filter((l) => l.status === "sold"), [listings]);
+  const activeListings = useMemo(() => listings.filter((l) => isListingVisibleInMarketplace(l)), [listings]);
+  const soldListings = useMemo(() => listings.filter((l) => !isListingVisibleInMarketplace(l)), [listings]);
+  const completedSalesCount = useMemo(
+    () => countSellerSales(sellerPurchases),
+    [sellerPurchases]
+  );
   const pinnedListings = useMemo(() => listings.filter((l) => l.pinned), [listings]);
 
   const avgRating = reviews.length > 0 ? (reviews.reduce((t, r) => t + r.rating, 0) / reviews.length) : 0;
@@ -255,7 +293,9 @@ export default function SellerPage() {
 
   const memberDate = profile?.memberSince?.toDate().toLocaleDateString("en-NZ", { year: "numeric", month: "short" }) || "";
   const sellerEmail = profile?.email || "";
-  const initial = (profile?.displayName || username || "?").charAt(0).toUpperCase();
+  const displayName = sellerProfileDisplayName(profile, "Seller");
+  const displayHandle = displayName === "Seller" ? displayName : `@${displayName}`;
+  const initial = displayName.charAt(0).toUpperCase();
 
   const trustScore = useMemo(() => {
     const memberDate = profile?.memberSince?.toDate ? profile.memberSince.toDate() : null;
@@ -266,9 +306,9 @@ export default function SellerPage() {
       hasPhoto: !!profile?.photoURL,
       memberSince: memberDate,
       reportsCount: sellerReportsCount,
-      salesCount: soldListings.length,
+      salesCount: completedSalesCount,
     });
-  }, [profile, sellerReportsCount, soldListings.length]);
+  }, [profile, sellerReportsCount, completedSalesCount]);
 
   const isNotVerified = !profile?.verified && !profile?.phoneVerified;
 
@@ -339,7 +379,7 @@ export default function SellerPage() {
               <div className="pt-9 sm:pt-14">
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-lg sm:text-2xl font-black tracking-tight text-[var(--foreground)]">
-                    {profile.displayName || username}
+                    {displayName}
                   </h1>
                   {profile.verified && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold text-sky-400 ring-1 ring-sky-500/25 shadow-[0_0_10px_rgba(14,165,233,0.15)]">
@@ -371,7 +411,7 @@ export default function SellerPage() {
                   )}
                 </div>
 
-                <p className="mt-0.5 text-sm font-semibold text-[var(--foreground)]">@{username}</p>
+                <p className="mt-0.5 text-sm font-semibold text-[var(--foreground)]">{displayHandle}</p>
                 <p className="text-xs text-[var(--muted)]">
                   {memberDate && <span>Joined {memberDate}</span>}
                 </p>
@@ -389,7 +429,7 @@ export default function SellerPage() {
                 <div className="mt-4 grid grid-cols-4 gap-2">
                   {[
                     { icon: "★", label: "Rating", value: avgRating > 0 ? avgRating.toFixed(1) : "—" },
-                    { icon: "💰", label: "Sales", value: String(soldListings.length) },
+                    { icon: "💰", label: "Sales", value: String(completedSalesCount) },
                     { icon: "📦", label: "Listings", value: String(activeListings.length) },
                     { icon: "👥", label: "Followers", value: String(followerCount) },
                   ].map((s) => (
@@ -686,10 +726,14 @@ export default function SellerPage() {
                     reviews.map((r) => (
                       <div key={r.id} className="rounded-lg border border-zinc-700/30 bg-zinc-800/25 p-3">
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-bold text-[var(--foreground)]">{r.buyerName || r.buyerEmail?.split("@")[0] || "Anonymous"}</span>
+                          <span className="text-[11px] font-bold text-[var(--foreground)]">{r.buyerName || "Verified Buyer"}</span>
                           <span className="text-[11px] font-bold text-amber-400">{'★'.repeat(Math.round(r.rating))}</span>
                         </div>
-                        {r.comment && <p className="mt-1 text-xs leading-relaxed text-[var(--foreground)]">{r.comment}</p>}
+                        {(r.comment || (r as { reviewText?: string }).reviewText) && (
+                          <p className="mt-1 text-xs leading-relaxed text-[var(--foreground)]">
+                            {r.comment || (r as { reviewText?: string }).reviewText}
+                          </p>
+                        )}
                         {r.createdAt?.toMillis && (
                           <p className="mt-1 text-[10px] font-medium text-[var(--muted)]">{timeAgo(Math.floor(r.createdAt.toMillis() / 1000))}</p>
                         )}

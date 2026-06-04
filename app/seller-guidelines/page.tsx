@@ -27,12 +27,20 @@ export default function SellerGuidelinesPage() {
         </Section>
 
         <Section title="Fees" icon="💰">
-          <p>Selling is <strong className="text-white">free to list</strong>. We charge a small processing fee on completed sales ($1.00 per transaction + Stripe processing fees). There are no subscription fees or hidden costs.</p>
+          <p>Selling is <strong className="text-white">free to list</strong>. A $1.00 buyer protection fee is added to each purchase — this covers dispute resolution and platform operations. Stripe also charges standard payment processing fees (typically 2-3%). There are no subscription fees or hidden costs.</p>
         </Section>
 
         <Section title="Getting Paid" icon="🏦">
-          <p>Connect your Stripe account from your Profile page. When a sale completes, funds are transferred to your connected Stripe account. Standard Stripe payout times apply (2-7 business days to your bank).</p>
-          <p className="mt-2">You must connect Stripe before you can receive payouts — we'll remind you after your first listing is created.</p>
+          <p>When creating a listing, choose how buyers pay:</p>
+          <ul className="list-disc pl-5 mt-2 space-y-1">
+            <li><strong className="text-white">Stripe Checkout</strong> — buyers pay by card. Connect Stripe Express in Profile so payouts go <strong className="text-white">directly to your Stripe account</strong> (2–7 business days to your bank).</li>
+            <li><strong className="text-white">Arrange Purchase</strong> — buyers tap Purchase and chat with you. You agree bank transfer, cash, pickup, etc. <strong className="text-white">No Stripe required</strong> for this listing type.</li>
+          </ul>
+          <p className="mt-2">
+            For Arrange Purchase, add bank details in Profile first — see{" "}
+            <a href="#arrange-payment" className="text-sky-400 underline hover:text-sky-300">bank transfer setup</a> below.
+          </p>
+          <p className="mt-2">We remind you to connect Stripe after your first <em>Stripe Checkout</em> listing — not needed for Arrange Purchase only.</p>
         </Section>
 
         <Section title="Listing Rules" icon="⚖️">
@@ -54,19 +62,44 @@ export default function SellerGuidelinesPage() {
           </ul>
         </Section>
 
-        <Section title="Escrow & Payouts" icon="🔒">
-          <p>Every transaction uses our escrow system:</p>
+        <Section title="Payments" icon="💳">
+          <p><strong className="text-white">Stripe Checkout listings:</strong></p>
           <ul className="list-disc pl-5 mt-2 space-y-1">
-            <li>The buyer's payment is held securely — you never handle payment directly</li>
-            <li>Funds are released when the buyer confirms receipt (or automatically after 72 hours)</li>
-            <li>If there's a dispute, funds are frozen until an admin resolves it</li>
-            <li>You'll be notified at every step of the process</li>
+            <li>Buyer pays via Buy Now; funds go to your Stripe Express account</li>
+            <li>$1 buyer protection fee per sale; Stripe charges standard processing</li>
+            <li>Disputes on Purchases can result in refunds through Stripe</li>
           </ul>
+          <p className="mt-3"><strong className="text-white">Arrange Purchase listings:</strong></p>
+          <ul className="list-disc pl-5 mt-2 space-y-1">
+            <li>Buyer taps Purchase; you arrange payment in Messages</li>
+            <li>Sky Drop does not process card payments for these sales</li>
+            <li>Keep all communication on Sky Drop Messages — admins use chat history for Stripe disputes and reports</li>
+          </ul>
+        </Section>
+
+        <Section title="Arrange Purchase — bank transfer" icon="🏦" id="arrange-payment">
+          <p className="text-zinc-400">Set up once so buyers are not lost after they tap Purchase.</p>
+          <ol className="list-decimal pl-5 mt-3 space-y-2 text-sm">
+            <li>Open <strong className="text-white">Profile</strong> (menu → your username).</li>
+            <li>Scroll to <strong className="text-white">Payment settings</strong>.</li>
+            <li>Under <strong className="text-white">Arrange Purchase — bank transfer</strong>, add your <strong className="text-white">bank account name</strong> and <strong className="text-white">account number</strong> (NZ format).</li>
+            <li>Click <strong className="text-white">Save bank details</strong> in Payment settings (or Save changes at the top of Profile).</li>
+            <li>When you create a listing, choose <strong className="text-white">Arrange Purchase</strong> as payment type.</li>
+          </ol>
+          <p className="mt-4 text-sm text-zinc-400"><strong className="text-white">When a buyer purchases:</strong></p>
+          <ul className="list-disc pl-5 mt-2 space-y-1">
+            <li>They see your bank details in <strong className="text-white">Messages</strong> with copy buttons.</li>
+            <li>Agree pickup or shipping in chat before they pay.</li>
+            <li>Mark the sale confirmed from <strong className="text-white">Sales</strong> when done.</li>
+            <li>Keep the whole deal in <strong className="text-white">Messages</strong> — not SMS or social — so there is a record if someone reports a problem.</li>
+          </ul>
+          <p className="mt-3 text-xs text-zinc-500">Stripe Connect is not required for Arrange Purchase. Stripe Checkout disputes use Messages as evidence (buyer opens from Purchases within 7 days).</p>
         </Section>
 
         <Section title="Prohibited Conduct" icon="🚫">
           <ul className="list-disc pl-5 space-y-1">
-            <li>No off-platform transactions — all payments must go through Sky Drop escrow</li>
+            <li>For Stripe listings, buyers must use Buy Now — do not ask for off-platform card payments</li>
+            <li>For Arrange Purchase listings, agree payment in Messages — stay on Sky Drop so there is a record if either side reports a problem</li>
             <li>No fake listings, bidding manipulation, or deceptive pricing</li>
             <li>No harassment, abuse, or spam in messages</li>
             <li>No sharing of personal contact info before a sale is confirmed</li>
@@ -96,9 +129,19 @@ export default function SellerGuidelinesPage() {
   );
 }
 
-function Section({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
+function Section({
+  title,
+  icon,
+  id,
+  children,
+}: {
+  title: string;
+  icon: string;
+  id?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="mt-10">
+    <div id={id} className="mt-10 scroll-mt-24">
       <div className="flex items-center gap-3 mb-3">
         <span className="text-2xl">{icon}</span>
         <h2 className="text-xl font-black tracking-tight text-white">{title}</h2>
