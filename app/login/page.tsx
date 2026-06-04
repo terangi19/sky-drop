@@ -11,6 +11,7 @@ import { showToast } from "../components/Toast";
 import {
   createUserWithEmailAndPassword,
   sendEmailVerification,
+  signInWithCustomToken,
   signInWithEmailAndPassword,
   RecaptchaVerifier,
   signInWithPhoneNumber,
@@ -326,7 +327,20 @@ Your account is ready. Now go explore.`,
               {process.env.NEXT_PUBLIC_TEST_EMAIL && (
                 <button
                   type="button"
-                  onClick={() => { setEmail(process.env.NEXT_PUBLIC_TEST_EMAIL || ""); setPassword(process.env.NEXT_PUBLIC_TEST_PASSWORD || ""); setTimeout(() => { const form = document.querySelector("form"); if (form) form.requestSubmit(); }, 100); }}
+                  disabled={loading}
+                  onClick={async () => {
+                    setLoading(true);
+                    try {
+                      const res = await fetch("/api/test-login", { method: "POST" });
+                      const data = await res.json();
+                      if (!res.ok) throw new Error(data.error || "Test login failed");
+                      await signInWithCustomToken(auth, data.token);
+                      router.push(redirectTo || "/");
+                    } catch (e: any) {
+                      showToast(e.message || "Test login failed", "error");
+                    }
+                    setLoading(false);
+                  }}
                   className="w-full rounded-2xl border border-dashed border-emerald-500/30 bg-emerald-500/[0.03] px-4 py-3 text-sm font-bold text-emerald-400 transition hover:bg-emerald-500/[0.08] hover:border-emerald-500/50"
                 >
                   ⚡ Test Login
