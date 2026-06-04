@@ -22,6 +22,7 @@ import { auth, db } from "../lib/firebase";
 import { createNotification } from "../lib/notifications";
 import { buildEmailHtml } from "../lib/email";
 import { formatNZPhone } from "../lib/phone-auth";
+import { isTestLoginUiEnabled } from "../lib/test-login";
 
 export default function AuthPage() {
   const router = useRouter();
@@ -324,7 +325,7 @@ Your account is ready. Now go explore.`,
                 Forgot password?
               </Link>
 
-              {process.env.NEXT_PUBLIC_TEST_EMAIL && (
+              {isTestLoginUiEnabled() && (
                 <button
                   type="button"
                   disabled={loading}
@@ -332,18 +333,38 @@ Your account is ready. Now go explore.`,
                     setLoading(true);
                     try {
                       const res = await fetch("/api/test-login", { method: "POST" });
-                      const data = await res.json();
-                      if (!res.ok) throw new Error(data.error || "Test login failed");
+                      const data = await res.json().catch(() => ({}));
+                      if (!res.ok) {
+                        throw new Error(
+                          typeof data.error === "string"
+                            ? data.error
+                            : "Test login failed"
+                        );
+                      }
+                      if (!data.token || typeof data.token !== "string") {
+                        throw new Error("No sign-in token returned");
+                      }
                       await signInWithCustomToken(auth, data.token);
+                      showToast("Signed in as test user", "success");
                       router.push(redirectTo || "/");
-                    } catch (e: any) {
-                      showToast(e.message || "Test login failed", "error");
+                    } catch (e: unknown) {
+                      const msg =
+                        e && typeof e === "object" && "code" in e
+                          ? String((e as { code?: string }).code)
+                          : "";
+                      const hint =
+                        msg === "auth/invalid-custom-token"
+                          ? "Firebase client config may not match your Admin project."
+                          : "";
+                      const message =
+                        e instanceof Error ? e.message : "Test login failed";
+                      showToast(hint ? `${message} ${hint}` : message, "error");
                     }
                     setLoading(false);
                   }}
                   className="w-full rounded-2xl border border-dashed border-emerald-500/30 bg-emerald-500/[0.03] px-4 py-3 text-sm font-bold text-emerald-400 transition hover:bg-emerald-500/[0.08] hover:border-emerald-500/50"
                 >
-                  ⚡ Test Login
+                  🧪 Test Login
                 </button>
               )}
             </form>

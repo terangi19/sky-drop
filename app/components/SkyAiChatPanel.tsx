@@ -5,12 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { User } from "firebase/auth";
 import { auth, onAuthStateChanged } from "../lib/firebase";
-import {
-  isCriticalOpenAiIssue,
-  openAiIssueHint,
-  skyAiRuleFallbackText,
-  type OpenAiHealthIssue,
-} from "../lib/openai-health";
+import { skyAiRuleFallbackText } from "../lib/openai-health";
 import {
   dispatchListingFill,
   stripSkyAiMachineTags,
@@ -74,8 +69,16 @@ function handleListingFill(fill: SkyAiListingFill | undefined, navigateTo?: stri
   return "/post/ai";
 }
 
+/** Older replies included a ChatGPT-off preamble — hide it in the UI. */
+function stripLegacyChatGptWarning(text: string): string {
+  return text
+    .replace(/\*\*ChatGPT mode is off\*\*[\s\S]*?---\n\n/g, "")
+    .replace(/\*\*Sky AI limited:\*\*[^\n]*\n\n/g, "")
+    .trim();
+}
+
 function renderText(text: string) {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  const parts = stripLegacyChatGptWarning(text).split(/(\*\*[^*]+\*\*)/g);
   return parts.map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**")) {
       return (
@@ -123,8 +126,6 @@ export default function SkyAiChatPanel({
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const [openAiReady, setOpenAiReady] = useState<boolean | null>(null);
-  const [openAiIssue, setOpenAiIssue] = useState<OpenAiHealthIssue | undefined>();
   const listRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const navigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -160,44 +161,6 @@ export default function SkyAiChatPanel({
   useEffect(() => {
     if (user && open) loadConversations();
   }, [user, open, loadConversations]);
-
-  const refreshOpenAiStatus = useCallback(async () => {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const res = await fetch("/api/sky-ai/status", { cache: "no-store" });
-        if (!res.ok) {
-          if (attempt === 0) {
-            await new Promise((r) => setTimeout(r, 1200));
-            continue;
-          }
-          return;
-        }
-        const data = await res.json();
-        setOpenAiReady(data.openaiReady === true);
-        setOpenAiIssue(
-          typeof data.openaiIssue === "string"
-            ? (data.openaiIssue as OpenAiHealthIssue)
-            : undefined
-        );
-        if (data.openaiReady === true) return;
-        if (attempt === 0 && !isCriticalOpenAiIssue(data.openaiIssue)) {
-          setOpenAiReady(true);
-          return;
-        }
-        return;
-      } catch {
-        if (attempt === 0) {
-          await new Promise((r) => setTimeout(r, 1200));
-          continue;
-        }
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!open) return;
-    refreshOpenAiStatus();
-  }, [open, refreshOpenAiStatus]);
 
   const runNavigate = useCallback(
     (path: string) => {
@@ -346,17 +309,34 @@ export default function SkyAiChatPanel({
           }),
         });
 
+        let responseHandled = false;
+
         if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          const err = new Error(
-            typeof data.error === "string" ? data.error : "Sky AI request failed"
-          ) as Error & { code?: string };
-          err.code = typeof data.code === "string" ? data.code : undefined;
-          throw err;
+          const data = (await res.json().catch(() => ({}))) as {
+            reply?: string;
+            navigateTo?: string;
+            listingFill?: SkyAiListingFill;
+            error?: string;
+          };
+          if (typeof data.reply === "string" && data.reply.trim()) {
+            navigateTo = data.navigateTo;
+            const navFromFill = handleListingFill(data.listingFill, navigateTo);
+            if (navFromFill) navigateTo = navFromFill;
+            updateAssistant(assistantId, {
+              text: data.reply,
+              streaming: false,
+              navigating: !!navigateTo,
+            });
+            responseHandled = true;
+          } else {
+            throw new Error(
+              typeof data.error === "string" ? data.error : "Sky AI request failed"
+            );
+          }
         }
 
         const contentType = res.headers.get("content-type") || "";
-        if (contentType.includes("text/event-stream") && res.body) {
+        if (!responseHandled && contentType.includes("text/event-stream") && res.body) {
           const reader = res.body.getReader();
           const decoder = new TextDecoder();
           let buffer = "";
@@ -393,10 +373,6 @@ export default function SkyAiChatPanel({
                   const navFromFill = handleListingFill(evt.listingFill, navigateTo);
                   if (navFromFill) navigateTo = navFromFill;
                   if (evt.conversationId) newConversationId = evt.conversationId;
-                  if (evt.source === "ai") {
-                    setOpenAiReady(true);
-                    setOpenAiIssue(undefined);
-                  }
                   updateAssistant(assistantId, {
                     text: evt.reply || stripSkyAiMachineTags(accumulated),
                     streaming: false,
@@ -410,16 +386,12 @@ export default function SkyAiChatPanel({
               }
             }
           }
-        } else {
+        } else if (!responseHandled) {
           const data = await res.json();
           navigateTo = data.navigateTo;
           const navFromFill = handleListingFill(data.listingFill, navigateTo);
           if (navFromFill) navigateTo = navFromFill;
           if (data.conversationId) newConversationId = data.conversationId;
-          if (data.source === "ai") {
-            setOpenAiReady(true);
-            setOpenAiIssue(undefined);
-          }
           updateAssistant(assistantId, {
             text: data.reply || "",
             streaming: false,
@@ -427,41 +399,11 @@ export default function SkyAiChatPanel({
           });
         }
       } catch (err) {
-        const code =
-          err && typeof err === "object" && "code" in err
-            ? String((err as { code?: string }).code)
-            : "";
         const rule = skyAiRuleFallbackText(trimmed, pathname);
         navigateTo = rule.navigateTo;
-        const issueFromCode: OpenAiHealthIssue | undefined =
-          code === "missing_openai_key"
-            ? "not_configured"
-            : code === "openai_auth_failed"
-              ? "auth_failed"
-              : code === "openai_quota_exceeded"
-                ? "quota_exceeded"
-                : code === "openai_rate_limit"
-                  ? "rate_limit"
-                  : undefined;
-        if (issueFromCode && isCriticalOpenAiIssue(issueFromCode)) {
-          setOpenAiReady(false);
-          setOpenAiIssue(issueFromCode);
-        }
-        const apiDown = isCriticalOpenAiIssue(issueFromCode);
-        let text: string;
-        if (apiDown) {
-          text =
-            `**ChatGPT mode is off** — ${openAiIssueHint(issueFromCode)}\n\n` +
-            `Until billing is fixed, I use built-in guides (not full ChatGPT). Quick buttons and phrases like *"take me to seller guidelines"* still work.\n\n---\n\n` +
-            rule.text;
-        } else {
-          let hint = "";
-          if (code === "openai_rate_limit") {
-            hint = "\n\nWait a minute and try again.";
-          } else if (err instanceof Error && err.message) {
-            hint = `\n\n(${err.message})`;
-          }
-          text = rule.text + hint;
+        let text = rule.text;
+        if (err instanceof Error && err.message && err.message !== "Sky AI request failed") {
+          text += `\n\n_${err.message}_`;
         }
         updateAssistant(assistantId, {
           text,
@@ -517,9 +459,6 @@ export default function SkyAiChatPanel({
   const showThinking =
     busy && messages.length > 0 && messages[messages.length - 1]?.streaming && !messages[messages.length - 1]?.text;
 
-  const showOpenAiBanner =
-    openAiReady === false && isCriticalOpenAiIssue(openAiIssue) && isSheet;
-
   if (!isSheet && !open) return null;
 
   const header = (
@@ -534,9 +473,7 @@ export default function SkyAiChatPanel({
         </span>
         <div>
           <p className="text-sm font-bold text-white">{isSheet ? "Ask Sky Anything" : "Sky AI"}</p>
-              <p className="text-[10px] text-sky-400/80">
-                {showOpenAiBanner ? "Built-in guides · navigation" : "Listings · prices · safety"}
-              </p>
+              <p className="text-[10px] text-sky-400/80">Listings · prices · safety</p>
         </div>
       </div>
       <div className="flex items-center gap-1">
@@ -592,22 +529,6 @@ export default function SkyAiChatPanel({
             ))
           )}
         </div>
-      )}
-
-      {showOpenAiBanner && (
-        <p className="border-b border-rose-500/25 bg-rose-500/[0.08] px-3 py-2 text-[10px] leading-snug text-rose-200/90">
-          <strong className="text-rose-100">Sky AI limited:</strong> {openAiIssueHint(openAiIssue)}{" "}
-          {openAiIssue === "quota_exceeded" && (
-            <a
-              href="https://platform.openai.com/account/billing"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-bold underline hover:text-white"
-            >
-              Open billing
-            </a>
-          )}
-        </p>
       )}
 
       {!user && (
@@ -792,8 +713,8 @@ export default function SkyAiChatPanel({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`fixed bottom-6 z-[10002] flex items-center gap-2 rounded-full border border-sky-400/40 bg-gradient-to-r from-[#0c0e14] to-[#12151f] px-4 py-3.5 text-sm font-bold text-white shadow-[0_0_30px_rgba(14,165,233,0.35)] ring-1 ring-sky-500/30 backdrop-blur-md transition-all hover:shadow-[0_0_40px_rgba(139,92,246,0.35)] active:scale-[0.98] max-md:bottom-20 ${
-          open ? "right-[400px] max-md:right-4" : "right-4"
+        className={`fixed bottom-6 z-[10002] flex items-center gap-2 rounded-full border border-sky-400/40 bg-gradient-to-r from-[#0c0e14] to-[#12151f] px-4 py-3.5 text-sm font-bold text-white shadow-[0_0_30px_rgba(14,165,233,0.35)] ring-1 ring-sky-500/30 backdrop-blur-md transition-all hover:shadow-[0_0_40px_rgba(139,92,246,0.35)] active:scale-[0.98] max-md:bottom-24 ${
+          open ? "right-[400px] max-md:hidden" : "right-4"
         }`}
         aria-expanded={open}
         aria-label={open ? "Close Ask Sky Anything" : "Open Ask Sky Anything assistant"}

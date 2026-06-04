@@ -104,7 +104,7 @@ export function openAiIssueHint(issue: OpenAiHealthIssue | undefined): string {
     case "auth_failed":
       return "OpenAI rejected the API key — create a new key at platform.openai.com/api-keys.";
     case "quota_exceeded":
-      return "Your OpenAI API account has no credits or billing. Add payment at platform.openai.com/account/billing (this is separate from ChatGPT Plus).";
+      return "Sky AI needs OpenAI billing — add payment at platform.openai.com/account/billing.";
     case "rate_limit":
       return "OpenAI rate limit — wait a minute and try again.";
     default:

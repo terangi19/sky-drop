@@ -22,7 +22,7 @@ export function openaiErrorResponse(err: unknown): {
       status: 429,
       code: "openai_quota_exceeded",
       error:
-        "Your OpenAI account has no paid credits left (or no billing on file). Sky Drop cannot call ChatGPT until you add billing or top up at platform.openai.com/account/billing.",
+        "Sky AI is temporarily unavailable — add billing or credits at platform.openai.com/account/billing.",
     };
   }
 
