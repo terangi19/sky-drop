@@ -39,11 +39,18 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 | Disputes | /disputes |
 | Reviews | /reviews |
 | Notifications | /notifications |
+| Create account | /create-account |
 | Login | /login |
 | Terms | /terms |
 | Privacy | /privacy |
 | Seller public profile | /seller/[username] |
 | Checkout success | /checkout/success |
+| Debug email preview | /debug/email-preview |
+| Admin panel | /admin |
+| Admin reports | /admin/reports |
+| Admin disputes | /admin/disputes |
+| Admin verification | /admin/verification |
+| Admin test email | /admin/test-email |
 
 ## TWO PAYMENT TYPES (sellers choose per listing)
 **Stripe Checkout** (paymentType: stripe)
@@ -115,6 +122,13 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 - Trade feed: live marketplace activity stream.
 - Digital listings: file upload / instant delivery style products.
 - Rentals and vehicles have extra fields on the sell form; digital and service have their own flows.
+
+## ĀWHINA ACCESS
+- Āwhina is the floating AI assistant (sparkle button ✦ in bottom-right corner).
+- Users open it by clicking the sparkle bubble. The panel slides in from the right.
+- Users can also trigger Āwhina programmatically via a `sky-ai-open` custom event on `window`.
+- Āwhina appears on all pages except /admin, /post/ai, /login, and auth pages.
+- The floating button is the **only** way to access Āwhina on the homepage (no separate "Ask Āwhina" button in the hero).
 
 ## SKY AI BEHAVIOUR
 - Answer as Sky Drop expert using this doc — not generic marketplace advice.

@@ -7,6 +7,8 @@ import { collection, deleteDoc, doc, getDoc, onSnapshot, orderBy, query } from "
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import AwhinaInsightCard from "../components/AwhinaInsightCard";
+import { buildWatchlistInsight } from "../lib/awhina-insights";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
 
 interface WatchlistItem {
@@ -151,6 +153,11 @@ export default function WatchlistPage() {
     return items;
   }, [watchlist, search, sortBy]);
 
+  const awhinaInsight = useMemo(
+    () => buildWatchlistInsight(watchlist, popularIds),
+    [watchlist, popularIds]
+  );
+
   if (loading) {
     return (
       <main className="relative min-h-screen bg-[var(--background)]">
@@ -208,9 +215,11 @@ export default function WatchlistPage() {
           <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
             <span className="bg-gradient-to-r from-white via-sky-200 to-white bg-clip-text text-transparent">Watchlist</span>
           </h1>
-          <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl">Save listings you're interested in and revisit them anytime. Your Watchlist is designed to help you keep track of potential purchases, compare options, and never lose sight of items that matter to you.</p>
-          <p className="relative mt-2 text-sm text-zinc-500">{watchlist.length} saved item{watchlist.length !== 1 ? "s" : ""}</p>
+          <p className="relative mt-3 text-sm text-zinc-500">{watchlist.length} saved item{watchlist.length !== 1 ? "s" : ""}</p>
         </div>
+
+        <AwhinaInsightCard insight={awhinaInsight} />
+
         {watchlist.length === 0 ? (
           <div className="mx-auto max-w-md mt-16 text-center">
             <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/[0.03] border border-white/[0.06]">

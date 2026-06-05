@@ -23,11 +23,11 @@ export const SKY_AI_QUICK_PROMPTS: { label: string; query: string }[] = [
 ];
 
 export const SKY_AI_WELCOME =
-  `Kia ora — I'm **${AWHINA_NAME}**, your assistant on Sky Drop.\n\nYou can list **physical items, digital downloads, services, rentals, and vehicles** — I can fill the Sell form for you.\n\nAsk anything — or tap **What can you do?**`;
+  `You can list **physical items, digital downloads, services, rentals, and vehicles** — I can fill the Sell form for you.\n\nAsk anything — or tap **What can you do?**`;
 
 /** First message when opening Āwhina on Quick Post (/post/ai) */
 export const SKY_AI_SELL_WELCOME =
-  `Kia ora — I'm **${AWHINA_NAME}** and I'm here to help you list your product. Tell me every detail, or tap 📷 to send photos — I'll add them to your listing and fill the form for you 🙂`;
+  `Tell me every detail about your product, or tap 📷 to send photos — I'll add them to your listing and fill the form for you 🙂`;
 
 /** User is asking what the assistant can do — not requesting navigation. */
 export function isSkyAiGeneralQuestion(message: string): boolean {

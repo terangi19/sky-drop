@@ -8,6 +8,8 @@ import { collection, deleteDoc, doc, onSnapshot, query, where } from "firebase/f
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import AwhinaInsightCard from "../components/AwhinaInsightCard";
+import { buildListListInsight } from "../lib/awhina-insights";
 import { showToast } from "../components/Toast";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
 import PromoteModal from "../components/PromoteModal";
@@ -143,6 +145,15 @@ export default function ListListPage() {
   const activeCount = listings.filter((i) => isListingVisibleInMarketplace(i)).length;
   const soldCount = listings.filter((i) => !isListingVisibleInMarketplace(i)).length;
 
+  const awhinaInsight = useMemo(
+    () =>
+      buildListListInsight({
+        listings,
+        onBoost: (listing) => setPromoteItem(listing as Listing),
+      }),
+    [listings]
+  );
+
   return (
     <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <Background />
@@ -172,6 +183,8 @@ export default function ListListPage() {
             </Link>
           </div>
         </div>
+
+        <AwhinaInsightCard insight={awhinaInsight} />
 
         {/* Tabs + Search */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6 sm:mb-8">
