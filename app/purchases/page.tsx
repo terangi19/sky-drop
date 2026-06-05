@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
-import AwhinaInsightCard from "../components/AwhinaInsightCard";
+import { useAwhinaInsightEffect } from "../contexts/AwhinaPageInsightContext";
 import { buildPurchasesInsight } from "../lib/awhina-insights";
 import { User } from "firebase/auth";
 import { addDoc, collection, doc, onSnapshot, orderBy, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
@@ -241,6 +241,7 @@ export default function PurchasesPage() {
     () => buildPurchasesInsight(purchases, () => setFilter("active")),
     [purchases]
   );
+  useAwhinaInsightEffect(awhinaInsight);
 
   function nextAction(p: Purchase): { label: string; action: string; color: string; badge?: string } | null {
     if (p.status === "shipped") return { label: "Confirm Received", action: "delivered", color: "bg-emerald-500" };
@@ -279,11 +280,8 @@ export default function PurchasesPage() {
           <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
             <span className="text-white drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">My Purchases</span>
           </h1>
-          <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl">Your payment goes directly to the seller via Stripe. Track your orders, confirm delivery, manage disputes, and shop with confidence.</p>
           <p className="relative mt-2 text-sm text-zinc-500">{purchases.length} total · {counts.active || 0} active</p>
         </div>
-
-        <AwhinaInsightCard insight={awhinaInsight} />
 
         {/* Search + filter chips */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">

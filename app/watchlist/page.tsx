@@ -7,7 +7,7 @@ import { collection, deleteDoc, doc, getDoc, onSnapshot, orderBy, query } from "
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
-import AwhinaInsightCard from "../components/AwhinaInsightCard";
+import { useAwhinaInsightEffect } from "../contexts/AwhinaPageInsightContext";
 import { buildWatchlistInsight } from "../lib/awhina-insights";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
 
@@ -157,6 +157,7 @@ export default function WatchlistPage() {
     () => buildWatchlistInsight(watchlist, popularIds),
     [watchlist, popularIds]
   );
+  useAwhinaInsightEffect(awhinaInsight);
 
   if (loading) {
     return (
@@ -217,8 +218,6 @@ export default function WatchlistPage() {
           </h1>
           <p className="relative mt-3 text-sm text-zinc-500">{watchlist.length} saved item{watchlist.length !== 1 ? "s" : ""}</p>
         </div>
-
-        <AwhinaInsightCard insight={awhinaInsight} />
 
         {watchlist.length === 0 ? (
           <div className="mx-auto max-w-md mt-16 text-center">

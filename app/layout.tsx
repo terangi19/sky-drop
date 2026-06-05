@@ -3,6 +3,7 @@ import dynamic from "next/dynamic";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "./components/AuthProvider";
+import { AwhinaPageInsightProvider } from "./contexts/AwhinaPageInsightContext";
 import { RouteGuard } from "./components/RouteGuard";
 import { ProfileProvider } from "./contexts/ProfileContext";
 import VerificationBanner from "./components/VerificationBanner";
@@ -15,6 +16,7 @@ import PWAProvider from "./components/PWAProvider";
 const Spotlight = dynamic(() => import("./components/Spotlight"));
 const LegendaryClaimNotification = dynamic(() => import("./components/LegendaryClaimNotification"));
 const SkyAiChat = dynamic(() => import("./components/SkyAiChat"));
+const AwhinaPageGuideLayer = dynamic(() => import("./components/AwhinaPageGuideLayer"));
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -98,7 +100,7 @@ export default function RootLayout({
             })();
           `,
         }} />
-        <AuthProvider><ProfileProvider><VerificationBanner /><RouteGuard><PageEnter>{children}</PageEnter><Footer /><Spotlight /><ScrollToTop /><SkyAiChat /></RouteGuard><ToastContainer /><LegendaryClaimNotification /><PWAProvider /></ProfileProvider></AuthProvider>
+        <AuthProvider><ProfileProvider><AwhinaPageInsightProvider><VerificationBanner /><RouteGuard><PageEnter>{children}</PageEnter><AwhinaPageGuideLayer /><Footer /><Spotlight /><ScrollToTop /><SkyAiChat /></RouteGuard><ToastContainer /><LegendaryClaimNotification /><PWAProvider /></AwhinaPageInsightProvider></ProfileProvider></AuthProvider>
       </body>
     </html>
   );

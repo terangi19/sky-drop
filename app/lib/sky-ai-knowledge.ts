@@ -11,6 +11,105 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 - Free to list. Optional paid boost: $5 for ~7 days top search placement.
 - Site: skydrop.co.nz (also referenced as skydrop.nz in some links).
 
+## USER ACCOUNTS
+- Users sign up with email + password or test login (dev only). Email verification sent after signup.
+- Verification banner appears at top of page until email is confirmed. User can resend verification from banner or Profile.
+- "Forgot password?" link on login page → /forgot-password → sends reset email via Firebase.
+- Users can log out from the Profile button dropdown or mobile menu → Logout.
+- Test credentials (dev only): test@skydrop.nz / TestPass123 — visible in the Test Login button on /login.
+
+## REVIEWS
+- Only verified buyers who completed a Stripe purchase can leave a review.
+- Review prompt appears after delivery is confirmed.
+- Reviews are 1-5 stars with optional text. Visible on seller profiles and listing pages.
+- Seller rating shown as average with count (e.g. ★ 4.2 · 15 reviews).
+- Ratings influence seller trust signals. No reviews yet = "No reviews" shown.
+- Reviews cannot be edited after submission, but users can contact support.
+
+## BUYING FLOW (Stripe Checkout)
+- Buyer clicks Buy Now → goes to Stripe Checkout page → enters card details → completes payment.
+- Payment goes directly to seller's Stripe Express account (destination charge). Sky Drop never holds money in escrow.
+- $1 buyer protection fee added at checkout.
+- After payment, order appears in Purchases with status "Pending".
+- Seller confirms order → status becomes "Confirmed".
+- Seller marks as shipped → status becomes "Shipped". Buyer gets email notification.
+- Buyer receives item, inspects, and confirms delivery → status becomes "Delivered".
+- Buyer can then leave a review for the seller.
+- If buyer doesn't confirm delivery within 7 days, status auto-confirms.
+- Disputes can be opened from Purchases within 7 days of delivery for Stripe purchases.
+
+## BUYING FLOW (Arrange Purchase)
+- Buyer clicks "Arrange Purchase" → listing marked as sold → chat opens in Messages.
+- Buyer and seller agree on payment method (bank transfer, cash, pickup) via chat.
+- If seller saved bank details in Profile → Payment settings, buyer sees them in Messages with copy buttons.
+- No card payment, no Stripe, no dispute protection for Arrange purchases.
+- Status tracking is manual between buyer and seller.
+
+## SERVICE FLOW
+- Services use a messaging-first flow. Buyer browses /services and finds a listing.
+- Buyer clicks "Hire" or "Request Quote" → a conversation is created between buyer and seller.
+- A system message is sent with service inquiry details. Both parties can discuss scope, pricing, and timeline.
+- For fixed-price services: seller can send an offer → buyer pays via Stripe checkout.
+- For request-quote services: seller sends a formal quote → buyer accepts and pays via Stripe.
+- After payment, service status follows: Pending → In Progress → Completed → Confirmed.
+- Buyer confirms completion to release payment to seller.
+- Reviews can be left after service completion.
+
+## RENTAL FLOW
+- Rental listings show daily, weekly, and monthly rates plus a refundable deposit amount.
+- Buyer clicks "Rent Now" → goes to listing detail → can message seller to arrange booking dates.
+- Payment is handled via Arrange Purchase (bank transfer/cash) or Stripe if seller enabled it.
+- Buyer pays rental fee + deposit. Deposit is refunded after item is returned in good condition.
+- Return process: buyer returns item → seller inspects → seller confirms return → deposit released.
+- Rental status tracking: Booked → Active → Returned → Completed.
+
+## PROFILE & SETTINGS
+- Profile page (/profile) shows: avatar, username, bio, region, member date, stats (listings, sales, reviews).
+- Users can edit: bio (max 300 chars), username (unique, @handle format), region (NZ region picker).
+- Avatar: click current avatar to upload new one. Default shows first letter of username.
+- Notification settings: accessed from Profile or link in email footers → /settings.
+- Seller verification: phone verification available on Profile. Verified badge shown on listings.
+- Bank details: Profile → Payment settings → Save bank account name + number for Arrange Purchase.
+- Stripe Connect: Profile → Payment settings → Connect Stripe Express for card payments.
+- Following: Profile shows "Following" tab with other users the person follows.
+
+## NOTIFICATIONS
+- Notification bell icon in navbar shows unread count (messages + offers + order updates).
+- Clicking the bell opens the notification dropdown with recent items.
+- Types: new message, offer received, offer accepted, order shipped, order delivered, dispute update, price drop.
+- Notifications are marked as read when clicked or when the "clear all" button is used.
+- Unread notifications persist across sessions until dismissed.
+- Dropdown shows up to 10 most recent notifications, sorted newest first.
+
+## XP & REWARDS
+- Users earn XP for: creating a listing, selling an item, buying an item, leaving a review, referring a friend.
+- XP contributes to levels. Higher levels may unlock perks (more active listings, boost discounts, special badges).
+- Loot crates / drops: random rewards earned through marketplace activity. Opening a crate may give a boost token, XP bonus, or discount.
+- Boost tokens can be applied to listings for ~7 days of top search placement ($5 value).
+- XP and rewards are visible on the Dashboard.
+
+## REPORTING & SAFETY
+- Report a listing: from the listing page, click Report button → select reason → submit.
+- Report a user: from the seller profile page, click Report.
+- Block a user: from the seller profile page, click Block. Blocked users cannot message you.
+- Off-platform payment pressure: warn users to stay on Sky Drop. Evidence in Messages helps disputes.
+- Meeting for pickup: recommend public places, daylight hours, bring a friend.
+- Scam detection: automated checks flag unrealistic prices, suspicious language, duplicate listings.
+- Admin reviews flagged content and can remove listings or suspend accounts.
+
+## PASSWORD & ACCOUNT
+- Forgot password: /forgot-password → enter email → Firebase sends reset link.
+- Change password: done through Firebase Auth (Profile → account settings).
+- Email verification: sent on signup. Resend from Verification Banner or Profile.
+- Delete account: not available self-service — contact support at support@skydrop.co.nz.
+
+## EMAIL NOTIFICATIONS
+- Sky Drop sends transactional emails via MailerSend from noreply@skydrop.co.nz.
+- Emails sent for: welcome (after signup), purchase confirmation, order confirmed, item shipped, item delivered, new bid, outbid, auction won, offer received, offer accepted, offer declined, payment released, service completed, dispute opened, new message, job application, verification update, referral reward.
+- Email template: dark themed with Sky Drop logo, product card, order summary, next steps, and CTA buttons.
+- Users can manage notification preferences from Profile settings.
+- Welcome email includes: greeting, feature cards (Sell Something, Discover Deals, Sky AI), Browse Sky Drop CTA, Create Your First Listing with Sky AI CTA.
+
 ## KEY ROUTES (use exact paths for [[NAV:...]])
 | Area | Path |
 | Home / browse | / |
@@ -126,7 +225,7 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 ## ĀWHINA ACCESS
 - Āwhina is the floating AI assistant (sparkle button ✦ in bottom-right corner).
 - Users open it by clicking the sparkle bubble. The panel slides in from the right.
-- Users can also trigger Āwhina programmatically via a `sky-ai-open` custom event on `window`.
+- Users can also trigger Āwhina programmatically via a sky-ai-open custom event on window.
 - Āwhina appears on all pages except /admin, /post/ai, /login, and auth pages.
 - The floating button is the **only** way to access Āwhina on the homepage (no separate "Ask Āwhina" button in the hero).
 

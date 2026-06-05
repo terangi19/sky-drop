@@ -316,8 +316,7 @@ export default function SalesPage() {
           <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
             <span className="text-white drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">Sales</span>
           </h1>
-          <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl">Track your sales, manage orders, and get paid — all in one place. When a buyer pays, the money goes directly to your Stripe account. Every transaction is handled by Stripe from listing to payout.</p>
-          <p className="relative mt-2 text-sm text-zinc-500">{filtered.length} of {sales.length} total</p>
+          <p className="relative mt-3 text-sm text-zinc-500">{filtered.length} of {sales.length} total</p>
         </div>
 
         {/* Status filter tabs */}
