@@ -39,8 +39,8 @@ export type SkyAiListingFill = {
   rentalDeposit?: string;
   stockQuantity?: string;
   serviceDuration?: string;
-  startingBid?: string;
-  auctionDuration?: string;
+  /** Merged add-ons — servicing, tyres, receipts, included items */
+  extras?: string[];
 };
 
 const CATEGORIES = new Set([
@@ -320,6 +320,12 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
       pickField(o, ["serviceDuration"]) ||
       pickField(o, ["deliveryTime"]) ||
       pickField(o, ["turnaround"]),
+    extras: Array.isArray(o.extras)
+      ? (o.extras as unknown[])
+          .filter((x): x is string => typeof x === "string")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : undefined,
   };
 
   const blob = `${raw.title} ${raw.description} ${raw.listingType} ${raw.vehicleMake} ${raw.vehicleModel}`;
@@ -331,7 +337,8 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
     !!raw.vehicleYear ||
     !!raw.vehicleColour ||
     !!raw.vehicleOdometer;
-  if (!raw.title && !raw.description && !hasPrice && !hasVehicle) return null;
+  const hasExtras = !!(raw.extras && raw.extras.length > 0);
+  if (!raw.title && !raw.description && !hasPrice && !hasVehicle && !hasExtras) return null;
 
   const listingType =
     inferListingType(raw, blob) || (hasVehicle ? "vehicle" : undefined);
@@ -339,6 +346,7 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
   const out: SkyAiListingFill = {};
   if (raw.title) out.title = raw.title.slice(0, 120);
   if (raw.description) out.description = raw.description.slice(0, 8000);
+  if (raw.extras?.length) out.extras = raw.extras.slice(0, 24);
   if (listingType) out.listingType = listingType;
 
   if (listingType === "rental") {

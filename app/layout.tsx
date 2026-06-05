@@ -12,10 +12,10 @@ import ScrollToTop from "./components/ScrollToTop";
 import PageEnter from "./components/PageEnter";
 import PWAProvider from "./components/PWAProvider";
 
-const DropIndicator = dynamic(() => import("./components/DropIndicator"));
 const Spotlight = dynamic(() => import("./components/Spotlight"));
 const LegendaryClaimNotification = dynamic(() => import("./components/LegendaryClaimNotification"));
 const SkyAiChat = dynamic(() => import("./components/SkyAiChat"));
+const AwhinaRouteGuide = dynamic(() => import("./components/AwhinaRouteGuide"));
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -99,7 +99,7 @@ export default function RootLayout({
             })();
           `,
         }} />
-        <AuthProvider><ProfileProvider><VerificationBanner /><RouteGuard><PageEnter>{children}</PageEnter><Footer /><DropIndicator /><Spotlight /><ScrollToTop /><SkyAiChat /></RouteGuard><ToastContainer /><LegendaryClaimNotification /><PWAProvider /></ProfileProvider></AuthProvider>
+        <AuthProvider><ProfileProvider><VerificationBanner /><RouteGuard><PageEnter>{children}</PageEnter><Footer /><Spotlight /><ScrollToTop /><AwhinaRouteGuide /><SkyAiChat /></RouteGuard><ToastContainer /><LegendaryClaimNotification /><PWAProvider /></ProfileProvider></AuthProvider>
       </body>
     </html>
   );

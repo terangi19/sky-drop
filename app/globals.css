@@ -12,6 +12,9 @@
   --soft-card: rgba(20, 20, 28, 0.8);
   --soft-card-border: rgba(255, 255, 255, 0.04);
   --nav-bg: rgba(17, 17, 24, 0.95);
+  --nav-ice: #ffffff;
+  --nav-ice-muted: rgba(255, 255, 255, 0.82);
+  --nav-ice-faint: rgba(255, 255, 255, 0.58);
   --input-bg: rgba(25, 25, 33, 0.8);
   --input-border: rgba(255, 255, 255, 0.08);
   --pill-bg: rgba(255, 255, 255, 0.04);
@@ -30,6 +33,9 @@
   --soft-card: #eef0f5;
   --soft-card-border: rgba(0, 0, 0, 0.04);
   --nav-bg: rgba(255, 255, 255, 0.95);
+  --nav-ice: #1e293b;
+  --nav-ice-muted: rgba(30, 41, 59, 0.72);
+  --nav-ice-faint: rgba(30, 41, 59, 0.45);
   --input-bg: #ffffff;
   --input-border: rgba(0, 0, 0, 0.08);
   --pill-bg: #e8eaee;
@@ -585,6 +591,73 @@ body {
 @keyframes toastOut {
   from { opacity: 1; transform: translateY(0) scale(1); }
   to { opacity: 0; transform: translateY(-6px) scale(0.95); }
+}
+
+/* ── LISTING CARD BLUE AURA ── */
+@keyframes listing-aura-breathe {
+  0%, 100% {
+    opacity: 0.55;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.04);
+  }
+}
+@keyframes listing-neon-blue-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 24px rgba(56, 189, 248, 0.5),
+      0 0 48px rgba(14, 165, 233, 0.28),
+      0 0 80px rgba(56, 189, 248, 0.12),
+      inset 0 0 22px rgba(56, 189, 248, 0.05);
+  }
+  50% {
+    box-shadow:
+      0 0 38px rgba(56, 189, 248, 0.68),
+      0 0 76px rgba(14, 165, 233, 0.38),
+      0 0 110px rgba(56, 189, 248, 0.18),
+      inset 0 0 32px rgba(56, 189, 248, 0.1);
+  }
+}
+.listing-card-aura-outer {
+  z-index: 0;
+  background: radial-gradient(
+    ellipse 85% 75% at 50% 55%,
+    rgba(56, 189, 248, 0.42) 0%,
+    rgba(14, 165, 233, 0.18) 38%,
+    rgba(56, 189, 248, 0.06) 58%,
+    transparent 72%
+  );
+  filter: blur(18px);
+  animation: listing-aura-breathe 4s ease-in-out infinite;
+}
+.listing-card-aura-inner {
+  z-index: 0;
+  background: radial-gradient(
+    ellipse 100% 90% at 50% 100%,
+    rgba(56, 189, 248, 0.22) 0%,
+    rgba(14, 165, 233, 0.08) 50%,
+    transparent 72%
+  );
+  opacity: 0.85;
+}
+.listing-card-aura-wrap:hover .listing-card-aura-outer {
+  opacity: 1;
+  transform: scale(1.08);
+  filter: blur(22px);
+  transition: transform 0.35s ease, filter 0.35s ease, opacity 0.35s ease;
+}
+.listing-card-neon {
+  animation: listing-neon-blue-pulse 3s ease-in-out infinite;
+}
+.listing-card-neon:hover {
+  animation: none;
+  box-shadow:
+    0 0 40px rgba(56, 189, 248, 0.75),
+    0 0 80px rgba(14, 165, 233, 0.4),
+    0 0 120px rgba(56, 189, 248, 0.2),
+    inset 0 0 36px rgba(56, 189, 248, 0.1) !important;
 }
 
 /* ── BACKGROUND DRIFT ANIMATIONS ── */

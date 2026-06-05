@@ -13,7 +13,8 @@ import {
   loadSkyAiMessages,
 } from "../../lib/sky-ai-firestore";
 import { buildSkyAiSystemPrompt } from "../../lib/sky-ai-prompt";
-import { extractSkyAiReply } from "../../lib/sky-ai-listing-fill";
+import { mergeListingFillWithDraft } from "../../lib/sky-ai-draft-merge";
+import { extractSkyAiReply, type SkyAiListingFill } from "../../lib/sky-ai-listing-fill";
 import type { SkyAiHistoryItem, SkyAiListingContext } from "../../lib/sky-ai-types";
 import {
   isSkyAiGeneralQuestion,
@@ -85,6 +86,12 @@ function parseListingContext(body: unknown): SkyAiListingContext | null {
   if (!body || typeof body !== "object") return null;
   const c = body as Record<string, unknown>;
   const pick = (k: string) => (typeof c[k] === "string" ? c[k].trim() : "");
+  const extras = Array.isArray(c.extras)
+    ? (c.extras as unknown[])
+        .filter((x): x is string => typeof x === "string")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : undefined;
   const draft: SkyAiListingContext = {
     title: pick("title"),
     description: pick("description"),
@@ -93,6 +100,7 @@ function parseListingContext(body: unknown): SkyAiListingContext | null {
     price: pick("price"),
     listingType: pick("listingType"),
     location: pick("location"),
+    paymentType: pick("paymentType"),
     vehicleMake: pick("vehicleMake"),
     vehicleModel: pick("vehicleModel"),
     vehicleYear: pick("vehicleYear"),
@@ -101,8 +109,26 @@ function parseListingContext(body: unknown): SkyAiListingContext | null {
     vehicleBodyType: pick("vehicleBodyType"),
     vehicleFuelType: pick("vehicleFuelType"),
     vehicleTransmission: pick("vehicleTransmission"),
+    rentalPriceWeekly: pick("rentalPriceWeekly"),
+    rentalPriceMonthly: pick("rentalPriceMonthly"),
+    rentalDeposit: pick("rentalDeposit"),
+    stockQuantity: pick("stockQuantity"),
+    serviceDuration: pick("serviceDuration"),
+    extras: extras?.length ? extras : undefined,
   };
-  return Object.values(draft).some(Boolean) ? draft : null;
+  const hasScalar = Object.entries(draft).some(
+    ([k, v]) => k !== "extras" && typeof v === "string" && v.length > 0
+  );
+  return hasScalar || (extras && extras.length > 0) ? draft : null;
+}
+
+function mergeFillWithContext(
+  listingContext: SkyAiListingContext | null,
+  listingFill: SkyAiListingFill | undefined
+): SkyAiListingFill | undefined {
+  if (!listingFill) return undefined;
+  if (!listingContext) return listingFill;
+  return mergeListingFillWithDraft(listingContext, listingFill);
 }
 
 const MAX_SKY_AI_IMAGES = 4;
@@ -328,6 +354,7 @@ export async function POST(req: NextRequest) {
               );
             }
             const { text, navigateTo, listingFill } = extractSkyAiReply(full);
+            const mergedFill = mergeFillWithContext(listingContext, listingFill);
             if (uid && conversationId) {
               await safePersist(() =>
                 appendSkyAiExchange(conversationId, uid, message, text, navigateTo)
@@ -339,7 +366,7 @@ export async function POST(req: NextRequest) {
                   type: "done",
                   reply: text,
                   navigateTo,
-                  listingFill,
+                  listingFill: mergedFill,
                   source: "ai",
                   conversationId: conversationId || undefined,
                 })
@@ -380,6 +407,7 @@ export async function POST(req: NextRequest) {
 
     const raw = completion.choices[0]?.message?.content || "";
     const { text, navigateTo, listingFill } = extractSkyAiReply(raw);
+    const mergedFill = mergeFillWithContext(listingContext, listingFill);
 
     if (uid && conversationId) {
       await safePersist(() =>
@@ -390,7 +418,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       reply: text || "I couldn't generate a reply. Try again.",
       navigateTo,
-      listingFill,
+      listingFill: mergedFill,
       source: "ai",
       conversationId: conversationId || undefined,
     });

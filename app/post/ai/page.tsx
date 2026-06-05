@@ -17,7 +17,8 @@ import DigitalAssetUpload from "../../components/DigitalAssetUpload";
 import { detectScam } from "../../lib/scamdetection";
 import { detectSuspiciousPrice } from "../../lib/pricedetection";
 import { getListingBlockReason } from "../../lib/seller-eligibility";
-import { syncListingDraftToSkyAi } from "../../lib/sky-ai-listing-context";
+import { hasActiveListingDraft, mergeListingFillWithDraft } from "../../lib/sky-ai-draft-merge";
+import { readListingDraftFromSkyAi, syncListingDraftToSkyAi } from "../../lib/sky-ai-listing-context";
 import {
   applySkyAiListingFill,
   consumePendingListingFill,
@@ -111,12 +112,20 @@ export default function AIPostPage() {
   const [confirmedSubmit, setConfirmedSubmit] = useState(false);
   const [skyChatOpen, setSkyChatOpen] = useState(false);
   const [skyAutoQuery, setSkyAutoQuery] = useState<string | undefined>();
+  const [draftExtras, setDraftExtras] = useState<string[]>([]);
 
   const isDigital = listingType === "digital";
   const classifierRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const manualEdit = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const stored = readListingDraftFromSkyAi();
+    if (stored?.extras?.length && draftExtras.length === 0) {
+      setDraftExtras(stored.extras);
+    }
+  }, []);
 
   useEffect(() => {
     syncListingDraftToSkyAi({
@@ -127,6 +136,7 @@ export default function AIPostPage() {
       price,
       listingType,
       location,
+      paymentType,
       vehicleMake,
       vehicleModel,
       vehicleYear,
@@ -135,6 +145,12 @@ export default function AIPostPage() {
       vehicleBodyType,
       vehicleFuelType,
       vehicleTransmission,
+      rentalPriceWeekly,
+      rentalPriceMonthly,
+      rentalDeposit,
+      stockQuantity,
+      serviceDuration,
+      extras: draftExtras.length ? draftExtras : undefined,
     });
   }, [
     title,
@@ -144,6 +160,7 @@ export default function AIPostPage() {
     price,
     listingType,
     location,
+    paymentType,
     vehicleMake,
     vehicleModel,
     vehicleYear,
@@ -152,10 +169,20 @@ export default function AIPostPage() {
     vehicleBodyType,
     vehicleFuelType,
     vehicleTransmission,
+    rentalPriceWeekly,
+    rentalPriceMonthly,
+    rentalDeposit,
+    stockQuantity,
+    serviceDuration,
+    draftExtras,
   ]);
 
   const applyFill = useCallback((fill: SkyAiListingFill) => {
-    const ok = applySkyAiListingFill(fill, {
+    const prior = readListingDraftFromSkyAi();
+    const merged = mergeListingFillWithDraft(prior, fill);
+    const isUpdate = hasActiveListingDraft(prior);
+    if (merged.extras?.length) setDraftExtras(merged.extras);
+    const ok = applySkyAiListingFill(merged, {
       setTitle,
       setDescription,
       setCategory,
@@ -185,10 +212,16 @@ export default function AIPostPage() {
     if (ok) {
       const msg =
         fill.listingType === "digital"
-          ? "Sky AI filled your listing — upload your digital file, then publish"
+          ? isUpdate
+            ? "Āwhina updated your listing — upload your digital file, then publish"
+            : "Āwhina filled your listing — upload your digital file, then publish"
           : imagePreviews.length > 0
-            ? "Sky AI filled your listing — review and publish"
-            : "Sky AI filled your listing — add photos and publish";
+            ? isUpdate
+              ? "Āwhina updated your listing — review and publish"
+              : "Āwhina filled your listing — review and publish"
+            : isUpdate
+              ? "Āwhina updated your listing — add photos and publish"
+              : "Āwhina filled your listing — add photos and publish";
       showToast(msg);
       setTimeout(() => {
         document.getElementById("listing-title")?.scrollIntoView({ behavior: "smooth", block: "center" });

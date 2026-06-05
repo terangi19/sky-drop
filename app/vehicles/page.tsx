@@ -560,7 +560,6 @@ export default function VehiclesPage() {
                   key={item.id}
                   item={item}
                   cardIndex={cardIndex}
-                  accent="yellow"
                   user={user}
                   isInWatchlist={isInWatchlist}
                   onToggleWatchlist={toggleWatchlist}

@@ -868,7 +868,7 @@ export function notificationToEmail(type: string, title: string, listingTitle?: 
       return {
         subject: `🎁 ${title}`,
         title: "Someone Used Your Referral! 🎁",
-        message: `Someone signed up using your referral code! You've earned **5 Drop Tokens** as a reward.\n\nCheck your dashboard to see your balance and keep sharing your referral link.`,
+        message: `Someone signed up using your referral code! You've earned a referral reward.\n\nCheck your dashboard for details and keep sharing your referral link.`,
         statusBadge: { text: "Reward Earned", color: "green" },
       };
     case "listing_rejected":

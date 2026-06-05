@@ -26,10 +26,14 @@ export type MarketplaceListingCardProps = {
   onPromote?: (item: Record<string, any>) => void;
   onDelete?: (item: Record<string, any>) => void;
   accent?: "sky" | "yellow" | "violet";
+  /** Homepage-style neon blue card glow */
+  neonGlow?: boolean;
 };
 
 const CREAM_CARD =
   "border-[rgba(255,248,231,0.08)] bg-white/[0.02] hover:border-[rgba(255,248,231,0.3)] hover:bg-white/[0.03] hover:shadow-[0_10px_40px_-10px_rgba(255,248,231,0.18)]";
+const NEON_BLUE_CARD =
+  "listing-card-neon border-sky-400/55 bg-white/[0.02] hover:border-sky-300/80 hover:bg-sky-500/[0.06] hover:shadow-[0_0_36px_rgba(56,189,248,0.7),0_0_72px_rgba(14,165,233,0.35),inset_0_0_28px_rgba(56,189,248,0.08)]";
 const CREAM_CHIP =
   "border-[rgba(255,248,231,0.14)] bg-[rgba(255,248,231,0.08)] text-[#fff8e7]";
 const CREAM_BTN =
@@ -37,10 +41,23 @@ const CREAM_BTN =
 const CREAM_BADGE =
   "rounded-full bg-[rgba(255,248,231,0.18)] px-2.5 py-0.5 text-[9px] font-bold text-[#fffdf5] shadow-[0_0_10px_rgba(255,248,231,0.22)] backdrop-blur-sm";
 
-function listingCardGlowStyle(saveGlow: number, isPopular: boolean, isVisible: boolean): CSSProperties | undefined {
-  if (!isVisible) return undefined;
-  const glow = Math.max(saveGlow, isPopular ? 0.35 : 0);
-  if (glow < 0.05) return undefined;
+function listingCardGlowStyle(
+  saveGlow: number,
+  isPopular: boolean,
+  isVisible: boolean,
+  neonGlow?: boolean
+): CSSProperties | undefined {
+  const glow = Math.max(saveGlow, isPopular ? 0.35 : 0, neonGlow ? 0.3 : 0);
+  if (!neonGlow && !isVisible) return undefined;
+  if (!neonGlow && glow < 0.05) return undefined;
+
+  if (neonGlow) {
+    return {
+      borderColor: `rgba(56, 189, 248, ${0.5 + glow * 0.35})`,
+      backgroundImage: `linear-gradient(to bottom, rgba(56, 189, 248, ${0.06 + glow * 0.12}), transparent)`,
+    };
+  }
+
   return {
     borderColor: `rgba(255, 248, 231, ${0.12 + glow * 0.45})`,
     boxShadow: `0 0 ${Math.round(10 + glow * 50)}px rgba(255, 248, 231, ${0.08 + glow * 0.38})`,
@@ -72,6 +89,7 @@ export default function MarketplaceListingCard({
   onPromote,
   onDelete,
   accent = "sky",
+  neonGlow = true,
 }: MarketplaceListingCardProps) {
   const themed = accent === "yellow" || accent === "violet";
   const isVisible = isListingVisibleInMarketplace(item);
@@ -80,7 +98,7 @@ export default function MarketplaceListingCard({
   const isPopular = isVisible && (item.views || 0) > 3;
   const imageSrc = item.images?.[0] || item.imageUrl || item.image;
 
-  const cardGlowStyle = listingCardGlowStyle(saveGlow, isPopular, isVisible);
+  const cardGlowStyle = listingCardGlowStyle(saveGlow, isPopular, isVisible, neonGlow);
   const categoryLabel =
     item.type === "vehicle"
       ? "Cars"
@@ -89,15 +107,26 @@ export default function MarketplaceListingCard({
     item.category === "Cars" || item.category === "Property";
 
   return (
-    <div
-      className={`listing-card group relative overflow-hidden rounded-2xl border transition-all duration-300 cursor-pointer animate-fade-in-up hover:-translate-y-1 text-[var(--cream)] ${CREAM_CARD}`}
-      style={{
-        animationDelay: `${Math.min(cardIndex, 10) * 40}ms`,
-        ...cardGlowStyle,
-      }}
-      onClick={onCardClick}
-    >
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[rgba(255,248,231,0.02)]" />
+    <div className={neonGlow ? "listing-card-aura-wrap relative" : "relative"}>
+      {neonGlow && (
+        <>
+          <div className="listing-card-aura-outer pointer-events-none absolute -inset-5 rounded-[1.5rem]" aria-hidden />
+          <div className="listing-card-aura-inner pointer-events-none absolute -inset-2 rounded-[1.15rem]" aria-hidden />
+        </>
+      )}
+      <div
+        className={`listing-card group relative z-[1] overflow-hidden rounded-2xl border transition-all duration-300 cursor-pointer animate-fade-in-up hover:-translate-y-1 text-[var(--cream)] ${neonGlow ? NEON_BLUE_CARD : CREAM_CARD}`}
+        style={{
+          animationDelay: `${Math.min(cardIndex, 10) * 40}ms`,
+          ...cardGlowStyle,
+        }}
+        onClick={onCardClick}
+      >
+      <div
+        className={`pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-transparent ${
+          neonGlow ? "to-sky-500/[0.06]" : "to-[rgba(255,248,231,0.02)]"
+        }`}
+      />
 
       {imageSrc ? (
         <>
@@ -474,6 +503,7 @@ export default function MarketplaceListingCard({
           })()}
         </Link>
       </div>
+    </div>
     </div>
   );
 }
