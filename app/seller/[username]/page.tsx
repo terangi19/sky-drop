@@ -26,6 +26,7 @@ import { db } from "../../lib/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { useParams } from "next/navigation";
 import ReportModal from "../../components/ReportModal";
+import { REVIEW_STAR_CLASS, ReviewStars } from "../../components/SellerReviewStars";
 import { calculateTrustScore } from "../../lib/trustscore";
 import { isListingVisibleInMarketplace } from "../../lib/listing-availability";
 import { countSellerSales } from "../../lib/arrange-purchase-status";
@@ -288,8 +289,6 @@ export default function SellerPage() {
   const pinnedListings = useMemo(() => listings.filter((l) => l.pinned), [listings]);
 
   const avgRating = reviews.length > 0 ? (reviews.reduce((t, r) => t + r.rating, 0) / reviews.length) : 0;
-  const stars = Math.floor(avgRating);
-  const hasHalf = avgRating - stars >= 0.5;
 
   const memberDate = profile?.memberSince?.toDate().toLocaleDateString("en-NZ", { year: "numeric", month: "short" }) || "";
   const sellerEmail = profile?.email || "";
@@ -428,14 +427,16 @@ export default function SellerPage() {
                 {/* Stats row */}
                 <div className="mt-4 grid grid-cols-4 gap-2">
                   {[
-                    { icon: "★", label: "Rating", value: avgRating > 0 ? avgRating.toFixed(1) : "—" },
+                    { icon: "rating", label: "Rating", value: avgRating > 0 ? avgRating.toFixed(1) : "—" },
                     { icon: "💰", label: "Sales", value: String(completedSalesCount) },
                     { icon: "📦", label: "Listings", value: String(activeListings.length) },
                     { icon: "👥", label: "Followers", value: String(followerCount) },
                   ].map((s) => (
                     <div key={s.label} className="rounded-xl border border-white/[0.04] bg-white/[0.02] px-3 py-2.5 text-center transition-all duration-200 hover:bg-white/[0.04]">
                       <p className="text-sm font-black text-[var(--foreground)]">{s.value}</p>
-                      <p className="text-[9px] font-medium text-[var(--muted)] uppercase tracking-wider">{s.icon} {s.label}</p>
+                      <p className="text-[9px] font-medium text-[var(--muted)] uppercase tracking-wider">
+                        {s.icon === "rating" ? <span className={REVIEW_STAR_CLASS}>★</span> : s.icon} {s.label}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -691,8 +692,9 @@ export default function SellerPage() {
                     Reviews ({reviews.length})
                   </h2>
                   {avgRating > 0 && (
-                    <span className="text-xs font-bold text-amber-400">
-                      {'★'.repeat(stars)}{hasHalf ? '½' : ''} {avgRating.toFixed(1)}
+                    <span className="inline-flex items-center gap-1 text-xs font-bold">
+                      <ReviewStars rating={avgRating} />
+                      <span className="text-white">{avgRating.toFixed(1)}</span>
                     </span>
                   )}
                 </div>
@@ -727,7 +729,7 @@ export default function SellerPage() {
                       <div key={r.id} className="rounded-lg border border-zinc-700/30 bg-zinc-800/25 p-3">
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] font-bold text-[var(--foreground)]">{r.buyerName || "Verified Buyer"}</span>
-                          <span className="text-[11px] font-bold text-amber-400">{'★'.repeat(Math.round(r.rating))}</span>
+                          <ReviewStars rating={r.rating} size="sm" />
                         </div>
                         {(r.comment || (r as { reviewText?: string }).reviewText) && (
                           <p className="mt-1 text-xs leading-relaxed text-[var(--foreground)]">

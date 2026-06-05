@@ -39,6 +39,8 @@ export type SkyAiListingFill = {
   rentalDeposit?: string;
   stockQuantity?: string;
   serviceDuration?: string;
+  startingBid?: string;
+  auctionDuration?: string;
 };
 
 const CATEGORIES = new Set([

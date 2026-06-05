@@ -18,6 +18,7 @@ import confetti from "canvas-confetti";
 import { playOffer, playSuccess, playClick } from "../lib/sounds";
 import { createNotification } from "../lib/notifications";
 import { useProfile } from "../contexts/ProfileContext";
+import { REVIEW_STAR_CLASS } from "../components/SellerReviewStars";
 
 const WORLDS = [
   { id: "all", label: "Categories", icon: "🌐", accent: "border-sky-500/20", glow: "shadow-[0_0_12px_rgba(14,165,233,0.06)]", color: "from-sky-400" },
@@ -932,7 +933,12 @@ export default function TradeFeedPage() {
                               </div>
                               <span className="font-medium text-zinc-400">{sellerName}</span>
                               {sellerBadges[post.sellerEmail || ""] === "legendary" && <span className="rounded bg-amber-500/[0.08] px-1.5 py-0.5 text-[8px] font-bold text-amber-400">👑 The Five</span>}
-                              {stats && stats.count > 0 && <span className="text-amber-400/80">★ {stats.avg.toFixed(1)}</span>}
+                              {stats && stats.count > 0 && (
+                                <span className="inline-flex items-center gap-0.5">
+                                  <span className={REVIEW_STAR_CLASS}>★</span>
+                                  <span className="text-white">{stats.avg.toFixed(1)}</span>
+                                </span>
+                              )}
                             </Link>
                             <span className="text-zinc-700">·</span>
                             {post.pickupAvailable && <span className="text-zinc-600">📍 {post.pickupArea || "Pickup"}</span>}

@@ -10,18 +10,20 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { AWHINA_NAME } from "./lib/awhina-brand";
 import Navbar from "./components/Navbar";
 import Background from "./components/Background";
 import { showToast } from "./components/Toast";
 import { cancelPendingXPByListing, trackListingDeleted } from "./lib/xpValidation";
+import { createNotification } from "./lib/notifications";
 
 import {
   User,
 } from "firebase/auth";
 
-import ThemeToggle from "./components/ThemeToggle";
-import PromoteModal from "./components/PromoteModal";
 
+import PromoteModal from "./components/PromoteModal";
+import MarketplaceListingCard from "./components/MarketplaceListingCard";
 import {
   addDoc,
   collection,
@@ -43,6 +45,8 @@ import { auth, db, storage, onAuthStateChanged } from "./lib/firebase";
 import { ref, deleteObject } from "firebase/storage";
 import { cdnUrl, cdnUrls } from "./lib/cdn";
 import { isListingVisibleInMarketplace } from "./lib/listing-availability";
+import { isDemoListing } from "./lib/marketplace-display";
+import { adjustListingWatchlistCount } from "./lib/listing-watchlist-count";
 
 interface Listing {
   id: string;
@@ -186,6 +190,7 @@ export default function Home() {
   const [showSaveSearch, setShowSaveSearch] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<Listing | null>(null);
   const [promoteItem, setPromoteItem] = useState<any>(null);
+  const [watchlistTick, setWatchlistTick] = useState(0);
 
   const activeCategories = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -563,7 +568,11 @@ export default function Home() {
 
             const isVisible = (search === "" || matchesSearch) && (selectedCategory === "All" || matchesCategory) && (selectedCondition === "All" || matchesCondition) && (selectedRegion === "All" || matchesRegion);
 
-            return isVisible && isListingVisibleInMarketplace(item);
+            return (
+              isVisible &&
+              isListingVisibleInMarketplace(item) &&
+              !isDemoListing(item)
+            );
 
           }
         );
@@ -681,7 +690,14 @@ export default function Home() {
     setOfferAmount("");
   };
 
-  const hotItems = useMemo(() => [...listings].filter((l) => isListingVisibleInMarketplace(l)).slice(0, 6) as any[], [listings]);
+  const hotItems = useMemo(
+    () =>
+      [...listings]
+        .filter((l) => isListingVisibleInMarketplace(l) && !isDemoListing(l))
+        .sort((a: any, b: any) => (Number(b.views) || 0) - (Number(a.views) || 0))
+        .slice(0, 6) as any[],
+    [listings]
+  );
   const hotMaxViews = useMemo(() => Math.max(...hotItems.map((i: any) => i.views || 0), 1), [hotItems]);
 
   const savedSearchMatchCounts = useMemo(() => {
@@ -763,7 +779,7 @@ export default function Home() {
             })()}
           </div>
 
-          <div className="relative px-6 py-10 sm:px-10 sm:py-12 overflow-hidden">
+          <div className="relative overflow-visible px-6 py-10 sm:px-10 sm:py-12">
             <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
               <div className="parachute-scene">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 240" className="w-56 h-72 md:w-72 md:h-96 opacity-[0.05]">
@@ -976,25 +992,25 @@ export default function Home() {
           <div className="flex gap-4 overflow-x-auto pb-1 scrollbar-none">
             {hotItems.map((item: any) => (
             <div key={item.id} onClick={() => { saveRecentlyViewed(item); router.push(`/post/listing/${item.id}`); }}
-              className="group shrink-0 w-72 cursor-pointer rounded-2xl border border-white/[0.04] bg-white/[0.02] p-3 transition-all duration-300 hover:bg-white/[0.04] hover:border-orange-500/30 hover:-translate-y-1 hover:shadow-[0_10px_30px_-10px_rgba(251,146,60,0.2)]">
+              className="listing-card group shrink-0 w-72 cursor-pointer rounded-2xl border border-white/[0.04] bg-white/[0.02] p-3 text-[var(--cream)] transition-all duration-300 hover:bg-white/[0.04] hover:border-orange-500/30 hover:-translate-y-1 hover:shadow-[0_10px_30px_-10px_rgba(251,146,60,0.2)]">
               <div className="relative overflow-hidden rounded-xl">
                 {item.images?.[0] || item.imageUrl || item.image ? (
                    <img src={cdnUrl(item.images?.[0] || item.imageUrl || item.image || "")} alt={item.title} loading="lazy" className="h-36 w-full rounded-xl object-cover transition-all duration-500 group-hover:scale-105" />
                 ) : (
-                  <div className="h-36 rounded-xl bg-gradient-to-br from-orange-500/10 via-red-500/10 to-amber-500/10 flex items-center justify-center text-xs text-zinc-500">SD</div>
+                  <div className="h-36 rounded-xl bg-gradient-to-br from-orange-500/10 via-red-500/10 to-amber-500/10 flex items-center justify-center text-xs text-[var(--cream)]">SD</div>
                 )}
                 <div className="absolute top-2 left-2">
                   <span className="rounded-full bg-orange-500/90 px-2.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm">🔥 Trending</span>
                 </div>
               </div>
               <div className="mt-3 flex items-start justify-between gap-2">
-                <p className="truncate text-sm font-bold text-white flex-1">{item.title}</p>
-                <p className="shrink-0 text-base font-black text-orange-400">${item.price}</p>
+                <p className="truncate text-sm font-bold text-[var(--cream)] flex-1">{item.title}</p>
+                <p className="shrink-0 text-base font-black text-[var(--cream)]">${item.price}</p>
               </div>
               {item.location && (
-                <p className="mt-1 text-[11px] text-zinc-500">📍 {item.location}</p>
+                <p className="mt-1 text-[11px] text-[var(--cream)]">📍 {item.location}</p>
               )}
-              <div className="mt-1.5 flex items-center gap-3 text-[11px] text-zinc-500">
+              <div className="mt-1.5 flex items-center gap-3 text-[11px] text-[var(--cream)]">
                 {item.createdAt?.seconds != null && <span>{timeAgo(item.createdAt.seconds)}</span>}
                 <span className="flex items-center gap-1">👁 {(item as any).views || 0}</span>
               </div>
@@ -1127,324 +1143,36 @@ export default function Home() {
           </div>
         )}
 
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-
-          {(() => {
-            const visible = filteredListings.slice(0, visibleCount);
-            const maxViews = Math.max(...visible.map((i: any) => i.views || 0), 1);
-            return visible.map((item: any, cardIndex: number) => {
-
-              const isPopular = isListingVisibleInMarketplace(item);
-
-              return (
-              <div
-                key={item.id}
-                className={`group relative overflow-hidden rounded-2xl transition-all duration-300 cursor-pointer animate-fade-in-up ${
-                  isPopular
-                    ? "bg-gradient-to-b from-orange-500/[0.04] to-transparent border border-orange-500/20 shadow-[0_0_30px_rgba(251,146,60,0.12)] hover:border-orange-500/40 hover:shadow-[0_0_40px_rgba(251,146,60,0.25)] hover:-translate-y-1"
-                    : "bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.04] hover:border-sky-500/30 hover:-translate-y-1 hover:shadow-[0_10px_40px_-10px_rgba(14,165,233,0.15)]"
-                }`}
-                style={{ animationDelay: `${Math.min(cardIndex, 10) * 40}ms` }}
-                onClick={() => { saveRecentlyViewed(item); router.push(`/post/listing/${item.id}`); }}
-              >
-                {!isPopular && <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-white/[0.01] pointer-events-none" />}
-
-                {item.images?.[0] || item.imageUrl || item.image ? (
-                  <>
-                  <div className="relative overflow-hidden">
-                      <img
-                        src={cdnUrl(item.images?.[0] || item.imageUrl || item.image || "")}
-                        alt={item.title}
-                        loading="lazy"
-                        onLoad={(e) => { (e.target as HTMLImageElement).style.opacity = "1"; }}
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                        className="aspect-[4/3] w-full object-cover transition-all duration-500 group-hover:scale-105 opacity-0"
-                      />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                     {!isListingVisibleInMarketplace(item) && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-                          <span className="rounded-lg bg-red-600 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-white shadow-lg">Sold · ${item.price}</span>
-                        </div>
-                      )}
-                      <div className="absolute top-3 left-3 flex flex-col gap-1.5">
-                        {isListingVisibleInMarketplace(item) && (item.views || 0) > 3 && (
-                          <span className="rounded-full bg-orange-500/90 px-2.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm shadow-lg">🔥 Hot</span>
-                        )}
-                        {(item as any).promotedUntil?.toMillis?.() > Date.now() && (
-                          <span className="rounded-full bg-amber-500/90 px-2.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm shadow-lg">📈 Promoted</span>
-                        )}
-                        {isListingVisibleInMarketplace(item) && item.createdAt?.seconds && (Date.now() / 1000 - item.createdAt.seconds) < 86400 && (
-                          <span className="rounded-full bg-emerald-500/90 px-2.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm shadow-lg">New</span>
-                        )}
-                        {isListingVisibleInMarketplace(item) && item.saleType && String(item.saleType).includes("auction") && (
-                          <span className="rounded-full bg-amber-500/90 px-2.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm shadow-lg">⏰ Auction</span>
-                        )}
-                        {(item as any).type === "digital" && isListingVisibleInMarketplace(item) && (
-                          <span className="rounded-full bg-sky-500/90 px-2.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm shadow-lg">📥 Digital</span>
-                        )}
-                      </div>
-                      {isListingVisibleInMarketplace(item) && (item as any).images?.length > 1 && (
-                        <div className="absolute top-3 right-3">
-                          <span className="rounded-full bg-black/60 px-2 py-0.5 text-[9px] font-medium text-white backdrop-blur-sm">📷 {(item as any).images.length}</span>
-                        </div>
-                      )}
-                      {isListingVisibleInMarketplace(item) && item.expiresAt?.toMillis?.() < Date.now() && (
-                        <div className="absolute top-3 right-3">
-                          <span className="rounded-full bg-zinc-800/90 px-2.5 py-0.5 text-[9px] font-bold text-zinc-400 backdrop-blur-sm">Expired</span>
-                        </div>
-                      )}
-                  </div>
-
-                  {(item as any).images?.length > 1 && (
-                    <div className="flex justify-center gap-1.5 py-2">
-                      {(item as any).images.slice(0, 5).map((_: string, i: number) => (
-                        <div key={i} className={`h-1 rounded-full transition-all duration-300 ${i === 0 ? "w-4 bg-sky-400" : "w-1 bg-zinc-700"}`} />
-                      ))}
-                    </div>
-                  )}
-                  </>
-
-                ) : (
-
-                   <div className="relative aspect-[4/3] flex items-center justify-center bg-gradient-to-br from-zinc-800/50 via-zinc-800/30 to-zinc-800/50">
-                     <div className="absolute inset-0 flex items-center justify-center text-zinc-500">
-                       <div className="text-center">
-                         <div className="text-3xl font-black tracking-tighter mb-1">SD</div>
-                         <div className="text-[10px] uppercase tracking-widest opacity-50">Sky Drop</div>
-                       </div>
-                     </div>
-                     {!isListingVisibleInMarketplace(item) && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-                          <span className="rounded-lg bg-red-600 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-white shadow-lg">
-                            Sold · ${item.price}
-                          </span>
-                        </div>
-                      )}
-                     <div className="absolute top-3 left-3 flex flex-col gap-1.5">
-                       {isListingVisibleInMarketplace(item) && item.createdAt?.seconds && (Date.now() / 1000 - item.createdAt.seconds) < 86400 && (
-                         <span className="rounded-full bg-emerald-500/90 px-2.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm shadow-lg">New</span>
-                       )}
-                       {isListingVisibleInMarketplace(item) && item.saleType && String(item.saleType).includes("auction") && (
-                         <span className="rounded-full bg-amber-500/90 px-2.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm shadow-lg">⏰ Auction</span>
-                       )}
-                     </div>
-                   </div>
-
-                )}
-
-                <div className="p-4">
-
-                  <div className="flex items-center justify-between gap-2">
-
-                   <div className="flex gap-1.5 flex-wrap">
-                       <span className="rounded-md bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-400 border border-sky-500/10">
-                          {item.category || "Other"}
-                        </span>
-                        {(item as any).promotedUntil?.toMillis?.() > Date.now() && (
-                          <span className="rounded-md bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-400 border border-amber-500/10">📈 Promoted</span>
-                        )}
-                        {item.condition && (
-                          <span className={`rounded-md px-2 py-0.5 text-[10px] font-semibold border ${
-                            item.condition === "New"
-                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/10"
-                              : "bg-zinc-800/60 text-zinc-400 border-zinc-700/30"
-                          }`}>
-                            {item.condition === "New" ? "🆕 New" : item.condition}
-                          </span>
-                        )}
-                      </div>
-
-                        <button
-                          onClick={(e) => { e.stopPropagation(); toggleWatchlist(item); }}
-                          className={`relative text-base transition-all duration-200 hover:scale-110 active:scale-95 ${
-                            isInWatchlist(item.id)
-                              ? "text-red-400" : "text-zinc-500 hover:text-red-400"
-                          }`}
-                        >
-                          {isInWatchlist(item.id) ? "❤️" : "♡"}
-                        </button>
-
-                    </div>
-
-                    <div className="flex items-center gap-2 mt-2.5">
-                      <h2 className="flex-1 line-clamp-1 text-[17px] font-black tracking-tight text-white group-hover:text-sky-400 transition-colors duration-150">
-                        {item.title}
-                      </h2>
-                    </div>
-
-                  <p className="mt-1.5 line-clamp-2 text-[12px] leading-relaxed text-zinc-500">
-                    {item.description}
-                  </p>
-
-                    <div className="mt-3 flex items-baseline gap-2">
-                      <p className="text-2xl font-black tracking-tight text-white">
-                       ${item.price}
-                      </p>
-                     {(item.saleType === "auction" || item.saleType === "auction_buy_now") && (
-                       <span className="text-sm font-bold text-amber-400">Bid: ${item.currentBid || item.startingBid || 0}</span>
-                     )}
-                   </div>
-
-                   <div className="mt-3 flex items-center gap-3 text-[11px] text-zinc-500">
-                    {item.location && <span className="flex items-center gap-1">📍 {item.location}</span>}
-                    {item.createdAt?.seconds != null && <span>{timeAgo(item.createdAt.seconds)}</span>}
-                    {item?.pickupAvailable && <span>📍 Pickup</span>}
-                    {item?.shippingAvailable && <span>📦 Shipping</span>}
-                    <span className="ml-auto flex items-center gap-1">👁 {item.views || 0}</span>
-                  </div>
-
-                    <div className="mt-3 flex gap-2">
-
-                      {user && user.email !== item.sellerEmail && (
-                        <>
-                          {(item.category === "Cars" || item.category === "Property") && item.acceptOffers ? (
-                            <>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setOfferListing(item); setShowOfferModal(true); }}
-                                className="flex-1 rounded-md border border-sky-500/25 bg-sky-500/5 py-2.5 text-[12px] font-semibold text-sky-400/70 transition-all duration-150 hover:bg-sky-500/15 hover:text-sky-400 hover:border-sky-500/40 hover:shadow-[0_0_14px_rgba(14,165,233,0.12)] active:scale-95"
-                              >
-                                Make Offer
-                              </button>
-                              {(item.saleType === "auction" || item.saleType === "auction_buy_now") && (
-                                <Link
-                                  href={`/post/listing/${item.id}`}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="flex flex-1 items-center justify-center rounded-md border border-amber-500/30 bg-amber-500/10 py-2.5 text-[12px] font-semibold text-amber-400/70 transition-all duration-150 hover:bg-amber-500/20 hover:text-amber-400 hover:border-amber-500/50 hover:shadow-[0_0_14px_rgba(245,158,11,0.12)] active:scale-95"
-                                >
-                                  Bid Now
-                                </Link>
-                              )}
-                            </>
-                          ) : (
-                            <>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleBuyNow(item); }}
-                                className={`flex-1 rounded-md border py-2.5 text-[12px] font-semibold transition-all duration-150 active:scale-95 ${
-                                  item.paymentType === "contact"
-                                    ? "border-emerald-500/25 bg-emerald-500/5 text-emerald-400/70 hover:bg-emerald-500/15 hover:text-emerald-400 hover:border-emerald-500/40"
-                                    : "border-sky-500/25 bg-sky-500/5 text-sky-400/70 hover:bg-sky-500/15 hover:text-sky-400 hover:border-sky-500/40 hover:shadow-[0_0_14px_rgba(14,165,233,0.12)]"
-                                }`}
-                              >
-                                {item.paymentType === "contact" ? "Purchase" : "Buy Now"}
-                              </button>
-                              {(item.saleType === "auction" || item.saleType === "auction_buy_now") && (
-                                <Link
-                                  href={`/post/listing/${item.id}`}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="flex flex-1 items-center justify-center rounded-md border border-amber-500/30 bg-amber-500/10 py-2.5 text-[12px] font-semibold text-amber-400/70 transition-all duration-150 hover:bg-amber-500/20 hover:text-amber-400 hover:border-amber-500/50 hover:shadow-[0_0_14px_rgba(245,158,11,0.12)] active:scale-95"
-                                >
-                                  Bid Now
-                                </Link>
-                              )}
-                              {item.acceptOffers && item.paymentType !== "contact" && (
-                                <Link
-                                  href="#"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    setOfferListing(item);
-                                    setShowOfferModal(true);
-                                  }}
-                                  className="ml-1 text-[11px] text-sky-400 underline underline-offset-2 hover:text-sky-300"
-                                >
-                                  Offer
-                                </Link>
-                              )}
-                            </>
-                          )}
-
-                          <Link
-                            href={`/post/listing/${item.id}#contact`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="flex flex-1 items-center justify-center rounded-md border border-zinc-700/30 py-2.5 text-[12px] font-semibold text-[var(--muted)] transition-all duration-150 hover:border-zinc-600/50 hover:text-[var(--foreground)] active:scale-95"
-                          >
-                            Message
-                           </Link>
-                        </>
-                       )}
-                      {user && user.email === item.sellerEmail && (
-                      <>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setPromoteItem(item); }}
-                          className="rounded-md bg-amber-500/10 px-4 py-2.5 text-[12px] font-semibold text-amber-400 transition-all duration-150 hover:bg-amber-500/20 active:scale-95"
-                        >
-                          📈 Boost
-                        </button>
-                        <Link
-                          href={`/post/ai?edit=${item.id}`}
-                          onClick={(e) => e.stopPropagation()}
-                           className="rounded-md bg-sky-500/10 px-4 py-2.5 text-[12px] font-semibold text-sky-400 transition-all duration-150 hover:bg-sky-500/20 active:scale-95"
-                         >
-                           Edit
-                        </Link>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setDeleteConfirm(item); }}
-                           className="rounded-md bg-zinc-800/60 px-4 py-2.5 text-[12px] font-semibold text-[var(--foreground)] transition-all duration-150 hover:bg-zinc-700 active:scale-95"
-                         >
-                           Remove
-                        </button>
-                      </>
-                    )}
-
-                  </div>
-
-                    {/* SELLER CARD */}
-                    <Link
-                      href={user?.email === item.sellerEmail ? "#" : `/seller/${item.sellerUsername || item.sellerEmail}`}
-                      onClick={(e) => e.stopPropagation()}
-                      className="block hover:cursor-pointer"
-                    >
-                     {(() => {
-                        const email = item.sellerEmail;
-                        const username = item.sellerUsername || email?.split("@")[0] || "—";
-                        const initial = username.charAt(0).toUpperCase();
-                        const stats = sellerReviewStats[email || ""];
-                        const avgRating = stats ? stats.avg : 0;
-                        const reviewCount = stats ? stats.count : 0;
-                        const fullStars = Math.floor(avgRating);
-                        const hasHalf = avgRating - fullStars >= 0.5;
-                        return (
-                          <div className="group mt-2 rounded-lg border border-zinc-800/30 bg-zinc-800/20 p-3 transition-all duration-200 hover:border-sky-500/40 hover:bg-zinc-800/30 hover:-translate-y-0.5 hover:shadow-[0_0_15px_rgba(0,0,0,0.2)]">
-                            <div className="flex items-center gap-2">
-                              <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 via-violet-500 to-purple-600 text-[13px] font-bold text-[var(--foreground)] shadow-[0_0_10px_rgba(139,92,246,0.2)] ring-1 ring-white/10">
-                                {initial}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-1">
-                                  <span className="truncate text-[14px] font-semibold text-[var(--foreground)]">{username}</span>
-                                  {sellerBadges[email || ""] === "legendary" && <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold text-amber-400 animate-pulse">👑 The Five</span>}
-                                  {sellerBadges[email || ""] === "epic" && <span className="rounded bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-bold text-violet-400">💎 Epic</span>}
-                                </div>
-                                <div className="flex items-center gap-1 text-[11px] text-[var(--muted)]">
-                                  {reviewCount > 0 ? (
-                                    <>
-                                      <span className="text-amber-400">{'★'.repeat(fullStars)}{hasHalf ? '½' : ''}</span>
-                                      <span>{avgRating.toFixed(1)}</span>
-                                      <span>·</span>
-                                      <span>{reviewCount} review{reviewCount > 1 ? "s" : ""}</span>
-                                    </>
-                                  ) : (
-                                    <span>No reviews yet</span>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="shrink-0 text-right">
-                                <p className="text-[10px] text-[var(--muted)]">View profile</p>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })()}
-                   </Link>
-
-                </div>
-
-              </div>
-
-            );
-          });
-        })()}
-
+        {!loading && filteredListings.length > 0 && (
+        <div key={watchlistTick} className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {filteredListings.slice(0, visibleCount).map((item: any, cardIndex: number) => (
+            <MarketplaceListingCard
+              key={item.id}
+              item={item}
+              cardIndex={cardIndex}
+              user={user}
+              isInWatchlist={(id) => {
+                void watchlistTick;
+                return isInWatchlist(id);
+              }}
+              onToggleWatchlist={toggleWatchlist}
+              onCardClick={() => {
+                saveRecentlyViewed(item);
+                router.push(`/post/listing/${item.id}`);
+              }}
+              onBuyNow={handleBuyNow}
+              onMakeOffer={(listing) => {
+                setOfferListing(listing);
+                setShowOfferModal(true);
+              }}
+              sellerReviewStats={sellerReviewStats}
+              sellerBadges={sellerBadges}
+              onPromote={(listing) => setPromoteItem(listing)}
+              onDelete={(listing) => setDeleteConfirm(listing)}
+            />
+          ))}
         </div>
+        )}
 
         {visibleCount < filteredListings.length ? (
           <div ref={sentinelRef} className="h-4" />
@@ -1486,21 +1214,21 @@ export default function Home() {
                <div
                  key={item.id}
 onClick={() => router.push(`/post/listing/${item.id}`)}
-                     className="group shrink-0 w-56 rounded-xl border border-zinc-700/60 bg-zinc-900/80 p-3 cursor-pointer hover:border-sky-500/40 hover:-translate-y-0.5 hover:shadow-[0_8px_25px_rgba(0,0,0,0.25)] transition-all duration-300"
+                     className="listing-card group shrink-0 w-56 rounded-xl border border-zinc-700/60 bg-zinc-900/80 p-3 text-[var(--cream)] cursor-pointer hover:border-sky-500/40 hover:-translate-y-0.5 hover:shadow-[0_8px_25px_rgba(0,0,0,0.25)] transition-all duration-300"
                 >
                 {item.images?.[0] || item.imageUrl || item.image ? (
                     <img src={cdnUrl(item.images?.[0] || item.imageUrl || item.image || "")} alt={item.title} loading="lazy" onError={(e) => { (e.target as HTMLImageElement).src = ""; (e.target as HTMLImageElement).classList.add("hidden"); }} className="h-20 w-full rounded-lg object-cover" />
                 ) : (
-                    <div className="h-20 w-full rounded-lg bg-gradient-to-br from-sky-500/15 via-violet-500/15 to-purple-600/15 flex items-center justify-center text-[var(--foreground)] text-xs">
+                    <div className="h-20 w-full rounded-lg bg-gradient-to-br from-sky-500/15 via-violet-500/15 to-purple-600/15 flex items-center justify-center text-[var(--cream)] text-xs">
                         <div className="text-center">
                             <div className="text-xl font-bold mb-0.5">SD</div>
                             <div className="text-xs">Sky Drop</div>
                         </div>
                     </div>
                 )}
-                 <p className="mt-2.5 truncate text-[15px] font-bold text-[var(--foreground)]">{item.title}</p>
-                 <p className="mt-0.5 text-base font-black" style={{ color: "var(--foreground)" }}>${item.price}</p>
-                  <p className="mt-1 text-[10px] text-[var(--muted)]">👁 {(item as any).views || 0} views</p>
+                 <p className="mt-2.5 truncate text-[15px] font-bold text-[var(--cream)]">{item.title}</p>
+                 <p className="mt-0.5 text-base font-black text-[var(--cream)]">${item.price}</p>
+                  <p className="mt-1 text-[10px] text-[var(--cream)]">👁 {(item as any).views || 0} views</p>
               </div>
             ))}
           </div>
@@ -1516,14 +1244,14 @@ onClick={() => router.push(`/post/listing/${item.id}`)}
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
             {listings.filter((l) => !isListingVisibleInMarketplace(l)).slice(0, 6).map((item) => (
-              <div key={item.id} className="shrink-0 w-44 rounded-xl border border-zinc-800/40 bg-zinc-900/50 p-3 opacity-80">
+              <div key={item.id} className="listing-card shrink-0 w-44 rounded-xl border border-zinc-800/40 bg-zinc-900/50 p-3 text-[var(--cream)] opacity-80">
                 {item.images?.[0] || item.imageUrl || item.image ? (
                    <img src={cdnUrl(item.images?.[0] || item.imageUrl || item.image || "")} alt={item.title} loading="lazy" className="h-20 w-full rounded-lg object-cover" />
                 ) : (
-                  <div className="h-20 w-full rounded-lg bg-gradient-to-br from-sky-500/10 via-violet-500/10 to-purple-600/10 flex items-center justify-center text-xs text-[var(--muted)]">SD</div>
+                  <div className="h-20 w-full rounded-lg bg-gradient-to-br from-sky-500/10 via-violet-500/10 to-purple-600/10 flex items-center justify-center text-xs text-[var(--cream)]">SD</div>
                 )}
-                <p className="mt-2 truncate text-xs font-bold text-[var(--foreground)]">{item.title}</p>
-                <p className="text-xs font-bold text-emerald-400">Sold · ${item.price}</p>
+                <p className="mt-2 truncate text-xs font-bold text-[var(--cream)]">{item.title}</p>
+                <p className="text-xs font-bold text-[var(--cream)]">Sold · ${item.price}</p>
               </div>
             ))}
           </div>

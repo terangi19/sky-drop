@@ -11,6 +11,7 @@ import { getFreshIdToken } from "../lib/api-auth";
 import { createNotification } from "../lib/notifications";
 import { awardXP } from "../lib/xp";
 import { showToast } from "../components/Toast";
+import { InteractiveReviewStars } from "../components/SellerReviewStars";
 
 interface Purchase {
   id: string;
@@ -456,12 +457,7 @@ export default function PurchasesPage() {
                 <div className="mx-4 w-full max-w-sm rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
                   <h3 className="text-lg font-black text-[var(--foreground)]">Leave a Review</h3>
                   <p className="mt-1 text-sm text-[var(--muted)]">{reviewModal.listingTitle}</p>
-                  <div className="mt-4 flex items-center gap-1">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button key={star} onClick={() => setReviewRating(star)}
-                        className={`text-2xl transition ${star <= reviewRating ? "text-amber-400" : "text-zinc-700"}`}>★</button>
-                    ))}
-                  </div>
+                  <InteractiveReviewStars value={reviewRating} onChange={setReviewRating} className="mt-4" />
                   <textarea placeholder="Share your experience..." value={reviewText} onChange={(e) => setReviewText(e.target.value)}
                     rows={3} className="mt-4 w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm text-[var(--foreground)] outline-none transition focus:border-emerald-500 placeholder:text-[var(--muted)]" />
                   <div className="mt-4 flex gap-3">

@@ -4,7 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { User } from "firebase/auth";
-import { auth, onAuthStateChanged } from "../lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db, onAuthStateChanged } from "../lib/firebase";
+import {
+  AWHINA_ASK_LABEL,
+  AWHINA_NAME,
+  AWHINA_REQUEST_FAILED,
+  AWHINA_THINKING,
+} from "../lib/awhina-brand";
 import { skyAiRuleFallbackText } from "../lib/openai-health";
 import {
   dispatchListingFill,
@@ -12,15 +19,30 @@ import {
   type SkyAiListingFill,
 } from "../lib/sky-ai-listing-fill";
 import { SKY_AI_OPEN_EVENT, type SkyAiOpenDetail } from "../lib/sky-ai-events";
-import { SKY_AI_QUICK_PROMPTS, SKY_AI_WELCOME } from "../lib/sky-ai-prompts";
-import { readListingDraftFromSkyAi } from "../lib/sky-ai-listing-context";
+import {
+  normalizeSkyAiChatText,
+  SKY_AI_QUICK_PROMPTS,
+  SKY_AI_WELCOME,
+} from "../lib/sky-ai-prompts";
+import {
+  readListingDraftFromSkyAi,
+  readSkyAiSessionDraft,
+  readSkyAiSessionState,
+  saveSkyAiSessionDraft,
+  saveSkyAiSessionState,
+} from "../lib/sky-ai-listing-context";
+import type { SkyAiListingDraft } from "../lib/sky-ai-types";
 import {
   dispatchListingImages,
   prepareSkyAiImages,
   SKY_AI_MAX_IMAGES_PER_MESSAGE,
 } from "../lib/sky-ai-images";
 import { getFreshIdToken } from "../lib/api-auth";
-import type { SkyAiConversationSummary } from "../lib/sky-ai-types";
+import { SkyAiTypingCursor, SkyAiTypingText } from "./SkyAiTypingText";
+import SkyAiSearchResultCards from "./SkyAiSearchResultCards";
+import SkyAiPricingCard from "./SkyAiPricingCard";
+import type { SkyAiSearchResultCard } from "../lib/sky-ai-listing-search";
+import type { SkyAiPricingInsight } from "../lib/sky-ai-comps";
 
 export type SkyAiChatPanelMode = "sheet" | "inline";
 
@@ -29,9 +51,63 @@ type ChatMessage = {
   role: "user" | "assistant";
   text: string;
   images?: string[];
-  navigating?: boolean;
+  searchResults?: SkyAiSearchResultCard[];
+  pricingInsight?: SkyAiPricingInsight;
+  navigatePath?: string;
   streaming?: boolean;
 };
+
+function persistSessionMeta(data: {
+  listingDraft?: SkyAiListingDraft;
+  conversationState?: { currentFlow?: string | null; currentStep?: string | null };
+  subjectChanged?: boolean;
+}) {
+  if (data.listingDraft) saveSkyAiSessionDraft(data.listingDraft);
+  if (data.conversationState) {
+    saveSkyAiSessionState({
+      flow: (data.conversationState.currentFlow ?? null) as SkyAiListingDraft["flow"],
+      step: (data.conversationState.currentStep ?? null) as SkyAiListingDraft["step"],
+    });
+  }
+}
+
+function shouldAutoNavigate(
+  source: string | undefined,
+  listingFill: SkyAiListingFill | undefined,
+  navigateTo: string | undefined
+): boolean {
+  if (!navigateTo) return false;
+  if (source === "platform_guide" || source === "marketplace_knowledge") return false;
+  if (source === "conversation_flow") {
+    return !!(listingFill?.startingBid || listingFill?.title || listingFill?.description);
+  }
+  if (source === "seller_coach" || source === "rules") return true;
+  if (listingFill?.startingBid && !listingFill.title && !listingFill.description) return false;
+  if (
+    listingFill?.title ||
+    listingFill?.description ||
+    listingFill?.price ||
+    listingFill?.vehicleMake
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function navLinkLabel(path: string): string {
+  const base = path.split("#")[0];
+  const labels: Record<string, string> = {
+    "/services": "Browse services",
+    "/post/ai": "Open Quick Post",
+    "/messages": "Open Messages",
+    "/watchlist": "Open Watchlist",
+    "/profile": "Open Profile",
+    "/buyer-protection": "Payment details",
+    "/seller-guidelines": "Seller guidelines",
+    "/": "Browse listings",
+  };
+  return labels[base] || "Open page";
+}
 
 type PendingAttachment = { dataUrl: string; name: string };
 
@@ -48,6 +124,8 @@ export type SkyAiChatPanelProps = {
   quickPrompts?: QuickPrompt[];
   /** First assistant message (defaults to global welcome) */
   welcomeText?: string;
+  /** Typewriter effect on the welcome bubble (Quick Post) */
+  typingWelcome?: boolean;
   className?: string;
 };
 
@@ -56,6 +134,7 @@ function handleListingFill(fill: SkyAiListingFill | undefined, navigateTo?: stri
     !!fill?.title ||
     !!fill?.description ||
     !!fill?.price ||
+    !!fill?.startingBid ||
     !!fill?.rentalPriceWeekly ||
     !!fill?.rentalPriceMonthly ||
     !!fill?.vehicleMake ||
@@ -73,8 +152,29 @@ function handleListingFill(fill: SkyAiListingFill | undefined, navigateTo?: stri
 function stripLegacyChatGptWarning(text: string): string {
   return text
     .replace(/\*\*ChatGPT mode is off\*\*[\s\S]*?---\n\n/g, "")
-    .replace(/\*\*Sky AI limited:\*\*[^\n]*\n\n/g, "")
+    .replace(/\*\*(Sky AI|Āwhina|Awhina) limited:\*\*[^\n]*\n\n/gi, "")
     .trim();
+}
+
+const LISTING_PATH_SPLIT = /(\/post\/listing\/[a-zA-Z0-9_-]+)/;
+const LISTING_PATH_ONLY = /^\/post\/listing\/[a-zA-Z0-9_-]+$/;
+
+function renderPlainWithLinks(segment: string, keyBase: string) {
+  const bits = segment.split(LISTING_PATH_SPLIT);
+  return bits.map((bit, j) => {
+    if (LISTING_PATH_ONLY.test(bit)) {
+      return (
+        <Link
+          key={`${keyBase}-l-${j}`}
+          href={bit}
+          className="text-sky-400 underline underline-offset-2 hover:text-sky-300"
+        >
+          {bit}
+        </Link>
+      );
+    }
+    return bit ? <span key={`${keyBase}-s-${j}`}>{bit}</span> : null;
+  });
 }
 
 function renderText(text: string) {
@@ -87,12 +187,50 @@ function renderText(text: string) {
         </strong>
       );
     }
-    return <span key={i}>{part}</span>;
+    return <span key={i}>{renderPlainWithLinks(part, `p${i}`)}</span>;
   });
 }
 
+/** Compact chat layout — normal paragraph spacing, not landing-page gaps */
+function renderChatMessage(text: string) {
+  const normalized = normalizeSkyAiChatText(text);
+  const paragraphs = normalized.split(/\n\n+/).filter((p) => p.trim());
+
+  if (paragraphs.length <= 1) {
+    const lines = normalized.split("\n");
+    return (
+      <>
+        {lines.map((line, i) => (
+          <span key={i}>
+            {i > 0 && <br />}
+            {renderText(line)}
+          </span>
+        ))}
+      </>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5">
+      {paragraphs.map((para, i) => {
+        const lines = para.split("\n");
+        return (
+          <p key={i} className="m-0">
+            {lines.map((line, j) => (
+              <span key={j}>
+                {j > 0 && <br />}
+                {renderText(line)}
+              </span>
+            ))}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
 function welcomeMessages(text: string): ChatMessage[] {
-  return [{ id: "welcome", role: "assistant", text }];
+  return [{ id: "welcome", role: "assistant", text: normalizeSkyAiChatText(text) }];
 }
 
 export default function SkyAiChatPanel({
@@ -103,6 +241,7 @@ export default function SkyAiChatPanel({
   onAutoQueryConsumed,
   quickPrompts = SKY_AI_QUICK_PROMPTS,
   welcomeText = SKY_AI_WELCOME,
+  typingWelcome = false,
   className = "",
 }: SkyAiChatPanelProps) {
   const router = useRouter();
@@ -120,9 +259,7 @@ export default function SkyAiChatPanel({
   );
 
   const [user, setUser] = useState<User | null>(null);
-  const [showHistory, setShowHistory] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>(() => welcomeMessages(welcomeText));
-  const [conversations, setConversations] = useState<SkyAiConversationSummary[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -131,7 +268,31 @@ export default function SkyAiChatPanel({
   const navigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pendingImages, setPendingImages] = useState<PendingAttachment[]>([]);
   const [imageBusy, setImageBusy] = useState(false);
+  const [welcomeTypeRun, setWelcomeTypeRun] = useState(0);
+  const [sellerVerified, setSellerVerified] = useState<boolean | null>(null);
+  const [openAiReady] = useState(true);
+
   useEffect(() => onAuthStateChanged(auth, setUser), []);
+
+  useEffect(() => {
+    if (!user?.uid) {
+      setSellerVerified(null);
+      return;
+    }
+    let cancelled = false;
+    getDoc(doc(db, "profiles", user.uid))
+      .then((snap) => {
+        if (cancelled) return;
+        const data = snap.data();
+        setSellerVerified(!!(data?.verified || data?.phoneVerified));
+      })
+      .catch(() => {
+        if (!cancelled) setSellerVerified(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid]);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
@@ -142,25 +303,6 @@ export default function SkyAiChatPanel({
       if (navigateTimerRef.current) clearTimeout(navigateTimerRef.current);
     };
   }, []);
-
-  const loadConversations = useCallback(async () => {
-    const token = await getFreshIdToken();
-    if (!token) return;
-    try {
-      const res = await fetch("/api/sky-ai/conversations", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      setConversations(data.conversations || []);
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  useEffect(() => {
-    if (user && open) loadConversations();
-  }, [user, open, loadConversations]);
 
   const runNavigate = useCallback(
     (path: string) => {
@@ -182,37 +324,11 @@ export default function SkyAiChatPanel({
     setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)));
   }, []);
 
-  const startNewChat = useCallback(() => {
-    setConversationId(null);
-    setMessages(welcomeMessages(welcomeText));
-    setShowHistory(false);
-  }, [welcomeText]);
-
-  const openConversation = useCallback(async (id: string) => {
-    const token = await getFreshIdToken();
-    if (!token) return;
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/sky-ai/conversations/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error("Failed to load");
-      const data = await res.json();
-      const loaded: ChatMessage[] = (data.messages || []).map(
-        (m: { id: string; role: string; content: string }) => ({
-          id: m.id,
-          role: m.role === "user" ? "user" : "assistant",
-          text: m.content,
-        })
-      );
-      setConversationId(id);
-      setMessages(loaded.length ? loaded : welcomeMessages(welcomeText));
-      setShowHistory(false);
-    } catch {
-      /* ignore */
+  useEffect(() => {
+    if (open && typingWelcome && messages.length === 1 && messages[0]?.id === "welcome") {
+      setWelcomeTypeRun((k) => k + 1);
     }
-    setBusy(false);
-  }, []);
+  }, [open, typingWelcome, messages.length, messages[0]?.id]);
 
   const handleImagePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -285,11 +401,15 @@ export default function SkyAiChatPanel({
       ]);
 
       let navigateTo: string | undefined;
+      let responseSource: string | undefined;
+      let responseListingFill: SkyAiListingFill | undefined;
       let newConversationId = conversationId;
 
       try {
         const token = await getFreshIdToken();
         const listingContext = readListingDraftFromSkyAi();
+        const listingDraft = readSkyAiSessionDraft();
+        const conversationState = readSkyAiSessionState();
         const res = await fetch("/api/sky-ai", {
           method: "POST",
           headers: {
@@ -301,9 +421,16 @@ export default function SkyAiChatPanel({
               trimmed ||
               "I uploaded product photo(s). Analyze them and fill my Quick Post listing with LISTING_FILL.",
             pathname,
-            history: user ? undefined : history,
+            history,
             conversationId: user ? conversationId || undefined : undefined,
             listingContext,
+            listingDraft: listingDraft || undefined,
+            conversationState: conversationState
+              ? {
+                  currentFlow: conversationState.flow,
+                  currentStep: conversationState.step,
+                }
+              : undefined,
             images: imageUrls.length ? imageUrls : undefined,
             stream: true,
           }),
@@ -316,21 +443,29 @@ export default function SkyAiChatPanel({
             reply?: string;
             navigateTo?: string;
             listingFill?: SkyAiListingFill;
+            searchResults?: SkyAiSearchResultCard[];
+            pricingInsight?: SkyAiPricingInsight;
             error?: string;
           };
           if (typeof data.reply === "string" && data.reply.trim()) {
             navigateTo = data.navigateTo;
+            responseSource = (data as { source?: string }).source;
+            responseListingFill = data.listingFill;
             const navFromFill = handleListingFill(data.listingFill, navigateTo);
             if (navFromFill) navigateTo = navFromFill;
+            const autoNav = shouldAutoNavigate(responseSource, data.listingFill, navigateTo);
+            persistSessionMeta(data as { listingDraft?: SkyAiListingDraft; conversationState?: { currentFlow?: string | null; currentStep?: string | null } });
             updateAssistant(assistantId, {
               text: data.reply,
+              searchResults: data.searchResults,
+              pricingInsight: data.pricingInsight,
               streaming: false,
-              navigating: !!navigateTo,
+              navigatePath: navigateTo && !autoNav ? navigateTo : undefined,
             });
             responseHandled = true;
           } else {
             throw new Error(
-              typeof data.error === "string" ? data.error : "Sky AI request failed"
+              typeof data.error === "string" ? data.error : AWHINA_REQUEST_FAILED
             );
           }
         }
@@ -358,10 +493,17 @@ export default function SkyAiChatPanel({
                   reply?: string;
                   navigateTo?: string;
                   listingFill?: SkyAiListingFill;
+                  listingDraft?: SkyAiListingDraft;
+                  conversationState?: { currentFlow?: string | null; currentStep?: string | null };
+                  searchResults?: SkyAiSearchResultCard[];
+                  pricingInsight?: SkyAiPricingInsight;
                   conversationId?: string;
                   source?: string;
                   error?: string;
                 };
+                if (evt.type === "started") {
+                  updateAssistant(assistantId, { text: "…" });
+                }
                 if (evt.type === "delta" && evt.text) {
                   accumulated += evt.text;
                   updateAssistant(assistantId, {
@@ -370,13 +512,19 @@ export default function SkyAiChatPanel({
                 }
                 if (evt.type === "done") {
                   navigateTo = evt.navigateTo;
+                  responseSource = evt.source;
+                  responseListingFill = evt.listingFill;
                   const navFromFill = handleListingFill(evt.listingFill, navigateTo);
                   if (navFromFill) navigateTo = navFromFill;
                   if (evt.conversationId) newConversationId = evt.conversationId;
+                  const autoNav = shouldAutoNavigate(evt.source, evt.listingFill, navigateTo);
+                  persistSessionMeta(evt);
                   updateAssistant(assistantId, {
                     text: evt.reply || stripSkyAiMachineTags(accumulated),
+                    searchResults: evt.searchResults,
+                    pricingInsight: evt.pricingInsight,
                     streaming: false,
-                    navigating: !!navigateTo,
+                    navigatePath: navigateTo && !autoNav ? navigateTo : undefined,
                   });
                 }
                 if (evt.type === "error") throw new Error(evt.error || "Stream failed");
@@ -389,32 +537,41 @@ export default function SkyAiChatPanel({
         } else if (!responseHandled) {
           const data = await res.json();
           navigateTo = data.navigateTo;
+          responseSource = data.source;
+          responseListingFill = data.listingFill;
           const navFromFill = handleListingFill(data.listingFill, navigateTo);
           if (navFromFill) navigateTo = navFromFill;
           if (data.conversationId) newConversationId = data.conversationId;
+          const autoNav = shouldAutoNavigate(data.source, data.listingFill, navigateTo);
+          persistSessionMeta(data);
           updateAssistant(assistantId, {
             text: data.reply || "",
+            searchResults: data.searchResults,
+            pricingInsight: data.pricingInsight,
             streaming: false,
-            navigating: !!navigateTo,
+            navigatePath: navigateTo && !autoNav ? navigateTo : undefined,
           });
         }
       } catch (err) {
         const rule = skyAiRuleFallbackText(trimmed, pathname);
         navigateTo = rule.navigateTo;
+        responseSource = "rules";
         let text = rule.text;
-        if (err instanceof Error && err.message && err.message !== "Sky AI request failed") {
+        if (err instanceof Error && err.message && err.message !== AWHINA_REQUEST_FAILED) {
           text += `\n\n_${err.message}_`;
         }
+        const autoNav = shouldAutoNavigate("rules", undefined, navigateTo);
         updateAssistant(assistantId, {
           text,
           streaming: false,
-          navigating: !!rule.navigateTo,
+          navigatePath: navigateTo && !autoNav ? navigateTo : undefined,
         });
       }
 
       if (newConversationId) setConversationId(newConversationId);
-      if (user) loadConversations();
-      if (navigateTo) runNavigate(navigateTo);
+      if (shouldAutoNavigate(responseSource, responseListingFill, navigateTo)) {
+        runNavigate(navigateTo!);
+      }
       setBusy(false);
     },
     [
@@ -425,7 +582,6 @@ export default function SkyAiChatPanel({
       user,
       runNavigate,
       updateAssistant,
-      loadConversations,
       pendingImages,
     ]
   );
@@ -472,71 +628,52 @@ export default function SkyAiChatPanel({
           ✦
         </span>
         <div>
-          <p className="text-sm font-bold text-white">{isSheet ? "Ask Sky Anything" : "Sky AI"}</p>
-              <p className="text-[10px] text-sky-400/80">Listings · prices · safety</p>
+          <p className="text-sm font-bold text-white">{isSheet ? AWHINA_ASK_LABEL : AWHINA_NAME}</p>
+          <p className="text-[10px] text-sky-400/80">
+            {openAiReady === false ? "Built-in guides · navigation" : "Listings · prices · safety"}
+          </p>
         </div>
       </div>
-      <div className="flex items-center gap-1">
-        {user && (
-          <button
-            type="button"
-            onClick={() => setShowHistory((v) => !v)}
-            className="rounded-lg px-2 py-1.5 text-[10px] font-bold text-sky-400 hover:bg-sky-500/10"
-            title="Chat history"
-          >
-            History
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={startNewChat}
-          className="rounded-lg px-2 py-1.5 text-[10px] font-bold text-violet-400 hover:bg-violet-500/10"
-        >
-          New
-        </button>
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:bg-white/[0.06] hover:text-white"
-          aria-label="Close Sky AI"
-        >
-          ✕
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={() => setOpen(false)}
+        className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:bg-white/[0.06] hover:text-white"
+        aria-label={`Close ${AWHINA_NAME}`}
+      >
+        ✕
+      </button>
     </div>
   );
 
   const body = (
     <>
-      {showHistory && user && (
-        <div className="max-h-36 overflow-y-auto border-b border-white/[0.06] bg-black/20 px-2 py-2 scrollbar-thin">
-          {conversations.length === 0 ? (
-            <p className="px-2 py-2 text-[10px] text-zinc-500">No saved chats yet.</p>
-          ) : (
-            conversations.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => openConversation(c.id)}
-                className={`mb-1 w-full rounded-lg px-2 py-2 text-left text-[11px] transition ${
-                  conversationId === c.id
-                    ? "bg-sky-500/15 text-sky-300"
-                    : "text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200"
-                }`}
-              >
-                <span className="line-clamp-1 font-medium">{c.title}</span>
-              </button>
-            ))
-          )}
-        </div>
-      )}
-
       {!user && (
         <p className="border-b border-amber-500/20 bg-amber-500/[0.06] px-3 py-2 text-[10px] text-amber-400/90">
           <Link href="/login" className="font-bold underline hover:text-amber-300">
             Sign in
           </Link>{" "}
           to save conversations across devices.
+        </p>
+      )}
+
+      {user && !user.emailVerified && (
+        <p className="border-b border-amber-500/20 bg-amber-500/[0.06] px-3 py-2 text-[10px] leading-relaxed text-amber-400/90">
+          You&apos;re <strong className="text-amber-300">not email verified</strong> yet — verify in{" "}
+          <Link href="/profile" className="font-bold underline hover:text-amber-300">
+            Profile
+          </Link>{" "}
+          before you can publish listings or buy. Check spam for the verification email.
+        </p>
+      )}
+
+      {user && user.emailVerified && sellerVerified === false && (
+        <p className="border-b border-zinc-700/50 bg-zinc-900/40 px-3 py-2 text-[10px] leading-relaxed text-zinc-400">
+          Your seller profile is <strong className="text-zinc-300">not verified</strong> — buyers may see a warning.
+          Complete phone or ID verification in{" "}
+          <Link href="/profile" className="font-bold text-sky-400 underline hover:text-sky-300">
+            Profile
+          </Link>{" "}
+          for more trust (optional to list).
         </p>
       )}
 
@@ -554,9 +691,9 @@ export default function SkyAiChatPanel({
               className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[92%] rounded-2xl px-3 py-2.5 text-[12px] leading-relaxed whitespace-pre-line ${
+                className={`max-w-[92%] rounded-2xl px-3 py-2 text-[12px] leading-snug ${
                   m.role === "user"
-                    ? "bg-gradient-to-br from-sky-500/25 to-sky-600/15 text-sky-50 ring-1 ring-sky-500/20"
+                    ? "bg-gradient-to-br from-sky-500/25 to-sky-600/15 text-sky-50 ring-1 ring-sky-500/20 whitespace-pre-line"
                     : "border border-violet-500/15 bg-violet-500/[0.04] text-zinc-300 shadow-[0_0_24px_rgba(139,92,246,0.06)]"
                 }`}
               >
@@ -572,14 +709,43 @@ export default function SkyAiChatPanel({
                     ))}
                   </div>
                 )}
-                {m.text && renderText(m.text)}
+                {m.text &&
+                  (m.role === "user" ? (
+                    renderText(m.text)
+                  ) : m.id === "welcome" && typingWelcome ? (
+                    <SkyAiTypingText
+                      key={welcomeTypeRun}
+                      text={m.text}
+                      run={open}
+                    >
+                      {(displayed, isDone) => (
+                        <>
+                          {isDone ? renderChatMessage(m.text) : (
+                            <span className="whitespace-pre-wrap">{displayed}</span>
+                          )}
+                          {!isDone && <SkyAiTypingCursor />}
+                        </>
+                      )}
+                    </SkyAiTypingText>
+                  ) : (
+                    renderChatMessage(m.text)
+                  ))}
+                {m.pricingInsight && m.pricingInsight.compsUsed > 0 && (
+                  <SkyAiPricingCard insight={m.pricingInsight} />
+                )}
+                {m.searchResults && m.searchResults.length > 0 && (
+                  <SkyAiSearchResultCards results={m.searchResults} />
+                )}
                 {m.streaming && m.text && (
                   <span className="ml-0.5 inline-block h-3 w-1 animate-pulse bg-violet-400/80" />
                 )}
-                {m.navigating && (
-                  <p className="mt-1.5 text-[10px] font-medium text-emerald-400/90 animate-pulse">
-                    Navigating…
-                  </p>
+                {m.navigatePath && (
+                  <Link
+                    href={m.navigatePath}
+                    className="mt-2 inline-flex items-center gap-1 rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-[10px] font-semibold text-sky-300 hover:bg-sky-500/20"
+                  >
+                    {navLinkLabel(m.navigatePath)} →
+                  </Link>
                 )}
               </div>
             </div>
@@ -588,7 +754,7 @@ export default function SkyAiChatPanel({
         {showThinking && (
           <div className="flex justify-start">
             <div className="rounded-2xl border border-violet-500/20 bg-violet-500/[0.05] px-3 py-2 text-[11px] text-violet-300/70">
-              Sky AI is thinking…
+              {AWHINA_THINKING}
             </div>
           </div>
         )}
@@ -705,7 +871,7 @@ export default function SkyAiChatPanel({
         <button
           type="button"
           className="fixed inset-0 z-[10000] bg-black/50 md:bg-black/25 animate-fade-in-backdrop"
-          aria-label="Close Sky AI overlay"
+          aria-label={`Close ${AWHINA_NAME} overlay`}
           onClick={() => setOpen(false)}
         />
       )}
@@ -713,16 +879,16 @@ export default function SkyAiChatPanel({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`fixed bottom-6 z-[10002] flex items-center gap-2 rounded-full border border-sky-400/40 bg-gradient-to-r from-[#0c0e14] to-[#12151f] px-4 py-3.5 text-sm font-bold text-white shadow-[0_0_30px_rgba(14,165,233,0.35)] ring-1 ring-sky-500/30 backdrop-blur-md transition-all hover:shadow-[0_0_40px_rgba(139,92,246,0.35)] active:scale-[0.98] max-md:bottom-24 ${
-          open ? "right-[400px] max-md:hidden" : "right-4"
+        className={`fixed bottom-6 z-[10002] flex items-center gap-2 rounded-full border border-sky-400/40 bg-gradient-to-r from-[#0c0e14] to-[#12151f] px-4 py-3.5 text-sm font-bold text-white shadow-[0_0_30px_rgba(14,165,233,0.35)] ring-1 ring-sky-500/30 backdrop-blur-md transition-all hover:shadow-[0_0_40px_rgba(139,92,246,0.35)] active:scale-[0.98] max-md:bottom-20 ${
+          open ? "right-[400px] max-md:right-4" : "right-4"
         }`}
         aria-expanded={open}
-        aria-label={open ? "Close Ask Sky Anything" : "Open Ask Sky Anything assistant"}
+        aria-label={open ? `Close ${AWHINA_ASK_LABEL}` : `Open ${AWHINA_ASK_LABEL}`}
       >
         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-violet-500 text-xs shadow-lg">
           ✦
         </span>
-        <span className="max-sm:hidden">{open ? "Close" : "Ask Sky Anything"}</span>
+        <span className="max-sm:hidden">{open ? "Close" : AWHINA_ASK_LABEL}</span>
       </button>
     </>
   );

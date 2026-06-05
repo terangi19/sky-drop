@@ -1,6 +1,9 @@
 @import "tailwindcss";
 
 :root {
+  --cream: #fff8e7;
+  --review-star: #fbbf24;
+  --review-star-hover: #ffd700;
   --background: #111118;
   --foreground: #f0f0f5;
   --card: rgba(25, 25, 33, 0.7);

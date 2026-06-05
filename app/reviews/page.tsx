@@ -10,6 +10,7 @@ import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import ThemeToggle from "../components/ThemeToggle";
 import { showToast } from "../components/Toast";
+import { ReviewStars } from "../components/SellerReviewStars";
 
 import {
   addDoc,
@@ -262,10 +263,8 @@ export default function ReviewsPage() {
                         </p>
                       </div>
 
-                      <div className="rounded-2xl bg-yellow-500/10 px-5 py-3 text-xl font-black text-yellow-400">
-                        {"⭐".repeat(
-                          review.rating
-                        )}
+                      <div className="rounded-2xl bg-amber-500/10 px-5 py-3">
+                        <ReviewStars rating={review.rating} size="lg" className="text-xl" />
                       </div>
                     </div>
 

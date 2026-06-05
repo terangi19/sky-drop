@@ -43,29 +43,17 @@ export async function notifyAdmin(input: AdminAlertInput): Promise<void> {
 
     // Send email
     try {
-      const nodemailer = await import("nodemailer");
-      const transport = {
-        host: process.env.SMTP_HOST || "",
-        port: Number(process.env.SMTP_PORT) || 587,
-        auth: {
-          user: process.env.SMTP_USER || "",
-          pass: process.env.SMTP_PASS || "",
-        },
-      };
-      if (transport.host && transport.auth.user) {
-        const transporter = nodemailer.default.createTransport(transport);
-        await transporter.sendMail({
-          from: process.env.SMTP_FROM || "noreply@skydrop.nz",
-          to: getAdminAlertEmail(),
-          subject: `[Sky Drop] ${input.title}`,
-          html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
-            <h2 style="color:#ef4444;">${input.title}</h2>
-            <p style="color:#374151;">${input.message}</p>
-            ${input.metadata ? `<pre style="background:#f3f4f6;padding:12px;border-radius:8px;font-size:12px;overflow-x:auto;">${JSON.stringify(input.metadata, null, 2)}</pre>` : ""}
-            <p style="color:#9ca3af;font-size:12px;margin-top:24px;">Sky Drop Monitoring · ${timestamp.toISOString()}</p>
-          </div>`,
-        });
-      }
+      const { sendEmail } = await import("./email-transport");
+      await sendEmail({
+        to: getAdminAlertEmail(),
+        subject: `[Sky Drop] ${input.title}`,
+        html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
+          <h2 style="color:#ef4444;">${input.title}</h2>
+          <p style="color:#374151;">${input.message}</p>
+          ${input.metadata ? `<pre style="background:#f3f4f6;padding:12px;border-radius:8px;font-size:12px;overflow-x:auto;">${JSON.stringify(input.metadata, null, 2)}</pre>` : ""}
+          <p style="color:#9ca3af;font-size:12px;margin-top:24px;">Sky Drop Monitoring · ${timestamp.toISOString()}</p>
+        </div>`,
+      });
     } catch (emailErr) {
       console.error("[admin-alerts] Email send failed:", emailErr);
     }

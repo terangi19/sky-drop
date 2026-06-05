@@ -26,15 +26,22 @@ interface EmailData {
   whatHappensNext?: string[];
   ctas?: { label: string; url: string; primary?: boolean }[];
   showTrustSection?: boolean;
+  layout?: "default" | "welcome";
 }
 
-const BADGE_STYLES: Record<string, { bg: string; text: string; border: string; glow: string }> = {
-  sky:      { bg: "#0a1e30", text: "#38bdf8", border: "#1a3a5a", glow: "rgba(56,189,248,0.15)" },
-  green:    { bg: "#0a1f12", text: "#10b981", border: "#1a3a22", glow: "rgba(16,185,129,0.15)" },
-  emerald:  { bg: "#0a1f12", text: "#34d399", border: "#1a3a22", glow: "rgba(52,211,153,0.15)" },
-  amber:    { bg: "#1e1500", text: "#f59e0b", border: "#3a2a00", glow: "rgba(245,158,11,0.15)" },
-  red:      { bg: "#1e0808", text: "#ef4444", border: "#3a1818", glow: "rgba(239,68,68,0.15)" },
-  purple:   { bg: "#140a1e", text: "#a78bfa", border: "#2a1a3a", glow: "rgba(167,139,250,0.15)" },
+const WELCOME_FEATURE_CARDS = [
+  { icon: "📦", title: "Sell Something", desc: "Create your first listing in minutes." },
+  { icon: "🔍", title: "Discover Deals", desc: "Browse listings from sellers across New Zealand." },
+  { icon: "✨", title: "Sky AI", desc: "Get help with pricing, titles, descriptions, and listing creation." },
+] as const;
+
+const BADGE_COLORS: Record<string, { bg: string; text: string; border: string; glow: string }> = {
+  sky:      { bg: "linear-gradient(135deg, #0a1e30, #0d2a40)", text: "#60a5fa", border: "rgba(96,165,250,0.25)", glow: "rgba(96,165,250,0.12)" },
+  green:    { bg: "linear-gradient(135deg, #0a1f12, #0d2a18)", text: "#10b981", border: "rgba(16,185,129,0.25)", glow: "rgba(16,185,129,0.12)" },
+  emerald:  { bg: "linear-gradient(135deg, #0a1f12, #0d2a18)", text: "#34d399", border: "rgba(52,211,153,0.25)", glow: "rgba(52,211,153,0.12)" },
+  amber:    { bg: "linear-gradient(135deg, #1e1500, #2a1d00)", text: "#f59e0b", border: "rgba(245,158,11,0.25)", glow: "rgba(245,158,11,0.12)" },
+  red:      { bg: "linear-gradient(135deg, #1e0808, #2a0a0a)", text: "#ef4444", border: "rgba(239,68,68,0.25)", glow: "rgba(239,68,68,0.12)" },
+  purple:   { bg: "linear-gradient(135deg, #140a1e, #1a0d2a)", text: "#a78bfa", border: "rgba(167,139,250,0.25)", glow: "rgba(167,139,250,0.12)" },
 };
 
 const BADGE_ICONS: Record<string, string> = {
@@ -48,14 +55,13 @@ const BADGE_ICONS: Record<string, string> = {
 
 function badgeBlock(badge?: StatusBadge): string {
   if (!badge) return "";
-  const s = BADGE_STYLES[badge.color] || BADGE_STYLES.sky;
-  const icon = BADGE_ICONS[badge.color] || "";
+  const s = BADGE_COLORS[badge.color] || BADGE_COLORS.sky;
   return `
-    <tr><td style="padding:0 0 20px;">
+    <tr><td style="padding:0 0 14px;">
       <table cellpadding="0" cellspacing="0" style="margin:0;">
         <tr>
-          <td style="background:${s.bg};border:1px solid ${s.border};border-radius:20px;padding:8px 18px;box-shadow:0 0 20px ${s.glow};">
-            <span style="font-size:13px;font-weight:700;color:${s.text};letter-spacing:0.3px;">${icon ? icon + " " : ""}${badge.text}</span>
+          <td style="background:${s.bg};border:1px solid ${s.border};border-radius:100px;padding:8px 20px;box-shadow:0 0 30px ${s.glow},inset 0 1px 0 rgba(255,255,255,0.04);">
+            <span style="font-size:12px;font-weight:800;color:${s.text};letter-spacing:1px;text-transform:uppercase;">${badge.text}</span>
           </td>
         </tr>
       </table>
@@ -203,16 +209,16 @@ function reviewBlock(): string {
   `;
 }
 
-function ctaBlock(ctas?: { label: string; url: string; primary?: boolean }[]): string {
+function ctaBlock(ctas?: { label: string; url: string; primary?: boolean }[], large = false): string {
   if (!ctas || ctas.length === 0) return "";
   const buttons = ctas.map((cta) => {
     if (cta.primary) {
       return `
-        <td style="padding:4px;">
-          <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
+        <td style="padding:4px;${large ? "display:block;width:100%;" : ""}">
+          <table cellpadding="0" cellspacing="0" style="margin:0 auto;${large ? "width:100%;" : ""}">
             <tr>
               <td style="border-radius:10px;background:#38bdf8;">
-                <a href="${cta.url}" style="display:inline-block;background:#38bdf8;color:#0a0a0a;font-weight:800;font-size:14px;padding:14px 32px;border-radius:10px;text-decoration:none;letter-spacing:0.2px;">${cta.label}</a>
+                <a href="${cta.url}" style="display:inline-block;background:#38bdf8;color:#0a0a0a;font-weight:800;font-size:${large ? "15" : "14"}px;padding:${large ? "16px 36px" : "14px 32px"};border-radius:10px;text-decoration:none;letter-spacing:0.2px;">${cta.label}</a>
               </td>
             </tr>
           </table>
@@ -233,8 +239,8 @@ function ctaBlock(ctas?: { label: string; url: string; primary?: boolean }[]): s
     <tr><td style="padding:0 0 20px;">
       <table width="100%" cellpadding="0" cellspacing="0">
         <tr><td align="center" style="padding:0;">
-          <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
-            <tr>${buttons}</tr>
+          <table cellpadding="0" cellspacing="0" style="margin:0 auto;${large ? "width:100%;" : ""}">
+            <tr${large ? ' class="cta-stack"' : ""}>${buttons}</tr>
           </table>
         </td></tr>
       </table>
@@ -261,9 +267,55 @@ function trustSection(): string {
   `;
 }
 
-export function buildEmailHtml(data: EmailData): string {
-  const baseUrl = process.env.NEXT_PUBLIC_URL || "https://skydrop.co.nz";
+function heroBlock(title: string, subtitle: string): string {
+  return `
+    <tr><td style="padding:0 0 14px;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(180deg,#0c1929 0%,#0d1117 55%,#0a0a0a 100%);border-radius:14px;border:1px solid #1a3a5a;box-shadow:0 0 36px rgba(56,189,248,0.14),inset 0 1px 0 rgba(56,189,248,0.08);">
+        <tr>
+          <td align="center" style="padding:22px 20px 18px;">
+            <span style="font-size:24px;font-weight:900;color:#ffffff;line-height:1.25;letter-spacing:-0.3px;">${title}</span>
+            <br>
+            <span style="display:inline-block;margin-top:6px;font-size:12px;color:#94a3b8;line-height:1.4;letter-spacing:0.3px;">${subtitle}</span>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  `;
+}
 
+function featureCardsBlock(): string {
+  const cards = WELCOME_FEATURE_CARDS.map((c) => `
+    <tr>
+      <td style="padding:0 0 8px;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:#141414;border-radius:10px;border:1px solid #242424;">
+          <tr>
+            <td width="36" align="center" style="padding:10px 0 10px 12px;font-size:18px;vertical-align:middle;">${c.icon}</td>
+            <td style="padding:10px 12px 10px 8px;vertical-align:middle;">
+              <div style="font-size:13px;font-weight:800;color:#ececec;line-height:1.3;">${c.title}</div>
+              <div style="font-size:11px;color:#777;line-height:1.4;margin-top:1px;">${c.desc}</div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  `).join("");
+  return `
+    <tr><td style="padding:0 0 10px;">
+      <table width="100%" cellpadding="0" cellspacing="0">${cards}</table>
+    </td></tr>
+  `;
+}
+
+function compactMessageBlock(message: string): string {
+  if (!message) return "";
+  return `
+    <tr><td style="padding:0 0 10px;">
+      <span style="font-size:13px;color:#b0b0b0;line-height:1.5;">${message.replace(/\*\*(.+?)\*\*/g, "<strong style=\"color:#e8e8e8;\">$1</strong>")}</span>
+    </td></tr>
+  `;
+}
+
+function emailShell(baseUrl: string, body: string, compact = false): string {
   return `
 <!DOCTYPE html>
 <html>
@@ -273,78 +325,131 @@ export function buildEmailHtml(data: EmailData): string {
     .prod-img { width:60px !important; height:60px !important; }
     .cta-stack { display:block !important; }
     .cta-stack td { display:block !important; padding:4px 0 !important; }
+    .email-container { padding:12px !important; }
+    .email-inner { width:100% !important; }
   }
 </style>
 </head>
-<body style="margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a;">
+<body style="margin:0;padding:0;background:#080808;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(180deg,#080808,#0a0a0a,#080808);">
     <tr>
-      <td align="center" style="padding:24px 16px;">
-        <table width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;">
-
-          <!-- Logo -->
+      <td align="center" style="padding:${compact ? "20" : "28"}px 14px;">
+        <table width="520" cellpadding="0" cellspacing="0" class="email-inner" style="max-width:520px;width:100%;position:relative;">
           <tr>
-            <td align="center" style="padding:0 0 8px;">
+            <td align="center" style="padding:0 0 ${compact ? "10" : "14"}px;">
               <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
                 <tr>
-                  <td style="text-align:center;">
-                    <span style="font-size:20px;font-weight:900;color:#e0e0e0;letter-spacing:1.5px;">SKY</span>
-                    <span style="font-size:20px;font-weight:900;color:#38bdf8;letter-spacing:1.5px;">DROP</span>
-                  </td>
-                </tr>
-                <tr><td style="padding:2px 0 0;font-size:9px;color:#444;letter-spacing:2.5px;text-align:center;text-transform:uppercase;">New Zealand's Marketplace</td></tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Divider -->
-          <tr><td style="padding:0 0 16px;"><table width="100%" cellpadding="0" cellspacing="0"><tr><td style="border-bottom:1px solid #1a1a1a;"></td></tr></table></td></tr>
-
-          ${titleBlock(data.title)}
-
-          ${data.statusBadge ? badgeBlock(data.statusBadge) : badgeBlock({ text: "Processing", color: "sky" })}
-
-          ${productCard(data.listingImage, data.listingTitle, data.sellerName || data.buyerName)}
-
-          ${messageBlock(data.message)}
-
-          ${data.orderId || data.date || data.summaryRows ? summaryBlock(data.summaryRows, data.orderId, data.date) : ""}
-
-          ${data.whatHappensNext ? whatHappensNextBlock(data.whatHappensNext) : ""}
-
-          ${data.ctas && data.ctas.length > 0 ? ctaBlock(data.ctas) : ""}
-
-          ${data.showTrustSection !== false ? trustSection() : ""}
-
-          <!-- Footer -->
-          <tr>
-            <td align="center" style="padding:24px 0 0;">
-              <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
-                <tr>
-                  <td style="font-size:11px;color:#555;">
-                    <a href="${baseUrl}" style="color:#555;text-decoration:none;font-weight:600;">Sky Drop</a>
-                    &nbsp;·&nbsp;
-                    <span style="color:#444;">${new Date().getFullYear()}</span>
-                    &nbsp;·&nbsp;
-                    <span style="color:#444;">New Zealand</span>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:8px 0 0;font-size:10px;color:#3a3a3a;text-align:center;line-height:1.5;">
-                    You're receiving this because you have a Sky Drop account.<br>
-                    <a href="${baseUrl}/settings" style="color:#3a3a3a;text-decoration:underline;">Notification settings</a>
+                  <td style="text-align:center;padding:${compact ? "8" : "10"}px 20px;border-radius:12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);">
+                    <span style="font-size:${compact ? "18" : "20"}px;font-weight:900;color:#e0e0e0;letter-spacing:2px;">SKY</span>
+                    <span style="font-size:${compact ? "18" : "20"}px;font-weight:900;color:#38bdf8;letter-spacing:2px;text-shadow:0 0 20px rgba(56,189,248,0.2);">DROP</span>
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
-
+          ${body}
         </table>
       </td>
     </tr>
   </table>
 </body>
 </html>`;
+}
+
+function buildWelcomeEmailBody(data: EmailData, baseUrl: string): string {
+  const secondaryCta = {
+    label: "Create Your First Listing with Sky AI",
+    url: `${baseUrl}/post/ai`,
+    primary: false,
+  };
+  return `
+    ${heroBlock(data.title, "New Zealand's Marketplace")}
+    ${compactMessageBlock(data.message)}
+    ${featureCardsBlock()}
+    ${data.ctas && data.ctas.length > 0 ? ctaBlock([{ ...data.ctas[0], primary: true }], true) : ""}
+    ${ctaBlock([secondaryCta], true)}
+    ${footerBlock(baseUrl, true)}
+  `;
+}
+
+function buildDefaultEmailBody(data: EmailData, baseUrl: string): string {
+  return `
+    <tr><td style="padding:0 0 14px;"><table width="60" cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr><td style="height:2px;background:linear-gradient(90deg,transparent,rgba(56,189,248,0.15),transparent);border-radius:1px;"></td></tr></table></td></tr>
+    ${titleBlock(data.title)}
+    ${data.statusBadge ? badgeBlock(data.statusBadge) : ""}
+    ${productCard(data.listingImage, data.listingTitle, data.sellerName || data.buyerName)}
+    ${messageBlock(data.message)}
+    ${data.orderId || data.date || data.summaryRows ? summaryBlock(data.summaryRows, data.orderId, data.date) : ""}
+    ${data.whatHappensNext ? whatHappensNextBlock(data.whatHappensNext) : ""}
+    ${data.ctas && data.ctas.length > 0 ? ctaBlock(data.ctas) : ""}
+    ${data.showTrustSection !== false ? trustSection() : ""}
+    ${footerBlock(baseUrl)}
+  `;
+}
+
+function footerBlock(baseUrl: string, compact = false): string {
+  if (compact) {
+    return `
+    <tr>
+      <td align="center" style="padding:16px 0 0;">
+        <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
+          <tr>
+            <td style="font-size:11px;color:#555;text-align:center;line-height:1.6;">
+              Need help? Ask Sky AI anytime.
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>`;
+  }
+  return `
+    <tr>
+      <td align="center" style="padding:24px 0 0;">
+        <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
+          <tr>
+            <td style="font-size:11px;color:#555;">
+              <a href="${baseUrl}" style="color:#555;text-decoration:none;font-weight:600;">Sky Drop</a>
+              &nbsp;·&nbsp;
+              <span style="color:#444;">${new Date().getFullYear()}</span>
+              &nbsp;·&nbsp;
+              <span style="color:#444;">New Zealand</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:8px 0 0;font-size:10px;color:#3a3a3a;text-align:center;line-height:1.5;">
+              You're receiving this because you have a Sky Drop account.<br>
+              <a href="${baseUrl}/settings" style="color:#3a3a3a;text-decoration:underline;">Notification settings</a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>`;
+}
+
+export function buildEmailHtml(data: EmailData): string {
+  const baseUrl = process.env.NEXT_PUBLIC_URL || "https://skydrop.co.nz";
+  const isWelcome = data.layout === "welcome";
+
+  if (isWelcome) {
+    return emailShell(baseUrl, buildWelcomeEmailBody(data, baseUrl), true);
+  }
+
+  return emailShell(baseUrl, buildDefaultEmailBody(data, baseUrl));
+}
+
+export function getWelcomeEmailContent(baseUrl: string) {
+  return {
+    subject: "Welcome to Sky Drop 🚀",
+    title: "Welcome to Sky Drop 🚀",
+    message: `Kia ora,
+
+Thanks for joining Sky Drop.
+
+Whether you're buying, selling, trading, or offering services, you're now part of a growing marketplace built for New Zealand.`,
+    layout: "welcome" as const,
+    ctas: [{ label: "Browse Sky Drop", url: baseUrl, primary: true }],
+    showTrustSection: false,
+  };
 }
 
 interface EmailContent {

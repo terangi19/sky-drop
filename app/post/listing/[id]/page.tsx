@@ -28,6 +28,7 @@ import {
   countBuyerPurchasedQuantity,
   getBuyerPurchaseUiState,
 } from "../../../lib/buyer-purchase-ui";
+import { ReviewStars } from "../../../components/SellerReviewStars";
 
 function getBidIncrement(price: number): number {
   if (price < 50) return 1;
@@ -800,9 +801,6 @@ export default function ListingPage() {
 
   const sellerName = listing.sellerUsername || listing.sellerEmail?.split("@")[0] || "Unknown";
   const sellerInitial = sellerName.charAt(0).toUpperCase();
-  const sellerStars = Math.floor((sellerStatsData?.avg || 0));
-  const sellerHasHalf = ((sellerStatsData?.avg || 0) % 1) >= 0.5;
-
   async function sendMessageToSeller() {
     if (!user?.email || !listing.sellerEmail || !messageText.trim()) return;
     setSendingMessage(true);
@@ -1860,9 +1858,10 @@ Service Status: 🟢 Inquiry Active`;
                         <span className="shrink-0 text-[10px] text-amber-400 font-bold animate-pulse">👑 The Five</span>
                       )}
                     </div>
-                    <div className="mt-0.5 flex items-center gap-2 text-[11px] text-[var(--muted)]">
-                      <span>{'★'.repeat(sellerStars)}{sellerHasHalf ? '½' : ''} {(sellerStatsData?.avg || 0).toFixed(1)}</span>
-                      <span>{sellerStatsData?.count || 0} sale{(sellerStatsData?.count || 0) !== 1 ? "s" : ""}</span>
+                    <div className="mt-0.5 flex items-center gap-2 text-[11px]">
+                      <ReviewStars rating={sellerStatsData?.avg || 0} />
+                      <span className="text-white">{(sellerStatsData?.avg || 0).toFixed(1)}</span>
+                      <span className="text-zinc-500">{sellerStatsData?.count || 0} sale{(sellerStatsData?.count || 0) !== 1 ? "s" : ""}</span>
                       {sellerProfile?.memberSince && (
                         <span>· {(sellerProfile.memberSince as any).seconds ? new Date((sellerProfile.memberSince as any).seconds * 1000).getFullYear() : ""}</span>
                       )}

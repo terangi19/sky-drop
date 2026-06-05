@@ -206,7 +206,7 @@ export default function WatchlistPage() {
         <div className="relative mb-8">
           <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/5 via-sky-400/5 to-transparent blur-3xl pointer-events-none" />
           <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
-            <span className="text-white drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">Watchlist</span>
+            <span className="bg-gradient-to-r from-white via-sky-200 to-white bg-clip-text text-transparent">Watchlist</span>
           </h1>
           <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl">Save listings you're interested in and revisit them anytime. Your Watchlist is designed to help you keep track of potential purchases, compare options, and never lose sight of items that matter to you.</p>
           <p className="relative mt-2 text-sm text-zinc-500">{watchlist.length} saved item{watchlist.length !== 1 ? "s" : ""}</p>
@@ -220,7 +220,7 @@ export default function WatchlistPage() {
             </div>
             <h2 className="text-2xl font-black tracking-tight text-white">Nothing saved yet</h2>
             <p className="mt-2 text-sm text-zinc-500">Tap the ♡ icon on any listing to save it here.</p>
-            <Link href="/" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-rose-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-rose-500/30 active:scale-[0.97]">
+            <Link href="/" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 active:scale-[0.97]">
               Browse Listings
             </Link>
           </div>
@@ -232,10 +232,10 @@ export default function WatchlistPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
                 </svg>
                 <input type="text" placeholder="Search watchlist..." value={search} onChange={(e) => setSearch(e.target.value)}
-                  className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] pl-10 pr-4 py-2.5 text-sm text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-rose-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-rose-500/10" />
+                  className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] pl-10 pr-4 py-2.5 text-sm text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
               </div>
               <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
-                className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-2.5 pr-8 text-sm text-[var(--foreground)] outline-none transition-all duration-200 focus:border-rose-500/40 focus:ring-2 focus:ring-rose-500/10 appearance-none cursor-pointer">
+                className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-2.5 pr-8 text-sm text-[var(--foreground)] outline-none transition-all duration-200 focus:border-sky-500/40 focus:ring-2 focus:ring-sky-500/10 appearance-none cursor-pointer">
                 <option value="newest">Newest</option>
                 <option value="oldest">Oldest</option>
                 <option value="price-low">Price: Low → High</option>
@@ -259,7 +259,7 @@ export default function WatchlistPage() {
                     className={`group relative block overflow-hidden rounded-2xl transition-all duration-300 ${
                       isHot
                         ? "border border-orange-500/20 bg-gradient-to-b from-orange-500/[0.04] to-transparent shadow-[0_0_25px_rgba(251,146,60,0.1)] hover:-translate-y-1 hover:border-orange-500/40 hover:shadow-[0_0_35px_rgba(251,146,60,0.2)]"
-                        : "border border-white/[0.04] bg-white/[0.02] hover:bg-white/[0.04] hover:-translate-y-1 hover:border-rose-500/30 hover:shadow-[0_10px_40px_-10px_rgba(244,63,94,0.12)]"
+                        : "border border-white/[0.04] bg-white/[0.02] hover:bg-white/[0.04] hover:-translate-y-1 hover:border-sky-500/30 hover:shadow-[0_10px_40px_-10px_rgba(244,63,94,0.12)]"
                     }`}>
                     <button onClick={(e) => removeItem(item.id, e)}
                       className="absolute top-3 right-3 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/50 backdrop-blur-sm text-white/80 transition hover:bg-red-500/80 hover:text-white md:opacity-0 md:group-hover:opacity-100"
@@ -269,7 +269,7 @@ export default function WatchlistPage() {
                       </svg>
                     </button>
 
-                    <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-rose-500/5 via-pink-500/5 to-purple-600/5">
+                    <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-sky-500/5 via-sky-500/5 to-cyan-600/5">
                       {imgSrc ? (
                         <img src={imgSrc} alt={item.title} loading="lazy"
                           onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
@@ -294,11 +294,11 @@ export default function WatchlistPage() {
                     </div>
 
                     <div className="p-4">
-                      <span className="inline-block rounded-md bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold text-rose-400 border border-rose-500/10">
+                      <span className="inline-block rounded-md bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-400 border border-sky-500/10">
                         {item.category || "General"}
                       </span>
-                      <h3 className="mt-2 line-clamp-1 text-sm font-bold text-[var(--foreground)] group-hover:text-rose-400 transition-colors duration-150">{item.title}</h3>
-                      <p className="mt-1.5 text-lg font-black text-rose-400">${item.price}</p>
+                      <h3 className="mt-2 line-clamp-1 text-sm font-bold text-[var(--foreground)] group-hover:text-sky-400 transition-colors duration-150">{item.title}</h3>
+                      <p className="mt-1.5 text-lg font-black text-sky-400">${item.price}</p>
                     </div>
                   </Link>
                 );

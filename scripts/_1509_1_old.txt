@@ -1,0 +1,15 @@
+export default function VehiclesPage() {
+  const [listings, setListings] = useState<any[]>([]);
+  const [selectedRegion, setSelectedRegion] = useState("All");
+  const [selectedCity, setSelectedCity] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    const q = query(collection(db, "listings"), where("type", "==", "vehicle"));
+    const unsub = onSnapshot(q, (snap) => {
+      const items: any[] = snap.docs.map((d) => ({ id: d.id, ...d.data() } as any)).filter((i: any) => i.status === "live");
+      items.sort((a: any, b: any) => ((b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0)));
+      setListings(items);
+    }, (err) => { console.error("Failed to load vehicles:", err); });
+    return () => unsub();
+  }, []);

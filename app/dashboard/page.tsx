@@ -12,6 +12,7 @@ import { trackChallenge } from "../lib/challenges";
 import { isAdminEmail } from "../lib/admin-check";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
 import { sumStripeCheckoutEarnings } from "../lib/seller-payments";
+import { REVIEW_STAR_CLASS } from "../components/SellerReviewStars";
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -193,7 +194,10 @@ export default function DashboardPage() {
         <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
           <div className="rounded-2xl border border-white/[0.04] bg-white/[0.02] p-4">
             <p className="text-xs text-zinc-500">⭐ Rating</p>
-            <p className="mt-1.5 text-2xl font-black text-[var(--foreground)]">★ {stats.reviewCount > 0 ? stats.avgRating : "—"}</p>
+            <p className="mt-1.5 text-2xl font-black">
+              <span className={REVIEW_STAR_CLASS}>★</span>{" "}
+              <span className="text-white">{stats.reviewCount > 0 ? stats.avgRating : "—"}</span>
+            </p>
             <p className="text-[10px] text-zinc-600 mt-0.5">{stats.reviewCount > 0 ? `${stats.reviewCount} review${stats.reviewCount > 1 ? "s" : ""}` : "No reviews yet"}</p>
           </div>
           <div className="rounded-2xl border border-white/[0.04] bg-white/[0.02] p-4">
