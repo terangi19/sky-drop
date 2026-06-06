@@ -36,7 +36,9 @@ export async function rateLimit(key: string, maxRequests: number, windowMs: numb
       store.set(key, { count, resetAt });
       return { allowed: true, remaining: maxRequests - count };
     }
-  } catch {}
+  } catch (fsErr) {
+    console.warn("[rate-limit] Firestore check failed, falling back to in-memory:", fsErr instanceof Error ? fsErr.message : fsErr);
+  }
 
   // Fall back to in-memory only
   if (!memEntry || now > memEntry.resetAt) {

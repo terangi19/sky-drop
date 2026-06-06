@@ -398,7 +398,9 @@ export default function Home() {
         try {
           const storageRef = ref(storage, url);
           await deleteObject(storageRef);
-        } catch {}
+        } catch (imgErr) {
+          console.warn(`Failed to delete image from storage: ${url}`, imgErr);
+        }
       }));
 
       await deleteDoc(

@@ -63,7 +63,9 @@ function SuccessInner() {
             const { ref, getDownloadURL } = await import("firebase/storage");
             const { storage } = await import("../../lib/firebase");
             resolvedDigitalURL = await getDownloadURL(ref(storage, digitalStoragePath));
-          } catch {}
+          } catch (dlErr) {
+            console.error("Failed to resolve digital asset download URL:", dlErr);
+          }
         }
 
         const token = await auth.currentUser?.getIdToken();

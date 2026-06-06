@@ -493,7 +493,9 @@ function createRestDb(idToken: string) {
           headers: { Authorization: `Bearer ${idToken}`, "Content-Type": "application/json" },
           body: JSON.stringify({ transaction: txId }),
         });
-      } catch {}
+      } catch (rollbackErr) {
+        console.error("[firebase-admin] Transaction rollback failed:", rollbackErr instanceof Error ? rollbackErr.message : rollbackErr);
+      }
       throw err;
     }
 

@@ -189,7 +189,10 @@ export async function POST(req: NextRequest) {
         listingId = pi?.metadata?.listingId || "";
         buyerEmail = pi?.metadata?.buyerEmail || "";
         sellerEmail = pi?.metadata?.sellerEmail || "";
-      } catch {}
+      } catch (chargeErr) {
+        console.error(`[stripe-webhook] Failed to retrieve charge ${chargeId} for dispute:`, chargeErr instanceof Error ? chargeErr.message : chargeErr);
+        Sentry.captureException(chargeErr, { tags: { type: "stripe-webhook-dispute-charge-retrieval" }, extra: { chargeId, disputeId: dispute.id } });
+      }
 
       await db.collection("disputes").doc(dispute.id).set({
         stripeDisputeId: dispute.id,

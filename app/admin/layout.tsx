@@ -9,11 +9,16 @@ import ThemeToggle from "../components/ThemeToggle";
 
 async function setAdminSession(token: string) {
   try {
-    await fetch("/api/auth/session", {
+    const res = await fetch("/api/auth/session", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     });
-  } catch {}
+    if (!res.ok) {
+      console.error("[admin] Failed to establish session:", res.status, await res.text().catch(() => ""));
+    }
+  } catch (sessionErr) {
+    console.error("[admin] Session request failed:", sessionErr);
+  }
 }
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

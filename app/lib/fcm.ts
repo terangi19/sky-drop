@@ -40,7 +40,9 @@ export async function removeFCMToken(): Promise<void> {
   try {
     const messaging = getMessaging();
     await deleteDoc(doc(db, "fcmTokens", user.uid));
-  } catch {}
+  } catch (err) {
+    console.error("Failed to remove FCM token:", err);
+  }
 }
 
 export function onForegroundMessage(callback: (payload: any) => void): () => void {

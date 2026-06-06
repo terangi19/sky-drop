@@ -74,7 +74,9 @@ export default function WatchlistPage() {
             const data = snap.data();
             map[item.id] = { views: data.views || 0, bidCount: data.bidCount || 0 };
           }
-        } catch {}
+        } catch (statsErr) {
+          console.error(`Failed to fetch stats for listing ${item.id}:`, statsErr);
+        }
       }
       if (!cancelled) setListingStats(map);
     })();
@@ -113,7 +115,9 @@ export default function WatchlistPage() {
   const clearAll = async () => {
     for (const item of watchlist) {
       if (user?.uid) {
-        try { await deleteDoc(doc(db, "users", user.uid, "watchlist", item.id)); } catch {}
+        try { await deleteDoc(doc(db, "users", user.uid, "watchlist", item.id)); } catch (delErr) {
+          console.error(`Failed to delete watchlist item ${item.id}:`, delErr);
+        }
       }
     }
     setWatchlist([]);

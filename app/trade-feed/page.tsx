@@ -193,7 +193,9 @@ export default function TradeFeedPage() {
           const ratings: number[] = [];
           snap.docs.forEach((d) => { const r = d.data().rating; if (r) ratings.push(Number(r)); });
           if (ratings.length > 0) stats[email] = { avg: ratings.reduce((a, b) => a + b, 0) / ratings.length, count: ratings.length };
-        } catch {}
+        } catch (reviewErr) {
+          console.error(`Failed to fetch reviews for ${email}:`, reviewErr);
+        }
       }
       setSellerReviewStats(stats);
     };
@@ -362,7 +364,9 @@ export default function TradeFeedPage() {
         showToast("Your account is restricted. You cannot create posts.", "error");
         return;
       }
-    } catch {}
+    } catch (restrictErr) {
+      console.error("Failed to check account restriction:", restrictErr);
+    }
     lastPostTime.current = Date.now();
     setPosting(true);
     try {
@@ -488,7 +492,10 @@ export default function TradeFeedPage() {
         await setDoc(ref_, { id: post.id, title: post.title, price: String(post.price || ""), imageUrl: post.images?.[0] || post.image || "", savedAt: new Date().toISOString() });
         showToast("Added to watchlist");
       }
-    } catch {}
+    } catch (watchErr) {
+      console.error("Watchlist toggle failed:", watchErr);
+      showToast("Failed to update watchlist", "error");
+    }
   }
 
   const hotPosts = useMemo(() => {

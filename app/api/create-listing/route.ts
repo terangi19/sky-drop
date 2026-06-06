@@ -137,7 +137,9 @@ export async function POST(req: NextRequest) {
           try {
             const userRecord = await getAdminAuth().getUser(token.uid);
             emailVerified = !!userRecord.emailVerified;
-          } catch {}
+          } catch (verifyErr) {
+            console.error(`[create-listing] Failed to verify email for uid ${token.uid}:`, verifyErr);
+          }
         }
         if (!emailVerified) {
           return NextResponse.json({ error: "Please verify your email address before creating a listing." }, { status: 403 });

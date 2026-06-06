@@ -199,7 +199,9 @@ export async function POST(req: NextRequest) {
         await db.collection("purchases").doc(purchaseId).update({
           stripeTransferId: transfer.id,
         });
-      } catch {}
+      } catch (lastResortErr) {
+        console.error(`[release-payment] Last-resort transfer ID persist failed for purchase ${purchaseId}:`, lastResortErr);
+      }
       throw new Error("Failed to update purchase record after Stripe transfer succeeded");
     }
 

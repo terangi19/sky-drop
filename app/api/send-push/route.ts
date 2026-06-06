@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
     const messaging = getMessaging();
 
     let sent = 0;
+    const failed: string[] = [];
     for (const token of tokens) {
       try {
         await messaging.send({
@@ -78,10 +79,20 @@ export async function POST(req: NextRequest) {
           data: { url: url || "/" },
         });
         sent++;
-      } catch {}
+      } catch (pushErr: unknown) {
+        const errMsg = pushErr instanceof Error ? pushErr.message : String(pushErr);
+        const errCode = (pushErr as { code?: string })?.code;
+        console.warn(`Push send failed for token ${token.slice(0, 8)}…:`, errMsg);
+        failed.push(token);
+        // Remove invalid tokens from Firestore
+        if (errCode === "messaging/registration-token-not-registered" || errCode === "messaging/invalid-registration-token") {
+          const invalidSnap = tokensSnap.docs.find((d) => d.data().token === token);
+          if (invalidSnap) await invalidSnap.ref.delete().catch(() => {});
+        }
+      }
     }
 
-    return NextResponse.json({ sent });
+    return NextResponse.json({ sent, failed: failed.length });
   } catch (e: any) {
     console.error("send-push error:", e);
     return NextResponse.json({ error: "Failed to send push" }, { status: 500 });
