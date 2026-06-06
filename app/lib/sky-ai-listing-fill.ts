@@ -90,6 +90,9 @@ export function stripSkyAiMachineTags(text: string): string {
   return text
     .replace(SKY_AI_LISTING_FILL_TAG, "")
     .replace(SKY_AI_NAV_TAG, "")
+    .replace(/#{1,4}\s*Listing\s*Fill:?\s*/gi, "")
+    .replace(/```(?:json)?\s*\{[\s\S]*?\}\s*```/g, "")
+    .replace(/\*?\*?Current Draft:?\*?\*?\s*/gi, "")
     .trim();
 }
 
@@ -411,15 +414,60 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
   return out;
 }
 
+/**
+ * Extract "Title: ..." and "Description: ..." from the AI's prose text.
+ * Merges them into a partial fill object only if the JSON block is missing them.
+ */
+function extractProseFields(reply: string): { title?: string; description?: string } {
+  const result: { title?: string; description?: string } = {};
+  const titleMatch = /[-•*]?\s*\*?\*?Title\*?\*?:\s*(.+)/i.exec(reply);
+  if (titleMatch?.[1]) result.title = titleMatch[1].trim().replace(/\*+/g, "");
+  const descMatch = /[-•*]?\s*\*?\*?Description\*?\*?:\s*([\s\S]+?)(?=\n\s*[-•*]?\s*\*?\*?(?:Category|Condition|Price|Location|Listing|Vehicle|Payment|```|\[\[)|$)/i.exec(reply);
+  if (descMatch?.[1]) result.description = descMatch[1].trim().replace(/\*+/g, "");
+  return result;
+}
+
 export function extractListingFill(reply: string): SkyAiListingFill | null {
+  // Primary: look for [[LISTING_FILL]] machine tags
   const re = new RegExp(SKY_AI_LISTING_FILL_TAG.source, "i");
   const match = re.exec(reply);
-  if (!match?.[1]) return null;
-  try {
-    return normalizeSkyAiListingFill(JSON.parse(match[1].trim()));
-  } catch {
-    return null;
+  if (match?.[1]) {
+    try {
+      const fill = normalizeSkyAiListingFill(JSON.parse(match[1].trim()));
+      if (fill) {
+        // Merge title/description from prose if missing from JSON
+        const prose = extractProseFields(reply);
+        if (!fill.title && prose.title) fill.title = prose.title;
+        if (!fill.description && prose.description) fill.description = prose.description;
+        return fill;
+      }
+    } catch {
+      /* fall through to fallback */
+    }
   }
+
+  // Fallback: AI sometimes outputs JSON in markdown code blocks instead of tags
+  const mdMatch = /```(?:json)?\s*(\{[\s\S]*?\})\s*```/i.exec(reply);
+  if (mdMatch?.[1]) {
+    try {
+      const parsed = JSON.parse(mdMatch[1].trim());
+      // Only treat as listing fill if it has listing-like fields
+      if (parsed && typeof parsed === "object" && (parsed.title || parsed.price || parsed.vehicleMake || parsed.listingType)) {
+        const fill = normalizeSkyAiListingFill(parsed);
+        if (fill) {
+          // Merge title/description from prose if missing from JSON
+          const prose = extractProseFields(reply);
+          if (!fill.title && prose.title) fill.title = prose.title;
+          if (!fill.description && prose.description) fill.description = prose.description;
+          return fill;
+        }
+      }
+    } catch {
+      /* not valid JSON */
+    }
+  }
+
+  return null;
 }
 
 export function extractSkyAiReply(reply: string): {
@@ -429,15 +477,21 @@ export function extractSkyAiReply(reply: string): {
 } {
   const listingFill = extractListingFill(reply) || undefined;
   let navigateTo: string | undefined;
-  const text = reply
+  let text = reply
     .replace(SKY_AI_LISTING_FILL_TAG, "")
     .replace(SKY_AI_NAV_TAG, (_, path: string) => {
       navigateTo = sanitizeNavigateTo(path.trim());
       return "";
-    })
-    .trim();
+    });
 
-  return { text, navigateTo, listingFill };
+  // Strip markdown JSON blocks that were used as listing fill fallback
+  if (listingFill) {
+    text = text.replace(/#{1,4}\s*Listing\s*Fill:?\s*/gi, "");
+    text = text.replace(/```(?:json)?\s*\{[\s\S]*?\}\s*```/g, "");
+    text = text.replace(/\*?\*?Current Draft:?\*?\*?\s*/gi, "");
+  }
+
+  return { text: text.trim(), navigateTo, listingFill };
 }
 
 export function queueListingFill(fill: SkyAiListingFill) {

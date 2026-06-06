@@ -47,9 +47,9 @@ export async function POST(req: NextRequest) {
       metadata: { listingId, sellerEmail: decodedToken.email || "", type: "bump" },
     });
     return NextResponse.json({ clientSecret: paymentIntent.client_secret });
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("Bump intent error:", e);
-    return NextResponse.json({ error: e.message || "Failed" }, { status: 500 });
+    return NextResponse.json({ error: (e instanceof Error ? e.message : "Failed") }, { status: 500 });
   }
 }
 

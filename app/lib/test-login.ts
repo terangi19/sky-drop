@@ -17,6 +17,7 @@ export function getTestLoginPassword(): string {
 
 /** Server: allow /api/test-login */
 export function isTestLoginApiEnabled(): boolean {
+  if (process.env.NODE_ENV === "production" && process.env.ENABLE_TEST_LOGIN !== "true") return false;
   if (process.env.ENABLE_TEST_LOGIN === "true") return true;
   if (process.env.ENABLE_TEST_LOGIN === "false") return false;
   return process.env.NODE_ENV === "development";

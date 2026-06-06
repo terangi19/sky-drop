@@ -301,7 +301,7 @@ export async function POST(req: NextRequest) {
         completion = await openai.chat.completions.create({
           model,
           temperature: 0.7,
-          max_tokens: 1400,
+          max_tokens: 2000,
           stream: true,
           messages,
         });
@@ -367,7 +367,7 @@ export async function POST(req: NextRequest) {
       completion = await openai.chat.completions.create({
         model,
         temperature: 0.7,
-        max_tokens: 1400,
+        max_tokens: 2000,
         messages,
       });
     } catch (openaiErr: unknown) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { auth } from "../../lib/firebase";
 import stripePromise from "../../lib/stripe-client";
@@ -158,12 +159,12 @@ function SuccessInner() {
                 >
                   View Messages
                 </button>
-                <a
+                <Link
                   href="/"
                   className="text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
                 >
                   Back to Marketplace
-                </a>
+                </Link>
               </div>
             </>
           )}

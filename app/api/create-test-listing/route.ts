@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ success: true, listingId: docRef.id, url: `/post/listing/${docRef.id}` });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Failed" }, { status: 500 });
+  } catch (e: unknown) {
+    return NextResponse.json({ error: (e instanceof Error ? e.message : "Failed") }, { status: 500 });
   }
 }

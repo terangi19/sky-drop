@@ -257,8 +257,8 @@ export async function POST(req: NextRequest) {
       success: true,
       listingId,
     });
-  } catch (e: any) {
-    console.error("[create-listing] Error:", e?.message || e);
+  } catch (e: unknown) {
+    console.error("[create-listing] Error:", e);
     const message = e instanceof Error ? e.message : "Failed to create listing";
     const safeMessage =
       message.includes("Firestore") || message.includes("PERMISSION_DENIED")

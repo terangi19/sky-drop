@@ -208,7 +208,7 @@ export default function WatchlistPage() {
           <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
             <span className="text-white drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">Watchlist</span>
           </h1>
-          <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl">Save listings you're interested in and revisit them anytime. Your Watchlist is designed to help you keep track of potential purchases, compare options, and never lose sight of items that matter to you.</p>
+          <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl">Save listings you&apos;re interested in and revisit them anytime. Your Watchlist is designed to help you keep track of potential purchases, compare options, and never lose sight of items that matter to you.</p>
           <p className="relative mt-2 text-sm text-zinc-500">{watchlist.length} saved item{watchlist.length !== 1 ? "s" : ""}</p>
         </div>
         {watchlist.length === 0 ? (

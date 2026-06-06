@@ -269,14 +269,13 @@ export default function AIPostPage() {
         
         clearTimeout(timeout);
 
-        // @ts-ignore
-        if (!(window as any).transformers) {
+        if (!(window as Record<string, unknown>).transformers) {
           if (process.env.NODE_ENV !== "production") console.warn("AI model CDN loaded but transformers not found. Manual mode enabled.");
           setModelReady(true);
           return;
         }
-        // @ts-ignore
-        const { pipeline, env } = await (window as any).transformers;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { pipeline, env } = await (window as Record<string, unknown>).transformers as any;
         
         env.allowLocalModels = false;
         env.useBrowserCache = true;
@@ -905,7 +904,7 @@ export default function AIPostPage() {
               {scamAlert.found.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {scamAlert.found.map((kw) => (
-                    <span key={kw} className="rounded-full bg-red-500/10 px-2.5 py-1 text-[11px] font-medium text-red-400">"{kw}"</span>
+                    <span key={kw} className="rounded-full bg-red-500/10 px-2.5 py-1 text-[11px] font-medium text-red-400">&quot;{kw}&quot;</span>
                   ))}
                 </div>
               )}
@@ -929,7 +928,7 @@ export default function AIPostPage() {
                 <h3 className="text-lg font-black text-amber-400">⚠️ Unusually Low Price</h3>
                 <button onClick={() => setPriceAlert(false)} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
               </div>
-              <p className="mt-2 text-sm text-[var(--foreground)]">Your listing price (${price}) seems unusually low for the "{category}" category. This may attract scam filters or suspicious buyers.</p>
+              <p className="mt-2 text-sm text-[var(--foreground)]">Your listing price (${price}) seems unusually low for the &quot;{category}&quot; category. This may attract scam filters or suspicious buyers.</p>
               <div className="mt-5 flex gap-3">
                 <button onClick={() => setPriceAlert(false)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700 active:scale-[0.98]">
                   Set Higher Price

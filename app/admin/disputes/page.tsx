@@ -243,7 +243,7 @@ export default function AdminDisputesPage() {
                         )}
                         <button onClick={() => handleResolveSeller(d.id, d.purchaseId)} disabled={actionLoading === d.id}
                           className="rounded-xl bg-zinc-700/50 px-4 py-2 text-xs font-bold text-[var(--foreground)] transition hover:bg-zinc-600/50 disabled:opacity-50">
-                          Resolve in Seller's Favor
+                          Resolve in Seller&apos;s Favor
                         </button>
                         <button onClick={() => { setRefundModal(d); }}
                           className="rounded-xl bg-emerald-500/15 px-4 py-2 text-xs font-bold text-emerald-400 transition hover:bg-emerald-500/25">

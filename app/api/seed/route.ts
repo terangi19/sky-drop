@@ -75,8 +75,8 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({ ok: true, count: listings.length, sellers: sellers.length });
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("Seed error:", e);
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ error: (e instanceof Error ? e.message : "Seed failed") }, { status: 500 });
   }
 }

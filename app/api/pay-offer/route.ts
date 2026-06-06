@@ -69,9 +69,9 @@ export async function POST(req: NextRequest) {
       const result = await payOfferWithRest(input, idToken);
       return NextResponse.json({ success: true, ...result });
     }
-  } catch (e: any) {
-    console.error("[pay-offer] Error:", e?.message || e);
-    return NextResponse.json({ error: e.message || "Failed to process offer payment" }, { status: 500 });
+  } catch (e: unknown) {
+    console.error("[pay-offer] Error:", e);
+    return NextResponse.json({ error: (e instanceof Error ? e.message : "Failed to process offer payment") }, { status: 500 });
   }
 }
 

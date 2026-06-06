@@ -1089,7 +1089,7 @@ export default function ListingPage() {
                     {user?.email === listing.highestBidder ? (
                       <div className="text-[10px] text-emerald-400 font-bold">🎉 You won this auction!</div>
                     ) : user?.email !== listing.sellerEmail ? (
-                      <div className="text-[10px] text-red-400">Auction ended — you didn't win</div>
+                      <div className="text-[10px] text-red-400">Auction ended — you didn&apos;t win</div>
                     ) : (
                       <div className="text-[10px] text-amber-400">Auction ended — winner: {listing.highestBidder || "unknown"}</div>
                     )}
@@ -1098,10 +1098,10 @@ export default function ListingPage() {
                 ) : (
                   <>
                     {user?.email === listing.highestBidder && (
-                      <div className="text-[10px] text-emerald-400">✓ You're winning</div>
+                      <div className="text-[10px] text-emerald-400">✓ You&apos;re winning</div>
                     )}
                     {user && listing.bidCount > 0 && user.email !== listing.highestBidder && user.email !== listing.sellerEmail && (
-                      <div className="text-[10px] text-amber-400">You've been outbid</div>
+                      <div className="text-[10px] text-amber-400">You&apos;ve been outbid</div>
                     )}
                     {listing.auctionEndsAt && (
                       <div className="text-[10px] text-[var(--muted)]">

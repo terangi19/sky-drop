@@ -55,8 +55,8 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (e: any) {
-    console.error("[send-notification-email] Error:", e?.code || e?.message || e);
+  } catch (e: unknown) {
+    console.error("[send-notification-email] Error:", e);
     return NextResponse.json({ error: "Failed" }, { status: 500 });
   }
 }

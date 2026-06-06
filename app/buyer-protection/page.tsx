@@ -41,12 +41,12 @@ export default function BuyerProtectionPage() {
         </div>
 
         <div className="mt-12 rounded-2xl border border-amber-500/15 bg-amber-500/[0.04] p-6">
-          <h3 className="font-bold text-amber-400">⚠️ What's not covered</h3>
+          <h3 className="font-bold text-amber-400">⚠️ What&apos;s not covered</h3>
           <ul className="mt-3 space-y-2 text-sm text-[var(--muted)]">
             <li>• Change of mind — always check the listing details before purchasing</li>
             <li>• Damage caused after delivery — inspect items immediately upon arrival</li>
             <li>• Disputes opened after the 7-day window</li>
-            <li>• Items purchased outside of Sky Drop's platform</li>
+            <li>• Items purchased outside of Sky Drop&apos;s platform</li>
           </ul>
         </div>
 
