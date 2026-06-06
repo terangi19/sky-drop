@@ -549,6 +549,7 @@ export function applySkyAiListingFill(fill: SkyAiListingFill, h: ListingFillHand
     h.setCategory("Cars");
     h.setSaleType?.("buy_now");
     h.setAcceptOffers?.(false);
+    h.setPickupAvailable?.(true);
     if (normalized.condition) h.setCondition(normalized.condition);
     if (normalized.price) h.setPrice(normalized.price);
     if (normalized.paymentType) h.setPaymentType?.(normalized.paymentType);
@@ -562,6 +563,7 @@ export function applySkyAiListingFill(fill: SkyAiListingFill, h: ListingFillHand
     if (normalized.vehicleBodyType) h.setVehicleBodyType?.(normalized.vehicleBodyType);
     if (normalized.vehicleColour) h.setVehicleColour?.(normalized.vehicleColour);
   } else {
+    h.setPickupAvailable?.(true);
     if (normalized.category) h.setCategory(normalized.category);
     if (normalized.condition) h.setCondition(normalized.condition);
     if (normalized.price) h.setPrice(normalized.price);

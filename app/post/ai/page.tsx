@@ -185,10 +185,10 @@ export default function AIPostPage() {
     if (ok) {
       const msg =
         fill.listingType === "digital"
-          ? "Sky AI filled your listing — upload your digital file, then publish"
+          ? "Sky AI filled your listing — upload your digital file, then click Post Now"
           : imagePreviews.length > 0
-            ? "Sky AI filled your listing — review and publish"
-            : "Sky AI filled your listing — add photos and publish";
+            ? "Sky AI filled your listing — review and click Post Now"
+            : "Sky AI filled your listing — add photos and click Post Now";
       showToast(msg);
       setTimeout(() => {
         document.getElementById("listing-title")?.scrollIntoView({ behavior: "smooth", block: "center" });
