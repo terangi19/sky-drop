@@ -414,13 +414,33 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
   return out;
 }
 
+/**
+ * Extract "Title: ..." and "Description: ..." from the AI's prose text.
+ * Merges them into a partial fill object only if the JSON block is missing them.
+ */
+function extractProseFields(reply: string): { title?: string; description?: string } {
+  const result: { title?: string; description?: string } = {};
+  const titleMatch = /[-•*]?\s*\*?\*?Title\*?\*?:\s*(.+)/i.exec(reply);
+  if (titleMatch?.[1]) result.title = titleMatch[1].trim().replace(/\*+/g, "");
+  const descMatch = /[-•*]?\s*\*?\*?Description\*?\*?:\s*([\s\S]+?)(?=\n\s*[-•*]?\s*\*?\*?(?:Category|Condition|Price|Location|Listing|Vehicle|Payment|```|\[\[)|$)/i.exec(reply);
+  if (descMatch?.[1]) result.description = descMatch[1].trim().replace(/\*+/g, "");
+  return result;
+}
+
 export function extractListingFill(reply: string): SkyAiListingFill | null {
   // Primary: look for [[LISTING_FILL]] machine tags
   const re = new RegExp(SKY_AI_LISTING_FILL_TAG.source, "i");
   const match = re.exec(reply);
   if (match?.[1]) {
     try {
-      return normalizeSkyAiListingFill(JSON.parse(match[1].trim()));
+      const fill = normalizeSkyAiListingFill(JSON.parse(match[1].trim()));
+      if (fill) {
+        // Merge title/description from prose if missing from JSON
+        const prose = extractProseFields(reply);
+        if (!fill.title && prose.title) fill.title = prose.title;
+        if (!fill.description && prose.description) fill.description = prose.description;
+        return fill;
+      }
     } catch {
       /* fall through to fallback */
     }
@@ -433,7 +453,14 @@ export function extractListingFill(reply: string): SkyAiListingFill | null {
       const parsed = JSON.parse(mdMatch[1].trim());
       // Only treat as listing fill if it has listing-like fields
       if (parsed && typeof parsed === "object" && (parsed.title || parsed.price || parsed.vehicleMake || parsed.listingType)) {
-        return normalizeSkyAiListingFill(parsed);
+        const fill = normalizeSkyAiListingFill(parsed);
+        if (fill) {
+          // Merge title/description from prose if missing from JSON
+          const prose = extractProseFields(reply);
+          if (!fill.title && prose.title) fill.title = prose.title;
+          if (!fill.description && prose.description) fill.description = prose.description;
+          return fill;
+        }
       }
     } catch {
       /* not valid JSON */
