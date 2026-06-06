@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "../../lib/stripe-server";
-import { verifyIdToken, getServerDb } from "../../lib/firebase-admin";
+import { getServerDb } from "../../lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
-import { rateLimit } from "../../lib/rate-limit";
+import { applyRateLimit, authenticateRequest, isErrorResponse } from "../../lib/api-helpers";
 
 async function logStripeKeyInfo() {
   const key = process.env.STRIPE_SECRET_KEY || "";
@@ -12,23 +12,11 @@ async function logStripeKeyInfo() {
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const { allowed } = await rateLimit(`stripe-connect:${ip}`, 10, 60_000);
-    if (!allowed) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-    }
+    const limited = await applyRateLimit(req, "stripe-connect", 10);
+    if (limited) return limited;
 
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const idToken = authHeader.slice(7);
-    let decodedToken;
-    try {
-      decodedToken = await verifyIdToken(idToken);
-    } catch {
-      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
-    }
+    const auth = await authenticateRequest(req);
+    if (isErrorResponse(auth)) return auth;
 
     const body = await req.json();
     const { action, accountId, email, amount } = body;
@@ -40,11 +28,11 @@ export async function POST(req: NextRequest) {
     console.log("[Stripe Connect] Balance livemode:", balance.livemode);
     console.log("[Stripe Connect] Balance available currencies:", balance.available.map((b: any) => b.currency));
 
-    const db = getServerDb(idToken);
+    const db = getServerDb(auth.idToken);
 
     if (action === "create") {
       // Deduplicate: if profile already has a Stripe account, return existing
-      const existingProfile = await db.collection("profiles").doc(decodedToken.uid).get();
+      const existingProfile = await db.collection("profiles").doc(auth.uid).get();
       const existingAccountId = existingProfile.data()?.stripeAccountId;
       if (existingAccountId) {
         return NextResponse.json({ accountId: existingAccountId });
@@ -67,7 +55,7 @@ export async function POST(req: NextRequest) {
         throw createErr;
       }
 
-      await db.collection("profiles").doc(decodedToken.uid).set({
+      await db.collection("profiles").doc(auth.uid).set({
         stripeAccountId: account.id,
         stripeConnectOnboarded: false,
       }, { merge: true });
@@ -76,7 +64,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "onboard") {
-      const profileDoc = await db.collection("profiles").doc(decodedToken.uid).get();
+      const profileDoc = await db.collection("profiles").doc(auth.uid).get();
         if (!profileDoc.exists || profileDoc.data()!.stripeAccountId !== accountId) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
       }
@@ -91,7 +79,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "withdraw") {
-      const profileRef = db.collection("profiles").doc(decodedToken.uid);
+      const profileRef = db.collection("profiles").doc(auth.uid);
       const profileDoc = await profileRef.get();
       if (!profileDoc.exists || profileDoc.data()!.stripeAccountId !== accountId) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 });

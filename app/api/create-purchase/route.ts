@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken } from "../../lib/firebase-admin";
 import { getStripe } from "../../lib/stripe-server";
-import { rateLimit } from "../../lib/rate-limit";
+import { applyRateLimit, authenticateRequest, isErrorResponse, requireEmail } from "../../lib/api-helpers";
 import {
   createPurchaseWithAdmin,
   findPurchaseByPaymentIntent,
@@ -22,23 +21,11 @@ export async function POST(req: NextRequest) {
   try {
     requireAdminForCheckout();
 
-    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const { allowed } = await rateLimit(`create-purchase:${ip}`, 10, 60_000);
-    if (!allowed) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-    }
+    const limited = await applyRateLimit(req, "create-purchase", 10);
+    if (limited) return limited;
 
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    let decodedToken;
-    try {
-      decodedToken = await verifyIdToken(authHeader.slice(7));
-    } catch {
-      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
-    }
+    const auth = await authenticateRequest(req);
+    if (isErrorResponse(auth)) return auth;
 
     const body = await req.json();
     const { listingId, stripePaymentIntentId } = body;
@@ -53,10 +40,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const buyerEmail = decodedToken.email || "";
-    if (!buyerEmail) {
-      return NextResponse.json({ error: "Could not determine buyer email" }, { status: 400 });
-    }
+    const emailErr = requireEmail(auth, "buyer");
+    if (emailErr) return emailErr;
+    const buyerEmail = auth.email;
 
     const collectionName = body.collectionName || "listings";
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
-import { verifyIdToken, getAdminDb } from "../../lib/firebase-admin";
-import { rateLimit } from "../../lib/rate-limit";
+import { getAdminDb } from "../../lib/firebase-admin";
+import { applyRateLimit, authenticateRequest, isErrorResponse, requireEmail } from "../../lib/api-helpers";
 import { requireAdminForCheckout } from "../../lib/checkout-server";
 import {
   assertListingAvailableForPurchase,
@@ -16,29 +16,15 @@ export async function POST(req: NextRequest) {
   try {
     requireAdminForCheckout();
 
-    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const { allowed } = await rateLimit(`confirm-arrange-sale:${ip}`, 20, 60_000);
-    if (!allowed) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-    }
+    const limited = await applyRateLimit(req, "confirm-arrange-sale", 20);
+    if (limited) return limited;
 
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await authenticateRequest(req);
+    if (isErrorResponse(auth)) return auth;
 
-    let decoded;
-    try {
-      decoded = await verifyIdToken(authHeader.slice(7));
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Invalid or expired token";
-      return NextResponse.json({ error: message }, { status: 401 });
-    }
-
-    const sellerEmail = decoded.email || "";
-    if (!sellerEmail) {
-      return NextResponse.json({ error: "Could not determine seller email" }, { status: 400 });
-    }
+    const emailErr = requireEmail(auth, "seller");
+    if (emailErr) return emailErr;
+    const sellerEmail = auth.email;
 
     const { purchaseId } = await req.json();
     if (!purchaseId || typeof purchaseId !== "string") {

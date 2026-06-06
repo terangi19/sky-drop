@@ -1,33 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken } from "../../lib/firebase-admin";
+import { applyRateLimit, authenticateRequest, isErrorResponse, requireEmail } from "../../lib/api-helpers";
 import { adminCreateCheckoutMessage } from "../../lib/checkout-server";
-import { rateLimit } from "../../lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const { allowed } = await rateLimit(`checkout-msg:${ip}`, 20, 60_000);
-    if (!allowed) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-    }
+    const limited = await applyRateLimit(req, "checkout-msg", 20);
+    if (limited) return limited;
 
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await authenticateRequest(req);
+    if (isErrorResponse(auth)) return auth;
 
-    let decoded;
-    try {
-      decoded = await verifyIdToken(authHeader.slice(7));
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Invalid or expired token";
-      return NextResponse.json({ error: message }, { status: 401 });
-    }
-
-    const buyerEmail = decoded.email || "";
-    if (!buyerEmail) {
-      return NextResponse.json({ error: "Could not determine buyer email" }, { status: 400 });
-    }
+    const emailErr = requireEmail(auth, "buyer");
+    if (emailErr) return emailErr;
 
     const { text, sellerEmail, listingId } = await req.json();
     if (!text?.trim() || !sellerEmail || !listingId) {
@@ -36,7 +20,7 @@ export async function POST(req: NextRequest) {
 
     const messageId = await adminCreateCheckoutMessage({
       text: String(text).trim(),
-      sender: buyerEmail,
+      sender: auth.email,
       receiver: String(sellerEmail),
       listingId: String(listingId),
     });

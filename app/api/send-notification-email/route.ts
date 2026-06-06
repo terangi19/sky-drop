@@ -1,27 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken } from "../../lib/firebase-admin";
-import { rateLimit } from "../../lib/rate-limit";
+import { applyRateLimit, authenticateRequest, isErrorResponse } from "../../lib/api-helpers";
 import { isAdminEmail } from "../../lib/admin-check";
+import { sendSmtpEmail } from "../../lib/smtp";
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const { allowed } = await rateLimit(`notif-email:${ip}`, 60, 60_000);
-    if (!allowed) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-    }
+    const limited = await applyRateLimit(req, "notif-email", 60);
+    if (limited) return limited;
 
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const idToken = authHeader.slice(7);
-    let decodedToken;
-    try {
-      decodedToken = await verifyIdToken(idToken);
-    } catch {
-      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
-    }
+    const auth = await authenticateRequest(req);
+    if (isErrorResponse(auth)) return auth;
 
     const { to, subject, html } = await req.json();
     if (!to || !subject || !html) {
@@ -32,32 +20,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid recipient email" }, { status: 400 });
     }
 
-    if (to !== decodedToken.email && !isAdminEmail(decodedToken.email)) {
+    if (to !== auth.email && !isAdminEmail(auth.email)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const transport = {
-      host: process.env.SMTP_HOST || "",
-      port: Number(process.env.SMTP_PORT) || 587,
-      auth: {
-        user: process.env.SMTP_USER || "",
-        pass: process.env.SMTP_PASS || "",
-      },
-    };
-
-    if (transport.host && transport.auth.user) {
-      const nodemailer = await import("nodemailer");
-      const transporter = nodemailer.default.createTransport(transport);
-      await transporter.sendMail({
-        from: { name: "Sky Drop", address: process.env.SMTP_FROM || process.env.SMTP_USER || "noreply@skydrop.nz" },
-        to, subject, html,
-      });
-    }
+    await sendSmtpEmail({ to, subject, html });
 
     return NextResponse.json({ success: true });
-  } catch (e: any) {
-    console.error("[send-notification-email] Error:", e?.code || e?.message || e);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[send-notification-email] Error:", msg);
     return NextResponse.json({ error: "Failed" }, { status: 500 });
   }
 }
-

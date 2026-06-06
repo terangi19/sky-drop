@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { verifyIdToken } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
+import { getClientIp } from "../../lib/api-helpers";
 import {
   findBestDestination,
   getGuideReply,
@@ -60,7 +61,7 @@ function tryNavigationShortcut(message: string, pathname: string) {
 }
 
 async function checkRateLimit(req: NextRequest) {
-  const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+  const ip = getClientIp(req);
   const authHeader = req.headers.get("authorization");
   let uid: string | null = null;
   let email = "";

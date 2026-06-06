@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "../../lib/stripe-server";
-import { verifyIdToken } from "../../lib/firebase-admin";
-import { rateLimit } from "../../lib/rate-limit";
+import { applyRateLimit, authenticateRequest, isErrorResponse } from "../../lib/api-helpers";
 import { validateSellerForCheckout } from "../../lib/seller-payments";
 import { isListingAvailableForPurchase } from "../../lib/listing-availability";
 import {
@@ -63,29 +62,15 @@ export async function POST(req: NextRequest) {
   try {
     requireAdminForCheckout();
 
-    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const { allowed } = await rateLimit(`payment:${ip}`, 10, 60_000);
-    if (!allowed) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-    }
+    const limited = await applyRateLimit(req, "payment", 10);
+    if (limited) return limited;
 
     if (!process.env.STRIPE_SECRET_KEY) {
       return NextResponse.json({ error: "Payments are not configured." }, { status: 500 });
     }
 
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    let decodedToken;
-    try {
-      decodedToken = await verifyIdToken(authHeader.slice(7));
-    } catch (authErr: unknown) {
-      const message =
-        authErr instanceof Error ? authErr.message : "Invalid or expired token";
-      return NextResponse.json({ error: message }, { status: 401 });
-    }
+    const auth = await authenticateRequest(req);
+    if (isErrorResponse(auth)) return auth;
 
     const body = await req.json();
     const {
@@ -144,7 +129,7 @@ export async function POST(req: NextRequest) {
       reservedAgo != null &&
       reservedAgo < RESERVATION_MS &&
       listingData.reservedBy &&
-      listingData.reservedBy !== decodedToken.uid
+      listingData.reservedBy !== auth.uid
     ) {
       return NextResponse.json(
         { error: "Someone else is checking out this item. Please try again shortly." },
@@ -162,7 +147,7 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
-      if (listingData.highestBidder !== decodedToken.email) {
+      if (listingData.highestBidder !== auth.email) {
         return NextResponse.json(
           { error: "You are no longer the highest bidder." },
           { status: 400 }
@@ -174,7 +159,7 @@ export async function POST(req: NextRequest) {
     if (!sellerEmail) {
       return NextResponse.json({ error: "Listing has no seller" }, { status: 400 });
     }
-    if (sellerEmail === decodedToken.email) {
+    if (sellerEmail === auth.email) {
       return NextResponse.json(
         { error: "You cannot purchase your own listing" },
         { status: 400 }
@@ -195,7 +180,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await adminReserveListing(collectionName, listingId, decodedToken.uid);
+    await adminReserveListing(collectionName, listingId, auth.uid);
 
     const sellerProfile = await adminGetSellerProfileByEmail(sellerEmail);
     const sellerError = validateSellerForCheckout(sellerProfile);
@@ -222,8 +207,8 @@ export async function POST(req: NextRequest) {
         metadata: {
           listingId,
           title,
-          buyerUid: decodedToken.uid,
-          buyerEmail: decodedToken.email || "",
+          buyerUid: auth.uid,
+          buyerEmail: auth.email || "",
           sellerEmail,
           collectionName,
           destinationCharge: "true",
@@ -235,7 +220,7 @@ export async function POST(req: NextRequest) {
         on_behalf_of: sellerStripeAccountId,
         application_fee_amount: applicationFeeAmount,
       },
-      { idempotencyKey: `payment-${listingId}-${decodedToken.uid}` }
+      { idempotencyKey: `payment-${listingId}-${auth.uid}` }
     );
 
     return NextResponse.json({

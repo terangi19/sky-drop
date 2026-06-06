@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken, getAdminDb, getServerDb, isAdminInitialized, getAdminAuth } from "../../lib/firebase-admin";
-import { rateLimit } from "../../lib/rate-limit";
+import { getAdminDb, getServerDb, isAdminInitialized, getAdminAuth } from "../../lib/firebase-admin";
+import { applyRateLimit, authenticateRequest, isErrorResponse } from "../../lib/api-helpers";
 import { sanitizeListingContent } from "../../lib/sanitize";
 import { profileHasVerifiedPhone } from "../../lib/seller-eligibility";
 
@@ -50,25 +50,11 @@ async function getSellerProfileForUid(uid: string, email?: string | null) {
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const { allowed } = await rateLimit(`create-listing:${ip}`, 5, 60_000);
-    if (!allowed) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-    }
+    const limited = await applyRateLimit(req, "create-listing", 5);
+    if (limited) return limited;
 
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const idToken = authHeader.slice(7);
-    let token;
-    try {
-      token = await verifyIdToken(idToken);
-    } catch (authErr: unknown) {
-      const message =
-        authErr instanceof Error ? authErr.message : "Invalid or expired token";
-      return NextResponse.json({ error: message }, { status: 401 });
-    }
+    const auth = await authenticateRequest(req);
+    if (isErrorResponse(auth)) return auth;
 
     const body = await req.json();
     const { title, description, price, category, listingType } = body;
@@ -124,7 +110,7 @@ export async function POST(req: NextRequest) {
     let salesCount = 0;
 
     if (isAdminInitialized()) {
-      const sellerProfile = await getSellerProfileForUid(token.uid, token.email);
+      const sellerProfile = await getSellerProfileForUid(auth.uid, auth.email);
       let reportsCount = 0;
       if (sellerProfile) {
         salesCount = Number(sellerProfile.salesCount) || 0;
@@ -132,10 +118,10 @@ export async function POST(req: NextRequest) {
         if (sellerProfile.restricted) {
           return NextResponse.json({ error: "Your account is restricted. Contact support." }, { status: 403 });
         }
-        let emailVerified = !!token.email_verified;
+        let emailVerified = !!auth.decoded.email_verified;
         if (!emailVerified) {
           try {
-            const userRecord = await getAdminAuth().getUser(token.uid);
+            const userRecord = await getAdminAuth().getUser(auth.uid);
             emailVerified = !!userRecord.emailVerified;
           } catch {}
         }
@@ -145,7 +131,7 @@ export async function POST(req: NextRequest) {
         if (body.paymentType !== "contact") {
           let authPhone: string | undefined;
           try {
-            const userRecord = await getAdminAuth().getUser(token.uid);
+            const userRecord = await getAdminAuth().getUser(auth.uid);
             authPhone = userRecord.phoneNumber;
           } catch {
             /* use profile only */
@@ -170,7 +156,7 @@ export async function POST(req: NextRequest) {
       }
 
       const recentDupes = await getAdminDb().collection("listings")
-        .where("sellerEmail", "==", token.email)
+        .where("sellerEmail", "==", auth.email)
         .where("title", "==", sanitizedTitle)
         .limit(1).get();
 
@@ -182,7 +168,7 @@ export async function POST(req: NextRequest) {
       }
 
       const activeListings = await getAdminDb().collection("listings")
-        .where("sellerEmail", "==", token.email)
+        .where("sellerEmail", "==", auth.email)
         .where("status", "==", "live")
         .get();
 
@@ -224,9 +210,9 @@ export async function POST(req: NextRequest) {
       category: category || "Other",
       images: clientData.images || [],
       imageUrl: (Array.isArray(clientData.images) ? clientData.images[0] : "") || "",
-      sellerEmail: token.email,
-      sellerUsername: clientData.sellerUsername || token.email?.split("@")[0] || "",
-      sellerId: token.uid,
+      sellerEmail: auth.email,
+      sellerUsername: clientData.sellerUsername || auth.email?.split("@")[0] || "",
+      sellerId: auth.uid,
       type: listingType || "physical",
       status,
       views: 0,
@@ -249,7 +235,7 @@ export async function POST(req: NextRequest) {
     delete finalData.expiresInDays;
     delete finalData.listingType;
 
-    const db = getServerDb(idToken);
+    const db = getServerDb(auth.idToken);
     const ref = await db.collection("listings").add(finalData);
     const listingId = ref.id;
 

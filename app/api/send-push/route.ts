@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken } from "../../lib/firebase-admin";
-import { rateLimit } from "../../lib/rate-limit";
+import { applyRateLimit, authenticateRequest, isErrorResponse } from "../../lib/api-helpers";
 import { isAdminEmail } from "../../lib/admin-check";
 
 interface PushPayload {
@@ -12,30 +11,18 @@ interface PushPayload {
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const { allowed } = await rateLimit(`push:${ip}`, 20, 60_000);
-    if (!allowed) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-    }
+    const limited = await applyRateLimit(req, "push", 20);
+    if (limited) return limited;
 
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const idToken = authHeader.slice(7);
-    let decoded;
-    try {
-      decoded = await verifyIdToken(idToken);
-    } catch {
-      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
-    }
+    const auth = await authenticateRequest(req);
+    if (isErrorResponse(auth)) return auth;
 
     const { targetEmail, title, message, url } = await req.json() as PushPayload;
     if (!targetEmail || !title) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    if (targetEmail !== decoded.email && !isAdminEmail(decoded.email)) {
+    if (targetEmail !== auth.email && !isAdminEmail(auth.email)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -82,9 +69,8 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ sent });
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("send-push error:", e);
     return NextResponse.json({ error: "Failed to send push" }, { status: 500 });
   }
 }
-

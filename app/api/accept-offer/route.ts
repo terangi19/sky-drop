@@ -1,28 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken, isAdminInitialized } from "../../lib/firebase-admin";
-import { rateLimit } from "../../lib/rate-limit";
-import { acceptOfferWithAdmin, acceptOfferWithRest } from "../../lib/purchase-service";
+import { isAdminInitialized } from "../../lib/firebase-admin";
+import { applyRateLimit, authenticateRequest, isErrorResponse, requireEmail } from "../../lib/api-helpers";
+import { acceptOfferWithAdmin } from "../../lib/purchase-service";
 import type { AcceptOfferInput } from "../../lib/purchase-service";
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const { allowed } = await rateLimit(`accept-offer:${ip}`, 10, 60_000);
-    if (!allowed) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-    }
+    const limited = await applyRateLimit(req, "accept-offer", 10);
+    if (limited) return limited;
 
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const idToken = authHeader.slice(7);
-    let decodedToken;
-    try {
-      decodedToken = await verifyIdToken(idToken);
-    } catch {
-      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
-    }
+    const auth = await authenticateRequest(req);
+    if (isErrorResponse(auth)) return auth;
 
     const body = await req.json();
     const { listingId, buyerEmail, amount, offerMessageId, listingTitle, listingPrice, listingImage, collectionName } = body;
@@ -31,10 +19,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required fields: listingId, buyerEmail, amount, offerMessageId" }, { status: 400 });
     }
 
-    const sellerEmail = decodedToken.email || "";
-    if (!sellerEmail) {
-      return NextResponse.json({ error: "Could not determine seller email" }, { status: 400 });
-    }
+    const emailErr = requireEmail(auth, "seller");
+    if (emailErr) return emailErr;
+    const sellerEmail = auth.email;
 
     const input: AcceptOfferInput = {
       listingId,
@@ -55,12 +42,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, ...result });
     } else {
       const { acceptOfferWithRest } = await import("../../lib/purchase-service");
-      const result = await acceptOfferWithRest(input, projectId, idToken);
+      const result = await acceptOfferWithRest(input, projectId, auth.idToken);
       return NextResponse.json({ success: true, ...result });
     }
-  } catch (e: any) {
-    console.error("[accept-offer] Error:", e?.message || e);
-    return NextResponse.json({ error: e.message || "Failed to accept offer" }, { status: 500 });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[accept-offer] Error:", msg);
+    return NextResponse.json({ error: msg || "Failed to accept offer" }, { status: 500 });
   }
 }
-

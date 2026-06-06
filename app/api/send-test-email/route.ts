@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken } from "../../lib/firebase-admin";
+import { authenticateRequest, isErrorResponse } from "../../lib/api-helpers";
 import { isAdminEmail } from "../../lib/admin-check";
 import { buildEmailHtml, notificationToEmail } from "../../lib/email";
+import { getSmtpConfig, isSmtpConfigured } from "../../lib/smtp";
 
 const ALL_TYPES = [
   "purchase", "purchase_confirmation", "order_confirmed", "item_shipped",
@@ -71,18 +72,9 @@ const CTAS: Record<string, { label: string; url: string; primary: boolean }[]> =
 
 export async function GET(req: NextRequest) {
   try {
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const idToken = authHeader.slice(7);
-    let decodedToken;
-    try {
-      decodedToken = await verifyIdToken(idToken);
-    } catch {
-      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
-    }
-    if (!isAdminEmail(decodedToken.email)) {
+    const auth = await authenticateRequest(req);
+    if (isErrorResponse(auth)) return auth;
+    if (!isAdminEmail(auth.email)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -93,21 +85,13 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const singleType = url.searchParams.get("type");
 
-    const transport = {
-      host: process.env.SMTP_HOST || "",
-      port: Number(process.env.SMTP_PORT) || 587,
-      auth: {
-        user: process.env.SMTP_USER || "",
-        pass: process.env.SMTP_PASS || "",
-      },
-    };
-
-    if (!transport.host || !transport.auth.user) {
+    const smtpConfig = getSmtpConfig();
+    if (!isSmtpConfigured(smtpConfig)) {
       return NextResponse.json({ error: "SMTP not configured" }, { status: 500 });
     }
 
     const nodemailer = await import("nodemailer");
-    const transporter = nodemailer.default.createTransport(transport);
+    const transporter = nodemailer.default.createTransport(smtpConfig);
 
     const typesToSend = singleType ? [singleType] : ALL_TYPES;
     const results: { type: string; status: string }[] = [];

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "../../lib/stripe-server";
-import { verifyIdToken, getServerDb } from "../../lib/firebase-admin";
-import { rateLimit } from "../../lib/rate-limit";
+import { getServerDb } from "../../lib/firebase-admin";
+import { applyRateLimit, authenticateRequest, isErrorResponse, type AuthResult } from "../../lib/api-helpers";
 import { sellerPayoutCents } from "../../lib/purchase-service";
 import { isAdminEmail } from "../../lib/admin-check";
 import { writeAuditLog } from "../../lib/admin-utils";
@@ -13,33 +13,23 @@ function isDisputeActive(disputeStatus?: string): boolean {
 }
 
 export async function POST(req: NextRequest) {
-  let decodedToken: any;
+  let auth: AuthResult | undefined;
   let purchaseId: string | undefined;
   let purchase: any;
 
   try {
-    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const { allowed } = await rateLimit(`release:${ip}`, 30, 60_000);
-    if (!allowed) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-    }
+    const limited = await applyRateLimit(req, "release", 30);
+    if (limited) return limited;
 
     if (!process.env.STRIPE_SECRET_KEY) {
       return NextResponse.json({ error: "Payments not configured" }, { status: 500 });
     }
 
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const idToken = authHeader.slice(7);
-    try {
-      decodedToken = await verifyIdToken(idToken);
-    } catch {
-      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
-    }
+    const authResult = await authenticateRequest(req);
+    if (isErrorResponse(authResult)) return authResult;
+    auth = authResult;
 
-    const db = getServerDb(idToken);
+    const db = getServerDb(auth.idToken);
 
     const body = await req.json();
     purchaseId = body.purchaseId;
@@ -54,9 +44,9 @@ export async function POST(req: NextRequest) {
     purchase = purchaseDoc.data()!;
 
     // Must be either the seller, the buyer, or an admin
-    const isSeller = purchase.sellerEmail === decodedToken.email;
-    const isBuyer = purchase.buyerEmail === decodedToken.email;
-    const isAdmin = isAdminEmail(decodedToken.email || "");
+    const isSeller = purchase.sellerEmail === auth.email;
+    const isBuyer = purchase.buyerEmail === auth.email;
+    const isAdmin = isAdminEmail(auth.email || "");
     if (!isSeller && !isBuyer && !isAdmin) {
       return NextResponse.json({ error: "Not authorized for this purchase" }, { status: 403 });
     }
@@ -137,7 +127,7 @@ export async function POST(req: NextRequest) {
       const sellerProfile = sellerProfileDocs.docs[0]?.data();
       sellerStripeAccountId = sellerProfile?.stripeAccountId;
     } else {
-      const profileDoc = await db.collection("profiles").doc(decodedToken.uid).get();
+      const profileDoc = await db.collection("profiles").doc(auth.uid).get();
       sellerStripeAccountId = profileDoc.data()?.stripeAccountId;
     }
     if (!sellerStripeAccountId) {
@@ -205,7 +195,7 @@ export async function POST(req: NextRequest) {
 
     await writeAuditLog({
       action: isAdmin ? "admin_force_release_payment" : "release_payment",
-      actorEmail: decodedToken.email || "",
+      actorEmail: auth.email || "",
       purchaseId,
       amount: Math.round(amount / 100),
       metadata: { transferId: transfer.id, strikerTransferId: transfer.id, adminOverride: isAdmin },
@@ -225,7 +215,7 @@ export async function POST(req: NextRequest) {
     });
     await writeAuditLog({
       action: "release_payment_failed",
-      actorEmail: decodedToken?.email || "unknown",
+      actorEmail: auth?.email || "unknown",
       purchaseId,
       metadata: { error: errorMsg, listingTitle: purchase?.listingTitle },
     });
