@@ -21,8 +21,21 @@ import {
   skyAiCapabilitiesReply,
 } from "../../lib/sky-ai-prompts";
 import { openaiErrorResponse } from "../../lib/openai-errors";
+import { loadUserContext, type SkyAiUserContext } from "../../lib/sky-ai-user-context";
 
 export const runtime = "nodejs";
+
+const MAX_RETRIES = 2;
+const RETRY_DELAYS = [1000, 2000];
+
+function isRetryable(err: unknown): boolean {
+  const status = (err as { status?: number }).status;
+  return status === 429 || status === 500 || status === 502 || status === 503;
+}
+
+async function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
 
 const NAVIGATE_PATTERNS =
   /\b(take me|go to|open|show me|navigate|bring me|send me|guide me to|where is|where's|how do i get to)\b/i;
@@ -147,12 +160,21 @@ function parseSkyAiImages(body: unknown): string[] {
   return out;
 }
 
+/** Lower temperature for factual/navigation questions, higher for creative listing work */
+function pickTemperature(message: string, listingContext: SkyAiListingContext | null): number {
+  if (isSkyAiGeneralQuestion(message)) return 0.3;
+  if (NAVIGATE_PATTERNS.test(message)) return 0.3;
+  if (/\b(how|what|where|when|why|can i|do i|is there)\b/i.test(message) && !listingContext) return 0.4;
+  return 0.7;
+}
+
 function buildMessages(
   message: string,
   pathname: string,
   history: SkyAiHistoryItem[],
   listingContext: SkyAiListingContext | null,
-  images: string[]
+  images: string[],
+  userContext?: SkyAiUserContext | null
 ): OpenAI.Chat.ChatCompletionMessageParam[] {
   const userContent: OpenAI.Chat.ChatCompletionMessageParam["content"] =
     images.length > 0
@@ -163,9 +185,9 @@ function buildMessages(
               message ||
               "The user uploaded product photo(s) for their Sky Drop listing. Describe what you see and fill the sell form with LISTING_FILL.",
           },
-          ...images.map((url) => ({
+          ...images.map((url, i) => ({
             type: "image_url" as const,
-            image_url: { url, detail: "low" as const },
+            image_url: { url, detail: (i === 0 ? "high" : "low") as "high" | "low" },
           })),
         ]
       : message;
@@ -175,6 +197,7 @@ function buildMessages(
       role: "system",
       content: buildSkyAiSystemPrompt(pathname, listingContext, {
         hasImages: images.length > 0,
+        userContext,
       }),
     },
     ...history.map((h) => ({
@@ -319,20 +342,38 @@ export async function POST(req: NextRequest) {
 
     const openai = new OpenAI({ apiKey });
     const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
-    const messages = buildMessages(message, pathname, history, listingContext, images);
+    const userContext = uid ? await loadUserContext(uid) : null;
+    const messages = buildMessages(message, pathname, history, listingContext, images, userContext);
+    const temperature = pickTemperature(message, listingContext);
 
     if (stream) {
       let completion;
-      try {
-        completion = await openai.chat.completions.create({
-          model,
-          temperature: 0.7,
-          max_tokens: 1400,
-          stream: true,
-          messages,
-        });
-      } catch (openaiErr: unknown) {
-        const mapped = openaiErrorResponse(openaiErr);
+      let lastErr: unknown;
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          completion = await openai.chat.completions.create({
+            model,
+            temperature,
+            max_tokens: 2000,
+            stream: true,
+            messages,
+          });
+          break;
+        } catch (openaiErr: unknown) {
+          lastErr = openaiErr;
+          if (attempt < MAX_RETRIES && isRetryable(openaiErr)) {
+            await sleep(RETRY_DELAYS[attempt]);
+            continue;
+          }
+          const mapped = openaiErrorResponse(openaiErr);
+          return NextResponse.json(
+            { error: mapped.error, code: mapped.code },
+            { status: mapped.status }
+          );
+        }
+      }
+      if (!completion) {
+        const mapped = openaiErrorResponse(lastErr);
         return NextResponse.json(
           { error: mapped.error, code: mapped.code },
           { status: mapped.status }
@@ -390,15 +431,31 @@ export async function POST(req: NextRequest) {
     }
 
     let completion;
-    try {
-      completion = await openai.chat.completions.create({
-        model,
-        temperature: 0.7,
-        max_tokens: 1400,
-        messages,
-      });
-    } catch (openaiErr: unknown) {
-      const mapped = openaiErrorResponse(openaiErr);
+    let lastErr: unknown;
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        completion = await openai.chat.completions.create({
+          model,
+          temperature,
+          max_tokens: 2000,
+          messages,
+        });
+        break;
+      } catch (openaiErr: unknown) {
+        lastErr = openaiErr;
+        if (attempt < MAX_RETRIES && isRetryable(openaiErr)) {
+          await sleep(RETRY_DELAYS[attempt]);
+          continue;
+        }
+        const mapped = openaiErrorResponse(openaiErr);
+        return NextResponse.json(
+          { error: mapped.error, code: mapped.code },
+          { status: mapped.status }
+        );
+      }
+    }
+    if (!completion) {
+      const mapped = openaiErrorResponse(lastErr);
       return NextResponse.json(
         { error: mapped.error, code: mapped.code },
         { status: mapped.status }

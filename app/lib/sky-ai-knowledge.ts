@@ -3,6 +3,73 @@
  * Keep in sync with FAQs, seller guidelines, and live routes.
  */
 
+/** Return the most relevant knowledge sections for the current page to reduce prompt size */
+export function getRelevantKnowledge(currentPath: string): string {
+  const path = currentPath.split("?")[0].replace(/\/$/, "") || "/";
+
+  // Always include core sections
+  const always = [
+    "WHAT SKY DROP IS",
+    "TWO PAYMENT TYPES",
+    "WHAT SELLERS CAN LIST",
+    "SKY AI BEHAVIOUR",
+    "COMMON USER QUESTIONS",
+    "KEY ROUTES",
+  ];
+
+  // Page-specific sections
+  const pageMap: Record<string, string[]> = {
+    "/post/ai": ["SELLING", "USER ACCOUNTS"],
+    "/post": ["SELLING", "USER ACCOUNTS"],
+    "/purchases": ["BUYING FLOW (Stripe Checkout)", "BUYING FLOW (Arrange Purchase)", "REVIEWS"],
+    "/sales": ["SELLING", "BUYING FLOW (Stripe Checkout)", "BUYING FLOW (Arrange Purchase)"],
+    "/messages": ["MESSAGES & SAFETY", "BUYING FLOW (Arrange Purchase)", "SERVICE FLOW"],
+    "/profile": ["PROFILE & SETTINGS", "USER ACCOUNTS", "TRUST & VERIFICATION"],
+    "/dashboard": ["DASHBOARD & EXTRAS", "XP & REWARDS"],
+    "/services": ["SERVICE FLOW", "SELLING"],
+    "/rentals": ["RENTAL FLOW", "SELLING"],
+    "/vehicles": ["SELLING"],
+    "/digital": ["SELLING"],
+    "/watchlist": ["BUYING"],
+    "/disputes": ["BUYING FLOW (Stripe Checkout)", "REPORTING & SAFETY"],
+    "/reviews": ["REVIEWS"],
+    "/notifications": ["NOTIFICATIONS"],
+    "/login": ["USER ACCOUNTS"],
+    "/create-account": ["USER ACCOUNTS"],
+    "/forgot-password": ["PASSWORD & ACCOUNT"],
+    "/admin": ["REPORTING & SAFETY"],
+    "/seller-guidelines": ["SELLING", "TRUST & VERIFICATION"],
+  };
+
+  const extra = pageMap[path] || [];
+  const include = new Set([...always, ...extra]);
+
+  // Parse sections from the full knowledge
+  const sections: { heading: string; content: string }[] = [];
+  const lines = SKY_AI_PROJECT_KNOWLEDGE.split("\n");
+  let current: { heading: string; lines: string[] } | null = null;
+
+  for (const line of lines) {
+    const match = line.match(/^## (.+)/);
+    if (match) {
+      if (current) sections.push({ heading: current.heading, content: current.lines.join("\n") });
+      current = { heading: match[1].trim(), lines: [line] };
+    } else if (current) {
+      current.lines.push(line);
+    }
+  }
+  if (current) sections.push({ heading: current.heading, content: current.lines.join("\n") });
+
+  const relevant = sections.filter((s) =>
+    Array.from(include).some((h) => s.heading.startsWith(h) || s.heading.includes(h))
+  );
+
+  // If we matched fewer than 4, just return everything (short prompt anyway)
+  if (relevant.length < 4) return SKY_AI_PROJECT_KNOWLEDGE;
+
+  return relevant.map((s) => s.content).join("\n\n");
+}
+
 export const SKY_AI_PROJECT_KNOWLEDGE = `
 ## WHAT SKY DROP IS
 - New Zealand community marketplace (NZD only). Buy/sell **physical goods, vehicles, digital products, services, and rentals**.

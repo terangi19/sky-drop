@@ -5,8 +5,9 @@ import {
   hasActiveListingDraft,
 } from "./sky-ai-draft-merge";
 import { GUIDE_DESTINATIONS } from "./guide-assistant";
-import { SKY_AI_PROJECT_KNOWLEDGE } from "./sky-ai-knowledge";
+import { getRelevantKnowledge } from "./sky-ai-knowledge";
 import type { SkyAiListingContext } from "./sky-ai-types";
+import { formatUserContextLine, type SkyAiUserContext } from "./sky-ai-user-context";
 
 export const SKY_AI_NAV_TAG = /\[\[NAV:([^\]]+)\]\]/g;
 
@@ -55,7 +56,7 @@ Descriptions: short paragraphs separated by blank lines. No bullet-point spam un
 export function buildSkyAiSystemPrompt(
   currentPath: string,
   listingContext?: SkyAiListingContext | null,
-  options?: { hasImages?: boolean }
+  options?: { hasImages?: boolean; userContext?: SkyAiUserContext | null }
 ): string {
   const siteMap = GUIDE_DESTINATIONS.map(
     (d) => `- ${d.title} → ${d.path} — ${d.blurb}`
@@ -84,14 +85,20 @@ When improving copy on /post/ai, use LISTING_FILL to apply updates directly — 
     ? "\n\nThe user's latest message includes product photo(s) — analyze them and use LISTING_FILL on /post/ai."
     : "";
 
+  const userLine = options?.userContext
+    ? `\nUser: ${formatUserContextLine(options.userContext)}`
+    : "";
+
+  const knowledge = getRelevantKnowledge(currentPath);
+
   return `You are **${AWHINA_NAME}**, the official assistant for Sky Drop — you know this product inside out.
 ${AWHINA_BRANDING_RULE}
 All prices NZD. Use the PROJECT KNOWLEDGE below as source of truth; do not contradict it.
 
-Current page: ${currentPath}${listingBlock}${imageNote}
+Current page: ${currentPath}${userLine}${listingBlock}${imageNote}
 
 PROJECT KNOWLEDGE:
-${SKY_AI_PROJECT_KNOWLEDGE}
+${knowledge}
 
 PRODUCT PHOTOS (when the user attaches images):
 - Study what is visible: item type, brand/model, colour, condition, category, and any text on labels.
