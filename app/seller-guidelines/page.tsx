@@ -19,7 +19,7 @@ export default function SellerGuidelinesPage() {
 
         <h1 className="text-4xl sm:text-5xl font-black tracking-tight">Seller Guidelines</h1>
         <p className="mt-4 text-lg text-[var(--muted)] leading-relaxed">
-          Start selling on Sky Drop — New Zealand's safest marketplace. Here's everything you need to know about listing items, getting paid, and providing a great experience.
+          Start selling on Sky Drop — New Zealand&apos;s safest marketplace. Here&apos;s everything you need to know about listing items, getting paid, and providing a great experience.
         </p>
 
         <Section title="Getting Started" icon="🚀">
@@ -54,7 +54,7 @@ export default function SellerGuidelinesPage() {
         </Section>
 
         <Section title="Order Management" icon="📦">
-          <p>When someone buys your item, you'll see it in your Sales page. Update the order status as you go:</p>
+          <p>When someone buys your item, you&apos;ll see it in your Sales page. Update the order status as you go:</p>
           <ul className="list-disc pl-5 mt-2 space-y-1">
             <li><strong className="text-white">Confirm Order</strong> — acknowledge the purchase and prepare the item</li>
             <li><strong className="text-white">Mark Shipped</strong> — update when the item is dispatched (for physical goods)</li>
@@ -112,7 +112,7 @@ export default function SellerGuidelinesPage() {
             <li>Take high-quality photos in good lighting — listings with photos sell 3x faster</li>
             <li>Respond to messages quickly — buyers appreciate fast communication</li>
             <li>Price competitively — check similar listings before setting your price</li>
-            <li>Keep your listings updated — mark items as sold when they're gone</li>
+            <li>Keep your listings updated — mark items as sold when they&apos;re gone</li>
             <li>Build your reputation — good reviews lead to more sales</li>
           </ul>
         </Section>

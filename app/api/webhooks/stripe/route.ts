@@ -17,16 +17,16 @@ export async function POST(req: NextRequest) {
   let event;
   try {
     event = stripe.webhooks.constructEvent(buf, sig, webhookSecret);
-  } catch (sigErr: any) {
+  } catch (sigErr: unknown) {
     await writeFailureRecord("webhookFailures", {
       eventType: "signature_verification_failed",
       stripeEventId: null,
-      error: sigErr.message || "Invalid signature",
+      error: (sigErr instanceof Error ? sigErr.message : "Invalid signature"),
     });
     await notifyAdmin({
       type: "webhook_failure",
       title: "Stripe Webhook Signature Verification Failed",
-      message: sigErr.message || "Invalid signature",
+      message: (sigErr instanceof Error ? sigErr.message : "Invalid signature"),
       metadata: { stripeEventId: null },
     });
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
@@ -53,8 +53,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (event.type === "payment_intent.succeeded") {
-      const pi = event.data.object as any;
-      const meta = pi.metadata || {};
+      const pi = event.data.object as Record<string, unknown>;
+      const meta = (pi.metadata || {}) as Record<string, string>;
 
       if (meta.type === "bump" && meta.listingId) {
         await getAdminDb().collection("listings").doc(meta.listingId).update({
@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
           processingFee: 1.00,
           total,
           type: listingType,
-          stripePaymentIntentId: pi.id,
+          stripePaymentIntentId: String(pi.id || ""),
           collectionName: meta.collectionName || "listings",
           destinationCharge: true,
         });
@@ -134,26 +134,27 @@ export async function POST(req: NextRequest) {
     }
 
     if (event.type === "payment_intent.payment_failed") {
-      const pi = event.data.object as any;
-      const meta = pi.metadata || {};
+      const pi = event.data.object as Record<string, unknown>;
+      const meta = ((pi.metadata || {}) as Record<string, string>);
       const db = getAdminDb();
+      const lastError = pi.last_payment_error as Record<string, unknown> | undefined;
 
       await writeFailureRecord("webhookFailures", {
         eventType: "payment_intent.payment_failed",
         stripeEventId: event.id,
-        paymentIntentId: pi.id,
-        error: pi.last_payment_error?.message || "Payment failed",
+        paymentIntentId: String(pi.id || ""),
+        error: String(lastError?.message || "Payment failed"),
         metadata: meta,
       });
 
       await notifyAdmin({
         type: "payment_failed",
         title: "Payment Failed",
-        message: `Payment intent ${pi.id} failed: ${pi.last_payment_error?.message || "Unknown error"}`,
+        message: `Payment intent ${String(pi.id)} failed: ${String(lastError?.message || "Unknown error")}`,
         metadata: {
-          paymentIntentId: pi.id,
+          paymentIntentId: String(pi.id || ""),
           listingId: meta.listingId || "unknown",
-          error: pi.last_payment_error?.message,
+          error: String(lastError?.message || ""),
         },
       });
 
@@ -165,7 +166,7 @@ export async function POST(req: NextRequest) {
         if (purchaseDoc.exists) {
           await purchaseRef.update({
             status: "payment_failed",
-            failedReason: pi.last_payment_error?.message || "Payment failed",
+            failedReason: String(lastError?.message || "Payment failed"),
             failedAt: new Date(),
           });
         }
@@ -173,8 +174,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (event.type === "charge.dispute.created") {
-      const dispute = event.data.object as any;
-      const chargeId = dispute.charge as string;
+      const dispute = event.data.object as Record<string, unknown>;
+      const chargeId = String(dispute.charge || "");
       const db = getAdminDb();
 
       let paymentIntentId = "";
@@ -184,38 +185,44 @@ export async function POST(req: NextRequest) {
 
       try {
         const charge = await stripe.charges.retrieve(chargeId, { expand: ["payment_intent"] });
-        const pi = charge.payment_intent as any;
-        paymentIntentId = pi?.id || "";
-        listingId = pi?.metadata?.listingId || "";
-        buyerEmail = pi?.metadata?.buyerEmail || "";
-        sellerEmail = pi?.metadata?.sellerEmail || "";
+        const chargePi = charge.payment_intent as unknown as Record<string, unknown> | null;
+        const chargeMeta = ((chargePi?.metadata || {}) as Record<string, string>);
+        paymentIntentId = String(chargePi?.id || "");
+        listingId = chargeMeta.listingId || "";
+        buyerEmail = chargeMeta.buyerEmail || "";
+        sellerEmail = chargeMeta.sellerEmail || "";
       } catch {}
 
-      await db.collection("disputes").doc(dispute.id).set({
-        stripeDisputeId: dispute.id,
+      const dId = String(dispute.id || "");
+      const dAmount = Number(dispute.amount || 0);
+      const dReason = String(dispute.reason || "");
+      const dStatus = String(dispute.status || "");
+
+      await db.collection("disputes").doc(dId).set({
+        stripeDisputeId: dId,
         chargeId,
         paymentIntentId,
         listingId,
         buyerEmail,
         sellerEmail,
-        amount: dispute.amount / 100,
-        reason: dispute.reason,
-        status: dispute.status,
-        createdAt: new Date(dispute.created * 1000),
+        amount: dAmount / 100,
+        reason: dReason,
+        status: dStatus,
+        createdAt: new Date(Number(dispute.created || 0) * 1000),
         updatedAt: new Date(),
       });
 
       await notifyAdmin({
         type: "dispute_created",
         title: "Dispute Created",
-        message: `Dispute ${dispute.id} — Reason: ${dispute.reason}, Amount: $${(dispute.amount / 100).toFixed(2)}`,
+        message: `Dispute ${dId} — Reason: ${dReason}, Amount: $${(dAmount / 100).toFixed(2)}`,
         metadata: {
-          disputeId: dispute.id,
+          disputeId: dId,
           chargeId,
           paymentIntentId,
           listingId,
-          reason: dispute.reason,
-          amount: dispute.amount / 100,
+          reason: dReason,
+          amount: dAmount / 100,
         },
       });
 
@@ -228,27 +235,30 @@ export async function POST(req: NextRequest) {
           await purchases.docs[0].ref.update({
             disputeStatus: "disputed",
             disputedAt: new Date(),
-            disputeId: dispute.id,
+            disputeId: dId,
           });
         }
       }
     }
 
     if (event.type === "charge.dispute.closed") {
-      const dispute = event.data.object as any;
+      const dispute = event.data.object as Record<string, unknown>;
+      const disputeId = String(dispute.id || "");
       const db = getAdminDb();
 
-      const disputeRef = db.collection("disputes").doc(dispute.id);
+      const disputeRef = db.collection("disputes").doc(disputeId);
       const disputeDoc = await disputeRef.get();
+      const dStatus = String(dispute.status || "");
+
       if (disputeDoc.exists) {
         await disputeRef.update({
-          status: dispute.status,
+          status: dStatus,
           closedAt: new Date(),
         });
       } else {
         await disputeRef.set({
-          stripeDisputeId: dispute.id,
-          status: dispute.status,
+          stripeDisputeId: disputeId,
+          status: dStatus,
           closedAt: new Date(),
         });
       }
@@ -256,20 +266,20 @@ export async function POST(req: NextRequest) {
       await notifyAdmin({
         type: "dispute_closed",
         title: "Dispute Closed",
-        message: `Dispute ${dispute.id} closed with status: ${dispute.status}`,
+        message: `Dispute ${disputeId} closed with status: ${dStatus}`,
         metadata: {
-          disputeId: dispute.id,
-          status: dispute.status,
+          disputeId,
+          status: dStatus,
         },
       });
 
       const purchases = await db.collection("purchases")
-        .where("disputeId", "==", dispute.id)
+        .where("disputeId", "==", disputeId)
         .limit(1)
         .get();
       if (!purchases.empty) {
         await purchases.docs[0].ref.update({
-          disputeStatus: dispute.status === "won" ? "dispute_won" : dispute.status === "lost" ? "dispute_lost" : "dispute_closed",
+          disputeStatus: dStatus === "won" ? "dispute_won" : dStatus === "lost" ? "dispute_lost" : "dispute_closed",
           disputeClosedAt: new Date(),
         });
       }
@@ -277,7 +287,7 @@ export async function POST(req: NextRequest) {
 
     await eventRef.update({ status: "completed", processedAt: new Date() });
     return NextResponse.json({ received: true });
-  } catch (e: any) {
+  } catch (e: unknown) {
     try { await eventRef.delete(); } catch {}
     console.error("[stripe-webhook] Error:", e);
     Sentry.captureException(e, { tags: { type: "stripe-webhook" }, extra: { eventType: event?.type, eventId: event?.id } });
@@ -285,17 +295,17 @@ export async function POST(req: NextRequest) {
     await writeFailureRecord("webhookFailures", {
       eventType: event.type,
       stripeEventId: event.id,
-      error: e.message || "Unknown webhook error",
+      error: (e instanceof Error ? e.message : "Unknown webhook error"),
     });
 
     await notifyAdmin({
       type: "webhook_failure",
       title: "Stripe Webhook Processing Failed",
-      message: `Event ${event.id} (${event.type}) failed: ${e.message || "Unknown error"}`,
+      message: `Event ${event.id} (${event.type}) failed: ${e instanceof Error ? e.message : "Unknown error"}`,
       metadata: {
         eventType: event.type,
         stripeEventId: event.id,
-        error: e.message,
+        error: (e instanceof Error ? e.message : String(e)),
       },
     });
 

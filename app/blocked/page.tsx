@@ -111,7 +111,7 @@ export default function BlockedPage() {
         </Link>
 
         <h1 className="text-2xl font-black text-[var(--foreground)]">Blocked Users</h1>
-        <p className="mt-1 text-sm text-[var(--muted)]">Blocked users can't message you or interact with your listings.</p>
+        <p className="mt-1 text-sm text-[var(--muted)]">Blocked users can&apos;t message you or interact with your listings.</p>
 
         {/* Add block */}
         <div className="mt-6 rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">

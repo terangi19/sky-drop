@@ -30,7 +30,7 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
       setChecking(false);
       return;
     }
-    let timer = setTimeout(() => {
+    const timer = setTimeout(() => {
       const isPublic = PUBLIC_ROUTES.some((route) =>
         pathname.startsWith(route)
       );

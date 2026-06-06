@@ -522,7 +522,7 @@ export default function Home() {
   const filteredListings =
     useMemo(() => {
 
-      let filtered =
+      const filtered =
         listings.filter(
           (item) => {
 
@@ -710,7 +710,7 @@ export default function Home() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
           <div className="mx-4 w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl">
             <h3 className="text-xl font-black text-[var(--foreground)]">Make an Offer</h3>
-            <p className="mt-2 text-[var(--muted)]">Make an offer for "{offerListing.title}"</p>
+            <p className="mt-2 text-[var(--muted)]">Make an offer for &quot;{offerListing.title}&quot;</p>
             <div className="mt-6">
               <label className="block text-sm font-bold text-[var(--muted)]">Your Offer ($)</label>
               <input

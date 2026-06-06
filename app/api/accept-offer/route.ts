@@ -58,9 +58,9 @@ export async function POST(req: NextRequest) {
       const result = await acceptOfferWithRest(input, projectId, idToken);
       return NextResponse.json({ success: true, ...result });
     }
-  } catch (e: any) {
-    console.error("[accept-offer] Error:", e?.message || e);
-    return NextResponse.json({ error: e.message || "Failed to accept offer" }, { status: 500 });
+  } catch (e: unknown) {
+    console.error("[accept-offer] Error:", e);
+    return NextResponse.json({ error: (e instanceof Error ? e.message : "Failed to accept offer") }, { status: 500 });
   }
 }
 

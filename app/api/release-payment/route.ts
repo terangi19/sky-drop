@@ -13,9 +13,11 @@ function isDisputeActive(disputeStatus?: string): boolean {
 }
 
 export async function POST(req: NextRequest) {
-  let decodedToken: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let decodedToken: { email?: string; uid: string; [key: string]: any };
   let purchaseId: string | undefined;
-  let purchase: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let purchase: Record<string, any>;
 
   try {
     const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
@@ -212,11 +214,11 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ success: true, transferId: transfer.id });
-  } catch (e: any) {
-    console.error("[release-payment] Error:", e?.code || e?.message || e);
+  } catch (e: unknown) {
+    console.error("[release-payment] Error:", e);
     Sentry.captureException(e, { tags: { type: "payment-release" }, extra: { purchaseId, listingTitle: purchase?.listingTitle } });
 
-    const errorMsg = e?.message || e?.code || "Unknown error";
+    const errorMsg = e instanceof Error ? e.message : "Unknown error";
     await writeFailureRecord("paymentReleaseFailures", {
       purchaseId,
       sellerEmail: purchase?.sellerEmail || "unknown",
@@ -243,7 +245,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({ error: e.message || "Failed to release funds" }, { status: 500 });
+    return NextResponse.json({ error: (e instanceof Error ? e.message : "Failed to release funds") }, { status: 500 });
   }
 }
 

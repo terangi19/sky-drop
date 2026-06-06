@@ -19,7 +19,7 @@ export async function rateLimit(key: string, maxRequests: number, windowMs: numb
       const fsKey = key.replace(/[^a-zA-Z0-9_-]/g, "_");
       const ref = db.collection("rateLimits").doc(fsKey);
       const snap = await ref.get();
-      let data = snap.data();
+      const data = snap.data();
       let count = 1;
       let resetAt = now + windowMs;
 

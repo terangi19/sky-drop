@@ -201,8 +201,8 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
-  } catch (e: any) {
-    console.error("[disputes] Error:", e?.code || e?.message || e);
+  } catch (e: unknown) {
+    console.error("[disputes] Error:", e);
     return NextResponse.json({ error: "Could not process request. Please try again." }, { status: 500 });
   }
 }

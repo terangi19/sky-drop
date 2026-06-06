@@ -92,8 +92,8 @@ export async function PUT(req: NextRequest) {
     await db.collection("listings").doc(listingId).update(updateData);
 
     return NextResponse.json({ success: true, listingId });
-  } catch (e: any) {
-    console.error("[update-listing] Error:", e?.message || e);
+  } catch (e: unknown) {
+    console.error("[update-listing] Error:", e);
     return NextResponse.json({ error: "Failed to update listing" }, { status: 500 });
   }
 }

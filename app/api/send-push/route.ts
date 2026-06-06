@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ sent });
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("send-push error:", e);
     return NextResponse.json({ error: "Failed to send push" }, { status: 500 });
   }

@@ -59,8 +59,8 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({ expired: expiredCount });
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("[cron-expire-offers] Error:", e);
-    return NextResponse.json({ error: e.message || "Unknown error" }, { status: 500 });
+    return NextResponse.json({ error: (e instanceof Error ? e.message : "Unknown error") }, { status: 500 });
   }
 }

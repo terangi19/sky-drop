@@ -370,7 +370,7 @@ export default function LootCrateModal({ userId, userEmail, onClose, inline }: {
               )}
               <div className="animate-[blast-wave_0.7s_ease-out_forwards] absolute w-20 h-20 rounded-full border-4 border-amber-300/60" />
               <div className="text-6xl animate-[crate-boom_0.5s_ease-out_forwards] select-none">💥</div>
-              <p className="mt-3 text-xs text-amber-200 font-bold tracking-widest uppercase">It's happening!</p>
+              <p className="mt-3 text-xs text-amber-200 font-bold tracking-widest uppercase">It&apos;s happening!</p>
             </div>
           </div>
         )}
@@ -534,7 +534,7 @@ export default function LootCrateModal({ userId, userEmail, onClose, inline }: {
             );
           })}
           <div className="text-8xl animate-[crate-boom_0.5s_ease-out_forwards] select-none">💥</div>
-          <p className="mt-4 text-sm text-amber-200 font-bold tracking-widest uppercase">It's happening!</p>
+          <p className="mt-4 text-sm text-amber-200 font-bold tracking-widest uppercase">It&apos;s happening!</p>
         </div>
       )}
 

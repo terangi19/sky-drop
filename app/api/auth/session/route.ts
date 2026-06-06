@@ -82,8 +82,8 @@ export async function POST(req: NextRequest) {
     });
 
     return response;
-  } catch (e: any) {
-    console.error("[auth/session] Error:", e?.message || e);
+  } catch (e: unknown) {
+    console.error("[auth/session] Error:", e);
     return NextResponse.json({ error: "Failed to create session" }, { status: 500 });
   }
 }

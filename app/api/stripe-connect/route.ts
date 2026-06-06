@@ -57,13 +57,8 @@ export async function POST(req: NextRequest) {
           email,
           capabilities: { transfers: { requested: true } },
         });
-      } catch (createErr: any) {
-        console.error("[Stripe Connect] Full accounts.create error:", JSON.stringify(createErr, Object.getOwnPropertyNames(createErr)));
-        console.error("[Stripe Connect] Error type:", createErr.type);
-        console.error("[Stripe Connect] Error code:", createErr.code);
-        console.error("[Stripe Connect] Error statusCode:", createErr.statusCode);
-        console.error("[Stripe Connect] Error param:", createErr.param);
-        console.error("[Stripe Connect] Error stack:", createErr.stack);
+      } catch (createErr) {
+        console.error("[Stripe Connect] accounts.create error:", createErr);
         throw createErr;
       }
 
@@ -131,9 +126,9 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("Stripe Connect error:", e);
-    return NextResponse.json({ error: e.message || "Failed" }, { status: 500 });
+    return NextResponse.json({ error: (e instanceof Error ? e.message : "Failed") }, { status: 500 });
   }
 }
 

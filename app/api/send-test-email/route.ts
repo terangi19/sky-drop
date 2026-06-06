@@ -145,8 +145,8 @@ export async function GET(req: NextRequest) {
         });
 
         results.push({ type, status: "sent" });
-      } catch (e: any) {
-        results.push({ type, status: `failed: ${e?.message || "unknown"}` });
+      } catch (e: unknown) {
+        results.push({ type, status: `failed: ${e instanceof Error ? e.message : "unknown"}` });
       }
     }
 
@@ -154,8 +154,8 @@ export async function GET(req: NextRequest) {
     const failed = results.filter((r) => r.status !== "sent").length;
 
     return NextResponse.json({ success: true, sent, failed, details: results });
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error(e);
-    return NextResponse.json({ error: e?.message || "Failed" }, { status: 500 });
+    return NextResponse.json({ error: (e instanceof Error ? e.message : "Failed") }, { status: 500 });
   }
 }
