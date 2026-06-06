@@ -1,14 +1,18 @@
 importScripts("https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js");
 importScripts("https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js");
 
+// Firebase config is injected at runtime via the query string when the
+// service worker is registered (see PWAProvider.tsx).  This avoids
+// hardcoding credentials in source control.
+const params = new URL(self.location.href).searchParams;
 firebase.initializeApp({
-  apiKey: "AIzaSyDwIex86XMiqO5FIxl_Uhck1pbCX8O32yI",
-  authDomain: "sky-drop-de459.firebaseapp.com",
-  databaseURL: "https://sky-drop-de459-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "sky-drop-de459",
-  storageBucket: "sky-drop-de459.firebasestorage.app",
-  messagingSenderId: "564551137643",
-  appId: "1:564551137643:web:8d64159394b148fc09b42e",
+  apiKey: params.get("apiKey") || "",
+  authDomain: params.get("authDomain") || "",
+  databaseURL: params.get("databaseURL") || "",
+  projectId: params.get("projectId") || "",
+  storageBucket: params.get("storageBucket") || "",
+  messagingSenderId: params.get("messagingSenderId") || "",
+  appId: params.get("appId") || "",
 });
 
 const messaging = firebase.messaging();

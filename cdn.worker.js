@@ -41,7 +41,7 @@ export default {
     const headers = new Headers(response.headers);
     headers.set("Cache-Control", "public, max-age=31536000, immutable");
     headers.set("CDN-Cache", "HIT");
-    headers.set("Access-Control-Allow-Origin", "*");
+    headers.set("Access-Control-Allow-Origin", "https://skydrop.co.nz");
 
     return new Response(response.body, {
       status: response.status,
