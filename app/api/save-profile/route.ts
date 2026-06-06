@@ -1,26 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken, getServerDb } from "../../lib/firebase-admin";
-import { rateLimit } from "../../lib/rate-limit";
+import { getServerDb } from "../../lib/firebase-admin";
+import { applyRateLimit, authenticateRequest, isErrorResponse } from "../../lib/api-helpers";
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const { allowed } = await rateLimit(`save-profile:${ip}`, 10, 60_000);
-    if (!allowed) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-    }
+    const limited = await applyRateLimit(req, "save-profile", 10);
+    if (limited) return limited;
 
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const idToken = authHeader.slice(7);
-    let decodedToken;
-    try {
-      decodedToken = await verifyIdToken(idToken);
-    } catch {
-      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
-    }
+    const auth = await authenticateRequest(req);
+    if (isErrorResponse(auth)) return auth;
 
     const body = await req.json();
     const {
@@ -53,8 +41,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Username is required" }, { status: 400 });
     }
 
-    const db = getServerDb(idToken);
-    const profileRef = db.collection("profiles").doc(decodedToken.uid);
+    const db = getServerDb(auth.idToken);
+    const profileRef = db.collection("profiles").doc(auth.uid);
     const usernameKey = trimmedUsername.toLowerCase();
 
     const existingSnap = await profileRef.get();
@@ -64,7 +52,7 @@ export async function POST(req: NextRequest) {
     const usernameSnap = await usernameRef.get();
     if (usernameSnap.exists) {
       const owner = usernameSnap.data()?.uid;
-      if (owner && owner !== decodedToken.uid) {
+      if (owner && owner !== auth.uid) {
         return NextResponse.json({ error: "Username already taken" }, { status: 409 });
       }
     }
@@ -105,8 +93,8 @@ export async function POST(req: NextRequest) {
         existingData?.phoneVerified === true ||
         existingData?.verified === true ||
         phoneVerified === true,
-      email: decodedToken.email || "",
-      emailVerified: !!decodedToken.email_verified,
+      email: auth.email || "",
+      emailVerified: !!auth.decoded.email_verified,
       bankAccountName:
         typeof bankAccountName === "string"
           ? bankAccountName.trim()
@@ -126,7 +114,7 @@ export async function POST(req: NextRequest) {
     await profileRef.set(profileData, { merge: true });
 
     try {
-      await usernameRef.set({ uid: decodedToken.uid }, { merge: true });
+      await usernameRef.set({ uid: auth.uid }, { merge: true });
     } catch (usernameErr) {
       console.warn("save-profile: username reservation failed (profile still saved):", usernameErr);
     }

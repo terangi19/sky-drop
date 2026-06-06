@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken, getAdminDb } from "../../lib/firebase-admin";
+import { getAdminDb } from "../../lib/firebase-admin";
+import { authenticateRequest, isErrorResponse } from "../../lib/api-helpers";
 import { isAdminEmail } from "../../lib/admin-check";
 
 const sellers = [
@@ -30,18 +31,10 @@ const listings = [
 
 export async function GET(req: NextRequest) {
   try {
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const idToken = authHeader.slice(7);
-    try {
-      const decoded = await verifyIdToken(idToken);
-      if (!isAdminEmail(decoded.email)) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-      }
-    } catch {
-      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
+    const auth = await authenticateRequest(req);
+    if (isErrorResponse(auth)) return auth;
+    if (!isAdminEmail(auth.email)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     const results: string[] = [];
     const now = Date.now();

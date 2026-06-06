@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken, getServerDb, isAdminInitialized } from "../../../lib/firebase-admin";
+import { getServerDb } from "../../../lib/firebase-admin";
+import { getClientIp, authenticateRequest, isErrorResponse } from "../../../lib/api-helpers";
 import { isAdminEmail } from "../../../lib/admin-check";
 
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -18,33 +19,24 @@ function checkRateLimit(ip: string): boolean {
   return true;
 }
 
+
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "unknown";
+    const ip = getClientIp(req);
     if (!checkRateLimit(ip)) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }
 
-    // Get and verify the Firebase ID token from the Authorization header
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const idToken = authHeader.slice(7);
-    let decodedToken;
-    try {
-      decodedToken = await verifyIdToken(idToken);
-    } catch {
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
-    }
+    const auth = await authenticateRequest(req);
+    if (isErrorResponse(auth)) return auth;
 
-    const email = decodedToken.email || "";
-    const uid = decodedToken.uid;
+    const email = auth.email;
+    const uid = auth.uid;
 
     // Check membership in the admin-users Firestore collection
     let dbAdmin = false;
     try {
-      const db2 = getServerDb(idToken);
+      const db2 = getServerDb(auth.idToken);
       const adminDoc = await db2.collection("admin-users").doc(uid).get();
       dbAdmin = adminDoc.exists && adminDoc.data()?.role === "admin";
     } catch {}

@@ -1,27 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken, getServerDb } from "../../lib/firebase-admin";
-import { rateLimit } from "../../lib/rate-limit";
+import { getServerDb } from "../../lib/firebase-admin";
+import { applyRateLimit, authenticateRequest, isErrorResponse } from "../../lib/api-helpers";
 import { sanitizeListingContent } from "../../lib/sanitize";
 
 export async function PUT(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const { allowed } = await rateLimit(`update-listing:${ip}`, 10, 60_000);
-    if (!allowed) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-    }
+    const limited = await applyRateLimit(req, "update-listing", 10);
+    if (limited) return limited;
 
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const idToken = authHeader.slice(7);
-    let token;
-    try {
-      token = await verifyIdToken(idToken);
-    } catch {
-      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
-    }
+    const auth = await authenticateRequest(req);
+    if (isErrorResponse(auth)) return auth;
 
     const body = await req.json();
     const { listingId } = body;
@@ -32,7 +20,7 @@ export async function PUT(req: NextRequest) {
     // Fetch existing listing to verify ownership
     let existingData: Record<string, unknown> | null = null;
 
-    const db = getServerDb(idToken);
+    const db = getServerDb(auth.idToken);
     const docSnap = await db.collection("listings").doc(listingId).get();
     if (!docSnap.exists) {
       return NextResponse.json({ error: "Listing not found" }, { status: 404 });
@@ -45,7 +33,7 @@ export async function PUT(req: NextRequest) {
 
     // Ownership check: sellerId must match the authenticated user
     const existingSellerId = existingData.sellerId as string | undefined;
-    if (!existingSellerId || existingSellerId !== token.uid) {
+    if (!existingSellerId || existingSellerId !== auth.uid) {
       return NextResponse.json({ error: "You don't have permission to edit this listing" }, { status: 403 });
     }
 

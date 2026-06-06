@@ -1,22 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken, getAdminDb } from "../../lib/firebase-admin";
+import { getAdminDb } from "../../lib/firebase-admin";
+import { authenticateRequest, isErrorResponse } from "../../lib/api-helpers";
 import { isAdminEmail } from "../../lib/admin-check";
 
 export async function POST(req: NextRequest) {
   try {
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const idToken = authHeader.slice(7);
-    let decodedToken;
-    try {
-      decodedToken = await verifyIdToken(idToken);
-    } catch {
-      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
-    }
+    const auth = await authenticateRequest(req);
+    if (isErrorResponse(auth)) return auth;
 
-    if (!isAdminEmail(decodedToken.email)) {
+    if (!isAdminEmail(auth.email)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -49,7 +41,8 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ success: true, listingId: docRef.id, url: `/post/listing/${docRef.id}` });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Failed" }, { status: 500 });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Failed";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
