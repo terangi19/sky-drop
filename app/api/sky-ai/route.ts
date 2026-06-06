@@ -165,7 +165,7 @@ function buildMessages(
           },
           ...images.map((url) => ({
             type: "image_url" as const,
-            image_url: { url, detail: "low" as const },
+            image_url: { url, detail: "high" as const },
           })),
         ]
       : message;
@@ -327,7 +327,7 @@ export async function POST(req: NextRequest) {
         completion = await openai.chat.completions.create({
           model,
           temperature: 0.7,
-          max_tokens: 1400,
+          max_tokens: 2000,
           stream: true,
           messages,
         });
@@ -394,7 +394,7 @@ export async function POST(req: NextRequest) {
       completion = await openai.chat.completions.create({
         model,
         temperature: 0.7,
-        max_tokens: 1400,
+        max_tokens: 2000,
         messages,
       });
     } catch (openaiErr: unknown) {
