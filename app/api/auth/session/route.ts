@@ -47,7 +47,9 @@ export async function POST(req: NextRequest) {
       const db2 = getServerDb(idToken);
       const adminDoc = await db2.collection("admin-users").doc(uid).get();
       dbAdmin = adminDoc.exists && adminDoc.data()?.role === "admin";
-    } catch {}
+    } catch (adminCheckErr) {
+      console.error("[auth/session] Failed to check admin-users collection:", adminCheckErr);
+    }
 
     if (!isAdminEmail(email) && !dbAdmin) {
       return NextResponse.json({ error: "Not authorized" }, { status: 403 });

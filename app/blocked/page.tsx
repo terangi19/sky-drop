@@ -49,7 +49,9 @@ export default function BlockedPage() {
     try {
       const snap = await getDocs(query(collection(db, "profiles"), where("email", "==", cleanEmail)));
       if (!snap.empty) uid = snap.docs[0].id;
-    } catch {}
+    } catch (lookupErr) {
+      console.error("Failed to look up user UID:", lookupErr);
+    }
 
     const ref = doc(db, "users", user!.uid, "blocked", uid);
     await setDoc(ref, { blockedUid: uid, blockedEmail: cleanEmail, createdAt: Timestamp.now() });
@@ -62,7 +64,9 @@ export default function BlockedPage() {
 
   async function clearAll() {
     for (const b of blockedUsers) {
-      try { await deleteDoc(doc(db, "users", user!.uid, "blocked", b.uid)); } catch {}
+      try { await deleteDoc(doc(db, "users", user!.uid, "blocked", b.uid)); } catch (delErr) {
+        console.error(`Failed to unblock user ${b.uid}:`, delErr);
+      }
     }
     setClearConfirm(false);
   }

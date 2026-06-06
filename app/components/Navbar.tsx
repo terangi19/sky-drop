@@ -74,9 +74,7 @@ export default function Navbar() {
     const next = new Set(dismissedIds);
     next.add(id);
     setDismissedIds(next);
-    try {
-      try { localStorage.setItem("dismissedNotifications", JSON.stringify([...next])); } catch (e) { console.error("Failed to save dismissed notifications:", e); }
-    } catch {}
+    try { localStorage.setItem("dismissedNotifications", JSON.stringify([...next])); } catch (e) { console.error("Failed to save dismissed notifications:", e); }
     if (type === "message" || type === "offer") {
       updateDoc(doc(db, "messages", id), { read: true }).catch((e) => console.error("Failed to mark message read:", e));
     } else {

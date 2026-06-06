@@ -1293,7 +1293,9 @@ async function runRestTransaction<T>(
           headers: { "Authorization": `Bearer ${idToken}`, "Content-Type": "application/json" },
           body: JSON.stringify({ transaction: txId }),
         });
-      } catch {}
+      } catch (rollbackErr) {
+        console.error("[purchase-service] Transaction rollback failed:", rollbackErr instanceof Error ? rollbackErr.message : rollbackErr);
+      }
       throw err;
     }
 

@@ -739,7 +739,9 @@ export default function ListingPage() {
           listingImage: listing.images?.[0] || listing.imageUrl,
           total: Number(newMax),
         });
-      } catch (_) {}
+      } catch (notifErr) {
+        console.error("Failed to send bid notifications:", notifErr);
+      }
 
       if (outbidUser && outbidUser !== listing.sellerEmail) {
         try {
@@ -754,7 +756,9 @@ export default function ListingPage() {
             listingTitle: listing.title,
             listingImage: listing.images?.[0] || listing.imageUrl,
           });
-        } catch (_) {}
+        } catch (outbidErr) {
+          console.error("Failed to send outbid notification:", outbidErr);
+        }
       }
     } catch (e: any) {
       console.error(e);
@@ -1957,7 +1961,9 @@ Service Status: 🟢 Inquiry Active`;
                               try {
                                 await updateDoc(doc(db, "listingQuestions", q.id), { answer: answerText.trim(), answeredAt: serverTimestamp() });
                                 setAnswerText(""); setAnsweringId(null);
-                              } catch {}
+                              } catch (ansErr) {
+                                console.error("Failed to submit answer:", ansErr);
+                              }
                             }} className="rounded-lg bg-emerald-500 px-3 py-1.5 text-[10px] font-bold text-white hover:bg-emerald-400">Answer</button>
                             <button onClick={() => { setAnsweringId(null); setAnswerText(""); }} className="text-[10px] text-[var(--muted)] hover:text-white px-1">✕</button>
                           </div>
@@ -2010,7 +2016,9 @@ Service Status: 🟢 Inquiry Active`;
                           listingTitle: listing.title,
                           listingImage: listing.images?.[0] || listing.imageUrl || "",
                         });
-                      } catch {}
+                      } catch (notifErr) {
+                        console.error("Failed to notify seller of new question:", notifErr);
+                      }
                     }} disabled={!newQuestion.trim() || sendingQuestion}
                       className="shrink-0 rounded-lg bg-sky-500 px-4 py-2 text-[11px] font-bold text-white transition hover:bg-sky-400 disabled:opacity-50">
                       Ask
