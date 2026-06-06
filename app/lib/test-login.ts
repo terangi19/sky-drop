@@ -1,7 +1,7 @@
 /** Shared test-account settings (Firebase Auth custom token flow). */
 
 export const DEFAULT_TEST_EMAIL = "test@skydrop.nz";
-export const DEFAULT_TEST_PASSWORD = "TestPass123!";
+export const DEFAULT_TEST_PASSWORD = "";
 
 export function getTestLoginEmail(): string {
   return (

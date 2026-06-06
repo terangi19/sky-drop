@@ -3,6 +3,8 @@ import { getAuth, browserLocalPersistence } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
+// Firebase client config values are public by design — security is enforced by
+// Firebase Security Rules and App Check, not by hiding these keys.
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyDwIex86XMiqO5FIxl_Uhck1pbCX8O32yI",
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "sky-drop-de459.firebaseapp.com",

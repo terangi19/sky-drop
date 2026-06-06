@@ -1,7 +1,22 @@
-import { NextResponse } from "next/server";
-import { isAdminInitialized, getAdminDb } from "../../lib/firebase-admin";
+import { NextRequest, NextResponse } from "next/server";
+import { isAdminInitialized, getAdminDb, verifyIdToken } from "../../lib/firebase-admin";
+import { isAdminEmail } from "../../lib/admin-check";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const authHeader = req.headers.get("authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  let decodedToken;
+  try {
+    decodedToken = await verifyIdToken(authHeader.slice(7));
+  } catch {
+    return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
+  }
+  if (!isAdminEmail(decodedToken.email)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const adminInit = isAdminInitialized();
   let adminDbOk = false;
   let adminError: string | null = null;
@@ -16,16 +31,11 @@ export async function GET() {
   }
 
   return NextResponse.json({
-    nodeEnv: process.env.NODE_ENV,
     isAdminInitialized: adminInit,
     adminDbWorks: adminDbOk,
     adminError,
     hasServiceAccount: !!process.env.FIREBASE_SERVICE_ACCOUNT,
-    serviceAccountLength: process.env.FIREBASE_SERVICE_ACCOUNT?.length || 0,
     hasStripeKey: !!process.env.STRIPE_SECRET_KEY,
     hasPublishableKey: !!process.env.NEXT_PUBLIC_STRIPE_KEY,
-    serviceAccountPreview: process.env.FIREBASE_SERVICE_ACCOUNT
-      ? process.env.FIREBASE_SERVICE_ACCOUNT.substring(0, 40) + "..."
-      : "not set",
   });
 }

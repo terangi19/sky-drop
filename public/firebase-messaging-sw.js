@@ -1,6 +1,8 @@
 importScripts("https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js");
 importScripts("https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js");
 
+// Firebase client config values are public by design — security is enforced
+// by Firebase Security Rules and App Check, not by hiding these keys.
 firebase.initializeApp({
   apiKey: "AIzaSyDwIex86XMiqO5FIxl_Uhck1pbCX8O32yI",
   authDomain: "sky-drop-de459.firebaseapp.com",
