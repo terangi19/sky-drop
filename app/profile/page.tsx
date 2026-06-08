@@ -924,17 +924,17 @@ const [authRefreshing, setAuthRefreshing] = useState(false);
   const hasSocialLinks = [discord, instagram, tiktok, website].some((v) => v.trim().length > 0);
 
   const settingsSection =
-    "rounded-2xl border border-white/[0.04] bg-white/[0.02] p-6 sm:p-7 backdrop-blur-sm";
+    "overflow-hidden rounded-3xl border border-white/[0.06] bg-gradient-to-b from-white/[0.04] via-transparent to-transparent p-6 sm:p-8 shadow-[0_0_80px_-20px_rgba(14,165,233,0.06)]";
   const fieldInput =
-    "w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-sm text-[var(--foreground)] outline-none transition-all placeholder:text-zinc-600 focus:border-sky-500/30 focus:bg-white/[0.05] focus:shadow-[0_0_0_1px_rgba(56,189,248,0.15)]";
+    "w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3.5 text-sm text-[var(--foreground)] outline-none transition-all duration-300 placeholder:text-zinc-600 focus:border-sky-500/30 focus:bg-white/[0.05] focus:shadow-[0_0_12px_rgba(56,189,248,0.08)]";
 
   if (loading) {
     return (
       <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
         <Background /><Navbar /><ThemeToggle />
-        <div className="relative z-10 mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
+        <div className="relative z-10 mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-10">
           <div className="flex items-center justify-center py-32">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-sky-500 border-t-transparent" />
+            <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-sky-500/30 border-t-sky-400" />
           </div>
         </div>
       </main>
@@ -945,9 +945,9 @@ const [authRefreshing, setAuthRefreshing] = useState(false);
     return (
       <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
         <Background /><Navbar /><ThemeToggle />
-        <div className="relative z-10 mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
-          <div className="rounded-2xl border border-zinc-800/50 bg-zinc-900/40 p-12 text-center">
-            <p className="text-[var(--muted)]">Please log in to view your profile.</p>
+        <div className="relative z-10 mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-10">
+          <div className="rounded-3xl border border-white/[0.06] bg-gradient-to-b from-white/[0.04] to-transparent p-16 text-center shadow-[0_0_80px_-20px_rgba(14,165,233,0.08)]">
+            <p className="text-lg font-medium text-[var(--muted)]">Please log in to view your profile.</p>
           </div>
         </div>
       </main>
@@ -958,122 +958,116 @@ const [authRefreshing, setAuthRefreshing] = useState(false);
     <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <Background /><Navbar /><ThemeToggle />
 
-      <div className="relative z-10 mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
-        <div className="space-y-4">
+      <div className="relative z-10 mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-10">
+        <div className="space-y-6">
 
           {/* ALERT */}
           {saving && (
-            <div className="rounded-2xl border border-sky-500/20 bg-sky-500/[0.04] px-5 py-3.5 text-sm text-sky-400 backdrop-blur-sm shadow-[0_0_20px_rgba(56,189,248,0.05)]">
+            <div className="rounded-2xl border border-sky-500/20 bg-sky-500/[0.04] px-5 py-3.5 text-sm font-medium text-sky-400 backdrop-blur-sm shadow-[0_0_30px_rgba(56,189,248,0.08)]">
               {saving}
             </div>
           )}
           {saved && (
-            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.04] px-5 py-3.5 text-sm text-emerald-400 backdrop-blur-sm shadow-[0_0_20px_rgba(16,185,129,0.05)]">
+            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.04] px-5 py-3.5 text-sm font-medium text-emerald-400 backdrop-blur-sm shadow-[0_0_30px_rgba(16,185,129,0.08)]">
               Saved successfully!
             </div>
           )}
 
           {/* ===== PROFILE HEADER ===== */}
-          <div className="group relative overflow-hidden rounded-3xl border border-white/[0.04] bg-white/[0.02] backdrop-blur-sm shadow-[0_0_0_1px_rgba(255,255,255,0.02)]">
+          <div className="group relative overflow-hidden rounded-3xl border border-white/[0.06] bg-gradient-to-b from-white/[0.04] via-transparent to-transparent shadow-[0_0_120px_-30px_rgba(14,165,233,0.1)]">
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(14,165,233,0.08),transparent)] pointer-events-none" />
             {/* Banner */}
-            <div className="relative h-28 sm:h-36 cursor-pointer overflow-hidden" onClick={() => bannerRef.current?.click()}>
+            <div className="relative h-36 sm:h-48 cursor-pointer overflow-hidden" onClick={() => bannerRef.current?.click()}>
               {bannerUrl ? (
                 <img src={bannerUrl} alt="" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
               ) : (
-                <div className="h-full w-full bg-gradient-to-br from-sky-500/8 via-violet-500/8 to-zinc-900" />
+                <div className="h-full w-full bg-gradient-to-br from-sky-950/60 via-[#0a0a1a] to-violet-950/40" />
               )}
-              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/70" />
-              <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-all duration-300 hover:bg-black/50">
-                <span className="rounded-full bg-black/50 backdrop-blur-md px-5 py-2 text-xs font-semibold text-white/80 opacity-0 transition-all duration-300 group-hover:opacity-100 border border-white/[0.06]">
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[var(--background)]" />
+              <div className="absolute inset-0 bg-gradient-to-r from-sky-500/[0.03] to-violet-500/[0.03]" />
+              <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-all duration-300 hover:bg-black/40">
+                <span className="rounded-full bg-black/50 backdrop-blur-md px-5 py-2 text-xs font-semibold text-white/80 opacity-0 transition-all duration-300 group-hover:opacity-100 border border-white/[0.08]">
                   {bannerUrl ? "Change Banner" : "Add Banner"}
                 </span>
               </div>
             </div>
             <input ref={bannerRef} type="file" accept="image/*" className="hidden" onChange={handleBannerUpload} />
 
-            <div className="relative px-6 pb-6">
+            <div className="relative px-6 sm:px-10 pb-8">
               {/* Avatar */}
-              <div className="absolute -top-12 left-6 sm:-top-16 sm:left-7 cursor-pointer group/avatar" onClick={() => avatarRef.current?.click()}>
-                {avatarUrl ? (
-                  <div className="relative">
-                    <img src={avatarUrl} alt=""
-                      className="h-[80px] w-[80px] sm:h-[88px] sm:w-[88px] rounded-2xl border-[3px] border-zinc-900 object-cover shadow-xl transition-all duration-300 group-hover/avatar:shadow-2xl" />
-                    <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/0 transition-all duration-300 group-hover/avatar:bg-black/50">
-                      <span className="text-xs font-bold text-white opacity-0 transition-all duration-300 group-hover/avatar:opacity-100">Edit</span>
+              <div className="absolute -top-14 left-6 sm:-top-16 sm:left-10 cursor-pointer group/avatar" onClick={() => avatarRef.current?.click()}>
+                <div className="relative">
+                  <div className="absolute -inset-1 rounded-2xl bg-gradient-to-br from-sky-400/30 via-sky-500/20 to-violet-500/30 blur-sm" />
+                  {avatarUrl ? (
+                    <div className="relative">
+                      <img src={avatarUrl} alt=""
+                        className="relative h-24 w-24 sm:h-28 sm:w-28 rounded-2xl border-[3px] border-[var(--background)] object-cover shadow-[0_8px_32px_rgba(0,0,0,0.4)] transition-all duration-300" />
+                      <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/0 transition-all duration-300 group-hover/avatar:bg-black/50">
+                        <span className="text-xs font-bold text-white opacity-0 transition-all duration-300 group-hover/avatar:opacity-100">Edit</span>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <div className="flex h-[80px] w-[80px] sm:h-[88px] sm:w-[88px] items-center justify-center rounded-2xl border-[3px] border-zinc-900 bg-zinc-950 shadow-xl">
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" className="h-10 w-10 sm:h-12 sm:w-12">
-                        <circle cx="16" cy="16" r="14" fill="none" stroke="#38bdf8" strokeWidth="0.4" opacity="0.12" />
-                        <circle cx="16" cy="16" r="12" fill="none" stroke="#38bdf8" strokeWidth="0.3" opacity="0.08" />
-                        <path d="M2 9 C2 4, 8 1, 16 1 C24 1, 30 4, 30 9" fill="none" stroke="#38bdf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M8 9 C8 5.5, 12 3, 16 3 C20 3, 24 5.5, 24 9" fill="none" stroke="#38bdf8" strokeWidth="0.6" opacity="0.3" strokeLinecap="round" />
-                        <line x1="6" y1="9.5" x2="10" y2="18" stroke="#38bdf8" strokeWidth="0.8" opacity="0.35" strokeLinecap="round" />
-                        <line x1="26" y1="9.5" x2="22" y2="18" stroke="#38bdf8" strokeWidth="0.8" opacity="0.35" strokeLinecap="round" />
-                        <line x1="16" y1="9.5" x2="16" y2="18" stroke="#38bdf8" strokeWidth="0.8" opacity="0.35" strokeLinecap="round" />
-                        <rect x="10.5" y="18" width="11" height="9" rx="1.5" ry="1.5" fill="none" stroke="#38bdf8" strokeWidth="1.8" strokeLinejoin="round" />
-                        <line x1="11" y1="21" x2="21" y2="21" stroke="#38bdf8" strokeWidth="1.2" opacity="0.5" strokeLinecap="round" />
-                        <path d="M12.5 22.5 L15 22.5" stroke="#38bdf8" strokeWidth="0.8" opacity="0.3" strokeLinecap="round" />
-                        <path d="M12.5 24.5 L17 24.5" stroke="#38bdf8" strokeWidth="0.8" opacity="0.2" strokeLinecap="round" />
-                        <path d="M18 23 L21 23 L21 20" fill="none" stroke="#38bdf8" strokeWidth="1" opacity="0.5" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
+                  ) : (
+                    <div className="relative">
+                      <div className="relative flex h-24 w-24 sm:h-28 sm:w-28 items-center justify-center rounded-2xl border-[3px] border-[var(--background)] bg-gradient-to-br from-sky-500 via-sky-400 to-violet-500 text-3xl sm:text-4xl font-black text-white shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+                        {initial}
+                      </div>
+                      <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/0 transition-all duration-300 group-hover/avatar:bg-black/50">
+                        <span className="text-xs font-bold text-white opacity-0 transition-all duration-300 group-hover/avatar:opacity-100">Add</span>
+                      </div>
                     </div>
-                    <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/0 transition-all duration-300 group-hover/avatar:bg-black/50">
-                      <span className="text-xs font-bold text-white opacity-0 transition-all duration-300 group-hover/avatar:opacity-100">Add</span>
-                    </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
               <input ref={avatarRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
 
-              <div className="pt-11 sm:pt-[72px]">
-                <Link href="/" className="inline-flex items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-sm text-[var(--foreground)] transition hover:bg-white/[0.06] mb-4">
+              <div className="pt-14 sm:pt-16">
+                <Link href="/" className="inline-flex items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3.5 py-2 text-sm text-zinc-400 transition-all duration-200 hover:bg-white/[0.06] hover:text-[var(--foreground)] mb-5">
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
                   Back
                 </Link>
-                <div className="flex flex-wrap items-center gap-3">
-                  <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[var(--foreground)]">
-                        {contextUsername || username || "User"}
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
+                    <span className="bg-gradient-to-r from-white via-sky-100 to-white bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(56,189,248,0.15)]">
+                      {contextUsername || username || "User"}
+                    </span>
                   </h1>
                   {phoneVerified && (
                     <span
                       title="Phone number verified — required to sell"
-                      className="inline-flex items-center gap-1.5 rounded-full bg-sky-500/10 px-3 py-1 text-[11px] font-bold text-sky-400 border border-sky-500/20"
+                      className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2.5 py-1 text-[10px] font-bold text-sky-400 ring-1 ring-sky-500/20 backdrop-blur-sm shadow-[0_0_12px_rgba(14,165,233,0.15)]"
                     >
                       <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
                       Verified
                     </span>
                   )}
                   {profile.topTrader && (
-                    <span className="rounded-full bg-amber-500/10 px-3 py-1 text-[11px] font-bold text-amber-400 border border-amber-500/20">Top Trader</span>
+                    <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] font-bold text-amber-400 ring-1 ring-amber-500/20">Top Trader</span>
                   )}
                   {profile.profileBadge === "epic" && (
-                    <span className="rounded-full bg-violet-500/10 px-3 py-1 text-[11px] font-bold text-violet-400 border border-violet-500/20">💎 Epic</span>
+                    <span className="rounded-full bg-violet-500/10 px-2.5 py-1 text-[10px] font-bold text-violet-400 ring-1 ring-violet-500/20 shadow-[0_0_10px_rgba(139,92,246,0.15)]">💎 Epic</span>
                   )}
                   {!hideOnline && (
-                    <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-[11px] font-bold text-emerald-400 border border-emerald-500/20">
+                    <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold text-emerald-400 ring-1 ring-emerald-500/20">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" /> Online
                     </span>
                   )}
                 </div>
-                <p className="mt-1 text-sm text-[var(--muted)]">@{contextUsername || username || "username"}</p>
-                <p className="text-xs text-zinc-600">Joined {memberDate}</p>
+                <p className="mt-1 text-sm font-semibold text-zinc-400">@{contextUsername || username || "username"}</p>
+                <p className="text-[11px] text-zinc-500 tracking-wide">Member since {memberDate}</p>
 
                 {/* Badges */}
                 <div className="mt-3 flex flex-wrap items-center gap-1.5">
                   {profile.trustedSeller && (
-                    <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-[10px] font-bold text-emerald-400 border border-emerald-500/20">Trusted Seller</span>
+                    <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[9px] font-bold text-emerald-400 ring-1 ring-emerald-500/15">Trusted Seller</span>
                   )}
                   {profile.fastReply && (
-                    <span className="rounded-full bg-sky-500/10 px-3 py-1 text-[10px] font-bold text-sky-400 border border-sky-500/20">Fast Reply</span>
+                    <span className="rounded-full bg-sky-500/10 px-2.5 py-0.5 text-[9px] font-bold text-sky-400 ring-1 ring-sky-500/15">Fast Reply</span>
                   )}
                   {profile.profileBadge === "epic" && (
-                    <span className="rounded-full bg-violet-500/10 px-3 py-1 text-[10px] font-bold text-violet-400 border border-violet-500/20">💎 Epic</span>
+                    <span className="rounded-full bg-violet-500/10 px-2.5 py-0.5 text-[9px] font-bold text-violet-400 ring-1 ring-violet-500/20">💎 Epic</span>
                   )}
                   {profile.profileBadge === "legendary" && (
-                    <span className="rounded-full bg-amber-500/10 px-3 py-1 text-[10px] font-bold text-amber-400 border border-amber-500/30 shadow-[0_0_12px_rgba(251,146,60,0.15)]">👑 The Five</span>
+                    <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[9px] font-bold text-amber-400 ring-1 ring-amber-500/20 shadow-[0_0_12px_rgba(251,146,60,0.15)] animate-breathe-orange">👑 The Five</span>
                   )}
                 </div>
               </div>
@@ -1084,26 +1078,26 @@ const [authRefreshing, setAuthRefreshing] = useState(false);
           <div className="grid grid-cols-3 gap-3">
             {statItems.map((s) => (
               <div key={s.label}
-                className="rounded-2xl border border-white/[0.04] bg-white/[0.02] px-4 py-3 text-center transition-all duration-200 hover:bg-white/[0.04] hover:border-white/[0.08]">
-                <p className="text-lg font-black text-[var(--foreground)]">{s.value}</p>
-                <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest">{s.label}</p>
+                className="group/stat relative overflow-hidden rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.04] to-transparent px-4 py-4 text-center transition-all duration-300 hover:border-sky-500/20 hover:shadow-[0_0_30px_-10px_rgba(14,165,233,0.12)]">
+                <p className="text-xl font-black tracking-tight bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent">{s.value}</p>
+                <p className="mt-0.5 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{s.label}</p>
               </div>
             ))}
           </div>
 
           {/* Profile Information */}
           <div className={settingsSection}>
-            <div className="flex items-center gap-3 mb-5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/10 border border-sky-500/20">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/10 ring-1 ring-sky-500/20">
                 <svg className="h-5 w-5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>
               </div>
               <div>
                 <h2 className="text-lg font-bold text-[var(--foreground)]">Profile information</h2>
-                <p className="mt-0.5 text-sm text-zinc-500">How buyers see you on Sky Drop.</p>
+                <p className="mt-0.5 text-[13px] text-zinc-500">How buyers see you on Sky Drop.</p>
               </div>
             </div>
 
-            <div className="mb-5 flex items-center gap-3 rounded-xl bg-white/[0.03] px-4 py-3 border border-white/[0.04]">
+            <div className="mb-6 flex items-center gap-3 rounded-xl bg-white/[0.02] px-4 py-3.5 border border-white/[0.06]">
               <div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-white/[0.06]">
                 <div className="h-full rounded-full bg-gradient-to-r from-sky-500 to-sky-400 transition-all duration-500" style={{ width: `${completion}%` }} />
               </div>
@@ -1207,13 +1201,13 @@ const [authRefreshing, setAuthRefreshing] = useState(false);
 
           {/* Listings */}
           <div className={settingsSection}>
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-lg font-bold text-[var(--foreground)]">Your listings</h2>
-                <p className="mt-0.5 text-sm text-zinc-500">{activeListings.length} active listing{activeListings.length === 1 ? "" : "s"}</p>
+                <p className="mt-0.5 text-[13px] text-zinc-500">{activeListings.length} active listing{activeListings.length === 1 ? "" : "s"}</p>
               </div>
               {activeListings.length > 0 && (
-                <Link href="/post/ai" className="rounded-xl bg-sky-500 px-4 py-2 text-xs font-bold text-white hover:bg-sky-400 transition-all active:scale-[0.97]">
+                <Link href="/post/ai" className="rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-sky-500/20 hover:shadow-xl transition-all active:scale-[0.97]">
                   + New
                 </Link>
               )}
@@ -1242,7 +1236,7 @@ const [authRefreshing, setAuthRefreshing] = useState(false);
                   <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
                     {activeListings.map((item) => (
                       <div key={item.id}
-                        className="group/card shrink-0 w-44 overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.02] transition-all duration-300 hover:border-sky-500/20 hover:shadow-[0_0_20px_rgba(14,165,233,0.06)] hover:-translate-y-0.5"
+                        className="group/card shrink-0 w-44 overflow-hidden rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-transparent transition-all duration-300 hover:border-sky-500/20 hover:shadow-[0_0_24px_rgba(14,165,233,0.1)] hover:-translate-y-0.5"
                       >
                         <Link href={item.type === "service" ? "/services" : `/post/listing/${item.id}`}>
                           {item.images?.[0] || item.imageUrl || item.image ? (
@@ -1294,16 +1288,16 @@ const [authRefreshing, setAuthRefreshing] = useState(false);
 
           {activity.length > 0 && (
             <div className={settingsSection}>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10 border border-violet-500/20">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10 ring-1 ring-violet-500/20">
                   <svg className="h-5 w-5 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-[var(--foreground)]">Recent activity</h2>
-                  <p className="mt-0.5 text-sm text-zinc-500">Your latest milestones</p>
+                  <p className="mt-0.5 text-[13px] text-zinc-500">Your latest milestones</p>
                 </div>
               </div>
-              <ul className="divide-y divide-white/[0.04] text-sm rounded-xl border border-white/[0.04] bg-white/[0.02]">
+              <ul className="divide-y divide-white/[0.04] text-sm rounded-xl border border-white/[0.06] bg-white/[0.02]">
                 {activity.map((a, i) => (
                   <li key={i} className="flex items-center gap-3 px-4 py-3 first:rounded-t-xl last:rounded-b-xl hover:bg-white/[0.02]">
                     <span className="text-zinc-500">{a.icon}</span>
@@ -1317,13 +1311,13 @@ const [authRefreshing, setAuthRefreshing] = useState(false);
 
           {/* Identity Verification */}
           <div className={settingsSection}>
-            <div className="flex items-center gap-3 mb-5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 ring-1 ring-emerald-500/20">
                 <svg className="h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" /></svg>
               </div>
               <div>
                 <h2 className="text-lg font-bold text-[var(--foreground)]">Identity verification</h2>
-                <p className="mt-0.5 text-sm text-zinc-500">Complete these steps to build trust and unlock selling.</p>
+                <p className="mt-0.5 text-[13px] text-zinc-500">Complete these steps to build trust and unlock selling.</p>
               </div>
             </div>
 
@@ -1495,13 +1489,13 @@ const [authRefreshing, setAuthRefreshing] = useState(false);
 
           {/* Payment Settings */}
           <div id="payment-settings" className={settingsSection}>
-            <div className="flex items-center gap-3 mb-5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/10 border border-sky-500/20">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/10 ring-1 ring-sky-500/20">
                 <svg className="h-5 w-5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" /></svg>
               </div>
               <div>
                 <h2 className="text-lg font-bold text-[var(--foreground)]">Payment settings</h2>
-                <p className="mt-0.5 text-sm text-zinc-500">Stripe for card checkout · bank transfer for Arrange Purchase.</p>
+                <p className="mt-0.5 text-[13px] text-zinc-500">Stripe for card checkout · bank transfer for Arrange Purchase.</p>
               </div>
             </div>
 
@@ -1532,7 +1526,7 @@ const [authRefreshing, setAuthRefreshing] = useState(false);
             </div>
 
             <div className="mb-6 space-y-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-              <p className="text-sm font-medium text-zinc-300">Bank details for Arrange Purchase (optional)</p>
+              <p className="text-sm font-bold text-zinc-300">Bank details for Arrange Purchase (optional)</p>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-2 block text-sm font-medium text-zinc-400">Account name</label>
@@ -1563,7 +1557,7 @@ const [authRefreshing, setAuthRefreshing] = useState(false);
               </button>
             </div>
 
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">Stripe Checkout (card payments)</p>
+            <p className="mb-4 text-[10px] font-bold uppercase tracking-widest text-zinc-500">Stripe Checkout (card payments)</p>
             {stripeAccountId ? (
               <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.03] px-4 py-3.5">
                 <div className="flex items-center gap-3 mb-3">
@@ -1590,33 +1584,33 @@ const [authRefreshing, setAuthRefreshing] = useState(false);
 
           {/* Notification & Privacy Settings */}
           <div className={settingsSection}>
-            <div className="flex items-center gap-3 mb-5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 ring-1 ring-amber-500/20">
                 <svg className="h-5 w-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" /></svg>
               </div>
               <div>
                 <h2 className="text-lg font-bold text-[var(--foreground)]">Notifications & privacy</h2>
-                <p className="mt-0.5 text-sm text-zinc-500">Control your alerts and account visibility.</p>
+                <p className="mt-0.5 text-[13px] text-zinc-500">Control your alerts and account visibility.</p>
               </div>
             </div>
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-zinc-500 tracking-wider uppercase mb-2">Notifications</p>
-              <div className="divide-y divide-white/[0.04] rounded-xl border border-white/[0.04] bg-white/[0.02]">
+              <p className="text-[10px] font-bold text-zinc-500 tracking-widest uppercase mb-3">Notifications</p>
+              <div className="divide-y divide-white/[0.04] rounded-xl border border-white/[0.06] bg-white/[0.02]">
                 {notifToggles.map((n) => (
-                  <label key={n.label} className="flex cursor-pointer items-center justify-between gap-4 px-4 py-3.5 text-sm first:rounded-t-xl last:rounded-b-xl hover:bg-white/[0.02]">
-                    <span>{n.label}</span>
+                  <label key={n.label} className="flex cursor-pointer items-center justify-between gap-4 px-4 py-3.5 text-sm first:rounded-t-xl last:rounded-b-xl transition-colors hover:bg-white/[0.03]">
+                    <span className="text-zinc-300">{n.label}</span>
                     <input type="checkbox" checked={n.val} onChange={(e) => n.set(e.target.checked)}
                       className="h-4 w-4 shrink-0 rounded border-zinc-600 bg-zinc-800 text-sky-500 focus:ring-sky-500/30" />
                   </label>
                 ))}
               </div>
             </div>
-            <div className="space-y-1 mt-5">
-              <p className="text-xs font-semibold text-zinc-500 tracking-wider uppercase mb-2">Privacy</p>
-              <div className="divide-y divide-white/[0.04] rounded-xl border border-white/[0.04] bg-white/[0.02]">
+            <div className="space-y-1 mt-6">
+              <p className="text-[10px] font-bold text-zinc-500 tracking-widest uppercase mb-3">Privacy</p>
+              <div className="divide-y divide-white/[0.04] rounded-xl border border-white/[0.06] bg-white/[0.02]">
                 {privacyToggles.map((n) => (
-                  <label key={n.label} className="flex cursor-pointer items-center justify-between gap-4 px-4 py-3.5 text-sm first:rounded-t-xl last:rounded-b-xl hover:bg-white/[0.02]">
-                    <span>{n.label}</span>
+                  <label key={n.label} className="flex cursor-pointer items-center justify-between gap-4 px-4 py-3.5 text-sm first:rounded-t-xl last:rounded-b-xl transition-colors hover:bg-white/[0.03]">
+                    <span className="text-zinc-300">{n.label}</span>
                     <input type="checkbox" checked={n.val} onChange={(e) => n.set(e.target.checked)}
                       className="h-4 w-4 shrink-0 rounded border-zinc-600 bg-zinc-800 text-sky-500 focus:ring-sky-500/30" />
                   </label>
@@ -1626,14 +1620,14 @@ const [authRefreshing, setAuthRefreshing] = useState(false);
           </div>
 
           {/* Danger zone */}
-          <div className={`${settingsSection} border-red-500/10`}>
-            <div className="flex items-center gap-3 mb-5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/10 border border-red-500/20">
+          <div className={`${settingsSection} !border-red-500/10`}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/10 ring-1 ring-red-500/20">
                 <svg className="h-5 w-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
               </div>
               <div>
                 <h2 className="text-lg font-bold text-[var(--foreground)]">Delete account</h2>
-                <p className="mt-0.5 text-sm text-zinc-500">Permanently remove your account and all data.</p>
+                <p className="mt-0.5 text-[13px] text-zinc-500">Permanently remove your account and all data.</p>
               </div>
             </div>
             <div className="rounded-xl border border-red-500/10 bg-red-500/[0.02] px-4 py-3.5">
