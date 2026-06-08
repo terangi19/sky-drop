@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { AWHINA_NAME } from "./lib/awhina-brand";
+import AwhinaOnlineBadge from "./components/AwhinaOnlineBadge";
 import Navbar from "./components/Navbar";
 import Background from "./components/Background";
 import { showToast } from "./components/Toast";
