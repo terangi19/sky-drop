@@ -17,10 +17,7 @@ export type AwhinaInsight = {
 };
 
 const PAGE_INTROS: Record<string, string[]> = {
-  "/": [
-    "Welcome to Sky Drop — New Zealand's community marketplace.",
-    "Browse listings, save favourites, message sellers, or list something with Āwhina.",
-  ],
+
   "/digital": [
     "This is the Digital Store — ebooks, software, templates, and downloads.",
     "Buy instant-delivery items or list your own digital products for sale.",
