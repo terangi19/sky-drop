@@ -713,7 +713,7 @@ export default function SkyAiChatPanel({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`fixed bottom-6 z-[10002] flex items-center gap-2 rounded-full border border-sky-400/40 bg-gradient-to-r from-[#0c0e14] to-[#12151f] px-4 py-3.5 text-sm font-bold text-white shadow-[0_0_30px_rgba(14,165,233,0.35)] ring-1 ring-sky-500/30 backdrop-blur-md transition-all hover:shadow-[0_0_40px_rgba(139,92,246,0.35)] active:scale-[0.98] max-md:bottom-24 ${
+        className={`fixed bottom-6 z-[10002] flex items-center justify-center rounded-full border border-sky-400/40 bg-gradient-to-r from-[#0c0e14] to-[#12151f] p-3.5 text-sm font-bold text-white shadow-[0_0_30px_rgba(14,165,233,0.35)] ring-1 ring-sky-500/30 backdrop-blur-md transition-all hover:shadow-[0_0_40px_rgba(139,92,246,0.35)] active:scale-[0.98] max-md:bottom-24 ${
           open ? "right-[400px] max-md:hidden" : "right-4"
         }`}
         aria-expanded={open}
@@ -722,7 +722,6 @@ export default function SkyAiChatPanel({
         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-violet-500 text-xs shadow-lg">
           ✦
         </span>
-        <span className="max-sm:hidden">{open ? "Close" : "Ask Sky Anything"}</span>
       </button>
     </>
   );
