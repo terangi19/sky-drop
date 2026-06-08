@@ -32,9 +32,14 @@ const sections = [
       "Weapons, explosives, illegal drugs, stolen goods, counterfeit items, and anything that violates New Zealand law is banned from Sky Drop. We also prohibit dangerous items, adult content, and anything we reasonably consider harmful to the community. Listings found in violation will be removed without notice.",
   },
   {
+    title: "Arrange Purchase",
+    content:
+      "Some listings use 'Arrange Purchase', where the buyer pays the seller directly via bank transfer, cash, or another method agreed in chat. Sky Drop does not process, handle, or guarantee these payments. If you are scammed on an Arrange Purchase transaction, Sky Drop will make reasonable efforts to investigate and pursue a resolution on your behalf — including using verified seller identity information obtained through our KYC process. However, because Sky Drop never receives or holds the funds, refunds are not guaranteed. We will do our best to serve justice, but the outcome depends on the circumstances of each case. Always keep all communication on Sky Drop so we can review evidence if a dispute arises. To report an Arrange Purchase scam, go to Reports and select 'Arrange Purchase Scam'.",
+  },
+  {
     title: "Disputes",
     content:
-      "If something goes wrong, try to resolve it directly with the other party first. If you can't reach an agreement, contact Sky Drop support and we'll help mediate. We may step in to resolve disputes at our discretion, including issuing refunds or suspending accounts where necessary.",
+      "If something goes wrong, try to resolve it directly with the other party first. If you can't reach an agreement, contact Sky Drop support and we'll help mediate. We may step in to resolve disputes at our discretion, including issuing refunds or suspending accounts where necessary. For Arrange Purchase disputes, we will use all available information — including verified seller identity — to assist you, though refunds cannot be guaranteed for payments made outside of Stripe.",
   },
   {
     title: "Limitation of Liability",
@@ -79,7 +84,7 @@ export default function TermsPage() {
         </div>
 
         <p className="mt-8 text-center text-xs text-[var(--muted)]">
-          Last updated: May 2026
+          Last updated: June 2026
         </p>
       </section>
 
