@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import type { User } from "firebase/auth";
 import Navbar from "./Navbar";
 import Background from "./Background";
-import AwhinaOnlineBadge from "./AwhinaOnlineBadge";
+import { AwhinaUnderHeader } from "./AwhinaOnlineBadge";
+
 import ListingCard from "./ListingCard";
 import { showToast } from "./Toast";
 import {
@@ -310,9 +311,7 @@ export default function BrowseCategoryPage({ config }: Props) {
                   {config.pageTitle}
                 </span>
               </h1>
-              <div className="mt-4 flex justify-center">
-                <AwhinaOnlineBadge centered />
-              </div>
+              <AwhinaUnderHeader centered className="mt-4" />
               <p className="mt-4 max-w-xl mx-auto text-sm leading-relaxed text-white">
                 {config.subtitle}
               </p>

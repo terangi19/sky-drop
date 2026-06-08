@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Navbar from "../../components/Navbar";
+import { AwhinaUnderHeader } from "../../components/AwhinaOnlineBadge";
 import Background from "../../components/Background";
 import ThemeToggle from "../../components/ThemeToggle";
 import { User } from "firebase/auth";
@@ -77,6 +78,7 @@ export default function EmployerApplicationsPage() {
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-black text-[var(--foreground)]">Job Applications</h1>
+            <AwhinaUnderHeader className="mt-2" />
             <p className="mt-1 text-sm text-[var(--muted)]">Review and manage applications for your job listings.</p>
           </div>
           <Link href="/dashboard" className="rounded-xl border border-zinc-700 px-4 py-2 text-xs font-bold text-[var(--muted)] hover:text-[var(--foreground)] transition">

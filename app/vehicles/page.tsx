@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { User } from "firebase/auth";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import MarketplaceListingCard from "../components/MarketplaceListingCard";
 import { showToast } from "../components/Toast";
 import {
@@ -229,6 +230,7 @@ export default function VehiclesPage() {
             <h1 className="text-4xl font-black tracking-tight sm:text-5xl">
               <span className="bg-gradient-to-r from-yellow-400 to-amber-400 bg-clip-text text-transparent">Vehicles</span>
             </h1>
+            <AwhinaUnderHeader centered />
           <p className="mt-3 max-w-2xl mx-auto text-sm leading-relaxed text-zinc-400">
             Browse cars, trucks, motorbikes, and more. Buy or bid on vehicles across New Zealand.
           </p>

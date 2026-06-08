@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import Navbar from "../components/Navbar";
+import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import Background from "../components/Background";
 import { showToast } from "../components/Toast";
 
@@ -232,6 +233,7 @@ Your account is ready. Now go explore.`,
           <h1 className="text-4xl font-black text-sky-400">
             {step === "verify" ? "Verify Phone" : isLogin ? "Login" : "Create Account"}
           </h1>
+          <AwhinaUnderHeader centered className="mt-3" />
 
           <p className="mt-3 text-[var(--muted)]">
             {step === "verify"

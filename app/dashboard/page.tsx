@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import { User } from "firebase/auth";
 import { collection, doc, limit, onSnapshot, query, where } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
@@ -130,6 +131,7 @@ export default function DashboardPage() {
         <section className="relative z-10 mx-auto max-w-5xl px-6 py-10">
           <div className="rounded-3xl border border-zinc-800 bg-zinc-900/60 p-8 text-center">
             <h1 className="text-2xl font-black text-[var(--foreground)]">Dashboard access</h1>
+            <AwhinaUnderHeader centered />
             <p className="mt-3 text-sm text-[var(--muted)]">Please sign in to view your dashboard.</p>
           </div>
         </section>
@@ -166,12 +168,13 @@ export default function DashboardPage() {
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
           Back
         </Link>
-        <div className="relative mb-8">
+        <div className="relative mb-8 text-center">
           <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/5 via-amber-500/5 to-transparent blur-3xl pointer-events-none" />
           <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
             <span className="text-white drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">Dashboard</span>
           </h1>
-          <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl">Your central hub for managing your Sky Drop activity. Monitor sales, track earnings, manage listings, and unlock rewards — all from one place.</p>
+          <AwhinaUnderHeader centered />
+          <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl mx-auto">Your central hub for managing your Sky Drop activity. Monitor sales, track earnings, manage listings, and unlock rewards — all from one place.</p>
           <p className="relative mt-2 text-sm text-zinc-500">Your sales and performance at a glance.</p>
         </div>
 

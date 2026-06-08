@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { User } from "firebase/auth";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import MarketplaceListingCard from "../components/MarketplaceListingCard";
 import { showToast } from "../components/Toast";
 import {
@@ -216,6 +217,7 @@ export default function ServicesPage() {
                 Services
               </span>
             </h1>
+            <AwhinaUnderHeader centered />
             <p className="mt-3 max-w-2xl mx-auto text-sm leading-relaxed text-zinc-400">
               Hire talented freelancers for web development, design, writing, video, music, and more. Discuss scope in messages and pay securely.
             </p>

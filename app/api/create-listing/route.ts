@@ -122,6 +122,7 @@ export async function POST(req: NextRequest) {
 
     const numericPrice = Number(price) || 0;
     let salesCount = 0;
+    let kycApproved = false;
 
     if (isAdminInitialized()) {
       const sellerProfile = await getSellerProfileForUid(token.uid, token.email);
@@ -129,6 +130,7 @@ export async function POST(req: NextRequest) {
       if (sellerProfile) {
         salesCount = Number(sellerProfile.salesCount) || 0;
         reportsCount = Number(sellerProfile.reportsCount) || 0;
+        kycApproved = sellerProfile.kycStatus === "approved";
         if (sellerProfile.restricted) {
           return NextResponse.json({ error: "Your account is restricted. Contact support." }, { status: 403 });
         }
@@ -186,10 +188,19 @@ export async function POST(req: NextRequest) {
         .where("status", "==", "live")
         .get();
 
-      const maxListings = salesCount >= 10 ? 100 : salesCount >= 3 ? 25 : 5;
+      const maxListings = kycApproved ? 9999 : 5;
       if (activeListings.size >= maxListings) {
         return NextResponse.json({
-          error: `You can only have ${maxListings} active listings. Complete some sales to unlock more.`,
+          error: kycApproved
+            ? `You can only have ${maxListings} active listings.`
+            : `You can only have ${maxListings} active listings. Complete KYC to unlock unlimited listings.`,
+        }, { status: 400 });
+      }
+
+      // Price cap check
+      if (numericPrice > 0 && !kycApproved && numericPrice > 600) {
+        return NextResponse.json({
+          error: "The maximum price for non-KYC sellers is $600. Verify your ID (KYC) to unlock unlimited pricing.",
         }, { status: 400 });
       }
     }

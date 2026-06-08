@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { auth } from "../../lib/firebase";
 import stripePromise from "../../lib/stripe-client";
+import { AwhinaUnderHeader } from "../../components/AwhinaOnlineBadge";
 
 function SuccessInner() {
   const searchParams = useSearchParams();
@@ -137,6 +138,7 @@ function SuccessInner() {
             <>
               <p className="text-5xl mb-4">✅</p>
               <h1 className="text-3xl font-black">Payment Successful!</h1>
+              <AwhinaUnderHeader centered className="mt-3" />
               <p className="mt-3 text-[var(--muted)]">
                 Your purchase of <strong>{title}</strong> for <strong>${price}</strong> is complete.
               </p>

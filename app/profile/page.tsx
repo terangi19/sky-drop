@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import ThemeToggle from "../components/ThemeToggle";
 import { sanitizeHtml } from "../lib/sanitize";
 import {
@@ -1058,6 +1059,7 @@ const [authRefreshing, setAuthRefreshing] = useState(false);
                     </span>
                   )}
                 </div>
+                <AwhinaUnderHeader className="mt-3" />
                 <p className="mt-1 text-sm text-[var(--muted)]">@{contextUsername || username || "username"}</p>
                 <p className="text-xs text-zinc-600">Joined {memberDate}</p>
 

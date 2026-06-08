@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { User } from "firebase/auth";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import MarketplaceListingCard from "../components/MarketplaceListingCard";
 import { showToast } from "../components/Toast";
 import {
@@ -206,6 +207,7 @@ export default function RentalsPage() {
                 Rentals
               </span>
             </h1>
+            <AwhinaUnderHeader centered />
             <p className="mt-3 max-w-2xl mx-auto text-sm leading-relaxed text-zinc-400">
               Rent homes, rooms, vehicles, tools, and equipment. Message the owner to arrange pickup, delivery, and return dates.
             </p>

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { User } from "firebase/auth";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import MarketplaceListingCard from "../components/MarketplaceListingCard";
 import { showToast } from "../components/Toast";
 import {
@@ -213,6 +214,7 @@ export default function DigitalPage() {
                 Digital Store
               </span>
             </h1>
+            <AwhinaUnderHeader centered />
             <p className="mt-3 max-w-2xl mx-auto text-sm leading-relaxed text-zinc-400">
               Templates, software, design assets, e-books, and creative tools — instant download on purchase.
             </p>

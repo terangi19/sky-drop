@@ -1,5 +1,6 @@
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import Link from "next/link";
 
 export default function BuyerProtectionPage() {
@@ -18,6 +19,7 @@ export default function BuyerProtectionPage() {
         </div>
 
         <h1 className="text-4xl sm:text-5xl font-black tracking-tight">Buyer Protection</h1>
+        <AwhinaUnderHeader className="mt-3" />
         <p className="mt-4 text-lg text-[var(--muted)] leading-relaxed">
           Every transaction on Sky Drop is backed by Stripe-powered payments, dispute resolution, and a commitment to transparency about where we&apos;re at.
         </p>

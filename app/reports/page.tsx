@@ -6,6 +6,7 @@ import {
 } from "react";
 
 import Navbar from "../components/Navbar";
+import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import Background from "../components/Background";
 import ThemeToggle from "../components/ThemeToggle";
 import { showToast } from "../components/Toast";
@@ -151,10 +152,11 @@ export default function ReportsPage() {
 
       <section className="relative z-10 mx-auto max-w-6xl px-6 py-12">
         {/* HEADER */}
-        <div className="mb-10">
+        <div className="mb-10 text-center">
           <h1 className="text-5xl font-black text-red-500">
             Reports
           </h1>
+          <AwhinaUnderHeader centered />
 
           <p className="mt-3 text-[var(--muted)]">
             Marketplace safety and

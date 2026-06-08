@@ -8,6 +8,7 @@ import { collection, deleteDoc, doc, onSnapshot, query, where } from "firebase/f
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import { useAwhinaInsightEffect } from "../contexts/AwhinaPageInsightContext";
 import { buildListListInsight } from "../lib/awhina-insights";
 import { showToast } from "../components/Toast";
@@ -163,22 +164,21 @@ export default function ListListPage() {
       <div className="relative z-10 mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12">
 
         {/* Header */}
-        <div className="mb-8 sm:mb-10">
+        <div className="mb-8 sm:mb-10 text-center">
           <Link href="/" className="inline-flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-[var(--foreground)] transition hover:border-zinc-700 hover:bg-zinc-800/60 mb-4 sm:mb-5">
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
             Back
           </Link>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="relative">
-              <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/5 via-violet-500/5 to-transparent blur-3xl pointer-events-none" />
-              <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
-                <span className="text-white drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">My Listings</span>
-              </h1>
-              <p className="relative mt-3 text-sm text-zinc-500">
-                {listings.length} total · {activeCount} active · {soldCount} sold
-              </p>
-            </div>
-            <Link href="/post/ai" className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.97] shrink-0">
+          <div className="relative flex flex-col items-center gap-4">
+            <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/5 via-violet-500/5 to-transparent blur-3xl pointer-events-none" />
+            <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
+              <span className="text-white drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">My Listings</span>
+            </h1>
+            <AwhinaUnderHeader centered />
+            <p className="relative text-sm text-zinc-500">
+              {listings.length} total · {activeCount} active · {soldCount} sold
+            </p>
+            <Link href="/post/ai" className="relative inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.97]">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
               New Listing
             </Link>

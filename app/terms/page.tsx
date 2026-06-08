@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import ThemeToggle from "../components/ThemeToggle";
 
 const sections = [
@@ -64,6 +65,7 @@ export default function TermsPage() {
         <div className="mt-8">
           <p className="text-xs uppercase tracking-wider text-[var(--muted)]">Legal</p>
           <h1 className="mt-1 text-2xl font-black text-[var(--foreground)]">Terms of Service</h1>
+          <AwhinaUnderHeader className="mt-2" />
         </div>
 
         <div className="mt-8 space-y-6">

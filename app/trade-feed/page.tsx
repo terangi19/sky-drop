@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Navbar from "../components/Navbar";
+import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import Background from "../components/Background";
 import CheckoutModal from "../components/CheckoutModal";
 import PromoteModal from "../components/PromoteModal";
@@ -564,12 +565,13 @@ export default function TradeFeedPage() {
 
       <section className="relative z-10 mx-auto max-w-[1600px] px-4 pb-8 pt-6">
         {/* ── PAGE TITLE ── */}
-        <div className="relative mb-6">
+        <div className="relative mb-6 text-center">
           <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/5 via-emerald-500/5 to-transparent blur-3xl pointer-events-none" />
           <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
             <span className="text-white drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">Trade Live</span>
           </h1>
-            <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl">A real-time community marketplace where members post, trade, and negotiate live. Browse active listings, make offers, and connect with buyers and sellers as deals happen — all in one feed.</p>
+          <AwhinaUnderHeader centered />
+            <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl mx-auto">A real-time community marketplace where members post, trade, and negotiate live. Browse active listings, make offers, and connect with buyers and sellers as deals happen — all in one feed.</p>
         </div>
 
         {/* ── HEADER ── */}

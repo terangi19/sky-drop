@@ -11,7 +11,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { AWHINA_NAME } from "./lib/awhina-brand";
-import AwhinaOnlineBadge from "./components/AwhinaOnlineBadge";
 import Navbar from "./components/Navbar";
 import Background from "./components/Background";
 import { showToast } from "./components/Toast";
@@ -791,7 +790,7 @@ export default function Home() {
                   Welcome to Sky Drop
                 </span>
               </h1>
-              <p className="mt-4 max-w-xl mx-auto text-sm leading-relaxed text-zinc-400">
+              <p className="mt-4 max-w-xl mx-auto text-sm leading-relaxed text-white">
                 {user
                   ? "Manage your listings, connect with buyers, and trade across New Zealand."
                   : "Free listings, Stripe Checkout or Arrange Purchase, live trade feeds, and a community marketplace built for New Zealand."}

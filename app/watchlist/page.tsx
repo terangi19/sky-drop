@@ -211,11 +211,12 @@ export default function WatchlistPage() {
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
           Back
         </Link>
-        <div className="relative mb-8">
+        <div className="relative mb-8 text-center">
           <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/5 via-sky-400/5 to-transparent blur-3xl pointer-events-none" />
           <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
             <span className="bg-gradient-to-r from-white via-sky-200 to-white bg-clip-text text-transparent">Watchlist</span>
           </h1>
+          <div data-awhina-after-h1 className="mt-3" aria-hidden />
           <p className="relative mt-3 text-sm text-zinc-500">{watchlist.length} saved item{watchlist.length !== 1 ? "s" : ""}</p>
         </div>
 

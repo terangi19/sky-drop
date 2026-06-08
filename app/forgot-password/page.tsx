@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import { showToast } from "../components/Toast";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "../lib/firebase";
@@ -52,6 +53,7 @@ export default function ForgotPasswordPage() {
                 </svg>
               </div>
               <h1 className="text-xl font-black text-[var(--foreground)]">Check Your Email</h1>
+              <AwhinaUnderHeader centered className="mt-3" />
               <p className="mt-3 text-sm text-[var(--muted)] leading-relaxed">
                 If an account exists for <strong className="text-[var(--foreground)]">{email}</strong>, we&apos;ve sent a password reset link. It will arrive within a few minutes.
               </p>
@@ -68,6 +70,7 @@ export default function ForgotPasswordPage() {
           ) : (
             <>
               <h1 className="text-2xl font-black text-[var(--foreground)]">Reset Your Password</h1>
+              <AwhinaUnderHeader className="mt-2" />
               <p className="mt-2 text-sm text-[var(--muted)]">Enter your email address and we&apos;ll send you a reset link.</p>
 
               <form onSubmit={handleSubmit} className="mt-6 space-y-4">

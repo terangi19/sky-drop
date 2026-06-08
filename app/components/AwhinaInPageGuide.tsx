@@ -14,6 +14,11 @@ type Props = {
 function findGuideInsertPoint(): { parent: HTMLElement; before: ChildNode | null } | null {
   if (typeof document === "undefined") return null;
 
+  const anchor = document.querySelector("[data-awhina-after-h1]");
+  if (anchor?.parentElement) {
+    return { parent: anchor.parentElement, before: anchor.nextSibling };
+  }
+
   const h1 = document.querySelector("main h1");
   if (h1) {
     let el: HTMLElement | null = h1 as HTMLElement;

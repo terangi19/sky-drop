@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import ThemeToggle from "../components/ThemeToggle";
 import { showToast } from "../components/Toast";
 
@@ -169,6 +170,7 @@ export default function AdminPage() {
             <h1 className="text-5xl font-black text-red-500">
               Access Denied
             </h1>
+            <AwhinaUnderHeader centered className="mt-4" />
 
             <p className="mt-6 text-lg leading-8 text-[var(--muted)]">
               You do not have permission
@@ -195,6 +197,7 @@ export default function AdminPage() {
             <h1 className="text-5xl font-black text-red-500">
               Admin Dashboard
             </h1>
+            <AwhinaUnderHeader className="mt-3" />
 
             <p className="mt-3 text-[var(--muted)]">
               Marketplace moderation

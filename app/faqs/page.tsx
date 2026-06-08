@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import ThemeToggle from "../components/ThemeToggle";
 
 const faqs = [
@@ -68,6 +69,7 @@ export default function FAQsPage() {
         </Link>
         <p className="text-xs uppercase tracking-wider text-[var(--muted)]">Help</p>
         <h1 className="mt-1 text-2xl font-black text-[var(--foreground)]">Frequently Asked Questions</h1>
+        <AwhinaUnderHeader className="mt-2" />
         <p className="mt-2 text-sm text-[var(--muted)]">Everything you need to know about buying and selling on Sky Drop.</p>
 
         <div className="mt-8 space-y-8">

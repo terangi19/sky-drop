@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import ThemeToggle from "../components/ThemeToggle";
 import {
   addDoc,
@@ -943,8 +944,11 @@ function MessagesPage() {
           {/* SIDEBAR */}
           <div className={`flex w-[340px] flex-col border-r border-[var(--card-border)] ${isMobile && mobileView === "chat" ? "hidden" : "flex"} ${isMobile ? "w-full" : ""}`}>
             <div className="border-b border-[var(--card-border)] p-5">
-              <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-black text-sky-400">Inbox</h1>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h1 className="text-2xl font-black text-sky-400">Inbox</h1>
+                  <AwhinaUnderHeader className="mt-2" />
+                </div>
                 {messages.length > 0 && (
                   <button onClick={() => setClearAllConfirm(true)} className="text-[10px] text-red-400 underline decoration-red-400/30 underline-offset-2 transition hover:text-red-300 hover:decoration-red-400/60">
                     Clear all
