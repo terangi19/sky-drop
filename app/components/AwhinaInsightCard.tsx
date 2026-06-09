@@ -127,20 +127,7 @@ export default function AwhinaInsightCard({ intro, insight, className = "mb-6 sm
         <AwhinaAvatar speaking={speaking} />
 
         <div className="min-w-0 flex-1">
-          <div className="mb-2.5 flex flex-wrap items-center gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-sky-300">
-              {AWHINA_NAME} · online
-            </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/[0.08] px-2 py-0.5">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/60" />
-                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              </span>
-              <span className="text-[9px] font-semibold uppercase tracking-wider text-emerald-400/90">
-                Live
-              </span>
-            </span>
-          </div>
+
 
           <div className="rounded-xl border border-white/[0.05] bg-black/20 px-3 py-2.5">
             <div className="space-y-1">
