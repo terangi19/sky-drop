@@ -24,6 +24,7 @@ import {
 
 import PromoteModal from "./components/PromoteModal";
 import MarketplaceListingCard from "./components/MarketplaceListingCard";
+import HotThisWeek from "./components/HotThisWeek";
 import {
   addDoc,
   collection,
@@ -47,6 +48,7 @@ import { cdnUrl, cdnUrls } from "./lib/cdn";
 import { isListingVisibleInMarketplace } from "./lib/listing-availability";
 import { isDemoListing } from "./lib/marketplace-display";
 import { adjustListingWatchlistCount } from "./lib/listing-watchlist-count";
+import { HOME_MARKETPLACE_THEME as t } from "./lib/browse-category-config";
 
 interface Listing {
   id: string;
@@ -757,86 +759,71 @@ export default function Home() {
       )}
 
       {/* HERO / SEARCH SECTION */}
-      <section className="relative z-10 mx-auto max-w-[1920px] px-4 pt-6">
-        <div className="relative overflow-hidden rounded-3xl border border-white/[0.04] bg-gradient-to-b from-white/[0.04] via-transparent to-transparent shadow-[0_0_150px_-20px_rgba(14,165,233,0.12)]">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(14,165,233,0.12),transparent)] pointer-events-none" />
+      <section className="relative z-10 mx-auto max-w-6xl px-4 pt-3 sm:pt-4">
+        <div className={`relative overflow-hidden rounded-[1.75rem] border border-white/[0.06] bg-gradient-to-b from-white/[0.03] via-transparent to-transparent backdrop-blur-sm ${t.heroShadow}`}>
+          <div className={`absolute inset-0 ${t.radial} pointer-events-none`} />
+          <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
 
-          {/* LIVE BAR */}
-          <div className="relative flex items-center justify-center px-6 py-2.5 text-[12px] text-[var(--muted)] border-b border-white/[0.04]">
-            <span className="absolute left-6 top-1/2 -translate-y-1/2 flex items-center gap-2">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-              </span>
-              <span className="text-[10px] font-medium text-emerald-400/60 uppercase tracking-widest">Live</span>
+          {/* Live ticker */}
+          <div className="relative flex items-center justify-center gap-3 border-b border-white/[0.04] px-5 py-2">
+            <span className="flex shrink-0 items-center gap-1.5 text-[10px] font-medium tracking-wide text-white">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]" />
+              Live
             </span>
+            <span className="h-3 w-px shrink-0 bg-white/[0.08]" />
             {(() => {
               const top = [...listings].filter((l: any) => (l.views || 0) > 0 || (l.bidCount || 0) > 0).sort((a: any, b: any) => (b.views || 0) + (b.bidCount || 0) - (a.views || 0) - (a.bidCount || 0)).slice(0, 3);
-              if (top.length > 0) {
-                return <span className="truncate text-[11px] font-medium text-zinc-400">🔥 {top.map((l: any) => l.title).join(" · ")}</span>;
-              }
-              return <span className="text-[11px] text-zinc-500 font-medium">🔥 Trending listings across New Zealand</span>;
+              const label = top.length > 0
+                ? top.map((l: any) => l.title).join(" · ")
+                : "Trending listings across New Zealand";
+              return <span className="truncate text-[11px] text-zinc-400">{label}</span>;
             })()}
           </div>
 
-          <div className="relative overflow-visible px-6 py-10 sm:px-10 sm:py-12">
-
-            <div className="mx-auto max-w-3xl text-center">
-              <div className="inline-flex items-center gap-2 rounded-full border border-sky-400/30 bg-sky-500/[0.07] px-4 py-1.5 text-[11px] font-bold text-sky-300 mb-6 tracking-wider uppercase backdrop-blur-sm shadow-[0_0_20px_rgba(56,189,248,0.15)] ring-1 ring-sky-400/10">
-                NZ Marketplace
-              </div>
-              <h1 className="text-4xl font-black tracking-tight sm:text-5xl lg:text-6xl leading-none">
-                <span className="bg-gradient-to-r from-white via-sky-200 to-white bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(56,189,248,0.25)]">
+          <div className="relative px-5 py-6 sm:px-10 sm:py-8">
+            <div className="mx-auto max-w-2xl text-center">
+              <div className={`${t.badge} text-white/90`}>NZ Marketplace</div>
+              <h1 className="text-[1.75rem] font-semibold tracking-[-0.03em] text-white sm:text-4xl sm:tracking-[-0.035em]">
+                <span className={`bg-gradient-to-r ${t.titleGradient} bg-clip-text text-transparent ${t.titleDropShadow}`}>
                   Welcome to Sky Drop
                 </span>
               </h1>
-              <p className="mt-4 max-w-xl mx-auto text-sm leading-relaxed text-zinc-400">
+              <p className="mx-auto mt-2.5 max-w-md text-sm leading-relaxed text-white">
                 {user
-                  ? "Manage your listings, connect with buyers, and trade across New Zealand."
-                  : "Free listings, Stripe Checkout or Arrange Purchase, live trade feeds, and a community marketplace built for New Zealand."}
+                  ? "List your items, message buyers directly, and sell nationwide."
+                  : "Free listings, secure checkout, and a marketplace built for New Zealand."}
               </p>
             </div>
 
-            {/* SEARCH */}
-            <div className="mx-auto mt-8 max-w-xl">
+            {/* Search */}
+            <div className="mx-auto mt-5 max-w-lg">
               <div className="group relative">
-                <div className="absolute -inset-1 rounded-xl bg-gradient-to-r from-sky-500/40 via-violet-500/40 to-sky-500/40 opacity-0 blur-lg transition duration-500 group-focus-within:opacity-100" />
-                <div className="relative flex items-center rounded-xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-sm ring-0 transition-all duration-300 focus-within:ring-2 focus-within:ring-sky-500/30 focus-within:border-sky-500/40">
-                  <div className="ml-4 flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04]">
-                    <svg className="h-4 w-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-                    </svg>
-                  </div>
+                <div className={`absolute -inset-px rounded-2xl bg-gradient-to-r ${t.searchGlow} opacity-0 blur-md transition duration-500 group-focus-within:opacity-60`} />
+                <div className={`relative flex items-center rounded-2xl border border-white/[0.08] bg-black/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-md transition-all duration-300 ${t.searchFocus}`}>
+                  <svg className="ml-4 h-4 w-4 shrink-0 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                  </svg>
                   <input
                     type="text"
-                    placeholder="Search listings..."
+                    placeholder="Search listings, categories, sellers…"
                     value={search}
                     ref={searchRef}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="flex-1 bg-transparent px-3 py-3.5 text-[15px] text-white outline-none placeholder:text-zinc-500"
+                    className="flex-1 bg-transparent px-3 py-3.5 text-[15px] text-white outline-none placeholder:text-white"
                   />
-                  <div className="mr-1.5 flex gap-1.5">
+                  <div className="mr-1.5 flex items-center gap-1">
                     {search && (
-                      <button onClick={() => setSearch("")} className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-white/[0.06] hover:text-white">
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                      <button onClick={() => setSearch("")} className="flex h-8 w-8 items-center justify-center rounded-lg text-white transition hover:bg-white/[0.06] hover:text-white" aria-label="Clear search">
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                       </button>
                     )}
                     {(search || selectedCategory !== "All") && (
-                      <button onClick={saveSearch}
-                        className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-white/[0.06] hover:text-sky-400"
-                        title="Save search">
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <button onClick={saveSearch} className="flex h-8 w-8 items-center justify-center rounded-lg text-white transition hover:bg-white/[0.06] hover:text-sky-300" title="Save search" aria-label="Save search">
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                         </svg>
                       </button>
                     )}
-                    <button onClick={() => searchRef.current?.focus()}
-                      className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 px-3 py-2 text-[13px] font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.97]">
-                      <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-                      </svg>
-                      <span className="hidden sm:inline">Search</span>
-                    </button>
                   </div>
                 </div>
               </div>
@@ -845,40 +832,39 @@ export default function Home() {
             <div className="mt-4 flex justify-center">
               <Link
                 href="/post/ai"
-                className="inline-flex items-center gap-2 rounded-xl border border-sky-400/25 bg-gradient-to-r from-sky-500/10 via-violet-500/10 to-sky-500/10 px-5 py-2.5 text-sm font-bold text-sky-200 shadow-[0_0_20px_rgba(56,189,248,0.1)] ring-1 ring-sky-400/10 transition hover:border-sky-400/40 hover:bg-sky-500/15 hover:text-white active:scale-[0.97]"
+                className={`inline-flex items-center gap-2 rounded-full border bg-gradient-to-r px-4 py-2 text-xs font-semibold transition active:scale-[0.98] ${t.sellLink}`}
               >
-                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-sky-500/20 text-xs">✦</span>
                 Sell with {AWHINA_NAME}
+                <svg className="h-3.5 w-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
               </Link>
             </div>
 
-            {/* BROWSE CATEGORIES */}
-            <p className="mt-6 mb-3 text-center text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Browse Categories</p>
-            <div className="mt-0">
-              <div className="flex flex-wrap justify-center gap-3">
+            {/* Category pills */}
+            <div className="mt-5 flex justify-center">
+              <div className="flex max-w-full gap-2 overflow-x-auto px-1 pb-0.5 scrollbar-none">
                 <button
                   onClick={() => setSelectedCategory("All")}
-                  className={`flex flex-col items-center gap-2 rounded-2xl border px-6 py-4 transition-all duration-200 min-w-[88px] ${
+                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-medium transition-all ${
                     selectedCategory === "All"
-                      ? "border-sky-500/40 bg-sky-500/10 shadow-[0_0_25px_rgba(14,165,233,0.15)]"
-                      : "border-white/[0.05] bg-white/[0.03] hover:bg-white/[0.06] hover:-translate-y-1 hover:border-white/[0.10]"
+                      ? "border-sky-400/30 bg-sky-500/10 text-white shadow-[0_0_24px_rgba(14,165,233,0.1)]"
+                      : "border-white/[0.06] bg-white/[0.02] text-white/70 hover:border-white/10 hover:text-white"
                   }`}
                 >
-                  <span className={`text-2xl ${selectedCategory === "All" ? "" : "opacity-60"}`}>✨</span>
-                  <span className={`text-xs font-bold ${selectedCategory === "All" ? "text-sky-400" : "text-zinc-400"}`}>All</span>
+                  <span className="text-sm leading-none">✨</span>
+                  All
                 </button>
                 {activeCategories.map((cat) => (
                   <button
                     key={cat.name}
                     onClick={() => setSelectedCategory(cat.name)}
-                    className={`flex flex-col items-center gap-2 rounded-2xl border px-6 py-4 transition-all duration-200 min-w-[88px] ${
+                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-medium transition-all ${
                       selectedCategory === cat.name
-                        ? "border-sky-500/40 bg-sky-500/10 shadow-[0_0_25px_rgba(14,165,233,0.15)]"
-                        : "border-white/[0.05] bg-white/[0.03] hover:bg-white/[0.06] hover:-translate-y-1 hover:border-white/[0.10]"
+                        ? "border-sky-400/30 bg-sky-500/10 text-white shadow-[0_0_24px_rgba(14,165,233,0.1)]"
+                        : "border-white/[0.06] bg-white/[0.02] text-zinc-400 hover:border-white/10 hover:text-zinc-200"
                     }`}
                   >
-                    <span className={`text-3xl ${selectedCategory === cat.name ? "" : "opacity-60"}`}>{cat.emoji}</span>
-                    <span className={`text-xs font-bold ${selectedCategory === cat.name ? "text-sky-400" : "text-zinc-400"}`}>{cat.name}</span>
+                    <span className="text-sm leading-none">{cat.emoji}</span>
+                    {cat.name}
                   </button>
                 ))}
               </div>
@@ -906,150 +892,92 @@ export default function Home() {
         </div>
       </section>
 
-      {/* TRUST SIGNALS */}
-      <section className="relative z-10 mx-auto max-w-[1800px] px-4 pb-1.5">
-        <div className="relative overflow-hidden rounded-2xl border border-white/[0.03] bg-gradient-to-r from-emerald-500/[0.03] via-transparent to-sky-500/[0.03]">
-          <div className="grid grid-cols-2 gap-px divide-x divide-white/[0.03] lg:grid-cols-4">
-            <div className="flex items-center gap-3 px-5 py-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-lg">
-                🔒
+      {/* Trust strip */}
+      <section className="relative z-10 mx-auto max-w-6xl px-4 py-3">
+        <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 rounded-2xl border border-white/[0.04] bg-white/[0.015] px-5 py-3 backdrop-blur-sm">
+          {[
+            { label: "Flexible payments", sub: "Stripe or Arrange Purchase", icon: <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /> },
+            { label: "Dispute protection", sub: "7-day window", icon: <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" /> },
+            { label: "Verified sellers", sub: "Profiles & reviews", icon: <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /> },
+            { label: "NZ community", sub: "Built for Aotearoa", icon: <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /> },
+          ].map((item) => (
+            <div key={item.label} className="flex items-center gap-2.5">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.03]">
+                <svg className="h-3.5 w-3.5 text-sky-400/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>{item.icon}</svg>
               </div>
               <div>
-                <p className="text-[13px] font-bold text-white">Flexible Payments</p>
-                <p className="text-[11px] text-zinc-500">Stripe Checkout or Arrange in chat</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 px-5 py-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/10 text-lg">
-                🛡️
-              </div>
-              <div>
-                <p className="text-[13px] font-bold text-white">Dispute Protection</p>
-                <p className="text-[11px] text-zinc-500">7-day dispute window</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 px-5 py-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-lg">
-                ✓
-              </div>
-              <div>
-                <p className="text-[13px] font-bold text-white">Verified Sellers</p>
-                <p className="text-[11px] text-zinc-500">Real profiles with reviews</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 px-5 py-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-lg">
-                🇳🇿
-              </div>
-              <div>
-                <p className="text-[13px] font-bold text-white">NZ Community</p>
-                <p className="text-[11px] text-zinc-500">Built for New Zealand</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* HOT THIS WEEK */}
-      {listings.filter((l) => isListingVisibleInMarketplace(l)).length > 0 && (
-        <section className="relative z-10 mx-auto max-w-[1800px] px-4 pb-1.5">
-          <div className="relative mb-4 pt-2">
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
-            <div className="flex items-center gap-2 pt-3">
-              <div className="h-5 w-1 rounded-full bg-gradient-to-b from-orange-500 to-amber-500" />
-              <p className="text-[13px] font-bold uppercase tracking-[0.22em] text-white">🔥 Hot This Week</p>
-            </div>
-          </div>
-          <div className="flex gap-4 overflow-x-auto pb-1 scrollbar-none">
-            {hotItems.map((item: any) => (
-            <div key={item.id} onClick={() => { saveRecentlyViewed(item); router.push(`/post/listing/${item.id}`); }}
-              className="listing-card group shrink-0 w-72 cursor-pointer rounded-2xl border border-white/[0.04] bg-white/[0.02] p-3 text-[var(--cream)] transition-all duration-300 hover:bg-white/[0.04] hover:border-orange-500/30 hover:-translate-y-1 hover:shadow-[0_10px_30px_-10px_rgba(251,146,60,0.2)]">
-              <div className="relative overflow-hidden rounded-xl">
-                {item.images?.[0] || item.imageUrl || item.image ? (
-                   <img src={cdnUrl(item.images?.[0] || item.imageUrl || item.image || "")} alt={item.title} loading="lazy" className="h-36 w-full rounded-xl object-cover transition-all duration-500 group-hover:scale-105" />
-                ) : (
-                  <div className="h-36 rounded-xl bg-gradient-to-br from-orange-500/10 via-red-500/10 to-amber-500/10 flex items-center justify-center text-xs text-[var(--cream)]">SD</div>
-                )}
-                <div className="absolute top-2 left-2">
-                  <span className="rounded-full bg-orange-500/90 px-2.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm">🔥 Trending</span>
-                </div>
-              </div>
-              <div className="mt-3 flex items-start justify-between gap-2">
-                <p className="truncate text-sm font-bold text-[var(--cream)] flex-1">{item.title}</p>
-                <p className="shrink-0 text-base font-black text-[var(--cream)]">${item.price}</p>
-              </div>
-              {item.location && (
-                <p className="mt-1 text-[11px] text-[var(--cream)]">📍 {item.location}</p>
-              )}
-              <div className="mt-1.5 flex items-center gap-3 text-[11px] text-[var(--cream)]">
-                {item.createdAt?.seconds != null && <span>{timeAgo(item.createdAt.seconds)}</span>}
-                <span className="flex items-center gap-1">👁 {(item as any).views || 0}</span>
+                <p className="text-[11px] font-medium text-white">{item.label}</p>
+                <p className="text-[10px] text-white/70">{item.sub}</p>
               </div>
             </div>
           ))}
-          </div>
-        </section>
-      )}
+        </div>
+      </section>
+
+      <HotThisWeek
+        items={hotItems}
+        accent="sky"
+        timeAgo={timeAgo}
+        saveRecentlyViewed={saveRecentlyViewed}
+        cdnUrl={cdnUrl}
+      />
 
       {/* LISTINGS */}
       <section className="relative z-10 mx-auto max-w-[1800px] px-4 pb-10">
 
-        <div className="flex items-center justify-between mb-1.5">
-          <div className="flex items-center gap-3">
-            <div className="h-7 w-1 rounded-full bg-gradient-to-b from-sky-500 to-violet-500" />
-            <div>
-              <h2 className="text-lg font-black tracking-tight text-white">
-                {selectedCategory !== "All" ? selectedCategory : "Latest Listings"}
-              </h2>
-              <p className="text-[11px] text-zinc-500">
-                {animatedCount} listing{animatedCount !== 1 ? "s" : ""} found
-                {selectedCategory !== "All" && ` in ${selectedCategory}`}
-                {selectedRegion !== "All" && ` · ${selectedRegion}`}
-              </p>
-            </div>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-base font-semibold tracking-tight text-white sm:text-lg">
+              {selectedCategory !== "All" ? selectedCategory : "Latest listings"}
+            </h2>
+            <p className="mt-0.5 text-[11px] text-white">
+              {animatedCount} listing{animatedCount !== 1 ? "s" : ""}
+              {selectedCategory !== "All" && ` in ${selectedCategory}`}
+              {selectedRegion !== "All" && ` · ${selectedRegion}`}
+            </p>
           </div>
-        </div>
 
-          {/* FILTERS ROW */}
-          <div className="mt-4 flex flex-wrap items-center gap-2 pb-1">
+          {/* Filters */}
+          <div className="flex flex-wrap items-center gap-1.5">
             <div className="relative">
               <select value={selectedCondition} onChange={(e) => setSelectedCondition(e.target.value)}
-                className="appearance-none rounded-lg border border-white/[0.06] bg-black/40 px-3 py-2 pr-7 text-[11px] text-white outline-none transition focus:border-sky-500/40 cursor-pointer">
+                className="appearance-none rounded-full border border-white/[0.06] bg-white/[0.03] px-3.5 py-1.5 pr-7 text-[11px] text-zinc-300 outline-none transition hover:border-white/10 focus:border-sky-500/30 cursor-pointer">
                 <option value="All" className="bg-zinc-900">Condition</option>
                 {["New", "Used - Like New", "Used - Good", "Used - Fair"].map((c) => (
                   <option key={c} value={c} className="bg-zinc-900">{c}</option>
                 ))}
               </select>
-              <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+              <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
             </div>
             <div className="relative">
               <select value={selectedRegion} onChange={(e) => setSelectedRegion(e.target.value)}
-                className="appearance-none rounded-lg border border-white/[0.06] bg-black/40 px-3 py-2 pr-7 text-[11px] text-white outline-none transition focus:border-sky-500/40 cursor-pointer">
+                className="appearance-none rounded-full border border-white/[0.06] bg-white/[0.03] px-3.5 py-1.5 pr-7 text-[11px] text-zinc-300 outline-none transition hover:border-white/10 focus:border-sky-500/30 cursor-pointer">
                 <option value="All" className="bg-zinc-900">Region</option>
                 {["Northland","Auckland","Waikato","Bay of Plenty","Gisborne","Hawke's Bay","Taranaki","Manawatu","Wellington","Nelson","Marlborough","West Coast","Canterbury","Otago","Southland"].map((r) => (
                   <option key={r} value={r} className="bg-zinc-900">{r}</option>
                 ))}
               </select>
-              <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+              <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
             </div>
             <div className="relative">
               <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
-                className="appearance-none rounded-lg border border-white/[0.06] bg-black/40 px-3 py-2 pr-7 text-[11px] text-white outline-none transition focus:border-sky-500/40 cursor-pointer">
+                className="appearance-none rounded-full border border-white/[0.06] bg-white/[0.03] px-3.5 py-1.5 pr-7 text-[11px] text-zinc-300 outline-none transition hover:border-white/10 focus:border-sky-500/30 cursor-pointer">
                 <option value="newest" className="bg-zinc-900">Newest</option>
                 <option value="oldest" className="bg-zinc-900">Oldest</option>
                 <option value="low-high" className="bg-zinc-900">Price Low → High</option>
                 <option value="high-low" className="bg-zinc-900">Price High → Low</option>
                 <option value="trending" className="bg-zinc-900">🔥 Trending</option>
               </select>
-              <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+              <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
             </div>
             {(selectedCategory !== "All" || selectedCondition !== "All" || selectedRegion !== "All" || search) && (
               <button onClick={() => { setSelectedCategory("All"); setSelectedCondition("All"); setSelectedRegion("All"); setSearch(""); setSortBy("newest"); }}
-                className="rounded-lg border border-white/[0.06] px-3 py-2 text-[11px] font-medium text-zinc-400 transition hover:bg-white/[0.04] hover:text-white">
-                ✕ Clear
+                className="rounded-full border border-white/[0.06] px-3.5 py-1.5 text-[11px] font-medium text-white transition hover:border-white/10 hover:text-zinc-300">
+                Clear
               </button>
             )}
           </div>
+        </div>
 
           {loading && (
             <div className="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -1083,7 +1011,7 @@ export default function Home() {
                   </svg>
                 </div>
                 <h2 className="text-2xl font-black tracking-tight text-white">Welcome to Sky Drop</h2>
-                <p className="mt-2 text-sm text-zinc-500">No listings yet — be the first to list something!</p>
+                <p className="mt-2 text-sm text-white">No listings yet — be the first to list something!</p>
                 <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
                   <Link href="/post/ai"
                     className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">
@@ -1099,12 +1027,12 @@ export default function Home() {
             ) : (
               <>
                 <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/[0.03] border border-white/[0.06]">
-                  <svg className="h-8 w-8 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                  <svg className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
                 <h2 className="text-2xl font-black tracking-tight text-white">No listings found</h2>
-                <p className="mt-2 text-sm text-zinc-500">Try adjusting your filters or search.</p>
+                <p className="mt-2 text-sm text-white">Try adjusting your filters or search.</p>
                 <button onClick={() => { setSelectedCategory("All"); setSelectedCondition("All"); setSelectedRegion("All"); setSearch(""); }}
                   className="mt-5 rounded-lg border border-sky-500/20 bg-sky-500/5 px-5 py-2.5 text-sm font-bold text-sky-400 transition hover:bg-sky-500/10 hover:border-sky-500/30">
                   Clear all filters
@@ -1175,31 +1103,22 @@ export default function Home() {
 
       {/* RECENTLY VIEWED */}
       {recentlyViewed.length > 0 && (
-        <section className="relative z-10 mx-auto max-w-[1800px] px-4 pb-1.5">
-          <div className="relative mb-3 pt-2">
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-zinc-700/50 to-transparent" />
-            <p className="text-[13px] font-bold uppercase tracking-[0.22em] text-[var(--foreground)]">Recently Viewed</p>
-          </div>
-           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-             {recentlyViewed.map((item) => (
-               <div
-                 key={item.id}
-onClick={() => router.push(`/post/listing/${item.id}`)}
-                     className="listing-card group shrink-0 w-56 rounded-xl border border-zinc-700/60 bg-zinc-900/80 p-3 text-[var(--cream)] cursor-pointer hover:border-sky-500/40 hover:-translate-y-0.5 hover:shadow-[0_8px_25px_rgba(0,0,0,0.25)] transition-all duration-300"
-                >
+        <section className="relative z-10 mx-auto max-w-[1800px] px-4 pb-4">
+          <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.12em] text-white">Recently viewed</p>
+          <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
+            {recentlyViewed.map((item) => (
+              <div
+                key={item.id}
+                onClick={() => router.push(`/post/listing/${item.id}`)}
+                className="group shrink-0 w-48 cursor-pointer rounded-xl border border-white/[0.06] bg-white/[0.02] p-2.5 transition hover:border-white/10 hover:bg-white/[0.04]"
+              >
                 {item.images?.[0] || item.imageUrl || item.image ? (
-                    <img src={cdnUrl(item.images?.[0] || item.imageUrl || item.image || "")} alt={item.title} loading="lazy" onError={(e) => { (e.target as HTMLImageElement).src = ""; (e.target as HTMLImageElement).classList.add("hidden"); }} className="h-20 w-full rounded-lg object-cover" />
+                  <img src={cdnUrl(item.images?.[0] || item.imageUrl || item.image || "")} alt={item.title} loading="lazy" onError={(e) => { (e.target as HTMLImageElement).src = ""; (e.target as HTMLImageElement).classList.add("hidden"); }} className="h-20 w-full rounded-lg object-cover" />
                 ) : (
-                    <div className="h-20 w-full rounded-lg bg-gradient-to-br from-sky-500/15 via-violet-500/15 to-purple-600/15 flex items-center justify-center text-[var(--cream)] text-xs">
-                        <div className="text-center">
-                            <div className="text-xl font-bold mb-0.5">SD</div>
-                            <div className="text-xs">Sky Drop</div>
-                        </div>
-                    </div>
+                  <div className="flex h-20 w-full items-center justify-center rounded-lg bg-white/[0.03] text-[10px] text-zinc-600">No image</div>
                 )}
-                 <p className="mt-2.5 truncate text-[15px] font-bold text-[var(--cream)]">{item.title}</p>
-                 <p className="mt-0.5 text-base font-black text-[var(--cream)]">${item.price}</p>
-                  <p className="mt-1 text-[10px] text-[var(--cream)]">👁 {(item as any).views || 0} views</p>
+                <p className="mt-2 truncate text-xs font-medium text-white">{item.title}</p>
+                <p className="text-sm font-semibold tabular-nums text-sky-300">${item.price}</p>
               </div>
             ))}
           </div>
@@ -1208,21 +1127,18 @@ onClick={() => router.push(`/post/listing/${item.id}`)}
 
       {/* RECENTLY SOLD */}
       {listings.filter((l) => !isListingVisibleInMarketplace(l)).length > 0 && (
-        <section className="relative z-10 mx-auto max-w-[1800px] px-4 pb-1.5">
-          <div className="relative mb-3 pt-2">
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-zinc-700/50 to-transparent" />
-            <p className="text-[13px] font-bold uppercase tracking-[0.22em] text-[var(--foreground)]">Recently Sold</p>
-          </div>
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+        <section className="relative z-10 mx-auto max-w-[1800px] px-4 pb-4">
+          <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.12em] text-white">Recently sold</p>
+          <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
             {listings.filter((l) => !isListingVisibleInMarketplace(l)).slice(0, 6).map((item) => (
-              <div key={item.id} className="listing-card shrink-0 w-44 rounded-xl border border-zinc-800/40 bg-zinc-900/50 p-3 text-[var(--cream)] opacity-80">
+              <div key={item.id} className="relative shrink-0 w-40 rounded-xl border border-white/[0.05] bg-white/[0.015] p-2.5 opacity-75">
                 {item.images?.[0] || item.imageUrl || item.image ? (
-                   <img src={cdnUrl(item.images?.[0] || item.imageUrl || item.image || "")} alt={item.title} loading="lazy" className="h-20 w-full rounded-lg object-cover" />
+                  <img src={cdnUrl(item.images?.[0] || item.imageUrl || item.image || "")} alt={item.title} loading="lazy" className="h-16 w-full rounded-lg object-cover grayscale-[30%]" />
                 ) : (
-                  <div className="h-20 w-full rounded-lg bg-gradient-to-br from-sky-500/10 via-violet-500/10 to-purple-600/10 flex items-center justify-center text-xs text-[var(--cream)]">SD</div>
+                  <div className="flex h-16 w-full items-center justify-center rounded-lg bg-white/[0.03] text-[10px] text-zinc-600">No image</div>
                 )}
-                <p className="mt-2 truncate text-xs font-bold text-[var(--cream)]">{item.title}</p>
-                <p className="text-xs font-bold text-[var(--cream)]">Sold · ${item.price}</p>
+                <p className="mt-2 truncate text-[11px] text-zinc-400">{item.title}</p>
+                <p className="text-[11px] font-medium text-white">Sold · ${item.price}</p>
               </div>
             ))}
           </div>
@@ -1233,7 +1149,8 @@ onClick={() => router.push(`/post/listing/${item.id}`)}
       {showScrollBtn && (
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          className="fixed bottom-24 md:bottom-8 right-4 z-40 flex h-10 w-10 items-center justify-center rounded-full bg-sky-500 text-white shadow-lg transition hover:bg-sky-400 active:scale-95"
+          className="fixed bottom-24 right-4 z-40 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-black/60 text-white shadow-lg backdrop-blur-md transition hover:bg-black/80 active:scale-95 md:bottom-8"
+          aria-label="Scroll to top"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />

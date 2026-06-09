@@ -1,5 +1,6 @@
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import Link from "next/link";
 
 export default function SellerGuidelinesPage() {
@@ -18,6 +19,7 @@ export default function SellerGuidelinesPage() {
         </div>
 
         <h1 className="text-4xl sm:text-5xl font-black tracking-tight">Seller Guidelines</h1>
+        <AwhinaUnderHeader className="mt-3" />
         <p className="mt-4 text-lg text-[var(--muted)] leading-relaxed">
           Start selling on Sky Drop — New Zealand's safest marketplace. Here's everything you need to know about listing items, getting paid, and providing a great experience.
         </p>

@@ -130,6 +130,7 @@ export default function DashboardPage() {
         <section className="relative z-10 mx-auto max-w-5xl px-6 py-10">
           <div className="rounded-3xl border border-zinc-800 bg-zinc-900/60 p-8 text-center">
             <h1 className="text-2xl font-black text-[var(--foreground)]">Dashboard access</h1>
+            <AwhinaUnderHeader centered />
             <p className="mt-3 text-sm text-[var(--muted)]">Please sign in to view your dashboard.</p>
           </div>
         </section>
@@ -166,13 +167,33 @@ export default function DashboardPage() {
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
           Back
         </Link>
-        <div className="relative mb-8">
+        <div className="relative mb-8 text-center">
           <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/5 via-amber-500/5 to-transparent blur-3xl pointer-events-none" />
           <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
             <span className="text-white drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">Dashboard</span>
           </h1>
-          <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl">Your central hub for managing your Sky Drop activity. Monitor sales, track earnings, manage listings, and unlock rewards — all from one place.</p>
-          <p className="relative mt-2 text-sm text-zinc-500">Your sales and performance at a glance.</p>
+        </div>
+
+        <div className="mb-8 rounded-2xl border border-sky-500/20 bg-gradient-to-br from-sky-500/[0.04] via-transparent to-transparent p-5 sm:p-6">
+          <div className="flex items-center gap-4">
+            <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-sky-400/25 bg-gradient-to-b from-zinc-900 to-zinc-950 shadow-[0_0_24px_rgba(56,189,248,0.18)]">
+              <svg viewBox="0 0 64 64" className="h-7 w-7" aria-hidden>
+                <rect x="14" y="18" width="36" height="30" rx="8" fill="#0f172a" stroke="#38bdf8" strokeWidth="2" />
+                <line x1="32" y1="10" x2="32" y2="18" stroke="#38bdf8" strokeWidth="2" />
+                <circle cx="32" cy="8" r="3" fill="#38bdf8" className="animate-pulse" />
+                <circle cx="24" cy="30" r="4" fill="#0ea5e9" />
+                <circle cx="40" cy="30" r="4" fill="#0ea5e9" />
+                <rect x="22" y="40" width="20" height="4" rx="2" fill="#38bdf8" opacity="0.85" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-white">Āwhina</p>
+              <p className="text-xs text-zinc-400">Your Sky Drop assistant — track sales, manage listings, view earnings.</p>
+            </div>
+            <button className="ml-auto shrink-0 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-4 py-2 text-xs font-bold text-white shadow-[0_0_20px_rgba(56,189,248,0.22)] transition hover:brightness-110 active:scale-[0.98]">
+              Ask Āwhina
+            </button>
+          </div>
         </div>
 
         {/* Stats grid */}

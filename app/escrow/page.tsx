@@ -1,5 +1,6 @@
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import Link from "next/link";
 
 export default function PaymentsPage() {
@@ -18,6 +19,7 @@ export default function PaymentsPage() {
         </div>
 
         <h1 className="text-4xl sm:text-5xl font-black tracking-tight">How Payments Work</h1>
+        <AwhinaUnderHeader className="mt-3" />
         <p className="mt-4 text-lg text-[var(--muted)] leading-relaxed">
           Sellers choose how buyers pay when they create a listing. Sky Drop supports{" "}
           <strong className="text-white">Stripe Checkout</strong> (pay on-platform) and{" "}

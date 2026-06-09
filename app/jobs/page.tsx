@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
+import BrowseAwhinaAssistantPanel from "../components/BrowseAwhinaAssistantPanel";
 import Background from "../components/Background";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "../lib/firebase";
@@ -37,16 +38,17 @@ export default function JobsPage() {
       <Background /><Navbar />
 
       <section className="relative z-10 mx-auto max-w-6xl px-4 py-12 sm:px-6">
-        <div className="mb-10 relative overflow-hidden rounded-3xl border border-white/[0.04] bg-gradient-to-b from-white/[0.04] via-transparent to-transparent p-8 sm:p-10 text-center sm:text-left">
+        <div className="mb-10 relative overflow-hidden rounded-3xl border border-white/[0.04] bg-gradient-to-b from-white/[0.04] via-transparent to-transparent p-8 sm:p-10 text-center">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(34,211,238,0.12),transparent)] pointer-events-none" />
-          <div className="relative">
+          <div className="relative flex flex-col items-center">
             <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/15 bg-cyan-500/5 px-3.5 py-1 text-[10px] font-semibold text-cyan-400 mb-4 tracking-wide uppercase">Job Listings</div>
             <h1 className="text-4xl font-black tracking-tight sm:text-5xl">
               <span className="bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent">Jobs</span>
             </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-400">
+          <p className="mt-3 max-w-2xl mx-auto text-sm leading-relaxed text-white">
             Find your next role — browse job listings across New Zealand. Message employers directly.
           </p>
+          <BrowseAwhinaAssistantPanel />
           <Link href="/post/ai?type=job" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-cyan-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-cyan-500/30 hover:scale-105 active:scale-95">
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
             Post a Job

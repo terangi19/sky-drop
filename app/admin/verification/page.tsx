@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
+import { AwhinaUnderHeader } from "../../components/AwhinaOnlineBadge";
 import ThemeToggle from "../../components/ThemeToggle";
 import { showToast } from "../../components/Toast";
 import {
@@ -248,6 +249,7 @@ export default function AdminVerificationPage() {
           <div className="max-w-xl rounded-[40px] border border-red-500/20 bg-[var(--card)] p-12 text-center shadow-2xl backdrop-blur-xl">
             <div className="mb-6 text-7xl">🔒</div>
             <h1 className="text-5xl font-black text-red-500">Access Denied</h1>
+            <AwhinaUnderHeader centered className="mt-4" />
             <p className="mt-6 text-lg leading-8 text-[var(--muted)]">You do not have permission to access this page.</p>
           </div>
         </section>
@@ -268,6 +270,7 @@ export default function AdminVerificationPage() {
       <section className="relative z-10 mx-auto max-w-5xl px-6 py-12">
         <div className="mb-8">
           <h1 className="text-4xl font-black text-emerald-500">Verification Review</h1>
+          <AwhinaUnderHeader className="mt-2" />
           <p className="mt-2 text-[var(--muted)]">Review submissions and pending listings.</p>
         </div>
 

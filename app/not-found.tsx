@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Background from "./components/Background";
 import Navbar from "./components/Navbar";
+import { AwhinaUnderHeader } from "./components/AwhinaOnlineBadge";
 
 export default function NotFound() {
   return (
@@ -9,6 +10,7 @@ export default function NotFound() {
       <section className="relative z-10 mx-auto max-w-lg px-6 py-24 text-center">
         <div className="text-6xl mb-4">404</div>
         <h1 className="text-2xl font-black mb-2">Page not found</h1>
+        <AwhinaUnderHeader centered className="mt-2 mb-2" />
         <p className="text-sm text-[var(--muted)] mb-8">The page you're looking for doesn't exist or has been moved.</p>
         <div className="flex flex-col gap-3">
           <Link href="/" className="rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] text-center transition hover:bg-sky-400">Go home</Link>

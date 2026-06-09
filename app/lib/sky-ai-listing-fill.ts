@@ -88,6 +88,17 @@ const SERVICE_CATEGORIES = new Set([
   "Other",
 ]);
 
+export function inferPhysicalCategoryFromText(text: string): string | undefined {
+  const lower = text.toLowerCase();
+  if (/car|vehicle|auto|bmw|toyota|ford/i.test(lower)) return "Cars";
+  if (/tech|phone|laptop|computer/i.test(lower)) return "Tech";
+  if (/game|console|playstation|xbox/i.test(lower)) return "Gaming";
+  if (/fashion|clothes|shoe/i.test(lower)) return "Fashion";
+  if (/home|furniture/i.test(lower)) return "Home";
+  if (/sport/i.test(lower)) return "Sports";
+  return undefined;
+}
+
 export function stripSkyAiMachineTags(text: string): string {
   return text
     .replace(SKY_AI_LISTING_FILL_TAG, "")

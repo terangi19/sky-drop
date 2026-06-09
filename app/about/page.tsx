@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import ThemeToggle from "../components/ThemeToggle";
 
 export default function AboutPage() {
@@ -16,6 +17,7 @@ export default function AboutPage() {
         </Link>
         <p className="text-xs uppercase tracking-wider text-[var(--muted)]">About</p>
         <h1 className="mt-1 text-2xl font-black text-[var(--foreground)]">What is Sky Drop?</h1>
+        <AwhinaUnderHeader className="mt-2" />
         <p className="mt-2 text-sm text-[var(--muted)]">New Zealand&apos;s community marketplace — buy, sell, and trade with people near you.</p>
 
         <div className="mt-8 space-y-5">

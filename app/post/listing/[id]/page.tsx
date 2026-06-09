@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import Navbar from "../../../components/Navbar";
 import Background from "../../../components/Background";
+import { AwhinaUnderHeader } from "../../../components/AwhinaOnlineBadge";
 import ReportModal from "../../../components/ReportModal";
 import CheckoutModal from "../../../components/CheckoutModal";
 import PromoteModal from "../../../components/PromoteModal";
@@ -1047,6 +1048,7 @@ export default function ListingPage() {
 
             {/* 2. TITLE */}
             <h1 className="text-xl font-black tracking-tight text-[var(--foreground)]">{listing.title}</h1>
+            <AwhinaUnderHeader className="mt-2" />
 
             {/* 3. PRICE */}
             <div className="flex items-baseline gap-2">

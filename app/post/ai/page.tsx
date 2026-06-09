@@ -31,6 +31,7 @@ import {
   type SkyAiListingImagesDetail,
 } from "../../lib/sky-ai-images";
 import SkyAiChatPanel from "../../components/SkyAiChatPanel";
+import AwhinaOnlineBadge from "../../components/AwhinaOnlineBadge";
 import { SKY_AI_SELL_QUICK_PROMPTS, SKY_AI_SELL_WELCOME } from "../../lib/sky-ai-prompts";
 
 const objectToCategory: Record<string, string> = {
@@ -806,17 +807,20 @@ export default function AIPostPage() {
         )}
 
         {/* Header */}
-        <div className="mb-10 text-center sm:text-left">
+        <div className="mb-10 text-center">
           <Link href="/" className="inline-flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-[var(--foreground)] transition hover:border-zinc-700 hover:bg-zinc-800/60 mb-5">
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
             Back
           </Link>
-          <div className="relative">
+          <div className="relative flex flex-col items-center">
             <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/5 via-violet-500/5 to-sky-500/5 blur-3xl pointer-events-none" />
             <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
               <span className="text-white drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">{editId ? "Edit Listing" : "Quick Post"}</span>
             </h1>
-            <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl">List your item in minutes. Add photos, set your price, and publish to thousands of buyers across New Zealand — all with built-in scam protection and Stripe-powered payments.</p>
+            <div className="relative mt-3">
+              <AwhinaOnlineBadge centered />
+            </div>
+            <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl mx-auto">List your item in minutes. Add photos, set your price, and publish to thousands of buyers across New Zealand — all with built-in scam protection and Stripe-powered payments.</p>
           </div>
         </div>
 

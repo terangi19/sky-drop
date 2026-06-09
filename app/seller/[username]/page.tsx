@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
+import { AwhinaUnderHeader } from "../../components/AwhinaOnlineBadge";
 import ThemeToggle from "../../components/ThemeToggle";
 import {
   collection,
@@ -409,6 +410,7 @@ export default function SellerPage() {
                     </span>
                   )}
                 </div>
+                <AwhinaUnderHeader className="mt-2" />
 
                 <p className="mt-0.5 text-sm font-semibold text-[var(--foreground)]">{displayHandle}</p>
                 <p className="text-xs text-[var(--muted)]">

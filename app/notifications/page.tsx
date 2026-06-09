@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
+import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import Background from "../components/Background";
 import ThemeToggle from "../components/ThemeToggle";
 import {
@@ -190,9 +191,10 @@ export default function NotificationsPage() {
       <Background /><Navbar /><ThemeToggle />
 
       <section className="relative z-10 mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="text-center sm:text-left">
             <h1 className="text-2xl font-black tracking-tight sm:text-3xl">Notifications</h1>
+            <AwhinaUnderHeader className="mt-2" />
             <p className="mt-1 text-sm text-zinc-500">{notifications.length} notification{notifications.length !== 1 ? "s" : ""}</p>
           </div>
           {unreadCount > 0 && (
