@@ -23,10 +23,6 @@ export type AwhinaInsight = {
 };
 
 const PAGE_INTROS: Record<string, string[]> = {
-  "/": [
-    "You're on Physical Goods — everyday items from sellers across New Zealand.",
-    "Search or pick a category, then open a listing to buy or message the seller.",
-  ],
   "/digital": [
     "You're on the Digital Store — download-ready products from Kiwi creators.",
     "Browse templates, ebooks, software, and assets. Tap a listing to view details and checkout for instant delivery.",
