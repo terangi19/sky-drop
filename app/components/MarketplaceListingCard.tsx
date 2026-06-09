@@ -89,7 +89,7 @@ export default function MarketplaceListingCard({
   onPromote,
   onDelete,
   accent = "sky",
-  neonGlow = true,
+  neonGlow = false,
 }: MarketplaceListingCardProps) {
   const themed = accent === "yellow" || accent === "violet";
   const isVisible = isListingVisibleInMarketplace(item);
@@ -107,15 +107,9 @@ export default function MarketplaceListingCard({
     item.category === "Cars" || item.category === "Property";
 
   return (
-    <div className={neonGlow ? "listing-card-aura-wrap relative" : "relative"}>
-      {neonGlow && (
-        <>
-          <div className="listing-card-aura-outer pointer-events-none absolute -inset-5 rounded-[1.5rem]" aria-hidden />
-          <div className="listing-card-aura-inner pointer-events-none absolute -inset-2 rounded-[1.15rem]" aria-hidden />
-        </>
-      )}
+    <div className="relative">
       <div
-        className={`listing-card group relative z-[1] overflow-hidden rounded-2xl border transition-all duration-300 cursor-pointer animate-fade-in-up hover:-translate-y-1 text-[var(--cream)] ${neonGlow ? NEON_BLUE_CARD : CREAM_CARD}`}
+        className={`listing-card group relative z-[1] overflow-hidden rounded-2xl border transition-all duration-300 cursor-pointer animate-fade-in-up hover:-translate-y-1 text-[var(--cream)] ${CREAM_CARD}`}
         style={{
           animationDelay: `${Math.min(cardIndex, 10) * 40}ms`,
           ...cardGlowStyle,
@@ -123,9 +117,7 @@ export default function MarketplaceListingCard({
         onClick={onCardClick}
       >
       <div
-        className={`pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-transparent ${
-          neonGlow ? "to-sky-500/[0.06]" : "to-[rgba(255,248,231,0.02)]"
-        }`}
+        className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[rgba(255,248,231,0.02)]"
       />
 
       {imageSrc ? (
