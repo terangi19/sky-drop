@@ -56,11 +56,11 @@ export default function ListingCard({
   const offerCategory = item.category === "Cars" || item.category === "Property";
 
   return (
-    <div className="listing-card-glow group">
+    <div className="group">
         <div
           role="button"
           tabIndex={0}
-          className="relative z-[1] cursor-pointer overflow-hidden rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.04] to-white/[0.01] backdrop-blur-sm transition-all duration-300 animate-fade-in-up hover:-translate-y-1.5 hover:border-sky-400/35 hover:bg-white/[0.07] hover:shadow-[0_0_32px_rgba(56,189,248,0.32),0_0_64px_rgba(129,140,248,0.18),0_0_96px_rgba(14,165,233,0.1)] active:-translate-y-0.5 active:scale-[0.985] active:border-sky-300/50 active:shadow-[0_0_40px_rgba(56,189,248,0.48),0_0_80px_rgba(167,139,250,0.28),0_0_120px_rgba(14,165,233,0.14)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a0f]"
+          className="relative z-[1] cursor-pointer overflow-hidden rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.04] to-white/[0.01] backdrop-blur-sm transition-all duration-300 animate-fade-in-up hover:-translate-y-1.5 hover:border-sky-400/35 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(56,189,248,0.25),0_0_60px_rgba(14,165,233,0.15)] active:-translate-y-0.5 active:scale-[0.985] active:border-sky-300/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a0f]"
           style={{
             animationDelay: `${Math.min(cardIndex, 10) * 40}ms`,
           }}
@@ -189,7 +189,7 @@ export default function ListingCard({
                 className="relative shrink-0 text-base opacity-60 transition-all duration-200 hover:opacity-100 hover:scale-110 active:scale-95"
               >
                 {isInWatchlist(item.id) ? (
-                  <span className="drop-shadow-[0_0_6px_rgba(239,68,68,0.5)]">❤️</span>
+                  <span>❤️</span>
                 ) : (
                   <span className="text-white/60">♡</span>
                 )}
@@ -227,12 +227,12 @@ export default function ListingCard({
               {item.type === "service" ? (
                 <>
                   <ServicePricingBadge listing={item} size="sm" />
-                  <p className="text-xl sm:text-2xl font-black tracking-tight text-white drop-shadow-[0_0_12px_rgba(56,189,248,0.2)]">
+                  <p className="text-xl sm:text-2xl font-black tracking-tight text-white">
                     {formatServicePriceDisplay(item)}
                   </p>
                 </>
               ) : (
-              <p className="text-2xl sm:text-3xl font-black tracking-tight text-white drop-shadow-[0_0_12px_rgba(56,189,248,0.2)]">
+              <p className="text-2xl sm:text-3xl font-black tracking-tight text-white">
                 ${item.price}
               </p>
               )}

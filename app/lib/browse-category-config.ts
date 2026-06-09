@@ -4,22 +4,25 @@ export const HOME_MARKETPLACE_THEME = {
   heroShadow: "shadow-[0_0_150px_-20px_rgba(14,165,233,0.12)]",
   radial:
     "bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(14,165,233,0.12),transparent)]",
-  titleGradient:
-    "hero-title-gradient from-[var(--foreground)] via-sky-500 to-[var(--foreground)]",
+  badge:
+    "inline-flex items-center gap-2 rounded-full border border-sky-400/30 bg-sky-500/[0.07] px-3.5 py-1 text-[11px] font-bold text-sky-300 mb-3 tracking-wider uppercase backdrop-blur-sm shadow-[0_0_20px_rgba(56,189,248,0.15)] ring-1 ring-sky-400/10",
+  titleGradient: "from-white via-sky-200 to-white",
+  titleDropShadow: "drop-shadow-[0_0_12px_rgba(56,189,248,0.25)]",
   searchGlow: "from-sky-500/40 via-violet-500/40 to-sky-500/40",
-  searchFocus: "focus-within:ring-sky-500/30 focus-within:border-sky-500/40",
+  searchFocus:
+    "focus-within:ring-2 focus-within:ring-sky-500/30 focus-within:border-sky-500/40",
   listBtn: "from-sky-500 to-sky-400 shadow-sky-500/20",
   sellLink:
-    "border-sky-400/25 from-sky-500/10 via-violet-500/10 to-sky-500/10 text-sky-200 ring-sky-400/10 hover:border-sky-400/40 hover:bg-sky-500/15",
-  barGradient: "from-sky-500 to-violet-500",
-  hotBarGradient: "from-sky-500 to-violet-500",
+    "border-sky-400/25 from-sky-500/10 via-sky-500/5 to-sky-500/10 text-sky-200 ring-sky-400/10 hover:border-sky-400/40 hover:bg-sky-500/15",
+  barGradient: "from-sky-500 to-sky-400",
+  hotBarGradient: "from-sky-500 to-sky-400",
   filterLabel: "text-sky-400/90",
   filterFocus: "focus:border-sky-500/40",
-  hotBadge: "bg-gradient-to-r from-sky-500/90 to-violet-500/90",
+  hotBadge: "bg-gradient-to-r from-sky-500/90 to-sky-400/90",
   recentPrice: "text-white",
   recentHover:
     "hover:border-sky-500/40 hover:shadow-[0_8px_25px_rgba(14,165,233,0.15)]",
-  placeholderGradient: "from-sky-500/10 via-violet-500/10 to-sky-500/10",
+  placeholderGradient: "from-sky-500/10 via-sky-500/5 to-sky-500/10",
   hotCardHover:
     "hover:border-white/[0.12] hover:shadow-[0_0_30px_rgba(14,165,233,0.12),0_0_60px_rgba(14,165,233,0.04)]",
 } as const;

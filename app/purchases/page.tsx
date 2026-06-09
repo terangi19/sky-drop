@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
-import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
+import BrowseAwhinaAssistantPanel from "../components/BrowseAwhinaAssistantPanel";
 import { useAwhinaInsightEffect } from "../contexts/AwhinaPageInsightContext";
 import { buildPurchasesInsight } from "../lib/awhina-insights";
 import { User } from "firebase/auth";
@@ -281,7 +281,7 @@ export default function PurchasesPage() {
           <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
             <span className="text-white drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">My Purchases</span>
           </h1>
-          <AwhinaUnderHeader centered />
+          <BrowseAwhinaAssistantPanel className="mt-4 mb-0 mx-auto w-full max-w-2xl text-left" />
           <p className="relative mt-2 text-sm text-zinc-500">{purchases.length} total · {counts.active || 0} active</p>
         </div>
 

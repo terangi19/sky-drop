@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import type { User } from "firebase/auth";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
-import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
+import BrowseMarketplaceHero from "../components/BrowseMarketplaceHero";
+import { HOME_MARKETPLACE_THEME as t } from "../lib/browse-category-config";
 import MarketplaceListingCard from "../components/MarketplaceListingCard";
 import { showToast } from "../components/Toast";
 import {
@@ -34,6 +35,7 @@ import {
 } from "../lib/listing-watchlist-count";
 import { cdnUrl } from "../lib/cdn";
 import { useSellerListingMeta } from "../lib/useSellerListingMeta";
+import HotThisWeek from "../components/HotThisWeek";
 
 const CATEGORIES = [
   "All",
@@ -198,32 +200,22 @@ export default function DigitalPage() {
   };
 
   return (
-    <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+    <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-white transition-colors duration-300">
       <Background />
       <Navbar />
 
-      <section className="relative z-10 mx-auto max-w-[1800px] px-4 pb-10 pt-6">
-        <div className="mb-10 relative overflow-hidden rounded-3xl border border-white/[0.04] bg-gradient-to-b from-white/[0.04] via-transparent to-transparent p-8 sm:p-10 text-center">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(139,92,246,0.14),transparent)] pointer-events-none" />
-          <div className="relative flex flex-col items-center">
-            <div className="inline-flex items-center gap-2 rounded-full border border-sky-500/15 bg-sky-500/5 px-3.5 py-1 text-[10px] font-semibold text-sky-400 mb-4 tracking-wide uppercase">
-              Digital
-            </div>
-            <h1 className="text-4xl font-black tracking-tight sm:text-5xl">
-              <span className="bg-gradient-to-r from-sky-400 to-violet-400 bg-clip-text text-transparent">
-                Digital Store
-              </span>
-            </h1>
-            <AwhinaUnderHeader centered />
-            <p className="mt-3 max-w-2xl mx-auto text-sm leading-relaxed text-zinc-400">
-              Templates, software, design assets, e-books, and creative tools — instant download on purchase.
-            </p>
-            <div className="group relative mt-5 w-full max-w-2xl">
-              <div className="absolute -inset-1 rounded-xl bg-gradient-to-r from-sky-500/30 via-violet-500/30 to-sky-500/30 opacity-0 blur-lg transition duration-500 group-focus-within:opacity-100" />
-              <div className="relative flex items-center rounded-xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-sm transition-all duration-300 focus-within:border-violet-500/40 focus-within:ring-2 focus-within:ring-violet-500/25">
-                <div className="ml-4 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-500/10">
+      <section className="relative z-10 mx-auto max-w-[1800px] px-4 pb-8 pt-2 sm:pt-3">
+        <BrowseMarketplaceHero
+          badge="Digital"
+          title="Digital Store"
+          subtitle="Templates, software, design assets, e-books, and creative tools — instant download on purchase."
+        >
+            <div className="group relative mt-4 w-full max-w-2xl">
+              <div className={`absolute -inset-1 rounded-xl bg-gradient-to-r ${t.searchGlow} opacity-0 blur-lg transition duration-500 group-focus-within:opacity-100`} />
+              <div className={`relative flex items-center rounded-xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-sm ring-0 transition-all duration-300 ${t.searchFocus}`}>
+                <div className="ml-4 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.04]">
                   <svg
-                    className="h-4 w-4 text-violet-400"
+                    className="h-4 w-4 text-zinc-400"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -241,14 +233,14 @@ export default function DigitalPage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search title, category, description..."
-                  className="min-w-0 flex-1 bg-transparent px-3 py-3.5 text-[15px] text-white outline-none placeholder:text-zinc-500"
+                  className="min-w-0 flex-1 bg-transparent px-3 py-3.5 text-[15px] text-white outline-none placeholder:text-white/60"
                   aria-label="Search digital products"
                 />
                 {searchQuery && (
                   <button
                     type="button"
                     onClick={() => setSearchQuery("")}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-white/[0.06] hover:text-white"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white/60 transition hover:bg-white/[0.06] hover:text-white"
                     aria-label="Clear search"
                   >
                     <svg
@@ -264,7 +256,7 @@ export default function DigitalPage() {
                 )}
                 <Link
                   href="/post/ai?type=digital"
-                  className="mr-1.5 ml-1 flex shrink-0 items-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-violet-500 px-3 py-2 text-[13px] font-bold text-white shadow-md shadow-violet-500/20 transition-all duration-200 hover:brightness-110 active:scale-[0.97] sm:gap-2 sm:px-4"
+                  className={`mr-1.5 ml-1 flex shrink-0 items-center gap-1.5 rounded-lg bg-gradient-to-r ${t.listBtn} px-3 py-2 text-[13px] font-bold text-white shadow-lg transition-all duration-200 hover:brightness-110 active:scale-[0.97] sm:gap-2 sm:px-4`}
                 >
                   <svg
                     className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4"
@@ -280,90 +272,19 @@ export default function DigitalPage() {
                 </Link>
               </div>
             </div>
-
-            <details className="group mt-4 w-full max-w-2xl overflow-hidden rounded-xl border border-violet-500/10 bg-gradient-to-b from-violet-500/[0.03] to-transparent text-left">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] text-violet-400 transition hover:bg-violet-500/[0.04] [&::-webkit-details-marker]:hidden">
-                <span>📖 How It Works</span>
-                <svg
-                  className="h-3.5 w-3.5 shrink-0 text-violet-400/70 transition group-open:rotate-180"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </summary>
-              <div className="border-t border-violet-500/10 px-3 pb-3 pt-0.5">
-                <div className="grid gap-2.5 sm:grid-cols-2">
-                  <div className="flex gap-2">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-violet-500/10 text-[11px]">
-                      🔍
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-bold text-[var(--foreground)]">Browse & Buy</p>
-                      <p className="mt-0.5 text-[10px] leading-snug text-zinc-500">
-                        Find templates, assets, and tools you need.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-violet-500/10 text-[11px]">
-                      💳
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-bold text-[var(--foreground)]">Pay Securely</p>
-                      <p className="mt-0.5 text-[10px] leading-snug text-zinc-500">
-                        Checkout through Stripe with buyer protection.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-violet-500/10 text-[11px]">
-                      💬
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-bold text-[var(--foreground)]">Seller Delivers</p>
-                      <p className="mt-0.5 text-[10px] leading-snug text-zinc-500">
-                        Files, access, or license keys sent in chat.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-violet-500/10 text-[11px]">
-                      ✅
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-bold text-[var(--foreground)]">Instant Download</p>
-                      <p className="mt-0.5 text-[10px] leading-snug text-zinc-500">
-                        Digital items delivered on payment confirmation.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </details>
-
-            <div className="mt-3 w-full max-w-2xl rounded-xl border border-red-500/10 bg-red-500/[0.03] px-3 py-2.5 text-left">
-              <p className="text-[10px] leading-relaxed text-red-400/80">
-                ⚠️ <span className="font-bold text-red-400">Stay safe.</span> Never pay outside Sky Drop. Keep all
-                communication in our chat. Report suspicious behaviour immediately.
-              </p>
-            </div>
-          </div>
-        </div>
+        </BrowseMarketplaceHero>
 
         {listings.length > 0 && (
-          <div className="mb-8">
+          <div className="mb-5">
             <div className="flex flex-wrap items-center gap-3">
-              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-violet-400/90">
+              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-sky-400/90">
                 Category
               </span>
               <div className="relative">
                 <select
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="appearance-none rounded-lg border border-white/[0.06] bg-black/40 px-3 py-2 pr-8 text-[11px] text-white outline-none transition focus:border-violet-500/40 cursor-pointer"
+                  className="appearance-none rounded-lg border border-white/[0.06] bg-black/40 px-3 py-2 pr-8 text-[11px] text-white outline-none transition focus:border-sky-500/40 cursor-pointer"
                 >
                   {CATEGORIES.map((c) => (
                     <option key={c} value={c} className="bg-zinc-900">
@@ -372,7 +293,7 @@ export default function DigitalPage() {
                   ))}
                 </select>
                 <svg
-                  className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-zinc-500"
+                  className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-white/60"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -381,7 +302,7 @@ export default function DigitalPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                 </svg>
               </div>
-              <span className="text-[11px] text-zinc-500">
+              <span className="text-[11px] text-white/60">
                 {filteredListings.length} listing{filteredListings.length !== 1 ? "s" : ""}
                 {searchQuery.trim() ? ` matching "${searchQuery.trim()}"` : ""}
                 {selectedCategory !== "All" ? ` in ${selectedCategory}` : ""}
@@ -399,105 +320,25 @@ export default function DigitalPage() {
           </div>
         )}
 
-        {hotItems.length > 0 && (
-          <div className="mb-8 overflow-visible">
-            <div className="relative mb-4 pt-2">
-              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
-              <div className="flex items-center gap-2 pt-3">
-                <div className="h-5 w-1 rounded-full bg-gradient-to-b from-sky-500 to-violet-500" />
-                <p className="text-[13px] font-bold uppercase tracking-[0.22em] text-white">
-                  🔥 Hot This Week
-                </p>
-              </div>
-            </div>
-            <div className="-mx-1 flex gap-3 overflow-x-auto overflow-y-visible px-1 py-3 scrollbar-none">
-              {hotItems.map((item: any) => {
-                const hotSaves = listingWatchlistCount(item);
-                const hotGlow = listingWatchlistGlowIntensity(hotSaves);
-                return (
-                  <div
-                    key={item.id}
-                    onClick={() => {
-                      saveRecentlyViewed(item);
-                      router.push(`/post/listing/${item.id}`);
-                    }}
-                    className="group w-56 shrink-0 cursor-pointer rounded-xl border bg-white/[0.02] p-2.5 transition-all duration-300 hover:-translate-y-0.5 hover:bg-white/[0.04] sm:w-60"
-                    style={{
-                      borderColor: `rgba(139, 92, 246, ${0.12 + hotGlow * 0.5})`,
-                      boxShadow: `0 0 ${Math.round(8 + hotGlow * 44)}px rgba(139, 92, 246, ${0.08 + hotGlow * 0.42})`,
-                    }}
-                  >
-                    <div className="relative overflow-hidden rounded-lg">
-                      {item.images?.[0] || item.imageUrl || item.image ? (
-                        <img
-                          src={cdnUrl(item.images?.[0] || item.imageUrl || item.image || "")}
-                          alt={item.title}
-                          loading="lazy"
-                          className="h-28 w-full rounded-lg object-cover transition-all duration-500 group-hover:scale-105 sm:h-32"
-                        />
-                      ) : (
-                        <div className="flex h-28 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500/10 via-violet-500/10 to-violet-600/10 text-xs text-zinc-500 sm:h-32">
-                          💾
-                        </div>
-                      )}
-                      <div className="absolute top-1.5 left-1.5">
-                        <span className="rounded-full bg-violet-500/90 px-2 py-0.5 text-[8px] font-bold text-white backdrop-blur-sm">
-                          🔥 Trending
-                        </span>
-                      </div>
-                      <div
-                        className="absolute bottom-1.5 right-1.5 rounded-full border px-1.5 py-0.5 text-[8px] font-bold backdrop-blur-md"
-                        style={{
-                          borderColor: `rgba(139, 92, 246, ${0.3 + hotGlow * 0.7})`,
-                          backgroundColor: `rgba(0, 0, 0, ${0.5 + hotGlow * 0.15})`,
-                          color: `rgba(196, 181, 253, ${0.8 + hotGlow * 0.2})`,
-                          boxShadow: `0 0 ${Math.round(4 + hotGlow * 18)}px rgba(139, 92, 246, ${0.25 + hotGlow * 0.55})`,
-                        }}
-                      >
-                        ⭐ {hotSaves.toLocaleString()} {hotSaves === 1 ? "save" : "saves"}
-                      </div>
-                    </div>
-                    <div className="mt-2 flex items-start justify-between gap-2">
-                      <p className="flex-1 truncate text-xs font-bold text-white">{item.title}</p>
-                      <p className="shrink-0 text-sm font-black text-violet-400">${item.price}</p>
-                    </div>
-                    {item.category && (
-                      <p className="mt-0.5 truncate text-[10px] text-zinc-500">{item.category}</p>
-                    )}
-                    <div className="mt-1 flex items-center gap-2 text-[10px] text-zinc-500">
-                      {item.createdAt?.seconds != null && (
-                        <span>{timeAgo(item.createdAt.seconds)}</span>
-                      )}
-                      <span
-                        className="flex items-center gap-1 font-semibold"
-                        style={{
-                          color: `rgba(196, 181, 253, ${0.55 + hotGlow * 0.45})`,
-                          textShadow:
-                            hotGlow > 0.15
-                              ? `0 0 ${Math.round(4 + hotGlow * 8)}px rgba(167, 139, 250, ${hotGlow * 0.45})`
-                              : undefined,
-                        }}
-                      >
-                        ⭐ {hotSaves.toLocaleString()} {hotSaves === 1 ? "save" : "saves"}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
+        <HotThisWeek
+          items={hotItems}
+          accent="sky"
+          timeAgo={timeAgo}
+          saveRecentlyViewed={saveRecentlyViewed}
+          cdnUrl={cdnUrl}
+          listingWatchlistCount={listingWatchlistCount}
+          listingWatchlistGlowIntensity={listingWatchlistGlowIntensity}
+        />
         {listings.length === 0 ? (
           <div className="mx-auto max-w-md mt-12 text-center">
             <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/[0.03] border border-white/[0.06]">
               <span className="text-3xl">💾</span>
             </div>
             <h2 className="text-2xl font-black tracking-tight text-white">No digital products yet</h2>
-            <p className="mt-2 text-sm text-zinc-500">Be the first to list a digital product.</p>
+            <p className="mt-2 text-sm text-white/60">Be the first to list a digital product.</p>
             <Link
               href="/post/ai?type=digital"
-              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-violet-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-violet-500/30 hover:scale-105 active:scale-95"
+              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:scale-105 active:scale-95"
             >
               List Digital
             </Link>
@@ -512,7 +353,7 @@ export default function DigitalPage() {
                 ? "No matching listings"
                 : `No listings in ${selectedCategory}`}
             </h2>
-            <p className="mt-2 text-sm text-zinc-500">
+            <p className="mt-2 text-sm text-white/60">
               {searchQuery.trim()
                 ? "Try different keywords or browse all digital products."
                 : "Try another category or list your product here."}
@@ -529,10 +370,10 @@ export default function DigitalPage() {
           <>
             <div className="flex items-center justify-between mb-1.5 mt-4">
               <div className="flex items-center gap-3">
-                <div className="h-7 w-1 rounded-full bg-gradient-to-b from-sky-500 to-violet-500" />
+                <div className="h-7 w-1 rounded-full bg-gradient-to-b from-sky-500 to-sky-500" />
                 <div>
                   <h2 className="text-lg font-black tracking-tight text-white">Digital Listings</h2>
-                  <p className="text-[11px] text-zinc-500">
+                  <p className="text-[11px] text-white/60">
                     {filteredListings.length} listing{filteredListings.length !== 1 ? "s" : ""} found
                     {searchQuery.trim() ? ` matching "${searchQuery.trim()}"` : ""}
                     {selectedCategory !== "All" ? ` · ${selectedCategory}` : ""}
@@ -549,7 +390,7 @@ export default function DigitalPage() {
                   key={item.id}
                   item={item}
                   cardIndex={cardIndex}
-                  accent="violet"
+                  accent="sky"
                   user={user}
                   isInWatchlist={isInWatchlist}
                   onToggleWatchlist={toggleWatchlist}
@@ -572,8 +413,8 @@ export default function DigitalPage() {
             <div className="relative mb-3 pt-2">
               <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
               <div className="flex items-center gap-2 pt-3">
-                <div className="h-5 w-1 rounded-full bg-gradient-to-b from-sky-500 to-violet-500" />
-                <p className="text-[13px] font-bold uppercase tracking-[0.22em] text-[var(--foreground)]">
+                <div className="h-5 w-1 rounded-full bg-gradient-to-b from-sky-500 to-sky-500" />
+                <p className="text-[13px] font-bold uppercase tracking-[0.22em] text-white">
                   Recently Viewed
                 </p>
               </div>
@@ -590,7 +431,7 @@ export default function DigitalPage() {
                       saveRecentlyViewed(card);
                       router.push(`/post/listing/${item.id}`);
                     }}
-                    className="group w-56 shrink-0 cursor-pointer rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 transition-all duration-300 hover:-translate-y-0.5 hover:border-violet-500/40 hover:shadow-[0_8px_25px_rgba(139,92,246,0.15)]"
+                    className="group w-56 shrink-0 cursor-pointer rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 transition-all duration-300 hover:-translate-y-0.5 hover:border-sky-500/40 hover:shadow-[0_8px_25px_rgba(139,92,246,0.15)]"
                   >
                     {imageSrc ? (
                       <img
@@ -603,18 +444,18 @@ export default function DigitalPage() {
                         className="h-20 w-full rounded-lg object-cover"
                       />
                     ) : (
-                      <div className="flex h-20 w-full items-center justify-center rounded-lg bg-gradient-to-br from-sky-500/15 via-violet-500/15 to-violet-600/15 text-xs text-zinc-500">
+                      <div className="flex h-20 w-full items-center justify-center rounded-lg bg-gradient-to-br from-sky-500/15 via-sky-500/15 to-sky-600/15 text-xs text-white/60">
                         💾
                       </div>
                     )}
-                    <p className="mt-2.5 truncate text-[15px] font-bold text-[var(--foreground)]">
+                    <p className="mt-2.5 truncate text-[15px] font-bold text-white">
                       {card.title}
                     </p>
-                    <p className="mt-0.5 text-base font-black text-violet-400">${card.price}</p>
+                    <p className="mt-0.5 text-base font-black text-sky-400">${card.price}</p>
                     {card.category && (
-                      <p className="mt-1 truncate text-[10px] text-zinc-500">{card.category}</p>
+                      <p className="mt-1 truncate text-[10px] text-white/60">{card.category}</p>
                     )}
-                    <p className="mt-1 text-[10px] text-[var(--muted)]">
+                    <p className="mt-1 text-[10px] text-white/60">
                       ⭐ {listingWatchlistCount(card).toLocaleString()}{" "}
                       {listingWatchlistCount(card) === 1 ? "save" : "saves"}
                     </p>
@@ -624,7 +465,27 @@ export default function DigitalPage() {
             </div>
           </div>
         )}
-      </section>
+      
+        {/* Trust strip */}
+        <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 rounded-2xl border border-white/[0.04] bg-white/[0.015] px-5 py-3 backdrop-blur-sm">
+          {[
+            { label: "Flexible payments", sub: "Stripe or Arrange Purchase" },
+            { label: "Dispute protection", sub: "7-day window" },
+            { label: "Verified sellers", sub: "Profiles & reviews" },
+            { label: "NZ community", sub: "Built for Aotearoa" },
+          ].map((item) => (
+            <div key={item.label} className="flex items-center gap-2.5">
+              <div>
+                <p className="text-[11px] font-medium text-white">{item.label}</p>
+                <p className="text-[10px] text-white/70">{item.sub}</p>
+              </div>
+            </div>
+          ))}
+        </div></section>
     </main>
   );
 }
+
+
+
+

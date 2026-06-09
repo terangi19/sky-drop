@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
-import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
+import BrowseAwhinaAssistantPanel from "../components/BrowseAwhinaAssistantPanel";
 import Background from "../components/Background";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "../lib/firebase";
@@ -22,7 +22,7 @@ export default function PropertyPage() {
   }, []);
 
   return (
-    <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+    <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-white transition-colors duration-300">
       <Background /><Navbar />
 
       <section className="relative z-10 mx-auto max-w-6xl px-4 py-12 sm:px-6">
@@ -33,10 +33,10 @@ export default function PropertyPage() {
             <h1 className="text-4xl font-black tracking-tight sm:text-5xl">
               <span className="bg-gradient-to-r from-rose-400 to-pink-400 bg-clip-text text-transparent">Property</span>
             </h1>
-            <AwhinaUnderHeader centered />
-          <p className="mt-3 max-w-2xl mx-auto text-sm leading-relaxed text-zinc-400">
+          <p className="mt-3 max-w-2xl mx-auto text-sm leading-relaxed text-white">
             Find homes, apartments, land, and commercial property across New Zealand. Buy, auction, or enquire.
           </p>
+          <BrowseAwhinaAssistantPanel />
           <Link href="/post/ai?type=property" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-rose-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-rose-500/30 hover:scale-105 active:scale-95">
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
             List Property

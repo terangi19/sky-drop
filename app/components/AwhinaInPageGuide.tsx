@@ -57,6 +57,18 @@ export default function AwhinaInPageGuide({ className = "mb-6 sm:mb-8" }: Props)
     let mounted = false;
     let slotEl: HTMLDivElement | null = null;
 
+    function cleanup() {
+      mounted = false;
+      slotEl?.remove();
+      slotEl = null;
+      setSlot(null);
+    }
+
+    if (!intro) {
+      cleanup();
+      return;
+    }
+
     function mount() {
       if (mounted) return;
       const point = findGuideInsertPoint();
@@ -70,13 +82,6 @@ export default function AwhinaInPageGuide({ className = "mb-6 sm:mb-8" }: Props)
       setSlot(slotEl);
     }
 
-    function cleanup() {
-      mounted = false;
-      slotEl?.remove();
-      slotEl = null;
-      setSlot(null);
-    }
-
     cleanup();
     const raf = requestAnimationFrame(() => {
       requestAnimationFrame(mount);
@@ -88,7 +93,7 @@ export default function AwhinaInPageGuide({ className = "mb-6 sm:mb-8" }: Props)
       window.clearTimeout(retry);
       cleanup();
     };
-  }, [pathname]);
+  }, [pathname, intro]);
 
   if (!intro || !slot) return null;
 

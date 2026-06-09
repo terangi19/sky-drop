@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --cream: #fff8e7;
+  --cream: #ffffff;
   --review-star: #fbbf24;
   --review-star-hover: #ffd700;
   --background: #111118;
@@ -26,16 +26,17 @@
 
 :root.light {
   --background: #f7f8fc;
-  --foreground: #1a1a2e;
+  --foreground: #111118;
+  --cream: #111118;
   --card: #ffffff;
   --card-border: rgba(0, 0, 0, 0.06);
   --muted: #6b7280;
   --soft-card: #eef0f5;
   --soft-card-border: rgba(0, 0, 0, 0.04);
-  --nav-bg: rgba(255, 255, 255, 0.95);
-  --nav-ice: #1e293b;
-  --nav-ice-muted: rgba(30, 41, 59, 0.72);
-  --nav-ice-faint: rgba(30, 41, 59, 0.45);
+  --nav-bg: rgba(17, 17, 24, 0.95);
+  --nav-ice: #ffffff;
+  --nav-ice-muted: rgba(255, 255, 255, 0.72);
+  --nav-ice-faint: rgba(255, 255, 255, 0.45);
   --input-bg: #ffffff;
   --input-border: rgba(0, 0, 0, 0.08);
   --pill-bg: #e8eaee;
@@ -90,23 +91,45 @@ body {
 :root.light .border-white\/10 { border-color: rgba(0, 0, 0, 0.06) !important; }
 :root.light .border-white\/\[0\.04\] { border-color: rgba(0, 0, 0, 0.05) !important; }
 :root.light .border-white\/\[0\.06\] { border-color: rgba(0, 0, 0, 0.07) !important; }
-:root.light .text-zinc-200 { color: #374151 !important; }
-:root.light .text-zinc-300 { color: #374151 !important; }
-:root.light .text-zinc-400 { color: #6b7280 !important; }
-:root.light .text-zinc-500 { color: #6b7280 !important; }
-:root.light .text-zinc-600 { color: #52525b !important; }
-:root.light .text-zinc-700 { color: #3f3f46 !important; }
-:root.light .text-zinc-800 { color: #27272a !important; }
-:root.light .text-zinc-900 { color: #1a1a2e !important; }
-:root.light .text-zinc-950 { color: #0f0f1a !important; }
-:root.light .text-white { color: var(--foreground) !important; }
-:root.light .text-white\/60 { color: rgba(26, 26, 46, 0.6) !important; }
-:root.light .text-white\/70 { color: rgba(26, 26, 46, 0.7) !important; }
-:root.light .text-white\/50 { color: rgba(26, 26, 46, 0.5) !important; }
+:root.light .text-white { color: #111118 !important; }
+:root.light header .text-white { color: #ffffff !important; }
+:root.light .text-white\/95 { color: #111118 !important; }
+:root.light header .text-white\/95 { color: #ffffff !important; }
+:root.light .text-white\/90 { color: #111118 !important; }
+:root.light header .text-white\/90 { color: #ffffff !important; }
+:root.light .text-white\/80 { color: #111118 !important; }
+:root.light header .text-white\/80 { color: #ffffff !important; }
+:root.light .text-white\/70 { color: #111118 !important; }
+:root.light header .text-white\/70 { color: #ffffff !important; }
+:root.light .text-white\/60 { color: #111118 !important; }
+:root.light header .text-white\/60 { color: #ffffff !important; }
+:root.light .text-white\/50 { color: #111118 !important; }
+:root.light header .text-white\/50 { color: #ffffff !important; }
+:root.light .text-white\/40 { color: #111118 !important; }
+:root.light header .text-white\/40 { color: #ffffff !important; }
+:root.light .text-white\/30 { color: #111118 !important; }
+:root.light header .text-white\/30 { color: #ffffff !important; }
+:root.light .text-white\/20 { color: #6b7280 !important; }
+:root.light .text-white\/10 { color: #6b7280 !important; }
+:root.light .text-zinc-200 { color: #111118 !important; }
+:root.light .text-zinc-300 { color: #111118 !important; }
+:root.light .text-zinc-400 { color: #111118 !important; }
+:root.light .text-zinc-500 { color: #111118 !important; }
+:root.light .text-zinc-600 { color: #111118 !important; }
+:root.light .text-zinc-700 { color: #111118 !important; }
+:root.light .text-zinc-800 { color: #111118 !important; }
+:root.light .text-zinc-900 { color: #111118 !important; }
+:root.light .text-zinc-950 { color: #111118 !important; }
+:root.light .text-neutral-400 { color: #111118 !important; }
+:root.light .text-neutral-500 { color: #111118 !important; }
+:root.light .text-gray-400 { color: #111118 !important; }
+:root.light .text-gray-500 { color: #111118 !important; }
+:root.light .text-black { color: #111118 !important; }
 :root.light header {
-  border-bottom-color: rgba(0, 0, 0, 0.06) !important;
-  background: rgba(255, 255, 255, 0.95) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.06) !important;
+  background: rgba(17, 17, 24, 0.95) !important;
 }
+:root.light header [class*="drop-shadow-"] { color: #38bdf8 !important; }
 :root.light .from-white { --tw-gradient-from: var(--foreground) !important; }
 :root.light .via-sky-200 { --tw-gradient-via: #7dd3fc !important; }
 :root.light .to-white { --tw-gradient-to: var(--foreground) !important; }
@@ -593,71 +616,14 @@ body {
   to { opacity: 0; transform: translateY(-6px) scale(0.95); }
 }
 
-/* ── LISTING CARD BLUE AURA ── */
-@keyframes listing-aura-breathe {
+/* ── LISTING CARD HOVER AURA ── */
+@keyframes card-aura-pulse {
   0%, 100% {
-    opacity: 0.55;
-    transform: scale(0.96);
+    box-shadow: 0 0 20px rgba(56, 189, 248, 0.2), 0 0 40px rgba(14, 165, 233, 0.1);
   }
   50% {
-    opacity: 0.95;
-    transform: scale(1.04);
+    box-shadow: 0 0 30px rgba(56, 189, 248, 0.35), 0 0 60px rgba(14, 165, 233, 0.18);
   }
-}
-@keyframes listing-neon-blue-pulse {
-  0%, 100% {
-    box-shadow:
-      0 0 24px rgba(56, 189, 248, 0.5),
-      0 0 48px rgba(14, 165, 233, 0.28),
-      0 0 80px rgba(56, 189, 248, 0.12),
-      inset 0 0 22px rgba(56, 189, 248, 0.05);
-  }
-  50% {
-    box-shadow:
-      0 0 38px rgba(56, 189, 248, 0.68),
-      0 0 76px rgba(14, 165, 233, 0.38),
-      0 0 110px rgba(56, 189, 248, 0.18),
-      inset 0 0 32px rgba(56, 189, 248, 0.1);
-  }
-}
-.listing-card-aura-outer {
-  z-index: 0;
-  background: radial-gradient(
-    ellipse 85% 75% at 50% 55%,
-    rgba(56, 189, 248, 0.42) 0%,
-    rgba(14, 165, 233, 0.18) 38%,
-    rgba(56, 189, 248, 0.06) 58%,
-    transparent 72%
-  );
-  filter: blur(18px);
-  animation: listing-aura-breathe 4s ease-in-out infinite;
-}
-.listing-card-aura-inner {
-  z-index: 0;
-  background: radial-gradient(
-    ellipse 100% 90% at 50% 100%,
-    rgba(56, 189, 248, 0.22) 0%,
-    rgba(14, 165, 233, 0.08) 50%,
-    transparent 72%
-  );
-  opacity: 0.85;
-}
-.listing-card-aura-wrap:hover .listing-card-aura-outer {
-  opacity: 1;
-  transform: scale(1.08);
-  filter: blur(22px);
-  transition: transform 0.35s ease, filter 0.35s ease, opacity 0.35s ease;
-}
-.listing-card-neon {
-  animation: listing-neon-blue-pulse 3s ease-in-out infinite;
-}
-.listing-card-neon:hover {
-  animation: none;
-  box-shadow:
-    0 0 40px rgba(56, 189, 248, 0.75),
-    0 0 80px rgba(14, 165, 233, 0.4),
-    0 0 120px rgba(56, 189, 248, 0.2),
-    inset 0 0 36px rgba(56, 189, 248, 0.1) !important;
 }
 
 /* ── BACKGROUND DRIFT ANIMATIONS ── */

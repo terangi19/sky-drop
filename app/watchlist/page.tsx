@@ -7,6 +7,7 @@ import { collection, deleteDoc, doc, getDoc, onSnapshot, orderBy, query } from "
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import BrowseAwhinaAssistantPanel from "../components/BrowseAwhinaAssistantPanel";
 import { useAwhinaInsightEffect } from "../contexts/AwhinaPageInsightContext";
 import { buildWatchlistInsight } from "../lib/awhina-insights";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
@@ -216,7 +217,7 @@ export default function WatchlistPage() {
           <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
             <span className="bg-gradient-to-r from-white via-sky-200 to-white bg-clip-text text-transparent">Watchlist</span>
           </h1>
-          <div data-awhina-after-h1 className="mt-3" aria-hidden />
+          <BrowseAwhinaAssistantPanel className="mt-4 mb-0 mx-auto w-full max-w-2xl text-left" />
           <p className="relative mt-3 text-sm text-zinc-500">{watchlist.length} saved item{watchlist.length !== 1 ? "s" : ""}</p>
         </div>
 

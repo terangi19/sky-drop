@@ -1,4 +1,10 @@
 import { AWHINA_NAME } from "./awhina-brand";
+import {
+  AWHINA_GUIDE_BROWSE_PATHS,
+  isAwhinaGuideExcluded,
+  isAwhinaNavbarPath,
+  normalizeAwhinaGuidePath,
+} from "./awhina-guide-paths";
 import { dispatchSkyAiOpen } from "./sky-ai-events";
 import { isListingVisibleInMarketplace } from "./listing-availability";
 
@@ -18,56 +24,56 @@ export type AwhinaInsight = {
 
 const PAGE_INTROS: Record<string, string[]> = {
   "/": [
-    "Welcome to Sky Drop — New Zealand's community marketplace.",
-    "Browse listings, save favourites, message sellers, or list something with Āwhina.",
+    "You're on Physical Goods — everyday items from sellers across New Zealand.",
+    "Search or pick a category, then open a listing to buy or message the seller.",
   ],
   "/digital": [
-    "This is the Digital Store — ebooks, software, templates, and downloads.",
-    "Buy instant-delivery items or list your own digital products for sale.",
+    "You're on the Digital Store — download-ready products from Kiwi creators.",
+    "Browse templates, ebooks, software, and assets. Tap a listing to view details and checkout for instant delivery.",
   ],
   "/services": [
-    "This is Services — freelance work, consulting, gigs, and professional help.",
-    "Browse providers or list a service you offer and message to agree details.",
+    "You're on Services — freelancers and professionals offering help across NZ.",
+    "Search by skill or location, open a listing, and message the provider to agree scope and price.",
   ],
   "/rentals": [
-    "This is Rentals — tools, gear, cameras, and short-term equipment hire.",
-    "Find something to borrow or list your own items for others to rent.",
+    "You're on Rentals — short-term hire for gear, tools, rooms, and equipment.",
+    "Filter by region, open a listing, and message the owner to arrange dates and pickup.",
   ],
   "/vehicles": [
-    "This is Vehicles — cars, bikes, boats, and other transport for sale.",
-    "Open a listing for photos, price, and seller details, then message to buy.",
+    "You're on Vehicles — cars, motorbikes, boats, and transport listed for sale.",
+    "Search by make or region, then open a listing to view photos, price, and contact the seller.",
   ],
   "/property": [
-    "This is Property — homes, rentals, land, and real estate listings.",
-    "Browse what's available and contact sellers from each listing.",
+    "You're on Property — homes, land, and commercial listings across New Zealand.",
+    "Browse available properties and message sellers from each listing to arrange viewings.",
   ],
   "/jobs": [
-    "This is Jobs — work opportunities posted on Sky Drop.",
-    "Browse open roles or manage applications if you're hiring.",
+    "You're on Jobs — roles and opportunities posted on Sky Drop.",
+    "Browse openings that match your skills, or post a job if you're hiring.",
   ],
   "/events": [
-    "This is Events — tickets, gigs, meetups, and things happening near you.",
-    "Browse upcoming events or list one you're hosting.",
+    "You're on Events — tickets, gigs, meetups, and local happenings.",
+    "Find something near you and purchase securely through each event listing.",
   ],
   "/trade-feed": [
     "This is the Trade Feed — community trades, swaps, and barter-style posts.",
     "See what others want to trade and message to negotiate a swap.",
   ],
   "/watchlist": [
-    "This is your Watchlist — listings you've saved to check later.",
-    "Search and sort saved items, or open a card when you're ready to buy.",
+    "You're on Watchlist — listings you've saved for later.",
+    "Search or sort your saved items, then open any card when you're ready to buy or message the seller.",
   ],
   "/list-list": [
-    "This is My Listings — your seller dashboard for everything you've posted.",
-    "Boost, edit, or delete listings. Active and sold tabs filter your posts.",
+    "You're on My Listings — your seller hub for everything you've posted.",
+    "Use Active and Sold tabs to manage posts, edit details, or check performance on each listing.",
   ],
   "/purchases": [
-    "This is My Purchases — everything you've bought on Sky Drop.",
-    "Track order status, message sellers, and open disputes if something goes wrong.",
+    "You're on My Purchases — orders you've placed on Sky Drop.",
+    "Track delivery status, message sellers, and open a dispute if something isn't right.",
   ],
   "/sales": [
-    "This is Sales — orders from buyers for your listings.",
-    "Mark items shipped or delivered and message buyers from each order.",
+    "You're on Sales — orders buyers have placed on your listings.",
+    "Update each order when you ship or deliver, and message buyers from the sale card.",
   ],
   "/dashboard": [
     "This is your Dashboard — a quick overview of your Sky Drop activity.",
@@ -199,8 +205,8 @@ const PREFIX_INTROS: { prefix: string; lines: string[] }[] = [
   },
 ];
 
-export function resolveAwhinaPageIntro(pathname: string): string[] | null {
-  const path = pathname.split("?")[0].replace(/\/$/, "") || "/";
+function lookupAwhinaPageIntro(pathname: string): string[] | null {
+  const path = normalizeAwhinaGuidePath(pathname);
 
   if (path === "/checkout" || path === "/post") return null;
 
@@ -209,6 +215,24 @@ export function resolveAwhinaPageIntro(pathname: string): string[] | null {
   }
 
   return PAGE_INTROS[path] ?? null;
+}
+
+/** Portal guide — skips home, browse marketplace, and other excluded routes. */
+export function resolveAwhinaPageIntro(pathname: string): string[] | null {
+  if (isAwhinaGuideExcluded(pathname)) return null;
+  return lookupAwhinaPageIntro(pathname);
+}
+
+/** Inline assistant under navbar and browse page headers. */
+export function getAwhinaNavbarPageIntro(pathname: string): string[] | null {
+  const path = normalizeAwhinaGuidePath(pathname);
+  if (!isAwhinaNavbarPath(pathname) && !AWHINA_GUIDE_BROWSE_PATHS.has(path)) return null;
+  return lookupAwhinaPageIntro(pathname);
+}
+
+/** @deprecated Use getAwhinaNavbarPageIntro */
+export function getAwhinaBrowsePageIntro(pathname: string): string[] | null {
+  return getAwhinaNavbarPageIntro(pathname);
 }
 
 type WatchlistItem = { id: string; title?: string; category?: string };

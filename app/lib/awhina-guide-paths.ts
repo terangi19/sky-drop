@@ -20,7 +20,7 @@ export const AWHINA_GUIDE_EXCLUDED_PATHS = new Set([
   "/profile",
 ]);
 
-/** Category browse pages — floating ✦ chat only, no in-page guide card. */
+/** Category browse pages — inline Āwhina assistant under the page header. */
 export const AWHINA_GUIDE_BROWSE_PATHS = new Set([
   "/digital",
   "/services",
@@ -29,6 +29,19 @@ export const AWHINA_GUIDE_BROWSE_PATHS = new Set([
   "/property",
   "/jobs",
   "/events",
+]);
+
+/** Main navbar routes — Sell (/post/ai) uses the listing flow, not this panel. */
+export const AWHINA_NAVBAR_PATHS = new Set([
+  "/",
+  "/digital",
+  "/services",
+  "/rentals",
+  "/vehicles",
+  "/list-list",
+  "/watchlist",
+  "/purchases",
+  "/sales",
 ]);
 
 const AWHINA_GUIDE_BROWSE_PREFIXES = ["/post/listing/", "/seller/"] as const;
@@ -51,9 +64,15 @@ export function isAwhinaBrowsePath(pathname: string): boolean {
   );
 }
 
+export function isAwhinaNavbarPath(pathname: string): boolean {
+  const path = normalizeAwhinaGuidePath(pathname);
+  return AWHINA_NAVBAR_PATHS.has(path);
+}
+
 export function isAwhinaGuideExcluded(pathname: string): boolean {
   const path = normalizeAwhinaGuidePath(pathname);
   if (AWHINA_GUIDE_EXCLUDED_PATHS.has(path)) return true;
+  if (isAwhinaNavbarPath(pathname) || AWHINA_GUIDE_BROWSE_PATHS.has(path)) return true;
   return isAwhinaBrowsePath(path);
 }
 

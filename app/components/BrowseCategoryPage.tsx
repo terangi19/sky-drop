@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import type { User } from "firebase/auth";
 import Navbar from "./Navbar";
 import Background from "./Background";
-import { AwhinaUnderHeader } from "./AwhinaOnlineBadge";
+import BrowseAwhinaAssistantPanel from "./BrowseAwhinaAssistantPanel";
 
 import ListingCard from "./ListingCard";
 import { showToast } from "./Toast";
@@ -273,7 +273,7 @@ export default function BrowseCategoryPage({ config }: Props) {
   const filterCountLabel = `${filteredListings.length} ${filteredListings.length === 1 ? config.itemSingular : config.itemPlural}`;
 
   return (
-    <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+    <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-white transition-colors duration-300">
       <Background />
       <Navbar />
 
@@ -304,20 +304,21 @@ export default function BrowseCategoryPage({ config }: Props) {
 
           <div className="relative overflow-visible px-6 py-10 sm:px-10 sm:py-12">
             <div className="mx-auto max-w-3xl text-center">
-              <h1 className="text-4xl font-black tracking-tight text-[var(--foreground)] sm:text-5xl lg:text-6xl leading-none">
+              <h1 className="text-4xl font-black tracking-tight sm:text-5xl lg:text-6xl leading-none">
                 <span
-                  className={`bg-gradient-to-r bg-clip-text text-transparent ${t.titleGradient}`}
+                  className={`bg-gradient-to-r bg-clip-text text-transparent ${t.titleGradient} ${t.titleDropShadow}`}
                 >
                   {config.pageTitle}
                 </span>
               </h1>
-              <AwhinaUnderHeader centered className="mt-4" />
               <p className="mt-4 max-w-xl mx-auto text-sm leading-relaxed text-white">
                 {config.subtitle}
               </p>
             </div>
 
-            <div className="mx-auto mt-8 max-w-xl">
+            <BrowseAwhinaAssistantPanel className="mt-4 mb-0 mx-auto w-full max-w-2xl text-left" />
+
+            <div className="mx-auto mt-6 max-w-xl">
               <div className="group relative">
                 <div
                   className={`absolute -inset-1 rounded-xl bg-gradient-to-r ${t.searchGlow} opacity-0 blur-lg transition duration-500 group-focus-within:opacity-100`}

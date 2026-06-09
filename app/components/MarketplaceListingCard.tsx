@@ -31,15 +31,15 @@ export type MarketplaceListingCardProps = {
 };
 
 const CREAM_CARD =
-  "border-[rgba(255,248,231,0.08)] bg-white/[0.02] hover:border-[rgba(255,248,231,0.3)] hover:bg-white/[0.03] hover:shadow-[0_10px_40px_-10px_rgba(255,248,231,0.18)]";
+  "border-[rgba(255,248,231,0.08)] bg-white/[0.02] hover:border-sky-400/30 hover:bg-white/[0.03] hover:shadow-[0_0_30px_rgba(56,189,248,0.25),0_0_60px_rgba(14,165,233,0.15)]";
 const NEON_BLUE_CARD =
-  "listing-card-neon border-sky-400/55 bg-white/[0.02] hover:border-sky-300/80 hover:bg-sky-500/[0.06] hover:shadow-[0_0_36px_rgba(56,189,248,0.7),0_0_72px_rgba(14,165,233,0.35),inset_0_0_28px_rgba(56,189,248,0.08)]";
+  "border-sky-400/55 bg-white/[0.02] hover:border-sky-300/80 hover:bg-sky-500/[0.06] hover:shadow-[0_0_30px_rgba(56,189,248,0.25),0_0_60px_rgba(14,165,233,0.15)]";
 const CREAM_CHIP =
-  "border-[rgba(255,248,231,0.14)] bg-[rgba(255,248,231,0.08)] text-[#fff8e7]";
+  "border-[rgba(255,248,231,0.14)] bg-[rgba(255,248,231,0.08)] text-[var(--cream)]";
 const CREAM_BTN =
-  "border-[rgba(255,248,231,0.22)] bg-[rgba(255,248,231,0.06)] text-[#fff8e7]/85 hover:border-[rgba(255,248,231,0.38)] hover:bg-[rgba(255,248,231,0.12)] hover:text-[#fffdf5] hover:shadow-[0_0_16px_rgba(255,248,231,0.14)]";
+  "border-[rgba(255,248,231,0.22)] bg-[rgba(255,248,231,0.06)] text-[var(--cream)] hover:border-[rgba(255,248,231,0.38)] hover:bg-[rgba(255,248,231,0.12)] hover:text-[var(--cream)]";
 const CREAM_BADGE =
-  "rounded-full bg-[rgba(255,248,231,0.18)] px-2.5 py-0.5 text-[9px] font-bold text-[#fffdf5] shadow-[0_0_10px_rgba(255,248,231,0.22)] backdrop-blur-sm";
+  "rounded-full bg-[rgba(255,248,231,0.18)] px-2.5 py-0.5 text-[9px] font-bold text-[var(--cream)] backdrop-blur-sm";
 
 function listingCardGlowStyle(
   saveGlow: number,
@@ -107,13 +107,7 @@ export default function MarketplaceListingCard({
     item.category === "Cars" || item.category === "Property";
 
   return (
-    <div className={neonGlow ? "listing-card-aura-wrap relative" : "relative"}>
-      {neonGlow && (
-        <>
-          <div className="listing-card-aura-outer pointer-events-none absolute -inset-5 rounded-[1.5rem]" aria-hidden />
-          <div className="listing-card-aura-inner pointer-events-none absolute -inset-2 rounded-[1.15rem]" aria-hidden />
-        </>
-      )}
+    <div className="relative">
       <div
         className={`listing-card group relative z-[1] overflow-hidden rounded-2xl border transition-all duration-300 cursor-pointer animate-fade-in-up hover:-translate-y-1 text-[var(--cream)] ${neonGlow ? NEON_BLUE_CARD : CREAM_CARD}`}
         style={{
@@ -287,7 +281,7 @@ export default function MarketplaceListingCard({
         </div>
 
         <div className="flex items-center gap-2 mt-2.5">
-          <h2 className="flex-1 line-clamp-1 text-[17px] font-black tracking-tight text-[#fffdf5] transition-colors duration-150 group-hover:text-[#fffdf5] group-hover:[text-shadow:0_0_12px_rgba(255,248,231,0.45)]">
+          <h2 className="flex-1 line-clamp-1 text-[17px] font-black tracking-tight text-[var(--cream)] transition-colors duration-150 group-hover:text-[var(--cream)]">
             {item.title}
           </h2>
         </div>
@@ -313,9 +307,9 @@ export default function MarketplaceListingCard({
         </p>
 
         <div className="mt-3 flex items-baseline gap-2">
-          <p className="text-2xl font-black tracking-tight text-[#fffdf5] [text-shadow:0_0_10px_rgba(255,248,231,0.35)]">${item.price}</p>
+          <p className="text-2xl font-black tracking-tight text-[var(--cream)]">${item.price}</p>
           {(item.saleType === "auction" || item.saleType === "auction_buy_now") && (
-            <span className="text-sm font-bold text-[#fff8e7] [text-shadow:0_0_8px_rgba(255,248,231,0.3)]">
+            <span className="text-sm font-bold text-[var(--cream)]">
               Bid: ${item.currentBid || item.startingBid || 0}
             </span>
           )}
@@ -331,7 +325,7 @@ export default function MarketplaceListingCard({
           {themed ? (
             <span
               className={`ml-auto flex items-center gap-1 font-semibold ${
-                saveGlow > 0.1 ? "text-[#fff8e7]" : "text-[var(--cream)]"
+                saveGlow > 0.1 ? "text-[var(--cream)]" : "text-[var(--cream)]"
               }`}
               style={
                 saveGlow > 0.2
@@ -402,7 +396,7 @@ export default function MarketplaceListingCard({
                         e.stopPropagation();
                         onMakeOffer(item);
                       }}
-                      className="ml-1 text-[11px] text-[#fff8e7] underline underline-offset-2 hover:text-[#fffdf5] hover:[text-shadow:0_0_8px_rgba(255,248,231,0.35)]"
+                      className="ml-1 text-[11px] text-[var(--cream)] underline underline-offset-2 hover:text-[var(--cream)]"
                     >
                       Offer
                     </button>
@@ -469,9 +463,9 @@ export default function MarketplaceListingCard({
             const avgRating = stats ? stats.avg : 0;
             const reviewCount = stats ? stats.count : 0;
             return (
-              <div className="group mt-2 rounded-lg border border-[rgba(255,248,231,0.1)] bg-zinc-800/20 p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(255,248,231,0.28)] hover:bg-zinc-800/30 hover:shadow-[0_0_18px_rgba(255,248,231,0.1)]">
+              <div className="group mt-2 rounded-lg border border-[rgba(255,248,231,0.1)] bg-zinc-800/20 p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(255,248,231,0.28)] hover:bg-zinc-800/30">
                 <div className="flex items-center gap-2">
-                  <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[rgba(255,248,231,0.14)] text-[13px] font-bold text-[#fffdf5] shadow-[0_0_12px_rgba(255,248,231,0.2)] ring-1 ring-[rgba(255,248,231,0.2)]">
+                  <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[rgba(255,248,231,0.14)] text-[13px] font-bold text-[var(--cream)] ring-1 ring-[rgba(255,248,231,0.2)]">
                     {initial}
                   </div>
                   <div className="min-w-0 flex-1">
