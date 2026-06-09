@@ -38,14 +38,16 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Missing purchase ID" }, { status: 400 });
       }
 
+      // Only admins can issue refunds
+      if (!isAdminEmail(decodedToken.email)) {
+        return NextResponse.json({ error: "Only admins can issue refunds. Please open a dispute instead." }, { status: 403 });
+      }
+
       const purchaseDoc = await db.collection("purchases").doc(purchaseId).get();
       if (!purchaseDoc.exists) {
         return NextResponse.json({ error: "Purchase not found" }, { status: 404 });
       }
       const purchaseData = purchaseDoc.data()!;
-      if (purchaseData.buyerEmail !== decodedToken.email && !isAdminEmail(decodedToken.email)) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-      }
 
       const piId = purchaseData.stripePaymentIntentId;
       if (!piId) {

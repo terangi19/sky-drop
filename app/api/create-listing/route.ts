@@ -218,6 +218,7 @@ export async function POST(req: NextRequest) {
     }
 
     const finalData: Record<string, unknown> = {
+      ...clientData,
       title: sanitizedTitle,
       description: sanitizedDesc,
       price: String(numericPrice),
@@ -234,7 +235,6 @@ export async function POST(req: NextRequest) {
       paymentType: clientData.paymentType || "stripe",
       createdAt: now,
       expiresAt,
-      ...clientData,
       saleType,
     };
 

@@ -168,10 +168,8 @@ function MessagesPage() {
         const q = query(collection(db, "users", user.uid, "blocked"), where("blocked", "==", true));
         const snap = await getDocs(q);
         const emails = snap.docs.map((d) => d.id);
-        if (emails.length > 0) {
-          setBlockedUsers(emails);
-          localStorage.setItem("blockedUsers", JSON.stringify(emails));
-        }
+        setBlockedUsers(emails);
+        localStorage.setItem("blockedUsers", JSON.stringify(emails));
       } catch (e) {
         console.error("Failed to fetch blocked users:", e);
       }

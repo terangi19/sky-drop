@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken, isAdminInitialized } from "../../lib/firebase-admin";
+import { verifyIdToken, isAdminInitialized, getAdminDb } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import { acceptOfferWithAdmin, acceptOfferWithRest } from "../../lib/purchase-service";
 import type { AcceptOfferInput } from "../../lib/purchase-service";
@@ -34,6 +34,19 @@ export async function POST(req: NextRequest) {
     const sellerEmail = decodedToken.email || "";
     if (!sellerEmail) {
       return NextResponse.json({ error: "Could not determine seller email" }, { status: 400 });
+    }
+
+    // Verify the caller is the actual listing seller
+    if (isAdminInitialized()) {
+      const col = collectionName || "listings";
+      const listingSnap = await getAdminDb().collection(col).doc(listingId).get();
+      if (!listingSnap.exists) {
+        return NextResponse.json({ error: "Listing not found" }, { status: 404 });
+      }
+      const listingData = listingSnap.data()!;
+      if (String(listingData.sellerEmail || "") !== sellerEmail) {
+        return NextResponse.json({ error: "Only the listing seller can accept offers" }, { status: 403 });
+      }
     }
 
     const input: AcceptOfferInput = {

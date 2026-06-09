@@ -235,7 +235,7 @@ export async function POST(req: NextRequest) {
         on_behalf_of: sellerStripeAccountId,
         application_fee_amount: applicationFeeAmount,
       },
-      { idempotencyKey: `payment-${listingId}-${decodedToken.uid}` }
+      { idempotencyKey: `payment-${listingId}-${decodedToken.uid}-${Date.now()}` }
     );
 
     return NextResponse.json({

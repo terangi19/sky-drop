@@ -99,12 +99,10 @@ export async function POST(req: NextRequest) {
         "",
       phoneVerified:
         existingData?.phoneVerified === true ||
-        existingData?.verified === true ||
-        phoneVerified === true,
+        existingData?.verified === true,
       verified:
         existingData?.phoneVerified === true ||
-        existingData?.verified === true ||
-        phoneVerified === true,
+        existingData?.verified === true,
       email: decodedToken.email || "",
       emailVerified: !!decodedToken.email_verified,
       bankAccountName:
