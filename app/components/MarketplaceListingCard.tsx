@@ -41,37 +41,15 @@ const CREAM_BTN =
 const CREAM_BADGE =
   "rounded-full bg-[rgba(255,248,231,0.18)] px-2.5 py-0.5 text-[9px] font-bold text-[var(--cream)] backdrop-blur-sm";
 
-function listingCardGlowStyle(
-  saveGlow: number,
-  isPopular: boolean,
-  isVisible: boolean,
-  neonGlow?: boolean
-): CSSProperties | undefined {
-  const glow = Math.max(saveGlow, isPopular ? 0.35 : 0, neonGlow ? 0.3 : 0);
-  if (!neonGlow && !isVisible) return undefined;
-  if (!neonGlow && glow < 0.05) return undefined;
-
-  if (neonGlow) {
-    return {
-      borderColor: `rgba(56, 189, 248, ${0.5 + glow * 0.35})`,
-      backgroundImage: `linear-gradient(to bottom, rgba(56, 189, 248, ${0.06 + glow * 0.12}), transparent)`,
-    };
-  }
-
-  return {
-    borderColor: `rgba(255, 248, 231, ${0.12 + glow * 0.45})`,
-    boxShadow: `0 0 ${Math.round(10 + glow * 50)}px rgba(255, 248, 231, ${0.08 + glow * 0.38})`,
-    backgroundImage: `linear-gradient(to bottom, rgba(255, 248, 231, ${0.02 + glow * 0.07}), transparent)`,
-  };
+function listingCardGlowStyle(): CSSProperties | undefined {
+  return undefined;
 }
 
-function watchlistBadgeStyle(saveGlow: number): CSSProperties {
+function watchlistBadgeStyle(): CSSProperties {
   return {
-    borderColor: `rgba(255, 248, 231, ${0.22 + saveGlow * 0.55})`,
-    backgroundColor: `rgba(0, 0, 0, ${0.45 + saveGlow * 0.2})`,
-    color: `rgba(255, 253, 245, ${0.8 + saveGlow * 0.2})`,
-    boxShadow: `0 0 ${Math.round(6 + saveGlow * 20)}px rgba(255, 248, 231, ${0.18 + saveGlow * 0.5})`,
-    textShadow: `0 0 ${Math.round(4 + saveGlow * 12)}px rgba(255, 248, 231, ${0.35 + saveGlow * 0.55})`,
+    borderColor: `rgba(255, 248, 231, 0.22)`,
+    backgroundColor: `rgba(0, 0, 0, 0.45)`,
+    color: `rgba(255, 253, 245, 0.8)`,
   };
 }
 
@@ -89,7 +67,7 @@ export default function MarketplaceListingCard({
   onPromote,
   onDelete,
   accent = "sky",
-  neonGlow = true,
+  neonGlow = false,
 }: MarketplaceListingCardProps) {
   const themed = accent === "yellow" || accent === "violet";
   const isVisible = isListingVisibleInMarketplace(item);
@@ -98,7 +76,7 @@ export default function MarketplaceListingCard({
   const isPopular = isVisible && (item.views || 0) > 3;
   const imageSrc = item.images?.[0] || item.imageUrl || item.image;
 
-  const cardGlowStyle = listingCardGlowStyle(saveGlow, isPopular, isVisible, neonGlow);
+  const cardGlowStyle = listingCardGlowStyle();
   const categoryLabel =
     item.type === "vehicle"
       ? "Cars"
@@ -109,7 +87,7 @@ export default function MarketplaceListingCard({
   return (
     <div className="relative">
       <div
-        className={`listing-card group relative z-[1] overflow-hidden rounded-2xl border transition-all duration-300 cursor-pointer animate-fade-in-up hover:-translate-y-1 text-[var(--cream)] ${neonGlow ? NEON_BLUE_CARD : CREAM_CARD}`}
+        className={`listing-card group relative z-[1] overflow-hidden rounded-2xl border transition-all duration-300 cursor-pointer animate-fade-in-up hover:-translate-y-1 text-[var(--cream)] ${CREAM_CARD}`}
         style={{
           animationDelay: `${Math.min(cardIndex, 10) * 40}ms`,
           ...cardGlowStyle,
@@ -117,9 +95,7 @@ export default function MarketplaceListingCard({
         onClick={onCardClick}
       >
       <div
-        className={`pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-transparent ${
-          neonGlow ? "to-sky-500/[0.06]" : "to-[rgba(255,248,231,0.02)]"
-        }`}
+        className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[rgba(255,248,231,0.02)]"
       />
 
       {imageSrc ? (
@@ -175,7 +151,7 @@ export default function MarketplaceListingCard({
             {themed && isVisible && (
               <div
                 className="absolute bottom-3 right-3 rounded-full border px-2.5 py-1 text-[10px] font-bold backdrop-blur-md"
-                style={watchlistBadgeStyle(saveGlow)}
+                style={watchlistBadgeStyle()}
               >
                 ⭐ {saves.toLocaleString()} {saves === 1 ? "save" : "saves"}
               </div>
