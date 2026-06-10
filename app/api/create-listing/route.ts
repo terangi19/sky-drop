@@ -104,6 +104,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const VALID_LISTING_TYPES = ["physical", "digital", "service", "rental", "event", "vehicle", "job", "property", "wanted"];
+    if (listingType && !VALID_LISTING_TYPES.includes(listingType)) {
+      return NextResponse.json({ error: "Invalid listing type" }, { status: 400 });
+    }
+
     if (!title || !description) {
       return NextResponse.json({ error: "Title and description are required" }, { status: 400 });
     }

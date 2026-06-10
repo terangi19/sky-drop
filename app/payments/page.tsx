@@ -58,7 +58,7 @@ export default function PaymentsPage() {
           </p>
 
           <div className="mt-8 space-y-6">
-            <Step number={1} title="Buyer taps Buy Now" description="Checkout opens in-app. A $1.00 buyer protection fee is added to the item price." />
+            <Step number={1} title="Buyer completes Stripe Checkout" description="Checkout opens in-app. A $1.00 buyer protection fee is added to the item price." />
             <Step number={2} title="Payment goes direct to the seller" description="Card details are processed securely by our payment provider. The payment is sent to the seller's connected payout account — not a Sky Drop balance." />
             <Step number={3} title="Order & messaging" description="A purchase record is created. Buyer and seller coordinate delivery in Messages." />
             <Step number={4} title="Disputes (card purchases)" description="If something goes wrong, open a dispute from Purchases within 7 days. Admins can issue refunds through our payment provider when appropriate." />
@@ -130,7 +130,8 @@ export default function PaymentsPage() {
         <div className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
           <h2 className="text-lg font-bold text-white">Fees</h2>
           <p className="mt-2 text-sm text-[var(--muted)] leading-relaxed">
-            Card Checkout: $1.00 buyer protection fee per purchase (plus standard card processing fees). Arrange Purchase: no Sky Drop payment fee — standard listing is free.
+            <strong className="text-white">Stripe Checkout:</strong> $1.00 buyer protection fee per purchase (plus standard Stripe processing fees).<br className="mt-1" />
+            <strong className="text-white">Arrange Purchase:</strong> no Stripe processing fees. Payment methods (bank transfer, cash, etc.) are agreed directly between buyer and seller in Messages. Standard listing is always free.
           </p>
         </div>
 

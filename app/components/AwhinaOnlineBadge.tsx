@@ -27,16 +27,9 @@ export default function AwhinaOnlineBadge({ centered = false, className = "" }: 
 }
 
 /** Drop directly under a page h1 */
-export function AwhinaUnderHeader({
-  centered = false,
-  className = "mt-3",
-}: {
+export function AwhinaUnderHeader(_props?: {
   centered?: boolean;
   className?: string;
 }) {
-  return (
-    <div className={`flex ${centered ? "justify-center" : ""} ${className}`.trim()}>
-      <AwhinaOnlineBadge centered={centered} />
-    </div>
-  );
+  return null;
 }

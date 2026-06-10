@@ -51,7 +51,8 @@ export default function AdminVerificationPage() {
   useEffect(() => {
     if (tab === "address") {
       setLoading(true);
-      const q = query(collection(db, "profiles"), where("proofOfAddress.status", "==", "pending"));
+      // Read from the locked kycSubmissions collection — image URLs never stored on profiles
+      const q = query(collection(db, "kycSubmissions"), where("status", "==", "pending"));
       const unsub = onSnapshot(q, (snap) => {
         setProfiles(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
         setLoading(false);
@@ -88,10 +89,15 @@ export default function AdminVerificationPage() {
   const isAdmin = isAdminEmail(user?.email);
 
   async function handleApprove(profileId: string) {
-    if (!confirm("Approve this user's proof of address?")) return;
+    if (!confirm("Approve this user's KYC verification?")) return;
     try {
+      // Update verdict in kycSubmissions (locked collection — image URLs stay here)
+      await setDoc(doc(db, "kycSubmissions", profileId), {
+        status: "approved", reviewedAt: Timestamp.now(), reviewedBy: user?.email || "admin",
+      }, { merge: true });
+      // Write only the status badge to the public profiles doc — no image URLs
       await setDoc(doc(db, "profiles", profileId), {
-        proofOfAddress: { status: "approved", reviewedAt: Timestamp.now(), reviewedBy: user?.email || "admin" },
+        kycStatus: "approved", kycReviewedAt: Timestamp.now(), kycReviewedBy: user?.email || "admin",
       }, { merge: true });
 
       const profileSnap = await getDoc(doc(db, "profiles", profileId));
@@ -140,8 +146,13 @@ export default function AdminVerificationPage() {
     const reason = rejectInputs[profileId]?.trim();
     if (!reason) { showToast("Enter a rejection reason.", "error"); return; }
     try {
+      // Update verdict in kycSubmissions
+      await setDoc(doc(db, "kycSubmissions", profileId), {
+        status: "rejected", rejectReason: reason, reviewedAt: Timestamp.now(), reviewedBy: user?.email || "admin",
+      }, { merge: true });
+      // Write only status + reason to profiles — no image URLs
       await setDoc(doc(db, "profiles", profileId), {
-        proofOfAddress: { status: "rejected", rejectionReason: reason, reviewedAt: Timestamp.now(), reviewedBy: user?.email || "admin" },
+        kycStatus: "rejected", kycRejectReason: reason, kycReviewedAt: Timestamp.now(), kycReviewedBy: user?.email || "admin",
       }, { merge: true });
 
       const profileSnap = await getDoc(doc(db, "profiles", profileId));

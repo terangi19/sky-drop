@@ -1481,20 +1481,23 @@ Property Status: 🟢 Inquiry Active`;
               {user && user.email !== listing.sellerEmail ? (
                 <>
                   {(listing as any).paymentType === "contact" ? (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleArrangePurchase();
-                      }}
-                      disabled={arrangingPurchase}
-                      className="flex-1 rounded-lg bg-sky-500 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-sky-400 disabled:opacity-60"
-                    >
-                      {arrangingPurchase
-                        ? "Connecting…"
-                        : buyerArrangeRequestCount > 0
-                          ? "🤝 Open chat"
-                          : `🤝 Request purchase — $${listing.price}`}
-                    </button>
+                    <>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleArrangePurchase();
+                        }}
+                        disabled={arrangingPurchase}
+                        className="flex-1 rounded-lg bg-sky-500 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-sky-400 disabled:opacity-60"
+                      >
+                        {arrangingPurchase
+                          ? "Connecting…"
+                          : buyerArrangeRequestCount > 0
+                            ? "🤝 Open chat"
+                            : `🤝 Request purchase — $${listing.price}`}
+                      </button>
+                      <p className="mt-1 text-[10px] leading-relaxed text-zinc-500">Arrange Purchase is handled directly between buyer and seller. Keep communication on Sky Drop so we can review evidence if something goes wrong.</p>
+                    </>
                   ) : isAuctionWinner ? (
                     <button
                       onClick={() => { setWinningBid(listing.currentBid || listing.startingBid || 0); openStripeCheckout(); }}
@@ -1860,7 +1863,7 @@ Service Status: 🟢 Inquiry Active`;
               (listing as any).paymentType === "contact" ? (
                 <a href="/escrow#arrange" target="_blank" rel="noopener noreferrer" className="rounded-lg border border-sky-500/10 bg-sky-500/[0.03] px-3.5 py-2.5 block transition hover:bg-sky-500/[0.06]">
                   <p className="text-xs font-bold text-sky-400">🤝 Arrange Purchase — ${(listing as any).price}</p>
-                  <p className="mt-0.5 text-[10px] leading-relaxed text-zinc-500">Tap Purchase to chat and agree payment with the seller. <span className="text-sky-400/70 underline">How it works →</span></p>
+                  <p className="mt-0.5 text-[10px] leading-relaxed text-zinc-500">Tap Purchase to chat and agree payment with the seller. Keep communication on Sky Drop so we can review evidence if something goes wrong. <span className="text-sky-400/70 underline">How it works →</span></p>
                 </a>
               ) : (
                 <a href="/escrow#stripe" target="_blank" rel="noopener noreferrer" className="rounded-lg border border-sky-500/10 bg-sky-500/[0.03] px-3.5 py-2.5 block transition hover:bg-sky-500/[0.06]">

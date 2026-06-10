@@ -62,7 +62,7 @@ export function matchKnowledge(query: string, docs: KnowledgeDoc[]): KnowledgeDo
 export const SEED_KNOWLEDGE: Omit<KnowledgeDoc, "id">[] = [
   {
     title: "Card Checkout payments",
-    content: "Card Checkout lets buyers pay instantly by card. The seller must connect a payout account in Profile → Payment settings. When a buyer clicks Buy Now, they go to secure card checkout. After payment, funds go directly to the seller's connected payout account — Sky Drop never holds the money. A $1 buyer protection fee is added at checkout. Standard card processing fees apply (approx 2.9% + $0.30 NZD).",
+    content: "Stripe Checkout lets buyers pay instantly by card. The seller must connect a payout account in Profile → Payment settings. When a buyer clicks Buy Now, they go to secure card checkout. After payment, funds go directly to the seller's connected payout account — Sky Drop never holds the money. A $1 buyer protection fee is added at checkout. Standard Stripe processing fees apply. For Arrange Purchase listings, payment is agreed in Messages (bank transfer, cash, etc.) with no Stripe fees.",
     category: "payments",
     tags: ["stripe", "checkout", "card", "credit card", "pay", "payment", "buy now"],
     keywords: ["card checkout", "card payment", "buy now", "pay online", "payout account"],
@@ -125,7 +125,7 @@ export const SEED_KNOWLEDGE: Omit<KnowledgeDoc, "id">[] = [
   },
   {
     title: "Buying an item (Card Checkout)",
-    content: "When you click Buy Now on a listing, you go to a secure Card Checkout page where you enter your card details. A $1 buyer protection fee is added. After payment, the order appears in Purchases with status 'Pending'. The seller confirms the order → 'Confirmed'. The seller marks as shipped → 'Shipped'. You receive the item, inspect it, and confirm delivery → 'Delivered'. You can then leave a review. If you don't confirm delivery within 7 days, it auto-confirms. You can open a dispute within 7 days of delivery for Card Checkout purchases.",
+    content: "When you click Buy Now on a Stripe Checkout listing, you go to a secure checkout page where you enter your card details. A $1 buyer protection fee is added. After payment, the order appears in Purchases with status 'Pending'. The seller confirms the order → 'Confirmed'. The seller marks as shipped → 'Shipped'. You receive the item, inspect it, and confirm delivery → 'Delivered'. You can then leave a review. If you don't confirm delivery within 7 days, it auto-confirms. You can open a dispute within 7 days of delivery for Stripe Checkout purchases. For Arrange Purchase, payment is agreed directly in Messages and no Stripe checkout is involved.",
     category: "buying",
     tags: ["buy", "purchase", "order", "checkout", "stripe", "card", "shipping"],
     keywords: ["how to buy", "make a purchase", "buy an item", "checkout process", "order status"],
@@ -197,7 +197,7 @@ export const SEED_KNOWLEDGE: Omit<KnowledgeDoc, "id">[] = [
   },
   {
     title: "About Sky Drop — who we are",
-    content: "Sky Drop is a New Zealand-owned community marketplace (skydrop.co.nz) for Kiwis to buy and sell locally and nationwide. Not an auction site — sellers list at a clear NZD price. How it works: browse → message seller → buy (Card Checkout or Arrange Purchase) → leave a review. Mission: simple, safe, modern marketplace; fees shown upfront at checkout. Card Checkout: card payment, $1 buyer protection fee, disputes within 7 days. Arrange Purchase: agree payment in Messages (bank/cash/pickup), no card dispute protection; ID-verified sellers — buyers can email support@skydrop.co.nz if item doesn't arrive. Also covers moderation, messaging safety, NZ-owned, built-in Messages, reviews, watchlist, and Āwhina. Full overview: /about. Questions: support@skydrop.nz.",
+    content: "Sky Drop is a New Zealand-owned community marketplace (skydrop.co.nz) for Kiwis to buy and sell locally and nationwide. Not an auction site — sellers list at a clear NZD price. How it works: browse → message seller → buy (Stripe Checkout or Arrange Purchase) → leave a review. Mission: simple, safe, modern marketplace; fees shown upfront at checkout. Stripe Checkout: card payment, $1 buyer protection fee, disputes within 7 days. Arrange Purchase: agree payment in Messages (bank/cash/pickup), no Stripe processing fees; ID-verified sellers — buyers can email support@skydrop.co.nz if item doesn't arrive. Also covers moderation, messaging safety, NZ-owned, built-in Messages, reviews, watchlist, and Āwhina. Full overview: /about. Questions: support@skydrop.nz.",
     category: "general",
     tags: ["about", "who", "created", "founder", "built", "sky drop", "company", "mission"],
     keywords: ["who created sky drop", "who made sky drop", "who built sky drop", "who owns sky drop", "about sky drop", "what is sky drop"],
@@ -206,7 +206,7 @@ export const SEED_KNOWLEDGE: Omit<KnowledgeDoc, "id">[] = [
   },
   {
     title: "Fees and costs",
-    content: "Listing on Sky Drop is free. Optional paid boost costs $5 for ~7 days of top search placement. Standard card processing payment processing fees (approx 2.9% + $0.30 NZD) on card sales. A $1 buyer protection fee is added to Card Checkout purchases. There are no fees for Arrange Purchase transactions. There are no monthly subscription fees or membership costs.",
+    content: "Listing on Sky Drop is free. Optional paid boost costs $5 for ~7 days of top search placement. For Stripe Checkout purchases, standard Stripe processing fees apply and a $1 buyer protection fee is added. Arrange Purchase transactions have no Stripe processing fees — payment is agreed directly in Messages. There are no monthly subscription fees or membership costs.",
     category: "general",
     tags: ["fee", "cost", "price", "boost", "listing fee", "commission"],
     keywords: ["how much does it cost", "fees", "listing fees", "boost cost", "processing fee"],

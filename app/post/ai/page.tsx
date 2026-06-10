@@ -77,7 +77,7 @@ export default function AIPostPage() {
   const [auctionDuration, setAuctionDuration] = useState("3");
   const [stockQuantity, setStockQuantity] = useState("");
   const [expiresIn, setExpiresIn] = useState("14");
-  const [listingType, setListingType] = useState<"physical" | "digital" | "service" | "rental" | "event" | "vehicle" | "job" | "property">("physical");
+  const [listingType, setListingType] = useState<"physical" | "digital" | "service" | "rental" | "event" | "vehicle" | "job" | "property" | "wanted">("physical");
   const [digitalFileURL, setDigitalFileURL] = useState("");
   const [digitalFileName, setDigitalFileName] = useState("");
   const [digitalStoragePath, setDigitalStoragePath] = useState("");
@@ -398,7 +398,7 @@ export default function AIPostPage() {
   useEffect(() => {
     const typeParam = new URLSearchParams(window.location.search).get("type");
     if (!typeParam) return;
-    const valid = ["physical", "digital", "service", "rental", "event", "vehicle", "job", "property"];
+    const valid = ["physical", "digital", "service", "rental", "event", "vehicle", "job", "property", "wanted"];
     if (valid.includes(typeParam)) {
       setListingType(typeParam as any);
     }
@@ -656,7 +656,7 @@ export default function AIPostPage() {
 
     try {
       let images: string[] = existingImages;
-      if (listingType !== "digital" && imageFiles.length > 0) {
+      if (listingType !== "digital" && listingType !== "wanted" && imageFiles.length > 0) {
         images = [];
         for (let i = 0; i < imageFiles.length; i++) {
           const blob = dataURLtoBlob(imagePreviews[i]);
@@ -774,6 +774,15 @@ export default function AIPostPage() {
         vehicleYear: vehicleYear ? Number(vehicleYear) : null,
         vehicleOdometer: vehicleOdometer ? Number(vehicleOdometer) : null,
         vehicleBodyType, vehicleFuelType, vehicleTransmission, vehicleColour,
+      } : listingType === "wanted" ? {
+        ...baseData, condition: "New", location,
+        type: "wanted",
+        pickupAvailable: false,
+        shippingAvailable: false,
+        stockQuantity: null,
+        saleType: "buy_now",
+        paymentType: "contact",
+        ...(editId ? {} : { expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000), status: "live" }),
       } : {
         ...baseData, condition, location,
         type: "physical",
@@ -868,6 +877,7 @@ export default function AIPostPage() {
       else if (listingType === "vehicle") window.location.href = `/vehicles`;
       else if (listingType === "job") window.location.href = `/jobs`;
       else if (listingType === "property") window.location.href = `/property`;
+      else if (listingType === "wanted") window.location.href = "/wanted";
       else window.location.href = `/post/listing/${newId}`;
     } catch (err) {
       console.error("Listing upload error:", err);
@@ -1082,6 +1092,8 @@ export default function AIPostPage() {
                   <><option>Jobs</option><option>IT & Tech</option><option>Design & Creative</option><option>Sales & Marketing</option><option>Trades & Services</option><option>Other</option></>
                 ) : listingType === "rental" ? (
                   <><option>Other</option><option>Vehicles</option><option>Equipment</option><option>Property</option></>
+                ) : listingType === "wanted" ? (
+                  <><option>Items</option><option>Services</option><option>Rentals</option><option>Vehicles</option></>
                 ) : (
                   <><option>Tech</option><option>Cars</option><option>Gaming</option><option>Fashion</option><option>Home</option><option>Sports</option><option>Other</option></>
                 )}
@@ -1122,7 +1134,7 @@ export default function AIPostPage() {
             ) : saleType === "buy_now" ? (
               <div className="space-y-1.5">
                 <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">
-                  {listingType === "service" && servicePricingType === "hourly" ? "Hourly Rate *" : "Price *"}
+                  {listingType === "service" && servicePricingType === "hourly" ? "Hourly Rate *" : listingType === "wanted" ? "Budget *" : "Price *"}
                 </label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">$</span>
@@ -1147,7 +1159,7 @@ export default function AIPostPage() {
                 </div>
               </div>
             )}
-            {(listingType === "physical" || listingType === "vehicle" || listingType === "property") && (
+            {(listingType === "physical" || listingType === "vehicle" || listingType === "property" || listingType === "wanted") && (
             <div className="space-y-1.5">
               <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Location</label>
               <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="City" className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
@@ -1249,6 +1261,7 @@ export default function AIPostPage() {
                 { key: "service", icon: "🛠️", label: "Service", desc: "Local services performed in person.", examples: "Lawn mowing, cleaning, tutoring, photography, trades, handyman work, personal training.", action: () => { setCategory("Other Services"); setServicePricingType("fixed"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(true); setSaleType("buy_now"); } },
                 { key: "rental", icon: "🔑", label: "Rental", desc: "Something people can hire or rent temporarily.", examples: "Houses, rooms, trailers, equipment, party gear.", action: () => { setCategory("Other"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); setLocation(""); setCondition("New"); } },
                 { key: "vehicle", icon: "🚗", label: "Vehicle", desc: "Motor vehicles for sale.", examples: "Cars, motorcycles, boats, caravans, trucks.", action: () => { setCategory("Cars"); setSaleType("buy_now"); setAcceptOffers(false); } },
+                { key: "wanted", icon: "📋", label: "Wanted", desc: "Post what you're looking for and let sellers come to you.", examples: "Looking for a car, need a service, want to rent something.", action: () => { setCategory("Items"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); } },
               ].map((t) => (
                 <button key={t.key} type="button" onClick={() => { setListingType(t.key as any); t.action(); }}
                   className={`group relative rounded-2xl border p-4 text-left transition-all duration-200 active:scale-[0.97] ${
@@ -1484,7 +1497,7 @@ export default function AIPostPage() {
           )}
 
           {/* Accept Offers — physical, vehicle, service, property only */}
-          {listingType !== "digital" && listingType !== "event" && listingType !== "job" && !(listingType === "service" && offersDisabledForService(servicePricingType)) && (
+          {listingType !== "digital" && listingType !== "event" && listingType !== "job" && listingType !== "wanted" && !(listingType === "service" && offersDisabledForService(servicePricingType)) && (
             <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
               <div className="flex items-start">
                 <div className="flex h-5 items-center">

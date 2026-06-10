@@ -234,10 +234,11 @@ const tabs = [
     setBankReference(data.bankReference || "");
     setReferralCode(data.referralCode || "");
     setReferredBy(data.referredBy || "");
-    const poa = data.proofOfAddress || {};
-    setPoaStatus(poa.status || "unsubmitted");
-    setPoaDocumentURL(poa.documentURL || "");
-    setPoaRejectionReason(poa.rejectionReason || "");
+    // KYC status is stored as flat fields on profiles (image URLs are in kycSubmissions collection only)
+    const kycStatus = (data as any).kycStatus || data.proofOfAddress?.status || "unsubmitted";
+    setPoaStatus(kycStatus);
+    setPoaDocumentURL(""); // image URLs never stored on profiles
+    setPoaRejectionReason((data as any).kycRejectReason || data.proofOfAddress?.rejectionReason || "");
   }, [setContextUsername]);
 
   const listingBlockReason = user
@@ -1484,14 +1485,23 @@ const tabs = [
                             const photoRef = ref(storage, `kyc/${user.uid}/${ts}_photo.${ext}`);
                             await uploadBytes(photoRef, poaFile);
                             const photoUrl = await getDownloadURL(photoRef);
+                            // Write submission to locked kycSubmissions collection — NOT to the public profiles doc.
+                            // Image URLs are never stored on the profile (which is publicly readable).
+                            await setDoc(doc(db, "kycSubmissions", user.uid), {
+                              uid: user.uid,
+                              email: user.email || "",
+                              idImageUrl: photoUrl,
+                              selfieImageUrl: photoUrl,
+                              status: "pending",
+                              submittedAt: Timestamp.now(),
+                            }, { merge: true });
+                            // Only write the status flag to profiles — no image URL
                             await setDoc(doc(db, "profiles", user.uid), {
                               kycStatus: "pending",
-                              kycIdUrl: photoUrl,
-                              kycSelfieUrl: photoUrl,
                               kycSubmittedAt: Timestamp.now(),
                             }, { merge: true });
                             setPoaStatus("pending");
-                            setPoaDocumentURL(photoUrl);
+                            setPoaDocumentURL(""); // image URL stays in kycSubmissions only
                             setPoaFile(null);
                             showToast("KYC photo submitted for review.", "success");
                           } catch (e) { console.error(e); showToast("Failed to upload photo", "error"); }

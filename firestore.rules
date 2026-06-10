@@ -50,8 +50,31 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.auth.uid == profileId
         && request.resource.data.email == request.auth.token.email;
+      // Users can update their own profile, but CANNOT write KYC verdict fields —
+      // those are server-only (Admin SDK via API routes).
       allow update: if request.auth != null
-        && request.auth.uid == profileId;
+        && request.auth.uid == profileId
+        && !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['kycStatus', 'kycReviewedAt', 'kycReviewedBy', 'kycBannedReason']);
+    }
+
+    // KYC submissions — ID photos and identity data.
+    // NEVER readable by other users. Owner can create/read their own. Admin can read all. No client deletes.
+    match /kycSubmissions/{uid} {
+      allow read: if request.auth != null
+        && (request.auth.uid == uid || isAdmin());
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && isEmailVerified()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email;
+      // Owner may update only to resubmit (status reset to pending), not to approve themselves.
+      allow update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['idImageUrl', 'selfieImageUrl', 'submittedAt', 'status'])
+        && request.resource.data.status == 'pending';
+      allow delete: if false; // no client deletes — admin only via server SDK
     }
 
     // Usernames reservation collection — used by runTransaction in saveProfile

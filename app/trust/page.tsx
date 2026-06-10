@@ -35,7 +35,7 @@ const sections = [
       "Approved: list immediately (no 30-day wait), $5,000 starting cap (unlimited after 10 positive reviews), unlimited listings, +20 trust score",
       'Get an "ID Verified" badge on your profile and listings',
       "Your ID is stored securely with admin-only access",
-      "If you commit fraud, your ID can be shared with NZ Police",
+      "If you commit fraud, your ID can be shared with law enforcement agencies where legally required",
       "Submitting fake or AI-generated ID = permanent ban with full forfeiture",
     ],
   },
@@ -78,7 +78,7 @@ const sections = [
       "Phone number blacklisted — can never be used on Sky Drop again",
       "All listings, reviews, XP, followers, and badges permanently deleted",
       "IP and device fingerprint get a 30-day cooldown before any new account can use them",
-      "If the user had KYC: their identity documents are flagged and available for police evidence",
+      "If the user had KYC: their identity documents are flagged and available as evidence where legally required",
     ],
   },
   {

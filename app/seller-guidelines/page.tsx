@@ -1,6 +1,5 @@
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
-import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import Link from "next/link";
 
 export default function SellerGuidelinesPage() {
@@ -19,7 +18,6 @@ export default function SellerGuidelinesPage() {
         </div>
 
         <h1 className="text-4xl sm:text-5xl font-black tracking-tight">Seller Guidelines</h1>
-        <AwhinaUnderHeader className="mt-3" />
         <p className="mt-4 text-lg text-[var(--muted)] leading-relaxed">
           Start selling on Sky Drop — New Zealand's safest marketplace. Here's everything you need to know about listing items, getting paid, and providing a great experience.
         </p>
@@ -29,7 +27,9 @@ export default function SellerGuidelinesPage() {
         </Section>
 
         <Section title="Fees" icon="💰">
-          <p>Selling is <strong className="text-white">free to list</strong>. A $1.00 buyer protection fee is added to each purchase — this covers dispute resolution and platform operations. Stripe also charges standard payment processing fees (typically 2-3%). There are no subscription fees or hidden costs.</p>
+          <p>Selling is <strong className="text-white">free to list</strong>. There are no subscription fees or hidden costs.</p>
+          <p className="mt-2">For purchases completed through <strong className="text-white">Stripe Checkout</strong>, a $1.00 buyer protection fee is added to help cover dispute resolution and platform operations. Standard Stripe payment processing fees also apply.</p>
+          <p className="mt-2"><strong className="text-white">Arrange Purchase</strong> transactions do not incur Stripe processing fees and are handled directly between the buyer and seller. Payment methods like bank transfer, cash, or in-person payment are agreed in Messages.</p>
         </Section>
 
         <Section title="Getting Paid" icon="🏦">
