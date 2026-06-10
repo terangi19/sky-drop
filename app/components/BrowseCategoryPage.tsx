@@ -324,21 +324,19 @@ export default function BrowseCategoryPage({ config }: Props) {
                 <div
                   className={`relative flex items-center rounded-xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-sm ring-0 transition-all duration-300 focus-within:ring-2 ${t.searchFocus}`}
                 >
-                  <div className="ml-4 flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04]">
-                    <svg
-                      className="h-4 w-4 text-zinc-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={1.5}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
-                      />
-                    </svg>
-                  </div>
+                  <svg
+                    className="ml-4 h-4 w-4 shrink-0 text-sky-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+                    />
+                  </svg>
                   <input
                     type="text"
                     placeholder={config.searchPlaceholder}

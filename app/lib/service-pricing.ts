@@ -10,32 +10,66 @@ export const SERVICE_PRICING_OPTIONS: {
   {
     value: "fixed",
     label: "Fixed Price",
-    hint: "One set price for the service",
+    hint: "One set price — e.g. lawn mowing $50",
   },
   {
-    value: "starting_at",
-    label: "Starting At",
-    hint: "Show a minimum price — final quote may vary",
+    value: "hourly",
+    label: "Hourly Rate",
+    hint: "Charge per hour — e.g. handyman $60/hr",
   },
   {
     value: "request_quote",
-    label: "Request Quote",
-    hint: "Custom scope — buyers request a formal quote",
+    label: "Quote Required",
+    hint: "Custom jobs — buyers contact you for a quote",
   },
 ];
 
 export function normalizeServicePricingType(
   raw?: string | null,
-  price?: string | number | null
+  price?: string | number | null,
+  hintText?: string | null
 ): ServicePricingType {
-  if (raw === "fixed" || raw === "starting_at" || raw === "request_quote") return raw;
-  if (raw === "starting_from") return "starting_at";
+  if (raw) {
+    const lower = raw.trim().toLowerCase();
+    if (lower === "fixed" || lower === "fixed price") return "fixed";
+    if (
+      lower === "hourly" ||
+      lower === "hourly rate" ||
+      lower === "per hour" ||
+      lower === "starting_at" ||
+      lower === "starting_from"
+    ) {
+      return "hourly";
+    }
+    if (
+      lower === "quote" ||
+      lower === "request_quote" ||
+      lower === "quote required" ||
+      lower === "contact for quote"
+    ) {
+      return "request_quote";
+    }
+  }
+
+  const blob = (hintText || "").toLowerCase();
+  if (
+    /quote required|request a quote|contact.*quote|price varies|depends on the job|custom job|custom work|commercial cleaning|renovation|landscaping/i.test(
+      blob
+    )
+  ) {
+    return "request_quote";
+  }
+  if (
+    /\$?\d+(\.\d+)?\s*(\/|\s*per\s*)?hr\b|\ban hour\b|\bper hour\b|\bhourly\b/i.test(blob)
+  ) {
+    return "hourly";
+  }
   if (price != null && String(price).trim() !== "") return "fixed";
   return "request_quote";
 }
 
 export function servicePriceRequired(pricingType: ServicePricingType): boolean {
-  return pricingType === "fixed" || pricingType === "starting_at";
+  return pricingType === "fixed" || pricingType === "hourly";
 }
 
 export function offersDisabledForService(pricingType?: string | null): boolean {
@@ -46,13 +80,19 @@ export function formatServicePriceDisplay(listing: {
   price?: string | number | null;
   servicePricingType?: string | null;
 }): string {
-  const type = normalizeServicePricingType(listing.servicePricingType, listing.price);
+  const type = normalizeServicePricingType(
+    listing.servicePricingType,
+    listing.price,
+    listing.servicePricingType || ""
+  );
   const price =
     listing.price != null && String(listing.price).trim() !== "" ? String(listing.price) : "";
 
-  if (type === "request_quote") return "Quote Required";
-  if (!price) return type === "starting_at" ? "Price on request" : "Contact for price";
-  if (type === "starting_at") return `Starting At — $${price}`;
+  if (type === "request_quote") return "Contact Seller for Quote";
+  if (type === "hourly") {
+    return price ? `$${price}/hr` : "Hourly rate on request";
+  }
+  if (!price) return "Contact for price";
   return `$${price}`;
 }
 
@@ -74,11 +114,11 @@ export function getServicePricingBadge(listing: {
   if (type === "request_quote") {
     return { emoji: "🟣", label: "Quote Required", detail: "", tone: "sky" };
   }
-  if (type === "starting_at") {
+  if (type === "hourly") {
     return {
-      emoji: "🔵",
-      label: "Starting At",
-      detail: price ? `— $${price}` : "",
+      emoji: "🕐",
+      label: "Hourly Rate",
+      detail: price ? `— $${price}/hr` : "",
       tone: "sky",
     };
   }
@@ -96,7 +136,7 @@ export function getServicePrimaryCta(
 ): string {
   const type = normalizeServicePricingType(pricingType, price);
   if (type === "fixed") return "Purchase Service";
-  if (type === "starting_at") return "Discuss Project";
+  if (type === "hourly") return "Message Seller";
   return "Request Quote";
 }
 
@@ -128,15 +168,15 @@ export function buildServiceInquiryCopy(
   const lastMessage =
     type === "request_quote"
       ? "Quote request started"
-      : type === "starting_at"
-        ? "Project discussion started"
+      : type === "hourly"
+        ? "Service inquiry started"
         : "Service inquiry started";
 
   const buyerIntro =
     type === "request_quote"
       ? `📋 Quote request started for "${title}"`
-      : type === "starting_at"
-        ? `💬 Project discussion started for "${title}"`
+      : type === "hourly"
+        ? `🕐 Hourly service inquiry started for "${title}"${price ? ` ($${price}/hr)` : ""}`
         : `🛠️ Service inquiry started for "${title}"`;
 
   const buyerMsg = `${buyerIntro}
@@ -159,7 +199,9 @@ Service Status: 🟢 Inquiry Active`;
   const sellerMsg =
     type === "request_quote"
       ? `🟢 A buyer requested a quote for your service.\n\nDiscuss requirements, then send a **formal quote** from this chat. After they accept, they can pay through Sky Drop.`
-      : `🟢 A buyer wants to discuss your service.\n\nClarify requirements, then send a **formal quote** when ready. After they accept, they can pay through Sky Drop.`;
+      : type === "hourly"
+        ? `🟢 A buyer is interested in your hourly service${price ? ` ($${price}/hr)` : ""}.\n\nClarify hours, scope, and availability, then send a **formal quote** when ready.`
+        : `🟢 A buyer wants to discuss your service.\n\nClarify requirements, then send a **formal quote** when ready. After they accept, they can pay through Sky Drop.`;
 
   return { buyerMsg, sellerMsg, lastMessage };
 }

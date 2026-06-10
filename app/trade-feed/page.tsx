@@ -38,7 +38,7 @@ const SUBCATEGORIES: Record<string, string[]> = {
   fashion: ["Sneakers", "Streetwear", "Designer", "Vintage", "Accessories"],
   tech: ["Phones", "PCs", "Cameras", "Audio", "Smart Home"],
   collector: ["Cards", "Figures", "Memorabilia", "Rare Items"],
-  digital: ["Templates & Assets", "E-books & Guides", "Art & Photography", "Software & Audio", "Gaming & 3D"],
+  digital: ["Templates & Assets", "E-books & Guides", "Art & Photography", "Software & Audio", "Gaming & 3D", "Web & App Development", "Graphic Design", "SEO & Digital Marketing", "Other Digital Services"],
 };
 
 const QUICK_REPLIES = ["Still available?", "Can pickup tonight.", "Sent offer.", "PM me", "Price negotiable?", "Trade?", "Interested"];

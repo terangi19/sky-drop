@@ -7,6 +7,7 @@ export type SkyAiListingContext = {
   listingType?: string;
   location?: string;
   paymentType?: string;
+  pricingType?: string;
   vehicleMake?: string;
   vehicleModel?: string;
   vehicleYear?: string;

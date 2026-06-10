@@ -999,11 +999,7 @@ const tabs = [
             </div>
           )}
 
-          <BrowseMarketplaceHero badge="Account" title="Profile" showAssistantPanel={false}>
-            <p className="mt-2 text-sm text-zinc-400">
-              @{contextUsername || username || "username"} · Joined {memberDate}
-            </p>
-          </BrowseMarketplaceHero>
+
 
           <BrowseAwhinaAssistantPanel className="mb-0 mt-0 mx-auto w-full max-w-2xl text-left" />
 
@@ -1062,7 +1058,7 @@ const tabs = [
                     {contextUsername || username || "User"}
                   </h2>
                   <p className="truncate text-xs text-zinc-400 sm:text-sm">
-                    {completion}% complete · {region || "No region set"}
+                    {completion}% complete · {region || "No region set"} · Joined {memberDate}
                   </p>
                   {(profileBadges.length > 0 || !hideOnline) && (
                     <div className="mt-2 flex flex-wrap gap-1.5">

@@ -75,7 +75,6 @@ export default function MessagesPageWrapper() {
     <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
       <Background />
       <Navbar />
-      <ThemeToggle />
       <Suspense fallback={<div className="flex h-full items-center justify-center p-12"><span className="text-[var(--muted)]">Loading...</span></div>}>
         <MessagesPage />
       </Suspense>
@@ -941,7 +940,16 @@ function MessagesPage() {
         </div>
       )}
       <section className={`${PAGE_SHELL_CHAT} py-6 sm:py-8`}>
-        <div className="flex h-[calc(100dvh-10rem)] w-full overflow-hidden rounded-[40px] border border-[var(--card-border)] bg-[var(--card)] shadow-2xl backdrop-blur-xl">
+        {(!isMobile || mobileView === "list") && (
+          <BrowseAwhinaAssistantPanel className="mb-4 w-full shrink-0 text-left sm:max-w-2xl" />
+        )}
+        <div
+          className={`flex w-full overflow-hidden rounded-[40px] border border-[var(--card-border)] bg-[var(--card)] shadow-2xl backdrop-blur-xl ${
+            !isMobile || mobileView === "list"
+              ? "h-[calc(100dvh-17rem)] sm:h-[calc(100dvh-18rem)]"
+              : "h-[calc(100dvh-10rem)]"
+          }`}
+        >
           {/* SIDEBAR */}
           <div className={`flex w-[340px] flex-col border-r border-[var(--card-border)] ${isMobile && mobileView === "chat" ? "hidden" : "flex"} ${isMobile ? "w-full" : ""}`}>
             <div className="border-b border-[var(--card-border)] p-5">
@@ -975,10 +983,6 @@ function MessagesPage() {
                   </svg>
                 </button>
               </div>
-
-              {isMobile && !chatUser && (
-                <BrowseAwhinaAssistantPanel className="mt-3 mb-0 w-full text-left" />
-              )}
             </div>
             <div className="flex-1 overflow-y-auto scrollbar-thin">
               {loading ? (
@@ -1185,7 +1189,6 @@ function MessagesPage() {
                   <h3 className="mt-4 text-lg font-bold text-[var(--foreground)]">Select a conversation</h3>
                   <p className="mt-1 text-[12px] text-[var(--muted)]">Pick a thread from the left to start messaging.</p>
                 </div>
-                <BrowseAwhinaAssistantPanel className="mt-5 mb-0 w-full max-w-md text-left" />
               </div>
             ) : (
               <>

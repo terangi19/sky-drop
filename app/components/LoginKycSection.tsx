@@ -18,7 +18,7 @@ const KYC_DESCRIPTION =
 
 function KycCallout({ children }: { children: ReactNode }) {
   return (
-    <div className="mt-6 rounded-xl border border-sky-500/35 bg-sky-500/[0.08] p-4 shadow-[0_0_24px_rgba(14,165,233,0.08)]">
+    <div className="login-kyc-callout mt-6 rounded-xl border p-4">
       {children}
     </div>
   );
@@ -60,8 +60,8 @@ export default function LoginKycSection({ user, onKycStatusChange }: Props) {
   if (!user) {
     return (
       <KycCallout>
-        <p className="text-sm font-semibold text-white">Seller verification</p>
-        <p className="mt-1.5 text-sm leading-relaxed text-zinc-200">{KYC_DESCRIPTION}</p>
+        <p className="login-kyc-title text-sm font-semibold">Seller verification</p>
+        <p className="login-kyc-body mt-1.5 text-sm leading-relaxed">{KYC_DESCRIPTION}</p>
       </KycCallout>
     );
   }
@@ -69,8 +69,8 @@ export default function LoginKycSection({ user, onKycStatusChange }: Props) {
   if (status === "approved") {
     return (
       <KycCallout>
-        <p className="text-sm font-semibold text-sky-300">Seller verification complete</p>
-        <p className="mt-1 text-sm text-zinc-200">You can list items for sale on Sky Drop.</p>
+        <p className="text-sm font-semibold text-sky-500">Seller verification complete</p>
+        <p className="login-kyc-body mt-1 text-sm">You can list items for sale on Sky Drop.</p>
       </KycCallout>
     );
   }
@@ -78,8 +78,8 @@ export default function LoginKycSection({ user, onKycStatusChange }: Props) {
   if (status === "pending") {
     return (
       <KycCallout>
-        <p className="text-sm font-semibold text-white">Seller verification</p>
-        <p className="mt-1.5 text-sm leading-relaxed text-zinc-200">
+        <p className="login-kyc-title text-sm font-semibold">Seller verification</p>
+        <p className="login-kyc-body mt-1.5 text-sm leading-relaxed">
           Your verification has been submitted and is under review. We&apos;ll notify you once it&apos;s complete.
         </p>
       </KycCallout>
@@ -125,12 +125,12 @@ export default function LoginKycSection({ user, onKycStatusChange }: Props) {
     <KycCallout>
       <div className="space-y-4">
         <div>
-          <p className="text-base font-semibold text-white">Seller verification</p>
-          <p className="mt-1.5 text-sm leading-relaxed text-zinc-200">{KYC_DESCRIPTION}</p>
+          <p className="login-kyc-title text-base font-semibold">Seller verification</p>
+          <p className="login-kyc-body mt-1.5 text-sm leading-relaxed">{KYC_DESCRIPTION}</p>
         </div>
 
-        <div className="rounded-lg border border-white/10 bg-black/25 p-3">
-          <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-zinc-300">
+        <div className="login-kyc-upload rounded-lg border p-3">
+          <label className="login-kyc-label mb-2 block text-xs font-semibold uppercase tracking-wide">
             Photo holding your ID
           </label>
           <input
@@ -138,16 +138,16 @@ export default function LoginKycSection({ user, onKycStatusChange }: Props) {
             accept="image/*"
             capture="user"
             onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
-            className="block w-full text-sm text-zinc-200 file:mr-3 file:rounded-lg file:border-0 file:bg-sky-500 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-sky-400"
+            className="login-kyc-body block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-sky-500 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-sky-400"
           />
           {previewUrl && (
-            <div className="mt-3 overflow-hidden rounded-lg border border-white/10 bg-black/40">
+            <div className="login-kyc-upload mt-3 overflow-hidden rounded-lg border">
               <img
                 src={previewUrl}
                 alt="Preview of your ID photo"
                 className="mx-auto max-h-56 w-full object-contain"
               />
-              <p className="border-t border-white/10 px-3 py-2 text-center text-xs text-zinc-300">
+              <p className="login-kyc-label border-t border-white/10 px-3 py-2 text-center text-xs">
                 Preview — check your face and ID are clear before submitting
               </p>
             </div>
@@ -158,12 +158,12 @@ export default function LoginKycSection({ user, onKycStatusChange }: Props) {
           type="button"
           onClick={submit}
           disabled={!photoFile || uploading}
-          className="w-full rounded-xl bg-sky-500 py-2.5 text-sm font-bold text-white hover:bg-sky-400 disabled:opacity-50"
+          className="login-page-btn-primary w-full rounded-xl py-2.5 text-sm font-bold transition active:scale-[0.99] disabled:opacity-50"
         >
           {uploading ? "Uploading…" : "Submit verification"}
         </button>
 
-        <Link href="/profile" className="block text-center text-sm text-zinc-300 hover:text-sky-300">
+        <Link href="/profile" className="login-page-link block text-center text-sm font-medium hover:underline">
           Verify later in Profile
         </Link>
       </div>

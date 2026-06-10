@@ -12,6 +12,7 @@ import {
   listingWatchlistGlowIntensity,
 } from "../lib/listing-watchlist-count";
 import { PAGE_SHELL_MARKETPLACE } from "../lib/page-layout";
+import DragScrollCarousel, { useDragGuardClick } from "./DragScrollCarousel";
 
 interface HotItem {
   id: string;
@@ -80,7 +81,7 @@ export default function HotThisWeek({
         </div>
       </div>
 
-      <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
+      <DragScrollCarousel className="gap-3">
         {items.map((item) => {
           const hotSaves = watchlistCountFn(item);
           const hotGlow = watchlistGlowFn(hotSaves);
@@ -92,9 +93,66 @@ export default function HotThisWeek({
           const messageHref = `/messages?user=${encodeURIComponent(sellerEmail)}&listing=${encodeURIComponent(item.id)}`;
 
           return (
-            <div
+            <HotWeekCard
               key={item.id}
-              className={`hot-week-card group relative w-56 shrink-0 cursor-pointer rounded-2xl border p-2 text-[var(--cream)] transition-all duration-300 hover:-translate-y-0.5 sm:w-60 ${NEON_CARD}`}
+              item={item}
+              hotGlow={hotGlow}
+              imageSrc={imageSrc}
+              username={username}
+              sellerEmail={sellerEmail}
+              isOwnListing={isOwnListing}
+              profileHref={profileHref}
+              messageHref={messageHref}
+              hotSaves={hotSaves}
+              timeAgo={timeAgo}
+              cdnUrl={cdnUrl}
+              saveRecentlyViewed={saveRecentlyViewed}
+              router={router}
+            />
+          );
+        })}
+      </DragScrollCarousel>
+    </section>
+  );
+}
+
+function HotWeekCard({
+  item,
+  hotGlow,
+  imageSrc,
+  username,
+  sellerEmail,
+  isOwnListing,
+  profileHref,
+  messageHref,
+  hotSaves,
+  timeAgo,
+  cdnUrl,
+  saveRecentlyViewed,
+  router,
+}: {
+  item: HotItem;
+  hotGlow: number;
+  imageSrc: string | undefined;
+  username: string;
+  sellerEmail: string;
+  isOwnListing: boolean;
+  profileHref: string;
+  messageHref: string;
+  hotSaves: number;
+  timeAgo: (seconds: number) => string;
+  cdnUrl: (url: string) => string;
+  saveRecentlyViewed: (item: HotItem) => void;
+  router: ReturnType<typeof useRouter>;
+}) {
+  const openListing = useDragGuardClick(() => {
+    saveRecentlyViewed(item);
+    router.push(`/post/listing/${item.id}`);
+  });
+
+  return (
+    <div
+      className={`hot-week-card group relative w-56 shrink-0 cursor-pointer rounded-2xl border p-2 text-[var(--cream)] transition-all duration-300 ease-out hover:-translate-y-0.5 hover:scale-[1.02] sm:w-60 ${NEON_CARD}`}
               style={
                 hotGlow > 0
                   ? {
@@ -102,12 +160,9 @@ export default function HotThisWeek({
                     }
                   : undefined
               }
-              onClick={() => {
-                saveRecentlyViewed(item);
-                router.push(`/post/listing/${item.id}`);
-              }}
-            >
-              <div className="relative overflow-hidden rounded-xl">
+      onClick={openListing}
+    >
+      <div className="relative overflow-hidden rounded-xl">
                 {imageSrc ? (
                   <img
                     src={cdnUrl(imageSrc)}
@@ -174,10 +229,6 @@ export default function HotThisWeek({
                   )}
                 </div>
               )}
-            </div>
-          );
-        })}
-      </div>
-    </section>
+    </div>
   );
 }

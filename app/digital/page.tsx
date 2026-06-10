@@ -45,6 +45,10 @@ const CATEGORIES = [
   { emoji: "🎨", name: "Art & Photography" },
   { emoji: "💻", name: "Software & Audio" },
   { emoji: "🎮", name: "Gaming & 3D" },
+  { emoji: "🌐", name: "Web & App Development" },
+  { emoji: "🎨", name: "Graphic Design" },
+  { emoji: "📈", name: "SEO & Digital Marketing" },
+  { emoji: "📦", name: "Other Digital Services" },
 ];
 
 function digitalSearchText(item: Record<string, unknown>): string {

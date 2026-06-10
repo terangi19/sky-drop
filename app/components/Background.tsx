@@ -16,10 +16,10 @@ export default function Background() {
   if (isLight) {
     return (
       <div className="fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute inset-0 bg-[#f5f7fb]" />
-        <div className="absolute top-[-30%] left-[-15%] h-[80%] w-[80%] rounded-full bg-sky-400/8 blur-[150px]" />
-        <div className="absolute bottom-[-20%] right-[-15%] h-[70%] w-[70%] rounded-full bg-blue-500/10 blur-[140px]" />
-        <div className="absolute top-[40%] left-[30%] h-[40%] w-[40%] rounded-full bg-sky-400/5 blur-[100px]" />
+        <div className="absolute inset-0 bg-white" />
+        <div className="absolute top-[-30%] left-[-15%] h-[80%] w-[80%] rounded-full bg-sky-400/10 blur-[150px]" />
+        <div className="absolute bottom-[-20%] right-[-15%] h-[70%] w-[70%] rounded-full bg-blue-600/12 blur-[140px]" />
+        <div className="absolute top-[40%] left-[30%] h-[40%] w-[40%] rounded-full bg-sky-500/8 blur-[100px]" />
       </div>
     );
   }

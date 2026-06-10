@@ -31,7 +31,15 @@ import {
   type SkyAiListingImagesDetail,
 } from "../../lib/sky-ai-images";
 import SkyAiChatPanel from "../../components/SkyAiChatPanel";
+import SellPhotoUpload from "../../components/SellPhotoUpload";
 import { SKY_AI_SELL_QUICK_PROMPTS, SKY_AI_SELL_WELCOME } from "../../lib/sky-ai-prompts";
+import {
+  SERVICE_PRICING_OPTIONS,
+  type ServicePricingType,
+  servicePriceRequired,
+  offersDisabledForService,
+  normalizeServicePricingType,
+} from "../../lib/service-pricing";
 
 const objectToCategory: Record<string, string> = {
   "car": "Cars", "truck": "Cars", "bus": "Cars", "motorcycle": "Cars",
@@ -100,6 +108,8 @@ export default function AIPostPage() {
   const [landArea, setLandArea] = useState("");
   const [floorArea, setFloorArea] = useState("");
   const [parking, setParking] = useState("");
+  const [pricingType, setPricingType] = useState<"fixed" | "quote">("fixed");
+  const [servicePricingType, setServicePricingType] = useState<ServicePricingType>("fixed");
   const [acceptOffers, setAcceptOffers] = useState(false);
   const [paymentType, setPaymentType] = useState("stripe");
 
@@ -203,6 +213,8 @@ export default function AIPostPage() {
       setRentalPriceWeekly,
       setRentalPriceMonthly,
       setRentalDeposit,
+      setPricingType: (v) => setPricingType(v === "quote" ? "quote" : "fixed"),
+      setServicePricingType: (v) => setServicePricingType(normalizeServicePricingType(v)),
       setPickupAvailable,
       setShippingAvailable,
       setAcceptOffers,
@@ -414,6 +426,10 @@ export default function AIPostPage() {
       setFloorArea(data.floorArea != null ? String(data.floorArea) : "");
       setParking(data.parking != null ? String(data.parking) : "");
       setAcceptOffers(!!data.acceptOffers);
+      setPricingType(data.pricingType === "quote" ? "quote" : "fixed");
+      setServicePricingType(
+        normalizeServicePricingType(data.servicePricingType, data.price, data.description)
+      );
       setExistingImages(data.images || []);
       if (data.images?.length) setImagePreviews(data.images);
     }).catch(console.error).finally(() => setEditLoading(false));
@@ -502,9 +518,22 @@ export default function AIPostPage() {
   };
 
   const createListing = async () => {
-    const requiredPrice = (saleType === "auction" || saleType === "auction_buy_now") ? startingBid : price;
+    const needsPrice =
+      listingType === "digital"
+        ? pricingType !== "quote"
+        : listingType === "service"
+          ? servicePriceRequired(servicePricingType)
+          : listingType !== "rental";
+    const requiredPrice =
+      (saleType === "auction" || saleType === "auction_buy_now") ? startingBid : needsPrice ? price : true;
     if (!user?.email || !title || !requiredPrice) {
-      showToast(`Please fill in title and ${(saleType === "auction" || saleType === "auction_buy_now") ? "starting bid" : "price"}`, "error");
+      const fieldLabel =
+        listingType === "service" && servicePricingType === "hourly"
+          ? "hourly rate"
+          : (saleType === "auction" || saleType === "auction_buy_now")
+            ? "starting bid"
+            : "price";
+      showToast(`Please fill in title and ${fieldLabel}`, "error");
       return;
     }
 
@@ -538,6 +567,10 @@ export default function AIPostPage() {
     }
     if (listingType === "rental" && !location) {
       showToast("Enter the pickup location for your rental.", "error");
+      return;
+    }
+    if (listingType === "rental" && !price) {
+      showToast("Enter the daily rate for your rental.", "error");
       return;
     }
     if (listingType === "event") {
@@ -609,12 +642,21 @@ export default function AIPostPage() {
       }
 
       const listingData: any = listingType === "digital" ? {
-        ...baseData, condition: "Digital",
+        ...baseData,
+        price: pricingType === "quote" ? "" : String(price),
+        condition: "Digital",
         type: "digital", digitalStoragePath, digitalFileName,
+        pricingType,
         saleType: "buy_now", ...(editId ? {} : { expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000), status: "live" }),
       } : listingType === "service" ? {
-        ...baseData, type: "service", serviceDuration,
-        saleType: "buy_now", ...(editId ? {} : { expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000), status: "live" }),
+        ...baseData,
+        type: "service",
+        serviceDuration,
+        servicePricingType,
+        price: servicePriceRequired(servicePricingType) ? String(price) : "",
+        acceptOffers: offersDisabledForService(servicePricingType) ? false : acceptOffers,
+        saleType: "buy_now",
+        ...(editId ? {} : { expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000), status: "live" }),
       } : listingType === "rental" ? {
         ...baseData, condition, location,
         type: "rental", pickupAvailable: true, shippingAvailable: false,
@@ -807,7 +849,7 @@ export default function AIPostPage() {
         )}
 
         {/* Header */}
-        <div className="mb-10 text-center">
+        <div className="mb-6 text-center">
           <Link href="/" className="inline-flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-[var(--foreground)] transition hover:border-zinc-700 hover:bg-zinc-800/60 mb-5">
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
             Back
@@ -815,15 +857,41 @@ export default function AIPostPage() {
           <div className="relative flex flex-col items-center">
             <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/5 via-sky-500/5 to-sky-500/5 blur-3xl pointer-events-none" />
             <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
-              <span className="text-white drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">{editId ? "Edit Listing" : "Quick Post"}</span>
+              <span className="text-[#0a1628] drop-shadow-[0_0_12px_rgba(14,165,233,0.15)] dark:text-white dark:drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">{editId ? "Edit Listing" : "Quick Post"}</span>
             </h1>
-            <p className="relative mt-3 text-sm text-white leading-relaxed max-w-xl mx-auto">Sell faster with Āwhina. Describe your item or upload photos, and Āwhina will help create a professional listing in minutes.</p>
+            <p className="relative mt-3 max-w-xl mx-auto text-sm leading-relaxed text-[#1e4976] dark:text-white">Sell faster with Āwhina. Describe your item or upload photos, and Āwhina will help create a professional listing in minutes.</p>
           </div>
         </div>
 
+        <SellPhotoUpload
+          imagePreviews={imagePreviews}
+          fileInputRef={fileInputRef}
+          onUpload={handleImageUpload}
+          onRemove={(index) => {
+            setImagePreviews((prev) => prev.filter((_, j) => j !== index));
+            setImageFiles((prev) => prev.filter((_, j) => j !== index));
+          }}
+        />
+
+        {(analyzing || (detected && !analyzing)) && (
+          <div className="-mt-3 mb-6 space-y-3">
+            {analyzing && (
+              <div className="flex items-center justify-center gap-2.5 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 dark:border-sky-500/15 dark:bg-sky-500/5">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-sky-500 border-t-transparent dark:border-sky-400" />
+                <span className="text-sm font-medium text-sky-600 dark:text-sky-400">Detecting...</span>
+              </div>
+            )}
+            {detected && !analyzing && (
+              <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-center dark:border-sky-500/15 dark:bg-sky-500/5">
+                <span className="text-sm font-bold text-sky-600 dark:text-sky-400">✅ {detected}</span>
+              </div>
+            )}
+          </div>
+        )}
+
         {!editId && (
-          <div className="mb-8">
-            <div className="relative overflow-hidden rounded-2xl border border-sky-500/20 bg-gradient-to-br from-sky-500/[0.06] via-sky-500/[0.04] to-zinc-950/80 p-5 shadow-[0_0_40px_rgba(14,165,233,0.08)]">
+          <div className="mb-6">
+            <div className="relative overflow-hidden rounded-2xl border border-[#D6ECFF] bg-white p-5 shadow-[0_4px_24px_rgba(14,165,233,0.08)] dark:border-sky-500/20 dark:bg-gradient-to-br dark:from-sky-500/[0.06] dark:via-sky-500/[0.04] dark:to-zinc-950/80 dark:shadow-[0_0_40px_rgba(14,165,233,0.08)]">
               <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-sky-500/10 blur-2xl pointer-events-none" />
               <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex gap-3 min-w-0">
@@ -831,8 +899,8 @@ export default function AIPostPage() {
                     ✦
                   </span>
                   <div className="min-w-0">
-                    <h2 className="text-base font-bold text-white">Āwhina</h2>
-                    <p className="mt-1 text-xs text-zinc-400 leading-relaxed">
+                    <h2 className="text-base font-bold text-[#111827] dark:text-white">Āwhina</h2>
+                    <p className="mt-1 text-xs leading-relaxed text-[#6B7280] dark:text-zinc-400">
                       Tell me what you&apos;re selling and I&apos;ll help fill the listing for you 🙂
                     </p>
                   </div>
@@ -870,62 +938,17 @@ export default function AIPostPage() {
               onOpenChange={setSkyChatOpen}
               autoQuery={skyAutoQuery}
               onAutoQueryConsumed={() => setSkyAutoQuery(undefined)}
+              onFill={applyFill}
               quickPrompts={SKY_AI_SELL_QUICK_PROMPTS}
-              welcomeText="Kia ora 👋 What would you like to sell today?"
+              welcomeText={SKY_AI_SELL_WELCOME}
             />
           </div>
         )}
 
         {/* Form Card */}
         <div className="relative">
-          <div className="absolute -inset-1 bg-gradient-to-b from-sky-500/10 via-sky-500/5 to-transparent rounded-3xl blur-xl pointer-events-none" />
-          <div className="relative rounded-2xl border border-white/[0.06] bg-zinc-950/80 backdrop-blur-xl p-6 sm:p-8 space-y-6 shadow-2xl shadow-black/40">
-          {imagePreviews.length === 0 ? (
-            <div onClick={() => fileInputRef.current?.click()} className="flex h-56 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-white/[0.08] bg-white/[0.01] text-zinc-500 transition-all duration-200 hover:border-sky-500/40 hover:bg-sky-500/[0.02] active:scale-[0.99]">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500/10 to-sky-500/10 border border-white/[0.06]">
-                <svg className="h-6 w-6 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-                </svg>
-              </div>
-              <span className="mt-4 text-sm font-bold text-zinc-400">Upload photos</span>
-              <span className="mt-1 text-[11px] text-zinc-600">Tap to select — up to 8 images</span>
-            </div>
-          ) : (
-            <div className="grid grid-cols-3 gap-3">
-              {imagePreviews.map((preview, i) => (
-                <div key={i} className="group relative overflow-hidden rounded-xl bg-zinc-900/60 ring-1 ring-white/[0.06]">
-                  <img src={preview} className="h-28 w-full object-cover" />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <button onClick={() => {
-                    setImagePreviews((prev) => prev.filter((_, j) => j !== i));
-                    setImageFiles((prev) => prev.filter((_, j) => j !== i));
-                  }} className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-red-500/90 text-[11px] font-bold text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-400">✕</button>
-                </div>
-              ))}
-              {imagePreviews.length < 8 && (
-                <button onClick={() => fileInputRef.current?.click()} className="flex h-28 items-center justify-center rounded-xl border-2 border-dashed border-white/[0.08] text-zinc-500 transition-all duration-200 hover:border-sky-500/40 hover:bg-sky-500/[0.02] active:scale-[0.97]">
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                  </svg>
-                </button>
-              )}
-            </div>
-          )}
-          <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden" />
-        </div>
-
-        {analyzing && (
-          <div className="flex items-center justify-center gap-2.5 rounded-xl border border-sky-500/15 bg-sky-500/5 px-4 py-3">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-sky-400 border-t-transparent" />
-            <span className="text-sm font-medium text-sky-400">Detecting...</span>
-          </div>
-        )}
-
-        {detected && !analyzing && (
-          <div className="rounded-xl border border-sky-500/15 bg-sky-500/5 px-4 py-3 text-center">
-            <span className="text-sm font-bold text-sky-400">✅ {detected}</span>
-          </div>
-        )}
+          <div className="absolute -inset-1 rounded-3xl bg-gradient-to-b from-sky-500/10 via-sky-500/5 to-transparent blur-xl pointer-events-none" />
+          <div className="relative rounded-2xl border border-[#D6ECFF] bg-white p-6 shadow-[0_4px_24px_rgba(14,165,233,0.06)] dark:border-white/[0.06] dark:bg-zinc-950/80 dark:shadow-2xl dark:shadow-black/40 sm:p-8">
 
         {/* SCAM ALERT MODAL */}
         {scamAlert && (
@@ -992,9 +1015,9 @@ export default function AIPostPage() {
               <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Category</label>
               <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-3 text-[var(--foreground)] outline-none transition-all duration-200 focus:border-sky-500/40 focus:ring-2 focus:ring-sky-500/10 appearance-none cursor-pointer">
                 {listingType === "digital" ? (
-                  <><option>Templates & Assets</option><option>E-books & Guides</option><option>Art & Photography</option><option>Software & Audio</option><option>Gaming & 3D</option></>
+                  <><option>Templates & Assets</option><option>E-books & Guides</option><option>Art & Photography</option><option>Software & Audio</option><option>Gaming & 3D</option><option>Web & App Development</option><option>Graphic Design</option><option>SEO & Digital Marketing</option><option>Other Digital Services</option></>
                 ) : listingType === "service" ? (
-                  <><option>Design & Development</option><option>Writing & Translation</option><option>Video & Animation</option><option>Music & Audio</option><option>Marketing & SEO</option><option>Consulting & Coaching</option><option>Other</option></>
+                  <><option>Trades & Repairs</option><option>Cleaning & Maintenance</option><option>Tutoring & Lessons</option><option>Photography</option><option>Personal Training</option><option>Events & Catering</option><option>Other Services</option></>
                 ) : listingType === "event" ? (
                   <><option>Concerts & Gigs</option><option>Festivals</option><option>Sports</option><option>Workshops & Classes</option><option>Community</option><option>Food & Drink</option><option>Other</option></>
                 ) : listingType === "property" ? (
@@ -1028,9 +1051,23 @@ export default function AIPostPage() {
                   <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] pl-8 pr-4 py-3 text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
                 </div>
               </div>
+            ) : saleType === "buy_now" && listingType === "service" && servicePricingType === "request_quote" ? (
+              <div className="space-y-1.5">
+                <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 px-4 py-3 text-center">
+                  <p className="text-xs font-medium text-sky-400">Quote Required — buyers will contact you for a quote</p>
+                </div>
+              </div>
+            ) : saleType === "buy_now" && listingType === "digital" && pricingType === "quote" ? (
+              <div className="space-y-1.5">
+                <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 px-4 py-3 text-center">
+                  <p className="text-xs font-medium text-sky-400">Quote Required — buyers will contact you for pricing</p>
+                </div>
+              </div>
             ) : saleType === "buy_now" ? (
               <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Price *</label>
+                <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">
+                  {listingType === "service" && servicePricingType === "hourly" ? "Hourly Rate *" : "Price *"}
+                </label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">$</span>
                   <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] pl-8 pr-4 py-3 text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
@@ -1152,8 +1189,8 @@ export default function AIPostPage() {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
               {[
                 { key: "physical", icon: "📦", label: "Physical", desc: "Real items that can be picked up or shipped.", examples: "Phones, furniture, tools, clothing, collectibles.", action: () => setAcceptOffers(false) },
-                { key: "digital", icon: "💾", label: "Digital", desc: "Downloadable products delivered online.", examples: "E-books, templates, software, guides, digital art.", action: () => { setCategory("Templates & Assets"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); } },
-                { key: "service", icon: "🛠️", label: "Service", desc: "Work or skills you provide for customers.", examples: "Lawn mowing, cleaning, tutoring, photography, web design.", action: () => { setCategory("Design & Development"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(true); setSaleType("buy_now"); } },
+                { key: "digital", icon: "💾", label: "Digital", desc: "Digital products and online services delivered remotely.", examples: "Software, templates, e-books, web design, graphic design, SEO, digital marketing.", action: () => { setCategory("Other Digital Services"); setPricingType("fixed"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); } },
+                { key: "service", icon: "🛠️", label: "Service", desc: "Local services performed in person.", examples: "Lawn mowing, cleaning, tutoring, photography, trades, handyman work, personal training.", action: () => { setCategory("Other Services"); setServicePricingType("fixed"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(true); setSaleType("buy_now"); } },
                 { key: "rental", icon: "🔑", label: "Rental", desc: "Something people can hire or rent temporarily.", examples: "Houses, rooms, trailers, equipment, party gear.", action: () => { setCategory("Other"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); setLocation(""); setCondition("New"); } },
                 { key: "vehicle", icon: "🚗", label: "Vehicle", desc: "Motor vehicles for sale.", examples: "Cars, motorcycles, boats, caravans, trucks.", action: () => { setCategory("Cars"); setSaleType("buy_now"); setAcceptOffers(false); } },
               ].map((t) => (
@@ -1391,7 +1428,7 @@ export default function AIPostPage() {
           )}
 
           {/* Accept Offers — physical, vehicle, service, property only */}
-          {listingType !== "digital" && listingType !== "event" && listingType !== "job" && (
+          {listingType !== "digital" && listingType !== "event" && listingType !== "job" && !(listingType === "service" && offersDisabledForService(servicePricingType)) && (
             <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
               <div className="flex items-start">
                 <div className="flex h-5 items-center">
@@ -1407,8 +1444,44 @@ export default function AIPostPage() {
             </div>
           )}
 
-          {/* Digital File Upload */}
+          {/* Digital Pricing Type */}
           {listingType === "digital" && (
+            <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
+              <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Pricing Type</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPricingType("fixed")}
+                  className={`flex-1 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                    pricingType === "fixed"
+                      ? "border-sky-500 bg-sky-500/10 text-sky-400"
+                      : "border-zinc-700 bg-zinc-800/80 text-zinc-400 hover:border-zinc-600"
+                  }`}
+                >
+                  Fixed Price
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPricingType("quote")}
+                  className={`flex-1 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                    pricingType === "quote"
+                      ? "border-sky-500 bg-sky-500/10 text-sky-400"
+                      : "border-zinc-700 bg-zinc-800/80 text-zinc-400 hover:border-zinc-600"
+                  }`}
+                >
+                  Quote Required
+                </button>
+              </div>
+              <p className="mt-2 text-[10px] text-zinc-500">
+                {pricingType === "fixed"
+                  ? "Buyers see the exact price and can purchase immediately."
+                  : "Buyers contact you to request a custom quote."}
+              </p>
+            </div>
+          )}
+
+          {/* Digital File Upload */}
+          {listingType === "digital" && pricingType === "fixed" && (
             <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
               <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Digital File</label>
               <p className="mb-3 text-[11px] font-medium tracking-wide bg-gradient-to-r from-sky-400 to-sky-400 bg-clip-text text-transparent">Upload your digital asset file</p>
@@ -1425,12 +1498,48 @@ export default function AIPostPage() {
 
           {/* Service Details */}
           {listingType === "service" && (
-            <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
-              <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Service Details</label>
-              <input type="text" value={serviceDuration} onChange={(e) => setServiceDuration(e.target.value)}
-                placeholder="Estimated delivery time (e.g. 3-5 days)"
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-              <p className="mt-2 text-[10px] text-[var(--muted)]">Buyers will message you to discuss scope before purchasing.</p>
+            <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4 space-y-4">
+              <div>
+                <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Pricing Type</label>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  {SERVICE_PRICING_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => {
+                        setServicePricingType(opt.value);
+                        if (opt.value === "request_quote") {
+                          setPrice("");
+                          setAcceptOffers(false);
+                        }
+                      }}
+                      className={`rounded-lg border px-3 py-2.5 text-left text-sm font-semibold transition ${
+                        servicePricingType === opt.value
+                          ? "border-sky-500 bg-sky-500/10 text-sky-400"
+                          : "border-zinc-700 bg-zinc-800/80 text-zinc-400 hover:border-zinc-600"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-2 text-[10px] text-[var(--muted)]">
+                  {SERVICE_PRICING_OPTIONS.find((o) => o.value === servicePricingType)?.hint}
+                </p>
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Estimated turnaround</label>
+                <input
+                  type="text"
+                  value={serviceDuration}
+                  onChange={(e) => setServiceDuration(e.target.value)}
+                  placeholder="e.g. 1 hour, same day, 3-5 days"
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500"
+                />
+                <p className="mt-2 text-[10px] text-[var(--muted)]">
+                  Local, in-person services — buyers message you to agree scope and timing.
+                </p>
+              </div>
             </div>
           )}
 
@@ -1580,7 +1689,22 @@ export default function AIPostPage() {
             </select>
           </div>
 
-          <button onClick={createListing} disabled={loading || editLoading || ((saleType === "auction" || saleType === "auction_buy_now") ? !startingBid : (listingType !== "service" && !price))}
+          <button
+            id="listing-submit-btn"
+            onClick={createListing}
+            disabled={
+              loading ||
+              editLoading ||
+              ((saleType === "auction" || saleType === "auction_buy_now")
+                ? !startingBid
+                : listingType === "service"
+                  ? servicePriceRequired(servicePricingType) && !price
+                  : listingType === "digital" && pricingType === "quote"
+                    ? false
+                    : listingType === "rental"
+                      ? !price
+                      : !price)
+            }
             className="w-full rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-4 text-lg font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98] disabled:opacity-40 disabled:shadow-none disabled:hover:brightness-100">
             {loading ? (
               <span className="flex items-center justify-center gap-2">
@@ -1593,6 +1717,7 @@ export default function AIPostPage() {
             ) : editId ? "Save Changes" : "Post Now"}
           </button>
         </div>
+          </div>
         </div>
       </div>
     </main>

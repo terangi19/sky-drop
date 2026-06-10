@@ -40,14 +40,13 @@ import { LISTING_GRID_MT, PAGE_SHELL_MARKETPLACE } from "../lib/page-layout";
 
 const CATEGORIES = [
   { emoji: "✨", name: "All" },
-  { emoji: "🌐", name: "Web Development" },
-  { emoji: "🎨", name: "Design & Creative" },
-  { emoji: "✍️", name: "Writing & Translation" },
-  { emoji: "🎬", name: "Video & Animation" },
-  { emoji: "🎵", name: "Music & Audio" },
-  { emoji: "💼", name: "Consulting" },
+  { emoji: "🔧", name: "Trades & Repairs" },
+  { emoji: "🧹", name: "Cleaning & Maintenance" },
+  { emoji: "📖", name: "Tutoring & Lessons" },
   { emoji: "📷", name: "Photography" },
-  { emoji: "📖", name: "Tutoring" },
+  { emoji: "💪", name: "Personal Training" },
+  { emoji: "🎉", name: "Events & Catering" },
+  { emoji: "🛠️", name: "Other Services" },
 ];
 
 function serviceSearchText(item: Record<string, unknown>): string {

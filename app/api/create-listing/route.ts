@@ -87,6 +87,7 @@ export async function POST(req: NextRequest) {
       "jobCompany", "jobEmploymentType", "salaryMin", "salaryMax",
       "propertyType", "bedrooms", "bathrooms", "landArea", "floorArea", "parking",
       "paymentType",
+      "pricingType",
     ];
     const clientData: Record<string, unknown> = {};
     for (const key of allowedFields) {

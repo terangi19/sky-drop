@@ -1,4 +1,5 @@
 import { GUIDE_DESTINATIONS } from "./guide-assistant";
+import { normalizeServicePricingType } from "./service-pricing";
 import { SKY_AI_NAV_TAG } from "./sky-ai-prompt";
 
 function sanitizeNavigateTo(path: string | undefined): string | undefined {
@@ -37,6 +38,8 @@ export type SkyAiListingFill = {
   vehicleFuelType?: string;
   vehicleBodyType?: string;
   vehicleColour?: string;
+  pricingType?: string;
+  servicePricingType?: string;
   /** Daily rate (maps to price field on rental form) */
   rentalPriceDaily?: string;
   rentalPriceWeekly?: string;
@@ -81,16 +84,20 @@ const DIGITAL_CATEGORIES = new Set([
   "Art & Photography",
   "Software & Audio",
   "Gaming & 3D",
+  "Web & App Development",
+  "Graphic Design",
+  "SEO & Digital Marketing",
+  "Other Digital Services",
 ]);
 
 const SERVICE_CATEGORIES = new Set([
-  "Design & Development",
-  "Writing & Translation",
-  "Video & Animation",
-  "Music & Audio",
-  "Marketing & SEO",
-  "Consulting & Coaching",
-  "Other",
+  "Trades & Repairs",
+  "Cleaning & Maintenance",
+  "Tutoring & Lessons",
+  "Photography",
+  "Personal Training",
+  "Events & Catering",
+  "Other Services",
 ]);
 
 export function inferPhysicalCategoryFromText(text: string): string | undefined {
@@ -136,25 +143,54 @@ function normalizeDigitalCategory(raw: string): string {
   const s = raw.trim();
   if (DIGITAL_CATEGORIES.has(s)) return s;
   const lower = s.toLowerCase();
-  if (/template|notion|preset/i.test(lower)) return "Templates & Assets";
-  if (/ebook|e-book|guide|pdf/i.test(lower)) return "E-books & Guides";
-  if (/photo|art|design asset/i.test(lower)) return "Art & Photography";
-  if (/software|app|plugin|audio|music pack/i.test(lower)) return "Software & Audio";
-  if (/game|3d|unity|unreal/i.test(lower)) return "Gaming & 3D";
-  return "Templates & Assets";
+  if (/template|notion|preset|asset|font/i.test(lower)) return "Templates & Assets";
+  if (/ebook|e-book|guide|pdf|printable/i.test(lower)) return "E-books & Guides";
+  if (/photo|art|design asset|procreate|brush/i.test(lower)) return "Art & Photography";
+  if (/software|app|plugin|audio|music pack|beat/i.test(lower)) return "Software & Audio";
+  if (/game|3d|unity|unreal|gaming asset/i.test(lower)) return "Gaming & 3D";
+  if (/web.*dev|website|web app|frontend|backend|fullstack/i.test(lower)) return "Web & App Development";
+  if (/graphic design|logo|brand|visual/i.test(lower)) return "Graphic Design";
+  if (/seo|marketing|social media|advert/i.test(lower)) return "SEO & Digital Marketing";
+  return "Other Digital Services";
 }
 
 function normalizeServiceCategory(raw: string): string {
   const s = raw.trim();
   if (SERVICE_CATEGORIES.has(s)) return s;
   const lower = s.toLowerCase();
-  if (/design|logo|ui|ux|dev|web/i.test(lower)) return "Design & Development";
-  if (/writ|copy|translat/i.test(lower)) return "Writing & Translation";
-  if (/video|animat|edit/i.test(lower)) return "Video & Animation";
-  if (/music|audio|sound/i.test(lower)) return "Music & Audio";
-  if (/market|seo|social/i.test(lower)) return "Marketing & SEO";
-  if (/coach|consult/i.test(lower)) return "Consulting & Coaching";
-  return "Other";
+  if (/trade|handyman|paint|plumb|electri|carpent|lawn|mow|garden|builder/i.test(lower)) return "Trades & Repairs";
+  if (/clean|house|home.*clean|office.*clean/i.test(lower)) return "Cleaning & Maintenance";
+  if (/tutor|lesson|teach|music.*lesson|coach.*academic/i.test(lower)) return "Tutoring & Lessons";
+  if (/photograph|photo.*shoot|portrait|wedding.*photo/i.test(lower)) return "Photography";
+  if (/personal train|fitness|yoga|gym|workout|wellness/i.test(lower)) return "Personal Training";
+  if (/event|cater|party|wedding.*plan|dj/i.test(lower)) return "Events & Catering";
+  return "Other Services";
+}
+
+function normalizeDigitalPricingType(raw: string, listingType?: string): "fixed" | "quote" | undefined {
+  const lower = raw.trim().toLowerCase();
+  if (lower === "hourly" || lower === "hourly rate" || lower === "per hour") return undefined;
+  if (lower === "fixed" || lower === "fixed price") return "fixed";
+  if (lower === "quote" || lower === "request quote" || lower === "quote required" || lower === "contact for quote") {
+    return "quote";
+  }
+  if (listingType === "digital") {
+    if (/website|web.*dev|custom.*software|app.*dev|branding|campaign|bespoke/i.test(lower)) return "quote";
+    if (/template|ebook|guide|asset|license|download|package|audit/i.test(lower)) return "fixed";
+  }
+  return undefined;
+}
+
+function inferDigitalPricingFromText(text: string): "fixed" | "quote" | undefined {
+  const lower = text.toLowerCase();
+  if (/quote|price varies|depends on|custom project|bespoke|contact.*quote/i.test(lower)) return "quote";
+  if (/\$?\d+/.test(lower)) return "fixed";
+  return undefined;
+}
+
+function inferServicePricingFromText(text: string, price?: string): string | undefined {
+  const type = normalizeServicePricingType(undefined, price, text);
+  return type;
 }
 
 function normalizeCategory(raw: string, listingType?: string): string | undefined {
@@ -314,6 +350,8 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
     condition: pickField(o, ["condition"]),
     price: daily,
     listingType: pickField(o, ["listingType", "type"]),
+    pricingType: pickField(o, ["pricingType"]),
+    servicePricingType: pickField(o, ["servicePricingType", "servicePricing"]),
     location: pickField(o, ["location"]),
     paymentType: pickField(o, ["paymentType"]),
     vehicleMake: pickField(o, ["vehicleMake", "make"]),
@@ -357,13 +395,26 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
   if (!raw.title && !raw.description && !hasPrice && !hasVehicle && !hasExtras) return null;
 
   const listingType =
-    inferListingType(raw, blob) || (hasVehicle ? "vehicle" : undefined);
+    inferListingType(raw, blob) || (hasVehicle ? "vehicle" : "physical");
 
   const out: SkyAiListingFill = {};
   if (raw.title) out.title = raw.title.slice(0, 120);
   if (raw.description) out.description = raw.description.slice(0, 8000);
   if (raw.extras?.length) out.extras = raw.extras.slice(0, 24);
   if (listingType) out.listingType = listingType;
+  const pricingHint = `${raw.title || ""} ${raw.description || ""} ${raw.pricingType || ""} ${raw.servicePricingType || ""}`;
+  if (listingType === "digital" && raw.pricingType) {
+    out.pricingType = normalizeDigitalPricingType(raw.pricingType, listingType);
+  } else if (listingType === "digital") {
+    out.pricingType = inferDigitalPricingFromText(pricingHint);
+  }
+  if (listingType === "service") {
+    out.servicePricingType = normalizeServicePricingType(
+      raw.servicePricingType || raw.pricingType,
+      raw.price,
+      pricingHint
+    );
+  }
 
   if (listingType === "rental") {
     if (raw.category) out.category = normalizeRentalCategory(raw.category);
@@ -397,12 +448,22 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
     if (raw.stockQuantity) out.stockQuantity = raw.stockQuantity;
   } else if (listingType === "digital") {
     if (raw.category) out.category = normalizeDigitalCategory(raw.category);
-    else out.category = "Templates & Assets";
-    if (raw.price) out.price = raw.price;
+    else out.category = "Other Digital Services";
+    if (!out.pricingType && raw.pricingType) {
+      out.pricingType = normalizeDigitalPricingType(raw.pricingType, "digital");
+    }
+    if (!out.pricingType) {
+      out.pricingType = inferDigitalPricingFromText(pricingHint) || (raw.price ? "fixed" : undefined);
+    }
+    if (out.pricingType === "quote") { /* no price needed */ }
+    else if (raw.price) out.price = raw.price;
   } else if (listingType === "service") {
     if (raw.category) out.category = normalizeServiceCategory(raw.category);
-    else out.category = "Design & Development";
-    if (raw.price) out.price = raw.price;
+    else out.category = "Other Services";
+    if (!out.servicePricingType) {
+      out.servicePricingType = inferServicePricingFromText(pricingHint, raw.price);
+    }
+    if (out.servicePricingType !== "request_quote" && raw.price) out.price = raw.price;
     if (raw.serviceDuration) out.serviceDuration = raw.serviceDuration.slice(0, 120);
   } else {
     if (raw.price) out.price = raw.price;
@@ -517,6 +578,8 @@ export type ListingFillHandlers = {
   setRentalPriceWeekly?: (v: string) => void;
   setRentalPriceMonthly?: (v: string) => void;
   setRentalDeposit?: (v: string) => void;
+  setPricingType?: (v: string) => void;
+  setServicePricingType?: (v: string) => void;
   setPickupAvailable?: (v: boolean) => void;
   setShippingAvailable?: (v: boolean) => void;
   setAcceptOffers?: (v: boolean) => void;
@@ -544,17 +607,29 @@ export function applySkyAiListingFill(fill: SkyAiListingFill, h: ListingFillHand
     h.setAcceptOffers?.(false);
     h.setSaleType?.("buy_now");
     if (normalized.category) h.setCategory(normalized.category);
-    else h.setCategory("Templates & Assets");
+    else h.setCategory("Other Digital Services");
+    if (normalized.pricingType) h.setPricingType?.(normalized.pricingType);
     if (normalized.price) h.setPrice(normalized.price);
     if (normalized.paymentType) h.setPaymentType?.(normalized.paymentType);
   } else if (type === "service") {
-    h.setPickupAvailable?.(false);
+    h.setPickupAvailable?.(true);
     h.setShippingAvailable?.(false);
-    h.setAcceptOffers?.(true);
     h.setSaleType?.("buy_now");
     if (normalized.category) h.setCategory(normalized.category);
-    else h.setCategory("Design & Development");
-    if (normalized.price) h.setPrice(normalized.price);
+    else h.setCategory("Other Services");
+    if (normalized.servicePricingType) {
+      h.setServicePricingType?.(normalized.servicePricingType);
+      if (normalized.servicePricingType === "request_quote") {
+        h.setAcceptOffers?.(false);
+        h.setPrice("");
+      } else {
+        h.setAcceptOffers?.(true);
+        if (normalized.price) h.setPrice(normalized.price);
+      }
+    } else if (normalized.price) {
+      h.setPrice(normalized.price);
+      h.setAcceptOffers?.(true);
+    }
     if (normalized.serviceDuration) h.setServiceDuration?.(normalized.serviceDuration);
     if (normalized.paymentType) h.setPaymentType?.(normalized.paymentType);
   } else if (type === "rental") {
@@ -597,6 +672,7 @@ export function applySkyAiListingFill(fill: SkyAiListingFill, h: ListingFillHand
   if (normalized.title) h.setTitle(normalized.title);
   if (normalized.description) h.setDescription(normalized.description);
   if (normalized.location) h.setLocation(normalized.location);
+  if (normalized.pricingType && type !== "digital" && type !== "service") h.setPricingType?.(normalized.pricingType);
 
   return true;
 }

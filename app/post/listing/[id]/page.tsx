@@ -30,6 +30,8 @@ import {
   getBuyerPurchaseUiState,
 } from "../../../lib/buyer-purchase-ui";
 import { ReviewStars } from "../../../components/SellerReviewStars";
+import ServicePricingBadge from "../../../components/ServicePricingBadge";
+import { formatServicePriceDisplay } from "../../../lib/service-pricing";
 
 function getBidIncrement(price: number): number {
   if (price < 50) return 1;
@@ -1051,8 +1053,17 @@ export default function ListingPage() {
             <AwhinaUnderHeader className="mt-2" />
 
             {/* 3. PRICE */}
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black text-[var(--foreground)]">{listing.price ? `$${listing.price}` : listing.type === "service" ? "Price negotiable" : `$${listing.price}`}</span>
+            <div className="flex flex-wrap items-baseline gap-2">
+              {listing.type === "service" && <ServicePricingBadge listing={listing} />}
+              <span className="text-3xl font-black text-[var(--foreground)]">
+                {listing.type === "service"
+                  ? formatServicePriceDisplay(listing)
+                  : listing.pricingType === "quote"
+                    ? "Contact Seller for Quote"
+                    : listing.price
+                      ? `$${listing.price}`
+                      : "Price on request"}
+              </span>
               {!isListingVisibleInMarketplace(listing) && (
                 <span className="rounded bg-red-600/90 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[var(--foreground)]">Sold</span>
               )}
@@ -1126,8 +1137,11 @@ export default function ListingPage() {
               <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 p-3">
                 <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
                   <span className="shrink-0 text-sky-400">📥</span>
-                  <span>Digital Download — Instant Delivery</span>
+                  <span>{listing.pricingType === "quote" ? "Service delivered remotely — Request a Quote" : "Digital Download — Instant Delivery"}</span>
                 </div>
+                {listing.pricingType === "quote" && (
+                  <span className="mt-1.5 inline-flex rounded-full border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400">Quote Required</span>
+                )}
               </div>
             ) : listing.type === "service" ? (
               <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 p-3 space-y-1.5">
@@ -1141,7 +1155,7 @@ export default function ListingPage() {
                   </div>
                 )}
                 <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
-                  <span>{listing.price ? `💰 $${listing.price}` : "💬 Price negotiable — send an offer"}</span>
+                  <span>💰 {formatServicePriceDisplay(listing)}</span>
                 </div>
               </div>
             ) : listing.type === "rental" ? (

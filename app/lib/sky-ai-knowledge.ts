@@ -183,16 +183,16 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 - **Active listing types only:** physical, digital, service, rental, vehicle. (NOT event, job, or property.)
 - **Rentals** include equipment, tools, vehicles, trailers, party hire, machinery, generators, camping gear, cameras, and general items. Also supports residential property rentals (houses, apartments, units) — use category "Property" for those.
 - Physical categories: Tech, Cars, Gaming, Fashion, Home, Sports, Other.
-- **Digital categories:** Templates & Assets, E-books & Guides, Art & Photography, Software & Audio, Gaming & 3D.
-- **Service categories:** Design & Development, Writing & Translation, Video & Animation, Music & Audio, Marketing & SEO, Consulting & Coaching, Other.
+- **Digital categories:** Templates & Assets, E-books & Guides, Art & Photography, Software & Audio, Gaming & 3D, Web & App Development, Graphic Design, SEO & Digital Marketing, Other Digital Services.
+- **Service categories (local/in-person):** Trades & Repairs, Cleaning & Maintenance, Tutoring & Lessons, Photography, Personal Training, Events & Catering, Other Services.
 - **Pets & animals:** use listing type **physical** (not vehicle/service). Category **Other**. Include species, age, breed, vaccinated/desexed, microchip, and pickup location in the description. Prefer **Arrange Purchase** for local pickup; Stripe only if you accept card. Must be legal to sell in NZ — no prohibited or endangered species. Pet supplies (beds, carriers, food) are also **physical** + **Other** (or **Home** if it fits).
 - Conditions: New, Used - Like New, Used - Good, Used - Fair.
 - Sale types: Buy Now, Auction, Auction + Buy Now.
 - Listing duration: 7, 14, or 30 days.
 - Sky AI auto-fill (LISTING_FILL): set correct **listingType** + **category** for digital/service/rental/vehicle/physical.
 - **Vehicles (listingType vehicle):** always fill **vehicleMake, vehicleModel, vehicleYear, vehicleOdometer, vehicleColour** (colour/color), **vehicleBodyType, vehicleFuelType, vehicleTransmission** — match Sell form dropdowns exactly.
-- **Digital:** listingType digital + digital category + price (NZD). Remind user to **upload the digital file** on Sell before publish.
-- **Service:** listingType service + service category + price + serviceDuration (e.g. "3-5 days"). Stripe common; buyers discuss scope in Messages.
+- **Digital:** listingType digital + digital category + price (NZD). Digital = downloadable products + remote/online services (web dev, design, SEO, marketing). Remind user to **upload the digital file** on Sell before publish for downloadable products.
+- **Service:** listingType service + service category + price + serviceDuration (e.g. "1-2 hours"). Services = local/in-person only. setPickupAvailable(true). Stripe common; buyers discuss scope in Messages.
 - **Rental:** listingType rental + category Other|Vehicles|Equipment|Property + price=daily rate (equipment/vehicles) or rentalPriceWeekly (property) + optional weekly/monthly/deposit + location. For residential property (houses, apartments, units), use category "Property", set rentalPriceWeekly, and extract bedrooms/bathrooms/parking/pets/furnished into the description.
 - New seller limits: 5 active listings → 25 after 3 completed sales → unlimited after 10 sales.
 - Scam/price checks before publish. Email verification required to list/buy.

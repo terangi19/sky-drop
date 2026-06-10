@@ -141,7 +141,7 @@ export default function MarketplaceListingCard({
             {!isVisible && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm">
                 <span className="rounded-lg bg-red-600 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-[var(--cream)] shadow-lg">
-                  Sold · ${item.price}
+                  {item.pricingType === "quote" ? "Sold · Quote" : `Sold · $${item.price}`}
                 </span>
               </div>
             )}
@@ -219,7 +219,7 @@ export default function MarketplaceListingCard({
           {!isVisible && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm">
               <span className="rounded-lg bg-red-600 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-[var(--cream)] shadow-lg">
-                Sold · ${item.price}
+                {item.pricingType === "quote" ? "Sold · Quote" : `Sold · $${item.price}`}
               </span>
             </div>
           )}
@@ -306,7 +306,14 @@ export default function MarketplaceListingCard({
         </p>
 
         <div className="mt-3 flex items-baseline gap-2">
-          <p className="text-2xl font-black tracking-tight text-[var(--cream)]">${item.price}</p>
+          {item.pricingType === "quote" ? (
+            <>
+              <p className="text-2xl font-black tracking-tight text-[var(--cream)]">Contact Seller for Quote</p>
+              <span className="rounded-full border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 text-[9px] font-bold text-amber-400">Quote Required</span>
+            </>
+          ) : (
+            <p className="text-2xl font-black tracking-tight text-[var(--cream)]">${item.price}</p>
+          )}
           {(item.saleType === "auction" || item.saleType === "auction_buy_now") && (
             <span className="text-sm font-bold text-[var(--cream)]">
               Bid: ${item.currentBid || item.startingBid || 0}

@@ -78,6 +78,7 @@ export async function PUT(req: NextRequest) {
       "shippingFee", "freeShipping", "shipsWithinDays", "stockQuantity",
       "saleType", "startingBid", "reservePrice", "expiresInDays",
       "paymentType",
+      "pricingType",
     ];
     const updateData: Record<string, unknown> = {};
 

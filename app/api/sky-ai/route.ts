@@ -258,7 +258,34 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const hasListingIntent = pathname.startsWith("/post/ai") && (/(?:^|\n)(title|price|description|location|condition|category)\s*:/i.test(message) || /(?:rental|vehicle|service|digital|item)\s+listing/i.test(message) || (message.match(/(?:^|\n)\s*\w+\s*:/g) || []).length >= 3 || /\d{4}\s+[A-Z][a-z]+\s+[A-Z][a-z0-9]+.*\$\d/i.test(message) || /^\d{4}\s+[A-Z]/.test(message));
+    const hasListingIntent = pathname.startsWith("/post/ai") && (
+      // Structured field labels
+      /(?:^|\n)(title|price|description|location|condition|category|make|model|year|odometer|colour|color|transmission|fuel|mileage|km|kms)\s*:/i.test(message) ||
+      // Listing type keywords
+      /(?:rental|vehicle|service|digital|item|physical)\s+listing/i.test(message) ||
+      // Multiple field-like lines
+      (message.match(/(?:^|\n)\s*\w+\s*:/g) || []).length >= 2 ||
+      // Vehicle pattern: year + make/model + price
+      /\d{4}\s+[A-Za-z]+\s+[A-Za-z0-9]+.*\$[\d,]+/i.test(message) ||
+      // Year at start (vehicle shorthand like "2015 Mazda Axela blue")
+      /^\d{4}\s+[A-Za-z]/.test(message) ||
+      // Selling intent keywords
+      /\b(i('m| am| want to)?\s*(sell|selling|list|listing|post|create|make|put up|advertise)|for sale|selling my|i have a .* for sale|want to sell)\b/i.test(message) ||
+      // Item descriptions with price
+      /\$[\d,]+/.test(message) ||
+      // Vehicle brand keywords on sell page
+      /\b(toyota|honda|mazda|ford|holden|nissan|subaru|mitsubishi|hyundai|kia|bmw|mercedes|audi|volkswagen|vw|jeep|chevrolet|dodge|tesla|lexus|suzuki|isuzu|hilux|corolla|camry|rav4|cx-5|axela|swift|ranger|commodore)\b/i.test(message) ||
+      // Service/rental/digital signals on sell page
+      /\b(lawn|mow|clean|handyman|tutor|teach|photograph|design|seo|website|graphic|weekly rent|per week|bond|deposit|apartment|flat|room|house for rent|digital download|template|ebook|preset|notion|canva)\b/i.test(message) ||
+      // Physical item selling
+      /\b(ps5|playstation|xbox|iphone|samsung|laptop|macbook|tv|television|couch|sofa|fridge|washing machine|bike|bicycle|kayak|surfboard|guitar|camera)\b/i.test(message) ||
+      // Condition + item pattern
+      /\b(new|used|good condition|excellent condition|great condition|like new)\b.*\b(sell|selling|for sale|\$\d)/i.test(message) ||
+      // Located in + price
+      /\b(located in|based in|pickup from|auckland|wellington|christchurch|hamilton|tauranga|dunedin|palmerston|napier|rotorua|nelson|invercargill|waikato|otago)\b.*\$[\d,]+/i.test(message) ||
+      // Odometer / km reading
+      /\b\d{2,3}[\s,]?\d{3}\s*km\b/i.test(message)
+    );
     const shortcut = !hasListingIntent ? tryNavigationShortcut(message, pathname) : null;
     if (shortcut) {
       const reply = stripBold(shortcut.reply);
@@ -328,7 +355,7 @@ export async function POST(req: NextRequest) {
         completion = await openai.chat.completions.create({
           model,
           temperature: 0.7,
-          max_tokens: 1400,
+          max_tokens: 2000,
           stream: true,
           messages,
         });
@@ -399,7 +426,7 @@ export async function POST(req: NextRequest) {
       completion = await openai.chat.completions.create({
         model,
         temperature: 0.7,
-        max_tokens: 1400,
+        max_tokens: 2000,
         messages,
       });
     } catch (openaiErr: unknown) {

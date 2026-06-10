@@ -14,6 +14,7 @@ import {
 import { skyAiRuleFallbackText } from "../lib/openai-health";
 import {
   dispatchListingFill,
+  SKY_AI_LISTING_FILL_EVENT,
   stripSkyAiMachineTags,
   type SkyAiListingFill,
 } from "../lib/sky-ai-listing-fill";
@@ -52,6 +53,7 @@ export type SkyAiChatPanelProps = {
   /** Send this message once when the panel opens (e.g. quick prompt chip) */
   autoQuery?: string;
   onAutoQueryConsumed?: () => void;
+  onFill?: (fill: SkyAiListingFill) => void;
   quickPrompts?: QuickPrompt[];
   /** First assistant message (defaults to global welcome) */
   welcomeText?: string;
@@ -107,6 +109,7 @@ export default function SkyAiChatPanel({
   onOpenChange,
   autoQuery,
   onAutoQueryConsumed,
+  onFill,
   quickPrompts = SKY_AI_QUICK_PROMPTS,
   welcomeText = SKY_AI_WELCOME,
   className = "",
@@ -136,12 +139,12 @@ export default function SkyAiChatPanel({
   const imageInputRef = useRef<HTMLInputElement>(null);
   const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const navigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [listingPreviewFill, setListingPreviewFill] = useState<SkyAiListingFill | null>(null);
+  const fileInputRefInternal = useRef<HTMLInputElement>(null);
+  const [publishing, setPublishing] = useState(false);
   const [pendingImages, setPendingImages] = useState<PendingAttachment[]>([]);
   const [imageBusy, setImageBusy] = useState(false);
   const [openAiReady, setOpenAiReady] = useState(true);
-  const [listingPreviewFill, setListingPreviewFill] = useState<SkyAiListingFill | null>(null);
-  const [publishing, setPublishing] = useState(false);
-  const fileInputRefInternal = useRef<HTMLInputElement>(null);
 
   useEffect(() => onAuthStateChanged(auth, setUser), []);
 
@@ -279,8 +282,6 @@ export default function SkyAiChatPanel({
 
       if ((!trimmed && imageUrls.length === 0) || busy) return;
 
-      if (listingPreviewFill) setListingPreviewFill(null);
-
       if (imageUrls.length && pathname.startsWith("/post/ai")) {
         dispatchListingImages(imageUrls, imageNames);
       }
@@ -324,20 +325,28 @@ export default function SkyAiChatPanel({
       const isSellPage = pathname.startsWith("/post/ai");
 
       if (isSellPage) {
-        const listingPatterns = /^(title:|price:|description:|location:|condition:|category:|features:|specifications:|available:|photos needed:|contact:|for sale|for rent|wanted|auction|rental listing|vehicle listing|service listing|digital listing|item listing)/i;
-        const hasListingFields = /(?:^|\n)(title|price|description|location|condition|category|features|specifications|available|photos needed|contact)\s*:/i.test(finalMessage);
-        const hasListingType = /(?:rental|vehicle|service|digital|item)\s+listing|for\s+(sale|rent)|wanted|auction/i.test(finalMessage);
-        const hasMultipleFields = (finalMessage.match(/(?:^|\n)\s*\w+\s*:/g) || []).length >= 3;
+        const hasListingFields = /(?:^|\n)(title|price|description|location|condition|category|make|model|year|odometer|colour|color|transmission|fuel|mileage|km|kms)\s*:/i.test(finalMessage);
+        const hasListingType = /(?:rental|vehicle|service|digital|item|physical)\s+listing|for\s+(sale|rent)|wanted|auction/i.test(finalMessage);
+        const hasMultipleFields = (finalMessage.match(/(?:^|\n)\s*\w+\s*:/g) || []).length >= 2;
+        const hasVehicle = /\b(toyota|honda|mazda|ford|holden|nissan|subaru|mitsubishi|hyundai|kia|bmw|mercedes|audi|volkswagen|vw|hilux|corolla|camry|rav4|cx-5|axela|swift|ranger|commodore)\b/i.test(finalMessage);
+        const hasPrice = /\$[\d,]+/.test(finalMessage);
+        const hasSellingIntent = /\b(i('m| am| want to)?\s*(sell|selling|list|listing|post|create|advertise)|for sale|selling my|want to sell)\b/i.test(finalMessage);
+        const hasItem = /\b(ps5|playstation|xbox|iphone|samsung|laptop|macbook|tv|couch|sofa|fridge|bike|guitar|camera|lawn|mow|clean|handyman|tutor|design|website|template|ebook|apartment|flat|room)\b/i.test(finalMessage);
+        const hasOdometer = /\b\d{2,3}[\s,]?\d{3}\s*km\b/i.test(finalMessage);
+        const yearAtStart = /^\d{4}\s+[A-Za-z]/.test(finalMessage);
 
-        if (hasListingFields || hasListingType || hasMultipleFields) {
-          finalMessage = `[LISTING CREATION REQUEST]\nParse the following as listing data and output LISTING_FILL. Do not respond with general chat — this is listing content to be filled into the form.\n\n${finalMessage}`;
+        if (hasListingFields || hasListingType || hasMultipleFields || hasVehicle || (hasPrice && (hasSellingIntent || hasItem)) || hasOdometer || yearAtStart || hasSellingIntent) {
+          finalMessage = `[LISTING CREATION REQUEST]\nThe user is on the Sell page. Parse everything below as listing data and respond ONLY with LISTING_FILL JSON. Generate a complete listing (title, description, all relevant fields). Do not give general chat advice.\n\n${finalMessage}`;
         }
       }
 
       try {
         const token = await getFreshIdToken();
         const listingContext = readListingDraftFromSkyAi();
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 45000);
         const res = await fetch("/api/sky-ai", {
+          signal: controller.signal,
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -353,6 +362,7 @@ export default function SkyAiChatPanel({
             stream: true,
           }),
         });
+        clearTimeout(timeout);
 
         let responseHandled = false;
 
@@ -418,21 +428,26 @@ export default function SkyAiChatPanel({
                   responseHandled = true;
                   if (isSellPage && navigateTo === "/post/ai") navigateTo = undefined;
                   if (evt.listingFill && isSellPage) {
-                    console.log(`[Awhina] Preview card shown: type=${evt.listingFill.listingType}, title=${evt.listingFill.title}`);
                     setListingPreviewFill(evt.listingFill);
+                    const merged = mergeListingFillWithDraft(readListingDraftFromSkyAi(), evt.listingFill);
+                    onFill?.(merged);
+                    dispatchListingFill(merged);
                     navigateTo = undefined;
-                    const previewText = `Your listing preview is ready above. Review the details, add photos if needed, then click Publish Listing.`;
+                    const aiReply = evt.reply || stripSkyAiMachineTags(accumulated);
+                    const cleanReply = aiReply && aiReply.length > 10
+                      ? aiReply
+                      : `Done! I've filled your listing — add photos above, then hit **Publish** below to go live.`;
                     updateAssistant(assistantId, {
-                      text: previewText,
+                      text: cleanReply,
                       streaming: false,
                       navigating: false,
                     });
                   } else {
-                    if (isSellPage && navigateTo === "/post/ai") navigateTo = undefined;
                     const navFromFill = handleListingFill(evt.listingFill, navigateTo);
                     if (navFromFill) navigateTo = navFromFill;
+                    const replyText = evt.reply || stripSkyAiMachineTags(accumulated);
                     updateAssistant(assistantId, {
-                      text: evt.reply || stripSkyAiMachineTags(accumulated),
+                      text: replyText,
                       streaming: false,
                       navigating: !!navigateTo,
                     });
@@ -451,16 +466,21 @@ export default function SkyAiChatPanel({
           navigateTo = data.navigateTo;
           if (isSellPage && navigateTo === "/post/ai") navigateTo = undefined;
           if (data.listingFill && isSellPage) {
-            console.log(`[Awhina] Preview card shown (non-streaming): type=${data.listingFill.listingType}, title=${data.listingFill.title}`);
             setListingPreviewFill(data.listingFill);
+            const merged = mergeListingFillWithDraft(readListingDraftFromSkyAi(), data.listingFill);
+            onFill?.(merged);
+            dispatchListingFill(merged);
             navigateTo = undefined;
+            const aiReply = data.reply || "";
+            const cleanReply = aiReply && aiReply.length > 10
+              ? aiReply
+              : `Done! I've filled your listing — add photos above, then hit **Publish** below to go live.`;
             updateAssistant(assistantId, {
-              text: `Your listing preview is ready above. Review the details, add photos if needed, then click Publish Listing.`,
+              text: cleanReply,
               streaming: false,
               navigating: false,
             });
           } else {
-            if (isSellPage && navigateTo === "/post/ai") navigateTo = undefined;
             const navFromFill = handleListingFill(data.listingFill, navigateTo);
             if (navFromFill) navigateTo = navFromFill;
             updateAssistant(assistantId, {
@@ -472,11 +492,20 @@ export default function SkyAiChatPanel({
           if (data.conversationId) newConversationId = data.conversationId;
         }
       } catch (err) {
+        const isAbort = err instanceof Error && err.name === "AbortError";
+        const isFetchFail = err instanceof Error && (err.message.includes("fetch") || err.message.includes("network") || err.message.includes("Failed"));
         const rule = skyAiRuleFallbackText(trimmed, pathname);
         navigateTo = isSellPage && rule.navigateTo === "/post/ai" ? undefined : rule.navigateTo;
-        let text = rule.text;
-        if (err instanceof Error && err.message && err.message !== AWHINA_REQUEST_FAILED) {
-          text += `\n\n_${err.message}_`;
+        let text: string;
+        if (isAbort) {
+          text = "Request timed out — please try again. If this keeps happening, try a shorter message.";
+        } else if (isFetchFail) {
+          text = "Couldn't connect to Āwhina — check your internet connection and try again.";
+        } else {
+          text = rule.text;
+          if (err instanceof Error && err.message && err.message !== AWHINA_REQUEST_FAILED) {
+            text += `\n\n_${err.message}_`;
+          }
         }
         updateAssistant(assistantId, {
           text,
@@ -522,6 +551,17 @@ export default function SkyAiChatPanel({
     window.addEventListener(SKY_AI_OPEN_EVENT, onOpen);
     return () => window.removeEventListener(SKY_AI_OPEN_EVENT, onOpen);
   }, [isSheet, respond, setOpen]);
+
+  useEffect(() => {
+    const onFill = (e: Event) => {
+      const fill = (e as CustomEvent<SkyAiListingFill>).detail;
+      if (fill && pathname.startsWith("/post/ai")) {
+        setListingPreviewFill(fill);
+      }
+    };
+    window.addEventListener(SKY_AI_LISTING_FILL_EVENT, onFill);
+    return () => window.removeEventListener(SKY_AI_LISTING_FILL_EVENT, onFill);
+  }, [pathname]);
 
   useEffect(() => {
     if (!autoQuery?.trim() || !open) return;
@@ -674,130 +714,159 @@ export default function SkyAiChatPanel({
           </div>
         )}
 
-        {listingPreviewFill && (
-          <div className="rounded-2xl border border-sky-400/30 bg-gradient-to-b from-sky-500/[0.06] to-transparent p-4 space-y-3 animate-fade-in-panel">
-            <div className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-500/20 text-xs">✅</span>
-              <span className="text-xs font-bold text-sky-300">Your listing is ready</span>
-            </div>
-
-            <div className="space-y-1.5">
-              <p className="text-sm font-bold text-white">{listingPreviewFill.title || "Untitled"}</p>
-              {listingPreviewFill.price && (
-                <p className="text-base font-black text-sky-400">${listingPreviewFill.price}</p>
-              )}
-            </div>
-
-            {listingPreviewFill.description && (
-              <div className="rounded-xl border border-white/[0.06] bg-black/20 p-3">
-                <p className="text-[11px] leading-relaxed text-zinc-300 whitespace-pre-line">{listingPreviewFill.description}</p>
-              </div>
-            )}
-
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-zinc-500">
-              {listingPreviewFill.location && <span>📍 {listingPreviewFill.location}</span>}
-              {listingPreviewFill.category && <span>📂 {listingPreviewFill.category}</span>}
-              {listingPreviewFill.listingType && (
-                <span className="capitalize">🏷️ {listingPreviewFill.listingType}</span>
-              )}
-            </div>
-
-            <p className="text-[10px] text-zinc-500">📷 Photos: Not added yet. Listings with photos usually receive more views, but you can add them later.</p>
-
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={publishing}
-                onClick={async () => {
-                  setPublishing(true);
-                  try {
-                    const token = await getFreshIdToken();
-                    if (!token) { setPublishing(false); return; }
-                    const fill = listingPreviewFill;
-                    if (!fill) { setPublishing(false); return; }
-                    const res = await fetch("/api/create-listing", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                      body: JSON.stringify({
-                        title: fill.title || "Untitled",
-                        description: fill.description || "",
-                        price: fill.price || "0",
-                        category: fill.category || "Other",
-                        listingType: fill.listingType || "physical",
-                        location: fill.location || "",
-                        condition: fill.condition || "",
-                        paymentType: fill.paymentType || "stripe",
-                        vehicleMake: fill.vehicleMake || "",
-                        vehicleModel: fill.vehicleModel || "",
-                        vehicleYear: fill.vehicleYear || "",
-                        vehicleOdometer: fill.vehicleOdometer || "",
-                        vehicleColour: fill.vehicleColour || "",
-                        vehicleBodyType: fill.vehicleBodyType || "",
-                        vehicleFuelType: fill.vehicleFuelType || "",
-                        vehicleTransmission: fill.vehicleTransmission || "",
-                        rentalPriceWeekly: fill.rentalPriceWeekly || "",
-                        rentalPriceMonthly: fill.rentalPriceMonthly || "",
-                        rentalDeposit: fill.rentalDeposit || "",
-                        serviceDuration: fill.serviceDuration || "",
-                      }),
-                    });
-                    const data = await res.json();
-                    if (data.success && data.listingId) {
-                      setListingPreviewFill(null);
-                      setMessages([]);
-                      setConversationId("");
-                      window.location.href = `/post/listing/${data.listingId}`;
-                    } else if (data.error) {
-                      alert(data.error);
-                    }
-                  } catch (e) {
-                    alert("Failed to publish. Check your connection and try again.");
-                    console.error("[Awhina] Publish error:", e);
-                  }
-                  setPublishing(false);
-                }}
-                className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-3 py-2 text-[11px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:brightness-110 active:scale-[0.97] disabled:opacity-50"
-              >
-                {publishing ? "Publishing..." : "Publish Listing"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setListingPreviewFill(null)}
-                className="flex-1 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-[11px] font-bold text-zinc-300 transition hover:bg-white/[0.06] hover:text-white active:scale-[0.97]"
-              >
-                Edit Listing
-              </button>
-              <button
-                type="button"
-                onClick={() => fileInputRefInternal.current?.click()}
-                className="flex-1 rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 py-2 text-[11px] font-bold text-sky-400 transition hover:bg-sky-500/20 active:scale-[0.97]"
-              >
-                Add Photos
-              </button>
-            </div>
-
-            <p className="text-[10px] text-zinc-500 text-center">Have a quick read through your listing. If you'd like anything changed, just tell me and I'll update it before you publish.</p>
-          </div>
-        )}
-
-        <input
-          ref={fileInputRefInternal}
-          type="file"
-          accept="image/*"
-          multiple
-          className="hidden"
-          onChange={async (e) => {
-            const files = Array.from(e.target.files || []);
-            if (!files.length || !listingPreviewFill) return;
-            const prepared = await prepareSkyAiImages(files.slice(0, 8));
-            if ("error" in prepared) return;
-            if (prepared.dataUrls.length) {
-              dispatchListingImages(prepared.dataUrls, prepared.names);
-            }
-            e.target.value = "";
-          }}
-        />
       </div>
+
+      {listingPreviewFill && (
+        <div className="mx-3 mb-3 overflow-hidden rounded-2xl border border-emerald-500/30 bg-gradient-to-b from-emerald-500/[0.07] to-zinc-950/80 shadow-[0_0_30px_rgba(16,185,129,0.08)] animate-fade-in-panel">
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-2.5">
+            <div className="flex items-center gap-2">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-[10px]">✅</span>
+              <span className="text-[11px] font-bold text-emerald-400">Listing ready — form filled</span>
+            </div>
+            <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-400">
+              {listingPreviewFill.listingType || "physical"}
+            </span>
+          </div>
+
+          {/* Preview */}
+          <div className="px-4 py-3 space-y-1.5">
+            <p className="text-sm font-bold text-white leading-snug">{listingPreviewFill.title || "Untitled Listing"}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              {listingPreviewFill.price && (
+                <span className="text-base font-black text-emerald-400">${listingPreviewFill.price}</span>
+              )}
+              {listingPreviewFill.rentalPriceWeekly && !listingPreviewFill.price && (
+                <span className="text-base font-black text-emerald-400">${listingPreviewFill.rentalPriceWeekly}/wk</span>
+              )}
+              {listingPreviewFill.category && (
+                <span className="rounded-full border border-white/[0.08] bg-white/[0.05] px-2 py-0.5 text-[10px] text-zinc-400">{listingPreviewFill.category}</span>
+              )}
+              {listingPreviewFill.location && (
+                <span className="text-[10px] text-zinc-500">📍 {listingPreviewFill.location}</span>
+              )}
+            </div>
+            {listingPreviewFill.vehicleMake && (
+              <p className="text-[11px] text-zinc-400">
+                {listingPreviewFill.vehicleYear} {listingPreviewFill.vehicleMake} {listingPreviewFill.vehicleModel}
+                {listingPreviewFill.vehicleOdometer ? ` · ${Number(listingPreviewFill.vehicleOdometer).toLocaleString()}km` : ""}
+                {listingPreviewFill.vehicleColour ? ` · ${listingPreviewFill.vehicleColour}` : ""}
+              </p>
+            )}
+            <p className="text-[10px] text-zinc-500 leading-relaxed line-clamp-2">{listingPreviewFill.description}</p>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="grid grid-cols-3 gap-2 border-t border-white/[0.06] px-4 py-3">
+            <button
+              type="button"
+              onClick={() => fileInputRefInternal.current?.click()}
+              className="flex flex-col items-center gap-1 rounded-xl border border-sky-500/25 bg-sky-500/10 px-2 py-2.5 text-center transition hover:bg-sky-500/20 active:scale-[0.97]"
+            >
+              <span className="text-base">📷</span>
+              <span className="text-[10px] font-bold text-sky-300">Add Photos</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setListingPreviewFill(null);
+                document.getElementById("listing-title")?.scrollIntoView({ behavior: "smooth", block: "center" });
+              }}
+              className="flex flex-col items-center gap-1 rounded-xl border border-white/[0.1] bg-white/[0.04] px-2 py-2.5 text-center transition hover:bg-white/[0.08] active:scale-[0.97]"
+            >
+              <span className="text-base">✏️</span>
+              <span className="text-[10px] font-bold text-zinc-300">Edit Listing</span>
+            </button>
+            <button
+              type="button"
+              disabled={publishing}
+              onClick={async () => {
+                setPublishing(true);
+                try {
+                  const token = await getFreshIdToken();
+                  if (!token) {
+                    updateAssistant("", { text: "" });
+                    setPublishing(false);
+                    document.getElementById("listing-submit-btn")?.click();
+                    return;
+                  }
+                  const fill = listingPreviewFill;
+                  if (!fill) { setPublishing(false); return; }
+                  const res = await fetch("/api/create-listing", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({
+                      title: fill.title || "Untitled",
+                      description: fill.description || "",
+                      price: fill.price || "0",
+                      category: fill.category || "Other",
+                      listingType: fill.listingType || "physical",
+                      type: fill.listingType || "physical",
+                      location: fill.location || "",
+                      condition: fill.condition || "Used - Good",
+                      paymentType: fill.paymentType || "contact",
+                      pickupAvailable: fill.pickupAvailable ?? true,
+                      shippingAvailable: fill.shippingAvailable ?? false,
+                      vehicleMake: fill.vehicleMake || "",
+                      vehicleModel: fill.vehicleModel || "",
+                      vehicleYear: fill.vehicleYear ? Number(fill.vehicleYear) : null,
+                      vehicleOdometer: fill.vehicleOdometer ? Number(fill.vehicleOdometer) : null,
+                      vehicleColour: fill.vehicleColour || "",
+                      vehicleBodyType: fill.vehicleBodyType || "",
+                      vehicleFuelType: fill.vehicleFuelType || "Petrol",
+                      vehicleTransmission: fill.vehicleTransmission || "Automatic",
+                      rentalPriceWeekly: fill.rentalPriceWeekly ? Number(fill.rentalPriceWeekly) : null,
+                      rentalPriceMonthly: fill.rentalPriceMonthly ? Number(fill.rentalPriceMonthly) : null,
+                      rentalDeposit: fill.rentalDeposit ? Number(fill.rentalDeposit) : null,
+                      stockQuantity: fill.stockQuantity ? Number(fill.stockQuantity) : null,
+                      serviceDuration: fill.serviceDuration || "",
+                      servicePricingType: fill.servicePricingType || "",
+                      pricingType: fill.pricingType || "fixed",
+                      acceptOffers: fill.acceptOffers ?? false,
+                      saleType: fill.saleType || "buy_now",
+                      status: "live",
+                      expiresAt: new Date(Date.now() + 14 * 86400000),
+                    }),
+                  });
+                  const data = await res.json().catch(() => ({}));
+                  if (res.ok && data.success && data.listingId) {
+                    setListingPreviewFill(null);
+                    setMessages(welcomeMessages(welcomeText));
+                    setConversationId(null);
+                    window.location.href = `/post/listing/${data.listingId}`;
+                  } else {
+                    const errMsg = data.error || `Failed to publish (${res.status})`;
+                    setMessages((prev) => [...prev, { id: `err-${Date.now()}`, role: "assistant", text: `❌ ${errMsg}\n\nTry scrolling down and clicking **Post Now** in the form instead.` }]);
+                  }
+                } catch (e) {
+                  setMessages((prev) => [...prev, { id: `err-${Date.now()}`, role: "assistant", text: "❌ Couldn't connect — check your internet and try again, or click **Post Now** in the form below." }]);
+                }
+                setPublishing(false);
+              }}
+              className="flex flex-col items-center gap-1 rounded-xl bg-gradient-to-b from-emerald-500 to-emerald-600 px-2 py-2.5 text-center shadow-lg shadow-emerald-500/20 transition hover:brightness-110 active:scale-[0.97] disabled:opacity-50"
+            >
+              <span className="text-base">{publishing ? "⏳" : "🚀"}</span>
+              <span className="text-[10px] font-bold text-white">{publishing ? "Publishing…" : "Publish"}</span>
+            </button>
+          </div>
+
+          {/* Photo reminder if no photos */}
+          <div className="border-t border-white/[0.04] px-4 py-2">
+            <p className="text-[10px] text-zinc-500">💡 Listings with photos sell 3× faster — add at least 3 before publishing.</p>
+          </div>
+        </div>
+      )}
+
+      <input ref={fileInputRefInternal} type="file" accept="image/*" multiple className="hidden" onChange={async (e) => {
+        const files = Array.from(e.target.files || []);
+        if (!files.length || !listingPreviewFill) return;
+        const prepared = await prepareSkyAiImages(files.slice(0, 8));
+        if ("error" in prepared) return;
+        if (prepared.dataUrls.length) {
+          dispatchListingImages(prepared.dataUrls, prepared.names);
+        }
+        e.target.value = "";
+      }} />
 
       <div
         className={`border-t border-sky-500/15 bg-[#06080c]/90 px-3 py-2 ${
