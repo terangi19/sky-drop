@@ -60,7 +60,7 @@ export default function AboutPage() {
           </div>
 
           {/* Payments & Protections */}
-          <div className="rounded-xl border border-amber-500/10 bg-gradient-to-b from-amber-500/[0.03] to-transparent p-6">
+          <div className="rounded-xl border border-sky-500/10 bg-gradient-to-b from-sky-500/[0.03] to-transparent p-6">
             <div className="flex items-center gap-2 mb-4">
               <span className="text-lg">💳</span>
               <h2 className="text-sm font-bold text-[var(--foreground)]">How Payments Work</h2>
@@ -68,27 +68,27 @@ export default function AboutPage() {
             <p className="text-xs text-[var(--muted)] mb-4">Sellers choose how buyers pay when listing an item. All card payments go directly to the seller&apos;s Stripe Express account — Sky Drop never holds your money.</p>
             <div className="space-y-4">
               <div className="rounded-lg bg-zinc-900/40 px-4 py-3">
-                <p className="text-sm font-bold text-amber-400">💳 Stripe Checkout</p>
+                <p className="text-sm font-bold text-sky-400">💳 Stripe Checkout</p>
                 <p className="mt-1 text-xs text-[var(--muted)]">Buy Now pays by card through Stripe. Funds go straight to the seller&apos;s Stripe Express account via destination charges. A $1 buyer protection fee is added. Disputes handled from your Purchases page.</p>
               </div>
 
               <div className="rounded-lg bg-zinc-900/40 px-4 py-3">
-                <p className="text-sm font-bold text-amber-400">🤝 Arrange Purchase</p>
+                <p className="text-sm font-bold text-sky-400">🤝 Arrange Purchase</p>
                 <p className="mt-1 text-xs text-[var(--muted)]">Tap Purchase to open a chat and agree payment — bank transfer, cash, or pickup. Payment happens directly between you and the seller. No card checkout, no dispute protection.</p>
               </div>
 
               <div className="rounded-lg bg-zinc-900/40 px-4 py-3">
-                <p className="text-sm font-bold text-amber-400">⚖️ Dispute resolution (Stripe only)</p>
+                <p className="text-sm font-bold text-sky-400">⚖️ Dispute resolution (Stripe only)</p>
                 <p className="mt-1 text-xs text-[var(--muted)]">For Stripe Checkout orders, open a dispute within 7 days if something goes wrong. An admin reviews the case and can issue a refund through Stripe. Arrange Purchases are between you and the seller.</p>
               </div>
 
               <div className="rounded-lg bg-zinc-900/40 px-4 py-3">
-                <p className="text-sm font-bold text-amber-400">🛡️ Content moderation</p>
+                <p className="text-sm font-bold text-sky-400">🛡️ Content moderation</p>
                 <p className="mt-1 text-xs text-[var(--muted)]">Listings are scanned for scam language, suspicious pricing, and duplicates before going live. Sellers verify email and phone. Stripe Express is required only for Stripe Checkout listings.</p>
               </div>
 
               <div className="rounded-lg bg-zinc-900/40 px-4 py-3">
-                <p className="text-sm font-bold text-amber-400">💬 Messaging safety</p>
+                <p className="text-sm font-bold text-sky-400">💬 Messaging safety</p>
                 <p className="mt-1 text-xs text-[var(--muted)]">Our messaging system warns if someone tries to move the conversation off-platform. Keep communication on Sky Drop to stay protected. Only verified buyers can leave reviews.</p>
               </div>
             </div>

@@ -43,10 +43,10 @@ const DISPUTE_REASON_LABELS: Record<string, string> = {
 
 const STATUS_STYLES: Record<string, string> = {
   open: "bg-red-500/10 text-red-400 border-red-500/20",
-  under_review: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-  resolved_buyer: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  under_review: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+  resolved_buyer: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   resolved_seller: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20",
-  refunded: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  refunded: "bg-sky-500/10 text-sky-400 border-sky-500/20",
 };
 
 export default function AdminDisputesPage() {
@@ -186,13 +186,13 @@ export default function AdminDisputesPage() {
             <p className="text-sm text-[var(--muted)]">Open</p>
             <p className="mt-1 text-3xl font-black text-red-400">{disputes.filter(d => d.status === "open").length}</p>
           </div>
-          <div className="rounded-2xl border border-amber-500/20 bg-[var(--card)] p-5 shadow-xl">
+          <div className="rounded-2xl border border-sky-500/20 bg-[var(--card)] p-5 shadow-xl">
             <p className="text-sm text-[var(--muted)]">Under Review</p>
-            <p className="mt-1 text-3xl font-black text-amber-400">{disputes.filter(d => d.status === "under_review").length}</p>
+            <p className="mt-1 text-3xl font-black text-sky-400">{disputes.filter(d => d.status === "under_review").length}</p>
           </div>
-          <div className="rounded-2xl border border-emerald-500/20 bg-[var(--card)] p-5 shadow-xl">
+          <div className="rounded-2xl border border-sky-500/20 bg-[var(--card)] p-5 shadow-xl">
             <p className="text-sm text-[var(--muted)]">Refunded</p>
-            <p className="mt-1 text-3xl font-black text-emerald-400">{disputes.filter(d => d.status === "refunded").length}</p>
+            <p className="mt-1 text-3xl font-black text-sky-400">{disputes.filter(d => d.status === "refunded").length}</p>
           </div>
           <div className="rounded-2xl border border-zinc-500/20 bg-[var(--card)] p-5 shadow-xl">
             <p className="text-sm text-[var(--muted)]">Total</p>
@@ -228,7 +228,7 @@ export default function AdminDisputesPage() {
                           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-[var(--muted)]">
                             <span>Buyer: <span className="font-bold text-[var(--foreground)]">{d.buyerEmail}</span></span>
                             <span>Seller: <span className="font-bold text-[var(--foreground)]">{d.sellerEmail}</span></span>
-                            <span>Amount: <span className="font-bold text-emerald-400">${Number(d.listingPrice).toFixed(2)}</span></span>
+                            <span>Amount: <span className="font-bold text-sky-400">${Number(d.listingPrice).toFixed(2)}</span></span>
                             <span>Reason: <span className="font-bold text-red-400">{DISPUTE_REASON_LABELS[d.reason] || d.reason}</span></span>
                             {d.createdAt?.toDate && (
                               <span>{d.createdAt.toDate().toLocaleDateString()}</span>
@@ -240,7 +240,7 @@ export default function AdminDisputesPage() {
                       <div className="mt-4 flex flex-wrap gap-2">
                         {d.status === "open" && (
                           <button onClick={() => handleReview(d.id)} disabled={actionLoading === d.id}
-                            className="rounded-xl bg-amber-500/15 px-4 py-2 text-xs font-bold text-amber-400 transition hover:bg-amber-500/25 disabled:opacity-50">
+                            className="rounded-xl bg-sky-500/15 px-4 py-2 text-xs font-bold text-sky-400 transition hover:bg-sky-500/25 disabled:opacity-50">
                             {actionLoading === d.id ? "..." : "Mark Under Review"}
                           </button>
                         )}
@@ -249,7 +249,7 @@ export default function AdminDisputesPage() {
                           Resolve in Seller's Favor
                         </button>
                         <button onClick={() => { setRefundModal(d); }}
-                          className="rounded-xl bg-emerald-500/15 px-4 py-2 text-xs font-bold text-emerald-400 transition hover:bg-emerald-500/25">
+                          className="rounded-xl bg-sky-500/15 px-4 py-2 text-xs font-bold text-sky-400 transition hover:bg-sky-500/25">
                           Issue Refund
                         </button>
                       </div>
@@ -298,7 +298,7 @@ export default function AdminDisputesPage() {
             <div className="mt-4 flex gap-3">
               <button onClick={() => setRefundModal(null)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700 active:scale-[0.97] transition-all">Cancel</button>
               <button onClick={() => handleRefund(refundModal)} disabled={actionLoading === refundModal.id}
-                className="flex-1 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:shadow-xl active:scale-[0.97] disabled:opacity-50">
+                className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 to-sky-500 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97] disabled:opacity-50">
                 {actionLoading === refundModal.id ? "Processing..." : `Refund $${Number(refundModal.listingPrice).toFixed(2)}`}
               </button>
             </div>

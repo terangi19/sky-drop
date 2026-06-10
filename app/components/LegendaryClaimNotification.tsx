@@ -56,7 +56,7 @@ export default function LegendaryClaimNotification() {
           {/* Content */}
           <div className="relative z-10 flex items-center justify-center h-full px-4">
             <div className={`
-              max-w-lg w-full rounded-2xl border border-amber-500/20 bg-zinc-950/95 backdrop-blur-2xl p-8 text-center shadow-2xl
+              max-w-lg w-full rounded-2xl border border-sky-500/20 bg-zinc-950/95 backdrop-blur-2xl p-8 text-center shadow-2xl
               transition-all duration-500
               ${animState === "entering" ? "scale-75 opacity-0 translate-y-8" : "scale-100 opacity-100 translate-y-0"}
               ${animState === "exiting" ? "scale-95 opacity-0 translate-y-4" : ""}
@@ -68,27 +68,27 @@ export default function LegendaryClaimNotification() {
               {claim.allClaimed ? (
                 <>
                   <div className="text-3xl mb-3 select-none" style={{ animation: "legendary-glow 1.5s ease-in-out infinite" }}>👑</div>
-                  <h2 className="text-lg font-black text-amber-300 tracking-wide">
+                  <h2 className="text-lg font-black text-sky-300 tracking-wide">
                     👑 THE FIVE
                   </h2>
-                  <h2 className="text-lg font-black text-amber-300 tracking-wide">
+                  <h2 className="text-lg font-black text-sky-300 tracking-wide">
                     HAVE BEEN CLAIMED
                   </h2>
                   <div className="mt-3 flex items-center justify-center gap-2">
                     {[1,2,3,4,5].map((i) => (
-                      <span key={i} className="text-lg text-amber-400/60">👑</span>
+                      <span key={i} className="text-lg text-sky-400/60">👑</span>
                     ))}
                   </div>
                   <p className="mt-4 text-xs text-[var(--muted)] leading-relaxed">
                     👑 The Five are gone forever.<br />
                     Those who hold one are now part of Sky Drop history.
                   </p>
-                  <div className="mt-4 h-px bg-gradient-to-r from-transparent via-amber-500/30 to-transparent" />
+                  <div className="mt-4 h-px bg-gradient-to-r from-transparent via-sky-500/30 to-transparent" />
                 </>
               ) : (
                 <>
                   <div className="text-2xl mb-2 select-none">⚡</div>
-                  <h2 className="text-sm font-black text-amber-300 tracking-widest uppercase">
+                  <h2 className="text-sm font-black text-sky-300 tracking-widest uppercase">
                     👑 The Five Has Been Obtained
                   </h2>
                   <p className="mt-4 text-xl font-black text-[var(--foreground)]">
@@ -100,17 +100,17 @@ export default function LegendaryClaimNotification() {
                   <div className="mt-5 flex items-center justify-center gap-3">
                     {[1,2,3,4,5].map((i) => (
                       <span key={i} className={`text-base transition-all duration-300 ${
-                        i <= claim.count ? "text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.5)]" : "text-zinc-700"
+                        i <= claim.count ? "text-sky-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.5)]" : "text-zinc-700"
                       }`}>
                         👑
                       </span>
                     ))}
                   </div>
-                  <p className="mt-2 text-sm font-bold text-amber-400/80">
+                  <p className="mt-2 text-sm font-bold text-sky-400/80">
                     {claim.count} / 5 Claimed
                   </p>
                   <p className="mt-1 text-[10px] text-[var(--muted)]">{5 - claim.count} remaining</p>
-                  <div className="mt-4 h-px bg-gradient-to-r from-transparent via-amber-500/30 to-transparent" />
+                  <div className="mt-4 h-px bg-gradient-to-r from-transparent via-sky-500/30 to-transparent" />
                 </>
               )}
             </div>

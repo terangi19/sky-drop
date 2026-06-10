@@ -13,12 +13,12 @@ export default function AwhinaOnlineBadge({ centered = false, className = "" }: 
       <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-sky-300">
         {AWHINA_NAME} · online
       </span>
-      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/[0.08] px-1.5 py-0.5">
+      <span className="inline-flex items-center gap-1 rounded-full border border-sky-500/20 bg-sky-500/[0.08] px-1.5 py-0.5">
         <span className="relative flex h-1.5 w-1.5">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/60" />
-          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400/60" />
+          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-sky-400" />
         </span>
-        <span className="text-[9px] font-semibold uppercase tracking-wider text-emerald-400/90">
+        <span className="text-[9px] font-semibold uppercase tracking-wider text-sky-400/90">
           Live
         </span>
       </span>

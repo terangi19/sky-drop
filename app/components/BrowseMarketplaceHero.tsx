@@ -7,7 +7,6 @@ import BrowseAwhinaAssistantPanel from "./BrowseAwhinaAssistantPanel";
 type Props = {
   badge: string;
   title: string;
-  subtitle: string;
   children?: ReactNode;
   showAssistantPanel?: boolean;
 };
@@ -16,7 +15,6 @@ type Props = {
 export default function BrowseMarketplaceHero({
   badge,
   title,
-  subtitle,
   children,
   showAssistantPanel = true,
 }: Props) {
@@ -27,14 +25,13 @@ export default function BrowseMarketplaceHero({
       <div className={`absolute inset-0 ${t.radial} pointer-events-none`} />
       <div className="relative flex flex-col items-center px-5 py-5 sm:px-8 sm:py-7 text-center">
         <div className={t.badge}>{badge}</div>
-        <h1 className="text-3xl font-black tracking-tight sm:text-4xl lg:text-5xl leading-none">
+        <h1 className="text-3xl font-black tracking-tight sm:text-4xl lg:text-5xl 3xl:text-6xl 4xl:text-7xl leading-none">
           <span
             className={`bg-gradient-to-r bg-clip-text text-transparent ${t.titleGradient} ${t.titleDropShadow}`}
           >
             {title}
           </span>
         </h1>
-        <p className="mt-2 max-w-2xl mx-auto text-sm leading-snug text-white">{subtitle}</p>
         {showAssistantPanel && <BrowseAwhinaAssistantPanel />}
         {children}
       </div>

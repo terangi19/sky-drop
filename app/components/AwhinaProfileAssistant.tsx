@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AWHINA_NAME, AWHINA_THINKING } from "../lib/awhina-brand";
 import { getFreshIdToken } from "../lib/api-auth";
 import {
-  SKY_AI_PROFILE_QUICK_PROMPTS,
-  SKY_AI_PROFILE_WELCOME,
+  SKY_AI_QUICK_PROMPTS,
+  SKY_AI_WELCOME,
 } from "../lib/sky-ai-prompts";
 import { readProfileDraftFromSkyAi, syncProfileDraftToSkyAi } from "../lib/sky-ai-profile-context";
 import {
@@ -38,11 +38,11 @@ function DraftCheckItem({ done, label }: { done: boolean; label: string }) {
     <span
       className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
         done
-          ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-300"
+          ? "border-sky-500/25 bg-sky-500/10 text-sky-300"
           : "border-white/[0.06] bg-white/[0.02] text-zinc-500"
       }`}
     >
-      <span className={done ? "text-emerald-400" : "text-zinc-600"}>{done ? "✓" : "○"}</span>
+      <span className={done ? "text-sky-400" : "text-zinc-600"}>{done ? "✓" : "○"}</span>
       {label}
     </span>
   );
@@ -50,7 +50,7 @@ function DraftCheckItem({ done, label }: { done: boolean; label: string }) {
 
 export default function AwhinaProfileAssistant({ draft, onApplyFill, className = "" }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: WELCOME_ID, role: "assistant", text: SKY_AI_PROFILE_WELCOME },
+    { id: WELCOME_ID, role: "assistant", text: SKY_AI_WELCOME },
   ]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -262,7 +262,7 @@ export default function AwhinaProfileAssistant({ draft, onApplyFill, className =
         </div>
 
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {SKY_AI_PROFILE_QUICK_PROMPTS.map((p) => (
+          {SKY_AI_QUICK_PROMPTS.map((p) => (
             <button
               key={p.label}
               type="button"

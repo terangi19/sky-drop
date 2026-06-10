@@ -18,6 +18,7 @@ export const AWHINA_GUIDE_EXCLUDED_PATHS = new Set([
   "/terms",
   "/privacy",
   "/profile",
+  "/login",
 ]);
 
 /** Category browse pages — inline Āwhina assistant under the page header. */

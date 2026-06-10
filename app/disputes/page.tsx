@@ -19,10 +19,10 @@ const DISPUTE_LABELS: Record<string, string> = {
 
 const DISPUTE_STYLES: Record<string, string> = {
   open: "bg-red-500/10 text-red-400 border-red-500/20",
-  under_review: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-  resolved_buyer: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  under_review: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+  resolved_buyer: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   resolved_seller: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20",
-  refunded: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  refunded: "bg-sky-500/10 text-sky-400 border-sky-500/20",
 };
 
 const REASON_LABELS: Record<string, string> = {
@@ -73,7 +73,7 @@ export default function DisputesPage() {
           Back
         </Link>
         <div className="relative mb-8 text-center">
-          <div className="absolute -inset-20 bg-gradient-to-r from-red-500/5 via-orange-500/5 to-transparent blur-3xl pointer-events-none" />
+          <div className="absolute -inset-20 bg-gradient-to-r from-red-500/5 via-sky-500/5 to-transparent blur-3xl pointer-events-none" />
           <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
             <span className="bg-gradient-to-r from-white via-red-100 to-white bg-clip-text text-transparent">My Disputes</span>
           </h1>
@@ -99,7 +99,7 @@ export default function DisputesPage() {
             </div>
             <h2 className="text-2xl font-black tracking-tight text-white">No disputes</h2>
             <p className="mt-2 text-sm text-zinc-500">If you have an issue with a purchase, go to your purchases page to open a dispute.</p>
-            <Link href="/purchases" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-red-500 to-orange-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-red-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-red-500/30 active:scale-[0.97]">
+            <Link href="/purchases" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-red-500 to-sky-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-red-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-red-500/30 active:scale-[0.97]">
               View Purchases
             </Link>
           </div>
@@ -112,7 +112,7 @@ export default function DisputesPage() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="text-sm font-bold text-[var(--foreground)] line-clamp-1">{d.listingTitle}</p>
-                        <p className="mt-0.5 text-sm font-semibold text-emerald-400">${Number(d.listingPrice).toFixed(2)}</p>
+                        <p className="mt-0.5 text-sm font-semibold text-sky-400">${Number(d.listingPrice).toFixed(2)}</p>
                         <div className="mt-0.5 flex items-center gap-2 text-[11px] text-zinc-500">
                           <span>Seller: {d.sellerName || d.sellerEmail?.split("@")[0] || "Unknown"}</span>
                           <span>· {REASON_LABELS[d.reason] || d.reason}</span>

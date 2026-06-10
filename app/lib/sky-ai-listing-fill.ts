@@ -23,6 +23,11 @@ export type SkyAiListingFill = {
   price?: string;
   listingType?: string;
   location?: string;
+  pickupArea?: string;
+  pickupAvailable?: boolean;
+  shippingAvailable?: boolean;
+  acceptOffers?: boolean;
+  saleType?: string;
   paymentType?: string;
   vehicleMake?: string;
   vehicleModel?: string;

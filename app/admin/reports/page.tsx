@@ -115,9 +115,9 @@ export default function AdminReportsPage() {
             <p className="text-sm text-[var(--muted)]">Pending</p>
             <p className="mt-1 text-3xl font-black text-red-400">{pendingReports.length}</p>
           </div>
-          <div className="rounded-2xl border border-emerald-500/20 bg-[var(--card)] p-5 shadow-xl">
+          <div className="rounded-2xl border border-sky-500/20 bg-[var(--card)] p-5 shadow-xl">
             <p className="text-sm text-[var(--muted)]">Reviewed</p>
-            <p className="mt-1 text-3xl font-black text-emerald-400">{reviewedReports.length}</p>
+            <p className="mt-1 text-3xl font-black text-sky-400">{reviewedReports.length}</p>
           </div>
           <div className="rounded-2xl border border-zinc-500/20 bg-[var(--card)] p-5 shadow-xl">
             <p className="text-sm text-[var(--muted)]">Total</p>
@@ -148,7 +148,7 @@ export default function AdminReportsPage() {
                           {report.type === "listing" ? (
                             <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold text-sky-400">Listing</span>
                           ) : (
-                            <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400">User</span>
+                            <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold text-sky-400">User</span>
                           )}
                           <span className="text-lg font-bold text-[var(--foreground)] truncate">
                             {report.reportedUserEmail || report.reportedUser || "Unknown"}
@@ -174,7 +174,7 @@ export default function AdminReportsPage() {
                     <div className="mt-4 flex flex-wrap gap-2">
                       <button
                         onClick={() => handleReview(report.id)}
-                        className="rounded-xl bg-emerald-500/15 px-4 py-2 text-xs font-bold text-emerald-400 transition hover:bg-emerald-500/25"
+                        className="rounded-xl bg-sky-500/15 px-4 py-2 text-xs font-bold text-sky-400 transition hover:bg-sky-500/25"
                       >
                         Mark Reviewed
                       </button>

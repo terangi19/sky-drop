@@ -130,7 +130,7 @@ export function parseFormActionsFromMessage(message: string): SkyAiFormActions {
   return actions;
 }
 
-export function hasFormActionContent(actions: SkyAiFormActions | null | undefined): boolean {
+export function hasFormActionContent(actions: SkyAiFormActions | SkyAiListingFill | null | undefined): boolean {
   if (!actions) return false;
   return (
     actions.pickupAvailable !== undefined ||

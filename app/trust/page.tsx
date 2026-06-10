@@ -30,7 +30,7 @@ const sections = [
   {
     title: "KYC — Identity Verification",
     content:
-      "Upload your driver's licence or passport and a selfie holding it — that's all we need for ID verification. Admin reviews manually.",
+      "Upload one photo of you holding your driver's licence or passport — that's all we need for ID verification. Admin reviews manually.",
     items: [
       "Approved: list immediately (no 30-day wait), $5,000 starting cap (unlimited after 10 positive reviews), unlimited listings, +20 trust score",
       'Get an "ID Verified" badge on your profile and listings',

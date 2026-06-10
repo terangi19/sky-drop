@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { getAwhinaNavbarPageIntro } from "../lib/awhina-insights";
+import { useAwhinaPageInsight } from "../contexts/AwhinaPageInsightContext";
 import AwhinaInsightCard from "./AwhinaInsightCard";
 
 type Props = {
@@ -17,6 +18,7 @@ export default function BrowseAwhinaAssistantPanel({
   intro: introOverride,
 }: Props) {
   const pathname = usePathname();
+  const { insight } = useAwhinaPageInsight();
   const intro = useMemo(
     () => introOverride ?? getAwhinaNavbarPageIntro(pathname),
     [introOverride, pathname]
@@ -26,7 +28,7 @@ export default function BrowseAwhinaAssistantPanel({
 
   return (
     <div aria-label="Awhina Assistant Panel">
-      <AwhinaInsightCard intro={intro} className={className} />
+      <AwhinaInsightCard intro={intro} insight={insight} className={className} />
     </div>
   );
 }

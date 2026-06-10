@@ -470,7 +470,7 @@ export default function EditListingPage({
                       type="checkbox"
                       checked={freeShipping}
                       onChange={(e) => setFreeShipping(e.target.checked)}
-                      className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-emerald-500 focus:ring-emerald-500/30"
+                      className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-sky-500 focus:ring-sky-500/30"
                     />
                     <span className="text-xs text-[var(--foreground)]">Free shipping</span>
                   </label>

@@ -10,6 +10,7 @@ export function useSellerListingMeta(listings: { sellerEmail?: string }[]) {
     Record<string, { avg: number; count: number }>
   >({});
   const [sellerBadges, setSellerBadges] = useState<Record<string, string>>({});
+  const [sellerHandles, setSellerHandles] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (listings.length === 0) return;
@@ -68,6 +69,7 @@ export function useSellerListingMeta(listings: { sellerEmail?: string }[]) {
       if (uniqueEmails.length === 0 || cancelled) return;
 
       const badges: Record<string, string> = {};
+      const handles: Record<string, string> = {};
       for (let i = 0; i < uniqueEmails.length; i += 10) {
         const chunk = uniqueEmails.slice(i, i + 10);
         try {
@@ -79,12 +81,14 @@ export function useSellerListingMeta(listings: { sellerEmail?: string }[]) {
             const data = d.data();
             const email = data.email as string;
             if (data.profileBadge) badges[email] = data.profileBadge as string;
+            if (data.username) handles[email] = data.username as string;
           });
         } catch (e) {
           console.error("Badge fetch error:", e);
         }
       }
       if (!cancelled) setSellerBadges(badges);
+      if (!cancelled) setSellerHandles(handles);
     })();
 
     return () => {
@@ -92,5 +96,5 @@ export function useSellerListingMeta(listings: { sellerEmail?: string }[]) {
     };
   }, [listings]);
 
-  return { sellerReviewStats, sellerBadges };
+  return { sellerReviewStats, sellerBadges, sellerHandles };
 }

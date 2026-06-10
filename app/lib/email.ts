@@ -1,6 +1,6 @@
 interface StatusBadge {
   text: string;
-  color: "sky" | "green" | "amber" | "red" | "purple" | "emerald";
+  color: "sky" | "sky" | "sky" | "red" | "sky" | "sky";
 }
 
 interface SummaryRow {
@@ -463,25 +463,25 @@ interface EmailContent {
 }
 
 const STATUS_BADGES: Record<string, StatusBadge> = {
-  purchase:            { text: "Payment Received", color: "green" },
+  purchase:            { text: "Payment Received", color: "sky" },
   purchase_confirmation: { text: "Payment Held in Escrow", color: "sky" },
-  order_confirmed:     { text: "Seller Confirmed ✓", color: "green" },
+  order_confirmed:     { text: "Seller Confirmed ✓", color: "sky" },
   item_shipped:        { text: "In Transit", color: "sky" },
-  delivered:           { text: "Awaiting Confirmation", color: "amber" },
-  bid:                 { text: "New Bid", color: "purple" },
+  delivered:           { text: "Awaiting Confirmation", color: "sky" },
+  bid:                 { text: "New Bid", color: "sky" },
   outbid:              { text: "You've Been Outbid", color: "red" },
-  bid_confirmation:    { text: "Bid Active", color: "green" },
-  auction_won:         { text: "Auction Won", color: "green" },
+  bid_confirmation:    { text: "Bid Active", color: "sky" },
+  auction_won:         { text: "Auction Won", color: "sky" },
   auction_lost:        { text: "Not Winning", color: "red" },
-  offer:               { text: "Pending Review", color: "amber" },
-  offer_accepted:      { text: "Offer Accepted", color: "green" },
+  offer:               { text: "Pending Review", color: "sky" },
+  offer_accepted:      { text: "Offer Accepted", color: "sky" },
   offer_declined:      { text: "Declined", color: "red" },
-  payment_released:    { text: "Funds Available", color: "green" },
-  service_completed:   { text: "Complete", color: "emerald" },
-  item_returned:       { text: "Returned", color: "emerald" },
+  payment_released:    { text: "Funds Available", color: "sky" },
+  service_completed:   { text: "Complete", color: "sky" },
+  item_returned:       { text: "Returned", color: "sky" },
   listing_rejected:    { text: "Not Approved", color: "red" },
-  dispute_opened:      { text: "Under Review", color: "amber" },
-  job_application:     { text: "New Application", color: "purple" },
+  dispute_opened:      { text: "Under Review", color: "sky" },
+  job_application:     { text: "New Application", color: "sky" },
   verification:        { text: "Updated", color: "sky" },
 };
 
@@ -862,14 +862,14 @@ export function notificationToEmail(type: string, title: string, listingTitle?: 
         subject: `🎁 ${title}`,
         title: "Referral Reward Earned! 🎁",
         message: `You earned a referral reward!\n\nCheck your dashboard for details and keep sharing Sky Drop with friends to earn more.`,
-        statusBadge: { text: "Reward Earned", color: "green" },
+        statusBadge: { text: "Reward Earned", color: "sky" },
       };
     case "referral":
       return {
         subject: `🎁 ${title}`,
         title: "Someone Used Your Referral! 🎁",
         message: `Someone signed up using your referral code! You've earned a referral reward.\n\nCheck your dashboard for details and keep sharing your referral link.`,
-        statusBadge: { text: "Reward Earned", color: "green" },
+        statusBadge: { text: "Reward Earned", color: "sky" },
       };
     case "listing_rejected":
       return {

@@ -43,9 +43,9 @@ export default function PaymentsPage() {
           </a>
           <a
             href="#arrange"
-            className="rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.04] p-5 transition hover:border-emerald-500/35"
+            className="rounded-2xl border border-sky-500/20 bg-sky-500/[0.04] p-5 transition hover:border-sky-500/35"
           >
-            <p className="text-sm font-bold text-emerald-400">Arrange Purchase</p>
+            <p className="text-sm font-bold text-sky-400">Arrange Purchase</p>
             <p className="mt-1 text-xs text-[var(--muted)]">Purchase button — chat opens, you agree bank transfer, cash, pickup, etc.</p>
           </a>
         </div>
@@ -79,8 +79,8 @@ export default function PaymentsPage() {
             <Step number={4} title="If something goes wrong" description="Report via Reports with your Sky Drop chat history — we'll investigate and do our best to help you recover your money. Prefer ID-verified sellers; use Card Checkout when you want card payment and in-app disputes." />
           </div>
 
-          <div className="mt-6 rounded-2xl border border-amber-500/15 bg-amber-500/[0.04] p-5">
-            <p className="text-sm font-bold text-amber-400">Seller note</p>
+          <div className="mt-6 rounded-2xl border border-sky-500/15 bg-sky-500/[0.04] p-5">
+            <p className="text-sm font-bold text-sky-400">Seller note</p>
             <p className="mt-1 text-xs text-[var(--muted)] leading-relaxed">
               A connected payout account is only required for Card Checkout listings. Arrange Purchase listings can be sold without one.
             </p>
@@ -90,23 +90,23 @@ export default function PaymentsPage() {
         <div className="mt-12 space-y-4">
           <h2 className="text-xl font-black text-white">Trust & protections</h2>
 
-          <div className="rounded-2xl border border-emerald-500/15 bg-emerald-500/[0.04] p-5">
+          <div className="rounded-2xl border border-sky-500/15 bg-sky-500/[0.04] p-5">
             <div className="flex gap-3">
               <span className="text-xl shrink-0 mt-0.5">✅</span>
               <div>
-                <h3 className="text-sm font-bold text-emerald-400">Verified sellers</h3>
+                <h3 className="text-sm font-bold text-sky-400">Verified sellers</h3>
                 <p className="mt-1 text-xs text-[var(--muted)] leading-relaxed">
-                  Sellers verify email and phone (one number per account). Optional ID verification adds an ID Verified badge. See <Link href="/trust" className="text-emerald-400/80 underline">Trust & Safety</Link> for full details.
+                  Sellers verify email and phone (one number per account). Optional ID verification adds an ID Verified badge. See <Link href="/trust" className="text-sky-400/80 underline">Trust & Safety</Link> for full details.
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-emerald-500/15 bg-emerald-500/[0.04] p-5">
+          <div className="rounded-2xl border border-sky-500/15 bg-sky-500/[0.04] p-5">
             <div className="flex gap-3">
               <span className="text-xl shrink-0 mt-0.5">💳</span>
               <div>
-                <h3 className="text-sm font-bold text-emerald-400">Card Checkout</h3>
+                <h3 className="text-sm font-bold text-sky-400">Card Checkout</h3>
                 <p className="mt-1 text-xs text-[var(--muted)] leading-relaxed">
                   Card payments are processed securely. Disputes on paid orders are reviewed by Sky Drop; refunds are issued through our payment provider when the seller is at fault.
                 </p>
@@ -114,11 +114,11 @@ export default function PaymentsPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-emerald-500/15 bg-emerald-500/[0.04] p-5">
+          <div className="rounded-2xl border border-sky-500/15 bg-sky-500/[0.04] p-5">
             <div className="flex gap-3">
               <span className="text-xl shrink-0 mt-0.5">💬</span>
               <div>
-                <h3 className="text-sm font-bold text-emerald-400">Arrange Purchase</h3>
+                <h3 className="text-sm font-bold text-sky-400">Arrange Purchase</h3>
                 <p className="mt-1 text-xs text-[var(--muted)] leading-relaxed">
                   Messaging stays on-platform so there is a record of what was agreed. If something goes wrong, report via Reports — we&apos;ll investigate and do our best to help you recover your payment. Prefer ID-verified sellers.
                 </p>

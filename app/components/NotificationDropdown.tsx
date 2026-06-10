@@ -45,15 +45,15 @@ const TYPE_META: Record<
   },
   offer: {
     icon: "\uD83D\uDCB0",
-    color: "bg-amber-500/20",
+    color: "bg-sky-500/20",
   },
   sold: {
     icon: "\u2705",
-    color: "bg-emerald-500/20",
+    color: "bg-sky-500/20",
   },
   verification: {
     icon: "\uD83D\uDD10",
-    color: "bg-violet-500/20",
+    color: "bg-sky-500/20",
   },
   warning: {
     icon: "\u26A0\uFE0F",
@@ -61,7 +61,7 @@ const TYPE_META: Record<
   },
   watchlist: {
     icon: "\u2B50",
-    color: "bg-yellow-500/20",
+    color: "bg-sky-500/20",
   },
 };
 
@@ -250,13 +250,13 @@ export default function NotificationDropdown({
                         )}
                         {notification.type ===
                           "offer" && (
-                          <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[8px] font-medium text-amber-400">
+                          <span className="rounded-full bg-sky-500/10 px-1.5 py-0.5 text-[8px] font-medium text-sky-400">
                             Offer
                           </span>
                         )}
                         {notification.type ===
                           "sold" && (
-                          <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[8px] font-medium text-emerald-400">
+                          <span className="rounded-full bg-sky-500/10 px-1.5 py-0.5 text-[8px] font-medium text-sky-400">
                             Sold
                           </span>
                         )}

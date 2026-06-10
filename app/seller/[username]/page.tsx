@@ -372,7 +372,7 @@ export default function SellerPage() {
                 {profile.photoURL ? (
                   <img src={profile.photoURL} alt="" className="h-[72px] w-[72px] sm:h-24 sm:w-24 rounded-xl border-[3px] border-zinc-900 object-cover shadow-[0_0_20px_rgba(14,165,233,0.2)]" />
                 ) : (
-                  <div className="flex h-[72px] w-[72px] sm:h-24 sm:w-24 items-center justify-center rounded-xl border-[3px] border-zinc-900 bg-gradient-to-br from-sky-500 via-violet-500 to-purple-600 text-2xl sm:text-3xl font-black text-[var(--foreground)] shadow-[0_0_20px_rgba(14,165,233,0.2)]">{initial}</div>
+                  <div className="flex h-[72px] w-[72px] sm:h-24 sm:w-24 items-center justify-center rounded-xl border-[3px] border-zinc-900 bg-gradient-to-br from-sky-500 via-sky-500 to-sky-600 text-2xl sm:text-3xl font-black text-[var(--foreground)] shadow-[0_0_20px_rgba(14,165,233,0.2)]">{initial}</div>
                 )}
               </div>
 
@@ -396,17 +396,17 @@ export default function SellerPage() {
                     </span>
                   )}
                   {profile.topTrader && (
-                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-400 ring-1 ring-amber-500/25">Top Trader</span>
+                    <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold text-sky-400 ring-1 ring-sky-500/25">Top Trader</span>
                   )}
                   {profile.profileBadge === "epic" && (
-                    <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-[10px] font-bold text-violet-400 ring-1 ring-violet-500/25">💎 Epic</span>
+                    <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold text-sky-400 ring-1 ring-sky-500/25">💎 Epic</span>
                   )}
                   {profile.profileBadge === "legendary" && (
-                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-400 ring-1 ring-amber-500/25 shadow-[0_0_8px_rgba(251,146,60,0.2)] animate-breathe-orange">👑 The Five</span>
+                    <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold text-sky-400 ring-1 ring-sky-500/25 shadow-[0_0_8px_rgba(251,146,60,0.2)] animate-breathe-sky">👑 The Five</span>
                   )}
                   {!profile.hideOnline && (
-                    <span className="flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" /> Online
+                    <span className="flex items-center gap-1 rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold text-sky-400">
+                      <span className="h-1.5 w-1.5 rounded-full bg-sky-500 animate-pulse" /> Online
                     </span>
                   )}
                 </div>
@@ -419,11 +419,11 @@ export default function SellerPage() {
 
                 {/* Badges */}
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  {profile.trustedSeller && <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[9px] font-bold text-emerald-400">Trusted Seller</span>}
+                  {profile.trustedSeller && <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[9px] font-bold text-sky-400">Trusted Seller</span>}
                   {profile.fastReply && <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[9px] font-bold text-sky-400">Fast Reply</span>}
                   {profile.phoneVerified && <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[9px] font-bold text-sky-400">Phone ✓</span>}
-                  {profile.profileBadge === "epic" && <span className="rounded-full bg-violet-500/15 px-2 py-0.5 text-[9px] font-bold text-violet-400 ring-1 ring-violet-500/25">💎 Epic</span>}
-                  {profile.profileBadge === "legendary" && <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[9px] font-bold text-amber-400 ring-1 ring-amber-500/25 shadow-[0_0_8px_rgba(251,146,60,0.2)] animate-breathe-orange">👑 The Five</span>}
+                  {profile.profileBadge === "epic" && <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[9px] font-bold text-sky-400 ring-1 ring-sky-500/25">💎 Epic</span>}
+                  {profile.profileBadge === "legendary" && <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[9px] font-bold text-sky-400 ring-1 ring-sky-500/25 shadow-[0_0_8px_rgba(251,146,60,0.2)] animate-breathe-sky">👑 The Five</span>}
                 </div>
 
                 {/* Stats row */}
@@ -470,7 +470,7 @@ export default function SellerPage() {
                 {!isOwn && currentUser && (
                   <div className="mt-3 flex items-center gap-3">
                     <button onClick={() => setShowReportModal(true)}
-                      className="flex items-center gap-1.5 text-xs text-[var(--muted)] transition hover:text-amber-400">
+                      className="flex items-center gap-1.5 text-xs text-[var(--muted)] transition hover:text-sky-400">
                       <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0l2.77-.693a9 9 0 016.208.682l.108.054a9 9 0 006.086.71l3.114-.732a48.524 48.524 0 01-.005-10.499l-3.11.732a9 9 0 01-6.085-.711l-.108-.054a9 9 0 00-6.208-.682L3 4.5M3 15V4.5" />
                       </svg>
@@ -591,11 +591,11 @@ export default function SellerPage() {
                           <div className="flex h-24 items-center justify-center bg-zinc-700/30 text-xs font-medium text-[var(--muted)]">No image</div>
                         )}
                         <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                          <span className="rounded-full bg-emerald-600/90 px-3 py-1 text-[10px] font-black text-[var(--foreground)]">Sold</span>
+                          <span className="rounded-full bg-sky-600/90 px-3 py-1 text-[10px] font-black text-[var(--foreground)]">Sold</span>
                         </div>
                         <div className="p-2.5">
                           <p className="truncate text-xs font-bold text-[var(--foreground)]">{item.title}</p>
-                          <p className="mt-0.5 text-xs font-bold text-emerald-400">${item.price}</p>
+                          <p className="mt-0.5 text-xs font-bold text-sky-400">${item.price}</p>
                         </div>
                       </div>
                     ))}
@@ -647,27 +647,27 @@ export default function SellerPage() {
                   )}
                   {profile.trustedSeller && (
                     <div className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/20 text-[10px]">★</span>
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-500/20 text-[10px]">★</span>
                       <div>
-                        <p className="text-xs font-bold text-emerald-400">Trusted Trader</p>
+                        <p className="text-xs font-bold text-sky-400">Trusted Trader</p>
                         <p className="text-[10px] text-[var(--muted)]">Elite seller status</p>
                       </div>
                     </div>
                   )}
                   {profile.profileBadge === "epic" && (
                     <div className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-violet-500/20 text-[10px]">💎</span>
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-500/20 text-[10px]">💎</span>
                       <div>
-                        <p className="text-xs font-bold text-violet-400">Epic Seller</p>
+                        <p className="text-xs font-bold text-sky-400">Epic Seller</p>
                         <p className="text-[10px] text-[var(--muted)]">Earned from Sky Crate</p>
                       </div>
                     </div>
                   )}
                   {profile.profileBadge === "legendary" && (
                     <div className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500/20 text-[10px] animate-breathe-orange">👑</span>
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-500/20 text-[10px] animate-breathe-sky">👑</span>
                       <div>
-                        <p className="text-xs font-bold text-amber-400">The Five</p>
+                        <p className="text-xs font-bold text-sky-400">The Five</p>
                         <p className="text-[10px] text-[var(--muted)]">Ultimate Sky Crate reward</p>
                       </div>
                     </div>
@@ -711,7 +711,7 @@ export default function SellerPage() {
                         <div key={n} className="flex items-center gap-2 text-[11px]">
                           <span className="w-4 font-bold text-[var(--muted)]">{n}</span>
                           <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-700/40">
-                            <div className="h-full rounded-full bg-amber-500/70 transition-all duration-300" style={{ width: `${pct}%` }} />
+                            <div className="h-full rounded-full bg-sky-500/70 transition-all duration-300" style={{ width: `${pct}%` }} />
                           </div>
                           <span className="w-4 text-right font-medium text-[var(--muted)]">{count}</span>
                         </div>

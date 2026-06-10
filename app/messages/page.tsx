@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
-import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import ThemeToggle from "../components/ThemeToggle";
+import BrowseAwhinaAssistantPanel from "../components/BrowseAwhinaAssistantPanel";
+import { PAGE_SHELL_CHAT } from "../lib/page-layout";
 import {
   addDoc,
   collection,
@@ -916,7 +917,7 @@ function MessagesPage() {
             </p>
             <div className="mt-4 flex gap-3">
               <button onClick={() => { setScamWarning(false); setPendingMessage(""); }} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700">Edit Message</button>
-              <button onClick={sendPendingMessage} className="flex flex-1 items-center justify-center rounded-xl bg-amber-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-amber-400">Send Anyway</button>
+              <button onClick={sendPendingMessage} className="flex flex-1 items-center justify-center rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-sky-400">Send Anyway</button>
             </div>
           </div>
         </div>
@@ -924,9 +925,9 @@ function MessagesPage() {
       {/* Risky keyword warning */}
       {showSafetyWarning && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setShowSafetyWarning(false)}>
-          <div className="mx-4 w-full max-w-md rounded-2xl border border-amber-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="mx-4 w-full max-w-md rounded-2xl border border-sky-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-black text-amber-400">&#9888;&#65039; Payment Safety</h3>
+              <h3 className="text-lg font-black text-sky-400">&#9888;&#65039; Payment Safety</h3>
               <button onClick={() => setShowSafetyWarning(false)} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
             </div>
             <p className="mt-2 text-sm text-[var(--foreground)]">
@@ -934,23 +935,23 @@ function MessagesPage() {
             </p>
             <div className="mt-4 flex gap-3">
               <button onClick={() => setShowSafetyWarning(false)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700">Edit Message</button>
-              <button onClick={() => { setShowSafetyWarning(false); sendMessage(true); }} className="flex flex-1 items-center justify-center rounded-xl bg-amber-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-amber-400">Send Anyway</button>
+              <button onClick={() => { setShowSafetyWarning(false); sendMessage(true); }} className="flex flex-1 items-center justify-center rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-sky-400">Send Anyway</button>
             </div>
           </div>
         </div>
       )}
-      <section className="relative z-10 mx-auto flex max-w-7xl px-6 py-12">
-        <div className="flex h-[calc(100dvh-12rem)] w-full overflow-hidden rounded-[40px] border border-[var(--card-border)] bg-[var(--card)] shadow-2xl backdrop-blur-xl">
+      <section className={`${PAGE_SHELL_CHAT} py-6 sm:py-8`}>
+        <div className="flex h-[calc(100dvh-10rem)] w-full overflow-hidden rounded-[40px] border border-[var(--card-border)] bg-[var(--card)] shadow-2xl backdrop-blur-xl">
           {/* SIDEBAR */}
           <div className={`flex w-[340px] flex-col border-r border-[var(--card-border)] ${isMobile && mobileView === "chat" ? "hidden" : "flex"} ${isMobile ? "w-full" : ""}`}>
             <div className="border-b border-[var(--card-border)] p-5">
               <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h1 className="text-2xl font-black text-sky-400">Inbox</h1>
-                  <AwhinaUnderHeader className="mt-2" />
-                </div>
+                <h1 className="text-2xl font-black text-sky-400">Inbox</h1>
                 {messages.length > 0 && (
-                  <button onClick={() => setClearAllConfirm(true)} className="text-[10px] text-red-400 underline decoration-red-400/30 underline-offset-2 transition hover:text-red-300 hover:decoration-red-400/60">
+                  <button
+                    onClick={() => setClearAllConfirm(true)}
+                    className="text-[10px] text-red-400 underline decoration-red-400/30 underline-offset-2 transition hover:text-red-300 hover:decoration-red-400/60"
+                  >
                     Clear all
                   </button>
                 )}
@@ -975,6 +976,9 @@ function MessagesPage() {
                 </button>
               </div>
 
+              {isMobile && !chatUser && (
+                <BrowseAwhinaAssistantPanel className="mt-3 mb-0 w-full text-left" />
+              )}
             </div>
             <div className="flex-1 overflow-y-auto scrollbar-thin">
               {loading ? (
@@ -1082,9 +1086,9 @@ function MessagesPage() {
                               <>
                                 <p className="mt-0.5 text-[10px] text-[var(--muted)]">
                                   {sellerProfile.verified && <span className="text-sky-400">Verified &#10003;</span>}
-                                  {sellerProfile.trustedSeller && <span className="ml-1 text-emerald-400">Trusted</span>}
-                                  {sellerProfile.profileBadge === "epic" && <span className="ml-1 text-violet-400 font-bold">💎 Epic</span>}
-                                  {sellerProfile.profileBadge === "legendary" && <span className="ml-1 text-amber-400 font-bold animate-pulse">👑 The Five</span>}
+                                  {sellerProfile.trustedSeller && <span className="ml-1 text-sky-400">Trusted</span>}
+                                  {sellerProfile.profileBadge === "epic" && <span className="ml-1 text-sky-400 font-bold">💎 Epic</span>}
+                                  {sellerProfile.profileBadge === "legendary" && <span className="ml-1 text-sky-400 font-bold animate-pulse">👑 The Five</span>}
                                 </p>
                                 <p className="mt-1 text-[11px] text-[var(--muted)]">{sellerProfile.sales || 0} sales</p>
                                 {sellerProfile.memberSince && (
@@ -1114,8 +1118,8 @@ function MessagesPage() {
                       {sellerTrust && (
                         <p className="text-[10px] text-[var(--muted)]">
                           {sellerProfile?.verified && <span className="text-sky-400">Verified &#10003;</span>}
-                          {sellerProfile?.profileBadge === "epic" && <span className="ml-1 text-violet-400 font-bold">💎 Epic</span>}
-                          {sellerProfile?.profileBadge === "legendary" && <span className="ml-1 text-amber-400 font-bold animate-pulse">👑 The Five</span>}
+                          {sellerProfile?.profileBadge === "epic" && <span className="ml-1 text-sky-400 font-bold">💎 Epic</span>}
+                          {sellerProfile?.profileBadge === "legendary" && <span className="ml-1 text-sky-400 font-bold animate-pulse">👑 The Five</span>}
                           {sellerTrust && <> &#8226; {sellerTrust.score}% Trust</>}
                           {listingCard?.replyTime && <> &#8226; Replies in {listingCard.replyTime}m</>}
                         </p>
@@ -1171,14 +1175,17 @@ function MessagesPage() {
             </div>
             {/* Empty state */}
             {!chatUser ? (
-              <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-                <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-sky-500/10">
-                  <svg className="h-7 w-7 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                  </svg>
+              <div className="flex flex-1 flex-col items-center justify-center px-6 py-8">
+                <div className="w-full max-w-md text-center">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-500/10">
+                    <svg className="h-6 w-6 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                  </div>
+                  <h3 className="mt-4 text-lg font-bold text-[var(--foreground)]">Select a conversation</h3>
+                  <p className="mt-1 text-[12px] text-[var(--muted)]">Pick a thread from the left to start messaging.</p>
                 </div>
-                <h3 className="mt-5 text-xl font-bold text-[var(--foreground)]">Select a conversation</h3>
-                <p className="mt-2 max-w-xs text-[13px] text-[var(--muted)]">Choose a conversation from the left to start trading. All your marketplace messages live here.</p>
+                <BrowseAwhinaAssistantPanel className="mt-5 mb-0 w-full max-w-md text-left" />
               </div>
             ) : (
               <>
@@ -1208,11 +1215,11 @@ function MessagesPage() {
                           )}
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className={`text-[10px] ${
-                              purchaseData?.status === "delivered" || purchaseData?.status === "completed" ? "text-emerald-400" :
+                              purchaseData?.status === "delivered" || purchaseData?.status === "completed" ? "text-sky-400" :
                               purchaseData?.status === "shipped" ? "text-sky-400" :
-                              purchaseData?.status === "seller_confirming" ? "text-indigo-400" :
+                              purchaseData?.status === "seller_confirming" ? "text-sky-400" :
                               purchaseData?.status === "cancelled" ? "text-red-400" :
-                              "text-amber-400"
+                              "text-sky-400"
                             }`}>
                               {purchaseData?.status === "arrange_requested"
                                 ? purchaseData?.sellerEmail === user?.email
@@ -1243,7 +1250,7 @@ function MessagesPage() {
                               type="button"
                               onClick={confirmArrangeSaleInChat}
                               disabled={confirmingArrangeSale}
-                              className="shrink-0 rounded-lg bg-emerald-500 px-3 py-1.5 text-[10px] font-bold text-white transition hover:bg-emerald-400 disabled:opacity-60"
+                              className="shrink-0 rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white transition hover:bg-sky-400 disabled:opacity-60"
                             >
                               {confirmingArrangeSale ? "Updating…" : "Mark sold"}
                             </button>
@@ -1265,13 +1272,13 @@ function MessagesPage() {
                   {/* Listing context card — auction ended */}
                   {listingCard && !hasPurchaseInChat && auctionEnded && (
                     <div className={`mb-3 overflow-hidden rounded-2xl border ${
-                      isAuctionWinner ? "border-emerald-500/30 bg-emerald-500/5" : "border-amber-500/10 bg-zinc-900/60"
+                      isAuctionWinner ? "border-sky-500/30 bg-sky-500/5" : "border-sky-500/10 bg-zinc-900/60"
                     }`}>
                       {/* Winner banner */}
                       {isAuctionWinner && (
-                        <div className="flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600/20 via-emerald-500/30 to-emerald-600/20 px-4 py-3">
+                        <div className="flex items-center justify-center gap-2 bg-gradient-to-r from-sky-600/20 via-sky-500/30 to-sky-600/20 px-4 py-3">
                           <span className="text-lg">🎉</span>
-                          <span className="text-sm font-black tracking-wide text-emerald-300">CONGRATULATIONS! YOU WON</span>
+                          <span className="text-sm font-black tracking-wide text-sky-300">CONGRATULATIONS! YOU WON</span>
                           <span className="text-lg">🎉</span>
                         </div>
                       )}
@@ -1284,9 +1291,9 @@ function MessagesPage() {
                         )}
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[13px] font-bold text-[var(--foreground)]">{listingCard.title || "Listing"}</p>
-                          <p className="text-[15px] font-black text-emerald-400">${listingCard.currentBid || listingCard.price}</p>
+                          <p className="text-[15px] font-black text-sky-400">${listingCard.currentBid || listingCard.price}</p>
                           <span className={`text-[11px] font-medium ${
-                            isAuctionWinner ? "text-emerald-400" : "text-amber-400"
+                            isAuctionWinner ? "text-sky-400" : "text-sky-400"
                           }`}>
                             {isAuctionWinner ? "This listing is yours! Arrange pickup or payment below." : isAuctionSeller ? (listingCard.highestBidder ? `${listingCard.highestBidder} won` : "No bids received") : "Auction ended"}
                           </span>
@@ -1294,9 +1301,9 @@ function MessagesPage() {
                         <Link href={listingCard?.type === "service" ? "/services" : `/post/listing/${listingCard.id}`}
                           className={`shrink-0 rounded-xl px-4 py-2.5 text-[11px] font-bold shadow-lg transition hover:opacity-80 ${
                             isAuctionWinner
-                              ? "bg-gradient-to-r from-emerald-500 to-emerald-400 text-black"
+                              ? "bg-gradient-to-r from-sky-500 to-sky-400 text-black"
                               : isAuctionSeller
-                                ? listingCard.highestBidder ? "bg-amber-500 text-black" : "bg-zinc-700 text-[var(--foreground)]"
+                                ? listingCard.highestBidder ? "bg-sky-500 text-black" : "bg-zinc-700 text-[var(--foreground)]"
                                 : "bg-zinc-700 text-[var(--foreground)]"
                           }`}>
                           {isAuctionWinner ? (listingCard.saleType === "auction_buy_now" ? "Proceed to Payment" : "Arrange Pickup")
@@ -1329,7 +1336,7 @@ function MessagesPage() {
                   )}
                   {/* Listing context card — active auction */}
                   {listingCard && !hasPurchaseInChat && !auctionEnded && isAuction && listingCard?.saleType !== "buy_now" && (
-                    <div className="mb-3 overflow-hidden rounded-2xl border border-amber-500/10 bg-zinc-900/60">
+                    <div className="mb-3 overflow-hidden rounded-2xl border border-sky-500/10 bg-zinc-900/60">
                       <div className="flex items-center gap-3 p-3">
                         {listingCard.image && (
                           <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl bg-zinc-800 shadow-md">
@@ -1339,8 +1346,8 @@ function MessagesPage() {
                         )}
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[13px] font-bold text-[var(--foreground)]">{listingCard.title || "Listing"}</p>
-                          <p className="text-[15px] font-black text-amber-400">${listingCard.currentBid || listingCard.price}</p>
-                          <span className="text-[11px] font-medium text-amber-400/80">Active auction</span>
+                          <p className="text-[15px] font-black text-sky-400">${listingCard.currentBid || listingCard.price}</p>
+                          <span className="text-[11px] font-medium text-sky-400/80">Active auction</span>
                         </div>
                         <Link href={listingCard?.type === "service" ? "/services" : `/post/listing/${listingCard.id}`}
                           className="shrink-0 rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white transition hover:bg-sky-400">
@@ -1405,8 +1412,8 @@ function MessagesPage() {
                         // Offer card
                         if (msg.type === "offer") {
                           const statusColors: Record<string, string> = {
-                            pending: "text-amber-400 border-amber-500/20 bg-amber-500/10",
-                            accepted: "text-emerald-400 border-emerald-500/20 bg-emerald-500/10",
+                            pending: "text-sky-400 border-sky-500/20 bg-sky-500/10",
+                            accepted: "text-sky-400 border-sky-500/20 bg-sky-500/10",
                             declined: "text-red-400 border-red-500/20 bg-red-500/10",
                             countered: "text-sky-400 border-sky-500/20 bg-sky-500/10",
                           };
@@ -1422,10 +1429,10 @@ function MessagesPage() {
                                     </div>
                                     {/* Status badge */}
                                     <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
-                                      msg.offerStatus === "accepted" ? "bg-emerald-500/20 text-emerald-400" :
+                                      msg.offerStatus === "accepted" ? "bg-sky-500/20 text-sky-400" :
                                       msg.offerStatus === "declined" ? "bg-red-500/20 text-red-400" :
                                       msg.offerStatus === "countered" ? "bg-sky-500/20 text-sky-400" :
-                                      "bg-amber-500/20 text-amber-400"
+                                      "bg-sky-500/20 text-sky-400"
                                     }`}>
                                       {msg.offerStatus || "pending"}
                                     </span>
@@ -1440,9 +1447,9 @@ function MessagesPage() {
                                   {/* Action buttons â€” only on received pending offers */}
                                   {!isOwn && msg.offerStatus === "pending" && (
                                     <div className="mt-3 flex gap-1.5">
-                                      <button disabled={sendingOffer} onClick={() => sendOffer("accept", msg.offerAmount)} className="flex-1 rounded-lg bg-emerald-500 py-2.5 text-[10px] font-bold text-white transition hover:bg-emerald-400 disabled:opacity-50">Accept</button>
+                                      <button disabled={sendingOffer} onClick={() => sendOffer("accept", msg.offerAmount)} className="flex-1 rounded-lg bg-sky-500 py-2.5 text-[10px] font-bold text-white transition hover:bg-sky-400 disabled:opacity-50">Accept</button>
                                       <button disabled={sendingOffer} onClick={() => sendOffer("decline")} className="flex-1 rounded-lg bg-zinc-700 py-2.5 text-[10px] font-bold text-[var(--foreground)] transition hover:bg-zinc-600 disabled:opacity-50">Decline</button>
-                                      <button disabled={sendingOffer} onClick={() => sendOffer("counter", msg.offerAmount)} className="flex-1 rounded-lg bg-amber-500 py-2.5 text-[10px] font-bold text-white transition hover:bg-amber-400 disabled:opacity-50">Counter</button>
+                                      <button disabled={sendingOffer} onClick={() => sendOffer("counter", msg.offerAmount)} className="flex-1 rounded-lg bg-sky-500 py-2.5 text-[10px] font-bold text-white transition hover:bg-sky-400 disabled:opacity-50">Counter</button>
                                     </div>
                                   )}
                                   {/* Pay Now for accepted offers */}
@@ -1470,12 +1477,12 @@ function MessagesPage() {
                         // Order/confirmation card
                         if (msg.type === "order") {
                           const orderStatusBadge: Record<string, { label: string; color: string }> = {
-                            paid: { label: "Payment Confirmed", color: "text-emerald-400 border-emerald-500/20 bg-emerald-500/10" },
-                            awaiting_seller: { label: "Awaiting Seller", color: "text-amber-400 border-amber-500/20 bg-amber-500/10" },
+                            paid: { label: "Payment Confirmed", color: "text-sky-400 border-sky-500/20 bg-sky-500/10" },
+                            awaiting_seller: { label: "Awaiting Seller", color: "text-sky-400 border-sky-500/20 bg-sky-500/10" },
                             pickup_arranged: { label: "Pickup Arranged", color: "text-sky-400 border-sky-500/20 bg-sky-500/10" },
-                            shipped: { label: "Shipped", color: "text-violet-400 border-violet-500/20 bg-violet-500/10" },
-                            delivered: { label: "Delivered", color: "text-emerald-400 border-emerald-500/20 bg-emerald-500/10" },
-                            completed: { label: "Completed", color: "text-green-400 border-green-500/20 bg-green-500/10" },
+                            shipped: { label: "Shipped", color: "text-sky-400 border-sky-500/20 bg-sky-500/10" },
+                            delivered: { label: "Delivered", color: "text-sky-400 border-sky-500/20 bg-sky-500/10" },
+                            completed: { label: "Completed", color: "text-sky-400 border-sky-500/20 bg-sky-500/10" },
                             disputed: { label: "Disputed", color: "text-red-400 border-red-500/20 bg-red-500/10" },
                           };
                           const badge = orderStatusBadge[msg.orderStatus || "paid"] || orderStatusBadge.paid;
@@ -1486,8 +1493,8 @@ function MessagesPage() {
                                   <div className="p-4">
                                     <div className="flex items-center justify-between mb-3">
                                       <div className="flex items-center gap-2">
-                                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/20">
-                                          <svg className="h-3.5 w-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-sky-500/20">
+                                          <svg className="h-3.5 w-3.5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                           </svg>
                                         </div>
@@ -1504,7 +1511,7 @@ function MessagesPage() {
                                       </div>
                                       <div className="flex items-center justify-between">
                                         <span className="text-[11px] text-[var(--muted)]">Amount</span>
-                                        <span className="text-[15px] font-black text-emerald-400">${msg.listingPrice || "â€”"}</span>
+                                        <span className="text-[15px] font-black text-sky-400">${msg.listingPrice || "â€”"}</span>
                                       </div>
                                       <div className="flex items-center justify-between">
                                         <span className="text-[11px] text-[var(--muted)]">Status</span>
@@ -1611,7 +1618,7 @@ function MessagesPage() {
                         if (msg.type === "system" && msg.sender === "system") {
                           return (
                             <div key={msg.id} className="flex justify-center">
-                              <div className="max-w-[90%] rounded-xl border border-emerald-500/15 bg-emerald-500/5 px-4 py-3 text-left">
+                              <div className="max-w-[90%] rounded-xl border border-sky-500/15 bg-sky-500/5 px-4 py-3 text-left">
                                 <p className="whitespace-pre-line text-[13px] leading-relaxed text-[var(--foreground)]">
                                   {formatMessageText(msg.text)}
                                 </p>
@@ -1632,7 +1639,7 @@ function MessagesPage() {
                                   <span className="mb-1.5 inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[9px] font-bold text-red-400" title={`Flagged: ${check.keywords.join(", ")}`}>&#9888;&#65039; Caution</span>
                                 ) : null; })()}
                                 {!isOwn && containsRiskyKeywords(msg.text || "") && (
-                                  <span className="mb-1.5 inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[9px] font-bold text-amber-400">&#9888;&#65039; Off-platform mention</span>
+                                  <span className="mb-1.5 inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-[9px] font-bold text-sky-400">&#9888;&#65039; Off-platform mention</span>
                                 )}
                                 <p className="break-words whitespace-pre-line text-[14px] leading-relaxed">{formatMessageText(msg.text)}</p>
                                 {/* Status + timestamp */}
@@ -1689,7 +1696,7 @@ function MessagesPage() {
                     <div className="mb-2 flex items-center gap-2">
                       <input type="number" placeholder="Offer amount..." value={offerAmount} onChange={(e) => setOfferAmount(e.target.value)}
                         className="flex-1 rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] px-4 py-2 text-[13px] text-[var(--foreground)] outline-none transition focus:border-sky-400" />
-                      <button onClick={() => { sendOffer("make", offerAmount); setShowOfferInput(false); setOfferAmount(""); }} className="rounded-xl bg-emerald-500 px-4 py-2 text-[11px] font-bold text-white hover:bg-emerald-400">Send Offer</button>
+                      <button onClick={() => { sendOffer("make", offerAmount); setShowOfferInput(false); setOfferAmount(""); }} className="rounded-xl bg-sky-500 px-4 py-2 text-[11px] font-bold text-white hover:bg-sky-400">Send Offer</button>
                       <button onClick={() => setShowOfferInput(false)} className="rounded-xl bg-zinc-700 px-4 py-2 text-[11px] font-bold text-[var(--foreground)] hover:bg-zinc-600">Cancel</button>
                     </div>
                   )}
@@ -1703,7 +1710,7 @@ function MessagesPage() {
                     </button>
                     {/* File attach button */}
                     <button onClick={() => fileAttachInputRef.current?.click()}
-                      className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--muted)] transition hover:border-amber-400 hover:text-amber-400">
+                      className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--muted)] transition hover:border-sky-400 hover:text-sky-400">
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                       </svg>
@@ -1713,8 +1720,8 @@ function MessagesPage() {
                       <button onClick={() => setShowOfferInput((prev) => !prev)}
                         className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border transition ${
                           showOfferInput
-                            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
-                            : "border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--muted)] hover:border-emerald-400 hover:text-emerald-400"
+                            ? "border-sky-500/40 bg-sky-500/10 text-sky-400"
+                            : "border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--muted)] hover:border-sky-400 hover:text-sky-400"
                         }`}>
                         <span className="text-lg font-black">$</span>
                       </button>

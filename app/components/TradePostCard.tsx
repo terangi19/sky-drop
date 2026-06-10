@@ -16,8 +16,8 @@ export default function TradePostCard({ post, user, formatTime, deleteTrade }: T
   const isNew = post.createdAt && (now - (post.createdAt?.seconds || 0) * 1000) < 300000;
 
   function getTypeStyles() {
-    if (post.type === "WTB") return "bg-emerald-500/10 text-emerald-400";
-    if (post.type === "Trading") return "bg-violet-500/10 text-violet-400";
+    if (post.type === "WTB") return "bg-sky-500/10 text-sky-400";
+    if (post.type === "Trading") return "bg-sky-500/10 text-sky-400";
     return "bg-sky-500/10 text-sky-400";
   }
 

@@ -6,8 +6,6 @@ import { useRouter } from "next/navigation";
 import type { User } from "firebase/auth";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
-import BrowseMarketplaceHero from "../components/BrowseMarketplaceHero";
-import { HOME_MARKETPLACE_THEME as t } from "../lib/browse-category-config";
 import MarketplaceListingCard from "../components/MarketplaceListingCard";
 import { showToast } from "../components/Toast";
 import {
@@ -36,6 +34,9 @@ import {
 import { cdnUrl } from "../lib/cdn";
 import { useSellerListingMeta } from "../lib/useSellerListingMeta";
 import HotThisWeek from "../components/HotThisWeek";
+import BrowseMarketplaceHero from "../components/BrowseMarketplaceHero";
+import { HOME_MARKETPLACE_THEME as t } from "../lib/browse-category-config";
+import { LISTING_GRID_MT, PAGE_SHELL_MARKETPLACE } from "../lib/page-layout";
 
 const CATEGORIES = ["All"];
 
@@ -197,78 +198,63 @@ export default function RentalsPage() {
       <Background />
       <Navbar />
 
-      <section className="relative z-10 mx-auto max-w-[1800px] px-4 pb-8 pt-2 sm:pt-3">
-        <div className="relative overflow-hidden rounded-[1.75rem] border border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-transparent backdrop-blur-sm shadow-[0_8px_32px_-12px_rgba(0,0,0,0.3)]">
-          {/* bg glow */}
-          <div className="pointer-events-none absolute -inset-1 bg-gradient-to-r from-emerald-500/10 via-transparent to-emerald-500/5 blur-3xl" />
-          <div className="relative px-6 pb-6 pt-6 sm:px-10 sm:pb-8 sm:pt-8">
-            {/* badge */}
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-bold text-emerald-300">
-              Property & Equipment
-            </span>
-
-            {/* title */}
-            <h1 className="mt-3 text-3xl font-black tracking-tight text-white sm:text-4xl lg:text-5xl [text-shadow:0_0_40px_rgba(16,185,129,0.15)]">
-              Rentals
-            </h1>
-            <p className="mt-2 max-w-lg text-sm text-white/70">
-              Rent homes, rooms, vehicles, tools, and equipment. Message the owner to arrange pickup, delivery, and return dates.
-            </p>
-
-            {/* search */}
-            <div className="group relative mt-5 w-full max-w-2xl">
-              <div className="absolute -inset-1 rounded-xl bg-gradient-to-r from-emerald-500/20 via-emerald-500/10 to-emerald-500/5 opacity-0 blur-lg transition duration-500 group-focus-within:opacity-60" />
-              <div className="relative flex items-center rounded-2xl border border-white/[0.06] bg-black/20 backdrop-blur-sm ring-0 transition-all duration-300 focus-within:border-emerald-500/40 focus-within:bg-black/30 focus-within:shadow-[0_0_30px_rgba(16,185,129,0.06)]">
-                <div className="ml-4 flex h-8 w-8 shrink-0 items-center justify-center">
-                  <svg className="h-4 w-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-                  </svg>
-                </div>
-                <input
-                  type="search"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search rentals, location, category..."
-                  className="min-w-0 flex-1 bg-transparent px-3 py-3.5 text-[15px] text-white outline-none placeholder:text-zinc-500"
-                  aria-label="Search rentals"
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery("")}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-white/[0.06] hover:text-white"
-                    aria-label="Clear search"
-                  >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                  </button>
-                )}
-                <Link
-                  href="/post/ai?type=rental"
-                  className="mr-1.5 ml-1 flex shrink-0 items-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-400 px-3 py-2 text-[13px] font-bold text-white shadow-lg shadow-emerald-500/20 transition-all duration-200 hover:brightness-110 active:scale-[0.97] sm:gap-2 sm:px-4"
-                >
-                  <svg className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-                  <span className="hidden sm:inline">List a Rental</span>
-                  <span className="sm:hidden">List</span>
-                </Link>
+      <section className={`${PAGE_SHELL_MARKETPLACE} pb-8 pt-2 sm:pt-3`}>
+        <BrowseMarketplaceHero
+          badge="Property & Equipment"
+          title="Rentals"
+        >
+          <div className="group relative mt-4 w-full max-w-2xl">
+            <div className={`absolute -inset-1 rounded-xl bg-gradient-to-r ${t.searchGlow} opacity-0 blur-lg transition duration-500 group-focus-within:opacity-100`} />
+            <div className={`relative flex items-center rounded-xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-sm ring-0 transition-all duration-300 ${t.searchFocus}`}>
+              <div className="ml-4 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.04]">
+                <svg className="h-4 w-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                </svg>
               </div>
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search rentals, location, category..."
+                className="min-w-0 flex-1 bg-transparent px-3 py-3.5 text-[15px] text-white outline-none placeholder:text-white/60"
+                aria-label="Search rentals"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white/60 transition hover:bg-white/[0.06] hover:text-white"
+                  aria-label="Clear search"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              )}
+              <Link
+                href="/post/ai?type=rental"
+                className={`mr-1.5 ml-1 flex shrink-0 items-center gap-1.5 rounded-lg bg-gradient-to-r ${t.listBtn} px-3 py-2 text-[13px] font-bold text-white shadow-lg transition-all duration-200 hover:brightness-110 active:scale-[0.97] sm:gap-2 sm:px-4`}
+              >
+                <svg className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                <span className="hidden sm:inline">List a Rental</span>
+                <span className="sm:hidden">List</span>
+              </Link>
             </div>
           </div>
-        </div>
+        </BrowseMarketplaceHero>
 
         {/* Category pills */}
         {listings.length > 0 && (
-          <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+          <div className="mb-5 flex flex-wrap items-center justify-center gap-2">
             {["All", ...CATEGORIES.filter((c) => c !== "All")].map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
                 className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-medium transition-all ${
                   selectedCategory === cat
-                    ? "border-emerald-400/30 bg-emerald-500/10 text-white shadow-[0_0_24px_rgba(16,185,129,0.1)]"
-                    : "border-white/[0.06] bg-white/[0.02] text-white/70 hover:border-white/10 hover:text-white"
+                    ? "border-sky-400/30 bg-sky-500/10 text-white shadow-[0_0_24px_rgba(14,165,233,0.1)]"
+                    : "border-white/[0.06] bg-white/[0.02] text-zinc-400 hover:border-white/10 hover:text-zinc-200"
                 }`}
               >
-                {cat === "All" ? <span className="text-sm">✨</span> : null}
+                {cat === "All" ? <span className="text-sm leading-none">✨</span> : null}
                 {cat}
               </button>
             ))}
@@ -285,12 +271,12 @@ export default function RentalsPage() {
 
         <HotThisWeek
           items={hotItems}
-          accent="emerald"
           timeAgo={timeAgo}
           saveRecentlyViewed={saveRecentlyViewed}
           cdnUrl={cdnUrl}
-          listingWatchlistCount={listingWatchlistCount}
-          listingWatchlistGlowIntensity={listingWatchlistGlowIntensity}
+          user={user}
+          sellerReviewStats={sellerReviewStats}
+          sellerBadges={sellerBadges}
         />
 
         {listings.length === 0 ? (
@@ -302,7 +288,7 @@ export default function RentalsPage() {
             <p className="mt-2 text-sm text-zinc-500">Be the first to list a rental.</p>
             <Link
               href="/post/ai?type=rental"
-              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-emerald-500/30 hover:scale-105 active:scale-95"
+              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:scale-105 active:scale-95"
             >
               List a Rental
             </Link>
@@ -340,7 +326,7 @@ export default function RentalsPage() {
             </div>
             <div
               key={watchlistTick}
-              className="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+              className={LISTING_GRID_MT}
             >
               {filteredListings.map((item, cardIndex) => (
                 <MarketplaceListingCard
@@ -368,7 +354,6 @@ export default function RentalsPage() {
         {rentalRecentlyViewed.length > 0 && (
           <div className="mt-10">
             <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.12em] text-white">Recently viewed</p>
-            </div>
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
               {rentalRecentlyViewed.map((item: any) => {
                 const live = listings.find((l) => l.id === item.id);
@@ -381,7 +366,7 @@ export default function RentalsPage() {
                       saveRecentlyViewed(card);
                       router.push(`/post/listing/${item.id}`);
                     }}
-                    className="group w-56 shrink-0 cursor-pointer rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 transition-all duration-300 hover:-translate-y-0.5 hover:border-emerald-500/40 hover:shadow-[0_8px_25px_rgba(139,92,246,0.15)]"
+                    className="group w-56 shrink-0 cursor-pointer rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 transition-all duration-300 hover:-translate-y-0.5 hover:border-sky-500/40 hover:shadow-[0_8px_25px_rgba(139,92,246,0.15)]"
                   >
                     {imageSrc ? (
                       <img
@@ -394,18 +379,18 @@ export default function RentalsPage() {
                         className="h-20 w-full rounded-lg object-cover"
                       />
                     ) : (
-                      <div className="flex h-20 w-full items-center justify-center rounded-lg bg-gradient-to-br from-sky-500/15 via-emerald-500/15 to-emerald-600/15 text-xs text-zinc-500">
+                      <div className="flex h-20 w-full items-center justify-center rounded-lg bg-gradient-to-br from-sky-500/15 via-sky-500/15 to-sky-600/15 text-xs text-zinc-500">
                         💾
                       </div>
                     )}
-                    <p className="mt-2.5 truncate text-[15px] font-bold text-white">
+                    <p className="mt-2.5 truncate text-[15px] font-bold text-always-white">
                       {card.title}
                     </p>
-                    <p className="mt-0.5 text-base font-black text-white">${card.price}</p>
+                    <p className="mt-0.5 text-base font-black text-always-white">${card.price}</p>
                     {card.category && (
-                      <p className="mt-1 truncate text-[10px] text-white/60">{card.category}</p>
+                      <p className="mt-1 truncate text-[10px] text-always-white">{card.category}</p>
                     )}
-                    <p className="mt-1 text-[10px] text-white/60">
+                    <p className="mt-1 text-[10px] text-always-white">
                       ⭐ {listingWatchlistCount(card).toLocaleString()}{" "}
                       {listingWatchlistCount(card) === 1 ? "save" : "saves"}
                     </p>
@@ -417,7 +402,7 @@ export default function RentalsPage() {
         )}
 
         {/* Trust strip */}
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-2 rounded-2xl border border-white/[0.04] bg-white/[0.015] px-5 py-3 backdrop-blur-sm">
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-x-10 gap-y-4 rounded-2xl border border-white/[0.04] bg-white/[0.015] px-6 py-4 sm:gap-x-14 lg:gap-x-20 backdrop-blur-sm">
           {[
             { label: "Flexible payments", sub: "Stripe or Arrange Purchase" },
             { label: "Dispute protection", sub: "7-day window" },
@@ -425,7 +410,7 @@ export default function RentalsPage() {
             { label: "NZ community", sub: "Built for Aotearoa" },
           ].map((item) => (
             <div key={item.label} className="flex items-center gap-2.5">
-              <div>
+              <div className="space-y-0.5">
                 <p className="text-[11px] font-medium text-white">{item.label}</p>
                 <p className="text-[10px] text-white/70">{item.sub}</p>
               </div>

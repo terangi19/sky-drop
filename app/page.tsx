@@ -25,6 +25,7 @@ import {
 import PromoteModal from "./components/PromoteModal";
 import MarketplaceListingCard from "./components/MarketplaceListingCard";
 import HotThisWeek from "./components/HotThisWeek";
+import { LISTING_GRID, LISTING_GRID_MT, PAGE_SHELL_MARKETPLACE, PAGE_SHELL_WIDE } from "./lib/page-layout";
 import {
   addDoc,
   collection,
@@ -759,7 +760,7 @@ export default function Home() {
       )}
 
       {/* HERO / SEARCH SECTION */}
-      <section className="relative z-10 mx-auto max-w-6xl px-4 pt-3 sm:pt-4">
+      <section className={`${PAGE_SHELL_WIDE} pt-3 sm:pt-4`}>
         <div className={`relative overflow-hidden rounded-[1.75rem] border border-white/[0.06] bg-gradient-to-b from-white/[0.03] via-transparent to-transparent backdrop-blur-sm ${t.heroShadow}`}>
           <div className={`absolute inset-0 ${t.radial} pointer-events-none`} />
           <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
@@ -776,7 +777,7 @@ export default function Home() {
               const label = top.length > 0
                 ? top.map((l: any) => l.title).join(" · ")
                 : "Trending listings across New Zealand";
-              return <span className="truncate text-[11px] text-zinc-400">{label}</span>;
+              return <span className="truncate text-[11px] text-white">{label}</span>;
             })()}
           </div>
 
@@ -788,11 +789,25 @@ export default function Home() {
                   Welcome to Sky Drop
                 </span>
               </h1>
-              <p className="mx-auto mt-2.5 max-w-md text-sm leading-relaxed text-white">
-                {user
-                  ? "List your items, message buyers directly, and sell nationwide."
-                  : "Free listings, secure checkout, and a marketplace built for New Zealand."}
+              <p className="mx-auto mt-2.5 max-w-lg text-center text-sm leading-relaxed text-zinc-400">
+                {user ? (
+                  <>
+                    <span className="text-white">List your items, message buyers directly, and sell nationwide with Āwhina.</span>
+                  </>
+                ) : (
+                  <span className="text-white">Free listings, secure checkout, and a marketplace built for New Zealand.</span>
+                )}
               </p>
+              {user && (
+                <div className="mt-4 flex justify-center">
+                  <Link
+                    href="/post/ai"
+                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 active:scale-[0.97]"
+                  >
+                    Sell with {AWHINA_NAME}
+                  </Link>
+                </div>
+              )}
             </div>
 
             {/* Search */}
@@ -805,7 +820,7 @@ export default function Home() {
                   </svg>
                   <input
                     type="text"
-                    placeholder="Search listings, categories, sellers…"
+                    placeholder="Search"
                     value={search}
                     ref={searchRef}
                     onChange={(e) => setSearch(e.target.value)}
@@ -827,16 +842,6 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-            </div>
-
-            <div className="mt-4 flex justify-center">
-              <Link
-                href="/post/ai"
-                className={`inline-flex items-center gap-2 rounded-full border bg-gradient-to-r px-4 py-2 text-xs font-semibold transition active:scale-[0.98] ${t.sellLink}`}
-              >
-                Sell with {AWHINA_NAME}
-                <svg className="h-3.5 w-3.5 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-              </Link>
             </div>
 
             {/* Category pills */}
@@ -874,13 +879,13 @@ export default function Home() {
             {savedSearches.length > 0 && (
               <div className="mt-5 flex flex-wrap justify-center gap-2">
                 {savedSearches.map((s) => (
-                  <div key={s.label} className="group flex items-center gap-1 rounded-full border border-sky-500/15 bg-sky-500/5 px-3 py-1 text-[11px] text-sky-400 transition hover:border-sky-500/30 hover:bg-sky-500/10">
+                  <div key={s.label} className="group flex items-center gap-1 rounded-full border border-sky-500/15 bg-sky-500/5 px-3 py-1 text-[11px] text-white transition hover:border-sky-500/30 hover:bg-sky-500/10">
                     <button onClick={() => applySavedSearch(s)} className="flex items-center gap-1">
                       <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                       </svg>
                       {s.label || s.query}
-                      {(() => { const m = savedSearchMatchCounts.find(m => m.label === s.label); if (m && m.count > 0) return <span className="ml-1 rounded-full bg-sky-500/20 px-1.5 py-0.5 text-[9px] font-bold text-sky-400">{m.count}</span>; return null; })()}
+                      {(() => { const m = savedSearchMatchCounts.find(m => m.label === s.label); if (m && m.count > 0) return <span className="ml-1 rounded-full bg-sky-500/20 px-1.5 py-0.5 text-[9px] font-bold text-white">{m.count}</span>; return null; })()}
                     </button>
                     <button onClick={() => removeSavedSearch(s.label)} className="text-sky-400/50 hover:text-red-400 ml-0.5" title="Remove saved search">&times;</button>
                   </div>
@@ -893,8 +898,8 @@ export default function Home() {
       </section>
 
       {/* Trust strip */}
-      <section className="relative z-10 mx-auto max-w-6xl px-4 py-3">
-        <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 rounded-2xl border border-white/[0.04] bg-white/[0.015] px-5 py-3 backdrop-blur-sm">
+      <section className={`${PAGE_SHELL_WIDE} py-3`}>
+        <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4 rounded-2xl border border-white/[0.04] bg-white/[0.015] px-6 py-4 sm:gap-x-14 lg:gap-x-20 backdrop-blur-sm">
           {[
             { label: "Flexible payments", sub: "Stripe or Arrange Purchase", icon: <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /> },
             { label: "Dispute protection", sub: "7-day window", icon: <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" /> },
@@ -905,7 +910,7 @@ export default function Home() {
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.03]">
                 <svg className="h-3.5 w-3.5 text-sky-400/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>{item.icon}</svg>
               </div>
-              <div>
+              <div className="space-y-0.5">
                 <p className="text-[11px] font-medium text-white">{item.label}</p>
                 <p className="text-[10px] text-white/70">{item.sub}</p>
               </div>
@@ -916,14 +921,16 @@ export default function Home() {
 
       <HotThisWeek
         items={hotItems}
-        accent="sky"
         timeAgo={timeAgo}
         saveRecentlyViewed={saveRecentlyViewed}
         cdnUrl={cdnUrl}
+        user={user}
+        sellerReviewStats={sellerReviewStats}
+        sellerBadges={sellerBadges}
       />
 
       {/* LISTINGS */}
-      <section className="relative z-10 mx-auto max-w-[1800px] px-4 pb-10">
+      <section className={`${PAGE_SHELL_MARKETPLACE} pb-10`}>
 
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -980,7 +987,7 @@ export default function Home() {
         </div>
 
           {loading && (
-            <div className="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className={LISTING_GRID_MT}>
               {[1,2,3,4,5,6,7,8].map((_, i) => (
                 <div key={i} className="relative overflow-hidden rounded-2xl bg-white/[0.02] border border-white/[0.04]">
                   <div className="aspect-[4/3] w-full bg-gradient-to-r from-white/[0.02] via-white/[0.04] to-white/[0.02] bg-[length:200%_100%] animate-[shimmer_2s_ease-in-out_infinite]" />
@@ -1005,7 +1012,7 @@ export default function Home() {
           <div className="relative mx-auto max-w-md mt-12 text-center">
             {listings.length === 0 ? (
               <>
-                <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500/10 to-violet-500/10 border border-sky-500/20">
+                <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500/10 to-sky-500/10 border border-sky-500/20">
                   <svg className="h-8 w-8 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                   </svg>
@@ -1043,7 +1050,7 @@ export default function Home() {
         )}
 
         {!loading && filteredListings.length > 0 && (
-        <div key={watchlistTick} className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div key={watchlistTick} className={LISTING_GRID}>
           {filteredListings.slice(0, visibleCount).map((item: any, cardIndex: number) => (
             <MarketplaceListingCard
               key={item.id}
@@ -1061,13 +1068,13 @@ export default function Home() {
               }}
               onBuyNow={handleBuyNow}
               onMakeOffer={(listing) => {
-                setOfferListing(listing);
+                setOfferListing(listing as Listing);
                 setShowOfferModal(true);
               }}
               sellerReviewStats={sellerReviewStats}
               sellerBadges={sellerBadges}
               onPromote={(listing) => setPromoteItem(listing)}
-              onDelete={(listing) => setDeleteConfirm(listing)}
+              onDelete={(listing) => setDeleteConfirm(listing as Listing)}
             />
           ))}
         </div>
@@ -1103,7 +1110,7 @@ export default function Home() {
 
       {/* RECENTLY VIEWED */}
       {recentlyViewed.length > 0 && (
-        <section className="relative z-10 mx-auto max-w-[1800px] px-4 pb-4">
+        <section className={`${PAGE_SHELL_MARKETPLACE} pb-4`}>
           <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.12em] text-white">Recently viewed</p>
           <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
             {recentlyViewed.map((item) => (
@@ -1117,7 +1124,7 @@ export default function Home() {
                 ) : (
                   <div className="flex h-20 w-full items-center justify-center rounded-lg bg-white/[0.03] text-[10px] text-zinc-600">No image</div>
                 )}
-                <p className="mt-2 truncate text-xs font-medium text-white">{item.title}</p>
+                <p className="mt-2 truncate text-xs font-medium text-always-white">{item.title}</p>
                 <p className="text-sm font-semibold tabular-nums text-sky-300">${item.price}</p>
               </div>
             ))}
@@ -1127,7 +1134,7 @@ export default function Home() {
 
       {/* RECENTLY SOLD */}
       {listings.filter((l) => !isListingVisibleInMarketplace(l)).length > 0 && (
-        <section className="relative z-10 mx-auto max-w-[1800px] px-4 pb-4">
+        <section className={`${PAGE_SHELL_MARKETPLACE} pb-4`}>
           <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.12em] text-white">Recently sold</p>
           <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
             {listings.filter((l) => !isListingVisibleInMarketplace(l)).slice(0, 6).map((item) => (

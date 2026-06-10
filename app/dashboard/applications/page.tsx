@@ -90,7 +90,7 @@ export default function EmployerApplicationsPage() {
         <div className="mb-6 flex flex-wrap gap-2">
           {filters.map((f) => (
             <button key={f.key} onClick={() => setFilter(f.key)}
-              className={`rounded-xl px-4 py-2 text-xs font-bold transition ${filter === f.key ? "bg-cyan-500 text-white" : "border border-zinc-700 text-[var(--muted)] hover:border-zinc-600"}`}>
+              className={`rounded-xl px-4 py-2 text-xs font-bold transition ${filter === f.key ? "bg-sky-500 text-white" : "border border-zinc-700 text-[var(--muted)] hover:border-zinc-600"}`}>
               {f.label}
             </button>
           ))}
@@ -114,22 +114,22 @@ export default function EmployerApplicationsPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="text-base font-bold text-[var(--foreground)]">{app.applicantName}</span>
-                      {app.status === "pending" && <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400">Pending</span>}
+                      {app.status === "pending" && <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold text-sky-400">Pending</span>}
                       {app.status === "reviewed" && <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold text-sky-400">Reviewed</span>}
-                      {app.status === "accepted" && <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400">Accepted</span>}
+                      {app.status === "accepted" && <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold text-sky-400">Accepted</span>}
                       {app.status === "rejected" && <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-bold text-red-400">Rejected</span>}
                     </div>
                     <p className="mt-1 text-xs text-zinc-500">
                       {app.applicantEmail}{app.applicantPhone ? ` · ${app.applicantPhone}` : ""}
                     </p>
                     <p className="mt-0.5 text-xs text-zinc-500">
-                      Applied for: <Link href={`/post/listing/${app.listingId}`} className="text-cyan-400 hover:text-cyan-300">{app.listingTitle}</Link>
+                      Applied for: <Link href={`/post/listing/${app.listingId}`} className="text-sky-400 hover:text-sky-300">{app.listingTitle}</Link>
                     </p>
                   </div>
                   <div className="flex gap-1.5">
                     {app.status !== "accepted" && (
                       <button onClick={() => handleStatusChange(app.id, "accepted")}
-                        className="rounded-lg bg-emerald-500/15 px-3 py-1.5 text-[11px] font-bold text-emerald-400 hover:bg-emerald-500/25 transition">
+                        className="rounded-lg bg-sky-500/15 px-3 py-1.5 text-[11px] font-bold text-sky-400 hover:bg-sky-500/25 transition">
                         Accept
                       </button>
                     )}
@@ -158,7 +158,7 @@ export default function EmployerApplicationsPage() {
                 {app.resumeURL && (
                   <div className="mt-2">
                     <a href={app.resumeURL} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-800/60 px-3 py-2 text-xs font-bold text-cyan-400 hover:bg-zinc-700/60 transition">
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-800/60 px-3 py-2 text-xs font-bold text-sky-400 hover:bg-zinc-700/60 transition">
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
@@ -172,9 +172,9 @@ export default function EmployerApplicationsPage() {
                   <input type="text" value={notesInput[app.id] ?? app.employerNotes ?? ""}
                     onChange={(e) => setNotesInput((p) => ({ ...p, [app.id]: e.target.value }))}
                     placeholder="Private notes about this applicant..."
-                    className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-xs text-[var(--foreground)] outline-none focus:border-cyan-500/40 placeholder:text-zinc-600" />
+                    className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-xs text-[var(--foreground)] outline-none focus:border-sky-500/40 placeholder:text-zinc-600" />
                   <button onClick={() => handleSaveNotes(app.id)} disabled={!notesInput[app.id]?.trim()}
-                    className="rounded-lg bg-cyan-500/15 px-3 py-2 text-xs font-bold text-cyan-400 hover:bg-cyan-500/25 transition disabled:opacity-40">
+                    className="rounded-lg bg-sky-500/15 px-3 py-2 text-xs font-bold text-sky-400 hover:bg-sky-500/25 transition disabled:opacity-40">
                     Save
                   </button>
                 </div>

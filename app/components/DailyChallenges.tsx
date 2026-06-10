@@ -74,14 +74,14 @@ export default function DailyChallenges({ userId }: { userId: string }) {
         <h2 className="text-sm font-bold text-[var(--foreground)]">📋 Daily Challenges</h2>
         <div className="flex items-center gap-2">
           {data.streak > 0 && (
-            <span className="text-[10px] text-orange-400 font-bold">🔥 {data.streak}-day streak</span>
+            <span className="text-[10px] text-sky-400 font-bold">🔥 {data.streak}-day streak</span>
           )}
           <span className="text-[10px] text-[var(--muted)]">{data.challenges.filter((c) => c.claimed).length}/{data.challenges.length}</span>
         </div>
       </div>
 
       {allDone ? (
-        <p className="text-xs text-emerald-400 font-bold text-center py-3">✅ All challenges complete for today!</p>
+        <p className="text-xs text-sky-400 font-bold text-center py-3">✅ All challenges complete for today!</p>
       ) : (
         <div className="space-y-2.5">
           {challenges.map((c) => {
@@ -92,14 +92,14 @@ export default function DailyChallenges({ userId }: { userId: string }) {
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <span className="text-sm shrink-0">{c.icon}</span>
                     <div className="min-w-0 flex-1">
-                      <p className={`text-xs font-bold truncate ${c.completed ? "text-emerald-400" : "text-[var(--foreground)]"}`}>
+                      <p className={`text-xs font-bold truncate ${c.completed ? "text-sky-400" : "text-[var(--foreground)]"}`}>
                         {c.label}
-                        {c.completed && !c.claimed && <span className="ml-1 text-emerald-400">✓</span>}
+                        {c.completed && !c.claimed && <span className="ml-1 text-sky-400">✓</span>}
                         {c.claimed && <span className="ml-1 text-zinc-600">✓</span>}
                       </p>
                       <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
                         <div
-                          className={`h-full rounded-full transition-all duration-300 ${c.claimed ? "bg-zinc-700" : c.completed ? "bg-emerald-500" : "bg-sky-500"}`}
+                          className={`h-full rounded-full transition-all duration-300 ${c.claimed ? "bg-zinc-700" : c.completed ? "bg-sky-500" : "bg-sky-500"}`}
                           style={{ width: `${pct}%` }}
                         />
                       </div>
@@ -115,7 +115,7 @@ export default function DailyChallenges({ userId }: { userId: string }) {
                       <button
                         onClick={() => handleClaim(c.id)}
                         disabled={claiming === c.id}
-                        className="rounded-lg bg-emerald-500 px-3 py-1.5 text-[10px] font-bold text-white transition hover:bg-emerald-400 disabled:opacity-50"
+                        className="rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white transition hover:bg-sky-400 disabled:opacity-50"
                       >
                         {claiming === c.id ? "..." : `Claim +${c.reward}`}
                       </button>
@@ -131,8 +131,8 @@ export default function DailyChallenges({ userId }: { userId: string }) {
       )}
 
       {streakReward && (
-        <div className="mt-3 rounded-lg bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/20 px-3 py-2 text-center">
-          <p className="text-[10px] text-orange-400 font-bold">
+        <div className="mt-3 rounded-lg bg-gradient-to-r from-sky-500/10 to-sky-500/10 border border-sky-500/20 px-3 py-2 text-center">
+          <p className="text-[10px] text-sky-400 font-bold">
             {streakReward.icon} {data.streak}-day streak — {streakReward.label}
           </p>
         </div>

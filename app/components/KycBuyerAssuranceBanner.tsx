@@ -7,11 +7,11 @@ type Props = {
 export default function KycBuyerAssuranceBanner({ className = "" }: Props) {
   return (
     <div
-      className={`rounded-lg border border-emerald-500/15 bg-emerald-500/[0.04] px-3 py-2.5 ${className}`}
+      className={`rounded-lg border border-sky-500/15 bg-sky-500/[0.04] px-3 py-2.5 ${className}`}
       role="note"
     >
       <p className="text-[11px] leading-relaxed text-zinc-400">
-        <span className="font-semibold text-emerald-400/90">ID-verified seller.</span>{" "}
+        <span className="font-semibold text-sky-400/90">ID-verified seller.</span>{" "}
         If your item doesn&apos;t arrive, contact{" "}
         <a
           href={`mailto:${ARRANGE_KYC_SUPPORT_EMAIL}`}

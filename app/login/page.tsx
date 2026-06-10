@@ -1,25 +1,35 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import Navbar from "../components/Navbar";
-import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import Background from "../components/Background";
+import LoginKycSection from "../components/LoginKycSection";
 import { showToast } from "../components/Toast";
 
 import {
   createUserWithEmailAndPassword,
-  sendEmailVerification,
   signInWithCustomToken,
   signInWithEmailAndPassword,
-  RecaptchaVerifier,
-  signInWithPhoneNumber,
+  type User,
 } from "firebase/auth";
 
-import { addDoc, collection, doc, getDocs, increment, query, serverTimestamp, setDoc, Timestamp, updateDoc, where } from "firebase/firestore";
-import { auth, db } from "../lib/firebase";
+import {
+  addDoc,
+  collection,
+  doc,
+  getDocs,
+  increment,
+  query,
+  serverTimestamp,
+  setDoc,
+  Timestamp,
+  updateDoc,
+  where,
+} from "firebase/firestore";
+import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import { createNotification } from "../lib/notifications";
 import { buildEmailHtml } from "../lib/email";
 import { formatNZPhone } from "../lib/phone-auth";
@@ -31,20 +41,13 @@ export default function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
-
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
-
-  // Phone verification step
-  const [step, setStep] = useState<"form" | "verify">("form");
-  const [phoneCode, setPhoneCode] = useState("");
-  const [phoneMsg, setPhoneMsg] = useState("");
-  const [phoneVerifying, setPhoneVerifying] = useState(false);
-  const confirmationResultRef = useRef<any>(null);
-  const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
-
   const [redirectTo, setRedirectTo] = useState("");
+  const [user, setUser] = useState<User | null>(null);
+  const [showBrowseModal, setShowBrowseModal] = useState(false);
+  const [kycStatus, setKycStatus] = useState("unsubmitted");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -55,15 +58,13 @@ export default function AuthPage() {
   }, []);
 
   useEffect(() => {
-    return () => {
-      recaptchaRef.current?.clear();
-      recaptchaRef.current = null;
-    };
+    return onAuthStateChanged(auth, setUser);
   }, []);
 
   async function handleAuth(e: React.FormEvent) {
     e.preventDefault();
     if (!email || !password) return;
+
     if (!isLogin) {
       const pwErrors: string[] = [];
       if (password.length < 8) pwErrors.push("at least 8 characters");
@@ -76,33 +77,30 @@ export default function AuthPage() {
       if (phone.trim()) {
         const formattedPhone = formatNZPhone(phone);
         if (!formattedPhone.startsWith("+642") || formattedPhone.length < 11) {
-          showToast("Enter a valid NZ phone number (e.g. 021 123 4567)", "error");
+          showToast("Enter a valid NZ phone number", "error");
           return;
         }
         const existingPhone = await getDocs(query(collection(db, "profiles"), where("phone", "==", formattedPhone)));
         if (!existingPhone.empty) {
-          showToast("This phone number is already registered to another account.", "error");
+          showToast("Phone number already in use.", "error");
           return;
         }
       }
     }
 
+    setLoading(true);
     try {
-      setLoading(true);
-
       if (isLogin) {
-        const cred = await signInWithEmailAndPassword(auth, email, password);
-        router.push(redirectTo || "/");
+        await signInWithEmailAndPassword(auth, email, password);
+        showToast("Welcome back!", "success");
       } else {
         const cred = await createUserWithEmailAndPassword(auth, email, password);
-
-        // Save basic profile
-        const user = auth.currentUser;
-        if (user) {
+        const u = cred.user;
+        if (u) {
           const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-          const profileData: Record<string, any> = {
-            email: user.email,
-            username: user.email?.split("@")[0] || "",
+          const profileData: Record<string, unknown> = {
+            email: u.email,
+            username: u.email?.split("@")[0] || "",
             phone: phone.trim() || "",
             phoneVerified: false,
             referralCode: code,
@@ -117,216 +115,135 @@ export default function AuthPage() {
               if (!referrerSnap.empty) {
                 const referrerDoc = referrerSnap.docs[0];
                 const referrerData = referrerDoc.data();
-                if (referrerData.email && referrerData.email !== user.email) {
+                if (referrerData.email && referrerData.email !== u.email) {
                   profileData.referredBy = inviteCode.trim().toUpperCase();
-                  await updateDoc(doc(db, "profiles", referrerDoc.id), {
-                    referralSignups: increment(1),
-                  });
+                  await updateDoc(doc(db, "profiles", referrerDoc.id), { referralSignups: increment(1) });
                   await addDoc(collection(db, "referralEvents"), {
                     type: "signup",
                     referrerEmail: referrerData.email,
-                    referredEmail: user.email,
+                    referredEmail: u.email,
                     createdAt: serverTimestamp(),
                   });
                   await createNotification({
                     type: "referral",
                     targetEmail: referrerData.email,
-                    fromEmail: user.email || "",
+                    fromEmail: u.email || "",
                     title: "🎉 You referred someone!",
-                    message: `${user.email} signed up using your referral code!`,
+                    message: `${u.email} signed up using your referral code!`,
                   });
-
-                  for (let i = 0; i < 5; i++) {
-                    await addDoc(collection(db, "dropTokens"), {
-                      ownerId: user.uid,
-                      ownerEmail: user.email,
-                      originDropId: "referral_reward",
-                      status: "available",
-                      createdAt: serverTimestamp(),
-                    });
-                  }
                 }
               }
             } catch (e) {
               console.error("Referral tracking failed:", e);
             }
           }
-          await setDoc(doc(db, "profiles", user.uid), profileData);
-
-          // Send welcome email
+          await setDoc(doc(db, "profiles", u.uid), profileData);
           try {
             const welcomeHtml = buildEmailHtml({
-              to: user.email!,
-              subject: "Welcome to Sky Drop — let's get started",
+              to: u.email!,
+              subject: "Welcome to Sky Drop",
               title: "Welcome to Sky Drop",
-              message: `Hi there,
-
-Thanks for joining Sky Drop — New Zealand's community marketplace.
-
-Here's how to get started:
-
-• Browse listings — Find what you need across 7 categories: tech, vehicles, property, services, events, rentals, and digital goods.
-• List an item — Post your first listing for free. It takes less than a minute.
-• Buy with confidence — All payments are processed securely through Stripe with buyer protection included.
-• Stay safe — Never pay outside Sky Drop. Keep all communication in our chat.
-
-Your account is ready. Now go explore.`,
+              message: "Thanks for joining. Browse anytime — complete KYC when you're ready to sell.",
               ctas: [{ label: "Browse Listings", url: process.env.NEXT_PUBLIC_URL || "https://skydrop.co.nz", primary: true }],
             });
             const token = await auth.currentUser?.getIdToken();
             await fetch("/api/send-email", {
               method: "POST",
               headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-              body: JSON.stringify({ to: user.email, subject: "Welcome to Sky Drop — let's get started", html: welcomeHtml }),
+              body: JSON.stringify({ to: u.email, subject: "Welcome to Sky Drop", html: welcomeHtml }),
             });
-          } catch (e) {
-            console.info("[Auth] Welcome email skipped:", e);
+          } catch {
+            /* optional */
           }
         }
-
-        showToast("Welcome to Sky Drop! Start browsing listings. Check spam for verification.", "success");
-        router.push("/");
+        showToast("Account created!", "success");
       }
-
       setEmail("");
       setPassword("");
-
-    } catch (error: any) {
-      console.error(error);
-      showToast(error.message, "error");
+    } catch (error: unknown) {
+      showToast(error instanceof Error ? error.message : "Something went wrong", "error");
     }
-
     setLoading(false);
   }
 
-  async function handleVerifyPhone() {
-    if (phoneCode.length !== 6) return;
-    setPhoneVerifying(true);
-    setPhoneMsg("Verifying...");
-    try {
-      const confirmation = confirmationResultRef.current;
-      if (!confirmation) { setPhoneMsg("No code sent."); setPhoneVerifying(false); return; }
-      await confirmation.confirm(phoneCode);
-      setPhoneMsg("Phone verified!");
-      const user = auth.currentUser;
-      if (user) {
-        await setDoc(doc(db, "profiles", user.uid), { phoneVerified: true }, { merge: true });
-      }
-      setTimeout(() => router.push("/profile"), 800);
-    } catch (e: any) {
-      setPhoneMsg(e.message || "Invalid code.");
-    }
-    setPhoneVerifying(false);
-  }
-
-  function handleSkip() {
-    router.push("/profile");
-  }
-
   return (
-    <main className="relative min-h-screen overflow-hidden bg-black text-[var(--foreground)]">
+    <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <Background />
       <Navbar />
 
-      <section className="relative z-10 mx-auto max-w-md px-6 py-20">
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-950/80 p-8 shadow-2xl backdrop-blur">
-          <h1 className="text-4xl font-black text-sky-400">
-            {step === "verify" ? "Verify Phone" : isLogin ? "Login" : "Create Account"}
-          </h1>
-          <AwhinaUnderHeader centered className="mt-3" />
+      <section className="relative z-10 mx-auto max-w-md px-6 py-16 sm:py-20">
+        <button
+          type="button"
+          onClick={() => {
+            if (user) {
+              router.push(redirectTo || "/");
+              return;
+            }
+            if (!isLogin) {
+              setIsLogin(true);
+              setPhone("");
+              return;
+            }
+            if (typeof window !== "undefined" && window.history.length > 1) {
+              router.back();
+            } else {
+              router.push("/");
+            }
+          }}
+          className="mb-6 inline-flex items-center gap-2 text-sm text-zinc-500 transition-colors hover:text-sky-400"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          {!user && !isLogin ? "Back to login" : "Back"}
+        </button>
 
-          <p className="mt-3 text-[var(--muted)]">
-            {step === "verify"
-              ? "Enter the 6-digit code sent to your phone."
-              : isLogin
-              ? "Welcome back to Sky Drop."
-              : "Create your Sky Drop account. A verified phone number is required to ensure a trusted marketplace for everyone."}
+        <div className="rounded-2xl border border-white/[0.08] bg-zinc-950/80 p-8 shadow-xl backdrop-blur">
+          <h1 className="text-2xl font-black text-white">{isLogin ? "Login" : "Create account"}</h1>
+          <p className="mt-2 text-sm text-zinc-400">
+            Browse and purchase freely. Seller verification is only required to list items.
           </p>
 
-          {step === "verify" ? (
-            <div className="mt-8 space-y-5">
-              <input
-                type="text"
-                placeholder="6-digit code"
-                value={phoneCode}
-                onChange={(e) => setPhoneCode(e.target.value)}
-                maxLength={6}
-                className="w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-center text-2xl font-bold tracking-[0.3em] text-[var(--foreground)] outline-none focus:border-sky-400"
-              />
-              {phoneMsg && (
-                <p className={`text-center text-sm ${phoneMsg.includes("verified") ? "text-emerald-400" : "text-zinc-400"}`}>
-                  {phoneMsg}
-                </p>
-              )}
-              <button
-                onClick={handleVerifyPhone}
-                disabled={phoneCode.length !== 6 || phoneVerifying}
-                className="w-full rounded-2xl bg-emerald-500 px-4 py-4 font-bold transition hover:bg-emerald-400 disabled:opacity-50"
-              >
-                {phoneVerifying ? "Verifying..." : "Verify Phone"}
-              </button>
-              <button
-                onClick={handleSkip}
-                className="w-full text-center text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
-              >
-                Skip for now — verify later in Profile
-              </button>
-            </div>
-          ) : (
-            <form onSubmit={handleAuth} className="mt-8 space-y-5">
+          {!user ? (
+            <form onSubmit={handleAuth} className="mt-6 space-y-4">
               <input
                 type="email"
                 placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 outline-none focus:border-sky-400"
+                className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm outline-none focus:border-sky-500"
               />
-
               <input
                 type="password"
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 outline-none focus:border-sky-400"
+                className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm outline-none focus:border-sky-500"
               />
-
               {!isLogin && (
                 <input
                   type="tel"
-                  placeholder="Phone (optional — needed for selling)"
+                  placeholder="Phone (optional)"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 outline-none focus:border-sky-400"
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm outline-none focus:border-sky-500"
                 />
               )}
-
-              {!isLogin && (
-                <input type="hidden" value={inviteCode} readOnly />
-              )}
-
-              {phoneMsg && (
-                <p className="text-center text-sm text-[var(--muted)]">{phoneMsg}</p>
-              )}
-
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-2xl bg-sky-500 px-4 py-4 font-bold transition hover:bg-sky-400 disabled:opacity-50"
+                className="w-full rounded-xl bg-sky-500 py-3 font-bold text-white hover:bg-sky-400 disabled:opacity-50"
               >
-                {loading
-                  ? "Loading..."
-                  : isLogin
-                  ? "Login"
-                  : "Create Account"}
+                {loading ? "Loading…" : isLogin ? "Login" : "Create account"}
               </button>
-
-              <Link
-                href="/forgot-password"
-                className="w-full text-xs text-right text-[var(--muted)] hover:text-sky-400 transition-colors"
-              >
-                Forgot password?
-              </Link>
-
+              <div className="flex justify-between text-xs">
+                <Link href="/forgot-password" className="text-zinc-500 hover:text-sky-400">
+                  Forgot password?
+                </Link>
+                <Link href="/" className="text-zinc-500 hover:text-white">
+                  Browse listings
+                </Link>
+              </div>
               {isTestLoginUiEnabled() && (
                 <button
                   type="button"
@@ -336,74 +253,86 @@ Your account is ready. Now go explore.`,
                     try {
                       const res = await fetch("/api/test-login", { method: "POST" });
                       const data = await res.json().catch(() => ({}));
-                      if (!res.ok) {
-                        throw new Error(
-                          typeof data.error === "string"
-                            ? data.error
-                            : "Test login failed"
-                        );
-                      }
-                      if (!data.token || typeof data.token !== "string") {
-                        throw new Error("No sign-in token returned");
-                      }
+                      if (!res.ok) throw new Error(data.error || "Test login failed");
                       await signInWithCustomToken(auth, data.token);
-                      showToast("Signed in as test user", "success");
-                      router.push(redirectTo || "/");
-                    } catch (e: unknown) {
-                      const msg =
-                        e && typeof e === "object" && "code" in e
-                          ? String((e as { code?: string }).code)
-                          : "";
-                      const hint =
-                        msg === "auth/invalid-custom-token"
-                          ? "Firebase client config may not match your Admin project."
-                          : "";
-                      const message =
-                        e instanceof Error ? e.message : "Test login failed";
-                      showToast(hint ? `${message} ${hint}` : message, "error");
+                      showToast("Signed in", "success");
+                    } catch (e) {
+                      showToast(e instanceof Error ? e.message : "Failed", "error");
                     }
                     setLoading(false);
                   }}
-                  className="w-full rounded-2xl border border-dashed border-emerald-500/30 bg-emerald-500/[0.03] px-4 py-3 text-sm font-bold text-emerald-400 transition hover:bg-emerald-500/[0.08] hover:border-emerald-500/50"
+                  className="w-full rounded-xl border border-dashed border-sky-500/40 py-2 text-sm text-sky-400"
                 >
-                  🧪 Test Login
+                  Test login
                 </button>
               )}
             </form>
+          ) : (
+            <p className="mt-6 text-sm text-zinc-400">
+              Signed in as <span className="text-white">{user.email}</span>
+            </p>
           )}
 
-          {/* Toggle Login/Signup */}
-          {step === "form" && (
-            <>
-              {isLogin && (
-                <button
-                  onClick={() => setIsLogin(false)}
-                  className="mt-6 w-full text-center text-sm text-sky-400 hover:underline"
-                >
-                  Need an account? Create one
-                </button>
-              )}
-              {!isLogin && (
-                <button
-                  onClick={() => setIsLogin(true)}
-                  className="mt-6 w-full text-center text-sm text-sky-400 hover:underline"
-                >
-                  Already have an account? Login
-                </button>
-              )}
-            </>
+          {!user && (
+            <button
+              type="button"
+              onClick={() => setIsLogin(!isLogin)}
+              className="mt-4 w-full text-center text-sm text-sky-400 hover:underline"
+            >
+              {isLogin ? "Need an account? Sign up" : "Already have an account? Login"}
+            </button>
           )}
 
-          <div className="mt-6 flex items-center justify-center gap-1.5 text-[11px] text-[var(--muted)]">
-            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-            </svg>
-            Payments protected by <span className="font-semibold tracking-tight">Stripe</span>
-          </div>
+          <LoginKycSection user={user} onKycStatusChange={setKycStatus} />
+
+          {user && kycStatus !== "approved" && (
+            <button
+              type="button"
+              onClick={() => setShowBrowseModal(true)}
+              className="mt-4 w-full rounded-xl border border-white/[0.08] py-2.5 text-sm font-semibold text-zinc-300 transition-colors hover:bg-white/[0.04] hover:text-white"
+            >
+              Browse without verification
+            </button>
+          )}
         </div>
       </section>
-      <div id="recaptcha-container" />
+
+      {showBrowseModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in-backdrop"
+          onClick={() => setShowBrowseModal(false)}
+        >
+          <div
+            className="mx-4 w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl animate-fade-in-scale"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-bold text-white">Continue without seller verification?</h3>
+            <p className="mt-3 text-sm leading-relaxed text-zinc-300">
+              You can browse and buy items without verification. However, you will not be able to list items for sale
+              until seller verification is completed.
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowBrowseModal(false)}
+                className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-semibold text-white transition-colors hover:bg-zinc-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowBrowseModal(false);
+                  router.push(redirectTo || "/");
+                }}
+                className="flex-1 rounded-xl bg-sky-500 py-3 text-sm font-semibold text-white transition-colors hover:bg-sky-400"
+              >
+                Continue browsing
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

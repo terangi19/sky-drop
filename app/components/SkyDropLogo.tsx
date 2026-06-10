@@ -109,13 +109,13 @@ export function SkyDropWordmark({
     <div className={`flex flex-col ${className}`}>
       <span className="font-bold leading-none tracking-[-0.02em]">
         <span className="sky-drop-logo-sky text-white/95">Sky</span>
-        <span className="sky-drop-logo-drop ml-0.5 bg-gradient-to-r from-sky-300 via-sky-400 to-violet-400 bg-clip-text font-extrabold text-transparent">
+        <span className="sky-drop-logo-drop ml-0.5 bg-gradient-to-r from-sky-300 via-sky-400 to-sky-400 bg-clip-text font-extrabold text-transparent">
           Drop
         </span>
       </span>
       {showMicroTag && (
         <span className="sky-drop-logo-tag mt-1 flex items-center gap-1.5 text-[8px] font-semibold uppercase tracking-[0.28em] text-sky-400/55">
-          <span className="h-px w-3 bg-gradient-to-r from-sky-400/70 to-violet-400/40" aria-hidden />
+          <span className="h-px w-3 bg-gradient-to-r from-sky-400/70 to-sky-400/40" aria-hidden />
           NZ
         </span>
       )}

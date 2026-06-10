@@ -91,7 +91,7 @@ export default function AdminKnowledgePage() {
           <button onClick={loadDocs}
             className="rounded-xl border border-white/[0.06] px-4 py-2 text-sm font-bold transition hover:bg-white/[0.04]">Refresh</button>
           <button onClick={() => setEditing({ title: "", content: "", category: "general", tags: [], keywords: [], priority: 0 })}
-            className="rounded-xl bg-gradient-to-r from-sky-500 to-cyan-500 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:brightness-110">
+            className="rounded-xl bg-gradient-to-r from-sky-500 to-sky-500 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:brightness-110">
             + New Doc
           </button>
         </div>
@@ -108,7 +108,7 @@ export default function AdminKnowledgePage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-sky-400 font-bold">{KNOWLEDGE_CATEGORIES.find((c) => c.id === doc.category)?.icon} {doc.category}</span>
-                      {doc.priority > 5 && <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold text-amber-400">P{doc.priority}</span>}
+                      {doc.priority > 5 && <span className="rounded bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-bold text-sky-400">P{doc.priority}</span>}
                     </div>
                     <h3 className="text-sm font-bold mt-1">{doc.title}</h3>
                     <p className="text-xs text-[var(--muted)] mt-1 line-clamp-2">{doc.content}</p>
@@ -186,7 +186,7 @@ export default function AdminKnowledgePage() {
               <div className="mt-6 flex gap-3">
                 <button onClick={() => setEditing(null)} className="flex-1 rounded-xl border border-white/[0.06] py-3 text-sm font-bold transition hover:bg-white/[0.06]">Cancel</button>
                 <button onClick={saveDoc} disabled={saving || !editing.title || !editing.content}
-                  className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-500 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:brightness-110 disabled:opacity-50">
+                  className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 to-sky-500 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:brightness-110 disabled:opacity-50">
                   {saving ? "Saving..." : "Save"}
                 </button>
               </div>

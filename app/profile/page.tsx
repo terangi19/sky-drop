@@ -44,6 +44,10 @@ import { countSellerSales } from "../lib/arrange-purchase-status";
 import { hasArrangePaymentDetails } from "../lib/arrange-payment-details";
 import { useProfile } from "../contexts/ProfileContext";
 import { sellerProfilePath } from "../lib/seller-profile-nav";
+import BrowseMarketplaceHero from "../components/BrowseMarketplaceHero";
+import { PAGE_SHELL_WIDE } from "../lib/page-layout";
+import BrowseAwhinaAssistantPanel from "../components/BrowseAwhinaAssistantPanel";
+import { HOME_MARKETPLACE_THEME as t } from "../lib/browse-category-config";
 
 interface ProfileData {
   username?: string;
@@ -179,7 +183,6 @@ const [poaStatus, setPoaStatus] = useState("unsubmitted");
 const [poaDocumentURL, setPoaDocumentURL] = useState("");
 const [poaRejectionReason, setPoaRejectionReason] = useState("");
 const [poaFile, setPoaFile] = useState<File | null>(null);
-const [kycSelfieFile, setKycSelfieFile] = useState<File | null>(null);
 const [poaUploading, setPoaUploading] = useState(false);
 const [sellBadge, setSellBadge] = useState<string | null>(null);
 const [sellBadgePrice, setSellBadgePrice] = useState("50");
@@ -935,88 +938,95 @@ const tabs = [
   const hasSocialLinks = [discord, instagram, tiktok, website].some((v) => v.trim().length > 0);
 
   const settingsSection =
-    "rounded-2xl border border-white/[0.04] bg-white/[0.02] p-6 sm:p-7 backdrop-blur-sm shadow-[0_8px_32px_-12px_rgba(0,0,0,0.3)]";
+    "rounded-2xl border border-white/[0.06] bg-white/[0.015] p-5 sm:p-6";
   const fieldInput =
-    "w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-sm text-white outline-none transition-all duration-200 placeholder:text-zinc-500 focus:border-sky-500/30 focus:bg-white/[0.06] focus:shadow-[0_0_0_1px_rgba(56,189,248,0.15),0_4px_16px_rgba(56,189,248,0.06)]";
+    "w-full rounded-xl border border-white/[0.08] bg-black/20 px-4 py-3 text-sm text-white outline-none transition-all duration-200 placeholder:text-zinc-500 focus:border-sky-500/40 focus:bg-black/30 focus:ring-2 focus:ring-sky-500/20";
+  const primaryBtn = `rounded-xl bg-gradient-to-r ${t.listBtn} py-3 text-sm font-bold text-white shadow-lg transition hover:brightness-110 active:scale-[0.98] disabled:opacity-50`;
 
   const profileBadges = [
     phoneVerified && { key: "verified", label: "Verified", className: "border-sky-500/25 bg-sky-500/10 text-sky-300" },
-    profile.topTrader && { key: "top", label: "Top Trader", className: "border-amber-500/25 bg-amber-500/10 text-amber-300" },
-    profile.trustedSeller && { key: "trusted", label: "Trusted", className: "border-emerald-500/25 bg-emerald-500/10 text-emerald-300" },
+    profile.topTrader && { key: "top", label: "Top Trader", className: "border-sky-500/25 bg-sky-500/10 text-sky-300" },
+    profile.trustedSeller && { key: "trusted", label: "Trusted", className: "border-sky-500/25 bg-sky-500/10 text-sky-300" },
     profile.fastReply && { key: "fast", label: "Fast reply", className: "border-sky-500/25 bg-sky-500/10 text-sky-300" },
-    profile.profileBadge === "epic" && { key: "epic", label: "Epic", className: "border-violet-500/25 bg-violet-500/10 text-violet-300" },
-    profile.profileBadge === "legendary" && { key: "legendary", label: "The Five", className: "border-amber-500/30 bg-amber-500/10 text-amber-300" },
+    profile.profileBadge === "epic" && { key: "epic", label: "Epic", className: "border-sky-500/25 bg-sky-500/10 text-sky-300" },
+    profile.profileBadge === "legendary" && { key: "legendary", label: "The Five", className: "border-sky-500/30 bg-sky-500/10 text-sky-300" },
   ].filter(Boolean) as { key: string; label: string; className: string }[];
 
 
   if (loading) {
     return (
-      <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-<Background /><Navbar />
-        <div className="relative z-10 mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
-          <div className="flex items-center justify-center py-32">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-sky-500 border-t-transparent" />
-          </div>
-        </div>
+      <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-white">
+        <Background /><Navbar />
+        <section className={`${PAGE_SHELL_WIDE} pb-10 pt-2 sm:pt-3`}>
+          <div className={`h-56 rounded-3xl border border-white/[0.04] bg-white/[0.02] animate-pulse ${t.heroShadow}`} />
+          <div className="mt-6 h-96 rounded-2xl border border-white/[0.04] bg-white/[0.02] animate-pulse" />
+        </section>
       </main>
     );
   }
 
   if (!user) {
     return (
-      <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+      <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-white">
         <Background /><Navbar />
-        <div className="relative z-10 mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
-          <div className="rounded-2xl border border-zinc-800/50 bg-zinc-900/40 p-12 text-center">
-            <p className="text-[var(--muted)]">Please sign in to view your profile.</p>
-          </div>
-        </div>
+        <section className={`${PAGE_SHELL_WIDE} pb-10 pt-2 sm:pt-3`}>
+          <BrowseMarketplaceHero badge="Account" title="Profile">
+            <p className="mt-3 text-sm text-zinc-400">Sign in to manage your seller profile and settings.</p>
+            <Link href="/login" className={`mt-4 inline-flex items-center gap-2 ${primaryBtn} px-5 py-2.5`}>
+              Sign in
+            </Link>
+          </BrowseMarketplaceHero>
+        </section>
       </main>
     );
   }
 
   return (
-    <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-<Background /><Navbar />
+    <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-white transition-colors duration-300">
+      <Background /><Navbar />
 
-      <div className="relative z-10 mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
-        <div className="space-y-6">
+      <section className={`${PAGE_SHELL_WIDE} pb-10 pt-2 sm:pt-3`}>
+        <div className="space-y-5">
 
           {saving && (
-            <div className="rounded-2xl border border-sky-500/20 bg-sky-500/[0.06] px-5 py-3.5 text-sm text-sky-300 backdrop-blur-sm shadow-[0_0_20px_rgba(56,189,248,0.08)] animate-fade-in">
+            <div className="rounded-xl border border-sky-500/20 bg-sky-500/[0.06] px-4 py-3 text-sm text-sky-300">
               {saving}
             </div>
           )}
           {saved && (
-            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.06] px-5 py-3.5 text-sm text-emerald-300 backdrop-blur-sm shadow-[0_0_20px_rgba(16,185,129,0.08)] animate-fade-in">
+            <div className="rounded-xl border border-sky-500/20 bg-sky-500/[0.06] px-4 py-3 text-sm text-sky-300">
               Saved successfully!
             </div>
           )}
 
-          <Link href="/" className="inline-flex items-center gap-1.5 text-xs text-zinc-600 transition-colors hover:text-white">
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-            Back to home
-          </Link>
+          <BrowseMarketplaceHero badge="Account" title="Profile" showAssistantPanel={false}>
+            <p className="mt-2 text-sm text-zinc-400">
+              @{contextUsername || username || "username"} · Joined {memberDate}
+            </p>
+          </BrowseMarketplaceHero>
+
+          <BrowseAwhinaAssistantPanel className="mb-0 mt-0 mx-auto w-full max-w-2xl text-left" />
 
           {/* Profile hero */}
-          <div className="overflow-hidden rounded-2xl border border-white/[0.06] bg-gradient-to-br from-sky-950/70 via-[#0a1628] to-indigo-950/50 shadow-[0_8px_32px_-12px_rgba(0,0,0,0.4)]">
+          <div className={`relative overflow-hidden rounded-3xl border border-white/[0.04] ${t.heroShadow}`}>
+            <div className={`absolute inset-0 ${t.radial} pointer-events-none`} />
             <div
-              className="group relative h-28 cursor-pointer overflow-hidden sm:h-32"
+              className="group relative z-10 h-24 cursor-pointer overflow-hidden sm:h-28"
               onClick={() => bannerRef.current?.click()}
             >
               {bannerUrl ? (
                 <img src={bannerUrl} alt="" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
               ) : (
-                <div className="h-full w-full bg-gradient-to-r from-sky-500/15 via-indigo-500/10 to-violet-500/10" />
+                <div className="h-full w-full bg-gradient-to-r from-sky-500/10 via-sky-500/5 to-transparent" />
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0a1628] via-[#0a1628]/30 to-transparent" />
-              <span className="absolute right-3 top-3 rounded-full bg-black/50 backdrop-blur-md px-4 py-1.5 text-[10px] font-medium text-white/80 opacity-0 transition-opacity duration-300 group-hover:opacity-100 border border-white/[0.06]">
+              <div className="absolute inset-0 bg-gradient-to-t from-[var(--background)] via-transparent to-transparent" />
+              <span className="absolute right-3 top-3 rounded-full border border-white/[0.08] bg-black/50 px-3 py-1 text-[10px] font-medium text-white/80 opacity-0 backdrop-blur-md transition-opacity duration-300 group-hover:opacity-100">
                 {bannerUrl ? "Change banner" : "Add banner"}
               </span>
             </div>
             <input ref={bannerRef} type="file" accept="image/*" className="hidden" onChange={handleBannerUpload} />
 
-            <div className="px-5 pb-5 sm:px-6 sm:pb-6">
+            <div className="relative z-10 px-5 pb-5 sm:px-6 sm:pb-6">
               <div className="-mt-11 flex items-end gap-4 sm:-mt-12 sm:gap-5">
                 <button
                   type="button"
@@ -1028,7 +1038,7 @@ const tabs = [
                       <img
                         src={avatarUrl}
                         alt=""
-                        className="h-[4.5rem] w-[4.5rem] rounded-xl border-[3px] border-[#0a1628] object-cover shadow-xl sm:h-20 sm:w-20 transition-transform duration-300 group-hover/avatar:scale-105"
+                        className="h-[4.5rem] w-[4.5rem] rounded-xl border-[3px] border-[var(--background)] object-cover shadow-xl sm:h-20 sm:w-20 transition-transform duration-300 group-hover/avatar:scale-105"
                       />
                       <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/0 transition-all duration-300 group-hover/avatar:bg-black/50">
                         <span className="text-xs font-bold text-white opacity-0 transition-opacity duration-300 group-hover/avatar:opacity-100">Edit</span>
@@ -1036,7 +1046,7 @@ const tabs = [
                     </div>
                   ) : (
                     <div className="relative">
-                      <div className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-xl border-[3px] border-[#0a1628] bg-zinc-900 text-xl font-bold text-sky-400 shadow-xl sm:h-20 sm:w-20">
+                      <div className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-xl border-[3px] border-[var(--background)] bg-zinc-900 text-xl font-bold text-sky-400 shadow-xl sm:h-20 sm:w-20">
                         {initial}
                       </div>
                       <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/0 transition-all duration-300 hover:bg-black/50">
@@ -1048,17 +1058,17 @@ const tabs = [
                 <input ref={avatarRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
 
                 <div className="min-w-0 flex-1 pb-0.5">
-                  <h1 className="truncate text-xl font-black tracking-tight text-white sm:text-2xl">
+                  <h2 className="truncate text-xl font-black tracking-tight text-white sm:text-2xl">
                     {contextUsername || username || "User"}
-                  </h1>
-                  <p className="truncate text-xs text-zinc-500 sm:text-sm">
-                    @{contextUsername || username || "username"} <span className="text-zinc-600">·</span> Joined {memberDate}
+                  </h2>
+                  <p className="truncate text-xs text-zinc-400 sm:text-sm">
+                    {completion}% complete · {region || "No region set"}
                   </p>
                   {(profileBadges.length > 0 || !hideOnline) && (
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {!hideOnline && (
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" /> Online
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/20 bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold text-sky-300">
+                          <span className="h-1.5 w-1.5 rounded-full bg-sky-400 animate-pulse" /> Online
                         </span>
                       )}
                       {profileBadges.map((badge) => (
@@ -1074,49 +1084,69 @@ const tabs = [
                 </div>
               </div>
 
-              <div className="mt-5 grid grid-cols-3 gap-3">
+              <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
                 {statItems.map((s) => (
-                  <div key={s.label} className="group rounded-xl border border-white/[0.04] bg-white/[0.02] px-3 py-2.5 text-center transition-all duration-300 hover:bg-white/[0.04] hover:border-white/[0.08]">
-                    <p className="text-base font-black text-white group-hover:text-sky-300 transition-colors sm:text-lg">{s.value}</p>
+                  <div key={s.label} className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-center">
+                    <p className="text-base font-black text-white sm:text-lg">{s.value}</p>
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">{s.label}</p>
                   </div>
                 ))}
               </div>
 
-              {(contextUsername || username) && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {(contextUsername || username) && (
+                  <Link
+                    href={sellerProfilePath(contextUsername || username)}
+                    className={`inline-flex items-center gap-1.5 ${primaryBtn} px-4 py-2 text-xs`}
+                  >
+                    Public profile
+                  </Link>
+                )}
                 <Link
-                  href={sellerProfilePath(contextUsername || username)}
-                  className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.03] py-2.5 text-xs font-semibold text-zinc-400 transition-all duration-200 hover:bg-white/[0.06] hover:text-white hover:border-white/[0.1] active:scale-[0.98]"
+                  href="/dashboard"
+                  className="inline-flex items-center rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-xs font-semibold text-zinc-300 transition hover:border-sky-500/25 hover:bg-white/[0.06] hover:text-white"
                 >
-                  View public profile
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                  Dashboard
                 </Link>
-              )}
+                <Link
+                  href="/messages"
+                  className="inline-flex items-center rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-xs font-semibold text-zinc-300 transition hover:border-sky-500/25 hover:bg-white/[0.06] hover:text-white"
+                >
+                  Messages
+                </Link>
+              </div>
             </div>
           </div>
 
+          <div className="grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
           {/* Tabs */}
-          <nav className="flex gap-1.5 overflow-x-auto rounded-xl border border-white/[0.04] bg-white/[0.02] p-1 scrollbar-none" role="tablist" aria-label="Profile sections">
+          <nav
+            className="flex gap-1.5 overflow-x-auto rounded-2xl border border-white/[0.06] bg-white/[0.015] p-1.5 scrollbar-none lg:sticky lg:top-24 lg:flex-col lg:overflow-visible"
+            role="tablist"
+            aria-label="Profile sections"
+          >
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 role="tab"
                 aria-selected={activeTab === tab.id}
-                className={`shrink-0 rounded-lg px-3.5 py-2 text-xs font-semibold transition-all duration-200 sm:px-4 sm:text-sm ${
+                className={`shrink-0 rounded-xl px-3.5 py-2.5 text-left text-xs font-semibold transition-all duration-200 sm:text-sm lg:w-full ${
                   activeTab === tab.id
                     ? tab.id === "danger"
-                      ? "bg-red-500/15 text-red-300 shadow-sm"
-                      : "bg-sky-500/15 text-sky-300 shadow-sm"
+                      ? "bg-red-500/15 text-red-300"
+                      : "bg-sky-500/15 text-sky-300"
                     : tab.id === "danger"
-                      ? "text-red-400/50 hover:text-red-300"
-                      : "text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.03]"
+                      ? "text-red-400/60 hover:bg-red-500/10 hover:text-red-300"
+                      : "text-zinc-500 hover:bg-white/[0.04] hover:text-white"
                 }`}
               >
                 {tab.label}
               </button>
             ))}
           </nav>
+
+          <div className="min-w-0 space-y-5">
 
           {/* ===== TAB: PROFILE ===== */}
           {activeTab === "profile" && (
@@ -1133,7 +1163,7 @@ const tabs = [
               </div>
 
               {!readyToList && (
-                <div className="mb-5 rounded-xl border border-amber-500/20 bg-amber-500/[0.04] px-4 py-3 text-sm text-amber-400/90">
+                <div className="mb-5 rounded-xl border border-sky-500/20 bg-sky-500/[0.04] px-4 py-3 text-sm text-sky-400/90">
                   {listingBlockReason || "Verify your email and phone to create listings."}
                 </div>
               )}
@@ -1192,7 +1222,7 @@ const tabs = [
                 )}
 
                 <button onClick={() => saveProfile()} disabled={!!saving}
-                  className="w-full rounded-xl bg-sky-500 py-3 text-sm font-semibold text-white transition-colors hover:bg-sky-400 active:scale-[0.98] disabled:opacity-50">
+                  className={`w-full ${primaryBtn}`}>
                   {saving ? "Saving..." : "Save changes"}
                 </button>
 
@@ -1208,7 +1238,7 @@ const tabs = [
                       Update password
                     </button>
                     {pwMsg && (
-                      <p className={`text-xs ${pwMsg.includes("updated") ? "text-emerald-400" : "text-red-400"}`}>{pwMsg}</p>
+                      <p className={`text-xs ${pwMsg.includes("updated") ? "text-sky-400" : "text-red-400"}`}>{pwMsg}</p>
                     )}
                   </div>
                 </details>
@@ -1235,7 +1265,7 @@ const tabs = [
             <div className={settingsSection}>
               <div className="flex items-center justify-between mb-5">
                 <div>
-                  <h2 className="text-lg font-bold text-[var(--foreground)]">Your listings</h2>
+                  <h2 className="text-lg font-bold text-white">Your listings</h2>
                   <p className="mt-0.5 text-sm text-zinc-500">{activeListings.length} active listing{activeListings.length === 1 ? "" : "s"}</p>
                 </div>
                 {activeListings.length > 0 && (
@@ -1280,8 +1310,8 @@ const tabs = [
                           <div className="flex h-28 items-center justify-center bg-white/[0.03] text-xs text-zinc-600">No image</div>
                         )}
                         <div className="p-3">
-                          <p className="truncate text-xs font-bold text-[var(--foreground)]">{item.title}</p>
-                          <p className="mt-1 text-sm font-black text-sky-400">${item.price}</p>
+                          <p className="truncate text-xs font-bold text-white">{item.title}</p>
+                          <p className="mt-1 text-sm font-black text-white">${item.price}</p>
                         </div>
                       </Link>
                       <div className="flex gap-1.5 border-t border-white/[0.04] px-2.5 py-2">
@@ -1349,9 +1379,9 @@ const tabs = [
                     </div>
                     <p className="text-sm">
                       {user?.emailVerified ? (
-                        <span className="text-emerald-400 font-medium">Verified</span>
+                        <span className="text-sky-400 font-medium">Verified</span>
                       ) : (
-                        <span className="text-amber-400 font-medium">Not verified</span>
+                        <span className="text-sky-400 font-medium">Not verified</span>
                       )}
                     </p>
                   </div>
@@ -1377,7 +1407,7 @@ const tabs = [
                     </div>
                     <p className="text-sm">
                       {phoneVerified ? (
-                        <span className="text-emerald-400 font-medium">Verified</span>
+                        <span className="text-sky-400 font-medium">Verified</span>
                       ) : (
                         <span className="text-zinc-500 font-medium">Not verified</span>
                       )}
@@ -1400,7 +1430,7 @@ const tabs = [
                       <input type="text" value={phoneCode} onChange={(e) => setPhoneCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                         placeholder="6-digit code" className={`${fieldInput} sm:flex-1`} />
                       <button onClick={handleVerifyPhoneCode} disabled={phoneCode.length !== 6 || phoneVerifying}
-                        className="shrink-0 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-40 transition-all active:scale-[0.98]">
+                        className="shrink-0 rounded-xl bg-sky-600 px-4 py-3 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-40 transition-all active:scale-[0.98]">
                         {phoneVerifying ? "..." : "Verify"}
                       </button>
                     </div>
@@ -1411,7 +1441,7 @@ const tabs = [
                     </button>
                   )}
                   {phoneMsg && (
-                    <p className={`mt-2 text-xs ${phoneMsg.includes("✓") || phoneMsg.includes("Verified") ? "text-emerald-400" : "text-zinc-400"}`}>
+                    <p className={`mt-2 text-xs ${phoneMsg.includes("✓") || phoneMsg.includes("Verified") ? "text-sky-400" : "text-zinc-400"}`}>
                       {phoneMsg}
                     </p>
                   )}
@@ -1421,74 +1451,62 @@ const tabs = [
                   <div className="flex items-center justify-between gap-4 mb-3">
                     <div>
                       <p className="text-sm font-medium text-white">ID Verification (KYC)</p>
-                      <p className="text-xs text-zinc-500">Driver's licence or passport + selfie holding it</p>
+                      <p className="text-xs text-zinc-500">One photo holding your licence or passport</p>
                     </div>
                     <p className="text-sm">
-                      {poaStatus === "approved" && <span className="text-emerald-400 font-medium">Approved</span>}
-                      {poaStatus === "pending" && <span className="text-amber-400 font-medium">Submitted</span>}
+                      {poaStatus === "approved" && <span className="text-sky-400 font-medium">Approved</span>}
+                      {poaStatus === "pending" && <span className="text-sky-400 font-medium">Submitted</span>}
                       {poaStatus === "rejected" && <span className="text-red-400 font-medium">Rejected</span>}
                       {poaStatus === "unsubmitted" && <span className="text-zinc-500 font-medium">Not submitted</span>}
                     </p>
                   </div>
                   {poaStatus === "approved" && (
-                    <p className="text-xs text-emerald-400/80">✓ You are ID verified. Thank you!</p>
+                    <p className="text-xs text-sky-400/80">✓ You are ID verified. Thank you!</p>
                   )}
                   {poaStatus === "rejected" && poaRejectionReason && (
                     <p className="mb-3 text-xs text-red-400">Reason: {poaRejectionReason}</p>
                   )}
                   {(poaStatus === "unsubmitted" || poaStatus === "rejected") && (
                     <div className="space-y-3">
-                      <p className="text-xs text-zinc-500">Upload your driver's licence or passport and a selfie holding it. That's all we need for ID verification.</p>
+                      <p className="text-xs text-zinc-500">Upload one photo of you holding your driver&apos;s licence or passport next to your face.</p>
                       <div>
-                        <label className="mb-1.5 block text-[11px] font-semibold text-zinc-400">Driver's licence or passport</label>
-                        <input type="file" accept="image/*" onChange={(e) => setPoaFile(e.target.files?.[0] || null)}
+                        <label className="mb-1.5 block text-[11px] font-semibold text-zinc-400">Photo holding your ID</label>
+                        <input type="file" accept="image/*" capture="user" onChange={(e) => setPoaFile(e.target.files?.[0] || null)}
                           className="w-full text-xs text-zinc-500 file:mr-3 file:rounded-xl file:border-0 file:bg-sky-500 file:px-4 file:py-2 file:text-xs file:font-semibold file:text-white hover:file:bg-sky-400 file:transition-colors" />
                       </div>
-                      <div>
-                        <label className="mb-1.5 block text-[11px] font-semibold text-zinc-400">Selfie holding your ID</label>
-                        <input type="file" accept="image/*" onChange={(e) => setKycSelfieFile(e.target.files?.[0] || null)}
-                          className="w-full text-xs text-zinc-500 file:mr-3 file:rounded-xl file:border-0 file:bg-sky-500 file:px-4 file:py-2 file:text-xs file:font-semibold file:text-white hover:file:bg-sky-400 file:transition-colors" />
-                      </div>
-                      {poaFile && kycSelfieFile && (
+                      {poaFile && (
                         <button onClick={async () => {
-                          if (!user?.uid || !poaFile || !kycSelfieFile) return;
-                          const nsfwId = await checkImage(poaFile);
-                          if (!nsfwId.safe) { showToast("ID document flagged", "error"); setPoaFile(null); return; }
-                          const nsfwSelfie = await checkImage(kycSelfieFile);
-                          if (!nsfwSelfie.safe) { showToast("Selfie flagged", "error"); setKycSelfieFile(null); return; }
+                          if (!user?.uid || !poaFile) return;
+                          const nsfw = await checkImage(poaFile);
+                          if (!nsfw.safe) { showToast("Photo could not be accepted", "error"); setPoaFile(null); return; }
                           setPoaUploading(true);
                           try {
                             const { ref, uploadBytes, getDownloadURL } = await import("firebase/storage");
                             const { storage } = await import("../lib/firebase");
                             const ts = Date.now();
                             const ext = poaFile.name.split(".").pop();
-                            const idRef = ref(storage, `kyc/${user.uid}/${ts}_id.${ext}`);
-                            await uploadBytes(idRef, poaFile);
-                            const idUrl = await getDownloadURL(idRef);
-                            const selfieExt = kycSelfieFile.name.split(".").pop();
-                            const selfieRef = ref(storage, `kyc/${user.uid}/${ts}_selfie.${selfieExt}`);
-                            await uploadBytes(selfieRef, kycSelfieFile);
-                            const selfieUrl = await getDownloadURL(selfieRef);
+                            const photoRef = ref(storage, `kyc/${user.uid}/${ts}_photo.${ext}`);
+                            await uploadBytes(photoRef, poaFile);
+                            const photoUrl = await getDownloadURL(photoRef);
                             await setDoc(doc(db, "profiles", user.uid), {
                               kycStatus: "pending",
-                              kycIdUrl: idUrl,
-                              kycSelfieUrl: selfieUrl,
+                              kycIdUrl: photoUrl,
+                              kycSelfieUrl: photoUrl,
                               kycSubmittedAt: Timestamp.now(),
                             }, { merge: true });
                             setPoaStatus("pending");
-                            setPoaDocumentURL(idUrl);
+                            setPoaDocumentURL(photoUrl);
                             setPoaFile(null);
-                            setKycSelfieFile(null);
-                            showToast("KYC documents submitted for review.", "success");
-                          } catch (e) { console.error(e); showToast("Failed to upload documents", "error"); }
+                            showToast("KYC photo submitted for review.", "success");
+                          } catch (e) { console.error(e); showToast("Failed to upload photo", "error"); }
                           setPoaUploading(false);
                         }} disabled={poaUploading}
                           className="w-full rounded-xl bg-sky-500 py-3 text-sm font-semibold text-white hover:bg-sky-400 disabled:opacity-50 transition-all active:scale-[0.98]">
                           {poaUploading ? "Uploading..." : "Submit for verification"}
                         </button>
                       )}
-                      {(!poaFile || !kycSelfieFile) && (
-                        <p className="text-[11px] text-zinc-600">Select both files above to submit.</p>
+                      {!poaFile && (
+                        <p className="text-[11px] text-zinc-600">Select a photo above to submit.</p>
                       )}
                     </div>
                   )}
@@ -1496,9 +1514,9 @@ const tabs = [
               </div>
 
               {referredBy && (
-                <div className="mt-5 rounded-xl border border-amber-500/10 bg-amber-500/[0.02] px-4 py-3">
+                <div className="mt-5 rounded-xl border border-sky-500/10 bg-sky-500/[0.02] px-4 py-3">
                   <p className="text-xs text-zinc-500">
-                    Referral code: <span className="text-amber-400 font-semibold">{referredBy}</span>
+                    Referral code: <span className="text-sky-400 font-semibold">{referredBy}</span>
                   </p>
                 </div>
               )}
@@ -1515,9 +1533,9 @@ const tabs = [
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-medium text-white">Arrange Purchase bank details</p>
                   {hasArrangePaymentDetails({ bankAccountName, bankAccountNumber, bankReference }) ? (
-                    <span className="text-xs text-emerald-400">Saved</span>
+                    <span className="text-xs text-sky-400">Saved</span>
                   ) : (
-                    <span className="text-xs text-amber-400">Not set</span>
+                    <span className="text-xs text-sky-400">Not set</span>
                   )}
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -1538,7 +1556,7 @@ const tabs = [
                     placeholder="e.g. Your username or listing title" className={fieldInput} />
                 </div>
                 <button type="button" onClick={() => saveProfile({ bankOnly: true })} disabled={!!saving}
-                  className="w-full rounded-xl bg-emerald-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-500 active:scale-[0.98] disabled:opacity-50">
+                  className="w-full rounded-xl bg-sky-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-sky-500 active:scale-[0.98] disabled:opacity-50">
                   {saving === "Saving bank details..." ? "Saving..." : "Save bank details"}
                 </button>
                 <Link href="/seller-guidelines#arrange-payment" className="block text-center text-xs text-sky-400 hover:text-sky-300">
@@ -1549,7 +1567,7 @@ const tabs = [
               <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <p className="text-sm font-medium text-white">Stripe checkout</p>
-                  {stripeAccountId && <span className="text-xs text-emerald-400">Connected</span>}
+                  {stripeAccountId && <span className="text-xs text-sky-400">Connected</span>}
                 </div>
                 {stripeAccountId ? (
                   <button onClick={handleStripeOnboard}
@@ -1617,6 +1635,9 @@ const tabs = [
             </div>
           )}
 
+          </div>
+          </div>
+
           {listingToDelete && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setListingToDelete(null)}>
               <div className="mx-4 w-full max-w-sm rounded-3xl border border-white/[0.06] bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
@@ -1634,13 +1655,13 @@ const tabs = [
           )}
 
         </div>
-      </div>
+      </section>
       <div id="recaptcha-container" />
 
       {sellBadge && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setSellBadge(null)}>
           <div className="w-full max-w-sm rounded-3xl border border-white/[0.06] bg-zinc-900 p-7 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/10">
+            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-500/10">
               <span className="text-2xl">{sellBadge === "epic" ? "💎" : "👑"}</span>
             </div>
             <h3 className="text-center text-xl font-black text-[var(--foreground)]">

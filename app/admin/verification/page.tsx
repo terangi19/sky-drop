@@ -269,7 +269,7 @@ export default function AdminVerificationPage() {
 
       <section className="relative z-10 mx-auto max-w-5xl px-6 py-12">
         <div className="mb-8">
-          <h1 className="text-4xl font-black text-emerald-500">Verification Review</h1>
+          <h1 className="text-4xl font-black text-sky-500">Verification Review</h1>
           <AwhinaUnderHeader className="mt-2" />
           <p className="mt-2 text-[var(--muted)]">Review submissions and pending listings.</p>
         </div>
@@ -287,9 +287,9 @@ export default function AdminVerificationPage() {
         {tab === "listings" ? (
           <>
             <div className="mb-8 grid gap-4 sm:grid-cols-2">
-              <div className="rounded-2xl border border-amber-500/20 bg-[var(--card)] p-5 shadow-xl">
+              <div className="rounded-2xl border border-sky-500/20 bg-[var(--card)] p-5 shadow-xl">
                 <p className="text-sm text-[var(--muted)]">Pending Listings</p>
-                <p className="mt-1 text-3xl font-black text-amber-400">{pendingListings.length}</p>
+                <p className="mt-1 text-3xl font-black text-sky-400">{pendingListings.length}</p>
               </div>
             </div>
 
@@ -304,12 +304,12 @@ export default function AdminVerificationPage() {
             ) : (
               <div className="space-y-6">
                 {pendingListings.map((listing) => (
-                  <div key={listing.id} className="rounded-2xl border border-amber-500/20 bg-[var(--card)] p-6 shadow-xl">
+                  <div key={listing.id} className="rounded-2xl border border-sky-500/20 bg-[var(--card)] p-6 shadow-xl">
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <span className="text-lg font-bold text-[var(--foreground)]">{listing.title}</span>
-                          <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400">Pending</span>
+                          <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold text-sky-400">Pending</span>
                         </div>
                         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-[var(--muted)]">
                           <span>Seller: {listing.sellerEmail || "—"}</span>
@@ -325,7 +325,7 @@ export default function AdminVerificationPage() {
                     </div>
                     <div className="mt-4 flex flex-wrap gap-3">
                       <button onClick={() => handleApproveListing(listing.id)}
-                        className="rounded-xl bg-emerald-500/15 px-5 py-2.5 text-xs font-bold text-emerald-400 transition hover:bg-emerald-500/25">
+                        className="rounded-xl bg-sky-500/15 px-5 py-2.5 text-xs font-bold text-sky-400 transition hover:bg-sky-500/25">
                         ✅ Approve
                       </button>
                       <input type="text" value={rejectInputs[`lst_${listing.id}`] || ""} onChange={(e) => setRejectInputs((prev) => ({ ...prev, [`lst_${listing.id}`]: e.target.value }))}
@@ -370,7 +370,7 @@ export default function AdminVerificationPage() {
                     </div>
                     <div className="mt-4 flex flex-wrap gap-3">
                       <button onClick={() => handleApproveDigital(listing.id)}
-                        className="rounded-xl bg-emerald-500/15 px-5 py-2.5 text-xs font-bold text-emerald-400 transition hover:bg-emerald-500/25">
+                        className="rounded-xl bg-sky-500/15 px-5 py-2.5 text-xs font-bold text-sky-400 transition hover:bg-sky-500/25">
                         ✅ Approve
                       </button>
                       <input type="text" value={rejectInputs[`dig_${listing.id}`] || ""} onChange={(e) => setRejectInputs((prev) => ({ ...prev, [`dig_${listing.id}`]: e.target.value }))}
@@ -389,9 +389,9 @@ export default function AdminVerificationPage() {
         ) : (
           <>
             <div className="mb-8 grid gap-4 sm:grid-cols-2">
-              <div className="rounded-2xl border border-emerald-500/20 bg-[var(--card)] p-5 shadow-xl">
+              <div className="rounded-2xl border border-sky-500/20 bg-[var(--card)] p-5 shadow-xl">
                 <p className="text-sm text-[var(--muted)]">Pending Reviews</p>
-                <p className="mt-1 text-3xl font-black text-emerald-400">{profiles.length}</p>
+                <p className="mt-1 text-3xl font-black text-sky-400">{profiles.length}</p>
               </div>
             </div>
 
@@ -406,17 +406,17 @@ export default function AdminVerificationPage() {
             ) : (
               <div className="space-y-6">
                 {profiles.map((profile) => (
-                  <div key={profile.id} className="rounded-2xl border border-emerald-500/20 bg-[var(--card)] p-6 shadow-xl">
+                  <div key={profile.id} className="rounded-2xl border border-sky-500/20 bg-[var(--card)] p-6 shadow-xl">
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <span className="text-lg font-bold text-[var(--foreground)]">{profile.email || "No email"}</span>
-                          {profile.phoneVerified && <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400">Phone ✓</span>}
+                          {profile.phoneVerified && <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold text-sky-400">Phone ✓</span>}
                         </div>
                         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-[var(--muted)]">
                           <span>Username: {profile.username || "—"}</span>
                           <span>Phone: {profile.phone || "—"}</span>
-                          {profile.referredBy && <span>Referred by: <span className="font-bold text-amber-400">{profile.referredBy}</span></span>}
+                          {profile.referredBy && <span>Referred by: <span className="font-bold text-sky-400">{profile.referredBy}</span></span>}
                           {profile.proofOfAddress?.submittedAt?.toDate && <span>Submitted: {profile.proofOfAddress.submittedAt.toDate().toLocaleDateString()}</span>}
                         </div>
                       </div>
@@ -435,7 +435,7 @@ export default function AdminVerificationPage() {
                     {/* Approve / Reject */}
                     <div className="mt-4 flex flex-wrap gap-3">
                       <button onClick={() => handleApprove(profile.id)}
-                        className="rounded-xl bg-emerald-500/15 px-5 py-2.5 text-xs font-bold text-emerald-400 transition hover:bg-emerald-500/25">
+                        className="rounded-xl bg-sky-500/15 px-5 py-2.5 text-xs font-bold text-sky-400 transition hover:bg-sky-500/25">
                         ✅ Approve
                       </button>
                       <input type="text" value={rejectInputs[profile.id] || ""} onChange={(e) => setRejectInputs((prev) => ({ ...prev, [profile.id]: e.target.value }))}

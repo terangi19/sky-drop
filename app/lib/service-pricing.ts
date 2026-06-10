@@ -60,7 +60,7 @@ export type ServicePricingBadge = {
   emoji: string;
   label: string;
   detail: string;
-  tone: "emerald" | "sky" | "violet";
+  tone: "sky" | "sky" | "sky";
 };
 
 export function getServicePricingBadge(listing: {
@@ -72,7 +72,7 @@ export function getServicePricingBadge(listing: {
     listing.price != null && String(listing.price).trim() !== "" ? String(listing.price) : "";
 
   if (type === "request_quote") {
-    return { emoji: "🟣", label: "Quote Required", detail: "", tone: "violet" };
+    return { emoji: "🟣", label: "Quote Required", detail: "", tone: "sky" };
   }
   if (type === "starting_at") {
     return {
@@ -86,7 +86,7 @@ export function getServicePricingBadge(listing: {
     emoji: "🟢",
     label: "Fixed Price",
     detail: price ? `— $${price}` : "",
-    tone: "emerald",
+    tone: "sky",
   };
 }
 

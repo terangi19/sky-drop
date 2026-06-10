@@ -7,7 +7,7 @@ import type { User } from "firebase/auth";
 import Navbar from "./Navbar";
 import Background from "./Background";
 import BrowseAwhinaAssistantPanel from "./BrowseAwhinaAssistantPanel";
-
+import HotThisWeek from "./HotThisWeek";
 import ListingCard from "./ListingCard";
 import { showToast } from "./Toast";
 import {
@@ -44,6 +44,7 @@ import {
 } from "../lib/nz-region-cities";
 import { cdnUrl } from "../lib/cdn";
 import { useSellerListingMeta } from "../lib/useSellerListingMeta";
+import { LISTING_GRID_MT, PAGE_SHELL_MARKETPLACE } from "../lib/page-layout";
 
 function listingSearchText(
   item: Record<string, unknown>,
@@ -277,7 +278,7 @@ export default function BrowseCategoryPage({ config }: Props) {
       <Background />
       <Navbar />
 
-      <section className="relative z-10 mx-auto w-full px-4 sm:px-6 lg:px-8 xl:px-10 pb-10 pt-6 max-w-[90rem] 2xl:max-w-[120rem] 3xl:max-w-none 3xl:px-12 4xl:px-16">
+      <section className={`${PAGE_SHELL_MARKETPLACE} pb-10 pt-6`}>
         <div
           className={`relative overflow-hidden rounded-3xl border border-white/[0.04] bg-gradient-to-b from-white/[0.04] via-transparent to-transparent ${t.heroShadow}`}
         >
@@ -286,10 +287,10 @@ export default function BrowseCategoryPage({ config }: Props) {
           <div className="relative flex items-center justify-center px-6 py-2.5 text-[12px] border-b border-white/[0.04]">
             <span className="absolute left-6 top-1/2 -translate-y-1/2 flex items-center gap-2">
               <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-500" />
               </span>
-              <span className="text-[10px] font-medium text-emerald-400/60 uppercase tracking-widest">
+              <span className="text-[10px] font-medium text-sky-400/60 uppercase tracking-widest">
                 Live
               </span>
             </span>
@@ -311,9 +312,6 @@ export default function BrowseCategoryPage({ config }: Props) {
                   {config.pageTitle}
                 </span>
               </h1>
-              <p className="mt-4 max-w-xl mx-auto text-sm leading-relaxed text-white">
-                {config.subtitle}
-              </p>
             </div>
 
             <BrowseAwhinaAssistantPanel className="mt-4 mb-0 mx-auto w-full max-w-2xl text-left" />
@@ -520,74 +518,15 @@ export default function BrowseCategoryPage({ config }: Props) {
           </div>
         )}
 
-        {hotItems.length > 0 && (
-          <div className="mb-8 overflow-visible">
-            <div className="relative mb-4 pt-2">
-              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
-              <div className="flex items-center gap-2 pt-3">
-                <div className={`trending-now-accent h-5 w-1 rounded-full bg-gradient-to-b ${t.hotBarGradient}`} />
-                <p className="trending-now-title text-[13px] font-bold uppercase tracking-[0.22em] text-white">
-                  Trending Now
-                </p>
-              </div>
-            </div>
-            <div className="-mx-1 flex gap-3 overflow-x-auto overflow-y-visible px-1 py-3 scrollbar-none">
-              {hotItems.map((item: any) => {
-                const hotSaves = listingWatchlistCount(item);
-                return (
-                  <div
-                    key={item.id}
-                    onClick={() => {
-                      saveRecentlyViewed(item);
-                      router.push(`/post/listing/${item.id}`);
-                    }}
-                    className="hot-week-card listing-card group w-56 shrink-0 cursor-pointer overflow-hidden rounded-2xl border bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-0 text-white transition-all duration-300 hover:-translate-y-1 sm:w-60"
-                  >
-                    <div className="relative overflow-hidden">
-                      {item.images?.[0] || item.imageUrl || item.image ? (
-                        <img
-                          src={cdnUrl(item.images?.[0] || item.imageUrl || item.image || "")}
-                          alt={item.title}
-                          loading="lazy"
-                          className="h-36 w-full object-cover transition-all duration-700 group-hover:scale-105"
-                        />
-                      ) : (
-                        <div
-                          className={`flex h-36 items-center justify-center bg-gradient-to-br ${t.placeholderGradient} text-xs text-white`}
-                        >
-                          SD
-                        </div>
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                      <div className="absolute top-2 left-2">
-                        <span
-                          className={`rounded-full ${t.hotBadge} px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg backdrop-blur-sm`}
-                        >
-                          🔥 Trending
-                        </span>
-                      </div>
-                    </div>
-                    <div className="p-3">
-                      <p className="truncate text-sm font-bold text-white">{item.title}</p>
-                      <p className="mt-1.5 text-lg font-black tracking-tight text-white drop-shadow-[0_0_8px_rgba(14,165,233,0.15)]">
-                        ${item.price}
-                      </p>
-                      <div className="mt-1.5 flex items-center gap-3 text-[11px] text-white">
-                        {item.location && <span>📍 {item.location}</span>}
-                        {item.createdAt?.seconds != null && (
-                          <span>{timeAgo(item.createdAt.seconds)}</span>
-                        )}
-                        <span className="ml-auto flex items-center gap-1">
-                          ⭐ {hotSaves.toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        <HotThisWeek
+          items={hotItems}
+          timeAgo={timeAgo}
+          saveRecentlyViewed={saveRecentlyViewed}
+          cdnUrl={cdnUrl}
+          user={user}
+          sellerReviewStats={sellerReviewStats}
+          sellerBadges={sellerBadges}
+        />
 
         {listings.length === 0 ? (
           <div className="mx-auto max-w-md mt-12 text-center">
@@ -657,7 +596,7 @@ export default function BrowseCategoryPage({ config }: Props) {
             </div>
             <div
               key={watchlistTick}
-              className="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 4xl:grid-cols-7 5xl:grid-cols-8"
+              className={LISTING_GRID_MT}
             >
               {filteredListings.map((item, cardIndex) => (
                 <ListingCard
@@ -724,7 +663,7 @@ export default function BrowseCategoryPage({ config }: Props) {
                         {config.emoji}
                       </div>
                     )}
-                    <p className="mt-2 truncate text-xs font-bold text-[var(--cream)]">
+                    <p className="mt-2 truncate text-xs font-bold text-always-white">
                       {card.title}
                     </p>
                     <p className={`text-sm font-black ${t.recentPrice}`}>${card.price}</p>

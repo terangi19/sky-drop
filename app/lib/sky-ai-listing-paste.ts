@@ -102,14 +102,11 @@ function normalizeListingType(raw: string | undefined, text = ""): string {
   const blob = `${lower} ${text.toLowerCase()}`;
   if (/digital/.test(lower)) return "digital";
   if (/service/.test(lower)) return "service";
-  if (/rental|property|house|apartment|flat|unit|townhouse/.test(lower)) return "rental";
+  if (/rent(?:al|ing)?\b/.test(lower) && !/\b(?:house|home|apartment|flat|room|property|tenancy|landlord)\b/.test(lower)) return "rental";
   if (/vehicle|car/.test(lower)) return "vehicle";
-  if (/\b(?:per\s+week|pw|bond|bedroom|bathroom|furnished|healthy\s+homes)\b/.test(blob)) {
-    return "rental";
-  }
-  if (/\bproperty\s+type\s*:/i.test(text) && /\b(?:house|apartment|flat|unit)\b/i.test(text)) {
-    return "rental";
-  }
+  if (/\b(?:hire|equipment|tool|trailer|party|machinery|generator|camping|tent|gazebo|pressure\s+washer|excavator|camera)\b/.test(blob)) return "rental";
+  if (/\b(?:per\s+day|daily\s+rate|deposit)\b/.test(blob) && !/\b(?:per\s+week|pw|bond|bedroom|bathroom)\b/.test(blob)) return "rental";
+  if (/\b(?:house|home|apartment|flat|room|property|tenancy|landlord)\b/.test(lower)) return "physical";
   return "physical";
 }
 

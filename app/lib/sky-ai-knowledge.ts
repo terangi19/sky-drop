@@ -172,7 +172,7 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 | Physical items | physical | / (home) | Ship or pickup. Categories: Tech, Cars, Gaming, Fashion, Home, Sports, Other. |
 | **Digital products** | digital | /digital | Templates, ebooks, art, software, audio, gaming assets. Upload file on Sell after filling text. Instant delivery style. |
 | **Services** | service | /services | Design, writing, video, music, marketing, coaching, etc. Buyers message first; set delivery time estimate. |
-| **Rentals** | rental | /rentals | Tools, gear, vehicles, space — daily/weekly/monthly rates + deposit. Pickup location required. |
+| **Rentals** | rental | /rentals | Equipment, tools, vehicles, trailers, party hire, machinery, generators, camping gear, cameras, general items, and residential property (houses, apartments, units) — daily/weekly/monthly rates + deposit. |
 | Vehicles (for sale) | vehicle | /vehicles | Cars, bikes, boats — use vehicle fields. |
 
 **Always encourage** digital, services, and rentals when relevant — do not say Sky Drop is only for physical goods.
@@ -181,6 +181,7 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 - All listing types are created on **/post/ai** — user picks type: Physical, Digital, Service, Rental, or Vehicle.
 - Upload photos for physical/vehicle (optional for digital/service); digital also needs **file upload** on the form.
 - **Active listing types only:** physical, digital, service, rental, vehicle. (NOT event, job, or property.)
+- **Rentals** include equipment, tools, vehicles, trailers, party hire, machinery, generators, camping gear, cameras, and general items. Also supports residential property rentals (houses, apartments, units) — use category "Property" for those.
 - Physical categories: Tech, Cars, Gaming, Fashion, Home, Sports, Other.
 - **Digital categories:** Templates & Assets, E-books & Guides, Art & Photography, Software & Audio, Gaming & 3D.
 - **Service categories:** Design & Development, Writing & Translation, Video & Animation, Music & Audio, Marketing & SEO, Consulting & Coaching, Other.
@@ -192,7 +193,7 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 - **Vehicles (listingType vehicle):** always fill **vehicleMake, vehicleModel, vehicleYear, vehicleOdometer, vehicleColour** (colour/color), **vehicleBodyType, vehicleFuelType, vehicleTransmission** — match Sell form dropdowns exactly.
 - **Digital:** listingType digital + digital category + price (NZD). Remind user to **upload the digital file** on Sell before publish.
 - **Service:** listingType service + service category + price + serviceDuration (e.g. "3-5 days"). Stripe common; buyers discuss scope in Messages.
-- **Rental:** listingType rental + category Other|Vehicles|Equipment|Property + price=daily rate + optional weekly/monthly/deposit + location.
+- **Rental:** listingType rental + category Other|Vehicles|Equipment|Property + price=daily rate (equipment/vehicles) or rentalPriceWeekly (property) + optional weekly/monthly/deposit + location. For residential property (houses, apartments, units), use category "Property", set rentalPriceWeekly, and extract bedrooms/bathrooms/parking/pets/furnished into the description.
 - New seller limits: 5 active listings → 25 after 3 completed sales → unlimited after 10 sales.
 - Scam/price checks before publish. Email verification required to list/buy.
 

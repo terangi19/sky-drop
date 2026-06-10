@@ -6,8 +6,6 @@ import { useRouter } from "next/navigation";
 import type { User } from "firebase/auth";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
-import BrowseMarketplaceHero from "../components/BrowseMarketplaceHero";
-import { HOME_MARKETPLACE_THEME as t } from "../lib/browse-category-config";
 import MarketplaceListingCard from "../components/MarketplaceListingCard";
 import { showToast } from "../components/Toast";
 import {
@@ -42,6 +40,9 @@ import {
 import { cdnUrl } from "../lib/cdn";
 import { useSellerListingMeta } from "../lib/useSellerListingMeta";
 import HotThisWeek from "../components/HotThisWeek";
+import BrowseMarketplaceHero from "../components/BrowseMarketplaceHero";
+import { HOME_MARKETPLACE_THEME as t } from "../lib/browse-category-config";
+import { LISTING_GRID_MT, PAGE_SHELL_MARKETPLACE } from "../lib/page-layout";
 
 function vehicleSearchText(item: Record<string, unknown>): string {
   return [
@@ -224,11 +225,10 @@ export default function VehiclesPage() {
     <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-white transition-colors duration-300">
       <Background /><Navbar />
 
-      <section className="relative z-10 mx-auto max-w-[1800px] px-4 pb-8 pt-2 sm:pt-3">
+      <section className={`${PAGE_SHELL_MARKETPLACE} pb-8 pt-2 sm:pt-3`}>
         <BrowseMarketplaceHero
           badge="Vehicles"
           title="Vehicles"
-          subtitle="Browse cars, trucks, motorbikes, and more. Buy or bid on vehicles across New Zealand."
         >
           <div className="group relative mt-4 w-full max-w-2xl">
             <div className={`absolute -inset-1 rounded-xl bg-gradient-to-r ${t.searchGlow} opacity-0 blur-lg transition duration-500 group-focus-within:opacity-100`} />
@@ -275,14 +275,14 @@ export default function VehiclesPage() {
         {listings.length > 0 && (
           <div className="mb-5">
             <div className="flex flex-wrap items-center gap-3">
-              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-yellow-400/90">
+              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-white">
                 Region
               </span>
               <div className="relative">
                 <select
                   value={selectedRegion}
                   onChange={(e) => handleRegionChange(e.target.value)}
-                  className="appearance-none rounded-lg border border-white/[0.06] bg-black/40 px-3 py-2 pr-8 text-[11px] text-white outline-none transition focus:border-yellow-500/40 cursor-pointer"
+                  className="appearance-none rounded-lg border border-white/[0.06] bg-black/40 px-3 py-2 pr-8 text-[11px] text-white outline-none transition focus:border-sky-500/40 cursor-pointer"
                 >
                   <option value="All" className="bg-zinc-900">
                     All regions
@@ -305,14 +305,14 @@ export default function VehiclesPage() {
               </div>
               {selectedRegion !== "All" && cityOptions.length > 0 && (
                 <>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-yellow-400/90">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-white">
                     City
                   </span>
                   <div className="relative">
                     <select
                       value={selectedCity}
                       onChange={(e) => setSelectedCity(e.target.value)}
-                      className="appearance-none rounded-lg border border-white/[0.06] bg-black/40 px-3 py-2 pr-8 text-[11px] text-white outline-none transition focus:border-yellow-500/40 cursor-pointer"
+                      className="appearance-none rounded-lg border border-white/[0.06] bg-black/40 px-3 py-2 pr-8 text-[11px] text-white outline-none transition focus:border-sky-500/40 cursor-pointer"
                     >
                       <option value="All" className="bg-zinc-900">
                         All cities
@@ -356,12 +356,12 @@ export default function VehiclesPage() {
 
         <HotThisWeek
           items={hotItems}
-          accent="amber"
           timeAgo={timeAgo}
           saveRecentlyViewed={saveRecentlyViewed}
           cdnUrl={cdnUrl}
-          listingWatchlistCount={listingWatchlistCount}
-          listingWatchlistGlowIntensity={listingWatchlistGlowIntensity}
+          user={user}
+          sellerReviewStats={sellerReviewStats}
+          sellerBadges={sellerBadges}
         />
         {listings.length === 0 ? (
           <div className="mx-auto max-w-md mt-12 text-center">
@@ -370,7 +370,7 @@ export default function VehiclesPage() {
             </div>
             <h2 className="text-2xl font-black tracking-tight text-white">No vehicles listed yet</h2>
             <p className="mt-2 text-sm text-white/60">Be the first to list a vehicle.</p>
-            <Link href="/post/ai?type=vehicle" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-yellow-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-yellow-500/30 hover:scale-105 active:scale-95">
+            <Link href="/post/ai?type=vehicle" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:scale-105 active:scale-95">
               List a Vehicle
             </Link>
           </div>
@@ -403,7 +403,7 @@ export default function VehiclesPage() {
           <>
             <div className="flex items-center justify-between mb-1.5 mt-4">
               <div className="flex items-center gap-3">
-                <div className="h-7 w-1 rounded-full bg-gradient-to-b from-yellow-500 to-amber-500" />
+                <div className="h-7 w-1 rounded-full bg-gradient-to-b from-sky-500 to-sky-500" />
                 <div>
                   <h2 className="text-lg font-black tracking-tight text-white">Vehicle Listings</h2>
                   <p className="text-[11px] text-white/60">
@@ -417,7 +417,7 @@ export default function VehiclesPage() {
             </div>
             <div
               key={watchlistTick}
-              className="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+              className={LISTING_GRID_MT}
             >
               {filteredListings.map((item, cardIndex) => (
                 <MarketplaceListingCard
@@ -446,7 +446,7 @@ export default function VehiclesPage() {
             <div className="relative mb-3 pt-2">
               <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
               <div className="flex items-center gap-2 pt-3">
-                <div className="h-5 w-1 rounded-full bg-gradient-to-b from-yellow-500 to-amber-500" />
+                <div className="h-5 w-1 rounded-full bg-gradient-to-b from-sky-500 to-sky-500" />
                 <p className="text-[13px] font-bold uppercase tracking-[0.22em] text-white">
                   Recently Viewed
                 </p>
@@ -464,7 +464,7 @@ export default function VehiclesPage() {
                       saveRecentlyViewed(card);
                       router.push(`/post/listing/${item.id}`);
                     }}
-                    className="group w-56 shrink-0 cursor-pointer rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 transition-all duration-300 hover:-translate-y-0.5 hover:border-yellow-500/40 hover:shadow-[0_8px_25px_rgba(234,179,8,0.15)]"
+                    className="group w-56 shrink-0 cursor-pointer rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 transition-all duration-300 hover:-translate-y-0.5 hover:border-sky-500/40 hover:shadow-[0_8px_25px_rgba(234,179,8,0.15)]"
                   >
                     {imageSrc ? (
                       <img
@@ -477,12 +477,12 @@ export default function VehiclesPage() {
                         className="h-20 w-full rounded-lg object-cover"
                       />
                     ) : (
-                      <div className="flex h-20 items-center justify-center rounded-lg bg-gradient-to-br from-yellow-500/10 to-amber-500/10 text-2xl">
+                      <div className="flex h-20 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500/10 to-sky-500/10 text-2xl">
                         🚗
                       </div>
                     )}
-                    <p className="mt-2 truncate text-xs font-bold text-[var(--cream)]">{card.title}</p>
-                    <p className="text-sm font-black text-yellow-400">${card.price}</p>
+                    <p className="mt-2 truncate text-xs font-bold text-always-white">{card.title}</p>
+                    <p className="text-sm font-black text-sky-400">${card.price}</p>
                   </div>
                 );
               })}
@@ -491,7 +491,7 @@ export default function VehiclesPage() {
         )}
       
         {/* Trust strip */}
-        <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 rounded-2xl border border-white/[0.04] bg-white/[0.015] px-5 py-3 backdrop-blur-sm">
+        <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4 rounded-2xl border border-white/[0.04] bg-white/[0.015] px-6 py-4 sm:gap-x-14 lg:gap-x-20 backdrop-blur-sm">
           {[
             { label: "Flexible payments", sub: "Stripe or Arrange Purchase" },
             { label: "Dispute protection", sub: "7-day window" },
@@ -499,7 +499,7 @@ export default function VehiclesPage() {
             { label: "NZ community", sub: "Built for Aotearoa" },
           ].map((item) => (
             <div key={item.label} className="flex items-center gap-2.5">
-              <div>
+              <div className="space-y-0.5">
                 <p className="text-[11px] font-medium text-white">{item.label}</p>
                 <p className="text-[10px] text-white/70">{item.sub}</p>
               </div>
@@ -509,6 +509,9 @@ export default function VehiclesPage() {
     </main>
   );
 }
+
+
+
 
 
 

@@ -134,7 +134,7 @@ export default function Spotlight() {
                   <p className="truncate text-[11px] text-[var(--muted)]">{item.path}</p>
                 </div>
                 <span className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
-                  item.type === "page" ? "bg-zinc-800 text-[var(--muted)]" : "bg-amber-500/10 text-amber-400"
+                  item.type === "page" ? "bg-zinc-800 text-[var(--muted)]" : "bg-sky-500/10 text-sky-400"
                 }`}>{item.type}</span>
               </button>
             ))

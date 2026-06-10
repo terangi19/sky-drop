@@ -28,8 +28,8 @@ const PAGE_INTROS: Record<string, string[]> = {
     "Search or pick a category, then open a listing to buy or message the seller.",
   ],
   "/digital": [
-    "You're on the Digital Store — download-ready products from Kiwi creators.",
-    "Browse templates, ebooks, software, and assets. Tap a listing to view details and checkout for instant delivery.",
+    "You're in the Digital Store — buy templates, e-books, design assets, software, and more from Kiwi creators.",
+    "Search or pick a category, open a listing, and checkout to download your purchase instantly.",
   ],
   "/services": [
     "You're on Services — freelancers and professionals offering help across NZ.",
@@ -282,6 +282,8 @@ type SellerListing = {
   id: string;
   title?: string;
   views?: number;
+  status?: string;
+  stockQuantity?: number | string | null;
   promotedUntil?: { toMillis?: () => number };
   [key: string]: unknown;
 };
@@ -402,14 +404,45 @@ export function buildPurchasesInsight(
       icon: "✨",
       label: AWHINA_NAME,
       message: `You have ${active.length} active orders in progress.`,
+    };
+  }
+
+  return null;
+}
+
+export function buildSalesInsight(
+  sales: { id: string; listingTitle: string; status: string }[],
+  onFocusActive?: () => void
+): AwhinaInsight | null {
+  if (sales.length === 0) return null;
+
+  const needsUpdate = sales.filter(
+    (s) => !["completed", "cancelled", "delivered"].includes(s.status)
+  );
+
+  if (needsUpdate.length > 0) {
+    return {
+      icon: "📦",
+      label: AWHINA_NAME,
+      message:
+        needsUpdate.length === 1
+          ? `"${needsUpdate[0].listingTitle}" needs an update.`
+          : `${needsUpdate.length} orders need updating — confirm, ship, or mark complete.`,
       actions: [
         {
-          label: `Ask ${AWHINA_NAME}`,
-          onClick: () => dispatchSkyAiOpen("Help me with my active purchases"),
+          label: `View ${needsUpdate.length} Active`,
+          onClick: onFocusActive,
+          primary: true,
         },
       ],
     };
   }
 
-  return null;
+  return sales.length > 0
+    ? {
+        icon: "✅",
+        label: AWHINA_NAME,
+        message: `All ${sales.length} orders are completed. Nice work!`,
+      }
+    : null;
 }

@@ -6,8 +6,6 @@ import { useRouter } from "next/navigation";
 import type { User } from "firebase/auth";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
-import BrowseMarketplaceHero from "../components/BrowseMarketplaceHero";
-import { HOME_MARKETPLACE_THEME as t } from "../lib/browse-category-config";
 import MarketplaceListingCard from "../components/MarketplaceListingCard";
 import { showToast } from "../components/Toast";
 import {
@@ -36,14 +34,17 @@ import {
 import { cdnUrl } from "../lib/cdn";
 import { useSellerListingMeta } from "../lib/useSellerListingMeta";
 import HotThisWeek from "../components/HotThisWeek";
+import BrowseMarketplaceHero from "../components/BrowseMarketplaceHero";
+import { HOME_MARKETPLACE_THEME as t } from "../lib/browse-category-config";
+import { LISTING_GRID_MT, PAGE_SHELL_MARKETPLACE } from "../lib/page-layout";
 
 const CATEGORIES = [
-  "All",
-  "Templates & Assets",
-  "E-books & Guides",
-  "Art & Photography",
-  "Software & Audio",
-  "Gaming & 3D",
+  { emoji: "✨", name: "All" },
+  { emoji: "📐", name: "Templates & Assets" },
+  { emoji: "📚", name: "E-books & Guides" },
+  { emoji: "🎨", name: "Art & Photography" },
+  { emoji: "💻", name: "Software & Audio" },
+  { emoji: "🎮", name: "Gaming & 3D" },
 ];
 
 function digitalSearchText(item: Record<string, unknown>): string {
@@ -204,11 +205,10 @@ export default function DigitalPage() {
       <Background />
       <Navbar />
 
-      <section className="relative z-10 mx-auto max-w-[1800px] px-4 pb-8 pt-2 sm:pt-3">
+      <section className={`${PAGE_SHELL_MARKETPLACE} pb-8 pt-2 sm:pt-3`}>
         <BrowseMarketplaceHero
           badge="Digital"
           title="Digital Store"
-          subtitle="Templates, software, design assets, e-books, and creative tools — instant download on purchase."
         >
             <div className="group relative mt-4 w-full max-w-2xl">
               <div className={`absolute -inset-1 rounded-xl bg-gradient-to-r ${t.searchGlow} opacity-0 blur-lg transition duration-500 group-focus-within:opacity-100`} />
@@ -275,59 +275,44 @@ export default function DigitalPage() {
         </BrowseMarketplaceHero>
 
         {listings.length > 0 && (
-          <div className="mb-5">
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-sky-400/90">
-                Category
-              </span>
-              <div className="relative">
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="appearance-none rounded-lg border border-white/[0.06] bg-black/40 px-3 py-2 pr-8 text-[11px] text-white outline-none transition focus:border-sky-500/40 cursor-pointer"
-                >
-                  {CATEGORIES.map((c) => (
-                    <option key={c} value={c} className="bg-zinc-900">
-                      {c === "All" ? "All categories" : c}
-                    </option>
-                  ))}
-                </select>
-                <svg
-                  className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-white/60"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-              <span className="text-[11px] text-white/60">
-                {filteredListings.length} listing{filteredListings.length !== 1 ? "s" : ""}
-                {searchQuery.trim() ? ` matching "${searchQuery.trim()}"` : ""}
-                {selectedCategory !== "All" ? ` in ${selectedCategory}` : ""}
-              </span>
-              {hasActiveFilters && (
-                <button
-                  type="button"
-                  onClick={clearFilters}
-                  className="rounded-lg border border-white/[0.06] px-3 py-2 text-[11px] font-medium text-zinc-400 transition hover:bg-white/[0.04] hover:text-white"
-                >
-                  ✕ Clear filters
-                </button>
-              )}
-            </div>
+          <div className="mb-5 flex flex-wrap items-center justify-center gap-2">
+            {CATEGORIES.map((cat) => (
+              <button
+                key={cat.name}
+                onClick={() => setSelectedCategory(cat.name)}
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-medium transition-all ${
+                  selectedCategory === cat.name
+                    ? "border-sky-400/30 bg-sky-500/10 text-white shadow-[0_0_24px_rgba(14,165,233,0.1)]"
+                    : "border-white/[0.06] bg-white/[0.02] text-zinc-400 hover:border-white/10 hover:text-zinc-200"
+                }`}
+              >
+                <span className="text-sm leading-none">{cat.emoji}</span>
+                {cat.name}
+              </button>
+            ))}
+            <span className="text-[11px] text-white/50 ml-2">
+              {filteredListings.length} listing{filteredListings.length !== 1 ? "s" : ""}
+            </span>
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="rounded-lg border border-white/[0.06] px-3 py-2 text-[11px] font-medium text-zinc-400 transition hover:bg-white/[0.04] hover:text-white"
+              >
+                ✕ Clear filters
+              </button>
+            )}
           </div>
         )}
 
         <HotThisWeek
           items={hotItems}
-          accent="sky"
           timeAgo={timeAgo}
           saveRecentlyViewed={saveRecentlyViewed}
           cdnUrl={cdnUrl}
-          listingWatchlistCount={listingWatchlistCount}
-          listingWatchlistGlowIntensity={listingWatchlistGlowIntensity}
+          user={user}
+          sellerReviewStats={sellerReviewStats}
+          sellerBadges={sellerBadges}
         />
         {listings.length === 0 ? (
           <div className="mx-auto max-w-md mt-12 text-center">
@@ -383,7 +368,7 @@ export default function DigitalPage() {
             </div>
             <div
               key={watchlistTick}
-              className="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+              className={LISTING_GRID_MT}
             >
               {filteredListings.map((item, cardIndex) => (
                 <MarketplaceListingCard
@@ -467,7 +452,7 @@ export default function DigitalPage() {
         )}
       
         {/* Trust strip */}
-        <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 rounded-2xl border border-white/[0.04] bg-white/[0.015] px-5 py-3 backdrop-blur-sm">
+        <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4 rounded-2xl border border-white/[0.04] bg-white/[0.015] px-6 py-4 sm:gap-x-14 lg:gap-x-20 backdrop-blur-sm">
           {[
             { label: "Flexible payments", sub: "Stripe or Arrange Purchase" },
             { label: "Dispute protection", sub: "7-day window" },
@@ -475,7 +460,7 @@ export default function DigitalPage() {
             { label: "NZ community", sub: "Built for Aotearoa" },
           ].map((item) => (
             <div key={item.label} className="flex items-center gap-2.5">
-              <div>
+              <div className="space-y-0.5">
                 <p className="text-[11px] font-medium text-white">{item.label}</p>
                 <p className="text-[10px] text-white/70">{item.sub}</p>
               </div>
@@ -485,6 +470,9 @@ export default function DigitalPage() {
     </main>
   );
 }
+
+
+
 
 
 

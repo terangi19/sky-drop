@@ -150,7 +150,7 @@ function SuccessInner() {
               <div className="mt-8 flex flex-col gap-3">
                 <button
                   onClick={() => router.push("/")}
-                  className="rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-3 font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:shadow-xl active:scale-[0.97]"
+                  className="rounded-xl bg-gradient-to-r from-sky-500 to-sky-500 px-6 py-3 font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]"
                 >
                   Continue Shopping
                 </button>

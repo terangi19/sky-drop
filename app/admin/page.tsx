@@ -228,12 +228,12 @@ export default function AdminPage() {
             </h2>
           </div>
 
-          <div className="rounded-3xl border border-amber-500/20 bg-[var(--card)] p-6 shadow-xl">
+          <div className="rounded-3xl border border-sky-500/20 bg-[var(--card)] p-6 shadow-xl">
             <p className="text-sm text-[var(--muted)]">
               Pending
             </p>
 
-            <h2 className="mt-3 text-4xl font-black text-amber-400">
+            <h2 className="mt-3 text-4xl font-black text-sky-400">
               {reports.filter(r => !r.status || r.status === "pending").length}
             </h2>
           </div>
@@ -243,7 +243,7 @@ export default function AdminPage() {
               Moderation
             </p>
 
-            <h2 className="mt-3 text-4xl font-black text-yellow-400">
+            <h2 className="mt-3 text-4xl font-black text-sky-400">
               Active →
             </h2>
           </a>
@@ -268,12 +268,12 @@ export default function AdminPage() {
             </h2>
           </div>
 
-          <a href="/admin/verification" className="rounded-3xl border border-emerald-500/20 bg-[var(--card)] p-6 shadow-xl transition hover:border-emerald-500/40 hover:shadow-[0_0_20px_rgba(16,185,129,0.1)]">
+          <a href="/admin/verification" className="rounded-3xl border border-sky-500/20 bg-[var(--card)] p-6 shadow-xl transition hover:border-sky-500/40 hover:shadow-[0_0_20px_rgba(16,185,129,0.1)]">
             <p className="text-sm text-[var(--muted)]">
               Address Verification
             </p>
 
-            <h2 className="mt-3 text-4xl font-black text-emerald-400">
+            <h2 className="mt-3 text-4xl font-black text-sky-400">
               {pendingVerifications} pending →
             </h2>
           </a>

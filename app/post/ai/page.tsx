@@ -31,7 +31,6 @@ import {
   type SkyAiListingImagesDetail,
 } from "../../lib/sky-ai-images";
 import SkyAiChatPanel from "../../components/SkyAiChatPanel";
-import AwhinaOnlineBadge from "../../components/AwhinaOnlineBadge";
 import { SKY_AI_SELL_QUICK_PROMPTS, SKY_AI_SELL_WELCOME } from "../../lib/sky-ai-prompts";
 
 const objectToCategory: Record<string, string> = {
@@ -111,6 +110,7 @@ export default function AIPostPage() {
   const [scamAlert, setScamAlert] = useState<{ title: string; message: string; found: string[] } | null>(null);
   const [priceAlert, setPriceAlert] = useState(false);
   const [confirmedSubmit, setConfirmedSubmit] = useState(false);
+
   const [skyChatOpen, setSkyChatOpen] = useState(false);
   const [skyAutoQuery, setSkyAutoQuery] = useState<string | undefined>();
   const [draftExtras, setDraftExtras] = useState<string[]>([]);
@@ -259,8 +259,8 @@ export default function AIPostPage() {
 
       showToast(
         addFiles.length === 1
-          ? "Sky AI added a photo to your listing"
-          : `Sky AI added ${addFiles.length} photos to your listing`
+          ? "Āwhina added a photo to your listing"
+          : `Āwhina added ${addFiles.length} photos to your listing`
       );
 
       if (isFirst) {
@@ -813,39 +813,36 @@ export default function AIPostPage() {
             Back
           </Link>
           <div className="relative flex flex-col items-center">
-            <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/5 via-violet-500/5 to-sky-500/5 blur-3xl pointer-events-none" />
+            <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/5 via-sky-500/5 to-sky-500/5 blur-3xl pointer-events-none" />
             <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
               <span className="text-white drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">{editId ? "Edit Listing" : "Quick Post"}</span>
             </h1>
-            <div className="relative mt-3">
-              <AwhinaOnlineBadge centered />
-            </div>
-            <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl mx-auto">List your item in minutes. Add photos, set your price, and publish to thousands of buyers across New Zealand — all with built-in scam protection and Stripe-powered payments.</p>
+            <p className="relative mt-3 text-sm text-white leading-relaxed max-w-xl mx-auto">Sell faster with Āwhina. Describe your item or upload photos, and Āwhina will help create a professional listing in minutes.</p>
           </div>
         </div>
 
         {!editId && (
           <div className="mb-8">
-            <div className="relative overflow-hidden rounded-2xl border border-sky-500/20 bg-gradient-to-br from-sky-500/[0.06] via-violet-500/[0.04] to-zinc-950/80 p-5 shadow-[0_0_40px_rgba(14,165,233,0.08)]">
+            <div className="relative overflow-hidden rounded-2xl border border-sky-500/20 bg-gradient-to-br from-sky-500/[0.06] via-sky-500/[0.04] to-zinc-950/80 p-5 shadow-[0_0_40px_rgba(14,165,233,0.08)]">
               <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-sky-500/10 blur-2xl pointer-events-none" />
               <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex gap-3 min-w-0">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/30 to-violet-500/25 text-base shadow-[0_0_20px_rgba(56,189,248,0.2)] ring-1 ring-sky-400/30">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/30 to-sky-500/25 text-base shadow-[0_0_20px_rgba(56,189,248,0.2)] ring-1 ring-sky-400/30">
                     ✦
                   </span>
                   <div className="min-w-0">
-                    <h2 className="text-base font-bold text-white">Sky AI</h2>
+                    <h2 className="text-base font-bold text-white">Āwhina</h2>
                     <p className="mt-1 text-xs text-zinc-400 leading-relaxed">
-                      Give me the details about what you&apos;re selling — physical, digital, services, rentals, or vehicles — and I&apos;ll fill the form, price, and the rest for you 🙂
+                      Tell me what you&apos;re selling and I&apos;ll help fill the listing for you 🙂
                     </p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setSkyChatOpen((v) => !v)}
-                  className="shrink-0 rounded-xl bg-gradient-to-r from-sky-500 to-violet-500 px-4 py-2.5 text-sm font-bold text-white shadow-[0_0_20px_rgba(14,165,233,0.25)] hover:brightness-110 active:scale-[0.98]"
+                  className="shrink-0 rounded-xl bg-gradient-to-r from-sky-500 to-sky-500 px-4 py-2.5 text-sm font-bold text-white shadow-[0_0_20px_rgba(14,165,233,0.25)] hover:brightness-110 active:scale-[0.98]"
                 >
-                  {skyChatOpen ? "Hide chat" : "Open Sky AI"}
+                  {skyChatOpen ? "Hide chat" : "Ask Āwhina"}
                 </button>
               </div>
               {!skyChatOpen && (
@@ -866,26 +863,26 @@ export default function AIPostPage() {
                   ))}
                 </div>
               )}
-              <SkyAiChatPanel
-                mode="inline"
-                open={skyChatOpen}
-                onOpenChange={setSkyChatOpen}
-                autoQuery={skyAutoQuery}
-                onAutoQueryConsumed={() => setSkyAutoQuery(undefined)}
-                quickPrompts={SKY_AI_SELL_QUICK_PROMPTS}
-                welcomeText={SKY_AI_SELL_WELCOME}
-              />
             </div>
+            <SkyAiChatPanel
+              mode="inline"
+              open={skyChatOpen}
+              onOpenChange={setSkyChatOpen}
+              autoQuery={skyAutoQuery}
+              onAutoQueryConsumed={() => setSkyAutoQuery(undefined)}
+              quickPrompts={SKY_AI_SELL_QUICK_PROMPTS}
+              welcomeText="Kia ora 👋 What would you like to sell today?"
+            />
           </div>
         )}
 
         {/* Form Card */}
         <div className="relative">
-          <div className="absolute -inset-1 bg-gradient-to-b from-sky-500/10 via-violet-500/5 to-transparent rounded-3xl blur-xl pointer-events-none" />
+          <div className="absolute -inset-1 bg-gradient-to-b from-sky-500/10 via-sky-500/5 to-transparent rounded-3xl blur-xl pointer-events-none" />
           <div className="relative rounded-2xl border border-white/[0.06] bg-zinc-950/80 backdrop-blur-xl p-6 sm:p-8 space-y-6 shadow-2xl shadow-black/40">
           {imagePreviews.length === 0 ? (
             <div onClick={() => fileInputRef.current?.click()} className="flex h-56 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-white/[0.08] bg-white/[0.01] text-zinc-500 transition-all duration-200 hover:border-sky-500/40 hover:bg-sky-500/[0.02] active:scale-[0.99]">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500/10 to-violet-500/10 border border-white/[0.06]">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500/10 to-sky-500/10 border border-white/[0.06]">
                 <svg className="h-6 w-6 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
                 </svg>
@@ -925,8 +922,8 @@ export default function AIPostPage() {
         )}
 
         {detected && !analyzing && (
-          <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/5 px-4 py-3 text-center">
-            <span className="text-sm font-bold text-emerald-400">✅ {detected}</span>
+          <div className="rounded-xl border border-sky-500/15 bg-sky-500/5 px-4 py-3 text-center">
+            <span className="text-sm font-bold text-sky-400">✅ {detected}</span>
           </div>
         )}
 
@@ -935,7 +932,7 @@ export default function AIPostPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setScamAlert(null)}>
             <div className="mx-4 w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-black text-amber-400">⚠️ {scamAlert.title}</h3>
+                <h3 className="text-lg font-black text-sky-400">⚠️ {scamAlert.title}</h3>
                 <button onClick={() => setScamAlert(null)} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
               </div>
               <p className="mt-2 text-sm text-[var(--foreground)]">{scamAlert.message}</p>
@@ -950,7 +947,7 @@ export default function AIPostPage() {
                 <button onClick={() => setScamAlert(null)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700 active:scale-[0.98]">
                   Edit Listing
                 </button>
-                <button onClick={bypassScamAlert} className="flex-1 rounded-xl bg-amber-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-amber-400 active:scale-[0.98]">
+                <button onClick={bypassScamAlert} className="flex-1 rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-sky-400 active:scale-[0.98]">
                   Submit Anyway
                 </button>
               </div>
@@ -963,7 +960,7 @@ export default function AIPostPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setPriceAlert(false)}>
             <div className="mx-4 w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-black text-amber-400">⚠️ Unusually Low Price</h3>
+                <h3 className="text-lg font-black text-sky-400">⚠️ Unusually Low Price</h3>
                 <button onClick={() => setPriceAlert(false)} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
               </div>
               <p className="mt-2 text-sm text-[var(--foreground)]">Your listing price (${price}) seems unusually low for the "{category}" category. This may attract scam filters or suspicious buyers.</p>
@@ -971,7 +968,7 @@ export default function AIPostPage() {
                 <button onClick={() => setPriceAlert(false)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700 active:scale-[0.98]">
                   Set Higher Price
                 </button>
-                <button onClick={bypassPriceAlert} className="flex-1 rounded-xl bg-amber-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-amber-400 active:scale-[0.98]">
+                <button onClick={bypassPriceAlert} className="flex-1 rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-sky-400 active:scale-[0.98]">
                   Submit Anyway
                 </button>
               </div>
@@ -1132,9 +1129,9 @@ export default function AIPostPage() {
               </button>
             </div>
             {paymentType === "contact" && (
-              <p className="mt-2 text-[10px] text-emerald-400/90 leading-relaxed">
+              <p className="mt-2 text-[10px] text-sky-400/90 leading-relaxed">
                 Sellers: add bank details in{" "}
-                <Link href="/profile#payment-settings" className="underline hover:text-emerald-300">
+                <Link href="/profile#payment-settings" className="underline hover:text-sky-300">
                   Profile → Payment settings
                 </Link>{" "}
                 so buyers see how to pay in Messages.{" "}
@@ -1147,27 +1144,51 @@ export default function AIPostPage() {
           )}
 
           {/* Listing Type */}
-          <div className="space-y-3">
-            <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Listing Type</label>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="space-y-4">
+            <div>
+              <label className="text-base font-bold text-white">What are you selling?</label>
+              <p className="mt-1 text-xs text-zinc-500">Choose the option that best matches what you're offering.</p>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
               {[
-                { key: "physical", icon: "📦", label: "Physical", desc: "Sell items — ship or pickup", action: () => setAcceptOffers(false) },
-                { key: "digital", icon: "📥", label: "Digital", desc: "Instant delivery", action: () => { setCategory("Templates & Assets"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); } },
-                { key: "service", icon: "🤝", label: "Service", desc: "Scope discussed in messages", action: () => { setCategory("Design & Development"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(true); setSaleType("buy_now"); } },
-                { key: "rental", icon: "🔑", label: "Rental", desc: "By the day", action: () => { setCategory("Other"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); setLocation(""); setCondition("New"); } },
-                { key: "vehicle", icon: "🚗", label: "Vehicle", desc: "Cars, bikes & boats", action: () => { setCategory("Cars"); setSaleType("buy_now"); setAcceptOffers(false); } },
+                { key: "physical", icon: "📦", label: "Physical", desc: "Real items that can be picked up or shipped.", examples: "Phones, furniture, tools, clothing, collectibles.", action: () => setAcceptOffers(false) },
+                { key: "digital", icon: "💾", label: "Digital", desc: "Downloadable products delivered online.", examples: "E-books, templates, software, guides, digital art.", action: () => { setCategory("Templates & Assets"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); } },
+                { key: "service", icon: "🛠️", label: "Service", desc: "Work or skills you provide for customers.", examples: "Lawn mowing, cleaning, tutoring, photography, web design.", action: () => { setCategory("Design & Development"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(true); setSaleType("buy_now"); } },
+                { key: "rental", icon: "🔑", label: "Rental", desc: "Something people can hire or rent temporarily.", examples: "Houses, rooms, trailers, equipment, party gear.", action: () => { setCategory("Other"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); setLocation(""); setCondition("New"); } },
+                { key: "vehicle", icon: "🚗", label: "Vehicle", desc: "Motor vehicles for sale.", examples: "Cars, motorcycles, boats, caravans, trucks.", action: () => { setCategory("Cars"); setSaleType("buy_now"); setAcceptOffers(false); } },
               ].map((t) => (
                 <button key={t.key} type="button" onClick={() => { setListingType(t.key as any); t.action(); }}
-                  className={`rounded-xl border p-3 text-left transition-all duration-200 active:scale-[0.97] ${
+                  className={`group relative rounded-2xl border p-4 text-left transition-all duration-200 active:scale-[0.97] ${
                     listingType === t.key
-                      ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 shadow-[0_0_20px_rgba(14,165,233,0.08)]"
+                      ? "border-sky-400/40 bg-gradient-to-b from-sky-500/[0.08] to-sky-500/[0.03] shadow-[0_0_30px_rgba(14,165,233,0.1)] ring-1 ring-sky-400/20"
                       : "border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.12]"
                   }`}>
-                  <span className="text-lg">{t.icon}</span>
-                  <p className={`mt-1 text-xs font-bold ${listingType === t.key ? "text-sky-400" : "text-[var(--foreground)]"}`}>{t.label}</p>
-                  <p className="mt-1 text-[10px] leading-tight text-[var(--muted)]">{t.desc}</p>
+                  <div className="flex items-start gap-3 sm:flex-col sm:gap-0">
+                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg transition-all duration-200 sm:h-12 sm:w-12 sm:text-2xl ${
+                      listingType === t.key
+                        ? "bg-sky-500/20 shadow-[0_0_15px_rgba(14,165,233,0.15)]"
+                        : "bg-white/[0.04] group-hover:bg-white/[0.06]"
+                    }`}>{t.icon}</span>
+                    <div className="min-w-0 flex-1 sm:mt-2">
+                      <div className="flex items-center gap-2">
+                        <p className={`text-sm font-bold transition-colors ${listingType === t.key ? "text-sky-400" : "text-white"}`}>{t.label}</p>
+                        {listingType === t.key && (
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-sky-500/20">
+                            <svg className="h-3 w-3 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1 text-[11px] leading-snug text-white">{t.desc}</p>
+                      <p className="mt-1 text-[10px] leading-snug text-zinc-400"><span className="font-medium text-zinc-300">Best for: </span>{t.examples}</p>
+                    </div>
+                  </div>
                 </button>
               ))}
+            </div>
+            <div className="rounded-2xl border border-white/[0.04] bg-white/[0.015] px-4 py-3">
+              <p className="text-[11px] leading-relaxed text-zinc-500">
+                <span className="font-semibold text-zinc-400">Not sure which option to choose?</span> Pick the option that best describes what you're offering. Āwhina will automatically adjust the listing form based on your selection.
+              </p>
             </div>
           </div>
 
@@ -1390,10 +1411,10 @@ export default function AIPostPage() {
           {listingType === "digital" && (
             <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
               <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Digital File</label>
-              <p className="mb-3 text-[11px] font-medium tracking-wide bg-gradient-to-r from-sky-400 to-violet-400 bg-clip-text text-transparent">Upload your digital asset file</p>
+              <p className="mb-3 text-[11px] font-medium tracking-wide bg-gradient-to-r from-sky-400 to-sky-400 bg-clip-text text-transparent">Upload your digital asset file</p>
               {digitalFileURL ? (
-                <div className="flex items-center justify-between rounded-lg bg-emerald-500/10 px-4 py-3">
-                  <span className="text-xs text-emerald-400">✓ {digitalFileName}</span>
+                <div className="flex items-center justify-between rounded-lg bg-sky-500/10 px-4 py-3">
+                  <span className="text-xs text-sky-400">✓ {digitalFileName}</span>
                   <button onClick={() => { setDigitalFileURL(""); setDigitalFileName(""); setDigitalStoragePath(""); }} className="text-[10px] text-red-400 hover:text-red-300">Remove</button>
                 </div>
               ) : (
@@ -1464,14 +1485,14 @@ export default function AIPostPage() {
                 </div>
                 <p className="text-[10px] text-zinc-500">Auto-calculated from entered rates. You can edit manually.</p>
                 <div>
-                  <label className="mb-1 block text-[10px] font-medium text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">Refundable Deposit</label>
+                  <label className="mb-1 block text-[10px] font-medium text-sky-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">Refundable Deposit</label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
                     <input type="number" value={rentalDeposit} onChange={(e) => setRentalDeposit(e.target.value)}
                       placeholder="Deposit amount"
                       className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
                   </div>
-                  <p className="mt-1 text-[10px] text-amber-400/70 drop-shadow-[0_0_4px_rgba(251,191,36,0.2)]">Returned to renter if item/property is returned safely.</p>
+                  <p className="mt-1 text-[10px] text-sky-400/70 drop-shadow-[0_0_4px_rgba(251,191,36,0.2)]">Returned to renter if item/property is returned safely.</p>
                 </div>
                 <div>
                   <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Quantity available</label>
@@ -1522,7 +1543,7 @@ export default function AIPostPage() {
                 <>
                   <label className="flex cursor-pointer items-center gap-2 ml-7">
                     <input type="checkbox" checked={freeShipping} onChange={(e) => { setFreeShipping(e.target.checked); if (e.target.checked) setShippingFee(""); }}
-                      className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-emerald-500 focus:ring-emerald-500/30" />
+                      className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-sky-500 focus:ring-sky-500/30" />
                     <span className="text-xs text-[var(--foreground)]">Free shipping</span>
                   </label>
                   {!freeShipping && (

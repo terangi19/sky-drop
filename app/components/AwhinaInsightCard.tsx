@@ -17,9 +17,9 @@ type TypedLine = {
 };
 
 function lineClass(variant: TypedLine["variant"]): string {
-  if (variant === "intro-primary") return "text-sm font-medium text-zinc-100";
-  if (variant === "intro-secondary") return "text-[13px] text-zinc-400";
-  return "text-[13px] text-sky-100/90";
+  if (variant === "intro-primary") return "text-sm font-medium text-always-white";
+  if (variant === "intro-secondary") return "text-[13px] text-always-white/90";
+  return "text-[13px] text-always-white/90";
 }
 
 function AwhinaAvatar({ speaking }: { speaking: boolean }) {
@@ -47,7 +47,7 @@ function AwhinaAvatar({ speaking }: { speaking: boolean }) {
 function InsightAction({ action }: { action: AwhinaInsightAction }) {
   const className = action.primary
     ? "inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-3.5 py-2 text-xs font-bold text-white shadow-[0_0_20px_rgba(56,189,248,0.22)] transition hover:brightness-110 active:scale-[0.98]"
-    : "inline-flex items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] px-3.5 py-2 text-xs font-semibold text-zinc-300 backdrop-blur-sm transition hover:border-sky-500/25 hover:bg-white/[0.07] hover:text-white active:scale-[0.98]";
+    : "inline-flex items-center justify-center rounded-xl border border-white/[0.12] bg-white/[0.06] px-3.5 py-2 text-xs font-semibold text-always-white backdrop-blur-sm transition hover:border-sky-500/25 hover:bg-white/[0.1] active:scale-[0.98]";
 
   if (action.href) {
     return (
@@ -115,7 +115,7 @@ export default function AwhinaInsightCard({ intro, insight, className = "mb-6 sm
 
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border border-sky-500/20 bg-zinc-950/50 shadow-[0_12px_40px_rgba(14,165,233,0.08)] backdrop-blur-2xl ${className}`}
+      className={`awhina-panel relative overflow-hidden rounded-2xl border border-sky-500/20 bg-zinc-950/50 shadow-[0_12px_40px_rgba(14,165,233,0.08)] backdrop-blur-2xl ${className}`}
       role="status"
       aria-live="polite"
     >
@@ -128,21 +128,21 @@ export default function AwhinaInsightCard({ intro, insight, className = "mb-6 sm
 
         <div className="min-w-0 flex-1">
           <div className="mb-2.5 flex flex-wrap items-center gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-sky-300">
-              {AWHINA_NAME} · online
+            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-always-white">
+              {AWHINA_NAME} · <span className="text-emerald-400">online</span>
             </span>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/[0.08] px-2 py-0.5">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/60" />
                 <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
               </span>
-              <span className="text-[9px] font-semibold uppercase tracking-wider text-emerald-400/90">
+              <span className="text-[9px] font-semibold uppercase tracking-wider text-always-white">
                 Live
               </span>
             </span>
           </div>
 
-          <div className="rounded-xl border border-white/[0.05] bg-black/20 px-3 py-2.5">
+          <div className="awhina-panel-bubble rounded-xl border border-white/[0.05] bg-black/20 px-3 py-2.5">
             <div className="space-y-1">
               {visibleLines.slice(0, -1).map((line, i) => (
                 <p key={i} className={`leading-snug ${lineClass(line.variant)}`}>
@@ -163,7 +163,7 @@ export default function AwhinaInsightCard({ intro, insight, className = "mb-6 sm
           {insight && done && (
             <div className="mt-3 border-t border-white/[0.06] pt-3">
               {showCategory && (
-                <p className="mb-1 text-[10px] font-medium text-zinc-500">
+                <p className="mb-1 text-[10px] font-medium text-always-white/80">
                   {insight.icon} {insight.label}
                 </p>
               )}

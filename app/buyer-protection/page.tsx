@@ -14,7 +14,7 @@ export default function BuyerProtectionPage() {
           Back to Marketplace
         </Link>
 
-        <div className="mb-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-500/20">
+        <div className="mb-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-sky-500/20">
           <span className="text-3xl">🛡️</span>
         </div>
 
@@ -42,8 +42,8 @@ export default function BuyerProtectionPage() {
           <ProtectionStep number="3" title="Refund issued if at fault" description="If the seller is at fault, a full refund is issued through Stripe's payment system." />
         </div>
 
-        <div className="mt-12 rounded-2xl border border-amber-500/15 bg-amber-500/[0.04] p-6">
-          <h3 className="font-bold text-amber-400">⚠️ What's not covered</h3>
+        <div className="mt-12 rounded-2xl border border-sky-500/15 bg-sky-500/[0.04] p-6">
+          <h3 className="font-bold text-sky-400">⚠️ What's not covered</h3>
           <ul className="mt-3 space-y-2 text-sm text-[var(--muted)]">
             <li>• Change of mind — always check the listing details before purchasing</li>
             <li>• Damage caused after delivery — inspect items immediately upon arrival</li>
@@ -88,7 +88,7 @@ function FeatureCard({ icon, title, description }: { icon: string; title: string
 function ProtectionStep({ number, title, description }: { number: string; title: string; description: string }) {
   return (
     <div className="flex gap-4">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-xs font-black text-emerald-400">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-500/20 text-xs font-black text-sky-400">
         {number}
       </div>
       <div>

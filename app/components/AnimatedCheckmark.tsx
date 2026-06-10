@@ -16,7 +16,7 @@ export default function AnimatedCheckmark({ className = "h-7 w-7" }: { className
         strokeLinecap="round"
         strokeLinejoin="round"
         d="M4.5 12.75l6 6 9-13.5"
-        className="text-emerald-400"
+        className="text-sky-400"
         style={{
           strokeDasharray: 30,
           strokeDashoffset: drawn ? 0 : 30,

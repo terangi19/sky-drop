@@ -36,9 +36,9 @@ export default function PaymentsPage() {
           </a>
           <a
             href="#arrange"
-            className="rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.04] p-5 transition hover:border-emerald-500/35"
+            className="rounded-2xl border border-sky-500/20 bg-sky-500/[0.04] p-5 transition hover:border-sky-500/35"
           >
-            <p className="text-sm font-bold text-emerald-400">Arrange Purchase</p>
+            <p className="text-sm font-bold text-sky-400">Arrange Purchase</p>
             <p className="mt-1 text-xs text-[var(--muted)]">Purchase button — chat opens, you agree bank transfer, cash, pickup, etc.</p>
           </a>
         </div>
@@ -72,8 +72,8 @@ export default function PaymentsPage() {
             <Step number={4} title="Know the trade-off" description="Arrange Purchase is flexible but has no card chargeback. Use Stripe Checkout when you want in-app payment and dispute support tied to a Stripe payment." />
           </div>
 
-          <div className="mt-6 rounded-2xl border border-amber-500/15 bg-amber-500/[0.04] p-5">
-            <p className="text-sm font-bold text-amber-400">Seller note</p>
+          <div className="mt-6 rounded-2xl border border-sky-500/15 bg-sky-500/[0.04] p-5">
+            <p className="text-sm font-bold text-sky-400">Seller note</p>
             <p className="mt-1 text-xs text-[var(--muted)] leading-relaxed">
               Stripe Connect is only required for Stripe Checkout listings. Arrange Purchase listings can be sold without connecting Stripe.
             </p>
@@ -83,11 +83,11 @@ export default function PaymentsPage() {
         <div className="mt-12 space-y-4">
           <h2 className="text-xl font-black text-white">Protections</h2>
 
-          <div className="rounded-2xl border border-emerald-500/15 bg-emerald-500/[0.04] p-5">
+          <div className="rounded-2xl border border-sky-500/15 bg-sky-500/[0.04] p-5">
             <div className="flex gap-3">
               <span className="text-xl shrink-0 mt-0.5">✅</span>
               <div>
-                <h3 className="text-sm font-bold text-emerald-400">Stripe Checkout</h3>
+                <h3 className="text-sm font-bold text-sky-400">Stripe Checkout</h3>
                 <p className="mt-1 text-xs text-[var(--muted)] leading-relaxed">
                   Stripe handles fraud tooling and processing. Disputes on paid orders are reviewed by Sky Drop; refunds go through Stripe when the seller is at fault.
                 </p>
@@ -95,11 +95,11 @@ export default function PaymentsPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-emerald-500/15 bg-emerald-500/[0.04] p-5">
+          <div className="rounded-2xl border border-sky-500/15 bg-sky-500/[0.04] p-5">
             <div className="flex gap-3">
               <span className="text-xl shrink-0 mt-0.5">💬</span>
               <div>
-                <h3 className="text-sm font-bold text-emerald-400">Arrange Purchase</h3>
+                <h3 className="text-sm font-bold text-sky-400">Arrange Purchase</h3>
                 <p className="mt-1 text-xs text-[var(--muted)] leading-relaxed">
                   Messaging stays on-platform so there is a record of what was agreed. Payment itself is between buyer and seller — trade carefully and prefer verified sellers.
                 </p>

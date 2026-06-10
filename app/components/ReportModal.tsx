@@ -106,8 +106,8 @@ export default function ReportModal({
       <div className="mx-4 w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl animate-fade-in-scale" onClick={(e) => e.stopPropagation()}>
         {sent ? (
           <div className="py-4 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/20">
-              <svg className="h-7 w-7 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-sky-500/20">
+              <svg className="h-7 w-7 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
@@ -126,8 +126,8 @@ export default function ReportModal({
             <p className="mt-1 text-sm text-[var(--muted)]">Why are you reporting this {type}?</p>
             <div className="mt-4 space-y-2">
               {REPORT_REASONS.map((r) => (
-                <label key={r} className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-all ${reason === r ? "border-amber-500/50 bg-amber-500/10" : "border-zinc-700 bg-zinc-800/50 hover:border-zinc-600"}`}>
-                  <input type="radio" name="reason" value={r} checked={reason === r} onChange={() => setReason(r)} className="h-4 w-4 accent-amber-500" />
+                <label key={r} className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-all ${reason === r ? "border-sky-500/50 bg-sky-500/10" : "border-zinc-700 bg-zinc-800/50 hover:border-zinc-600"}`}>
+                  <input type="radio" name="reason" value={r} checked={reason === r} onChange={() => setReason(r)} className="h-4 w-4 accent-sky-500" />
                   <span className="text-sm font-medium text-[var(--foreground)]">{r}</span>
                 </label>
               ))}
@@ -137,7 +137,7 @@ export default function ReportModal({
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Optional: add more details..."
               rows={3}
-              className="mt-4 w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm text-[var(--foreground)] outline-none transition focus:border-amber-500"
+              className="mt-4 w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500"
             />
             <div className="mt-4 flex gap-3">
               <button onClick={onClose} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] transition-all duration-150 hover:bg-zinc-700 active:scale-[0.98]">
@@ -146,7 +146,7 @@ export default function ReportModal({
               <button
                 onClick={handleSubmit}
                 disabled={!reason || sending}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-amber-500 py-3 text-sm font-bold text-[var(--foreground)] transition-all duration-150 hover:bg-amber-400 disabled:opacity-50 active:scale-[0.98]"
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] transition-all duration-150 hover:bg-sky-400 disabled:opacity-50 active:scale-[0.98]"
               >
                 {sending ? "Submitting..." : "Submit Report"}
               </button>

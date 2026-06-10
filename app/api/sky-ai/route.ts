@@ -258,7 +258,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const shortcut = tryNavigationShortcut(message, pathname);
+    const hasListingIntent = pathname.startsWith("/post/ai") && (/(?:^|\n)(title|price|description|location|condition|category)\s*:/i.test(message) || /(?:rental|vehicle|service|digital|item)\s+listing/i.test(message) || (message.match(/(?:^|\n)\s*\w+\s*:/g) || []).length >= 3 || /\d{4}\s+[A-Z][a-z]+\s+[A-Z][a-z0-9]+.*\$\d/i.test(message) || /^\d{4}\s+[A-Z]/.test(message));
+    const shortcut = !hasListingIntent ? tryNavigationShortcut(message, pathname) : null;
     if (shortcut) {
       const reply = stripBold(shortcut.reply);
       if (uid && conversationId) {
@@ -355,9 +356,13 @@ export async function POST(req: NextRequest) {
             }
             const { text, navigateTo, listingFill } = extractSkyAiReply(full);
             const mergedFill = mergeFillWithContext(listingContext, listingFill);
+            const finalNav = pathname.startsWith("/post/ai") && navigateTo === "/post/ai" ? undefined : navigateTo;
+            if (listingFill || mergedFill) {
+              console.log(`[Awhina] Listing fill: type=${listingFill?.listingType || mergedFill?.listingType}, title=${listingFill?.title || mergedFill?.title}, nav=${finalNav || "none"}`);
+            }
             if (uid && conversationId) {
               await safePersist(() =>
-                appendSkyAiExchange(conversationId, uid, message, text, navigateTo)
+                appendSkyAiExchange(conversationId, uid, message, text, finalNav)
               );
             }
             controller.enqueue(
@@ -365,7 +370,7 @@ export async function POST(req: NextRequest) {
                 sseLine({
                   type: "done",
                   reply: text,
-                  navigateTo,
+                  navigateTo: finalNav,
                   listingFill: mergedFill,
                   source: "ai",
                   conversationId: conversationId || undefined,
@@ -408,16 +413,20 @@ export async function POST(req: NextRequest) {
     const raw = completion.choices[0]?.message?.content || "";
     const { text, navigateTo, listingFill } = extractSkyAiReply(raw);
     const mergedFill = mergeFillWithContext(listingContext, listingFill);
+    const finalNav = pathname.startsWith("/post/ai") && navigateTo === "/post/ai" ? undefined : navigateTo;
+    if (listingFill || mergedFill) {
+      console.log(`[Awhina] Listing fill: type=${listingFill?.listingType || mergedFill?.listingType}, title=${listingFill?.title || mergedFill?.title}, nav=${finalNav || "none"}`);
+    }
 
     if (uid && conversationId) {
       await safePersist(() =>
-        appendSkyAiExchange(conversationId, uid, message, text, navigateTo)
+        appendSkyAiExchange(conversationId, uid, message, text, finalNav)
       );
     }
 
     return NextResponse.json({
       reply: text || "I couldn't generate a reply. Try again.",
-      navigateTo,
+      navigateTo: finalNav,
       listingFill: mergedFill,
       source: "ai",
       conversationId: conversationId || undefined,

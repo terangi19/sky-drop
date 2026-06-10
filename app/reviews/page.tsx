@@ -265,7 +265,7 @@ export default function ReviewsPage() {
                         </p>
                       </div>
 
-                      <div className="rounded-2xl bg-amber-500/10 px-5 py-3">
+                      <div className="rounded-2xl bg-sky-500/10 px-5 py-3">
                         <ReviewStars rating={review.rating} size="lg" className="text-xl" />
                       </div>
                     </div>

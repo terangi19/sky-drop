@@ -11,9 +11,9 @@ type Props = {
 };
 
 const TONE_CLASS = {
-  emerald: "border-emerald-500/25 bg-emerald-500/10 text-emerald-300",
+  emerald: "border-sky-500/25 bg-sky-500/10 text-sky-300",
   sky: "border-sky-500/25 bg-sky-500/10 text-sky-300",
-  violet: "border-violet-500/25 bg-violet-500/10 text-violet-300",
+  violet: "border-sky-500/25 bg-sky-500/10 text-sky-300",
 };
 
 export default function ServicePricingBadge({ listing, size = "md" }: Props) {

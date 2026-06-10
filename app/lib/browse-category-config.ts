@@ -8,7 +8,7 @@ export const HOME_MARKETPLACE_THEME = {
     "inline-flex items-center gap-2 rounded-full border border-sky-400/30 bg-sky-500/[0.07] px-3.5 py-1 text-[11px] font-bold text-sky-300 mb-3 tracking-wider uppercase backdrop-blur-sm shadow-[0_0_20px_rgba(56,189,248,0.15)] ring-1 ring-sky-400/10",
   titleGradient: "from-white via-sky-200 to-white",
   titleDropShadow: "drop-shadow-[0_0_12px_rgba(56,189,248,0.25)]",
-  searchGlow: "from-sky-500/40 via-violet-500/40 to-sky-500/40",
+  searchGlow: "from-sky-500/40 via-sky-500/40 to-sky-500/40",
   searchFocus:
     "focus-within:ring-2 focus-within:ring-sky-500/30 focus-within:border-sky-500/40",
   listBtn: "from-sky-500 to-sky-400 shadow-sky-500/20",

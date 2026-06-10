@@ -14,7 +14,7 @@ export default function SellerGuidelinesPage() {
           Back to Marketplace
         </Link>
 
-        <div className="mb-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-500/20">
+        <div className="mb-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-sky-500/20">
           <span className="text-3xl">📋</span>
         </div>
 

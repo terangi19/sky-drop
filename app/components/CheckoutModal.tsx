@@ -657,14 +657,14 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
           </div>
         ) : step === "error" ? (
           <div className="flex flex-col px-6 py-8 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/20">
-              <svg className="h-7 w-7 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-sky-500/20">
+              <svg className="h-7 w-7 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
               </svg>
             </div>
             <h2 className="mt-4 text-lg font-black text-[var(--foreground)]">Payment Received</h2>
             <p className="mt-1 text-xs text-[var(--muted)]">Your card was charged ${total.toFixed(2)}</p>
-            <div className="mt-4 rounded-lg border border-amber-500/20 bg-amber-500/[0.04] px-4 py-3 text-left text-xs text-amber-400/90">
+            <div className="mt-4 rounded-lg border border-sky-500/20 bg-sky-500/[0.04] px-4 py-3 text-left text-xs text-sky-400/90">
               <p className="font-semibold">Purchase setup failed</p>
               <p className="mt-1 text-[var(--muted)]">{purchaseError}</p>
               <p className="mt-2 text-[var(--muted)]">Your payment was successful, but we couldn&apos;t complete the purchase. Please try again — you won&apos;t be charged twice.</p>
@@ -701,7 +701,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                 ))}
               </div>
             )}
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/20">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-sky-500/20">
               <AnimatedCheckmark />
             </div>
             <h2 className="mt-4 text-lg font-black text-[var(--foreground)]">Payment Successful</h2>
@@ -715,20 +715,20 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                 <div className="mt-1 flex items-center justify-between text-[var(--muted)]"><span>Shipping</span><span>${shippingAmount.toFixed(2)}</span></div>
               )}
               {isRental && listing.rentalDeposit && (
-                <div className="mt-1 flex items-center justify-between text-amber-400">
-                  <span className="text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">🔒 Refundable Deposit</span>
+                <div className="mt-1 flex items-center justify-between text-sky-400">
+                  <span className="text-sky-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">🔒 Refundable Deposit</span>
                   <span>${Number(listing.rentalDeposit).toFixed(2)}</span>
                 </div>
               )}
               <div className="mt-1 flex items-center justify-between text-[var(--muted)]"><span>Buyer Protection</span><span>$1.00</span></div>
               <div className="mt-2 flex items-center justify-between border-t border-zinc-800 pt-2 text-sm font-bold text-[var(--foreground)]"><span>Total Due Today</span><span>${total.toFixed(2)}</span></div>
-              {isRental && listing.rentalDeposit && <p className="mt-1 text-[10px] text-amber-400/70">${Number(listing.rentalDeposit).toFixed(2)} refundable after safe return.</p>}
+              {isRental && listing.rentalDeposit && <p className="mt-1 text-[10px] text-sky-400/70">${Number(listing.rentalDeposit).toFixed(2)} refundable after safe return.</p>}
             </div>
-            <div className="mt-3 rounded-lg border border-emerald-500/15 bg-emerald-500/[0.04] px-3 py-2 text-left text-[10px] leading-relaxed text-emerald-400/80">
+            <div className="mt-3 rounded-lg border border-sky-500/15 bg-sky-500/[0.04] px-3 py-2 text-left text-[10px] leading-relaxed text-sky-400/80">
               💳 Secured by Stripe
             </div>
             <div className="mt-2 flex items-center justify-center gap-1 text-xs text-[var(--muted)]">
-              <span className="text-emerald-400">✓</span>
+              <span className="text-sky-400">✓</span>
               <span>Seller has been notified</span>
             </div>
             <button
@@ -853,8 +853,8 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                       </div>
                     )}
                     {isRental && listing.rentalDeposit && (
-                      <div className="mt-1 flex items-center justify-between text-amber-400">
-                        <span className="text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">🔒 Refundable Deposit</span>
+                      <div className="mt-1 flex items-center justify-between text-sky-400">
+                        <span className="text-sky-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">🔒 Refundable Deposit</span>
                         <span>${Number(listing.rentalDeposit).toFixed(2)}</span>
                       </div>
                     )}
@@ -866,7 +866,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                       <span>Total Due Today</span>
                       <span>${total.toFixed(2)}</span>
                     </div>
-                    {isRental && listing.rentalDeposit && <p className="mt-1 text-[10px] text-amber-400/70">${Number(listing.rentalDeposit).toFixed(2)} refundable after safe return.</p>}
+                    {isRental && listing.rentalDeposit && <p className="mt-1 text-[10px] text-sky-400/70">${Number(listing.rentalDeposit).toFixed(2)} refundable after safe return.</p>}
                   </div>
 
                   {intentError && (
@@ -891,8 +891,8 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                       </div>
                     )}
                     {isRental && listing.rentalDeposit && (
-                      <div className="mt-1 flex items-center justify-between text-amber-400">
-                        <span className="text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">🔒 Refundable Deposit</span>
+                      <div className="mt-1 flex items-center justify-between text-sky-400">
+                        <span className="text-sky-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">🔒 Refundable Deposit</span>
                         <span>${Number(listing.rentalDeposit).toFixed(2)}</span>
                       </div>
                     )}
@@ -904,7 +904,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                       <span>Total Due Today</span>
                       <span>${total.toFixed(2)}</span>
                     </div>
-                    {isRental && listing.rentalDeposit && <p className="mt-1 text-[10px] text-amber-400/70">${Number(listing.rentalDeposit).toFixed(2)} refundable after safe return.</p>}
+                    {isRental && listing.rentalDeposit && <p className="mt-1 text-[10px] text-sky-400/70">${Number(listing.rentalDeposit).toFixed(2)} refundable after safe return.</p>}
                   </div>
                   <Elements stripe={stripePromise} options={{ clientSecret }}>
                     <PaymentForm total={total} listingId={listing.id} title={listing.title} price={String(total)} buyerEmail={buyerEmail} paymentIntentId={paymentIntentId} onSuccess={handlePaymentSuccess} onBack={resetToForm} badgeForSale={listing.badgeForSale} sellerEmail={listing.sellerEmail} collectionName={collectionName} type={listing.type} digitalFileURL={listing.digitalFileURL} digitalFileName={listing.digitalFileName} digitalStoragePath={listing.digitalStoragePath} />
