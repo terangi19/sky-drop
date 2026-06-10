@@ -31,25 +31,27 @@
 }
 
 :root.light {
-  --background: #f0f1f5;
-  --foreground: #1a1a24;
-  --cream: #1a1a24;
+  --background: #f5f3ef;
+  --foreground: #3d3d3d;
+  --cream: #3d3d3d;
   --card: #ffffff;
   --card-border: rgba(0, 0, 0, 0.06);
-  --muted: #5a5d6b;
-  --soft-card: #e8eaef;
+  --muted: #7a7a7a;
+  --soft-card: #ebe8e3;
   --soft-card-border: rgba(0, 0, 0, 0.05);
-  --nav-bg: rgba(26, 26, 36, 0.95);
+  --nav-bg: rgba(61, 61, 61, 0.95);
   --nav-ice: #ffffff;
   --nav-ice-muted: rgba(255, 255, 255, 0.75);
   --nav-ice-faint: rgba(255, 255, 255, 0.5);
   --input-bg: #ffffff;
   --input-border: rgba(0, 0, 0, 0.1);
-  --pill-bg: #e2e4ea;
-  --pill-text: #4a4d5a;
-  --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04);
-  --glow-blue: rgba(14, 165, 233, 0.12);
-  --text-secondary: #5a5d6b;
+  --pill-bg: #e5e2dc;
+  --pill-text: #5a5a5a;
+  --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.05), 0 4px 16px rgba(0, 0, 0, 0.03);
+  --glow-accent: rgba(139, 155, 130, 0.2);
+  --text-secondary: #7a7a7a;
+  --accent-primary: #6b8e6b;
+  --accent-hover: #5a7a5a;
 }
 
 html {
@@ -77,21 +79,21 @@ body {
 }
 
 /* ── LIGHT MODE GLOBAL OVERRIDES ── */
-:root.light .bg-zinc-950 { background-color: #f0f1f5 !important; }
-:root.light .bg-zinc-900 { background-color: #e8eaef !important; }
-:root.light .bg-zinc-900\/80 { background-color: rgba(232, 234, 239, 0.9) !important; }
-:root.light .bg-zinc-900\/60 { background-color: rgba(232, 234, 239, 0.75) !important; }
-:root.light .bg-zinc-900\/50 { background-color: rgba(232, 234, 239, 0.65) !important; }
-:root.light .bg-zinc-900\/40 { background-color: rgba(232, 234, 239, 0.55) !important; }
-:root.light .bg-zinc-800 { background-color: #dde0e8 !important; }
-:root.light .bg-zinc-800\/80 { background-color: rgba(221, 224, 232, 0.9) !important; }
-:root.light .bg-zinc-800\/60 { background-color: rgba(221, 224, 232, 0.75) !important; }
-:root.light .bg-zinc-800\/50 { background-color: rgba(221, 224, 232, 0.65) !important; }
-:root.light .bg-zinc-800\/40 { background-color: rgba(221, 224, 232, 0.55) !important; }
-:root.light .bg-zinc-700 { background-color: #d1d5e0 !important; }
-:root.light .bg-zinc-700\/50 { background-color: rgba(209, 213, 224, 0.65) !important; }
-:root.light .bg-black\/40 { background-color: rgba(255, 255, 255, 0.85) !important; }
-:root.light .bg-black\/60 { background-color: #e8eaef !important; }
+:root.light .bg-zinc-950 { background-color: #f5f3ef !important; }
+:root.light .bg-zinc-900 { background-color: #ebe8e3 !important; }
+:root.light .bg-zinc-900\/80 { background-color: rgba(235, 232, 227, 0.9) !important; }
+:root.light .bg-zinc-900\/60 { background-color: rgba(235, 232, 227, 0.75) !important; }
+:root.light .bg-zinc-900\/50 { background-color: rgba(235, 232, 227, 0.65) !important; }
+:root.light .bg-zinc-900\/40 { background-color: rgba(235, 232, 227, 0.55) !important; }
+:root.light .bg-zinc-800 { background-color: #e0dcd5 !important; }
+:root.light .bg-zinc-800\/80 { background-color: rgba(224, 220, 213, 0.9) !important; }
+:root.light .bg-zinc-800\/60 { background-color: rgba(224, 220, 213, 0.75) !important; }
+:root.light .bg-zinc-800\/50 { background-color: rgba(224, 220, 213, 0.65) !important; }
+:root.light .bg-zinc-800\/40 { background-color: rgba(224, 220, 213, 0.55) !important; }
+:root.light .bg-zinc-700 { background-color: #d5d0c8 !important; }
+:root.light .bg-zinc-700\/50 { background-color: rgba(213, 208, 200, 0.65) !important; }
+:root.light .bg-black\/40 { background-color: rgba(255, 255, 255, 0.9) !important; }
+:root.light .bg-black\/60 { background-color: #ebe8e3 !important; }
 :root.light .bg-white\/\[0\.02\] { background-color: #ffffff !important; }
 :root.light .bg-white\/\[0\.03\] { background-color: #ffffff !important; }
 :root.light .bg-white\/\[0\.04\] { background-color: #f7f8fc !important; }
@@ -110,7 +112,7 @@ body {
 :root.light .border-white\/10 { border-color: rgba(0, 0, 0, 0.06) !important; }
 :root.light .border-white\/\[0\.04\] { border-color: rgba(0, 0, 0, 0.05) !important; }
 :root.light .border-white\/\[0\.06\] { border-color: rgba(0, 0, 0, 0.07) !important; }
-:root.light .text-white { color: #1a1a24 !important; }
+:root.light .text-white { color: #3d3d3d !important; }
 :root.light header .text-white { color: #ffffff !important; }
 /* Listing / trending cards — white copy on dark card surfaces (light mode too) */
 .text-always-white { color: #ffffff !important; }
@@ -125,8 +127,8 @@ body {
 :root.light .text-always-white\/80 { color: rgba(255, 255, 255, 0.8) !important; }
 /* Āwhina assistant panel — dark surface + white copy in all themes */
 :root.light .awhina-panel {
-  background-color: rgba(9, 9, 11, 0.92) !important;
-  border-color: rgba(56, 189, 248, 0.25) !important;
+  background-color: rgba(45, 45, 45, 0.95) !important;
+  border-color: rgba(107, 142, 107, 0.3) !important;
 }
 :root.light .awhina-panel .awhina-panel-bubble {
   background-color: rgba(0, 0, 0, 0.3) !important;
@@ -138,47 +140,47 @@ body {
 :root.light .awhina-panel .text-white {
   color: #ffffff !important;
 }
-:root.light .text-white\/95 { color: #1a1a24 !important; }
+:root.light .text-white\/95 { color: #3d3d3d !important; }
 :root.light header .text-white\/95 { color: #ffffff !important; }
-:root.light .text-white\/90 { color: #1a1a24 !important; }
+:root.light .text-white\/90 { color: #3d3d3d !important; }
 :root.light header .text-white\/90 { color: #ffffff !important; }
-:root.light .text-white\/80 { color: #1a1a24 !important; }
+:root.light .text-white\/80 { color: #3d3d3d !important; }
 :root.light header .text-white\/80 { color: #ffffff !important; }
-:root.light .text-white\/70 { color: #3a3d4a !important; }
+:root.light .text-white\/70 { color: #5a5a5a !important; }
 :root.light header .text-white\/70 { color: #ffffff !important; }
-:root.light .text-white\/60 { color: #4a4d5a !important; }
+:root.light .text-white\/60 { color: #6a6a6a !important; }
 :root.light header .text-white\/60 { color: #ffffff !important; }
-:root.light .text-white\/50 { color: #5a5d6b !important; }
+:root.light .text-white\/50 { color: #7a7a7a !important; }
 :root.light header .text-white\/50 { color: #ffffff !important; }
-:root.light .text-white\/40 { color: #6a6d7a !important; }
+:root.light .text-white\/40 { color: #8a8a8a !important; }
 :root.light header .text-white\/40 { color: #ffffff !important; }
-:root.light .text-white\/30 { color: #7a7d8a !important; }
+:root.light .text-white\/30 { color: #9a9a9a !important; }
 :root.light header .text-white\/30 { color: #ffffff !important; }
-:root.light .text-white\/20 { color: #8a8d9a !important; }
-:root.light .text-white\/10 { color: #9a9daa !important; }
-:root.light .text-zinc-200 { color: #1a1a24 !important; }
-:root.light .text-zinc-300 { color: #1a1a24 !important; }
-:root.light .text-zinc-400 { color: #3a3d4a !important; }
-:root.light .text-zinc-500 { color: #4a4d5a !important; }
-:root.light .text-zinc-600 { color: #5a5d6b !important; }
-:root.light .text-zinc-700 { color: #6a6d7a !important; }
-:root.light .text-zinc-800 { color: #1a1a24 !important; }
-:root.light .text-zinc-900 { color: #1a1a24 !important; }
-:root.light .text-zinc-950 { color: #1a1a24 !important; }
-:root.light .text-neutral-400 { color: #3a3d4a !important; }
-:root.light .text-neutral-500 { color: #4a4d5a !important; }
-:root.light .text-gray-400 { color: #3a3d4a !important; }
-:root.light .text-gray-500 { color: #4a4d5a !important; }
-:root.light .text-black { color: #1a1a24 !important; }
+:root.light .text-white\/20 { color: #aaaaaa !important; }
+:root.light .text-white\/10 { color: #bababa !important; }
+:root.light .text-zinc-200 { color: #3d3d3d !important; }
+:root.light .text-zinc-300 { color: #3d3d3d !important; }
+:root.light .text-zinc-400 { color: #5a5a5a !important; }
+:root.light .text-zinc-500 { color: #6a6a6a !important; }
+:root.light .text-zinc-600 { color: #7a7a7a !important; }
+:root.light .text-zinc-700 { color: #8a8a8a !important; }
+:root.light .text-zinc-800 { color: #3d3d3d !important; }
+:root.light .text-zinc-900 { color: #3d3d3d !important; }
+:root.light .text-zinc-950 { color: #3d3d3d !important; }
+:root.light .text-neutral-400 { color: #5a5a5a !important; }
+:root.light .text-neutral-500 { color: #6a6a6a !important; }
+:root.light .text-gray-400 { color: #5a5a5a !important; }
+:root.light .text-gray-500 { color: #6a6a6a !important; }
+:root.light .text-black { color: #3d3d3d !important; }
 :root.light header {
   border-bottom-color: rgba(255, 255, 255, 0.06) !important;
-  background: rgba(17, 17, 24, 0.95) !important;
+  background: rgba(61, 61, 61, 0.95) !important;
 }
-:root.light header [class*="drop-shadow-"] { color: #38bdf8 !important; }
+:root.light header [class*="drop-shadow-"] { color: #6b8e6b !important; }
 :root.light .from-white { --tw-gradient-from: var(--foreground) !important; }
-:root.light .via-sky-200 { --tw-gradient-via: #7dd3fc !important; }
+:root.light .via-sky-200 { --tw-gradient-via: #a8c5a8 !important; }
 :root.light .to-white { --tw-gradient-to: var(--foreground) !important; }
-:root.light .from-orange-500\/\[0\.04\] { --tw-gradient-from: rgba(249, 115, 22, 0.06) !important; }
+:root.light .from-orange-500\/\[0\.04\] { --tw-gradient-from: rgba(139, 155, 130, 0.08) !important; }
 
 /* ── LIGHT INPUTS / SELECTS ── */
 :root.light input,
@@ -186,7 +188,7 @@ body {
 :root.light select {
   background-color: #ffffff !important;
   border-color: rgba(0, 0, 0, 0.12) !important;
-  color: #1a1a24 !important;
+  color: #3d3d3d !important;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02) !important;
 }
 :root.light input:hover,
@@ -197,16 +199,16 @@ body {
 :root.light input:focus,
 :root.light textarea:focus,
 :root.light select:focus {
-  border-color: #0ea5e9 !important;
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1) !important;
+  border-color: #6b8e6b !important;
+  box-shadow: 0 0 0 3px rgba(107, 142, 107, 0.12) !important;
 }
 :root.light input::placeholder,
 :root.light textarea::placeholder {
-  color: #8a8d9a !important;
+  color: #9a9a9a !important;
 }
 :root.light section select option {
   background-color: #ffffff !important;
-  color: #1a1a24 !important;
+  color: #3d3d3d !important;
 }
 
 /* ── PREMIUM HOMEPAGE LIGHT MODE ── */
@@ -215,31 +217,49 @@ body {
 }
 
 /* ── BUTTONS ── */
-:root.light .bg-sky-500 {
-  background-color: #0ea5e9 !important;
+:root.light .bg-sky-500,
+:root.light .bg-accent {
+  background-color: #6b8e6b !important;
   color: #ffffff !important;
 }
 
-:root.light .bg-sky-500\/10 {
-  background-color: rgba(14, 165, 233, 0.08) !important;
+:root.light .bg-sky-500\/10,
+:root.light .bg-accent\/10 {
+  background-color: rgba(107, 142, 107, 0.1) !important;
 }
 
-:root.light .bg-sky-500\/20 {
-  background-color: rgba(14, 165, 233, 0.15) !important;
+:root.light .bg-sky-500\/20,
+:root.light .bg-accent\/20 {
+  background-color: rgba(107, 142, 107, 0.18) !important;
+}
+
+:root.light .text-sky-500,
+:root.light .text-accent {
+  color: #6b8e6b !important;
+}
+
+:root.light .border-sky-500,
+:root.light .border-accent {
+  border-color: #6b8e6b !important;
+}
+
+:root.light .hover\:bg-sky-500:hover,
+:root.light .hover\:bg-accent:hover {
+  background-color: #5a7a5a !important;
 }
 
 /* ── PILLS / CHIPS ── */
 :root.light .rounded-full.bg-zinc-800,
 :root.light span.rounded-full.bg-zinc-800 {
-  background-color: #e2e4ea !important;
-  color: #4a4d5a !important;
+  background-color: #e8e5df !important;
+  color: #5a5a5a !important;
   border: 1px solid rgba(0, 0, 0, 0.06) !important;
 }
 
 :root.light .bg-zinc-800\/60.rounded-full,
 :root.light [class*="rounded-full"].bg-zinc-800 {
-  background-color: #e2e4ea !important;
-  color: #4a4d5a !important;
+  background-color: #e8e5df !important;
+  color: #5a5a5a !important;
   border: 1px solid rgba(0, 0, 0, 0.06) !important;
 }
 
@@ -281,12 +301,13 @@ body {
 :root.light .hot-week-card {
   background: #ffffff !important;
   border-color: rgba(0, 0, 0, 0.08) !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05), 0 4px 16px rgba(0, 0, 0, 0.03) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.02) !important;
 }
 
 :root.light .listing-card:hover,
 :root.light .hot-week-card:hover {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 8px 32px rgba(14, 165, 233, 0.12) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06), 0 8px 32px rgba(107, 142, 107, 0.15) !important;
+  border-color: rgba(107, 142, 107, 0.4) !important;
 }
 
 /* ── SELLER TRUST CARDS ── */

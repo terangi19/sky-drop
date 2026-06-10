@@ -31,9 +31,9 @@ export type MarketplaceListingCardProps = {
 };
 
 const CREAM_CARD =
-  "border-[rgba(255,248,231,0.08)] bg-white/[0.02] hover:border-sky-400/30 hover:bg-white/[0.03] hover:shadow-[0_0_30px_rgba(56,189,248,0.25),0_0_60px_rgba(14,165,233,0.15)]";
+  "border-[rgba(255,248,231,0.08)] bg-white/[0.02] hover:border-[#6b8e6b]/40 hover:bg-white/[0.03] hover:shadow-[0_0_30px_rgba(107,142,107,0.22),0_0_60px_rgba(107,142,107,0.12)]";
 const NEON_BLUE_CARD =
-  "border-sky-400/55 bg-white/[0.02] hover:border-sky-300/80 hover:bg-sky-500/[0.06] hover:shadow-[0_0_30px_rgba(56,189,248,0.25),0_0_60px_rgba(14,165,233,0.15)]";
+  "border-[#6b8e6b]/50 bg-white/[0.02] hover:border-[#5a7a5a]/70 hover:bg-[#6b8e6b]/[0.06] hover:shadow-[0_0_30px_rgba(107,142,107,0.22),0_0_60px_rgba(107,142,107,0.12)]";
 const CREAM_CHIP =
   "border-[rgba(255,248,231,0.14)] bg-[rgba(255,248,231,0.08)] text-[var(--cream)]";
 const CREAM_BTN =
