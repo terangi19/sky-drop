@@ -290,6 +290,16 @@ export default function ListingCard({
                         </Link>
                       )}
                     </>
+                  ) : item.pricingType === "quote" ? (
+                    <>
+                      <Link
+                        href={`/post/listing/${item.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 py-2.5 text-xs font-bold text-white text-center shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.97]"
+                      >
+                        Request Quote
+                      </Link>
+                    </>
                   ) : (
                     <>
                       <button

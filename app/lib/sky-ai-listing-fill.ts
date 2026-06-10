@@ -40,11 +40,21 @@ export type SkyAiListingFill = {
   vehicleColour?: string;
   pricingType?: string;
   servicePricingType?: string;
+  rentalSubType?: string;
+  rentalPropertyType?: string;
   /** Daily rate (maps to price field on rental form) */
   rentalPriceDaily?: string;
   rentalPriceWeekly?: string;
   rentalPriceMonthly?: string;
   rentalDeposit?: string;
+  rentalBedrooms?: string;
+  rentalBathrooms?: string;
+  rentalParkingSpaces?: string;
+  rentalFurnishedStatus?: string;
+  rentalPetsPolicy?: string;
+  rentalMinTenancy?: string;
+  rentalAvailableDate?: string;
+  rentalFeatures?: string[];
   stockQuantity?: string;
   serviceDuration?: string;
   /** Merged add-ons — servicing, tyres, receipts, included items */
@@ -143,14 +153,24 @@ function normalizeDigitalCategory(raw: string): string {
   const s = raw.trim();
   if (DIGITAL_CATEGORIES.has(s)) return s;
   const lower = s.toLowerCase();
-  if (/template|notion|preset|asset|font/i.test(lower)) return "Templates & Assets";
-  if (/ebook|e-book|guide|pdf|printable/i.test(lower)) return "E-books & Guides";
-  if (/photo|art|design asset|procreate|brush/i.test(lower)) return "Art & Photography";
-  if (/software|app|plugin|audio|music pack|beat/i.test(lower)) return "Software & Audio";
-  if (/game|3d|unity|unreal|gaming asset/i.test(lower)) return "Gaming & 3D";
-  if (/web.*dev|website|web app|frontend|backend|fullstack/i.test(lower)) return "Web & App Development";
-  if (/graphic design|logo|brand|visual/i.test(lower)) return "Graphic Design";
-  if (/seo|marketing|social media|advert/i.test(lower)) return "SEO & Digital Marketing";
+  // Templates & Assets — downloadable files, packs, bundles, presets, fonts
+  if (/template|notion|preset|asset|font|canva|figma|spreadsheet|planner|overlay|lut|lightroom|mockup|bundle|kit|pack|resource|toolkit|checklist|tracker/i.test(lower)) return "Templates & Assets";
+  // E-books & Guides — written/educational digital products
+  if (/ebook|e-book|guide|pdf|printable|course|workbook|handbook|lesson plan|study.*guide|recipe|blueprint|playbook/i.test(lower)) return "E-books & Guides";
+  // Art & Photography — creative digital assets
+  if (/photo|art|procreate|brush|illustration|wallpaper|digital art|stock image|stock photo|clipart|svg|icon set|pattern/i.test(lower)) return "Art & Photography";
+  // Software & Audio — apps, plugins, music, sound
+  if (/software|app|plugin|extension|script|audio|music|beat|loop|sample|sound pack|stem|midi|sfx|ringtone/i.test(lower)) return "Software & Audio";
+  // Gaming & 3D — game assets, mods, 3D models
+  if (/game|3d|unity|unreal|mod|skin|texture|map|level|asset pack|blender|maya|obj|fbx/i.test(lower)) return "Gaming & 3D";
+  // Web & App Development — custom build services
+  if (/web.*dev|website|web app|frontend|backend|fullstack|shopify|wordpress|wix|mobile app|api/i.test(lower)) return "Web & App Development";
+  // Graphic Design — custom design services
+  if (/graphic design|logo|brand|visual identity|flyer|banner|thumbnail|pitch deck|presentation design/i.test(lower)) return "Graphic Design";
+  // SEO & Digital Marketing — marketing services
+  if (/seo|marketing|social media|advert|email.*campaign|content.*strateg|copywriting|ppc|google ads/i.test(lower)) return "SEO & Digital Marketing";
+  // Smarter fallback: if it sounds like a downloadable product, use Templates & Assets
+  if (/download|instant.*access|digital.*product|file|zip|pdf|mp3|mp4|png|psd|ai file/i.test(lower)) return "Templates & Assets";
   return "Other Digital Services";
 }
 
@@ -184,6 +204,10 @@ function normalizeDigitalPricingType(raw: string, listingType?: string): "fixed"
 function inferDigitalPricingFromText(text: string): "fixed" | "quote" | undefined {
   const lower = text.toLowerCase();
   if (/quote|price varies|depends on|custom project|bespoke|contact.*quote/i.test(lower)) return "quote";
+  // Service-type digital work → quote
+  if (/web.*dev|website.*design|website.*build|app.*dev|mobile.*app|seo|branding|logo.*design|graphic.*design|social.*media.*manage|advert|marketing.*campaign|email.*campaign|copywriting|ppc|google.*ads/i.test(lower)) return "quote";
+  // Downloadable product keywords → fixed
+  if (/template|preset|ebook|e-book|guide|pdf|course|bundle|kit|pack|font|plugin|software|beat|loop|sample|asset|printable|workbook|overlay|lut|lightroom|canva|figma|notion/i.test(lower)) return "fixed";
   if (/\$?\d+/.test(lower)) return "fixed";
   return undefined;
 }
@@ -237,9 +261,12 @@ function inferListingType(
   blob: string
 ): string | undefined {
   if (raw.listingType) return normalizeListingType(raw.listingType, raw.category);
+  // Rental signals — checked before vehicle brand detection
+  if (raw.rentalSubType || raw.rentalPriceWeekly || raw.rentalPriceMonthly || raw.rentalDeposit ||
+      raw.rentalBedrooms || raw.rentalAvailableDate) return "rental";
   const lower = blob.toLowerCase();
-  if (/\b(rent|rental|rent out|hire out|for hire|lease)\b/.test(lower)) return "rental";
-  if (/\b(per day|daily rate|\/day|a day)\b/.test(lower)) return "rental";
+  if (/\b(rent|rental|rent out|hire out|for hire|lease|for rent|to rent|renting out)\b/.test(lower)) return "rental";
+  if (/\b(per day|daily rate|\/day|a day|per night|\/night)\b/.test(lower)) return "rental";
   if (/\b(digital|download|template|ebook|e-book|instant delivery|notion|preset)\b/.test(lower))
     return "digital";
   if (/\b(service|freelance|i will design|logo design|consulting|coaching|per hour)\b/.test(lower))
@@ -339,6 +366,44 @@ function normalizeColour(raw: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 }
 
+function normalizeRentalMinTenancy(raw: string): string {
+  const s = raw.trim().toLowerCase();
+  if (/flex|any|no min|open/.test(s)) return "Flexible";
+  if (/3.?month|three.?month|quarter/.test(s)) return "3 Months";
+  if (/6.?month|six.?month|half.?year/.test(s)) return "6 Months";
+  if (/12.?month|one.?year|1.?year|annual/.test(s)) return "12 Months";
+  return "Flexible";
+}
+
+function normalizeRentalPropertyType(raw: string): string {
+  const s = raw.trim().toLowerCase();
+  if (/apartment|apt|flat/.test(s)) return "Apartment";
+  if (/townhouse|town house/.test(s)) return "Townhouse";
+  if (/unit/.test(s)) return "Unit";
+  if (/room|bedroom/.test(s)) return "Room";
+  if (/house/.test(s)) return "House";
+  const titled = raw.trim().charAt(0).toUpperCase() + raw.trim().slice(1);
+  return titled || "House";
+}
+
+function normalizeRentalFurnishedStatus(raw: string): string {
+  const s = raw.trim().toLowerCase();
+  if (/partly|partial|semi/.test(s)) return "Partly Furnished";
+  if (/unfurnished|un-furnished|not furnished/.test(s)) return "Unfurnished";
+  if (/furnished|furniture/.test(s)) return "Furnished";
+  return raw.trim() || "Unfurnished";
+}
+
+function normalizeRentalPetsPolicy(raw: string): string {
+  const s = raw.trim().toLowerCase();
+  if (/no pet|no animals|pets not/.test(s)) return "No Pets";
+  if (/cat/.test(s)) return "Cats Allowed";
+  if (/dog/.test(s)) return "Dogs Allowed";
+  if (/negotiat|discuss|consider/.test(s)) return "Pets By Negotiation";
+  if (/yes|allow|welcome|ok/.test(s)) return "Pets By Negotiation";
+  return "No Pets";
+}
+
 export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | null {
   if (!input || typeof input !== "object") return null;
   const o = input as Record<string, unknown>;
@@ -366,9 +431,21 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
     vehicleBodyType: pickField(o, ["vehicleBodyType", "bodyType", "body"]),
     vehicleColour: pickField(o, ["vehicleColour", "vehicleColor", "colour", "color"]),
     rentalPriceDaily: daily,
-    rentalPriceWeekly: pickNumField(o, ["rentalPriceWeekly", "weeklyRate", "rentalWeekly"]),
+    rentalSubType: pickField(o, ["rentalSubType", "rentalType"]),
+    rentalPropertyType: pickField(o, ["rentalPropertyType", "propertyType"]),
+    rentalPriceWeekly: pickNumField(o, ["rentalPriceWeekly", "weeklyRate", "rentalWeekly", "weeklyRent"]),
     rentalPriceMonthly: pickNumField(o, ["rentalPriceMonthly", "monthlyRate", "rentalMonthly"]),
     rentalDeposit: pickNumField(o, ["rentalDeposit", "deposit", "bond"]),
+    rentalBedrooms: pickNumField(o, ["rentalBedrooms", "bedrooms", "beds"]),
+    rentalBathrooms: pickNumField(o, ["rentalBathrooms", "bathrooms", "baths"]),
+    rentalParkingSpaces: pickNumField(o, ["rentalParkingSpaces", "parkingSpaces", "parking"]),
+    rentalFurnishedStatus: pickField(o, ["rentalFurnishedStatus", "furnishedStatus", "furnished"]),
+    rentalPetsPolicy: pickField(o, ["rentalPetsPolicy", "petsPolicy", "pets"]),
+    rentalMinTenancy: pickField(o, ["rentalMinTenancy", "minTenancy", "minimumTenancy", "tenancy"]),
+    rentalAvailableDate: pickField(o, ["rentalAvailableDate", "availableDate", "availableFrom"]),
+    rentalFeatures: Array.isArray(o.rentalFeatures)
+      ? (o.rentalFeatures as unknown[]).filter((x): x is string => typeof x === "string").map(s => (s as string).trim()).filter(Boolean)
+      : undefined,
     stockQuantity: pickNumField(o, ["stockQuantity", "quantity"]),
     serviceDuration:
       pickField(o, ["serviceDuration"]) ||
@@ -446,9 +523,45 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
     }
     if (raw.rentalDeposit) out.rentalDeposit = raw.rentalDeposit;
     if (raw.stockQuantity) out.stockQuantity = raw.stockQuantity;
+    // rentalSubType inference — check explicit field first, then scan blob
+    const subRaw = (raw.rentalSubType || "").toLowerCase();
+    const subBlob = blob.toLowerCase();
+    if (/property|apartment|house|room|flat|unit|townhouse|studio|bedroom|bathroom|furnished|unfurnished|pets/.test(subRaw)) {
+      out.rentalSubType = "property";
+    } else if (/vehicle|car|van|ute|camper|motorhome|motorcycle|boat|truck/.test(subRaw)) {
+      out.rentalSubType = "vehicle";
+    } else if (/equipment|gear|tool|trailer|camera|generator|chainsaw|drill|party hire|marquee/.test(subRaw)) {
+      out.rentalSubType = "equipment";
+    } else if (/\b(apartment|house|flat|room for rent|townhouse|studio|unit|bedrooms?|bathrooms?|per week|weekly rent|bond|furnished|unfurnished|pets allowed|available from)\b/.test(subBlob)) {
+      out.rentalSubType = "property";
+    } else if (/\b(campervan|motorhome|car hire|van hire|ute hire|vehicle rental|hire car|renting out my|rent out my)\b/.test(subBlob) ||
+               /\b(toyota|honda|mazda|ford|holden|nissan|subaru|mitsubishi|hyundai|kia|bmw|mercedes|audi|volkswagen|vw|suzuki|isuzu)\b/.test(subBlob)) {
+      out.rentalSubType = "vehicle";
+    } else if (raw.rentalBedrooms || raw.rentalBathrooms) {
+      out.rentalSubType = "property";
+    } else if (raw.vehicleMake || raw.vehicleModel) {
+      out.rentalSubType = "vehicle";
+    } else {
+      out.rentalSubType = "equipment";
+    }
+    // Property rental fields
+    if (raw.rentalBedrooms) out.rentalBedrooms = raw.rentalBedrooms;
+    if (raw.rentalBathrooms) out.rentalBathrooms = raw.rentalBathrooms;
+    if (raw.rentalParkingSpaces) out.rentalParkingSpaces = raw.rentalParkingSpaces;
+    if (raw.rentalPropertyType) out.rentalPropertyType = normalizeRentalPropertyType(raw.rentalPropertyType);
+    if (raw.rentalFurnishedStatus) out.rentalFurnishedStatus = normalizeRentalFurnishedStatus(raw.rentalFurnishedStatus);
+    if (raw.rentalPetsPolicy) out.rentalPetsPolicy = normalizeRentalPetsPolicy(raw.rentalPetsPolicy);
+    if (raw.rentalMinTenancy) out.rentalMinTenancy = normalizeRentalMinTenancy(raw.rentalMinTenancy);
+    if (raw.rentalAvailableDate) out.rentalAvailableDate = raw.rentalAvailableDate;
+    if (raw.rentalFeatures?.length) out.rentalFeatures = raw.rentalFeatures;
   } else if (listingType === "digital") {
     if (raw.category) out.category = normalizeDigitalCategory(raw.category);
-    else out.category = "Other Digital Services";
+    else {
+      const inferredCat = inferDigitalPricingFromText(pricingHint) === "quote"
+        ? "Other Digital Services"
+        : normalizeDigitalCategory(pricingHint);
+      out.category = inferredCat || "Other Digital Services";
+    }
     if (!out.pricingType && raw.pricingType) {
       out.pricingType = normalizeDigitalPricingType(raw.pricingType, "digital");
     }
@@ -478,8 +591,8 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
     if (pt) out.paymentType = pt;
   }
   if (listingType === "vehicle" || raw.vehicleMake || raw.vehicleModel) {
-    if (!out.listingType) out.listingType = "vehicle";
-    if (!out.category) out.category = "Cars";
+    if (!out.listingType && listingType !== "rental") out.listingType = "vehicle";
+    if (!out.category && listingType !== "rental") out.category = "Cars";
     if (raw.vehicleMake) out.vehicleMake = raw.vehicleMake.slice(0, 60);
     if (raw.vehicleModel) out.vehicleModel = raw.vehicleModel.slice(0, 60);
     if (raw.vehicleYear) out.vehicleYear = raw.vehicleYear;
@@ -498,15 +611,62 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
   return out;
 }
 
+function extractJsonCandidates(text: string): string[] {
+  const results: string[] = [];
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] !== "{") continue;
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+    let j = i;
+    for (; j < text.length; j++) {
+      const ch = text[j];
+      if (escape) { escape = false; continue; }
+      if (ch === "\\" && inString) { escape = true; continue; }
+      if (ch === '"') { inString = !inString; continue; }
+      if (inString) continue;
+      if (ch === "{") depth++;
+      else if (ch === "}") { depth--; if (depth === 0) break; }
+    }
+    if (depth === 0 && j > i) {
+      results.push(text.slice(i, j + 1));
+      i = j;
+    }
+  }
+  return results;
+}
+
 export function extractListingFill(reply: string): SkyAiListingFill | null {
   const re = new RegExp(SKY_AI_LISTING_FILL_TAG.source, "i");
   const match = re.exec(reply);
-  if (!match?.[1]) return null;
-  try {
-    return normalizeSkyAiListingFill(JSON.parse(match[1].trim()));
-  } catch {
-    return null;
+  if (match?.[1]) {
+    try {
+      return normalizeSkyAiListingFill(JSON.parse(match[1].trim()));
+    } catch {
+      return null;
+    }
   }
+
+  // Fallback: scan for JSON objects in the reply using balanced-brace extraction
+  // (AI sometimes outputs raw JSON without the [[LISTING_FILL]] wrapper tags)
+  const candidates = extractJsonCandidates(reply);
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (
+        typeof parsed === "object" &&
+        parsed !== null &&
+        !Array.isArray(parsed) &&
+        (parsed.listingType || (parsed.title && parsed.description))
+      ) {
+        const normalized = normalizeSkyAiListingFill(parsed);
+        if (normalized) return normalized;
+      }
+    } catch {
+      continue;
+    }
+  }
+  return null;
 }
 
 export function extractSkyAiReply(reply: string): {
@@ -575,9 +735,19 @@ export type ListingFillHandlers = {
   setVehicleFuelType?: (v: string) => void;
   setVehicleBodyType?: (v: string) => void;
   setVehicleColour?: (v: string) => void;
+  setRentalSubType?: (v: "property" | "equipment" | "vehicle") => void;
+  setRentalPropertyType?: (v: string) => void;
   setRentalPriceWeekly?: (v: string) => void;
   setRentalPriceMonthly?: (v: string) => void;
   setRentalDeposit?: (v: string) => void;
+  setRentalBedrooms?: (v: string) => void;
+  setRentalBathrooms?: (v: string) => void;
+  setRentalParkingSpaces?: (v: string) => void;
+  setRentalFurnishedStatus?: (v: string) => void;
+  setRentalPetsPolicy?: (v: string) => void;
+  setRentalMinTenancy?: (v: string) => void;
+  setRentalAvailableDate?: (v: string) => void;
+  setRentalFeatures?: (v: string[]) => void;
   setPricingType?: (v: string) => void;
   setServicePricingType?: (v: string) => void;
   setPickupAvailable?: (v: boolean) => void;
@@ -646,6 +816,24 @@ export function applySkyAiListingFill(fill: SkyAiListingFill, h: ListingFillHand
     if (normalized.rentalPriceMonthly) h.setRentalPriceMonthly?.(normalized.rentalPriceMonthly);
     if (normalized.rentalDeposit) h.setRentalDeposit?.(normalized.rentalDeposit);
     if (normalized.stockQuantity) h.setStockQuantity?.(normalized.stockQuantity);
+    const sub = normalized.rentalSubType as "property" | "equipment" | "vehicle" | undefined;
+    if (sub) h.setRentalSubType?.(sub);
+    if (normalized.rentalBedrooms) h.setRentalBedrooms?.(normalized.rentalBedrooms);
+    if (normalized.rentalBathrooms) h.setRentalBathrooms?.(normalized.rentalBathrooms);
+    if (normalized.rentalParkingSpaces) h.setRentalParkingSpaces?.(normalized.rentalParkingSpaces);
+    if (normalized.rentalPropertyType) h.setRentalPropertyType?.(normalized.rentalPropertyType);
+    if (normalized.rentalFurnishedStatus) h.setRentalFurnishedStatus?.(normalized.rentalFurnishedStatus);
+    if (normalized.rentalPetsPolicy) h.setRentalPetsPolicy?.(normalized.rentalPetsPolicy);
+    if (normalized.rentalMinTenancy) h.setRentalMinTenancy?.(normalized.rentalMinTenancy);
+    if (normalized.rentalAvailableDate) h.setRentalAvailableDate?.(normalized.rentalAvailableDate);
+    if (normalized.rentalFeatures?.length) h.setRentalFeatures?.(normalized.rentalFeatures);
+    if (sub === "vehicle") {
+      if (normalized.vehicleMake) h.setVehicleMake?.(normalized.vehicleMake);
+      if (normalized.vehicleModel) h.setVehicleModel?.(normalized.vehicleModel);
+      if (normalized.vehicleYear) h.setVehicleYear?.(normalized.vehicleYear);
+      if (normalized.vehicleTransmission) h.setVehicleTransmission?.(normalized.vehicleTransmission);
+      if (normalized.stockQuantity) h.setStockQuantity?.(normalized.stockQuantity);
+    }
   } else if (type === "vehicle") {
     h.setCategory("Cars");
     h.setSaleType?.("buy_now");

@@ -374,6 +374,16 @@ export default function MarketplaceListingCard({
                     </Link>
                   )}
                 </>
+              ) : item.pricingType === "quote" ? (
+                <>
+                  <Link
+                    href={`/post/listing/${item.id}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className={`flex flex-1 items-center justify-center rounded-md border py-2.5 text-[12px] font-semibold transition-all duration-150 active:scale-95 ${CREAM_BTN}`}
+                  >
+                    Request Quote
+                  </Link>
+                </>
               ) : (
                 <>
                   <button

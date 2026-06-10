@@ -5,11 +5,13 @@
 
 export const SKY_AI_PROJECT_KNOWLEDGE = `
 ## WHAT SKY DROP IS
-- New Zealand community marketplace (NZD only). Buy/sell **physical goods, vehicles, digital products, services, and rentals**.
-- **We do NOT support events, jobs, or property listings** — never suggest those listing types or tell users to post them. If asked, explain Sky Drop focuses on the categories above (old links may exist but new listings are not offered).
-- Built-in Messages, reviews, watchlist, seller profiles, and Sky AI assistant (floating panel).
+- New Zealand's smartest community marketplace (NZD only). Buy and sell **physical goods, vehicles, digital products, services, and rentals**.
+- AI-powered listing creation (Āwhina), built-in messaging, reviews, watchlist, seller profiles, disputes, and gamification.
 - Free to list. Optional paid boost: $5 for ~7 days top search placement.
-- Site: skydrop.co.nz (also referenced as skydrop.nz in some links).
+- Site: skydrop.co.nz. Support email: support@skydrop.co.nz.
+- Sky Drop is a Kiwi-built platform designed for New Zealanders — all prices NZD, all bank transfers NZ only.
+- Mobile-friendly, dark-themed UI. Works on all devices.
+- **NOT supported:** events, job listings, property for sale (only property rentals are supported). If asked, politely redirect to what IS supported.
 
 ## USER ACCOUNTS
 - Users sign up with email + password or test login (dev only). Email verification sent after signup.

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import Navbar from "../../../components/Navbar";
 import Background from "../../../components/Background";
-import { AwhinaUnderHeader } from "../../../components/AwhinaOnlineBadge";
 import ReportModal from "../../../components/ReportModal";
 import CheckoutModal from "../../../components/CheckoutModal";
 import PromoteModal from "../../../components/PromoteModal";
@@ -221,10 +220,11 @@ export default function ListingPage() {
     }
   }
 
-  // Auto-open Stripe checkout if navigated with ?buy=1 (not for Arrange Purchase listings)
+  // Auto-open Stripe checkout if navigated with ?buy=1 (not for Arrange Purchase or Quote listings)
   useEffect(() => {
     if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("buy") === "1" && user?.email && listing) {
       if (isContactListing) return;
+      if (listing.pricingType === "quote") return;
       if (isAuctionWinner) {
         setWinningBid(listing.currentBid || listing.startingBid || 0);
       }
@@ -1050,7 +1050,6 @@ export default function ListingPage() {
 
             {/* 2. TITLE */}
             <h1 className="text-xl font-black tracking-tight text-[var(--foreground)]">{listing.title}</h1>
-            <AwhinaUnderHeader className="mt-2" />
 
             {/* 3. PRICE */}
             <div className="flex flex-wrap items-baseline gap-2">
@@ -1433,8 +1432,51 @@ Property Status: 🟢 Inquiry Active`;
             </div>
             )}
 
+            {/* 5. QUOTE REQUIRED — digital services */}
+            {listing.type === "digital" && listing.pricingType === "quote" && isListingVisibleInMarketplace(listing) && !isExpired && (
+            <div className="flex gap-2">
+              {user && user.email !== listing.sellerEmail ? (
+                <>
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      const convKey = `listing_${listingId}`;
+                      const existingConv = await getDocs(query(collection(db, "conversations"), where("convKey", "==", convKey), where("participants", "array-contains", user!.email!)));
+                      let convId: string;
+                      if (!existingConv.empty) {
+                        convId = existingConv.docs[0].id;
+                        await updateDoc(doc(db, "conversations", convId), { updatedAt: serverTimestamp(), lastMessage: "Quote requested" });
+                      } else {
+                        const convRef = await addDoc(collection(db, "conversations"), { convKey, participants: [user!.email!, listing.sellerEmail], buyerEmail: user!.email!, sellerEmail: listing.sellerEmail, listingId, listingTitle: listing.title, listingPrice: listing.price, listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "", createdAt: serverTimestamp(), updatedAt: serverTimestamp(), lastMessage: "Quote requested" });
+                        convId = convRef.id;
+                      }
+                      await addDoc(collection(db, "messages"), { type: "text", text: `Hi, I'm interested in "${listing.title}" — could you please provide a quote?`, sender: user!.email!, receiver: listing.sellerEmail, participants: [user!.email!, listing.sellerEmail], conversationId: convId, listingId, listingTitle: listing.title, read: false, createdAt: serverTimestamp() });
+                      router.push(`/messages?user=${encodeURIComponent(listing.sellerEmail || "")}&listing=${listingId}`);
+                    }}
+                    className="flex-1 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-[13px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]"
+                  >
+                    Request Quote
+                  </button>
+                  <button
+                    onClick={() => router.push(`/messages?user=${encodeURIComponent(listing.sellerEmail || "")}&listing=${listingId}`)}
+                    className="flex-1 rounded-lg border border-zinc-700 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-zinc-800 active:scale-[0.97]"
+                  >
+                    Message Seller
+                  </button>
+                </>
+              ) : user?.email === listing.sellerEmail ? (
+                <div className="flex gap-2 w-full">
+                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-center text-[13px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">✏️ Edit Listing</Link>
+                  <button onClick={() => setShowPromote(true)} className="rounded-lg border border-sky-500/30 bg-sky-500/5 px-3 py-3 text-[13px] font-bold text-sky-400 transition hover:bg-sky-500/15">📈 Promote</button>
+                </div>
+              ) : (
+                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="flex-1 rounded-lg border border-zinc-700 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-zinc-800">Sign in</button>
+              )}
+            </div>
+            )}
+
             {/* 5. BUY BUTTONS */}
-            {isListingAvailableForPurchase(listing) && !isExpired && listing.type !== "service" && listing.type !== "job" && listing.type !== "property" && listing.type !== "rental" && (purchaseUi.canPurchaseMore || (isContactListing && buyerArrangeRequestCount > 0)) && (
+            {isListingAvailableForPurchase(listing) && !isExpired && listing.type !== "service" && listing.type !== "job" && listing.type !== "property" && listing.type !== "rental" && !(listing.type === "digital" && listing.pricingType === "quote") && (purchaseUi.canPurchaseMore || (isContactListing && buyerArrangeRequestCount > 0)) && (
             <div className="flex gap-2">
               {user && user.email !== listing.sellerEmail ? (
                 <>
@@ -1814,7 +1856,7 @@ Service Status: 🟢 Inquiry Active`;
             )}
 
             {/* Payment & Contact Info */}
-            {user && user.email !== listing.sellerEmail && (
+            {user && user.email !== listing.sellerEmail && listing.pricingType !== "quote" && (
               (listing as any).paymentType === "contact" ? (
                 <a href="/escrow#arrange" target="_blank" rel="noopener noreferrer" className="rounded-lg border border-sky-500/10 bg-sky-500/[0.03] px-3.5 py-2.5 block transition hover:bg-sky-500/[0.06]">
                   <p className="text-xs font-bold text-sky-400">🤝 Arrange Purchase — ${(listing as any).price}</p>
@@ -2080,7 +2122,7 @@ Service Status: 🟢 Inquiry Active`;
         </section>
       )}
 
-      {showCheckout && user?.email && !isContactListing && (
+      {showCheckout && user?.email && !isContactListing && listing.pricingType !== "quote" && (
         <CheckoutModal
           listing={{ ...listing, rentalDays, pickupDate, returnDate }}
           buyerEmail={user.email}

@@ -82,9 +82,19 @@ export default function AIPostPage() {
   const [digitalFileName, setDigitalFileName] = useState("");
   const [digitalStoragePath, setDigitalStoragePath] = useState("");
   const [serviceDuration, setServiceDuration] = useState("");
+  const [rentalSubType, setRentalSubType] = useState<"property" | "equipment" | "vehicle">("equipment");
+  const [rentalPropertyType, setRentalPropertyType] = useState("House");
   const [rentalPriceWeekly, setRentalPriceWeekly] = useState("");
   const [rentalPriceMonthly, setRentalPriceMonthly] = useState("");
   const [rentalDeposit, setRentalDeposit] = useState("");
+  const [rentalBedrooms, setRentalBedrooms] = useState("");
+  const [rentalBathrooms, setRentalBathrooms] = useState("");
+  const [rentalParkingSpaces, setRentalParkingSpaces] = useState("");
+  const [rentalFurnishedStatus, setRentalFurnishedStatus] = useState("Unfurnished");
+  const [rentalPetsPolicy, setRentalPetsPolicy] = useState("No Pets");
+  const [rentalAvailableDate, setRentalAvailableDate] = useState("");
+  const [rentalFeatures, setRentalFeatures] = useState<string[]>([]);
+  const [rentalMinTenancy, setRentalMinTenancy] = useState("Flexible");
   const [eventDate, setEventDate] = useState("");
   const [eventTime, setEventTime] = useState("");
   const [venue, setVenue] = useState("");
@@ -156,9 +166,18 @@ export default function AIPostPage() {
       vehicleBodyType,
       vehicleFuelType,
       vehicleTransmission,
+      rentalSubType,
+      rentalPropertyType,
       rentalPriceWeekly,
       rentalPriceMonthly,
       rentalDeposit,
+      rentalBedrooms,
+      rentalBathrooms,
+      rentalParkingSpaces,
+      rentalFurnishedStatus,
+      rentalPetsPolicy,
+      rentalAvailableDate,
+      rentalMinTenancy,
       stockQuantity,
       serviceDuration,
       extras: draftExtras.length ? draftExtras : undefined,
@@ -180,9 +199,18 @@ export default function AIPostPage() {
     vehicleBodyType,
     vehicleFuelType,
     vehicleTransmission,
+    rentalSubType,
+    rentalPropertyType,
     rentalPriceWeekly,
     rentalPriceMonthly,
     rentalDeposit,
+    rentalBedrooms,
+    rentalBathrooms,
+    rentalParkingSpaces,
+    rentalFurnishedStatus,
+    rentalPetsPolicy,
+    rentalAvailableDate,
+    rentalMinTenancy,
     stockQuantity,
     serviceDuration,
     draftExtras,
@@ -210,9 +238,19 @@ export default function AIPostPage() {
       setVehicleFuelType,
       setVehicleBodyType,
       setVehicleColour,
+      setRentalSubType,
+      setRentalPropertyType,
       setRentalPriceWeekly,
       setRentalPriceMonthly,
       setRentalDeposit,
+      setRentalBedrooms,
+      setRentalBathrooms,
+      setRentalParkingSpaces,
+      setRentalFurnishedStatus,
+      setRentalPetsPolicy,
+      setRentalAvailableDate,
+      setRentalMinTenancy,
+      setRentalFeatures,
       setPricingType: (v) => setPricingType(v === "quote" ? "quote" : "fixed"),
       setServicePricingType: (v) => setServicePricingType(normalizeServicePricingType(v)),
       setPickupAvailable,
@@ -561,7 +599,7 @@ export default function AIPostPage() {
       showToast("Select at least one delivery method (pickup or shipping).", "error");
       return;
     }
-    if (listingType === "digital" && !digitalFileURL && !editId) {
+    if (listingType === "digital" && pricingType === "fixed" && !digitalFileURL && !editId) {
       showToast("Upload the digital file you're selling.", "error");
       return;
     }
@@ -660,10 +698,28 @@ export default function AIPostPage() {
       } : listingType === "rental" ? {
         ...baseData, condition, location,
         type: "rental", pickupAvailable: true, shippingAvailable: false,
-        stockQuantity: stockQuantity ? Number(stockQuantity) : 1,
+        rentalSubType,
+        stockQuantity: stockQuantity ? Number(stockQuantity) : (rentalSubType === "property" ? 1 : 1),
         rentalPriceWeekly: rentalPriceWeekly ? Number(rentalPriceWeekly) : null,
         rentalPriceMonthly: rentalPriceMonthly ? Number(rentalPriceMonthly) : null,
         rentalDeposit: rentalDeposit ? Number(rentalDeposit) : null,
+        ...(rentalSubType === "property" ? {
+          rentalBedrooms: rentalBedrooms ? Number(rentalBedrooms) : null,
+          rentalBathrooms: rentalBathrooms ? Number(rentalBathrooms) : null,
+          rentalParkingSpaces: rentalParkingSpaces ? Number(rentalParkingSpaces) : null,
+          rentalPropertyType,
+          rentalFurnishedStatus,
+          rentalPetsPolicy,
+          rentalMinTenancy,
+          rentalFeatures: rentalFeatures.length ? rentalFeatures : [],
+          rentalAvailableDate: rentalAvailableDate || null,
+        } : rentalSubType === "vehicle" ? {
+          vehicleMake,
+          vehicleModel,
+          vehicleYear: vehicleYear ? Number(vehicleYear) : null,
+          vehicleTransmission,
+          rentalVehicleSeats: stockQuantity || null,
+        } : {}),
         ...(editId ? {} : { expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000), status: "live" }),
       } : listingType === "event" ? {
         ...baseData, category,
@@ -802,7 +858,7 @@ export default function AIPostPage() {
       setPickupArea(""); setShippingFee(""); setFreeShipping(false);
       setStockQuantity("");
       setSaleType("buy_now"); setBuyNowPrice(""); setStartingBid(""); setReservePrice(""); setAuctionDuration("3"); setExpiresIn("14");
-      setListingType("physical"); setDigitalFileURL(""); setDigitalFileName(""); setDigitalStoragePath(""); setServiceDuration(""); setRentalPriceWeekly(""); setRentalPriceMonthly(""); setRentalDeposit(""); setEventDate(""); setEventTime(""); setVenue(""); setTicketQuantity(""); setTicketType("General Admission"); setVehicleMake(""); setVehicleModel(""); setVehicleYear(""); setVehicleOdometer(""); setVehicleBodyType("SUV"); setVehicleFuelType("Petrol"); setVehicleTransmission("Automatic"); setVehicleColour(""); setJobCompany(""); setJobEmploymentType("Full-time"); setSalaryMin(""); setSalaryMax(""); setPropertyType("House"); setBedrooms(""); setBathrooms(""); setLandArea(""); setFloorArea(""); setParking(""); setAcceptOffers(false); setCondition("New");
+      setListingType("physical"); setDigitalFileURL(""); setDigitalFileName(""); setDigitalStoragePath(""); setServiceDuration(""); setRentalSubType("equipment"); setRentalPriceWeekly(""); setRentalPriceMonthly(""); setRentalDeposit(""); setRentalBedrooms(""); setRentalBathrooms(""); setRentalParkingSpaces(""); setRentalFurnishedStatus("Unfurnished"); setRentalPetsPolicy("No Pets"); setRentalAvailableDate(""); setRentalMinTenancy("Flexible"); setRentalFeatures([]); setEventDate(""); setEventTime(""); setVenue(""); setTicketQuantity(""); setTicketType("General Admission"); setVehicleMake(""); setVehicleModel(""); setVehicleYear(""); setVehicleOdometer(""); setVehicleBodyType("SUV"); setVehicleFuelType("Petrol"); setVehicleTransmission("Automatic"); setVehicleColour(""); setJobCompany(""); setJobEmploymentType("Full-time"); setSalaryMin(""); setSalaryMax(""); setPropertyType("House"); setBedrooms(""); setBathrooms(""); setLandArea(""); setFloorArea(""); setParking(""); setAcceptOffers(false); setCondition("New");
       setEditId(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
       if (listingType === "service") window.location.href = "/services";
@@ -1545,84 +1601,358 @@ export default function AIPostPage() {
 
           {/* Rental Details */}
           {listingType === "rental" && (
-            <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
-              <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Rental Details</label>
-              <div className="space-y-3">
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Daily rate *</label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                      <input type="number" value={price} onChange={(e) => {
-                        const v = e.target.value;
-                        setPrice(v);
-                        const d = Number(v);
-                        if (d > 0) {
-                          if (!manualEdit.current.has("weekly")) setRentalPriceWeekly(String(Math.round(d * 7)));
-                          const w = manualEdit.current.has("weekly") ? Number(rentalPriceWeekly) : Math.round(d * 7);
-                          if (!manualEdit.current.has("monthly") && w > 0) setRentalPriceMonthly(String(Math.round(w * 4)));
-                        }
-                      }}
-                        placeholder="Day"
-                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Weekly <span className="text-zinc-600">(opt)</span></label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                      <input type="number" value={rentalPriceWeekly} onChange={(e) => {
-                        setRentalPriceWeekly(e.target.value);
-                        manualEdit.current.add("weekly");
-                      }}
-                        placeholder="Week"
-                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Monthly <span className="text-zinc-600">(opt)</span></label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                      <input type="number" value={rentalPriceMonthly} onChange={(e) => {
-                        setRentalPriceMonthly(e.target.value);
-                        manualEdit.current.add("monthly");
-                      }}
-                        placeholder="Month"
-                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                    </div>
-                  </div>
-                </div>
-                <p className="text-[10px] text-zinc-500">Auto-calculated from entered rates. You can edit manually.</p>
-                <div>
-                  <label className="mb-1 block text-[10px] font-medium text-sky-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">Refundable Deposit</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                    <input type="number" value={rentalDeposit} onChange={(e) => setRentalDeposit(e.target.value)}
-                      placeholder="Deposit amount"
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                  </div>
-                  <p className="mt-1 text-[10px] text-sky-400/70 drop-shadow-[0_0_4px_rgba(251,191,36,0.2)]">Returned to renter if item/property is returned safely.</p>
-                </div>
-                <div>
-                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Quantity available</label>
-                  <input type="number" value={stockQuantity} onChange={(e) => setStockQuantity(e.target.value)}
-                    placeholder="e.g. 1"
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                </div>
-                <div>
-                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Condition</label>
-                  <select value={condition} onChange={(e) => setCondition(e.target.value)}
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
-                    <option>New</option><option>Used - Like New</option><option>Used - Good</option><option>Used - Fair</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Pickup location *</label>
-                  <input type="text" value={location} onChange={(e) => setLocation(e.target.value)}
-                    placeholder="City or suburb"
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+            <div className="space-y-4">
+              {/* Rental Sub-Type Selector */}
+              <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
+                <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Rental Type</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    { id: "property", icon: "🏠", label: "Property" },
+                    { id: "equipment", icon: "🔧", label: "Equipment" },
+                    { id: "vehicle", icon: "🚗", label: "Vehicle" },
+                  ] as const).map((opt) => (
+                    <button key={opt.id} type="button"
+                      onClick={() => setRentalSubType(opt.id)}
+                      className={`flex flex-col items-center gap-1.5 rounded-xl border px-3 py-3 text-center transition-all active:scale-[0.97] ${
+                        rentalSubType === opt.id
+                          ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.06)]"
+                          : "border-white/[0.06] bg-white/[0.02] text-zinc-500 hover:bg-white/[0.04] hover:border-white/[0.12]"
+                      }`}>
+                      <span className="text-xl">{opt.icon}</span>
+                      <span className="text-xs font-bold">{opt.label}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
+
+              {/* Location — all sub-types */}
+              <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
+                <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">
+                  {rentalSubType === "property" ? "Property address / suburb *" : "Pickup location *"}
+                </label>
+                <input type="text" value={location} onChange={(e) => setLocation(e.target.value)}
+                  placeholder={rentalSubType === "property" ? "e.g. Auckland CBD, Wellington" : "City or suburb"}
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+              </div>
+
+              {/* PROPERTY RENTAL */}
+              {rentalSubType === "property" && (
+                <div className="rounded-xl border border-sky-500/20 bg-sky-500/[0.04] p-4 space-y-4">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-sky-400">Property Rental</p>
+
+                  {/* Property Type */}
+                  <div>
+                    <label className="mb-2 block text-[10px] font-medium text-[var(--muted)]">Property Type *</label>
+                    <div className="grid grid-cols-5 gap-1.5">
+                      {(["House", "Apartment", "Townhouse", "Unit", "Room"] as const).map((pt) => (
+                        <button key={pt} type="button" onClick={() => setRentalPropertyType(pt)}
+                          className={`rounded-lg border px-2 py-2 text-center text-[11px] font-bold transition-all active:scale-[0.97] ${
+                            rentalPropertyType === pt
+                              ? "border-sky-500/40 bg-sky-500/10 text-sky-400"
+                              : "border-white/[0.06] bg-white/[0.02] text-zinc-500 hover:border-white/[0.12] hover:bg-white/[0.04]"
+                          }`}>{pt}</button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Weekly rent + bond */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Weekly Rent *</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                        <input type="number" value={rentalPriceWeekly} onChange={(e) => {
+                          setRentalPriceWeekly(e.target.value);
+                          const w = Number(e.target.value);
+                          if (w > 0 && !manualEdit.current.has("monthly")) setRentalPriceMonthly(String(Math.round(w * 4)));
+                          if (w > 0 && !manualEdit.current.has("price")) setPrice(String(Math.round(w / 7)));
+                        }}
+                          placeholder="e.g. 550"
+                          className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-medium text-sky-400">Bond Amount</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                        <input type="number" value={rentalDeposit} onChange={(e) => setRentalDeposit(e.target.value)}
+                          placeholder="e.g. 1100"
+                          className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                      </div>
+                      <p className="mt-1 text-[10px] text-zinc-600">Typically 2 weeks rent</p>
+                    </div>
+                  </div>
+
+                  {/* Bedrooms / bathrooms / parking spaces */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Bedrooms</label>
+                      <input type="number" min="0" value={rentalBedrooms} onChange={(e) => setRentalBedrooms(e.target.value)}
+                        placeholder="e.g. 3"
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Bathrooms</label>
+                      <input type="number" min="0" value={rentalBathrooms} onChange={(e) => setRentalBathrooms(e.target.value)}
+                        placeholder="e.g. 2"
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Parking Spaces</label>
+                      <input type="number" min="0" value={rentalParkingSpaces} onChange={(e) => setRentalParkingSpaces(e.target.value)}
+                        placeholder="0"
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                    </div>
+                  </div>
+
+                  {/* Furnished Status */}
+                  <div>
+                    <label className="mb-2 block text-[10px] font-medium text-[var(--muted)]">Furnished Status</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(["Furnished", "Partly Furnished", "Unfurnished"] as const).map((fs) => (
+                        <button key={fs} type="button" onClick={() => setRentalFurnishedStatus(fs)}
+                          className={`rounded-lg border px-2 py-2 text-center text-[11px] font-bold transition-all active:scale-[0.97] ${
+                            rentalFurnishedStatus === fs
+                              ? "border-sky-500/40 bg-sky-500/10 text-sky-400"
+                              : "border-white/[0.06] bg-white/[0.02] text-zinc-500 hover:border-white/[0.12] hover:bg-white/[0.04]"
+                          }`}>{fs}</button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Pets Policy */}
+                  <div>
+                    <label className="mb-2 block text-[10px] font-medium text-[var(--muted)]">Pets Policy</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(["No Pets", "Cats Allowed", "Dogs Allowed", "Pets By Negotiation"] as const).map((pp) => (
+                        <button key={pp} type="button" onClick={() => setRentalPetsPolicy(pp)}
+                          className={`rounded-lg border px-2 py-2 text-center text-[11px] font-bold transition-all active:scale-[0.97] ${
+                            rentalPetsPolicy === pp
+                              ? "border-sky-500/40 bg-sky-500/10 text-sky-400"
+                              : "border-white/[0.06] bg-white/[0.02] text-zinc-500 hover:border-white/[0.12] hover:bg-white/[0.04]"
+                          }`}>{pp}</button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Available from */}
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Available From</label>
+                    <input type="date" value={rentalAvailableDate} onChange={(e) => setRentalAvailableDate(e.target.value)}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                  </div>
+
+                  {/* Minimum Tenancy */}
+                  <div>
+                    <label className="mb-2 block text-[10px] font-medium text-[var(--muted)]">Minimum Tenancy <span className="text-zinc-600">(optional)</span></label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {(["Flexible", "3 Months", "6 Months", "12 Months"] as const).map((mt) => (
+                        <button key={mt} type="button" onClick={() => setRentalMinTenancy(mt)}
+                          className={`rounded-lg border px-2 py-2 text-center text-[11px] font-bold transition-all active:scale-[0.97] ${
+                            rentalMinTenancy === mt
+                              ? "border-sky-500/40 bg-sky-500/10 text-sky-400"
+                              : "border-white/[0.06] bg-white/[0.02] text-zinc-500 hover:border-white/[0.12] hover:bg-white/[0.04]"
+                          }`}>{mt}</button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Optional Features */}
+                  <div>
+                    <label className="mb-2 block text-[10px] font-medium text-[var(--muted)]">Features <span className="text-zinc-600">(optional)</span></label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {["Fibre Internet", "Heat Pump", "Air Conditioning", "Dishwasher", "Washing Machine", "Garage", "Balcony", "Healthy Homes Compliant"].map((feat) => {
+                        const active = rentalFeatures.includes(feat);
+                        return (
+                          <button key={feat} type="button"
+                            onClick={() => setRentalFeatures(active ? rentalFeatures.filter(f => f !== feat) : [...rentalFeatures, feat])}
+                            className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-left text-[11px] font-medium transition-all active:scale-[0.97] ${
+                              active
+                                ? "border-sky-500/40 bg-sky-500/10 text-sky-400"
+                                : "border-white/[0.06] bg-white/[0.02] text-zinc-500 hover:border-white/[0.12] hover:bg-white/[0.04]"
+                            }`}>
+                            <span className={`h-3 w-3 flex-shrink-0 rounded-sm border ${active ? "border-sky-500 bg-sky-500" : "border-zinc-600"}`} />
+                            {feat}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* EQUIPMENT RENTAL */}
+              {rentalSubType === "equipment" && (
+                <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4 space-y-4">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Equipment Rental</p>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Daily Rate *</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                        <input type="number" value={price} onChange={(e) => {
+                          const v = e.target.value; setPrice(v);
+                          const d = Number(v);
+                          if (d > 0) {
+                            if (!manualEdit.current.has("weekly")) setRentalPriceWeekly(String(Math.round(d * 7)));
+                            const w = manualEdit.current.has("weekly") ? Number(rentalPriceWeekly) : Math.round(d * 7);
+                            if (!manualEdit.current.has("monthly") && w > 0) setRentalPriceMonthly(String(Math.round(w * 4)));
+                          }
+                        }}
+                          placeholder="Day"
+                          className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Weekly</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                        <input type="number" value={rentalPriceWeekly} onChange={(e) => { setRentalPriceWeekly(e.target.value); manualEdit.current.add("weekly"); }}
+                          placeholder="Week"
+                          className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Monthly</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                        <input type="number" value={rentalPriceMonthly} onChange={(e) => { setRentalPriceMonthly(e.target.value); manualEdit.current.add("monthly"); }}
+                          placeholder="Month"
+                          className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-zinc-500">Weekly and monthly auto-calculated — edit manually to override.</p>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-[10px] font-medium text-sky-400">Refundable Deposit</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                        <input type="number" value={rentalDeposit} onChange={(e) => setRentalDeposit(e.target.value)}
+                          placeholder="e.g. 200"
+                          className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Quantity Available</label>
+                      <input type="number" value={stockQuantity} onChange={(e) => setStockQuantity(e.target.value)}
+                        placeholder="e.g. 2"
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Condition</label>
+                    <select value={condition} onChange={(e) => setCondition(e.target.value)}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                      <option>New</option><option>Used - Like New</option><option>Used - Good</option><option>Used - Fair</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {/* VEHICLE RENTAL */}
+              {rentalSubType === "vehicle" && (
+                <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4 space-y-4">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Vehicle Rental</p>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Daily Rate *</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                        <input type="number" value={price} onChange={(e) => {
+                          const v = e.target.value; setPrice(v);
+                          const d = Number(v);
+                          if (d > 0) {
+                            if (!manualEdit.current.has("weekly")) setRentalPriceWeekly(String(Math.round(d * 7)));
+                            const w = manualEdit.current.has("weekly") ? Number(rentalPriceWeekly) : Math.round(d * 7);
+                            if (!manualEdit.current.has("monthly") && w > 0) setRentalPriceMonthly(String(Math.round(w * 4)));
+                          }
+                        }}
+                          placeholder="Day"
+                          className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Weekly</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                        <input type="number" value={rentalPriceWeekly} onChange={(e) => { setRentalPriceWeekly(e.target.value); manualEdit.current.add("weekly"); }}
+                          placeholder="Week"
+                          className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Monthly</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                        <input type="number" value={rentalPriceMonthly} onChange={(e) => { setRentalPriceMonthly(e.target.value); manualEdit.current.add("monthly"); }}
+                          placeholder="Month"
+                          className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-[10px] font-medium text-sky-400">Refundable Deposit</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                        <input type="number" value={rentalDeposit} onChange={(e) => setRentalDeposit(e.target.value)}
+                          placeholder="e.g. 500"
+                          className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Condition</label>
+                      <select value={condition} onChange={(e) => setCondition(e.target.value)}
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                        <option>New</option><option>Used - Like New</option><option>Used - Good</option><option>Used - Fair</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Vehicle details */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Make</label>
+                      <input type="text" value={vehicleMake} onChange={(e) => setVehicleMake(e.target.value)}
+                        placeholder="e.g. Toyota"
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Model</label>
+                      <input type="text" value={vehicleModel} onChange={(e) => setVehicleModel(e.target.value)}
+                        placeholder="e.g. HiAce"
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Year</label>
+                      <input type="number" value={vehicleYear} onChange={(e) => setVehicleYear(e.target.value)}
+                        placeholder="e.g. 2018"
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Transmission</label>
+                      <select value={vehicleTransmission} onChange={(e) => setVehicleTransmission(e.target.value)}
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                        <option>Automatic</option><option>Manual</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Seats</label>
+                      <input type="number" value={stockQuantity} onChange={(e) => setStockQuantity(e.target.value)}
+                        placeholder="e.g. 5"
+                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

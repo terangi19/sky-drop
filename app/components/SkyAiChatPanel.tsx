@@ -725,7 +725,9 @@ export default function SkyAiChatPanel({
               <span className="text-[11px] font-bold text-emerald-400">Listing ready — form filled</span>
             </div>
             <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-400">
-              {listingPreviewFill.listingType || "physical"}
+              {listingPreviewFill.listingType === "rental" && listingPreviewFill.rentalSubType
+                ? `rental · ${listingPreviewFill.rentalSubType}`
+                : listingPreviewFill.listingType || "physical"}
             </span>
           </div>
 
@@ -736,7 +738,10 @@ export default function SkyAiChatPanel({
               {listingPreviewFill.price && (
                 <span className="text-base font-black text-emerald-400">${listingPreviewFill.price}</span>
               )}
-              {listingPreviewFill.rentalPriceWeekly && !listingPreviewFill.price && (
+              {listingPreviewFill.rentalPriceWeekly && listingPreviewFill.rentalSubType === "property" && (
+                <span className="text-base font-black text-emerald-400">${listingPreviewFill.rentalPriceWeekly}/wk</span>
+              )}
+              {listingPreviewFill.rentalPriceWeekly && !listingPreviewFill.price && listingPreviewFill.rentalSubType !== "property" && (
                 <span className="text-base font-black text-emerald-400">${listingPreviewFill.rentalPriceWeekly}/wk</span>
               )}
               {listingPreviewFill.category && (

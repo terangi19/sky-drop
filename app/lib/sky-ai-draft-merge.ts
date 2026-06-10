@@ -18,9 +18,18 @@ const MERGE_STRING_FIELDS = [
   "vehicleBodyType",
   "vehicleFuelType",
   "vehicleTransmission",
+  "rentalSubType",
+  "rentalPropertyType",
   "rentalPriceWeekly",
   "rentalPriceMonthly",
   "rentalDeposit",
+  "rentalBedrooms",
+  "rentalBathrooms",
+  "rentalParkingSpaces",
+  "rentalFurnishedStatus",
+  "rentalPetsPolicy",
+  "rentalMinTenancy",
+  "rentalAvailableDate",
   "stockQuantity",
   "serviceDuration",
 ] as const;
@@ -101,8 +110,22 @@ export function formatDraftPreview(draft: SkyAiListingContext): string {
     if (draft.title) lines.push(`Service: ${draft.title}`);
     if (draft.serviceDuration) lines.push(`Turnaround: ${draft.serviceDuration}`);
   } else if (type === "rental") {
-    if (draft.title) lines.push(`Rental: ${draft.title}`);
-    if (draft.price) lines.push(`Daily rate: $${draft.price} NZD`);
+    const subType = draft.rentalSubType || "equipment";
+    if (draft.title) lines.push(`Rental (${subType}): ${draft.title}`);
+    if (subType === "property") {
+      if (draft.rentalPriceWeekly) lines.push(`Weekly rent: $${draft.rentalPriceWeekly}`);
+      if (draft.rentalBedrooms) lines.push(`Bedrooms: ${draft.rentalBedrooms}`);
+      if (draft.rentalBathrooms) lines.push(`Bathrooms: ${draft.rentalBathrooms}`);
+    } else {
+      if (draft.price) lines.push(`Daily rate: $${draft.price} NZD`);
+      if (draft.rentalPriceWeekly) lines.push(`Weekly rate: $${draft.rentalPriceWeekly}`);
+    }
+    if (draft.rentalDeposit) lines.push(`Deposit/Bond: $${draft.rentalDeposit}`);
+    if (draft.vehicleMake || draft.vehicleModel) {
+      const v = [draft.vehicleYear, draft.vehicleMake, draft.vehicleModel].filter(Boolean).join(" ");
+      if (v) lines.push(`Vehicle: ${v}`);
+      if (draft.vehicleTransmission) lines.push(`Transmission: ${draft.vehicleTransmission}`);
+    }
   } else if (type === "digital") {
     if (draft.title) lines.push(`Digital product: ${draft.title}`);
   } else {
