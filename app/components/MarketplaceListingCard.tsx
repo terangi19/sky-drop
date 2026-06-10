@@ -25,7 +25,7 @@ export type MarketplaceListingCardProps = {
   sellerBadges: Record<string, string>;
   onPromote?: (item: Record<string, any>) => void;
   onDelete?: (item: Record<string, any>) => void;
-  accent?: "sky" | "yellow" | "violet";
+  accent?: "sky" | "sky" | "sky";
   /** Homepage-style neon blue card glow */
   neonGlow?: boolean;
 };
@@ -91,7 +91,7 @@ export default function MarketplaceListingCard({
   accent = "sky",
   neonGlow = true,
 }: MarketplaceListingCardProps) {
-  const themed = accent === "yellow" || accent === "violet";
+  const themed = accent === "sky" || accent === "sky";
   const isVisible = isListingVisibleInMarketplace(item);
   const saves = themed ? listingWatchlistCount(item) : 0;
   const saveGlow = listingWatchlistGlowIntensity(saves);
@@ -107,9 +107,9 @@ export default function MarketplaceListingCard({
     item.category === "Cars" || item.category === "Property";
 
   return (
-    <div className="relative">
+    <div className="relative h-full">
       <div
-        className={`listing-card group relative z-[1] overflow-hidden rounded-2xl border transition-all duration-300 cursor-pointer animate-fade-in-up hover:-translate-y-1 text-[var(--cream)] ${neonGlow ? NEON_BLUE_CARD : CREAM_CARD}`}
+        className={`listing-card group relative z-[1] flex h-full flex-col overflow-hidden rounded-2xl border transition-all duration-300 cursor-pointer animate-fade-in-up hover:-translate-y-1 text-[var(--cream)] ${neonGlow ? NEON_BLUE_CARD : CREAM_CARD}`}
         style={{
           animationDelay: `${Math.min(cardIndex, 10) * 40}ms`,
           ...cardGlowStyle,
@@ -124,7 +124,7 @@ export default function MarketplaceListingCard({
 
       {imageSrc ? (
         <>
-          <div className="relative overflow-hidden">
+          <div className="relative shrink-0 overflow-hidden">
             <img
               src={cdnUrl(imageSrc)}
               alt={item.title}
@@ -194,23 +194,22 @@ export default function MarketplaceListingCard({
                 </span>
               </div>
             )}
+            {item.images?.length > 1 && (
+              <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 justify-center gap-1.5">
+                {item.images.slice(0, 5).map((_: string, i: number) => (
+                  <div
+                    key={i}
+                    className={`h-1 rounded-full transition-all duration-300 ${
+                      i === 0 ? "w-4 bg-[#fff8e7] shadow-[0_0_8px_rgba(255,248,231,0.45)]" : "w-1 bg-zinc-700"
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-
-          {item.images?.length > 1 && (
-            <div className="flex justify-center gap-1.5 py-2">
-              {item.images.slice(0, 5).map((_: string, i: number) => (
-                <div
-                  key={i}
-                  className={`h-1 rounded-full transition-all duration-300 ${
-                    i === 0 ? "w-4 bg-[#fff8e7] shadow-[0_0_8px_rgba(255,248,231,0.45)]" : "w-1 bg-zinc-700"
-                  }`}
-                />
-              ))}
-            </div>
-          )}
         </>
       ) : (
-        <div className="relative aspect-[4/3] flex items-center justify-center bg-gradient-to-br from-zinc-800/50 via-zinc-800/30 to-zinc-800/50">
+        <div className="relative aspect-[4/3] shrink-0 flex items-center justify-center bg-gradient-to-br from-zinc-800/50 via-zinc-800/30 to-zinc-800/50">
           <div className="absolute inset-0 flex items-center justify-center text-[var(--cream)]">
             <div className="text-center">
               <div className="text-3xl font-black tracking-tighter mb-1">SD</div>
@@ -239,10 +238,10 @@ export default function MarketplaceListingCard({
         </div>
       )}
 
-      <div className="p-4">
-        <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-1 flex-col p-4">
+        <div className="flex min-h-7 items-center justify-between gap-2">
           <div className="flex gap-1.5 flex-wrap">
-            <span className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold ${CREAM_CHIP}`}>
+            <span className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold text-always-white ${CREAM_CHIP}`}>
               {categoryLabel}
             </span>
             {item.promotedUntil?.toMillis?.() > Date.now() && (
@@ -281,12 +280,12 @@ export default function MarketplaceListingCard({
         </div>
 
         <div className="flex items-center gap-2 mt-2.5">
-          <h2 className="flex-1 line-clamp-1 text-[17px] font-black tracking-tight text-[var(--cream)] transition-colors duration-150 group-hover:text-[var(--cream)]">
+          <h2 className="flex-1 line-clamp-1 text-[17px] font-black tracking-tight text-always-white">
             {item.title}
           </h2>
         </div>
 
-        <p className="mt-1.5 line-clamp-2 text-[12px] leading-relaxed text-[var(--cream)]">
+        <p className="mt-1.5 line-clamp-2 text-[12px] leading-relaxed text-always-white">
           {item.description ||
             [
               item.vehicleMake && item.vehicleModel
@@ -315,7 +314,7 @@ export default function MarketplaceListingCard({
           )}
         </div>
 
-        <div className="mt-3 flex items-center gap-3 text-[11px] text-[var(--cream)]">
+        <div className="mt-3 flex min-h-5 items-center gap-3 text-[11px] text-[var(--cream)]">
           {item.location && (
             <span className="flex items-center gap-1">📍 {item.location}</span>
           )}
@@ -342,7 +341,8 @@ export default function MarketplaceListingCard({
           )}
         </div>
 
-        <div className="mt-3 flex gap-2">
+        <div className="mt-auto space-y-2 pt-3">
+        <div className="flex min-h-10 gap-2">
           {user && user.email !== item.sellerEmail && (
             <>
               {offerCategory && item.acceptOffers ? (
@@ -463,7 +463,7 @@ export default function MarketplaceListingCard({
             const avgRating = stats ? stats.avg : 0;
             const reviewCount = stats ? stats.count : 0;
             return (
-              <div className="group mt-2 rounded-lg border border-[rgba(255,248,231,0.1)] bg-zinc-800/20 p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(255,248,231,0.28)] hover:bg-zinc-800/30">
+              <div className="group rounded-lg border border-[rgba(255,248,231,0.1)] bg-zinc-800/20 p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(255,248,231,0.28)] hover:bg-zinc-800/30">
                 <div className="flex items-center gap-2">
                   <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[rgba(255,248,231,0.14)] text-[13px] font-bold text-[var(--cream)] ring-1 ring-[rgba(255,248,231,0.2)]">
                     {initial}
@@ -496,6 +496,7 @@ export default function MarketplaceListingCard({
             );
           })()}
         </Link>
+        </div>
       </div>
     </div>
     </div>

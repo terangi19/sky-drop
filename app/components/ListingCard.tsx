@@ -56,11 +56,11 @@ export default function ListingCard({
   const offerCategory = item.category === "Cars" || item.category === "Property";
 
   return (
-    <div className="group">
+    <div className="group h-full">
         <div
           role="button"
           tabIndex={0}
-          className="relative z-[1] cursor-pointer overflow-hidden rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.04] to-white/[0.01] backdrop-blur-sm transition-all duration-300 animate-fade-in-up hover:-translate-y-1.5 hover:border-sky-400/35 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(56,189,248,0.25),0_0_60px_rgba(14,165,233,0.15)] active:-translate-y-0.5 active:scale-[0.985] active:border-sky-300/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a0f]"
+          className="listing-card relative z-[1] flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.04] to-white/[0.01] backdrop-blur-sm transition-all duration-300 animate-fade-in-up hover:-translate-y-1.5 hover:border-sky-400/35 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(56,189,248,0.25),0_0_60px_rgba(14,165,233,0.15)] active:-translate-y-0.5 active:scale-[0.985] active:border-sky-300/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a0f]"
           style={{
             animationDelay: `${Math.min(cardIndex, 10) * 40}ms`,
           }}
@@ -74,7 +74,7 @@ export default function ListingCard({
         >
           {/* Image section */}
           {imageSrc ? (
-            <div className="relative overflow-hidden">
+            <div className="relative shrink-0 overflow-hidden">
               <img
                 src={cdnUrl(imageSrc)}
                 alt={item.title}
@@ -99,7 +99,7 @@ export default function ListingCard({
               {/* Badges */}
               <div className="absolute top-3 left-3 flex flex-col gap-1.5">
                 {isVisible && (item.views || 0) > 3 && (
-                  <span className="rounded-full bg-gradient-to-r from-orange-500/90 to-orange-600/90 px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg backdrop-blur-sm">
+                  <span className="rounded-full bg-gradient-to-r from-sky-500/90 to-sky-600/90 px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg backdrop-blur-sm">
                     🔥 Hot
                   </span>
                 )}
@@ -109,17 +109,17 @@ export default function ListingCard({
                   </span>
                 )}
                 {isVisible && item.createdAt?.seconds && Date.now() / 1000 - item.createdAt.seconds < 86400 && (
-                  <span className="rounded-full bg-gradient-to-r from-emerald-500/90 to-emerald-600/90 px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg backdrop-blur-sm">
+                  <span className="rounded-full bg-gradient-to-r from-sky-500/90 to-sky-600/90 px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg backdrop-blur-sm">
                     New
                   </span>
                 )}
                 {isVisible && String(item.saleType || "").includes("auction") && (
-                  <span className="rounded-full bg-gradient-to-r from-violet-500/90 to-violet-600/90 px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg backdrop-blur-sm">
+                  <span className="rounded-full bg-gradient-to-r from-sky-500/90 to-sky-600/90 px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg backdrop-blur-sm">
                     ⏰ Auction
                   </span>
                 )}
                 {item.type === "digital" && isVisible && (
-                  <span className="rounded-full bg-gradient-to-r from-cyan-500/90 to-cyan-600/90 px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg backdrop-blur-sm">
+                  <span className="rounded-full bg-gradient-to-r from-sky-500/90 to-sky-600/90 px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg backdrop-blur-sm">
                     📥 Digital
                   </span>
                 )}
@@ -145,7 +145,7 @@ export default function ListingCard({
               )}
             </div>
           ) : (
-            <div className="relative aspect-[4/3] flex items-center justify-center bg-gradient-to-br from-zinc-800/40 via-zinc-800/20 to-zinc-800/40">
+            <div className="relative aspect-[4/3] shrink-0 flex items-center justify-center bg-gradient-to-br from-zinc-800/40 via-zinc-800/20 to-zinc-800/40">
               <div className="text-center">
                 <div className="text-3xl font-black tracking-tighter text-white mb-1">SD</div>
                 <div className="text-[10px] uppercase tracking-widest text-white/50">Sky Drop</div>
@@ -161,11 +161,11 @@ export default function ListingCard({
           )}
 
           {/* Content */}
-          <div className="p-4 sm:p-5">
+          <div className="flex flex-1 flex-col p-4 sm:p-5">
             {/* Category chip + watchlist */}
-            <div className="flex items-start justify-between gap-2">
+            <div className="flex min-h-7 items-start justify-between gap-2">
               <div className="flex gap-1.5 flex-wrap">
-                <span className="inline-flex items-center rounded-md border border-white/[0.06] bg-white/[0.03] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white">
+                <span className="inline-flex items-center rounded-md border border-white/[0.06] bg-white/[0.03] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-always-white">
                   {categoryLabel}
                 </span>
                 {item.condition && (
@@ -197,12 +197,12 @@ export default function ListingCard({
             </div>
 
             {/* Title */}
-            <h2 className="mt-2.5 line-clamp-1 text-base font-bold tracking-tight text-white transition-colors duration-150 group-hover:text-sky-300">
+            <h2 className="mt-2.5 line-clamp-1 text-base font-bold tracking-tight text-always-white">
               {item.title}
             </h2>
 
             {/* Description / meta */}
-            <p className="mt-1.5 line-clamp-2 text-[12px] leading-relaxed text-white/70">
+            <p className="mt-1.5 line-clamp-2 text-[12px] leading-relaxed text-always-white">
               {item.description ||
                 [
                   item.vehicleMake && item.vehicleModel
@@ -237,14 +237,14 @@ export default function ListingCard({
               </p>
               )}
               {(item.saleType === "auction" || item.saleType === "auction_buy_now") && (
-                <span className="text-sm font-semibold text-amber-400">
+                <span className="text-sm font-semibold text-sky-400">
                   Bid: ${item.currentBid || item.startingBid || 0}
                 </span>
               )}
             </div>
 
             {/* Meta row */}
-            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/70">
+            <div className="mt-3 flex min-h-5 flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/70">
               {item.location && (
                 <span className="inline-flex items-center gap-1">📍 {item.location}</span>
               )}
@@ -258,8 +258,9 @@ export default function ListingCard({
               </span>
             </div>
 
+            <div className="mt-auto space-y-4 pt-4">
             {/* Actions */}
-            <div className="mt-4 flex gap-2">
+            <div className="flex min-h-10 gap-2">
               {user && !isOwner && (
                 <>
                   {offerCategory && item.acceptOffers ? (
@@ -386,7 +387,7 @@ export default function ListingCard({
                 <Link
                   href={isOwner ? "#" : `/seller/${encodeURIComponent(sellerLink)}`}
                   onClick={(e) => e.stopPropagation()}
-                  className="block mt-4"
+                  className="block"
                 >
                   <div className="flex items-center gap-3 rounded-xl border border-white/[0.04] bg-white/[0.02] p-3 transition-all duration-200 hover:bg-white/[0.04]">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-500/20 to-sky-600/10 text-sm font-bold text-sky-400 ring-1 ring-white/[0.06]">
@@ -398,12 +399,12 @@ export default function ListingCard({
                           {displayName}
                         </span>
                         {sellerBadges[email || ""] === "legendary" && (
-                          <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[8px] font-bold text-amber-400 animate-pulse">
+                          <span className="rounded border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[8px] font-bold text-sky-400 animate-pulse">
                             👑 The Five
                           </span>
                         )}
                         {sellerBadges[email || ""] === "epic" && (
-                          <span className="rounded border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[8px] font-bold text-violet-400">
+                          <span className="rounded border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[8px] font-bold text-sky-400">
                             💎 Epic
                           </span>
                         )}
@@ -428,6 +429,7 @@ export default function ListingCard({
                 </Link>
               );
             })()}
+            </div>
           </div>
         </div>
       </div>

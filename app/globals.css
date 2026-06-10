@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+@theme {
+  --breakpoint-3xl: 120rem;
+  --breakpoint-4xl: 160rem;
+  --breakpoint-5xl: 240rem;
+}
+
 :root {
   --cream: #ffffff;
   --review-star: #fbbf24;
@@ -48,6 +54,19 @@
 
 html {
   scroll-behavior: smooth;
+  font-size: 100%;
+}
+
+@media (min-width: 2560px) {
+  html {
+    font-size: 106.25%;
+  }
+}
+
+@media (min-width: 3840px) {
+  html {
+    font-size: 112.5%;
+  }
 }
 
 body {
@@ -93,6 +112,32 @@ body {
 :root.light .border-white\/\[0\.06\] { border-color: rgba(0, 0, 0, 0.07) !important; }
 :root.light .text-white { color: #111118 !important; }
 :root.light header .text-white { color: #ffffff !important; }
+/* Listing / trending cards — white copy on dark card surfaces (light mode too) */
+.text-always-white { color: #ffffff !important; }
+:root.light .text-always-white { color: #ffffff !important; }
+:root.light .listing-card .text-always-white,
+:root.light .hot-week-card .text-always-white { color: #ffffff !important; }
+:root.light .listing-card .hover\:text-always-white:hover,
+:root.light .listing-card .group-hover\:text-always-white { color: #ffffff !important; }
+.text-always-white\/90 { color: rgba(255, 255, 255, 0.9) !important; }
+.text-always-white\/80 { color: rgba(255, 255, 255, 0.8) !important; }
+:root.light .text-always-white\/90 { color: rgba(255, 255, 255, 0.9) !important; }
+:root.light .text-always-white\/80 { color: rgba(255, 255, 255, 0.8) !important; }
+/* Āwhina assistant panel — dark surface + white copy in all themes */
+:root.light .awhina-panel {
+  background-color: rgba(9, 9, 11, 0.92) !important;
+  border-color: rgba(56, 189, 248, 0.25) !important;
+}
+:root.light .awhina-panel .awhina-panel-bubble {
+  background-color: rgba(0, 0, 0, 0.3) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+:root.light .awhina-panel .text-always-white,
+:root.light .awhina-panel .text-always-white\/90,
+:root.light .awhina-panel .text-always-white\/80,
+:root.light .awhina-panel .text-white {
+  color: #ffffff !important;
+}
 :root.light .text-white\/95 { color: #111118 !important; }
 :root.light header .text-white\/95 { color: #ffffff !important; }
 :root.light .text-white\/90 { color: #111118 !important; }
@@ -659,3 +704,31 @@ body {
 .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.15); }
 .scrollbar-none::-webkit-scrollbar { display: none; }
 .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ── 4K / ULTRAWIDE CONTAINER SCALING ── */
+@media (min-width: 1920px) {
+  .max-w-\[1800px\] { max-width: min(100rem, 94vw); }
+  .max-w-6xl { max-width: min(80rem, 94vw); }
+  .max-w-7xl { max-width: min(90rem, 94vw); }
+  .max-w-3xl { max-width: min(56rem, 94vw); }
+  .max-w-\[90rem\] { max-width: min(100rem, 94vw); }
+  .max-w-\[120rem\] { max-width: min(120rem, 96vw); }
+}
+
+@media (min-width: 2560px) {
+  .max-w-\[1800px\] { max-width: min(140rem, 96vw); }
+  .max-w-6xl { max-width: min(96rem, 96vw); }
+  .max-w-7xl { max-width: min(112rem, 96vw); }
+  .max-w-3xl { max-width: min(64rem, 96vw); }
+  .max-w-\[90rem\] { max-width: min(128rem, 96vw); }
+  .max-w-\[120rem\] { max-width: min(140rem, 96vw); }
+}
+
+@media (min-width: 3840px) {
+  .max-w-\[1800px\] { max-width: min(200rem, 96vw); }
+  .max-w-6xl { max-width: min(112rem, 96vw); }
+  .max-w-7xl { max-width: min(128rem, 96vw); }
+  .max-w-3xl { max-width: min(72rem, 96vw); }
+  .max-w-\[90rem\] { max-width: min(160rem, 96vw); }
+  .max-w-\[120rem\] { max-width: min(180rem, 96vw); }
+}
