@@ -31,25 +31,25 @@
 }
 
 :root.light {
-  --background: #f7f8fc;
-  --foreground: #111118;
-  --cream: #111118;
+  --background: #f0f1f5;
+  --foreground: #1a1a24;
+  --cream: #1a1a24;
   --card: #ffffff;
   --card-border: rgba(0, 0, 0, 0.06);
-  --muted: #6b7280;
-  --soft-card: #eef0f5;
-  --soft-card-border: rgba(0, 0, 0, 0.04);
-  --nav-bg: rgba(17, 17, 24, 0.95);
+  --muted: #5a5d6b;
+  --soft-card: #e8eaef;
+  --soft-card-border: rgba(0, 0, 0, 0.05);
+  --nav-bg: rgba(26, 26, 36, 0.95);
   --nav-ice: #ffffff;
-  --nav-ice-muted: rgba(255, 255, 255, 0.72);
-  --nav-ice-faint: rgba(255, 255, 255, 0.45);
+  --nav-ice-muted: rgba(255, 255, 255, 0.75);
+  --nav-ice-faint: rgba(255, 255, 255, 0.5);
   --input-bg: #ffffff;
-  --input-border: rgba(0, 0, 0, 0.08);
-  --pill-bg: #e8eaee;
-  --pill-text: #4b5563;
-  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.03);
-  --glow-blue: rgba(14, 165, 233, 0.06);
-  --text-secondary: #6b7280;
+  --input-border: rgba(0, 0, 0, 0.1);
+  --pill-bg: #e2e4ea;
+  --pill-text: #4a4d5a;
+  --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04);
+  --glow-blue: rgba(14, 165, 233, 0.12);
+  --text-secondary: #5a5d6b;
 }
 
 html {
@@ -77,21 +77,21 @@ body {
 }
 
 /* ── LIGHT MODE GLOBAL OVERRIDES ── */
-:root.light .bg-zinc-950 { background-color: #ffffff !important; }
-:root.light .bg-zinc-900 { background-color: #f0f2f6 !important; }
-:root.light .bg-zinc-900\/80 { background-color: rgba(240, 242, 246, 0.85) !important; }
-:root.light .bg-zinc-900\/60 { background-color: rgba(240, 242, 246, 0.7) !important; }
-:root.light .bg-zinc-900\/50 { background-color: rgba(240, 242, 246, 0.6) !important; }
-:root.light .bg-zinc-900\/40 { background-color: rgba(240, 242, 246, 0.5) !important; }
-:root.light .bg-zinc-800 { background-color: #e4e6ec !important; }
-:root.light .bg-zinc-800\/80 { background-color: rgba(228, 230, 236, 0.85) !important; }
-:root.light .bg-zinc-800\/60 { background-color: rgba(228, 230, 236, 0.7) !important; }
-:root.light .bg-zinc-800\/50 { background-color: rgba(228, 230, 236, 0.6) !important; }
-:root.light .bg-zinc-800\/40 { background-color: rgba(228, 230, 236, 0.5) !important; }
-:root.light .bg-zinc-700 { background-color: #d1d4dc !important; }
-:root.light .bg-zinc-700\/50 { background-color: rgba(209, 212, 220, 0.6) !important; }
-:root.light .bg-black\/40 { background-color: rgba(255, 255, 255, 0.7) !important; }
-:root.light .bg-black\/60 { background-color: #eef0f5 !important; }
+:root.light .bg-zinc-950 { background-color: #f0f1f5 !important; }
+:root.light .bg-zinc-900 { background-color: #e8eaef !important; }
+:root.light .bg-zinc-900\/80 { background-color: rgba(232, 234, 239, 0.9) !important; }
+:root.light .bg-zinc-900\/60 { background-color: rgba(232, 234, 239, 0.75) !important; }
+:root.light .bg-zinc-900\/50 { background-color: rgba(232, 234, 239, 0.65) !important; }
+:root.light .bg-zinc-900\/40 { background-color: rgba(232, 234, 239, 0.55) !important; }
+:root.light .bg-zinc-800 { background-color: #dde0e8 !important; }
+:root.light .bg-zinc-800\/80 { background-color: rgba(221, 224, 232, 0.9) !important; }
+:root.light .bg-zinc-800\/60 { background-color: rgba(221, 224, 232, 0.75) !important; }
+:root.light .bg-zinc-800\/50 { background-color: rgba(221, 224, 232, 0.65) !important; }
+:root.light .bg-zinc-800\/40 { background-color: rgba(221, 224, 232, 0.55) !important; }
+:root.light .bg-zinc-700 { background-color: #d1d5e0 !important; }
+:root.light .bg-zinc-700\/50 { background-color: rgba(209, 213, 224, 0.65) !important; }
+:root.light .bg-black\/40 { background-color: rgba(255, 255, 255, 0.85) !important; }
+:root.light .bg-black\/60 { background-color: #e8eaef !important; }
 :root.light .bg-white\/\[0\.02\] { background-color: #ffffff !important; }
 :root.light .bg-white\/\[0\.03\] { background-color: #ffffff !important; }
 :root.light .bg-white\/\[0\.04\] { background-color: #f7f8fc !important; }
@@ -110,7 +110,7 @@ body {
 :root.light .border-white\/10 { border-color: rgba(0, 0, 0, 0.06) !important; }
 :root.light .border-white\/\[0\.04\] { border-color: rgba(0, 0, 0, 0.05) !important; }
 :root.light .border-white\/\[0\.06\] { border-color: rgba(0, 0, 0, 0.07) !important; }
-:root.light .text-white { color: #111118 !important; }
+:root.light .text-white { color: #1a1a24 !important; }
 :root.light header .text-white { color: #ffffff !important; }
 /* Listing / trending cards — white copy on dark card surfaces (light mode too) */
 .text-always-white { color: #ffffff !important; }
@@ -138,38 +138,38 @@ body {
 :root.light .awhina-panel .text-white {
   color: #ffffff !important;
 }
-:root.light .text-white\/95 { color: #111118 !important; }
+:root.light .text-white\/95 { color: #1a1a24 !important; }
 :root.light header .text-white\/95 { color: #ffffff !important; }
-:root.light .text-white\/90 { color: #111118 !important; }
+:root.light .text-white\/90 { color: #1a1a24 !important; }
 :root.light header .text-white\/90 { color: #ffffff !important; }
-:root.light .text-white\/80 { color: #111118 !important; }
+:root.light .text-white\/80 { color: #1a1a24 !important; }
 :root.light header .text-white\/80 { color: #ffffff !important; }
-:root.light .text-white\/70 { color: #111118 !important; }
+:root.light .text-white\/70 { color: #3a3d4a !important; }
 :root.light header .text-white\/70 { color: #ffffff !important; }
-:root.light .text-white\/60 { color: #111118 !important; }
+:root.light .text-white\/60 { color: #4a4d5a !important; }
 :root.light header .text-white\/60 { color: #ffffff !important; }
-:root.light .text-white\/50 { color: #111118 !important; }
+:root.light .text-white\/50 { color: #5a5d6b !important; }
 :root.light header .text-white\/50 { color: #ffffff !important; }
-:root.light .text-white\/40 { color: #111118 !important; }
+:root.light .text-white\/40 { color: #6a6d7a !important; }
 :root.light header .text-white\/40 { color: #ffffff !important; }
-:root.light .text-white\/30 { color: #111118 !important; }
+:root.light .text-white\/30 { color: #7a7d8a !important; }
 :root.light header .text-white\/30 { color: #ffffff !important; }
-:root.light .text-white\/20 { color: #6b7280 !important; }
-:root.light .text-white\/10 { color: #6b7280 !important; }
-:root.light .text-zinc-200 { color: #111118 !important; }
-:root.light .text-zinc-300 { color: #111118 !important; }
-:root.light .text-zinc-400 { color: #111118 !important; }
-:root.light .text-zinc-500 { color: #111118 !important; }
-:root.light .text-zinc-600 { color: #111118 !important; }
-:root.light .text-zinc-700 { color: #111118 !important; }
-:root.light .text-zinc-800 { color: #111118 !important; }
-:root.light .text-zinc-900 { color: #111118 !important; }
-:root.light .text-zinc-950 { color: #111118 !important; }
-:root.light .text-neutral-400 { color: #111118 !important; }
-:root.light .text-neutral-500 { color: #111118 !important; }
-:root.light .text-gray-400 { color: #111118 !important; }
-:root.light .text-gray-500 { color: #111118 !important; }
-:root.light .text-black { color: #111118 !important; }
+:root.light .text-white\/20 { color: #8a8d9a !important; }
+:root.light .text-white\/10 { color: #9a9daa !important; }
+:root.light .text-zinc-200 { color: #1a1a24 !important; }
+:root.light .text-zinc-300 { color: #1a1a24 !important; }
+:root.light .text-zinc-400 { color: #3a3d4a !important; }
+:root.light .text-zinc-500 { color: #4a4d5a !important; }
+:root.light .text-zinc-600 { color: #5a5d6b !important; }
+:root.light .text-zinc-700 { color: #6a6d7a !important; }
+:root.light .text-zinc-800 { color: #1a1a24 !important; }
+:root.light .text-zinc-900 { color: #1a1a24 !important; }
+:root.light .text-zinc-950 { color: #1a1a24 !important; }
+:root.light .text-neutral-400 { color: #3a3d4a !important; }
+:root.light .text-neutral-500 { color: #4a4d5a !important; }
+:root.light .text-gray-400 { color: #3a3d4a !important; }
+:root.light .text-gray-500 { color: #4a4d5a !important; }
+:root.light .text-black { color: #1a1a24 !important; }
 :root.light header {
   border-bottom-color: rgba(255, 255, 255, 0.06) !important;
   background: rgba(17, 17, 24, 0.95) !important;
@@ -185,16 +185,28 @@ body {
 :root.light textarea,
 :root.light select {
   background-color: #ffffff !important;
-  border-color: rgba(0, 0, 0, 0.1) !important;
-  color: #1a1a2e !important;
+  border-color: rgba(0, 0, 0, 0.12) !important;
+  color: #1a1a24 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02) !important;
+}
+:root.light input:hover,
+:root.light textarea:hover,
+:root.light select:hover {
+  border-color: rgba(0, 0, 0, 0.18) !important;
+}
+:root.light input:focus,
+:root.light textarea:focus,
+:root.light select:focus {
+  border-color: #0ea5e9 !important;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1) !important;
 }
 :root.light input::placeholder,
 :root.light textarea::placeholder {
-  color: #9ca3af !important;
+  color: #8a8d9a !important;
 }
 :root.light section select option {
   background-color: #ffffff !important;
-  color: #1a1a2e !important;
+  color: #1a1a24 !important;
 }
 
 /* ── PREMIUM HOMEPAGE LIGHT MODE ── */
@@ -219,19 +231,38 @@ body {
 /* ── PILLS / CHIPS ── */
 :root.light .rounded-full.bg-zinc-800,
 :root.light span.rounded-full.bg-zinc-800 {
-  background-color: #e8eaee !important;
-  color: #4b5563 !important;
+  background-color: #e2e4ea !important;
+  color: #4a4d5a !important;
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
 }
 
 :root.light .bg-zinc-800\/60.rounded-full,
 :root.light [class*="rounded-full"].bg-zinc-800 {
-  background-color: #e8eaee !important;
-  color: #4b5563 !important;
+  background-color: #e2e4ea !important;
+  color: #4a4d5a !important;
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+
+/* ── PREMIUM BUTTON STYLING ── */
+:root.light button[type="button"],
+:root.light button[type="submit"] {
+  transition: all 0.2s ease !important;
+}
+
+:root.light button[type="button"]:hover,
+:root.light button[type="submit"]:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+}
+
+:root.light button[type="button"]:active,
+:root.light button[type="submit"]:active {
+  transform: translateY(0) !important;
 }
 
 /* ── SPECIFIC CONTEXT OVERRIDES ── */
 :root.light .bg-\[var\(--soft-card\)\] {
-  background-color: #f0f2f5 !important;
+  background-color: #e8eaef !important;
 }
 
 :root.light .bg-\[var\(--card\)\] {
@@ -242,11 +273,25 @@ body {
 :root.light section > .rounded-3xl.border {
   background: #ffffff !important;
   border-color: rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06) !important;
+}
+
+/* ── PREMIUM CARD STYLING FOR LIGHT MODE ── */
+:root.light .listing-card,
+:root.light .hot-week-card {
+  background: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05), 0 4px 16px rgba(0, 0, 0, 0.03) !important;
+}
+
+:root.light .listing-card:hover,
+:root.light .hot-week-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 8px 32px rgba(14, 165, 233, 0.12) !important;
 }
 
 /* ── SELLER TRUST CARDS ── */
 :root.light .bg-zinc-800\/20 {
-  background-color: rgba(232, 234, 238, 0.3) !important;
+  background-color: rgba(221, 224, 232, 0.5) !important;
 }
 
 /* ── OFFER CARDS ── */
@@ -263,13 +308,37 @@ body {
 
 /* ── TOGGLE BUTTON ── */
 :root.light .bg-black\/60 {
-  background-color: #f0f2f5 !important;
+  background-color: #e8eaef !important;
   border-color: rgba(0, 0, 0, 0.1) !important;
 }
 
 /* ── FOOTER / BOTTOM BARS ── */
 :root.light .border-t.border-zinc-800 {
-  border-top-color: rgba(0, 0, 0, 0.08) !important;
+  border-top-color: rgba(0, 0, 0, 0.06) !important;
+}
+
+:root.light footer {
+  background-color: #e8eaef !important;
+  border-top: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+
+/* ── PREMIUM SCROLLBAR ── */
+:root.light ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+:root.light ::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+:root.light ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+}
+
+:root.light ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
 }
 
 /* ── SCROLLBAR LIGHT MODE ── */
