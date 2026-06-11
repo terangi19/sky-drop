@@ -23,11 +23,69 @@ export function profileHasVerifiedPhone(
   return profilePhoneMarkedVerified(profile);
 }
 
+export function isKycApprovedProfile(profile: Record<string, unknown> | null | undefined): boolean {
+  return profile?.kycStatus === "approved";
+}
+
+/** Parse memberSince / createdAt from a Firestore profile document. */
+export function memberSinceFromProfile(profile: Record<string, unknown> | null | undefined): Date | null {
+  if (!profile) return null;
+  const raw = profile.memberSince ?? profile.createdAt;
+  if (!raw) return null;
+  if (raw instanceof Date) return raw;
+  const value = raw as { toDate?: () => Date; toMillis?: () => number; seconds?: number };
+  if (typeof value.toDate === "function") return value.toDate();
+  if (typeof value.toMillis === "function") return new Date(value.toMillis());
+  if (typeof value.seconds === "number") return new Date(value.seconds * 1000);
+  return null;
+}
+
+export const SELL_WAIT_DAYS = 30;
+
 /** Check if a non-KYC seller has waited 30 days since joining. */
 export function hasWaited30Days(memberSince: Date | null | undefined): boolean {
   if (!memberSince) return false;
   const daysSince = (Date.now() - memberSince.getTime()) / 86400000;
-  return daysSince >= 30;
+  return daysSince >= SELL_WAIT_DAYS;
+}
+
+export function sellUnlockDate(memberSince: Date | null | undefined): Date | null {
+  if (!memberSince) return null;
+  return new Date(memberSince.getTime() + SELL_WAIT_DAYS * 86400000);
+}
+
+export function sellWaitDaysElapsed(memberSince: Date | null | undefined): number {
+  if (!memberSince) return 0;
+  return Math.min(SELL_WAIT_DAYS, Math.floor((Date.now() - memberSince.getTime()) / 86400000));
+}
+
+export function sellWaitProgressPercent(memberSince: Date | null | undefined): number {
+  if (!memberSince) return 0;
+  return Math.min(100, Math.round((sellWaitDaysElapsed(memberSince) / SELL_WAIT_DAYS) * 100));
+}
+
+export function sellUnlockDaysLeft(memberSince: Date | null | undefined): number {
+  if (!memberSince) return SELL_WAIT_DAYS;
+  const left = Math.ceil(SELL_WAIT_DAYS - (Date.now() - memberSince.getTime()) / 86400000);
+  if (left <= 0) return 0;
+  return left;
+}
+
+export function sellUnlockBlockMessage(memberSince: Date | null | undefined): string {
+  const daysLeft = sellUnlockDaysLeft(memberSince);
+  return `You can browse and buy now. To start selling, complete identity verification. Otherwise, selling unlocks in ${daysLeft} day${daysLeft === 1 ? "" : "s"}.`;
+}
+
+export type SellerAccessState = "kyc_unlocked" | "wait_complete" | "waiting" | "no_join_date";
+
+export function getSellerAccessState(
+  kycApproved: boolean,
+  memberSince: Date | null | undefined
+): SellerAccessState {
+  if (kycApproved) return "kyc_unlocked";
+  if (!memberSince) return "no_join_date";
+  if (hasWaited30Days(memberSince)) return "wait_complete";
+  return "waiting";
 }
 
 /** Why a user cannot create a listing (null = OK). */
@@ -51,22 +109,18 @@ export function getListingBlockReason(opts: {
     return "Verify your email — check your inbox (and spam), then use \"Refresh status\" on Profile.";
   }
 
-  const authPhone = String(opts.authPhoneNumber || "").trim();
-  if (authPhone) return null;
+  const profileForPhone =
+    opts.phone !== undefined || opts.phoneVerified !== undefined
+      ? { phone: opts.phone, phoneVerified: opts.phoneVerified, verified: opts.phoneVerified }
+      : null;
 
-  const phone = String(opts.phone || "").trim();
-  const markedVerified = opts.phoneVerified === true;
-  if (!phone || !markedVerified) {
+  if (!profileHasVerifiedPhone(profileForPhone, opts.authPhoneNumber)) {
     return "Add and verify your phone number in Identity verification on Profile.";
   }
 
-  // KYC or 30-day wait
   if (!opts.kycApproved) {
     if (!opts.memberSince || !hasWaited30Days(opts.memberSince)) {
-      const daysLeft = opts.memberSince
-        ? Math.ceil(30 - (Date.now() - opts.memberSince.getTime()) / 86400000)
-        : 30;
-      return `You can browse and buy now. To start selling, complete identity verification. Otherwise, selling unlocks in ${daysLeft} day${daysLeft === 1 ? "" : "s"}.`;
+      return sellUnlockBlockMessage(opts.memberSince);
     }
   }
 

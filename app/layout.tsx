@@ -17,6 +17,8 @@ const Spotlight = dynamic(() => import("./components/Spotlight"));
 const LegendaryClaimNotification = dynamic(() => import("./components/LegendaryClaimNotification"));
 const SkyAiChat = dynamic(() => import("./components/SkyAiChat"));
 const AwhinaPageGuideLayer = dynamic(() => import("./components/AwhinaPageGuideLayer"));
+const WantedLiveFeed = dynamic(() => import("./components/WantedLiveFeed"));
+const PlatformAnnouncement = dynamic(() => import("./components/PlatformAnnouncement"));
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -100,7 +102,7 @@ export default function RootLayout({
             })();
           `,
         }} />
-        <AuthProvider><ProfileProvider><AwhinaPageInsightProvider><VerificationBanner /><RouteGuard><PageEnter>{children}</PageEnter><AwhinaPageGuideLayer /><Footer /><Spotlight /><ScrollToTop /><SkyAiChat /></RouteGuard><ToastContainer /><LegendaryClaimNotification /><PWAProvider /></AwhinaPageInsightProvider></ProfileProvider></AuthProvider>
+        <AuthProvider><ProfileProvider><AwhinaPageInsightProvider><VerificationBanner /><RouteGuard><PageEnter>{children}</PageEnter><AwhinaPageGuideLayer /><Footer /><Spotlight /><ScrollToTop /><SkyAiChat /></RouteGuard><ToastContainer /><LegendaryClaimNotification /><WantedLiveFeed /><PlatformAnnouncement /><PWAProvider /></AwhinaPageInsightProvider></ProfileProvider></AuthProvider>
       </body>
     </html>
   );

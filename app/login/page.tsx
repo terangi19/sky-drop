@@ -66,9 +66,9 @@ export default function AuthPage() {
 
   useEffect(() => {
     if (!user) return;
-    const timer = setTimeout(() => router.push("/"), 1500);
+    const timer = setTimeout(() => router.push(redirectTo || "/"), 1500);
     return () => clearTimeout(timer);
-  }, [user, router]);
+  }, [user, redirectTo, router]);
 
   async function handleAuth(e: React.FormEvent) {
     e.preventDefault();
