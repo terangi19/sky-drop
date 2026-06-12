@@ -286,7 +286,8 @@ export async function POST(req: NextRequest) {
       // Odometer / km reading
       /\b\d{2,3}[\s,]?\d{3}\s*km\b/i.test(message)
     );
-    const shortcut = !hasListingIntent ? tryNavigationShortcut(message, pathname) : null;
+    const isAdviceQuestion = /\b(should i|which (sale type|one|option)|what.s (best|better|faster|quickest)|how much (should|is)|is it (safe|worth)|recommend|suggestion)\b/i.test(message);
+    const shortcut = !isAdviceQuestion && !hasListingIntent ? tryNavigationShortcut(message, pathname) : null;
     if (shortcut) {
       const reply = stripBold(shortcut.reply);
       if (uid && conversationId) {
