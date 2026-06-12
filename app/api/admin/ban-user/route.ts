@@ -117,14 +117,19 @@ export async function POST(req: NextRequest) {
     });
 
     // 10. Delete KYC images from Storage
-    const kycIdUrl = String(profile.kycIdUrl || "");
-    const kycSelfieUrl = String(profile.kycSelfieUrl || "");
-    for (const url of [kycIdUrl, kycSelfieUrl]) {
-      if (url && url.includes("/o/")) {
-        try {
-          const decodedPath = decodeURIComponent(url.split("/o/")[1].split("?")[0]);
-          await fetch(url, { method: "DELETE" }).catch(() => {});
-        } catch {}
+    const kycSubmissionSnap = await db.collection("kycSubmissions").doc(uid).get();
+    if (kycSubmissionSnap.exists) {
+      const kycData = kycSubmissionSnap.data()!;
+      const kycImageUrls: string[] = [];
+      if (kycData.idImageUrl) kycImageUrls.push(kycData.idImageUrl);
+      if (kycData.selfieImageUrl) kycImageUrls.push(kycData.selfieImageUrl);
+      for (const url of kycImageUrls) {
+        if (url && url.includes("/o/")) {
+          try {
+            const decodedPath = decodeURIComponent(url.split("/o/")[1].split("?")[0]);
+            await fetch(url, { method: "DELETE" }).catch(() => {});
+          } catch {}
+        }
       }
     }
 

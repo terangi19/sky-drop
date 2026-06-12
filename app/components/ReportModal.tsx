@@ -1,18 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { addDoc, collection, getDocs, query, where, orderBy, limit, serverTimestamp } from "firebase/firestore";
-import { db } from "../lib/firebase";
+import { REPORT_REASONS } from "../lib/report-constants";
+import { submitReportRequest } from "../lib/submit-report.client";
 import { showToast } from "./Toast";
-
-const REPORT_REASONS = [
-  "Scam/fraud",
-  "Fake item",
-  "Suspicious price",
-  "Stolen images",
-  "Harassment/abuse",
-  "Other",
-];
 
 interface ReportModalProps {
   isOpen: boolean;
@@ -32,8 +23,6 @@ export default function ReportModal({
   targetId,
   targetUserId,
   targetUserEmail,
-  reporterUserId,
-  reporterUserEmail,
 }: ReportModalProps) {
   const [reason, setReason] = useState("");
   const [message, setMessage] = useState("");
@@ -45,58 +34,40 @@ export default function ReportModal({
   async function handleSubmit() {
     if (!reason) return;
 
-    // Rate limiting: check 24h cooldown
     const cooldownKey = `report_cooldown_${type}_${targetId || targetUserEmail}`;
-    let lastReport = null;
-    try { lastReport = localStorage.getItem(cooldownKey); } catch (e) { console.error("Failed to read report cooldown:", e); }
-    if (lastReport) {
-      const elapsed = Date.now() - Number(lastReport);
-      const hoursLeft = Math.ceil((24 * 60 * 60 * 1000 - elapsed) / (1000 * 60 * 60));
-      if (elapsed < 24 * 60 * 60 * 1000) {
-        showToast(`You already reported this ${type}. Please wait ${hoursLeft}h before reporting again.`, "info");
-        return;
+    try {
+      const lastReport = localStorage.getItem(cooldownKey);
+      if (lastReport) {
+        const elapsed = Date.now() - Number(lastReport);
+        if (elapsed < 10 * 60 * 1000) {
+          showToast("Please wait a few minutes before reporting again.", "info");
+          return;
+        }
       }
+    } catch (e) {
+      console.error("Failed to read report cooldown:", e);
     }
 
     setSending(true);
     try {
-      // Server-side cooldown: check for recent report from this user for this target
-      const cooldownQuery = query(
-        collection(db, "reports"),
-        where("reporterUserId", "==", reporterUserId),
-        where("type", "==", type),
-        where(type === "listing" ? "listingId" : "reportedUserEmail", "==", type === "listing" ? targetId : targetUserEmail),
-        orderBy("createdAt", "desc"),
-        limit(1)
-      );
-      const recentSnap = await getDocs(cooldownQuery);
-      if (!recentSnap.empty) {
-        const lastReport = recentSnap.docs[0].data();
-        const lastTime = lastReport.createdAt?.toMillis?.();
-        if (lastTime && Date.now() - lastTime < 10 * 60 * 1000) {
-          showToast("Please wait before reporting again.", "info");
-          setSending(false);
-          return;
-        }
-      }
-
-      await addDoc(collection(db, "reports"), {
+      await submitReportRequest({
         type,
-        listingId: type === "listing" ? targetId : null,
+        listingId: type === "listing" ? targetId : undefined,
         reportedUserId: targetUserId,
         reportedUserEmail: targetUserEmail,
-        reporterUserId,
-        reporterUserEmail,
         reason,
         details: message,
-        status: "pending",
-        createdAt: serverTimestamp(),
       });
-      try { localStorage.setItem(cooldownKey, String(Date.now())); } catch (e) { console.error("Failed to save report cooldown:", e); }
+
+      try {
+        localStorage.setItem(cooldownKey, String(Date.now()));
+      } catch (e) {
+        console.error("Failed to save report cooldown:", e);
+      }
       setSent(true);
     } catch (e) {
       console.error(e);
-      showToast("Failed to submit report.", "error");
+      showToast(e instanceof Error ? e.message : "Failed to submit report.", "error");
     }
     setSending(false);
   }

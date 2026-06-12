@@ -18,7 +18,7 @@ test.describe("PLAY", () => {
     await go("/");
     console.log("H1: " + (await page.locator("h1").first().textContent().catch(() => "(none)")));
 
-    const search = page.getByPlaceholder("Search listings...");
+    const search = page.getByPlaceholder("Search");
     if (await search.isVisible().catch(() => false)) {
       await search.fill("car");
       await page.waitForTimeout(200);
@@ -60,7 +60,7 @@ test.describe("PLAY", () => {
       console.log("Form filled");
     }
 
-    const toggle = page.getByRole("button", { name: /Create one/ });
+    const toggle = page.getByRole("button", { name: /Sign up/i });
     if (await toggle.isVisible().catch(() => false)) {
       await toggle.click();
       await page.waitForTimeout(500);

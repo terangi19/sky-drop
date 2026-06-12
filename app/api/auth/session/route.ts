@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken, getServerDb, isAdminInitialized } from "../../../lib/firebase-admin";
-import { isAdminEmail } from "../../../lib/admin-check";
+import { verifyIdToken } from "../../../lib/firebase-admin";
+import { isAdminUser } from "../../../lib/admin-check.server";
 
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 10;
@@ -41,15 +41,7 @@ export async function POST(req: NextRequest) {
     const email = decodedToken.email || "";
     const uid = decodedToken.uid;
 
-    // Check membership in the admin-users Firestore collection
-    let dbAdmin = false;
-    try {
-      const db2 = getServerDb(idToken);
-      const adminDoc = await db2.collection("admin-users").doc(uid).get();
-      dbAdmin = adminDoc.exists && adminDoc.data()?.role === "admin";
-    } catch {}
-
-    if (!isAdminEmail(email) && !dbAdmin) {
+    if (!(await isAdminUser(email, uid))) {
       return NextResponse.json({ error: "Not authorized" }, { status: 403 });
     }
 

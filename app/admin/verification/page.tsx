@@ -428,18 +428,27 @@ export default function AdminVerificationPage() {
                           <span>Username: {profile.username || "—"}</span>
                           <span>Phone: {profile.phone || "—"}</span>
                           {profile.referredBy && <span>Referred by: <span className="font-bold text-sky-400">{profile.referredBy}</span></span>}
+                          {profile.submittedAt?.toDate ? <span>Submitted: {profile.submittedAt.toDate().toLocaleDateString()}</span> : null}
                           {profile.proofOfAddress?.submittedAt?.toDate && <span>Submitted: {profile.proofOfAddress.submittedAt.toDate().toLocaleDateString()}</span>}
                         </div>
                       </div>
                     </div>
 
-                    {/* Document preview */}
-                    {profile.proofOfAddress?.documentURL && (
-                      <div className="mt-4">
-                        <a href={profile.proofOfAddress.documentURL} target="_blank" rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 rounded-xl bg-zinc-800/50 px-4 py-2 text-xs font-bold text-sky-400 hover:bg-zinc-700/50 transition">
-                          📄 View Document →
-                        </a>
+                    {/* Document preview — supports both legacy proofOfAddress and new kycSubmissions */}
+                    {(profile.proofOfAddress?.documentURL || profile.idImageUrl) && (
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {profile.idImageUrl && (
+                          <a href={profile.idImageUrl} target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 rounded-xl bg-zinc-800/50 px-4 py-2 text-xs font-bold text-sky-400 hover:bg-zinc-700/50 transition">
+                            📷 View ID Image →
+                          </a>
+                        )}
+                        {profile.proofOfAddress?.documentURL && (
+                          <a href={profile.proofOfAddress.documentURL} target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 rounded-xl bg-zinc-800/50 px-4 py-2 text-xs font-bold text-sky-400 hover:bg-zinc-700/50 transition">
+                            📄 View Document →
+                          </a>
+                        )}
                       </div>
                     )}
 

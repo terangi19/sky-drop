@@ -52,7 +52,7 @@ const sections = [
     id: "contact",
     title: "Contact",
     content:
-      "If you have questions about this policy, KYC verification, or your privacy, reach out to us at support@skydrop.nz. We're based in New Zealand and all data is stored and processed in accordance with New Zealand privacy law.",
+      "If you have questions about this policy, KYC verification, or your privacy, reach out to us at support@skydrop.co.nz. We're based in New Zealand and all data is stored and processed in accordance with New Zealand privacy law.",
   },
 ];
 

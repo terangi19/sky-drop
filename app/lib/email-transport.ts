@@ -9,16 +9,21 @@ interface SendEmailInput {
 
 export async function sendEmail({ to, subject, html }: SendEmailInput): Promise<void> {
   if (process.env.RESEND_API_KEY) {
-    const { Resend } = await import("resend");
-    const resend = new Resend(process.env.RESEND_API_KEY);
-    const { error } = await resend.emails.send({
-      from: `${FROM_NAME} <${FROM_EMAIL}>`,
-      to,
-      subject,
-      html,
-    });
-    if (error) throw new Error(`Resend: ${error.message}`);
-    return;
+    try {
+      // @ts-expect-error — resend not installed, falls through to SMTP
+      const { Resend } = await import("resend");
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      const { error } = await resend.emails.send({
+        from: `${FROM_NAME} <${FROM_EMAIL}>`,
+        to,
+        subject,
+        html,
+      });
+      if (error) throw new Error(`Resend: ${error.message}`);
+      return;
+    } catch {
+      // resend not installed — fall through to SMTP
+    }
   }
 
   const transport = {

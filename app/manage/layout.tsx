@@ -1,12 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import Link from "next/link";
 import { User } from "firebase/auth";
 import { auth, onAuthStateChanged } from "../lib/firebase";
-import Background from "../components/Background";
-import Navbar from "../components/Navbar";
-import ThemeToggle from "../components/ThemeToggle";
-import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
+import ManageShell from "../components/manage/ManageShell";
 
 async function setAdminSession(token: string) {
   try {
@@ -14,66 +12,95 @@ async function setAdminSession(token: string) {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     });
-  } catch {}
+  } catch {
+    /* optional — verify uses Bearer token directly */
+  }
 }
 
 export default function ManageLayout({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const [verified, setVerified] = useState<boolean | null>(null);
+  const verifyGen = useRef(0);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
+      setAuthReady(true);
     });
     return unsubscribe;
   }, []);
 
   useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    user.getIdToken().then(async (token) => {
-      await setAdminSession(token);
+    if (!authReady) return;
+
+    if (!user) {
+      setVerified(false);
+      return;
+    }
+
+    const gen = ++verifyGen.current;
+    setVerified(null);
+
+    (async () => {
       try {
+        const token = await user.getIdToken();
+        await setAdminSession(token);
         const res = await fetch("/api/admin/verify", {
           method: "POST",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         });
         const data = await res.json();
-        if (!cancelled) setVerified(data.isAdmin === true);
+        if (gen !== verifyGen.current) return;
+        setVerified(data.isAdmin === true);
       } catch {
-        if (!cancelled) setVerified(false);
+        if (gen !== verifyGen.current) return;
+        setVerified(false);
       }
-    });
-    return () => { cancelled = true; };
-  }, [user]);
+    })();
+  }, [user, authReady]);
 
-  if (verified === null) {
+  const checking = !authReady || (user !== null && verified === null);
+
+  if (checking) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[var(--background)]">
-        <p className="text-sm text-[var(--muted)]">Checking...</p>
+        <p className="text-sm text-[var(--muted)]">Checking access...</p>
+      </main>
+    );
+  }
+
+  if (!user) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[var(--background)] px-6">
+        <div className="max-w-md rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-8 text-center">
+          <p className="text-4xl">🔒</p>
+          <h1 className="mt-4 text-xl font-bold text-[var(--foreground)]">Sign in required</h1>
+          <p className="mt-2 text-sm text-[var(--muted)]">Log in with an admin account to open the control center.</p>
+          <Link href="/login?redirect=/manage" className="mt-4 inline-block text-sm text-sky-400 hover:underline">
+            Go to login
+          </Link>
+        </div>
       </main>
     );
   }
 
   if (!verified) {
     return (
-      <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
-        <Background />
-        <Navbar />
-        <ThemeToggle />
-        <section className="relative z-10 flex min-h-screen items-center justify-center px-6">
-          <div className="max-w-xl rounded-[40px] border border-red-500/20 bg-[var(--card)] p-12 text-center shadow-2xl backdrop-blur-xl">
-            <div className="mb-6 text-7xl">🔒</div>
-            <h1 className="text-5xl font-black text-red-500">Access Denied</h1>
-            <AwhinaUnderHeader centered className="mt-4" />
-            <p className="mt-6 text-lg leading-8 text-[var(--muted)]">
-              You do not have permission to access this page.
-            </p>
-          </div>
-        </section>
+      <main className="flex min-h-screen items-center justify-center bg-[var(--background)] px-6">
+        <div className="max-w-md rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-8 text-center">
+          <p className="text-4xl">🔒</p>
+          <h1 className="mt-4 text-xl font-bold text-[var(--foreground)]">Access Denied</h1>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            Signed in as <span className="text-[var(--foreground)]">{user.email}</span> — this account is not an admin.
+          </p>
+          <Link href="/" className="mt-4 inline-block text-sm text-sky-400 hover:underline">
+            &larr; Back to marketplace
+          </Link>
+        </div>
       </main>
     );
   }
 
-  return <>{children}</>;
+  return <ManageShell>{children}</ManageShell>;
 }

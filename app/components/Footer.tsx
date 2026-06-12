@@ -14,7 +14,7 @@ export default function Footer() {
           <Link href="/terms" className="transition hover:text-[var(--foreground)]">Terms</Link>
           <Link href="/privacy" className="transition hover:text-[var(--foreground)]">Privacy</Link>
         </div>
-        <p className="text-[10px] text-zinc-700">Payments powered by <a href="https://stripe.com" target="_blank" rel="noopener noreferrer" className="text-zinc-500 hover:text-zinc-300 transition-colors underline">Stripe</a> · Need help? <Link href="/faqs" className="text-zinc-500 hover:text-zinc-300 transition-colors underline">FAQs</Link> · <a href="https://mail.google.com/mail/?view=cm&fs=1&to=support@skydrop.nz" target="_blank" rel="noopener noreferrer" className="text-zinc-500 hover:text-zinc-300 transition-colors underline">support@skydrop.nz</a></p>
+        <p className="text-[10px] text-zinc-700">Payments powered by <a href="https://stripe.com" target="_blank" rel="noopener noreferrer" className="text-zinc-500 hover:text-zinc-300 transition-colors underline">Stripe</a> · Need help? <Link href="/faqs" className="text-zinc-500 hover:text-zinc-300 transition-colors underline">FAQs</Link> · <a href="https://mail.google.com/mail/?view=cm&fs=1&to=support@skydrop.co.nz" target="_blank" rel="noopener noreferrer" className="text-zinc-500 hover:text-zinc-300 transition-colors underline">support@skydrop.co.nz</a></p>
       </div>
     </footer>
   );

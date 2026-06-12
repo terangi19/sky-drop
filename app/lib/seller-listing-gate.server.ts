@@ -20,8 +20,10 @@ export async function assertSellerCanCreateOrPublishListing(opts: {
     return "Please complete your profile before creating a listing.";
   }
 
-  if (sellerProfile.restricted) {
-    return "Your account is restricted. Contact support.";
+  if (sellerProfile.restricted || sellerProfile.suspended) {
+    return sellerProfile.suspended
+      ? "Your account is suspended. Contact support."
+      : "Your account is restricted. Contact support.";
   }
 
   let authPhone: string | undefined;

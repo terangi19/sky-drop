@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import Link from "next/link";
 import { User } from "firebase/auth";
 import { auth, onAuthStateChanged } from "../lib/firebase";
 import Background from "../components/Background";
@@ -19,35 +20,49 @@ async function setAdminSession(token: string) {
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const [verified, setVerified] = useState<boolean | null>(null);
+  const verifyGen = useRef(0);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
+      setAuthReady(true);
     });
     return unsubscribe;
   }, []);
 
   useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    user.getIdToken().then(async (token) => {
-      await setAdminSession(token);
+    if (!authReady) return;
+    if (!user) {
+      setVerified(false);
+      return;
+    }
+
+    const gen = ++verifyGen.current;
+    setVerified(null);
+
+    (async () => {
       try {
+        const token = await user.getIdToken();
+        await setAdminSession(token);
         const res = await fetch("/api/admin/verify", {
           method: "POST",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         });
         const data = await res.json();
-        if (!cancelled) setVerified(data.isAdmin === true);
+        if (gen !== verifyGen.current) return;
+        setVerified(data.isAdmin === true);
       } catch {
-        if (!cancelled) setVerified(false);
+        if (gen !== verifyGen.current) return;
+        setVerified(false);
       }
-    });
-    return () => { cancelled = true; };
-  }, [user]);
+    })();
+  }, [user, authReady]);
 
-  if (verified === null) {
+  const checking = !authReady || (user !== null && verified === null);
+
+  if (checking) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[var(--background)]">
         <p className="text-sm text-[var(--muted)]">Checking...</p>
@@ -55,7 +70,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  if (!verified) {
+  if (!user || !verified) {
     return (
       <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
         <Background />
@@ -67,7 +82,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <h1 className="text-5xl font-black text-red-500">Access Denied</h1>
             <AwhinaUnderHeader centered className="mt-4" />
             <p className="mt-6 text-lg leading-8 text-[var(--muted)]">
-              You do not have permission to access the admin dashboard.
+              {!user ? (
+                <>Please <Link href="/login?redirect=/admin" className="text-sky-400 hover:underline">sign in</Link> with an admin account.</>
+              ) : (
+                <>Account <strong>{user.email}</strong> is not authorized.</>
+              )}
             </p>
           </div>
         </section>

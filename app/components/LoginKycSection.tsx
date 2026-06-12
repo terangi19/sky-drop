@@ -101,20 +101,37 @@ export default function LoginKycSection({ user, onKycStatusChange }: Props) {
       const photoRef = ref(storage, `kyc/${user.uid}/${ts}_photo.${ext}`);
       await uploadBytes(photoRef, photoFile);
       const photoUrl = await getDownloadURL(photoRef);
-      await setDoc(
-        doc(db, "profiles", user.uid),
-        {
-          kycStatus: "pending",
-          kycIdUrl: photoUrl,
-          kycSelfieUrl: photoUrl,
-          kycSubmittedAt: Timestamp.now(),
-        },
-        { merge: true }
-      );
+      // Write submission to locked kycSubmissions collection — NOT to the public profiles doc.
+      await setDoc(doc(db, "kycSubmissions", user.uid), {
+        uid: user.uid,
+        email: user.email || "",
+        idImageUrl: photoUrl,
+        selfieImageUrl: photoUrl,
+        status: "pending",
+        submittedAt: Timestamp.now(),
+      }, { merge: true });
+      // Only write the status flag to profiles — no image URL
+      await setDoc(doc(db, "profiles", user.uid), {
+        kycStatus: "pending",
+        kycSubmittedAt: Timestamp.now(),
+      }, { merge: true });
       setStatus("pending");
       onKycStatusChange?.("pending");
       setPhotoFile(null);
       showToast("Verification submitted for review.", "success");
+
+      // Notify admins
+      try {
+        const { getAuth } = await import("firebase/auth");
+        const token = await getAuth().currentUser?.getIdToken();
+        if (token) {
+          fetch("/api/admin/kyc-alert", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ uid: user.uid, email: user.email, username: user.displayName || "" }),
+          }).catch(() => {});
+        }
+      } catch {}
     } catch {
       showToast("Upload failed.", "error");
     }

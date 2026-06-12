@@ -1504,6 +1504,16 @@ const tabs = [
                             setPoaDocumentURL(""); // image URL stays in kycSubmissions only
                             setPoaFile(null);
                             showToast("KYC photo submitted for review.", "success");
+
+                            // Notify admins
+                            try {
+                              const token = await user.getIdToken();
+                              fetch("/api/admin/kyc-alert", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                                body: JSON.stringify({ uid: user.uid, email: user.email, username: user.displayName || "" }),
+                              }).catch(() => {});
+                            } catch {}
                           } catch (e) { console.error(e); showToast("Failed to upload photo", "error"); }
                           setPoaUploading(false);
                         }} disabled={poaUploading}

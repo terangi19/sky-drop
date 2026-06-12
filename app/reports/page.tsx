@@ -12,15 +12,11 @@ import ThemeToggle from "../components/ThemeToggle";
 import { showToast } from "../components/Toast";
 
 import {
-  addDoc,
   collection,
-  getDocs,
   onSnapshot,
   orderBy,
   query,
-  serverTimestamp,
   where,
-  limit,
 } from "firebase/firestore";
 
 import {
@@ -28,6 +24,8 @@ import {
 } from "firebase/auth";
 
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
+import { REPORT_REASONS } from "../lib/report-constants";
+import { submitReportRequest } from "../lib/submit-report.client";
 
 export default function ReportsPage() {
   const [user, setUser] =
@@ -58,87 +56,75 @@ export default function ReportsPage() {
   }, []);
 
   useEffect(() => {
+    if (!user?.uid) {
+      setReports([]);
+      return;
+    }
+
     const reportsQuery = query(
       collection(db, "reports"),
+      where("reporterUserId", "==", user.uid),
       orderBy("createdAt", "desc")
     );
 
-    const unsubscribe =
-      onSnapshot(
-        reportsQuery,
-        (snapshot) => {
-          const items =
-            snapshot.docs.map(
-              (doc) => ({
-                id: doc.id,
-                ...doc.data(),
-              })
-            );
-
-          setReports(items);
-        }
-      );
+    const unsubscribe = onSnapshot(
+      reportsQuery,
+      (snapshot) => {
+        setReports(
+          snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }))
+        );
+      },
+      (err) => console.error("Failed to load reports:", err)
+    );
 
     return () => unsubscribe();
-  }, []);
+  }, [user?.uid]);
 
   async function submitReport() {
-    if (!user?.email) {
+    if (!user?.email || !user.uid) {
       showToast("You must be logged in.", "error");
       return;
     }
-    if (!reportedUser.trim() || !reason.trim() || !details.trim()) {
-      showToast("Fill all fields.", "error");
+    if (!reportedUser.trim() || !reason.trim()) {
+      showToast("Enter who to report and select a reason.", "error");
       return;
     }
-    const cooldownKey = `report_cooldown_${reportedUser.trim()}`;
-    let lastReport = null;
-    try { lastReport = localStorage.getItem(cooldownKey); } catch (e) { console.error("Failed to read report cooldown:", e); }
-    if (lastReport && Date.now() - Number(lastReport) < 300000) {
-      showToast("Please wait 5 minutes between reports.", "info");
-      return;
-    }
+
+    const email = reportedUser.trim().toLowerCase();
+    const cooldownKey = `report_cooldown_user_${email}`;
     try {
-      // Server-side cooldown: check for recent report from this reporter for this user
-      const cooldownQuery = query(
-        collection(db, "reports"),
-        where("reporter", "==", user.email),
-        where("reportedUser", "==", reportedUser.trim()),
-        orderBy("createdAt", "desc"),
-        limit(1)
-      );
-      const recentSnap = await getDocs(cooldownQuery);
-      if (!recentSnap.empty) {
-        const lastReport = recentSnap.docs[0].data();
-        const lastTime = lastReport.createdAt?.toMillis?.();
-        if (lastTime && Date.now() - lastTime < 10 * 60 * 1000) {
-          showToast("Please wait before reporting again.", "info");
-          return;
-        }
+      const lastReport = localStorage.getItem(cooldownKey);
+      if (lastReport && Date.now() - Number(lastReport) < 10 * 60 * 1000) {
+        showToast("Please wait a few minutes before reporting again.", "info");
+        return;
       }
+    } catch (e) {
+      console.error("Failed to read report cooldown:", e);
+    }
 
-      await addDoc(
-        collection(db, "reports"),
-        {
-          reportedUser,
-          reason,
-          details,
-          reporter:
-            user.email,
-          createdAt:
-            serverTimestamp(),
-        }
-      );
+    try {
+      await submitReportRequest({
+        type: "user",
+        reportedUserEmail: email,
+        reason,
+        details: details.trim() || undefined,
+      });
 
-      try { localStorage.setItem(cooldownKey, String(Date.now())); } catch (e) { console.error("Failed to save report cooldown:", e); }
+      try {
+        localStorage.setItem(cooldownKey, String(Date.now()));
+      } catch (e) {
+        console.error("Failed to save report cooldown:", e);
+      }
       setReportedUser("");
       setReason("");
       setDetails("");
-
-      showToast("Report submitted.");
+      showToast("Report submitted.", "success");
     } catch (error) {
       console.error(error);
-      showToast("Failed to submit report.", "error");
+      showToast(error instanceof Error ? error.message : "Failed to submit report.", "error");
     }
   }
 
@@ -195,27 +181,11 @@ export default function ReportsPage() {
               <option value="">
                 Select reason
               </option>
-
-              <option value="Scam">
-                Scam
-              </option>
-
-              <option value="Fake Listing">
-                Fake Listing
-              </option>
-
-              <option value="Spam">
-                Spam
-              </option>
-
-              <option value="Harassment">
-                Harassment
-              </option>
-
-              <option value="Inappropriate Content">
-                Inappropriate
-                Content
-              </option>
+              {REPORT_REASONS.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
             </select>
 
             <textarea
@@ -271,16 +241,11 @@ export default function ReportsPage() {
                     <div className="flex flex-wrap items-center justify-between gap-4">
                       <div>
                         <h2 className="text-2xl font-black text-red-400">
-                          {
-                            report.reportedUser
-                          }
+                          {report.reportedUserEmail || report.reportedUser || "Unknown"}
                         </h2>
 
                         <p className="mt-1 text-sm text-[var(--muted)]">
-                          Reported by{" "}
-                          {
-                            report.reporter
-                          }
+                          Status: {report.status || "pending"}
                         </p>
                       </div>
 

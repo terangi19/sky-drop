@@ -1,14 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { FieldValue } from "firebase-admin/firestore";
-import { getAdminDb, isAdminInitialized, verifyIdToken } from "../../lib/firebase-admin";
+import { verifyIdToken } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
-import {
-  REPORT_REASONS,
-  submitUserReportAdmin,
-} from "../../lib/submit-report.server";
-
-const REPORT_REASON_SET = new Set<string>(REPORT_REASONS);
-const COOLDOWN_MS = 10 * 60 * 1000;
+import { submitReportAdmin } from "../../lib/submit-report.server";
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,97 +16,45 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Please log in to submit a report" }, { status: 401 });
     }
 
+    const idToken = authHeader.slice(7);
     let decoded: { uid: string; email?: string };
     try {
-      decoded = await verifyIdToken(authHeader.slice(7));
+      decoded = await verifyIdToken(idToken);
     } catch {
       return NextResponse.json({ error: "Invalid or expired session" }, { status: 401 });
     }
 
-    const reporterUserId = decoded.uid;
-    const reporterUserEmail = decoded.email?.trim() || "";
-    if (!reporterUserEmail) {
-      return NextResponse.json({ error: "Could not determine your account email" }, { status: 400 });
-    }
-
     const body = await req.json().catch(() => ({}));
-    const type = body.type === "listing" ? "listing" : body.type === "user" ? "user" : "";
+    const type = body.type === "listing" ? "listing" : body.type === "user" ? "user" : null;
     if (!type) {
       return NextResponse.json({ error: "Invalid report type" }, { status: 400 });
     }
 
-    const reason = typeof body.reason === "string" ? body.reason.trim() : "";
-    if (!reason || !REPORT_REASON_SET.has(reason)) {
-      return NextResponse.json({ error: "Please select a valid reason" }, { status: 400 });
+    const result = await submitReportAdmin(
+      {
+        type,
+        reporterUserId: decoded.uid,
+        reporterUserEmail: decoded.email || "",
+        reportedUserId: typeof body.reportedUserId === "string" ? body.reportedUserId : "",
+        reportedUserEmail: typeof body.reportedUserEmail === "string" ? body.reportedUserEmail : "",
+        reportedUsername: typeof body.reportedUsername === "string" ? body.reportedUsername : "",
+        listingId: typeof body.listingId === "string" ? body.listingId : "",
+        reason: typeof body.reason === "string" ? body.reason : "",
+        details:
+          typeof body.details === "string"
+            ? body.details
+            : typeof body.description === "string"
+              ? body.description
+              : "",
+      },
+      idToken
+    );
+
+    if (result.ok === false) {
+      return NextResponse.json({ error: result.error }, { status: result.status });
     }
 
-    const reportedUserId = typeof body.reportedUserId === "string" ? body.reportedUserId.trim() : "";
-    const reportedUserEmail = typeof body.reportedUserEmail === "string" ? body.reportedUserEmail.trim() : "";
-    const reportedUsername =
-      typeof body.reportedUsername === "string" ? body.reportedUsername.trim() : "";
-    const listingId = typeof body.listingId === "string" ? body.listingId.trim() : "";
-    const details = typeof body.details === "string" ? body.details.trim().slice(0, 2000) : "";
-
-    if (type === "listing" && !listingId) {
-      return NextResponse.json({ error: "Listing id is required" }, { status: 400 });
-    }
-
-    if (type === "user") {
-      const result = await submitUserReportAdmin({
-        reporterUserId,
-        reporterUserEmail,
-        reportedUserId,
-        reportedUserEmail,
-        reportedUsername: reportedUsername || undefined,
-        reason,
-        details,
-      });
-      if (!result.ok) {
-        return NextResponse.json({ error: (result as { error: string }).error }, { status: (result as { status: number }).status });
-      }
-      return NextResponse.json({ ok: true, id: result.id });
-    }
-
-    if (!isAdminInitialized()) {
-      return NextResponse.json({ error: "Reporting is temporarily unavailable" }, { status: 503 });
-    }
-
-    const db = getAdminDb();
-    const reports = db.collection("reports");
-
-    const recent = await reports
-      .where("reporterUserId", "==", reporterUserId)
-      .where("type", "==", "listing")
-      .where("listingId", "==", listingId)
-      .orderBy("createdAt", "desc")
-      .limit(1)
-      .get();
-
-    if (!recent.empty) {
-      const last = recent.docs[0].data();
-      const lastMs = last.createdAt?.toMillis?.() ?? 0;
-      if (lastMs && Date.now() - lastMs < COOLDOWN_MS) {
-        return NextResponse.json(
-          { error: "Please wait a few minutes before reporting this again" },
-          { status: 429 }
-        );
-      }
-    }
-
-    const docRef = await reports.add({
-      type: "listing",
-      listingId,
-      reportedUserId: reportedUserId || null,
-      reportedUserEmail: reportedUserEmail || null,
-      reporterUserId,
-      reporterUserEmail,
-      reason,
-      details: details || null,
-      status: "pending",
-      createdAt: FieldValue.serverTimestamp(),
-    });
-
-    return NextResponse.json({ ok: true, id: docRef.id });
+    return NextResponse.json({ success: true, ok: true, id: result.id });
   } catch (e) {
     console.error("[submit-report]", e);
     return NextResponse.json({ error: "Failed to submit report" }, { status: 500 });

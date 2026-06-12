@@ -31,6 +31,15 @@ export async function POST(req: NextRequest) {
 
     const db = getAdminDb();
 
+    // Write to kycSubmissions for audit trail
+    await db.collection("kycSubmissions").doc(decoded.uid).set({
+      uid: decoded.uid,
+      email: decoded.email || "",
+      status: "approved",
+      reviewedAt: new Date(),
+      reviewedBy: "self-service",
+    }, { merge: true });
+
     await db.collection("profiles").doc(decoded.uid).set({
       kycStatus: "approved",
       kycReviewedAt: new Date(),

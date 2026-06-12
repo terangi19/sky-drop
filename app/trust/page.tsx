@@ -147,8 +147,8 @@ export default function TrustPage() {
         <div className="mt-10 rounded-xl border border-sky-500/10 bg-sky-500/[0.03] p-6 text-center">
           <p className="text-sm text-[var(--muted)]">
             Questions? Contact{" "}
-            <a href="mailto:support@skydrop.nz" className="text-sky-400 hover:underline">
-              support@skydrop.nz
+            <a href="mailto:support@skydrop.co.nz" className="text-sky-400 hover:underline">
+              support@skydrop.co.nz
             </a>
           </p>
         </div>

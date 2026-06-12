@@ -10,7 +10,7 @@ test.describe("Listings", () => {
   test("search input is present", async ({ page }) => {
     await page.goto("/");
     await page.waitForTimeout(2000);
-    await expect(page.getByPlaceholder("Search listings...")).toBeVisible();
+    await expect(page.getByPlaceholder("Search")).toBeVisible();
   });
 
   test("category buttons exist", async ({ page }) => {
