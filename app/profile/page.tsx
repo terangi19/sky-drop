@@ -777,15 +777,10 @@ const tabs = [
             ? "Development mode: no SMS is sent. Enter code 000000."
             : `SMS sent to ${maskPhone(result.formattedPhone || phone)}`
         );
+        setPhoneCooldown(30);
       } else {
-        const err = result.error || "Failed to send verification code.";
-        setPhoneMsg(
-          err.includes("Too many attempts")
-            ? "Too many SMS requests. Wait a few minutes before requesting another code."
-            : err
-        );
+        setPhoneMsg(result.error || "Failed to send verification code.");
       }
-      setPhoneCooldown(30);
     } finally {
       setSendingPhone(false);
     }
@@ -835,12 +830,7 @@ const tabs = [
         }
       }
     } else {
-      const err = result.error || "Invalid code.";
-      setPhoneMsg(
-        err.includes("Too many attempts")
-          ? "Too many verification attempts. Wait a few minutes before trying again."
-          : err
-      );
+      setPhoneMsg(result.error || "Invalid code.");
     }
     setPhoneVerifying(false);
   }
@@ -1451,7 +1441,13 @@ const tabs = [
                     {!phoneVerified && (
                       <button onClick={handleSendPhoneCode} disabled={!phone || sendingPhone || phoneVerifying || phoneCooldown > 0}
                         className="shrink-0 rounded-xl bg-sky-500 px-4 py-3 text-sm font-semibold text-white hover:bg-sky-400 disabled:opacity-40 transition-all active:scale-[0.98]">
-                        {sendingPhone ? "Sending..." : phoneSent ? phoneCooldown > 0 ? `Resend (${phoneCooldown}s)` : "Resend code" : "Send code"}
+                        {sendingPhone
+                          ? "Sending..."
+                          : phoneCooldown > 0
+                            ? `Wait ${phoneCooldown}s`
+                            : phoneSent
+                              ? "Resend code"
+                              : "Send code"}
                       </button>
                     )}
                   </div>
@@ -1471,7 +1467,17 @@ const tabs = [
                     </button>
                   )}
                   {phoneMsg && (
-                    <p className={`mt-2 text-xs ${phoneMsg.includes("✓") || phoneMsg.includes("Verified") ? "text-sky-400" : "text-zinc-400"}`}>
+                    <p
+                      className={`mt-2 text-xs ${
+                        phoneMsg.includes("✓") || phoneMsg.includes("Verified") || phoneMsg.includes("SMS sent")
+                          ? "text-sky-400"
+                          : phoneMsg.includes("Security check") || phoneMsg.includes("verification failed")
+                            ? "text-amber-400/90"
+                            : phoneMsg.includes("Too many SMS")
+                              ? "text-amber-400/90"
+                              : "text-zinc-400"
+                      }`}
+                    >
                       {phoneMsg}
                     </p>
                   )}

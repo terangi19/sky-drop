@@ -25,15 +25,28 @@ function clearPhoneVerificationState() {
   w.__devFormattedPhone = null;
 }
 
+export function phoneAuthErrorCode(e: unknown): string {
+  const code = (e as { code?: string })?.code;
+  if (code) return code;
+  const msg = String((e as { message?: string })?.message || "").toLowerCase();
+  if (msg.includes("too-many-requests")) return "auth/too-many-requests";
+  if (msg.includes("captcha-check-failed")) return "auth/captcha-check-failed";
+  if (msg.includes("invalid-app-credential")) return "auth/invalid-app-credential";
+  if (msg.includes("invalid-phone-number")) return "auth/invalid-phone-number";
+  if (msg.includes("invalid-verification-code")) return "auth/invalid-verification-code";
+  if (msg.includes("code-expired") || msg.includes("expired")) return "auth/code-expired";
+  return "";
+}
+
 function errorMessage(e: any): string {
-  const code = e?.code || "";
+  const code = phoneAuthErrorCode(e);
   const msg = (e?.message || code || "").toLowerCase();
   if (code === "auth/operation-not-allowed" || msg.includes("operation-not-allowed"))
     return "Phone authentication is not enabled in Firebase. Enable Phone sign-in in Firebase Console → Authentication.";
   if (code === "auth/invalid-phone-number" || msg.includes("invalid-phone-number"))
     return "Invalid phone number. Use a valid NZ mobile like 021 123 4567.";
-  if (code === "auth/too-many-requests" || msg.includes("too-many-requests"))
-    return "Too many attempts. Wait a few minutes and try again.";
+  if (code === "auth/too-many-requests")
+    return "Too many SMS requests from this device or number. Firebase may still be blocking from earlier attempts — wait 15–60 minutes, then try again.";
   if (code === "auth/invalid-app-credential" || msg.includes("invalid-app-credential"))
     return "SMS could not be sent (app verification failed). Check Firebase authorized domains and reCAPTCHA settings.";
   if (code === "auth/captcha-check-failed")
@@ -92,6 +105,7 @@ async function createRecaptchaVerifier() {
 export async function sendPhoneCode(phone: string): Promise<{
   sent: boolean;
   error?: string;
+  errorCode?: string;
   formattedPhone?: string;
   devMode?: boolean;
 }> {
@@ -147,11 +161,15 @@ export async function sendPhoneCode(phone: string): Promise<{
     if (e?.customData) console.error("[phone-auth] ERROR customData:", e.customData);
     resetRecaptchaVerifier();
     clearPhoneVerificationState();
-    return { sent: false, error: errorMessage(e) };
+    return { sent: false, error: errorMessage(e), errorCode: phoneAuthErrorCode(e) || undefined };
   }
 }
 
-export async function verifyPhoneCode(inputCode: string): Promise<{ ok: boolean; error?: string }> {
+export async function verifyPhoneCode(inputCode: string): Promise<{
+  ok: boolean;
+  error?: string;
+  errorCode?: string;
+}> {
   const code = inputCode.trim();
   devLog("[phone-auth] verifyPhoneCode called", { codeLength: code.length });
 
@@ -198,6 +216,6 @@ export async function verifyPhoneCode(inputCode: string): Promise<{ ok: boolean;
     console.error("[phone-auth] verifyPhoneCode ERROR", e);
     console.error("[phone-auth] verify CODE", e?.code);
     console.error("[phone-auth] verify MESSAGE", e?.message);
-    return { ok: false, error: errorMessage(e) };
+    return { ok: false, error: errorMessage(e), errorCode: phoneAuthErrorCode(e) || undefined };
   }
 }
