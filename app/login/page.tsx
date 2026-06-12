@@ -86,9 +86,14 @@ export default function AuthPage() {
           showToast("Enter a valid NZ phone number", "error");
           return;
         }
-        const existingPhone = await getDocs(query(collection(db, "profiles"), where("phone", "==", formattedPhone)));
-        if (!existingPhone.empty) {
-          showToast("Phone number already in use.", "error");
+        const phoneRes = await fetch("/api/check-phone-availability", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: formattedPhone }),
+        });
+        const phoneData = await phoneRes.json().catch(() => ({}));
+        if (!phoneRes.ok || !phoneData.available) {
+          showToast(phoneData.message || "Phone number already in use.", "error");
           return;
         }
       }

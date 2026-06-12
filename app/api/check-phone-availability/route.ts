@@ -1,11 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken, isAdminInitialized } from "../../lib/firebase-admin";
+import { verifyIdToken, getAdminDb, isAdminInitialized } from "../../lib/firebase-admin";
 import { isPhoneBlacklisted } from "../../lib/ban-store";
 import { isPhoneRegisteredToOtherUser } from "../../lib/phone-registry.server";
 import { formatNZPhone, isValidNzMobile } from "../../lib/phone-format";
+import { rateLimit } from "../../lib/rate-limit";
+
+async function isPhoneOnProfile(phone: string, excludeUid?: string): Promise<boolean> {
+  if (!isAdminInitialized()) return false;
+  const db = getAdminDb();
+  const snap = await db.collection("profiles").where("phone", "==", phone).limit(1).get();
+  if (snap.empty) return false;
+  if (!excludeUid) return true;
+  return snap.docs[0].id !== excludeUid;
+}
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+    const { allowed } = await rateLimit(`check-phone:${ip}`, 20, 60_000);
+    if (!allowed) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+
     const { phone, uid: bodyUid } = await req.json();
     if (!phone || typeof phone !== "string") {
       return NextResponse.json({ error: "Phone is required" }, { status: 400 });
@@ -37,7 +53,13 @@ export async function POST(req: NextRequest) {
       } catch {}
     }
 
-    if (uid && (await isPhoneRegisteredToOtherUser(formatted, uid))) {
+    const registryTaken = await isPhoneRegisteredToOtherUser(
+      formatted,
+      uid || "__no_uid__"
+    );
+    const profileTaken = await isPhoneOnProfile(formatted, uid || undefined);
+
+    if (registryTaken || profileTaken) {
       return NextResponse.json({
         available: false,
         reason: "taken",

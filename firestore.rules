@@ -7,8 +7,22 @@ service cloud.firestore {
         || resource.data.sellerId == request.auth.uid;
     }
     function isAuctionBidUpdate() {
-      return request.resource.data.diff(resource.data).affectedKeys()
-        .hasOnly(['currentBid', 'currentMaxBid', 'secondMaxBid', 'highestBidder', 'bidCount', 'auctionEndsAt', 'auctionExtended']);
+      return request.auth != null
+        // highestBidder must be the bidding user
+        && request.resource.data.highestBidder == request.auth.token.email
+        // currentBid must be increasing (or this is the first bid)
+        && (!('currentBid' in resource.data)
+          || request.resource.data.currentBid > resource.data.currentBid)
+        // Only these fields allowed in an auction bid update
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['currentBid', 'currentMaxBid', 'secondMaxBid', 'highestBidder', 'bidCount', 'auctionEndsAt', 'auctionExtended', 'reservePrice'])
+        // auctionEndsAt can only extend, never shorten
+        && (!('auctionEndsAt' in request.resource.data)
+          || !('auctionEndsAt' in resource.data)
+          || request.resource.data.auctionEndsAt >= resource.data.auctionEndsAt)
+        // Must not touch reservation fields (separate flow)
+        && !('reservedAt' in request.resource.data)
+        && !('reservedBy' in request.resource.data);
     }
     // Buyer checkout: hold listing for 15 minutes (see CheckoutModal / create-payment-intent)
     function isCheckoutReservationUpdate() {
@@ -50,7 +64,10 @@ service cloud.firestore {
     }
 
     match /profiles/{profileId} {
-      allow read: if true;
+      // Public seller pages use get by uid (via usernames/{slug} → profiles/{uid}).
+      // Collection queries (email/username) require auth to block bulk enumeration.
+      allow get: if true;
+      allow list: if request.auth != null;
       allow create: if request.auth != null
         && request.auth.uid == profileId
         && request.resource.data.email == request.auth.token.email;
@@ -289,6 +306,17 @@ service cloud.firestore {
         && resource.data.employerEmail == request.auth.token.email;
     }
 
+    // Bid history — immutable audit trail of every bid placed
+    match /bidHistory/{bidId} {
+      allow read: if request.auth != null
+        && (resource.data.bidderEmail == request.auth.token.email
+          || resource.data.sellerEmail == request.auth.token.email);
+      allow create: if request.auth != null
+        && request.resource.data.bidderEmail == request.auth.token.email
+        && request.resource.data.listingId is string;
+      allow update, delete: if false; // immutable once written
+    }
+
     match /promotions/{promotionId} {
       allow read: if true;
       allow create: if request.auth != null
@@ -326,7 +354,9 @@ service cloud.firestore {
     }
 
     match /disputes/{disputeId} {
-      allow create: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.buyerEmail == request.auth.token.email
+        && request.resource.data.purchaseId is string;
       allow read: if request.auth != null
         && (resource.data.buyerEmail == request.auth.token.email
           || resource.data.sellerEmail == request.auth.token.email
