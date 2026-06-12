@@ -14,6 +14,7 @@ import {
   Bell,
   Settings,
   Shield,
+  ShieldCheck,
   Menu,
   X,
 } from "lucide-react";
@@ -29,6 +30,7 @@ const NAV = [
   { href: "/manage/notifications", label: "Notifications", icon: Bell },
   { href: "/manage/settings", label: "Site Settings", icon: Settings },
   { href: "/manage/admins", label: "Admins", icon: Shield },
+  { href: "/admin/verification", label: "KYC Verification", icon: ShieldCheck },
 ];
 
 function NavLink({

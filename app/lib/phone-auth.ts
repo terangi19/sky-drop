@@ -1,22 +1,14 @@
 import { auth } from "./firebase";
+import { formatNZPhone, isValidNzMobile } from "./phone-format";
 
-const NZ_PREFIXES = ["021", "022", "027", "028", "029"];
+export { formatNZPhone, isValidNzMobile } from "./phone-format";
+
+function devLog(...args: unknown[]) {
+  if (process.env.NODE_ENV === "development") console.log(...args);
+}
 
 export function isPhoneDevMode(): boolean {
   return typeof window !== "undefined" && window.location.hostname === "localhost";
-}
-
-export function formatNZPhone(input: string): string {
-  const digits = input.replace(/\D/g, "");
-  if (digits.startsWith("642") && digits.length >= 10) return `+${digits}`;
-  if (digits.startsWith("64") && digits.length >= 10) return `+${digits}`;
-  for (const prefix of NZ_PREFIXES) {
-    if (digits.startsWith(prefix.slice(1)) && digits.length >= 10) return `+642${digits.slice(2)}`;
-    if (digits.startsWith(prefix) && digits.length >= 8) return `+64${digits.slice(1)}`;
-  }
-  if (digits.startsWith("0") && digits.length >= 8) return `+64${digits.slice(1)}`;
-  if (!digits.startsWith("+")) return `+${digits}`;
-  return digits;
 }
 
 export function maskPhone(phone: string): string {
@@ -27,12 +19,6 @@ export function maskPhone(phone: string): string {
 
 function clearPhoneVerificationState() {
   const w = window as any;
-  if (w.__recaptchaVerifier) {
-    try {
-      w.__recaptchaVerifier.clear();
-    } catch {}
-  }
-  w.__recaptchaVerifier = null;
   w.__phoneConfirmation = null;
   w.__phoneVerificationId = null;
   w.__devPhoneCode = null;
@@ -41,17 +27,19 @@ function clearPhoneVerificationState() {
 
 function errorMessage(e: any): string {
   const code = e?.code || "";
-  const msg = e?.message || code || "";
+  const msg = (e?.message || code || "").toLowerCase();
   if (code === "auth/operation-not-allowed" || msg.includes("operation-not-allowed"))
     return "Phone authentication is not enabled in Firebase. Enable Phone sign-in in Firebase Console → Authentication.";
   if (code === "auth/invalid-phone-number" || msg.includes("invalid-phone-number"))
-    return "Invalid phone number. Use a valid NZ number like 021 123 4567.";
+    return "Invalid phone number. Use a valid NZ mobile like 021 123 4567.";
   if (code === "auth/too-many-requests" || msg.includes("too-many-requests"))
     return "Too many attempts. Wait a few minutes and try again.";
   if (code === "auth/invalid-app-credential" || msg.includes("invalid-app-credential"))
     return "SMS could not be sent (app verification failed). Check Firebase authorized domains and reCAPTCHA settings.";
-  if (code === "auth/captcha-check-failed" || msg.includes("captcha"))
-    return "Security check failed. Refresh the page and try again.";
+  if (code === "auth/captcha-check-failed")
+    return "Security check failed. Refresh the page and try again. If it keeps failing, disable ad blockers or try another browser.";
+  if (msg.includes("recaptcha"))
+    return "Security check failed. Refresh the page and try again. If it keeps failing, disable ad blockers or try another browser.";
   if (code === "auth/code-expired" || msg.includes("expired"))
     return "Code expired. Request a new one.";
   if (code === "auth/invalid-verification-code" || msg.includes("invalid-verification-code"))
@@ -64,17 +52,41 @@ function errorMessage(e: any): string {
     return "Please sign out, sign in again, then verify your phone.";
   if (code === "auth/account-exists-with-different-credential")
     return "This phone is tied to a different sign-in method. Contact support if you need help.";
-  return msg || "Failed to send code.";
+  return e?.message || "Failed to send code.";
 }
 
+let _verifier: any = null;
+
+function resetRecaptchaVerifier() {
+  if (_verifier) {
+    try {
+      _verifier.clear();
+    } catch {}
+    _verifier = null;
+  }
+  const el = document.getElementById("recaptcha-container");
+  if (el) el.innerHTML = "";
+}
+
+/** Firebase requires a fresh invisible reCAPTCHA verifier for each SMS request. */
 async function createRecaptchaVerifier() {
+  resetRecaptchaVerifier();
+  if (!document.getElementById("recaptcha-container")) {
+    throw new Error("reCAPTCHA container missing from page");
+  }
+  devLog("[phone-auth] Creating new reCAPTCHA verifier");
   const { RecaptchaVerifier } = await import("firebase/auth");
-  clearPhoneVerificationState();
-  const container = document.getElementById("recaptcha-container");
-  if (container) container.innerHTML = "";
-  const verifier = new RecaptchaVerifier(auth, "recaptcha-container", { size: "invisible" });
-  (window as any).__recaptchaVerifier = verifier;
-  return verifier;
+  _verifier = new RecaptchaVerifier(auth, "recaptcha-container", {
+    size: "invisible",
+    callback: () => devLog("[phone-auth] reCAPTCHA solved"),
+    "expired-callback": () => {
+      devLog("[phone-auth] reCAPTCHA expired");
+      resetRecaptchaVerifier();
+    },
+  });
+  await _verifier.render();
+  devLog("[phone-auth] reCAPTCHA verifier rendered");
+  return _verifier;
 }
 
 export async function sendPhoneCode(phone: string): Promise<{
@@ -84,13 +96,19 @@ export async function sendPhoneCode(phone: string): Promise<{
   devMode?: boolean;
 }> {
   const formatted = formatNZPhone(phone);
+  devLog("[phone-auth] sendPhoneCode called", { raw: phone, formatted });
 
-  if (!formatted.startsWith("+642") || formatted.length < 11) {
-    return { sent: false, error: "Enter a valid NZ mobile number (e.g. 021 123 4567)." };
+  if (!formatted || !isValidNzMobile(formatted)) {
+    console.warn("[phone-auth] Invalid NZ mobile number", { phone, formatted });
+    return {
+      sent: false,
+      error:
+        "Enter a valid NZ mobile number starting with 021, 022, 027, 028, or 029 (e.g. 021 123 4567).",
+    };
   }
 
-  // Local dev — no SMS; use code 000000
   if (isPhoneDevMode()) {
+    devLog("[phone-auth] Dev mode — using 000000");
     (window as any).__devPhoneCode = "000000";
     (window as any).__devFormattedPhone = formatted;
     return { sent: true, formattedPhone: formatted, devMode: true };
@@ -98,24 +116,36 @@ export async function sendPhoneCode(phone: string): Promise<{
 
   try {
     const { PhoneAuthProvider, signInWithPhoneNumber } = await import("firebase/auth");
+    devLog("[phone-auth] Firebase modules loaded, creating reCAPTCHA verifier");
     const verifier = await createRecaptchaVerifier();
+    devLog("[phone-auth] reCAPTCHA verifier ready");
 
-    // Logged-in users (profile): link phone to existing account — do NOT signInWithPhoneNumber
     if (auth.currentUser) {
+      devLog("[phone-auth] User is logged in — calling provider.verifyPhoneNumber", { formatted });
       const provider = new PhoneAuthProvider(auth);
       const verificationId = await provider.verifyPhoneNumber(formatted, verifier);
+      devLog("[phone-auth] verifyPhoneNumber succeeded", { verificationId });
+      resetRecaptchaVerifier();
       (window as any).__phoneVerificationId = verificationId;
       (window as any).__phoneConfirmation = null;
       return { sent: true, formattedPhone: formatted };
     }
 
-    // No session (login/sign-up): standard phone sign-in flow
+    devLog("[phone-auth] No session — calling signInWithPhoneNumber", { formatted });
     const confirmation = await signInWithPhoneNumber(auth, formatted, verifier);
+    devLog("[phone-auth] signInWithPhoneNumber succeeded", { confirmation: !!confirmation });
+    resetRecaptchaVerifier();
     (window as any).__phoneConfirmation = confirmation;
     (window as any).__phoneVerificationId = null;
 
     return { sent: true, formattedPhone: formatted };
   } catch (e: any) {
+    console.error("[phone-auth] ERROR — full error object:", e);
+    console.error("[phone-auth] ERROR code:", e?.code);
+    console.error("[phone-auth] ERROR message:", e?.message);
+    console.error("[phone-auth] ERROR name:", e?.name);
+    if (e?.customData) console.error("[phone-auth] ERROR customData:", e.customData);
+    resetRecaptchaVerifier();
     clearPhoneVerificationState();
     return { sent: false, error: errorMessage(e) };
   }
@@ -123,10 +153,12 @@ export async function sendPhoneCode(phone: string): Promise<{
 
 export async function verifyPhoneCode(inputCode: string): Promise<{ ok: boolean; error?: string }> {
   const code = inputCode.trim();
+  devLog("[phone-auth] verifyPhoneCode called", { codeLength: code.length });
 
   if (isPhoneDevMode()) {
     if ((window as any).__devPhoneCode && code === (window as any).__devPhoneCode) {
       clearPhoneVerificationState();
+      devLog("[phone-auth] Dev mode code verified");
       return { ok: true };
     }
     return { ok: false, error: "Invalid code. On localhost use 000000 (no SMS is sent)." };
@@ -134,6 +166,7 @@ export async function verifyPhoneCode(inputCode: string): Promise<{ ok: boolean;
 
   const verificationId = (window as any).__phoneVerificationId as string | undefined;
   const confirmation = (window as any).__phoneConfirmation;
+  devLog("[phone-auth] verify state", { hasVerificationId: !!verificationId, hasConfirmation: !!confirmation });
 
   if (!verificationId && !confirmation) {
     return { ok: false, error: "No code sent. Tap Send code first." };
@@ -162,6 +195,9 @@ export async function verifyPhoneCode(inputCode: string): Promise<{ ok: boolean;
 
     return { ok: false, error: "No code sent. Tap Send code first." };
   } catch (e: any) {
+    console.error("[phone-auth] verifyPhoneCode ERROR", e);
+    console.error("[phone-auth] verify CODE", e?.code);
+    console.error("[phone-auth] verify MESSAGE", e?.message);
     return { ok: false, error: errorMessage(e) };
   }
 }

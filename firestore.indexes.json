@@ -115,39 +115,6 @@
       ]
     },
     {
-      "collectionGroup": "pendingXp",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "listingId", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "pendingXp",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "awarded", "order": "ASCENDING" },
-        { "fieldPath": "cancelled", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "pendingXp",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "listingId", "order": "ASCENDING" },
-        { "fieldPath": "awarded", "order": "ASCENDING" },
-        { "fieldPath": "cancelled", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "pendingXp",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "validated", "order": "ASCENDING" },
-        { "fieldPath": "awarded", "order": "ASCENDING" },
-        { "fieldPath": "cancelled", "order": "ASCENDING" }
-      ]
-    },
-    {
       "collectionGroup": "conversations",
       "queryScope": "COLLECTION",
       "fields": [

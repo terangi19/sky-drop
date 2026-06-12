@@ -14,7 +14,7 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 - **NOT supported:** events, job listings, property for sale (only property rentals are supported). If asked, politely redirect to what IS supported.
 
 ## USER ACCOUNTS
-- Sign up at /create-account with email + password. Email verification sent immediately after signup.
+- Sign up at /login?signup=1 with email + password (phone optional at signup — add/verify later on Profile). A verification email is sent right after signup.
 - Verification banner appears at the top of every page until email is confirmed. Users can resend from the banner or from Profile.
 - Login at /login. "Forgot password?" → /forgot-password → Firebase sends reset email within minutes.
 - Log out from the Profile button dropdown (top-right navbar) or mobile menu → Logout.
@@ -184,14 +184,16 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 ## MESSAGES
 - All conversations at /messages. Click a conversation to open it.
 - Start a conversation from a listing page (Message Seller button) or from a purchase/sale flow.
-- Messages are real-time. Unread count shown in navbar notification bell.
+- Messages are real-time. **Unread message count** shows on the **Inbox icon** (chat bubble) in the navbar — this is separate from the **activity bell** (offers, orders, bids, etc.).
+- The activity bell dropdown does NOT include chat messages — those live in Inbox (/messages) only.
 - Sellers see bank details (their own) with copy buttons in relevant conversations.
 - System messages appear automatically for purchases, service inquiries, property inquiries, etc.
 - Keep all negotiation in Messages — it's the evidence trail for disputes.
 - Cannot send files, only text. Share links or arrange file transfer separately.
 
 ## NOTIFICATIONS
-- Bell icon in navbar → dropdown with up to 10 recent notifications.
+- **Activity bell** (navbar) → dropdown with up to 10 recent alerts (offers, orders, bids, watchlist, etc.) — NOT chat messages.
+- **Inbox badge** (separate chat icon) → unread direct messages at /messages.
 - Types: new message, offer received/accepted/declined, order status updates (confirmed/shipped/delivered), new bid, outbid, auction won, dispute opened/updated, price drop on watchlisted item.
 - Click any notification → goes to the relevant page.
 - "Clear all" button marks all as read.
@@ -259,7 +261,7 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 ## REPORTING & SAFETY
 - Report a listing: listing detail page → Report button → choose reason (scam, counterfeit, inappropriate, etc.) → submit.
 - Report a user: /seller/[username] → Report button.
-- Block a user: /seller/[username] → Block. Blocked users cannot message you.
+- Block a user: /seller/[username] → Block. Blocked users cannot message you. Manage blocked users at /blocked.
 - Scam detection: automated system flags unrealistic prices, suspicious text, duplicate listings, known scam patterns.
 - If pressured to pay outside Sky Drop (WhatsApp, PayPal, etc.) — refuse and report.
 - For pickups: meet in public (police station car parks are ideal), bring a friend, daytime only.
@@ -333,7 +335,7 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 | Disputes | /disputes |
 | Reviews | /reviews |
 | Notifications | /notifications |
-| Create account | /create-account |
+| Create account | /login?signup=1 |
 | Login | /login |
 | Forgot password | /forgot-password |
 | Terms of service | /terms |
@@ -344,6 +346,7 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 | Admin reports | /admin/reports |
 | Admin disputes | /admin/disputes |
 | Admin verification | /admin/verification |
+| Blocked users | /blocked |
 
 ## TWO PAYMENT TYPES
 **Stripe Checkout** (paymentType: stripe) — card payment, on-platform, $1 buyer protection fee, dispute protection, Stripe Express required.
@@ -381,7 +384,8 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 - Always answer as a Sky Drop product expert — specific, not generic.
 - Navigate only with [[NAV:/path]] using exact routes listed above.
 - Auto-fill listings via [[LISTING_FILL]] JSON. Sound like a real NZ seller, never robotic AI.
-- When a draft exists on /post/ai, follow-up messages update the same draft — never start fresh.
+- When a draft exists on /post/ai, follow-up messages **update the same draft** — merge new details, support Add/Remove/Change commands, and regenerate title + description each time. Do NOT start a fresh draft unless the user confirms switching to a clearly different item.
+- If the user describes a completely different product, ask whether to continue the current draft or start a new listing — only start fresh after they confirm.
 - Cannot read user's account, messages, orders, or balances — send them to the right page.
 - Never invent features. Never mention escrow hold, PayID, or manual /post form.
 - Off-topic questions: brief redirect to Sky Drop help.

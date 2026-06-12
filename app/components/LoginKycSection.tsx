@@ -3,9 +3,10 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import type { User } from "firebase/auth";
-import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { checkImage } from "../lib/nsfw";
+import { kycSubmitErrorMessage, notifyKycSubmitted, submitKycPhoto } from "../lib/kyc-submit.client";
 import { showToast } from "./Toast";
 
 type Props = {
@@ -88,52 +89,21 @@ export default function LoginKycSection({ user, onKycStatusChange }: Props) {
 
   async function submit() {
     if (!user?.uid || !photoFile) return;
-    if (!(await checkImage(photoFile)).safe) {
-      showToast("Image could not be accepted.", "error");
+    const nsfw = await checkImage(photoFile);
+    if (!nsfw.safe) {
+      showToast(nsfw.reason ? `Photo not accepted: ${nsfw.reason}` : "Image could not be accepted.", "error");
       return;
     }
     setUploading(true);
     try {
-      const { ref, uploadBytes, getDownloadURL } = await import("firebase/storage");
-      const { storage } = await import("../lib/firebase");
-      const ts = Date.now();
-      const ext = photoFile.name.split(".").pop();
-      const photoRef = ref(storage, `kyc/${user.uid}/${ts}_photo.${ext}`);
-      await uploadBytes(photoRef, photoFile);
-      const photoUrl = await getDownloadURL(photoRef);
-      // Write submission to locked kycSubmissions collection — NOT to the public profiles doc.
-      await setDoc(doc(db, "kycSubmissions", user.uid), {
-        uid: user.uid,
-        email: user.email || "",
-        idImageUrl: photoUrl,
-        selfieImageUrl: photoUrl,
-        status: "pending",
-        submittedAt: Timestamp.now(),
-      }, { merge: true });
-      // Only write the status flag to profiles — no image URL
-      await setDoc(doc(db, "profiles", user.uid), {
-        kycStatus: "pending",
-        kycSubmittedAt: Timestamp.now(),
-      }, { merge: true });
+      await submitKycPhoto(user, photoFile);
       setStatus("pending");
       onKycStatusChange?.("pending");
       setPhotoFile(null);
       showToast("Verification submitted for review.", "success");
-
-      // Notify admins
-      try {
-        const { getAuth } = await import("firebase/auth");
-        const token = await getAuth().currentUser?.getIdToken();
-        if (token) {
-          fetch("/api/admin/kyc-alert", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ uid: user.uid, email: user.email, username: user.displayName || "" }),
-          }).catch(() => {});
-        }
-      } catch {}
-    } catch {
-      showToast("Upload failed.", "error");
+      await notifyKycSubmitted(user);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : kycSubmitErrorMessage(e), "error");
     }
     setUploading(false);
   }

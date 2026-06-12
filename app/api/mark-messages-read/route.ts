@@ -60,6 +60,17 @@ export async function POST(req: NextRequest) {
             return;
           }
 
+          const sender = typeof data.sender === "string" ? data.sender : "";
+          const receiver = typeof data.receiver === "string" ? data.receiver : "";
+          if (receiver && receiver !== userEmail) {
+            failures.push(messageId);
+            return;
+          }
+          if (!receiver && sender === userEmail) {
+            marked += 1;
+            return;
+          }
+
           if (data.read === true) {
             marked += 1;
             return;

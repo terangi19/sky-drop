@@ -73,7 +73,7 @@ ${JSON.stringify(listingContext, null, 2)}
 
 ${AWHINA_DRAFT_UPDATE_MODE}
 
-When the user adds details in a follow-up message, you MUST update this same draft — output LISTING_FILL with the full merged result (all fields + extras + regenerated title & description). For price-only questions without new listing facts, give a NZD range and reasoning.`;
+When the user adds details in a follow-up message, update this same draft — output LISTING_FILL with the full merged result (all fields + extras + regenerated title & description). For price-only questions without new listing facts, give a NZD range and reasoning.`;
   } else if (listingContext && Object.values(listingContext).some((v) => v && String(v).trim())) {
     listingBlock = `\n\nLISTING DRAFT (user is on Sell — use this to give specific advice):
 ${JSON.stringify(listingContext, null, 2)}

@@ -1,6 +1,7 @@
 import { initializeApp, getApps, cert, applicationDefault, type App } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
 
 let app: App | null = null;
 
@@ -65,6 +66,12 @@ let _db: ReturnType<typeof getFirestore> | null = null;
 export function getAdminDb() {
   if (!_db) _db = getFirestore(getAdminApp());
   return _db;
+}
+
+let _storage: ReturnType<typeof getStorage> | null = null;
+export function getAdminStorage() {
+  if (!_storage) _storage = getStorage(getAdminApp());
+  return _storage;
 }
 
 export function isAdminInitialized(): boolean {

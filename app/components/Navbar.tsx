@@ -21,6 +21,7 @@ import {
   where,
   onSnapshot,
   limit,
+  orderBy,
 } from "firebase/firestore";
 
 import {
@@ -34,6 +35,12 @@ import NotificationDropdown from "./NotificationDropdown";
 import { useProfile } from "../contexts/ProfileContext";
 import { NotificationItem } from "../../types/firestore";
 import { isAdminEmail } from "../lib/admin-check";
+import {
+  blockedEmailsFromDocs,
+  countInboxUnreadMessages,
+  isUnreadMessageForUser,
+  messageInInboxList,
+} from "../lib/messages-unread";
 
 
 export default function Navbar() {
@@ -59,6 +66,10 @@ export default function Navbar() {
 
   const [dismissedIds, setDismissedIds] =
     useState<Set<string>>(new Set());
+
+  const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
+  const [activityUnreadCount, setActivityUnreadCount] = useState(0);
+  const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -93,7 +104,32 @@ export default function Navbar() {
 
   useEffect(() => {
     setDismissedIds(loadDismissed());
+    try {
+      setBlockedUsers(JSON.parse(localStorage.getItem("blockedUsers") || "[]"));
+    } catch {}
+    const onBlockedChanged = () => {
+      try {
+        setBlockedUsers(JSON.parse(localStorage.getItem("blockedUsers") || "[]"));
+      } catch {}
+    };
+    window.addEventListener("blocked-users-changed", onBlockedChanged);
+    return () => window.removeEventListener("blocked-users-changed", onBlockedChanged);
   }, []);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    const blockedQ = collection(db, "users", user.uid, "blocked");
+    const unsub = onSnapshot(
+      blockedQ,
+      (snap) => {
+        const emails = blockedEmailsFromDocs(snap.docs);
+        setBlockedUsers(emails);
+        localStorage.setItem("blockedUsers", JSON.stringify(emails));
+      },
+      (err) => console.error("Failed to sync blocked users:", err)
+    );
+    return () => unsub();
+  }, [user?.uid]);
 
   useEffect(() => {
     const unsubscribe =
@@ -107,6 +143,13 @@ export default function Navbar() {
     return () =>
       unsubscribe();
   }, []);
+
+  function firestoreErrorCode(error: unknown): string {
+    if (error && typeof error === "object" && "code" in error) {
+      return String((error as { code: string }).code);
+    }
+    return "";
+  }
 
   useEffect(() => {
     if (!user?.email) return;
@@ -136,18 +179,26 @@ export default function Navbar() {
     }
 
     const dismissed = loadDismissed();
-    const msgQ = query(collection(db, "messages"), where("participants", "array-contains", user.email), limit(20));
+    const msgQ = query(
+      collection(db, "messages"),
+      where("participants", "array-contains", user.email),
+      orderBy("createdAt", "desc"),
+      limit(100)
+    );
     const unsub1 = onSnapshot(msgQ, (snap) => {
       msgItems.length = 0;
-      const items = snap.docs
-        .map((d) => ({ id: d.id, ...d.data() }) as Record<string, unknown>)
-        .filter((msg): msg is Record<string, unknown> => {
-          const sender = msg.sender as string | undefined;
-          const receiver = msg.receiver as string | undefined;
-          const read = msg.read as boolean | undefined;
-          const isTarget = receiver ? receiver === user.email : sender !== user.email;
-          return isTarget && !read && !dismissed.has(msg.id as string);
-        });
+      const allMsgs = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Array<
+        Record<string, unknown> & { id: string }
+      >;
+      const unreadCount = countInboxUnreadMessages(allMsgs, user.email!, blockedUsers, dismissed);
+      setInboxUnreadCount(unreadCount);
+      const items = allMsgs.filter((msg) => {
+        return (
+          messageInInboxList(msg as Parameters<typeof messageInInboxList>[0], user.email!, blockedUsers) &&
+          isUnreadMessageForUser(msg as Parameters<typeof isUnreadMessageForUser>[0], user.email) &&
+          !dismissed.has(msg.id)
+        );
+      });
       for (const msg of items.slice(0, 5)) {
         const sender = msg.sender as string | undefined;
         const listingId = msg.listingId as string | undefined;
@@ -168,13 +219,38 @@ export default function Navbar() {
         });
       }
       merge();
-    }, (err) => { console.error("Msg notification error:", err); merge(); });
+    }, (err) => {
+      const code = firestoreErrorCode(err);
+      if (code === "failed-precondition") {
+        console.warn("Messages index building or missing — inbox badge paused:", err);
+      } else {
+        console.error("Msg notification error:", err);
+      }
+      setInboxUnreadCount(0);
+      msgItems.length = 0;
+      merge();
+    });
 
-    const purchaseQ = query(collection(db, "notifications"), where("targetEmail", "==", user.email), limit(20));
+    const purchaseQ = query(
+      collection(db, "notifications"),
+      where("targetEmail", "==", user.email),
+      orderBy("createdAt", "desc"),
+      limit(50)
+    );
     const unsub2 = onSnapshot(purchaseQ, (snap) => {
       purchaseItems.length = 0;
-      const items = snap.docs.filter((d) => d.data().read === false).map((d) => ({ id: d.id, ...d.data() }) as Record<string, unknown>);
+      let unreadActivity = 0;
+      const items = snap.docs
+        .filter((d) => d.data().read === false)
+        .map((d) => ({ id: d.id, ...d.data() }) as Record<string, unknown>);
       for (const n of items) {
+        const nType = (n.type as string) || "purchase";
+        // Chat duplicates live in messages collection — inbox badge/list use that source of truth.
+        if (nType === "message" || nType === "offer") continue;
+
+        unreadActivity += 1;
+
+        if (purchaseItems.length >= 5) continue;
         const fromName = n.fromName as string | undefined;
         const fromEmail = n.fromEmail as string | undefined;
         const listingId = n.listingId as string | undefined;
@@ -193,14 +269,25 @@ export default function Navbar() {
           unread: true,
         });
       }
+      setActivityUnreadCount(unreadActivity);
       merge();
-    }, (err) => { console.error("Purchase notification error:", err); merge(); });
+    }, (err) => {
+      const code = firestoreErrorCode(err);
+      if (code === "failed-precondition") {
+        console.warn("Notifications index building or missing — activity badge paused:", err);
+      } else {
+        console.error("Purchase notification error:", err);
+      }
+      setActivityUnreadCount(0);
+      purchaseItems.length = 0;
+      merge();
+    });
 
     return () => { unsub1(); unsub2(); };
-  }, [user?.email, user?.uid]);
+  }, [user?.email, user?.uid, blockedUsers]);
 
-  const msgCount = Math.max(0, notifications.filter((n) => n.type === "message" || n.type === "offer").length);
-  const activityCount = Math.max(0, notifications.filter((n) => n.type !== "message" && n.type !== "offer").length);
+  const msgCount = Math.max(0, inboxUnreadCount);
+  const activityCount = Math.max(0, activityUnreadCount);
 
   async function handleLogout() {
     await signOut(auth);
@@ -374,7 +461,7 @@ export default function Navbar() {
                       <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm">🔐</span>
                       Login
                     </Link>
-                    <Link href="/create-account" className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-sky-400 hover:bg-white/[0.06] active:bg-white/[0.08] transition-colors" onClick={() => setMobileMenuOpen(false)}>
+                    <Link href="/login?signup=1" className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-sky-400 hover:bg-white/[0.06] active:bg-white/[0.08] transition-colors" onClick={() => setMobileMenuOpen(false)}>
                       <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm">✨</span>
                       Create Account
                     </Link>

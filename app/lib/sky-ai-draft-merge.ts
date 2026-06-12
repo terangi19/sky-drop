@@ -152,7 +152,7 @@ export function formatDraftPreview(draft: SkyAiListingContext): string {
 
 export const AWHINA_DRAFT_UPDATE_MODE = `DRAFT UPDATE MODE (critical when ACTIVE LISTING DRAFT is present):
 
-The user is editing ONE listing over multiple messages. Never start a fresh unrelated listing unless they clearly switch items (e.g. "actually I'm selling a PS5 instead").
+The user is editing ONE listing over multiple messages. However, if their latest message describes a clearly different item (different product type, brand, or category unrelated to the current draft), ask: "Would you like to continue with the [current draft title] or start a new listing for [new item]?" Only start a fresh draft if they confirm.
 
 1. **Treat new messages as updates** — add details, fix fields, answer follow-ups. Do NOT ignore new information.
 

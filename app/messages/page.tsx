@@ -45,6 +45,13 @@ import {
 } from "../lib/public-display";
 import { canSellerConfirmArrangeSale, countSellerSales } from "../lib/arrange-purchase-status";
 import { getFreshIdToken } from "../lib/api-auth";
+import {
+  blockedEmailsFromDocs,
+  conversationKey,
+  isUnreadMessageForUser,
+  messageInActiveConversation,
+  messageInInboxList,
+} from "../lib/messages-unread";
 // Feature 8: Expanded risky keywords
 const RISKY_KEYWORDS = [
   "pay outside", "bank transfer only", "crypto", "gift card",
@@ -140,7 +147,6 @@ function MessagesPage() {
   const messageInputRef = useRef<HTMLInputElement>(null);
   const [showSafetyWarning, setShowSafetyWarning] = useState(false);
   const [riskyKeyword, setRiskyKeyword] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState("");
   const [showClearAll, setShowClearAll] = useState(false);
   const typingDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const lastMessageTime = useRef(0);
@@ -164,20 +170,17 @@ function MessagesPage() {
   // Sync blocked users from Firestore when authenticated
   useEffect(() => {
     if (!user?.uid) return;
-    const fetchBlocked = async () => {
-      try {
-        const q = query(collection(db, "users", user.uid, "blocked"), where("blocked", "==", true));
-        const snap = await getDocs(q);
-        const emails = snap.docs.map((d) => d.id);
-        if (emails.length > 0) {
-          setBlockedUsers(emails);
-          localStorage.setItem("blockedUsers", JSON.stringify(emails));
-        }
-      } catch (e) {
-        console.error("Failed to fetch blocked users:", e);
-      }
-    };
-    fetchBlocked();
+    const blockedQ = collection(db, "users", user.uid, "blocked");
+    const unsub = onSnapshot(
+      blockedQ,
+      (snap) => {
+        const emails = blockedEmailsFromDocs(snap.docs);
+        setBlockedUsers(emails);
+        localStorage.setItem("blockedUsers", JSON.stringify(emails));
+      },
+      (e) => console.error("Failed to fetch blocked users:", e)
+    );
+    return () => unsub();
   }, [user?.uid]);
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -311,11 +314,9 @@ function MessagesPage() {
   useEffect(() => {
     if (!chatUser || !user?.email) return;
     let cancelled = false;
-    const relevant = messages.filter((m: any) => {
-      if (!m.participants?.includes(chatUser)) return false;
-      if (chatListingId) return m.listingId === chatListingId;
-      return !m.listingId;
-    });
+    const relevant = messages.filter((m: any) =>
+      messageInActiveConversation(m, user.email!, chatUser, chatListingId)
+    );
     const unreadMsgs = relevant.filter((m: any) => m.sender !== user.email && !m.read && !seenBatchRef.current.has(m.id));
     for (const msg of unreadMsgs) {
       seenBatchRef.current.add(msg.id);
@@ -323,10 +324,26 @@ function MessagesPage() {
     }
 
     // Also mark corresponding notification documents as read
-    if (unreadMsgs.length > 0 || chatListingId) {
-      getDocs(query(collection(db, "notifications"), where("listingId", "==", chatListingId || ""), where("read", "==", false))).then((snap) => {
+    if (unreadMsgs.length > 0) {
+      getDocs(
+        query(
+          collection(db, "notifications"),
+          where("targetEmail", "==", user.email),
+          orderBy("createdAt", "desc"),
+          limit(30)
+        )
+      ).then((snap) => {
         if (cancelled) return;
-        snap.docs.forEach((d) => updateDoc(doc(db, "notifications", d.id), { read: true }).catch((e) => console.error("Failed to mark notification read:", e)));
+        snap.docs.forEach((d) => {
+          const data = d.data();
+          if (data.read !== false) return;
+          if ((data.listingId || "") !== (chatListingId || "")) return;
+          const fromEmail = data.fromEmail as string | undefined;
+          if (fromEmail && fromEmail !== chatUser) return;
+          updateDoc(doc(db, "notifications", d.id), { read: true }).catch((e) =>
+            console.error("Failed to mark notification read:", e)
+          );
+        });
       }).catch((e) => console.error("Failed to fetch notifications to mark read:", e));
     }
 
@@ -353,14 +370,18 @@ function MessagesPage() {
       return;
     }
     let mounted = true;
-    const msgQuery = query(collection(db, "messages"), where("participants", "array-contains", user.email), limit(100));
+    const msgQuery = query(
+      collection(db, "messages"),
+      where("participants", "array-contains", user.email),
+      orderBy("createdAt", "desc"),
+      limit(100)
+    );
 
     const unsub = onSnapshot(msgQuery, (snap) => {
       if (!mounted) return;
-      const items = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((msg: any) => {
-        const other = msg.participants?.find((p: string) => p !== user.email);
-        return other && !blockedUsers.includes(other);
-      });
+      const items = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((msg: any) => messageInInboxList(msg, user.email!, blockedUsers));
       items.sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
       setMessages(items);
       setLoading(false);
@@ -371,36 +392,36 @@ function MessagesPage() {
         msg.participants?.forEach((p: string) => fetchUsername(p));
         extractEmailsFromText(msg.text || "").forEach((e) => fetchUsername(e));
       });
-    }, (err) => { setDebugInfo(`Error: ${err.message}`); if (mounted) setLoading(false); });
+    }, (err) => { console.error("Messages snapshot error:", err); if (mounted) setLoading(false); });
 
     return () => { mounted = false; unsub(); };
   }, [user?.email, blockedUsers]);
-    // Unread map
-    useEffect(() => {
-      const map: Record<string, number> = {};
-      const raw: Record<string, boolean> = {};
-      messages.forEach((msg: any) => {
-        if (msg.receiver && msg.receiver !== user?.email) return;
-        if (msg.sender !== user?.email && !msg.read) {
-          const other = msg.participants?.find((p: string) => p !== user?.email);
-          const key = `${other}||${msg.listingId || ""}`;
-          map[key] = (map[key] || 0) + 1;
-          raw[msg.id] = true;
-        }
-      });
-      setConversationUnread(map);
-      setUnreadMap(raw);
-    }, [messages, user?.email]);
-    // Compute filteredMessages for chat view
-    const filteredMessages = useMemo(() => messages
-      .filter((msg: any) => {
-        if (!user?.email || !msg.participants?.includes(user.email)) return false;
-        if (msg.receiver && msg.receiver !== user.email) return false;
-        if (!msg.participants?.includes(chatUser)) return false;
-        if (chatListingId) return msg.listingId === chatListingId;
-        return !msg.listingId;
-      })
-      .reverse(), [messages, chatUser, chatListingId, user?.email]);
+  // Unread map
+  useEffect(() => {
+    const map: Record<string, number> = {};
+    const raw: Record<string, boolean> = {};
+    messages.forEach((msg: any) => {
+      if (!isUnreadMessageForUser(msg, user?.email)) return;
+      const other = msg.participants?.find((p: string) => p !== user?.email);
+      if (!other) return;
+      const key = conversationKey(other, msg.listingId);
+      map[key] = (map[key] || 0) + 1;
+      raw[msg.id] = true;
+    });
+    setConversationUnread(map);
+    setUnreadMap(raw);
+  }, [messages, user?.email, blockedUsers]);
+
+  // Compute filteredMessages for chat view
+  const filteredMessages = useMemo(
+    () =>
+      messages
+        .filter((msg: any) =>
+          messageInActiveConversation(msg, user?.email || "", chatUser, chatListingId)
+        )
+        .reverse(),
+    [messages, chatUser, chatListingId, user?.email]
+  );
     // Auto-scroll
     useEffect(() => {
       if (chatEndRef.current && filteredMessages.length > 0) {
@@ -631,11 +652,28 @@ function MessagesPage() {
     } catch (e) { console.error(e); }
     setPendingMessage("");
   }
-  function blockUser(email: string) {
+  async function blockUser(email: string) {
+    if (!user?.uid || blockedUsers.includes(email)) {
+      setShowMenu(false);
+      return;
+    }
     const updated = [...blockedUsers, email];
     setBlockedUsers(updated);
     localStorage.setItem("blockedUsers", JSON.stringify(updated));
+    window.dispatchEvent(new Event("blocked-users-changed"));
     setShowMenu(false);
+    try {
+      let uid = email;
+      const profileSnap = await getDocs(query(collection(db, "profiles"), where("email", "==", email)));
+      if (!profileSnap.empty) uid = profileSnap.docs[0].id;
+      await setDoc(doc(db, "users", user.uid, "blocked", uid), {
+        blockedUid: uid,
+        blockedEmail: email,
+        createdAt: serverTimestamp(),
+      });
+    } catch (e) {
+      console.error("Failed to persist block:", e);
+    }
   }
   async function reportUser(email: string) {
     if (!user?.email) return;
@@ -668,7 +706,9 @@ function MessagesPage() {
       }
       // Mark messages as read for Navbar badge
       const dismissed = JSON.parse(localStorage.getItem("dismissedNotifications") || "[]");
-      const relevant = messages.filter((m: any) => { const other = m.participants?.find((p: string) => p !== user.email); return other === chatUser; });
+      const relevant = messages.filter((m: any) =>
+        messageInActiveConversation(m, user.email, chatUser, chatListingId)
+      );
       for (const msg of relevant) {
         if (!dismissed.includes(msg.id)) dismissed.push(msg.id);
         updateDoc(doc(db, "messages", msg.id), { read: true }).catch((e) => console.error("Failed to mark message read:", e));
@@ -755,24 +795,23 @@ function MessagesPage() {
   // â€”â€” Computed values â€”â€”
   const conversationMap = new Map<string, any>();
   messages.forEach((msg: any) => {
-    if (msg.receiver && msg.receiver !== user?.email) return;
+    if (!messageInInboxList(msg, user?.email || "", blockedUsers)) return;
     const otherUser = msg.participants?.find((p: string) => p !== user?.email);
-    if (otherUser) {
-      const key = `${otherUser}||${msg.listingId || ""}`;
-      const msgTime = msg.createdAt?.toMillis?.() || msg.createdAt?.seconds * 1000 || 0;
-      const existing = conversationMap.get(key);
-      const existingTime =
-        existing?.msg?.createdAt?.toMillis?.() ||
-        existing?.msg?.createdAt?.seconds * 1000 ||
-        0;
-      if (!existing || msgTime >= existingTime) {
-        conversationMap.set(key, {
-          participant: otherUser,
-          listingId: msg.listingId || null,
-          listingTitle: msg.listingTitle || null,
-          msg,
-        });
-      }
+    if (!otherUser) return;
+    const key = conversationKey(otherUser, msg.listingId);
+    const msgTime = msg.createdAt?.toMillis?.() || msg.createdAt?.seconds * 1000 || 0;
+    const existing = conversationMap.get(key);
+    const existingTime =
+      existing?.msg?.createdAt?.toMillis?.() ||
+      existing?.msg?.createdAt?.seconds * 1000 ||
+      0;
+    if (!existing || msgTime >= existingTime) {
+      conversationMap.set(key, {
+        participant: otherUser,
+        listingId: msg.listingId || null,
+        listingTitle: msg.listingTitle || null,
+        msg,
+      });
     }
   });
   let conversations = Array.from(conversationMap.entries());

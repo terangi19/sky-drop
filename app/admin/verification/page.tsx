@@ -6,18 +6,14 @@ import Background from "../../components/Background";
 import { AwhinaUnderHeader } from "../../components/AwhinaOnlineBadge";
 import ThemeToggle from "../../components/ThemeToggle";
 import { showToast } from "../../components/Toast";
+import { adminFetch } from "../../lib/admin-fetch.client";
 import {
-  addDoc,
   collection,
   doc,
   getDoc,
-  getDocs,
   onSnapshot,
   orderBy,
   query,
-  serverTimestamp,
-  setDoc,
-  Timestamp,
   updateDoc,
   where,
 } from "firebase/firestore";
@@ -91,84 +87,31 @@ export default function AdminVerificationPage() {
   async function handleApprove(profileId: string) {
     if (!confirm("Approve this user's KYC verification?")) return;
     try {
-      // Update verdict in kycSubmissions (locked collection — image URLs stay here)
-      await setDoc(doc(db, "kycSubmissions", profileId), {
-        status: "approved", reviewedAt: Timestamp.now(), reviewedBy: user?.email || "admin",
-      }, { merge: true });
-      // Write only the status badge to the public profiles doc — no image URLs
-      await setDoc(doc(db, "profiles", profileId), {
-        kycStatus: "approved", kycReviewedAt: Timestamp.now(), kycReviewedBy: user?.email || "admin",
-      }, { merge: true });
-
-      const profileSnap = await getDoc(doc(db, "profiles", profileId));
-      const profileData = profileSnap.data();
-      if (profileData?.email) {
-        await createNotification({
-          targetEmail: profileData.email,
-          fromEmail: user!.email!,
-          type: "verification",
-          title: "Address Verified ✓",
-          message: "Your proof of address has been approved.",
-        });
-      }
-
-      const referredBy = profileData?.referredBy;
-      if (referredBy) {
-        const referrerQuery = query(collection(db, "profiles"), where("referralCode", "==", referredBy));
-        const referrerSnap = await getDocs(referrerQuery);
-        if (!referrerSnap.empty) {
-          const referrer = referrerSnap.docs[0];
-          const referrerData = referrer.data();
-          if (referrerData.phoneVerified) {
-            for (let i = 0; i < 3; i++) {
-              await addDoc(collection(db, "dropTokens"), {
-                ownerId: referrer.id,
-                ownerEmail: referrerData.email || "",
-                originDropId: "referral_reward",
-                status: "available",
-                createdAt: serverTimestamp(),
-              });
-            }
-            await createNotification({
-              targetEmail: referrerData.email || "",
-              fromEmail: user!.email!,
-              type: "referral_reward",
-              title: "🎁 Referral Reward Earned!",
-              message: "Your referral completed verification — you earned 3 Drop Tokens!",
-            });
-          }
-        }
-      }
-    } catch (e) { console.error(e); }
+      await adminFetch("/api/admin/kyc-review", {
+        method: "POST",
+        body: JSON.stringify({ uid: profileId, action: "approve" }),
+      });
+      showToast("KYC approved.", "success");
+    } catch (e) {
+      console.error(e);
+      showToast(e instanceof Error ? e.message : "Approve failed", "error");
+    }
   }
 
   async function handleReject(profileId: string) {
     const reason = rejectInputs[profileId]?.trim();
     if (!reason) { showToast("Enter a rejection reason.", "error"); return; }
     try {
-      // Update verdict in kycSubmissions
-      await setDoc(doc(db, "kycSubmissions", profileId), {
-        status: "rejected", rejectReason: reason, reviewedAt: Timestamp.now(), reviewedBy: user?.email || "admin",
-      }, { merge: true });
-      // Write only status + reason to profiles — no image URLs
-      await setDoc(doc(db, "profiles", profileId), {
-        kycStatus: "rejected", kycRejectReason: reason, kycReviewedAt: Timestamp.now(), kycReviewedBy: user?.email || "admin",
-      }, { merge: true });
-
-      const profileSnap = await getDoc(doc(db, "profiles", profileId));
-      const profileData = profileSnap.data();
-      if (profileData?.email) {
-        await createNotification({
-          targetEmail: profileData.email,
-          fromEmail: user!.email!,
-          type: "verification",
-          title: "Address Verification Rejected",
-          message: `Your proof of address was rejected. Reason: ${reason}`,
-        });
-      }
-
+      await adminFetch("/api/admin/kyc-review", {
+        method: "POST",
+        body: JSON.stringify({ uid: profileId, action: "reject", reason }),
+      });
       setRejectInputs((prev) => { const next = { ...prev }; delete next[profileId]; return next; });
-    } catch (e) { console.error(e); }
+      showToast("KYC rejected.", "success");
+    } catch (e) {
+      console.error(e);
+      showToast(e instanceof Error ? e.message : "Reject failed", "error");
+    }
   }
 
   async function handleApproveDigital(listingId: string) {

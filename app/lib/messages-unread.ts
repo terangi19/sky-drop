@@ -91,3 +91,42 @@ export function findLatestUnreadConversation(
   const first = listUnreadConversations(messages, userEmail, blockedUsers)[0];
   return first ? { participant: first.participant, listingId: first.listingId } : null;
 }
+
+/** Whether a message should contribute to the inbox conversation list. */
+export function messageInInboxList(
+  msg: MessageUnreadFields,
+  userEmail: string,
+  blockedUsers: string[] = []
+): boolean {
+  if (!userEmail || !msg.participants?.includes(userEmail)) return false;
+  const other = msg.participants?.find((p) => p !== userEmail);
+  return !!other && !blockedUsers.includes(other);
+}
+
+/** Blocked-user doc emails from users/{uid}/blocked (doc id is uid, not email). */
+export function blockedEmailsFromDocs(
+  docs: Array<{ data: () => Record<string, unknown> }>
+): string[] {
+  return docs
+    .map((d) => {
+      const data = d.data();
+      const email = data.blockedEmail;
+      return typeof email === "string" ? email.trim().toLowerCase() : "";
+    })
+    .filter(Boolean);
+}
+
+/** Total unread inbox messages (messages collection — source of truth for the inbox badge). */
+export function countInboxUnreadMessages(
+  messages: Array<MessageUnreadFields & { id?: string }>,
+  userEmail: string,
+  blockedUsers: string[] = [],
+  dismissedIds: Iterable<string> = []
+): number {
+  const dismissed = new Set(dismissedIds);
+  const eligible = messages.filter((m) => !m.id || !dismissed.has(m.id));
+  return listUnreadConversations(eligible, userEmail, blockedUsers).reduce(
+    (sum, c) => sum + c.unreadCount,
+    0
+  );
+}

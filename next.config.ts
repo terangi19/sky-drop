@@ -25,6 +25,11 @@ const nextConfig: NextConfig = {
         destination: "/post/ai",
         permanent: true,
       },
+      {
+        source: "/create-account",
+        destination: "/login?signup=1",
+        permanent: false,
+      },
     ];
   },
   async headers() {
@@ -39,7 +44,7 @@ const nextConfig: NextConfig = {
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           {
             key: "Content-Security-Policy",
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' https://*.stripe.com https://*.firebaseio.com https://apis.google.com https://www.google.com https://www.gstatic.com; frame-src 'self' https://*.stripe.com https://www.google.com https://recaptcha.google.com; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://*.stripe.com wss://*.firebaseio.com; img-src 'self' data: blob: https://*.firebasestorage.app https://*.googleapis.com https://*.stripe.com https://picsum.photos https://www.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline'; font-src 'self';",
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' https://*.stripe.com https://*.firebaseio.com https://apis.google.com https://www.google.com https://www.gstatic.com https://*.google.com https://www.recaptcha.net https://*.recaptcha.net; frame-src 'self' https://*.stripe.com https://www.google.com https://recaptcha.google.com https://www.recaptcha.net; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.stripe.com https://www.google.com https://*.google.com https://www.recaptcha.net https://*.recaptcha.net wss://*.firebaseio.com; img-src 'self' data: blob: https://*.firebasestorage.app https://*.googleapis.com https://*.stripe.com https://picsum.photos https://www.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline'; font-src 'self'; child-src 'self' blob: https://www.google.com https://www.recaptcha.net https://recaptcha.google.com;",
           },
         ],
       },

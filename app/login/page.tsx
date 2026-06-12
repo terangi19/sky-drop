@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -11,29 +11,80 @@ import { showToast } from "../components/Toast";
 
 import {
   createUserWithEmailAndPassword,
+  sendEmailVerification,
   signInWithEmailAndPassword,
   type User,
 } from "firebase/auth";
 
 import {
-  addDoc,
-  collection,
   doc,
-  getDocs,
-  increment,
-  query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   Timestamp,
-  updateDoc,
-  where,
 } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
-import { createNotification } from "../lib/notifications";
 import { buildEmailHtml } from "../lib/email";
 import { formatNZPhone } from "../lib/phone-auth";
+
 const INPUT_CLASS =
   "login-page-input w-full rounded-xl px-4 py-3 text-sm";
+
+function defaultUsernameFromEmail(email: string): string {
+  const prefix = (email.split("@")[0] || "user").replace(/[^a-zA-Z0-9_]/g, "").slice(0, 20);
+  return prefix || "user";
+}
+
+async function createProfileWithReservedUsername(
+  uid: string,
+  email: string,
+  profileData: Record<string, unknown>
+): Promise<string> {
+  const base = defaultUsernameFromEmail(email);
+  return runTransaction(db, async (transaction) => {
+    let username = base;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const usernameKey = username.toLowerCase();
+      const usernameRef = doc(db, "usernames", usernameKey);
+      const usernameSnap = await transaction.get(usernameRef);
+      if (!usernameSnap.exists() || usernameSnap.data()?.uid === uid) {
+        transaction.set(usernameRef, { uid }, { merge: true });
+        transaction.set(
+          doc(db, "profiles", uid),
+          { ...profileData, email, username },
+          { merge: true }
+        );
+        return username;
+      }
+      username = `${base}${Math.random().toString(36).substring(2, 6)}`.slice(0, 24);
+    }
+    throw new Error("Could not reserve username");
+  });
+}
+
+function friendlyAuthError(error: unknown): string {
+  const code =
+    error && typeof error === "object" && "code" in error
+      ? String((error as { code: string }).code)
+      : "";
+  switch (code) {
+    case "auth/email-already-in-use":
+      return "An account with this email already exists. Try logging in instead.";
+    case "auth/invalid-email":
+      return "Enter a valid email address.";
+    case "auth/weak-password":
+      return "Password is too weak. Use at least 8 characters with uppercase and a number.";
+    case "auth/wrong-password":
+    case "auth/invalid-credential":
+      return "Incorrect email or password.";
+    case "auth/user-not-found":
+      return "No account found with this email. Sign up instead.";
+    case "auth/too-many-requests":
+      return "Too many attempts. Please wait a few minutes and try again.";
+    default:
+      return error instanceof Error ? error.message : "Something went wrong";
+  }
+}
 
 export default function AuthPage() {
   const router = useRouter();
@@ -48,6 +99,9 @@ export default function AuthPage() {
   const [user, setUser] = useState<User | null>(null);
   const [showBrowseModal, setShowBrowseModal] = useState(false);
   const [kycStatus, setKycStatus] = useState("unsubmitted");
+  const [canRedirect, setCanRedirect] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const signupInProgressRef = useRef(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -55,29 +109,49 @@ export default function AuthPage() {
     if (ref) setInviteCode(ref.toUpperCase());
     const redir = params.get("redirect");
     if (redir) setRedirectTo(redir);
+    if (params.get("signup") === "1" || params.get("mode") === "signup") {
+      setIsLogin(false);
+    }
   }, []);
 
   useEffect(() => {
-    return onAuthStateChanged(auth, setUser);
+    return onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      if (u && !signupInProgressRef.current) setCanRedirect(true);
+    });
   }, []);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !canRedirect) return;
     const timer = setTimeout(() => router.push(redirectTo || "/"), 1500);
     return () => clearTimeout(timer);
-  }, [user, redirectTo, router]);
+  }, [user, canRedirect, redirectTo, router]);
 
   async function handleAuth(e: React.FormEvent) {
     e.preventDefault();
     if (!email || !password) return;
 
     if (!isLogin) {
+      if (!acceptedTerms) {
+        showToast("Accept the Terms of Service and Privacy Policy to create an account.", "error");
+        return;
+      }
       const pwErrors: string[] = [];
       if (password.length < 8) pwErrors.push("at least 8 characters");
       if (!/[A-Z]/.test(password)) pwErrors.push("an uppercase letter");
       if (!/[0-9]/.test(password)) pwErrors.push("a number");
       if (pwErrors.length > 0) {
         showToast("Password needs " + pwErrors.join(", "), "error");
+        return;
+      }
+      const emailCheckRes = await fetch("/api/check-email-temp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      });
+      const emailCheckData = await emailCheckRes.json().catch(() => ({}));
+      if (emailCheckData.disposable) {
+        showToast("Temporary email addresses aren't allowed. Use a permanent email.", "error");
         return;
       }
       if (phone.trim()) {
@@ -100,55 +174,59 @@ export default function AuthPage() {
     }
 
     setLoading(true);
+    if (!isLogin) signupInProgressRef.current = true;
     try {
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
+        setCanRedirect(true);
         showToast("Welcome back!", "success");
       } else {
         const cred = await createUserWithEmailAndPassword(auth, email, password);
         const u = cred.user;
         if (u) {
+          try {
+            await sendEmailVerification(u);
+          } catch (e) {
+            console.error("Email verification send failed:", e);
+          }
+
+          const formattedPhone = phone.trim() ? formatNZPhone(phone) : "";
           const code = Math.random().toString(36).substring(2, 8).toUpperCase();
           const profileData: Record<string, unknown> = {
-            email: u.email,
-            username: u.email?.split("@")[0] || "",
-            phone: phone.trim() || "",
+            phone: formattedPhone,
             phoneVerified: false,
             referralCode: code,
             memberSince: Timestamp.now(),
             lastActive: Timestamp.now(),
             createdAt: serverTimestamp(),
           };
+
+          await createProfileWithReservedUsername(u.uid, u.email || email, profileData);
+
           if (inviteCode.trim()) {
             try {
-              const referrerQuery = query(collection(db, "profiles"), where("referralCode", "==", inviteCode.trim().toUpperCase()));
-              const referrerSnap = await getDocs(referrerQuery);
-              if (!referrerSnap.empty) {
-                const referrerDoc = referrerSnap.docs[0];
-                const referrerData = referrerDoc.data();
-                if (referrerData.email && referrerData.email !== u.email) {
-                  profileData.referredBy = inviteCode.trim().toUpperCase();
-                  await updateDoc(doc(db, "profiles", referrerDoc.id), { referralSignups: increment(1) });
-                  await addDoc(collection(db, "referralEvents"), {
-                    type: "signup",
-                    referrerEmail: referrerData.email,
-                    referredEmail: u.email,
-                    createdAt: serverTimestamp(),
-                  });
-                  await createNotification({
-                    type: "referral",
-                    targetEmail: referrerData.email,
-                    fromEmail: u.email || "",
-                    title: "🎉 You referred someone!",
-                    message: `${u.email} signed up using your referral code!`,
-                  });
-                }
+              const token = await u.getIdToken();
+              const refRes = await fetch("/api/track-referral", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ referralCode: inviteCode.trim().toUpperCase() }),
+              });
+              const refData = await refRes.json().catch(() => ({}));
+              if (refRes.ok && refData.tracked && refData.referredBy) {
+                await setDoc(
+                  doc(db, "profiles", u.uid),
+                  { referredBy: refData.referredBy },
+                  { merge: true }
+                );
               }
             } catch (e) {
               console.error("Referral tracking failed:", e);
             }
           }
-          await setDoc(doc(db, "profiles", u.uid), profileData);
+
           try {
             const welcomeHtml = buildEmailHtml({
               to: u.email!,
@@ -167,12 +245,15 @@ export default function AuthPage() {
             /* optional */
           }
         }
-        showToast("Account created!", "success");
+        signupInProgressRef.current = false;
+        setCanRedirect(true);
+        showToast("Account created! Check your email to verify your address.", "success");
       }
       setEmail("");
       setPassword("");
     } catch (error: unknown) {
-      showToast(error instanceof Error ? error.message : "Something went wrong", "error");
+      signupInProgressRef.current = false;
+      showToast(friendlyAuthError(error), "error");
     }
     setLoading(false);
   }
@@ -240,6 +321,26 @@ export default function AuthPage() {
                   className={INPUT_CLASS}
                 />
               )}
+              {!isLogin && (
+                <label className="login-page-body flex cursor-pointer items-start gap-2.5 text-xs leading-relaxed">
+                  <input
+                    type="checkbox"
+                    checked={acceptedTerms}
+                    onChange={(e) => setAcceptedTerms(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-600"
+                  />
+                  <span>
+                    I agree to the{" "}
+                    <Link href="/terms" className="login-page-link font-medium underline">
+                      Terms of Service
+                    </Link>{" "}
+                    and{" "}
+                    <Link href="/privacy" className="login-page-link font-medium underline">
+                      Privacy Policy
+                    </Link>
+                  </span>
+                </label>
+              )}
               <button
                 type="submit"
                 disabled={loading}
@@ -265,7 +366,10 @@ export default function AuthPage() {
           {!user && (
             <button
               type="button"
-              onClick={() => setIsLogin(!isLogin)}
+              onClick={() => {
+                setIsLogin(!isLogin);
+                if (isLogin) setAcceptedTerms(false);
+              }}
               className="login-page-link mt-4 w-full text-center text-sm font-medium hover:underline"
             >
               {isLogin ? "Need an account? Sign up" : "Already have an account? Login"}

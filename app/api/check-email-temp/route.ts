@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import { isDisposableEmail } from "../../lib/temp-email";
 
@@ -8,14 +7,6 @@ export async function POST(req: NextRequest) {
     const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
     const { allowed } = await rateLimit(`check-email-temp:${ip}`, 30, 60_000);
     if (!allowed) return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ disposable: false });
-    }
-    try { await verifyIdToken(authHeader.slice(7)); } catch {
-      return NextResponse.json({ disposable: false });
-    }
 
     const { email } = await req.json();
     if (!email || typeof email !== "string") {

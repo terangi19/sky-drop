@@ -49,6 +49,15 @@ service cloud.firestore {
         || resource.data.disputeStatus == "pending"
         || resource.data.disputeStatus == "under_review";
     }
+    // Owner may mark KYC as pending after submitting ID photos (not self-approve).
+    function isKycPendingSelfSubmit() {
+      return request.resource.data.kycStatus == 'pending'
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['kycStatus', 'kycSubmittedAt'])
+        && (!('kycStatus' in resource.data)
+          || resource.data.kycStatus == 'unsubmitted'
+          || resource.data.kycStatus == 'rejected');
+    }
 
     match /listings/{listingId} {
       allow read: if true;
@@ -72,11 +81,13 @@ service cloud.firestore {
         && request.auth.uid == profileId
         && request.resource.data.email == request.auth.token.email;
       // Users can update their own profile, but CANNOT write KYC verdict fields —
-      // those are server-only (Admin SDK via API routes).
+      // those are server-only (Admin SDK via API routes). Exception: owner may set
+      // kycStatus to pending when submitting verification photos.
       allow update: if request.auth != null
         && request.auth.uid == profileId
-        && !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['kycStatus', 'kycReviewedAt', 'kycReviewedBy', 'kycBannedReason']);
+        && (!request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['kycStatus', 'kycReviewedAt', 'kycReviewedBy', 'kycBannedReason'])
+          || isKycPendingSelfSubmit());
     }
 
     // KYC submissions — ID photos and identity data.
@@ -92,9 +103,13 @@ service cloud.firestore {
       // Owner may update only to resubmit (status reset to pending), not to approve themselves.
       allow update: if request.auth != null
         && request.auth.uid == uid
+        && isEmailVerified()
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['idImageUrl', 'selfieImageUrl', 'submittedAt', 'status'])
-        && request.resource.data.status == 'pending';
+        && request.resource.data.status == 'pending'
+        && (!('status' in resource.data)
+          || resource.data.status == 'rejected'
+          || resource.data.status == 'pending');
       allow delete: if false; // no client deletes — admin only via server SDK
     }
 
@@ -117,6 +132,10 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.resource.data.participants != null
         && request.auth.token.email in request.resource.data.participants;
+      allow update: if request.auth != null
+        && resource.data.participants != null
+        && request.auth.token.email in resource.data.participants
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt']);
       allow delete: if request.auth != null
         && resource.data.participants != null
         && request.auth.token.email in resource.data.participants;

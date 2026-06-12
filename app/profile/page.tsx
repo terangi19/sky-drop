@@ -37,7 +37,9 @@ import { getListingBlockReason } from "../lib/seller-eligibility";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { auth, db, storage, onAuthStateChanged } from "../lib/firebase";
 import { sendPhoneCode, verifyPhoneCode, maskPhone, isPhoneDevMode, formatNZPhone } from "../lib/phone-auth";
+import { claimVerifiedPhoneOnServer } from "../lib/phone-verification-client";
 import { checkImage } from "../lib/nsfw";
+import { kycSubmitErrorMessage, notifyKycSubmitted, submitKycPhoto } from "../lib/kyc-submit.client";
 import { showToast } from "../components/Toast";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
 import { countSellerSales } from "../lib/arrange-purchase-status";
@@ -169,6 +171,7 @@ const [phoneCode, setPhoneCode] = useState("");
 const [phoneSent, setPhoneSent] = useState(false);
 const [phoneMsg, setPhoneMsg] = useState("");
 const [phoneVerifying, setPhoneVerifying] = useState(false);
+const [sendingPhone, setSendingPhone] = useState(false);
 const [phoneCooldown, setPhoneCooldown] = useState(0);
 const [followingList, setFollowingList] = useState<{sellerEmail: string; sellerId: string; createdAt: Timestamp}[]>([]);
 const [followerCount, setFollowerCount] = useState(0);
@@ -756,20 +759,35 @@ const tabs = [
 
   // Phone verification
   async function handleSendPhoneCode() {
-    if (!user || !phone) return;
+    if (!user || !phone || sendingPhone || phoneCooldown > 0) {
+      console.warn("[profile] handleSendPhoneCode — blocked", { user: !!user, phone: !!phone, sendingPhone, phoneCooldown });
+      return;
+    }
+    console.log("[profile] handleSendPhoneCode — user click", { phone });
+    setSendingPhone(true);
     setPhoneMsg("Sending code...");
     setPhoneCode("");
-    const result = await sendPhoneCode(phone);
-    if (result.sent) {
-      setPhoneSent(true);
-      setPhoneMsg(
-        result.devMode || isPhoneDevMode()
-          ? "Development mode: no SMS is sent. Enter code 000000."
-          : `SMS sent to ${maskPhone(result.formattedPhone || phone)}`
-      );
+    try {
+      const result = await sendPhoneCode(phone);
+      console.log("[profile] sendPhoneCode result", result);
+      if (result.sent) {
+        setPhoneSent(true);
+        setPhoneMsg(
+          result.devMode || isPhoneDevMode()
+            ? "Development mode: no SMS is sent. Enter code 000000."
+            : `SMS sent to ${maskPhone(result.formattedPhone || phone)}`
+        );
+      } else {
+        const err = result.error || "Failed to send verification code.";
+        setPhoneMsg(
+          err.includes("Too many attempts")
+            ? "Too many SMS requests. Wait a few minutes before requesting another code."
+            : err
+        );
+      }
       setPhoneCooldown(30);
-    } else {
-      setPhoneMsg(result.error || "Failed to send verification code.");
+    } finally {
+      setSendingPhone(false);
     }
   }
 
@@ -792,9 +810,19 @@ const tabs = [
       if (user) {
         const formattedPhone = formatNZPhone(phone);
         setPhone(formattedPhone);
+        const claim = await claimVerifiedPhoneOnServer(formattedPhone);
+        if (!claim.success) {
+          setPhoneVerified(false);
+          setPhoneMsg(claim.error || "Could not link phone number.");
+          showToast(claim.error || "Could not link phone number.", "error");
+          setPhoneVerifying(false);
+          return;
+        }
+        const linkedPhone = claim.phone || formattedPhone;
+        setPhone(linkedPhone);
         await setDoc(doc(db, "profiles", user.uid), {
-          phone: formattedPhone,
-          phoneNumber: formattedPhone,
+          phone: linkedPhone,
+          phoneNumber: linkedPhone,
           phoneVerified: true,
           phoneVerifiedAt: serverTimestamp(),
           verified: true,
@@ -807,7 +835,12 @@ const tabs = [
         }
       }
     } else {
-      setPhoneMsg(result.error || "Invalid code.");
+      const err = result.error || "Invalid code.";
+      setPhoneMsg(
+        err.includes("Too many attempts")
+          ? "Too many verification attempts. Wait a few minutes before trying again."
+          : err
+      );
     }
     setPhoneVerifying(false);
   }
@@ -1416,9 +1449,9 @@ const tabs = [
                       disabled={phoneSent && !phoneVerified}
                       className={`${fieldInput} sm:flex-1 disabled:opacity-50`} />
                     {!phoneVerified && (
-                      <button onClick={handleSendPhoneCode} disabled={!phone || phoneVerifying || phoneCooldown > 0}
+                      <button onClick={handleSendPhoneCode} disabled={!phone || sendingPhone || phoneVerifying || phoneCooldown > 0}
                         className="shrink-0 rounded-xl bg-sky-500 px-4 py-3 text-sm font-semibold text-white hover:bg-sky-400 disabled:opacity-40 transition-all active:scale-[0.98]">
-                        {phoneVerifying ? "..." : phoneSent ? phoneCooldown > 0 ? `Resend (${phoneCooldown}s)` : "Resend code" : "Send code"}
+                        {sendingPhone ? "Sending..." : phoneSent ? phoneCooldown > 0 ? `Resend (${phoneCooldown}s)` : "Resend code" : "Send code"}
                       </button>
                     )}
                   </div>
@@ -1475,46 +1508,23 @@ const tabs = [
                         <button onClick={async () => {
                           if (!user?.uid || !poaFile) return;
                           const nsfw = await checkImage(poaFile);
-                          if (!nsfw.safe) { showToast("Photo could not be accepted", "error"); setPoaFile(null); return; }
+                          if (!nsfw.safe) {
+                            showToast(nsfw.reason ? `Photo not accepted: ${nsfw.reason}` : "Photo could not be accepted", "error");
+                            setPoaFile(null);
+                            return;
+                          }
                           setPoaUploading(true);
                           try {
-                            const { ref, uploadBytes, getDownloadURL } = await import("firebase/storage");
-                            const { storage } = await import("../lib/firebase");
-                            const ts = Date.now();
-                            const ext = poaFile.name.split(".").pop();
-                            const photoRef = ref(storage, `kyc/${user.uid}/${ts}_photo.${ext}`);
-                            await uploadBytes(photoRef, poaFile);
-                            const photoUrl = await getDownloadURL(photoRef);
-                            // Write submission to locked kycSubmissions collection — NOT to the public profiles doc.
-                            // Image URLs are never stored on the profile (which is publicly readable).
-                            await setDoc(doc(db, "kycSubmissions", user.uid), {
-                              uid: user.uid,
-                              email: user.email || "",
-                              idImageUrl: photoUrl,
-                              selfieImageUrl: photoUrl,
-                              status: "pending",
-                              submittedAt: Timestamp.now(),
-                            }, { merge: true });
-                            // Only write the status flag to profiles — no image URL
-                            await setDoc(doc(db, "profiles", user.uid), {
-                              kycStatus: "pending",
-                              kycSubmittedAt: Timestamp.now(),
-                            }, { merge: true });
+                            await submitKycPhoto(user, poaFile);
                             setPoaStatus("pending");
-                            setPoaDocumentURL(""); // image URL stays in kycSubmissions only
+                            setPoaDocumentURL("");
                             setPoaFile(null);
                             showToast("KYC photo submitted for review.", "success");
-
-                            // Notify admins
-                            try {
-                              const token = await user.getIdToken();
-                              fetch("/api/admin/kyc-alert", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                                body: JSON.stringify({ uid: user.uid, email: user.email, username: user.displayName || "" }),
-                              }).catch(() => {});
-                            } catch {}
-                          } catch (e) { console.error(e); showToast("Failed to upload photo", "error"); }
+                            await notifyKycSubmitted(user, username);
+                          } catch (e) {
+                            console.error(e);
+                            showToast(e instanceof Error ? e.message : kycSubmitErrorMessage(e), "error");
+                          }
                           setPoaUploading(false);
                         }} disabled={poaUploading}
                           className="w-full rounded-xl bg-sky-500 py-3 text-sm font-semibold text-white hover:bg-sky-400 disabled:opacity-50 transition-all active:scale-[0.98]">

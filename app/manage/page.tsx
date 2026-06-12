@@ -52,6 +52,7 @@ export default function ManageDashboardPage() {
         <StatCard label="Total Sales" value={data.totalSales ?? 0} href="/manage/analytics" />
         <StatCard label="Open Disputes" value={data.openDisputes ?? 0} href="/manage/disputes" />
         <StatCard label="Pending Reports" value={data.pendingReports ?? 0} href="/manage/reports" />
+        <StatCard label="KYC Verifications" value={data.pendingVerifications ?? 0} href="/admin/verification" />
       </StatGrid>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -89,6 +90,7 @@ export default function ManageDashboardPage() {
               { href: "/manage/users", label: "Manage Users" },
               { href: "/manage/reports", label: "Review Reports" },
               { href: "/manage/disputes", label: "Open Disputes" },
+              { href: "/admin/verification", label: "KYC Verification" },
               { href: "/manage/settings", label: "Site Settings" },
             ].map((link) => (
               <Link

@@ -161,14 +161,19 @@ export default function NotificationsPage() {
 
   async function markAllAsRead() {
     if (!user?.email) return;
+    const unreadIds = notifications.filter((n) => !n.read).map((n) => n.id);
+    if (unreadIds.length === 0) return;
     try {
-      const unreadIds = notifications.filter((n) => !n.read).map((n) => n.id);
-      for (const id of unreadIds) {
-        await updateDoc(doc(db, "notifications", id), { read: true });
-      }
+      await Promise.all(
+        unreadIds.map((id) => updateDoc(doc(db, "notifications", id), { read: true }))
+      );
+      setNotifications((prev) =>
+        prev.map((n) => (n.read ? n : { ...n, read: true }))
+      );
       showToast("All notifications marked as read");
     } catch (e) {
       console.error("Mark all read error:", e);
+      showToast("Could not mark notifications as read. Try again.", "error");
     }
   }
 
