@@ -100,31 +100,9 @@ export async function verifyIdToken(idToken: string): Promise<{ uid: string; ema
     }
   }
 
-  if (process.env.NODE_ENV === "production") {
-    throw new Error(
-      "Server auth is not configured. Set FIREBASE_SERVICE_ACCOUNT in Vercel environment variables."
-    );
-  }
-
-  // Local dev only — decode JWT without signature verification
-  try {
-    const parts = trimmed.split(".");
-    if (parts.length !== 3) throw new Error("Invalid token format");
-    const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
-    if (!payload.sub) throw new Error("Invalid token payload");
-    const exp = typeof payload.exp === "number" ? payload.exp : 0;
-    if (exp > 0 && exp * 1000 < Date.now()) {
-      throw new Error("Session expired. Please sign out and sign in again.");
-    }
-    return {
-      uid: payload.sub,
-      email: payload.email,
-      email_verified: payload.email_verified,
-    };
-  } catch (e: unknown) {
-    if (e instanceof Error && e.message.includes("Session expired")) throw e;
-    throw new Error("Invalid or expired token");
-  }
+  throw new Error(
+    "Server auth is not configured. Set FIREBASE_SERVICE_ACCOUNT in Vercel environment variables."
+  );
 }
 
 // ==================== Firestore REST API fallback ====================
