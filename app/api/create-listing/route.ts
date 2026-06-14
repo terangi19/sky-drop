@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken, getAdminDb, getServerDb, isAdminInitialized, getAdminAuth } from "../../lib/firebase-admin";
+import { verifyIdToken, getAdminDb, getServerDb, isAdminInitialized } from "../../lib/firebase-admin";
+import { parseIpFromRequest } from "../../lib/geo-check";
 import { rateLimit } from "../../lib/rate-limit";
+import { DEFAULT_MAX_JSON_BYTES, isContentLengthOverLimit, payloadTooLargeResponse } from "../../lib/request-body";
 import { sanitizeListingContent } from "../../lib/sanitize";
-import { profileHasVerifiedPhone } from "../../lib/seller-eligibility";
+import { kycRequiredBlockMessage } from "../../lib/seller-eligibility";
 
 const SCAM_KEYWORDS = [
   "bank transfer only", "crypto only", "pay outside", "whatsapp",
@@ -50,11 +52,12 @@ async function getSellerProfileForUid(uid: string, email?: string | null) {
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+    const ip = parseIpFromRequest(req.headers);
     const { allowed } = await rateLimit(`create-listing:${ip}`, 5, 60_000);
     if (!allowed) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }
+    if (isContentLengthOverLimit(req, 512 * 1024)) return payloadTooLargeResponse();
 
     const authHeader = req.headers.get("authorization");
     if (!authHeader?.startsWith("Bearer ")) {
@@ -68,6 +71,10 @@ export async function POST(req: NextRequest) {
       const message =
         authErr instanceof Error ? authErr.message : "Invalid or expired token";
       return NextResponse.json({ error: message }, { status: 401 });
+    }
+
+    if (!token.email_verified) {
+      return NextResponse.json({ error: "Please verify your email before creating a listing" }, { status: 403 });
     }
 
     const body = await req.json();
@@ -142,29 +149,8 @@ export async function POST(req: NextRequest) {
         if (sellerProfile.restricted) {
           return NextResponse.json({ error: "Your account is restricted. Contact support." }, { status: 403 });
         }
-        let emailVerified = !!token.email_verified;
-        if (!emailVerified) {
-          try {
-            const userRecord = await getAdminAuth().getUser(token.uid);
-            emailVerified = !!userRecord.emailVerified;
-          } catch {}
-        }
-        if (!emailVerified) {
-          return NextResponse.json({ error: "Please verify your email address before creating a listing." }, { status: 403 });
-        }
-        if (body.paymentType !== "contact") {
-          let authPhone: string | undefined;
-          try {
-            const userRecord = await getAdminAuth().getUser(token.uid);
-            authPhone = userRecord.phoneNumber;
-          } catch {
-            /* use profile only */
-          }
-          if (!profileHasVerifiedPhone(sellerProfile, authPhone)) {
-            return NextResponse.json({
-              error: "Please add and verify your phone number in Profile → Identity verification.",
-            }, { status: 403 });
-          }
+        if (!kycApproved) {
+          return NextResponse.json({ error: kycRequiredBlockMessage() }, { status: 403 });
         }
       } else {
         return NextResponse.json({ error: "Please complete your profile before creating a listing." }, { status: 403 });

@@ -23,6 +23,7 @@ export type MarketplaceListingCardProps = {
   onMakeOffer: (item: Record<string, any>) => void;
   sellerReviewStats: Record<string, { avg: number; count: number }>;
   sellerBadges: Record<string, string>;
+  sellerFullyVerified?: Record<string, boolean>;
   onPromote?: (item: Record<string, any>) => void;
   onDelete?: (item: Record<string, any>) => void;
   accent?: "sky" | "sky" | "sky";
@@ -86,6 +87,7 @@ export default function MarketplaceListingCard({
   onMakeOffer,
   sellerReviewStats,
   sellerBadges,
+  sellerFullyVerified = {},
   onPromote,
   onDelete,
   accent = "sky",
@@ -490,6 +492,11 @@ export default function MarketplaceListingCard({
                       <span className="truncate text-[14px] font-semibold text-[var(--cream)]">
                         {username}
                       </span>
+                      {sellerFullyVerified?.[email || ""] && (
+                        <span className={`rounded border px-1.5 py-0.5 text-[9px] font-bold border-sky-500/30 bg-sky-500/10 text-sky-400`}>
+                          ✓ Verified
+                        </span>
+                      )}
                       {sellerBadges[email || ""] === "legendary" && (
                         <span className={`rounded border px-1.5 py-0.5 text-[9px] font-bold animate-pulse ${CREAM_CHIP}`}>
                           👑 The Five

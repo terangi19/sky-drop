@@ -16,6 +16,7 @@ import { addDoc, collection, doc, getDoc, getDocs, increment, onSnapshot, query,
 import { auth, db, onAuthStateChanged } from "../../../lib/firebase";
 import { detectScam } from "../../../lib/scamdetection";
 import { calculateTrustScore } from "../../../lib/trustscore";
+import { isFullyVerifiedSeller, profileEmailVerified } from "../../../lib/seller-verified";
 import { detectSuspiciousPrice } from "../../../lib/pricedetection";
 import { safeGetDoc, safeOnSnapshot, parseFirestoreError, isOnline } from "../../../lib/firestore";
 import { getFreshIdToken } from "../../../lib/api-auth";
@@ -123,6 +124,8 @@ interface SellerProfile {
   verified?: boolean;
   trustedSeller?: boolean;
   phoneVerified?: boolean;
+  emailVerified?: boolean;
+  kycStatus?: string;
   profileBadge?: string;
   [key: string]: unknown;
 }
@@ -522,7 +525,7 @@ export default function ListingPage() {
     if (!sellerProfile) return null;
     const memberDate = sellerProfile.memberSince?.toDate ? sellerProfile.memberSince.toDate() : null;
     return calculateTrustScore({
-      emailVerified: true,
+      emailVerified: profileEmailVerified(sellerProfile),
       hasProfile: true,
       hasBio: !!sellerProfile.bio,
       hasPhoto: !!sellerProfile.photoURL,
@@ -532,10 +535,14 @@ export default function ListingPage() {
     });
   }, [sellerProfile, sellerReportsCount, sellerReviewData?.count]);
 
+  const isFullyVerified = useMemo(
+    () => (sellerProfile ? isFullyVerifiedSeller(sellerProfile) : false),
+    [sellerProfile]
+  );
+
   const isNotVerified = useMemo(() => {
     if (!sellerProfile) return false;
-    const hasVerified = sellerProfile?.verified || sellerProfile?.phoneVerified;
-    return !hasVerified;
+    return !isFullyVerifiedSeller(sellerProfile);
   }, [sellerProfile]);
 
   const isNewSeller = useMemo(() => {
@@ -545,7 +552,7 @@ export default function ListingPage() {
     if (daysOld > 7) return false;
     if (sellerProfile.photoURL) return false;
     if ((sellerReviewData?.count || 0) > 0) return false;
-    if (sellerProfile.verified) return false;
+    if (isFullyVerifiedSeller(sellerProfile)) return false;
     return true;
   }, [sellerProfile, sellerReviewData?.count]);
 
@@ -1903,7 +1910,7 @@ Service Status: 🟢 Inquiry Active`;
                       <span className="truncate text-sm font-medium text-[var(--foreground)]">
                         {user?.email === listing.sellerEmail ? "You" : sellerName}
                       </span>
-                      {sellerProfile?.verified && (
+                      {isFullyVerified && (
                         <span className="shrink-0 text-[10px] text-sky-400">Verified</span>
                       )}
                       {sellerProfile?.trustedSeller && (

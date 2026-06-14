@@ -32,12 +32,8 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['reservedAt', 'reservedBy']);
     }
-    function isSkyAdminEmail() {
-      return request.auth.token.email in ['rangitr16@gmail.com'];
-    }
     function isAdmin() {
       return request.auth.token.admin == true
-        || isSkyAdminEmail()
         || (exists(/databases/$(database)/documents/config/adminEmails)
           && request.auth.token.email in get(/databases/$(database)/documents/config/adminEmails).data.emails);
     }
@@ -142,7 +138,7 @@ service cloud.firestore {
     }
 
     // Purchases: server-side writes via API routes + webhook.
-    // Client may only update status/tracking — never sensitive/stripe fields.
+    // Status transitions are server-only (Admin SDK); client may update tracking/shipping only.
     match /purchases/{purchaseId} {
       allow read: if request.auth != null
         && (resource.data.buyerEmail == request.auth.token.email
@@ -151,29 +147,19 @@ service cloud.firestore {
       allow update: if request.auth != null
         && (resource.data.buyerEmail == request.auth.token.email
           || resource.data.sellerEmail == request.auth.token.email)
-        // Only allow status/tracking/delivery fields from client; blocks everything else
+        // Client-safe fields only; status/deliveredAt are server-only via API
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['status', 'deliveredAt', 'tracking', 'trackingNumber', 'updatedAt', 'reviewed'])
-        // Seller cannot set delivered status (buyer confirms receipt)
-        && !(resource.data.sellerEmail == request.auth.token.email
-          && request.resource.data.status == "delivered")
+          .hasOnly(['tracking', 'trackingNumber', 'updatedAt', 'reviewed', 'shippingAddress', 'disputeStatus'])
         // During active dispute, only disputeStatus field may change
         && (!isDisputeActive()
           || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['disputeStatus', 'updatedAt']));
     }
 
-    // Notifications: client may read own and mark as read.
+    // Notifications: server creates via API; clients read own and mark as read.
     match /notifications/{notificationId} {
       allow read: if request.auth != null
         && resource.data.targetEmail == request.auth.token.email;
-      allow create: if request.auth != null
-        && request.resource.data.targetEmail is string
-        && request.resource.data.fromEmail is string
-        && request.resource.data.type is string
-        && request.resource.data.title is string
-        && request.resource.data.message is string
-        && request.resource.data.read == false
-        && request.resource.data.targetEmail != request.auth.token.email;
+      allow create: if false;
       allow update: if request.auth != null
         && resource.data.targetEmail == request.auth.token.email
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'updatedAt']);
@@ -207,7 +193,8 @@ service cloud.firestore {
 
     match /tradePosts/{postId} {
       allow read: if true;
-      allow create: if request.auth != null && isEmailVerified();
+      allow create: if request.auth != null && isEmailVerified()
+        && request.resource.data.sellerEmail == request.auth.token.email;
       allow update: if request.auth != null
         && (resource.data.sellerEmail == request.auth.token.email
           || isCheckoutReservationUpdate()
@@ -250,7 +237,8 @@ service cloud.firestore {
 
     match /tradeShouts/{shoutId} {
       allow read: if true;
-      allow create: if request.auth != null && isEmailVerified();
+      allow create: if request.auth != null && isEmailVerified()
+        && request.resource.data.by == request.auth.token.email;
       allow delete: if request.auth != null
         && resource.data.by == request.auth.token.email;
     }
@@ -305,7 +293,8 @@ service cloud.firestore {
       allow read: if request.auth != null
         && (resource.data.referrerEmail == request.auth.token.email
           || resource.data.referredEmail == request.auth.token.email);
-      allow create: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.referrerEmail == request.auth.token.email;
       allow update: if request.auth != null
         && resource.data.referrerEmail == request.auth.token.email;
     }
@@ -313,14 +302,16 @@ service cloud.firestore {
     match /referralEvents/{eventId} {
       allow read: if request.auth != null
         && resource.data.referrerEmail == request.auth.token.email;
-      allow create: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.referrerEmail == request.auth.token.email;
     }
 
     match /jobApplications/{applicationId} {
       allow read: if request.auth != null
         && (resource.data.employerEmail == request.auth.token.email
           || resource.data.applicantEmail == request.auth.token.email);
-      allow create: if request.auth != null && isEmailVerified();
+      allow create: if request.auth != null && isEmailVerified()
+        && request.resource.data.applicantEmail == request.auth.token.email;
       allow update: if request.auth != null
         && resource.data.employerEmail == request.auth.token.email;
     }
@@ -349,13 +340,14 @@ service cloud.firestore {
 
     match /hustlerLinks/{linkId} {
       allow read: if true;
-      allow create: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.promoterId == request.auth.uid;
       allow update: if request.auth != null
         && resource.data.promoterId == request.auth.uid;
     }
 
     match /hustlerClicks/{clickId} {
-      allow create: if true;
+      allow create: if request.auth != null;
       allow read: if request.auth != null;
     }
 
@@ -363,13 +355,16 @@ service cloud.firestore {
       allow read: if request.auth != null
         && (resource.data.promoterId == request.auth.uid
           || resource.data.sellerId == request.auth.uid);
-      allow create: if request.auth != null;
-      allow update: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.promoterId == request.auth.uid;
+      allow update: if request.auth != null
+        && resource.data.promoterId == request.auth.uid;
     }
 
     match /hustlerEvents/{eventId} {
       allow read: if true;
-      allow create: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.creatorId == request.auth.uid;
     }
 
     match /disputes/{disputeId} {

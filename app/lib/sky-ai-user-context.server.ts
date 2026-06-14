@@ -1,5 +1,6 @@
 import { getAdminDb, isAdminInitialized } from "./firebase-admin";
 import { canSellerConfirmArrangeSale } from "./arrange-purchase-status";
+import { isFullyVerifiedSeller } from "./seller-verified";
 import type { SkyAiUserContext, SkyAiUserTodo } from "./sky-ai-user-context";
 
 const THREE_DAYS_MS = 3 * 86400000;
@@ -60,7 +61,7 @@ export async function loadSkyAiUserContext(
     const data = snap.data();
     if (data) {
       if (data.emailVerified) emailVerified = true;
-      sellerVerified = !!(data.verified || data.phoneVerified);
+      sellerVerified = isFullyVerifiedSeller(data);
       stripeConnected = !!data.stripeAccountId;
       kycStatus = String(data.kycStatus || "none");
       const memberSince = data.memberSince || data.createdAt;

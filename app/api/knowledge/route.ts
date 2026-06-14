@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken } from "../../lib/firebase-admin";
 import { isAdminEmail } from "../../lib/admin-check";
+import { parseIpFromRequest } from "../../lib/geo-check";
 import { KNOWLEDGE_CATEGORIES, matchKnowledge, type KnowledgeDoc, SEED_KNOWLEDGE } from "../../lib/knowledge-base";
+import { rateLimit } from "../../lib/rate-limit";
+import { DEFAULT_MAX_JSON_BYTES, isContentLengthOverLimit, payloadTooLargeResponse } from "../../lib/request-body";
 
 const DB_COLLECTION = "knowledge";
+const MAX_KNOWLEDGE_DOCS = 200;
 
 function getDb() {
   const { getFirestore } = require("firebase-admin/firestore");
@@ -15,6 +19,12 @@ function getDb() {
 
 export async function GET(req: NextRequest) {
   try {
+    const ip = parseIpFromRequest(req.headers);
+    const { allowed } = await rateLimit(`knowledge-read:${ip}`, 60, 60_000);
+    if (!allowed) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+
     const { searchParams } = new URL(req.url);
     const query = searchParams.get("query") || "";
     const category = searchParams.get("category") || "";
@@ -41,7 +51,7 @@ export async function GET(req: NextRequest) {
 
     if (db) {
       try {
-        let q: any = db.collection(DB_COLLECTION).orderBy("priority", "desc");
+        let q: any = db.collection(DB_COLLECTION).orderBy("priority", "desc").limit(MAX_KNOWLEDGE_DOCS);
         if (category && category !== "all") q = q.where("category", "==", category);
         const snap = await q.get();
         docs = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }) as KnowledgeDoc);
@@ -70,6 +80,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    if (isContentLengthOverLimit(req, DEFAULT_MAX_JSON_BYTES)) return payloadTooLargeResponse();
+
     const authHeader = req.headers.get("authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

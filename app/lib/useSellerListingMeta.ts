@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "./firebase";
+import { isFullyVerifiedSeller } from "./seller-verified";
 
 /** Seller review averages and profile badges for listing cards. */
 export function useSellerListingMeta(listings: { sellerEmail?: string }[]) {
@@ -11,6 +12,7 @@ export function useSellerListingMeta(listings: { sellerEmail?: string }[]) {
   >({});
   const [sellerBadges, setSellerBadges] = useState<Record<string, string>>({});
   const [sellerHandles, setSellerHandles] = useState<Record<string, string>>({});
+  const [sellerFullyVerified, setSellerFullyVerified] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (listings.length === 0) return;
@@ -70,6 +72,7 @@ export function useSellerListingMeta(listings: { sellerEmail?: string }[]) {
 
       const badges: Record<string, string> = {};
       const handles: Record<string, string> = {};
+      const verifiedMap: Record<string, boolean> = {};
       for (let i = 0; i < uniqueEmails.length; i += 10) {
         const chunk = uniqueEmails.slice(i, i + 10);
         try {
@@ -82,6 +85,7 @@ export function useSellerListingMeta(listings: { sellerEmail?: string }[]) {
             const email = data.email as string;
             if (data.profileBadge) badges[email] = data.profileBadge as string;
             if (data.username) handles[email] = data.username as string;
+            if (isFullyVerifiedSeller(data)) verifiedMap[email] = true;
           });
         } catch (e) {
           console.error("Badge fetch error:", e);
@@ -89,6 +93,7 @@ export function useSellerListingMeta(listings: { sellerEmail?: string }[]) {
       }
       if (!cancelled) setSellerBadges(badges);
       if (!cancelled) setSellerHandles(handles);
+      if (!cancelled) setSellerFullyVerified(verifiedMap);
     })();
 
     return () => {
@@ -96,5 +101,5 @@ export function useSellerListingMeta(listings: { sellerEmail?: string }[]) {
     };
   }, [listings]);
 
-  return { sellerReviewStats, sellerBadges, sellerHandles };
+  return { sellerReviewStats, sellerBadges, sellerHandles, sellerFullyVerified };
 }

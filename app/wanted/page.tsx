@@ -77,7 +77,7 @@ export default function WantedPage() {
   const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("All");
 
-  const { sellerReviewStats, sellerBadges } = useSellerListingMeta(listings);
+  const { sellerReviewStats, sellerBadges, sellerFullyVerified } = useSellerListingMeta(listings);
 
   useEffect(() => {
     const refreshRecentlyViewed = () => setRecentlyViewed(getRecentlyViewed());
@@ -443,6 +443,7 @@ export default function WantedPage() {
                   onMakeOffer={(listing) => router.push(`/post/listing/${listing.id}`)}
                   sellerReviewStats={sellerReviewStats}
                   sellerBadges={sellerBadges}
+                  sellerFullyVerified={sellerFullyVerified}
                 />
               ))}
             </div>

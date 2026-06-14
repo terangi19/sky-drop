@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken, getAdminDb, isAdminInitialized } from "../../../lib/firebase-admin";
-import { isAdminEmail } from "../../../lib/admin-check";
+import { getAdminDb, isAdminInitialized } from "../../../lib/firebase-admin";
+import { AdminAuthError, requireAdminFromRequest } from "../../../lib/admin-request";
 import { rateLimit } from "../../../lib/rate-limit";
 
 export async function POST(req: NextRequest) {
@@ -11,19 +11,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }
 
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "No token" }, { status: 401 });
-    }
-
-    const decoded = await verifyIdToken(authHeader.slice(7));
-    if (!decoded.uid || !decoded.email) {
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
-    }
-
-    if (!isAdminEmail(decoded.email)) {
-      return NextResponse.json({ error: "Admin only" }, { status: 403 });
-    }
+    const decoded = await requireAdminFromRequest(req);
 
     if (!isAdminInitialized()) {
       return NextResponse.json({ error: "Server not configured" }, { status: 500 });
@@ -47,8 +35,11 @@ export async function POST(req: NextRequest) {
     }, { merge: true });
 
     return NextResponse.json({ success: true, email: decoded.email });
-  } catch (e: any) {
-    console.error("[self-approve-kyc] Error:", e?.message || e);
+  } catch (e: unknown) {
+    if (e instanceof AdminAuthError) {
+      return NextResponse.json({ error: e.message }, { status: e.status });
+    }
+    console.error("[self-approve-kyc] Error:", e instanceof Error ? e.message : e);
     return NextResponse.json({ error: "Failed" }, { status: 500 });
   }
 }

@@ -23,8 +23,9 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 - One account per person. Multiple accounts for abuse is against Terms.
 
 ## SELLER ELIGIBILITY & LIMITS
-- Email verification required before creating a listing or buying.
-- Phone verification available on Profile — adds a "Verified" badge to listings.
+- ID verification (KYC) required before creating a listing or selling.
+- Email verification required before buying (not required to sell once KYC is approved).
+- Phone verification is optional on Profile — adds a "Verified" badge to listings when combined with email and KYC.
 - New sellers: max 5 active listings at once.
 - After 3 completed sales: limit increases to 25 active listings.
 - After 10 completed sales: unlimited active listings.
@@ -175,7 +176,7 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 - Profile (/profile): avatar, username, bio (max 300 chars), region (NZ region), member since date, stats (active listings, total sales, review count, average rating).
 - Edit: click Edit Profile. Username must be unique and is used in public seller URLs (/seller/username).
 - Avatar: click current avatar → upload new image. Default = first letter of username.
-- Phone verification: add phone number → receive SMS code → verified badge shown on your listings.
+- Phone verification (optional): add phone number → receive SMS code → contributes to verified seller badge on listings.
 - Stripe Connect: Profile → Payment settings → click Connect with Stripe → complete Stripe Express onboarding.
 - Bank details (for Arrange Purchase): Profile → Payment settings → enter bank account name and number → Save.
 - Following: view sellers you follow on the Following tab of Profile.
@@ -397,7 +398,7 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 - **"Stripe vs Arrange?"** → Stripe = card payment, online, buyer protection, dispute available. Arrange = agree in chat, bank transfer or cash, no dispute protection.
 - **"How do I open a dispute?"** → Purchases → find the order → Open Dispute. Stripe purchases only, within 7 days of delivery.
 - **"How do I edit my listing?"** → My Listings (/list-list) → Edit, or from the listing page → Edit Listing.
-- **"Why can't I post a listing?"** → Check email is verified. Make sure you haven't hit the active listing limit (5 for new sellers).
+- **"Why can't I post a listing?"** → Complete ID verification (KYC) on Profile → Verification. Make sure you haven't hit the active listing limit (5 for new sellers).
 - **"How do I connect Stripe?"** → Profile → Payment settings → Connect with Stripe → complete Stripe Express onboarding.
 - **"Where do I see my orders?"** → Buying: /purchases. Selling: /sales.
 - **"Can I sell pets?"** → Yes — Physical listing, category Other. Include breed, age, vaccinations. Must be legal in NZ.

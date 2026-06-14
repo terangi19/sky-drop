@@ -32,6 +32,7 @@ import {
 
 import NotificationBell from "./NotificationBell";
 import NotificationDropdown from "./NotificationDropdown";
+import SkyDropLogo from "./SkyDropLogo";
 import { useProfile } from "../contexts/ProfileContext";
 import { NotificationItem } from "../../types/firestore";
 import { isAdminEmail } from "../lib/admin-check";
@@ -299,40 +300,7 @@ export default function Navbar() {
         <div className="flex h-16 md:h-20 items-center justify-between px-6">
 
          {/* LEFT */}
-          <Link
-            href="/"
-            className="group flex items-center gap-3 transition-all duration-300 hover:scale-[1.02]"
-          >
-            <div className="relative w-10 h-10 md:w-11 md:h-11 flex-shrink-0">
-              <div className="absolute inset-0 rounded-full bg-sky-400/0 group-hover:bg-sky-400/15 transition-all duration-500 blur-xl" />
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" className="w-full h-full relative z-10 transition-transform duration-500 group-hover:scale-105">
-                <circle cx="16" cy="16" r="14" fill="none" stroke="#38bdf8" strokeWidth="0.4" opacity="0.12" />
-                <circle cx="16" cy="16" r="12" fill="none" stroke="#38bdf8" strokeWidth="0.3" opacity="0.08" />
-                <path d="M2 9 C2 4, 8 1, 16 1 C24 1, 30 4, 30 9"
-                  fill="none" stroke="#38bdf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-[0_0_6px_rgba(56,189,248,0.35)] group-hover:drop-shadow-[0_0_12px_rgba(56,189,248,0.6)] transition-all duration-500" />
-                <path d="M8 9 C8 5.5, 12 3, 16 3 C20 3, 24 5.5, 24 9"
-                  fill="none" stroke="#38bdf8" strokeWidth="0.6" opacity="0.3" strokeLinecap="round" />
-                <path d="M5.5 8 C6 5, 10.5 2.5, 16 2.5"
-                  fill="none" stroke="#38bdf8" strokeWidth="0.5" opacity="0.2" strokeLinecap="round" />
-                <path d="M26.5 8 C26 5, 21.5 2.5, 16 2.5"
-                  fill="none" stroke="#38bdf8" strokeWidth="0.5" opacity="0.2" strokeLinecap="round" />
-                <line x1="6" y1="9.5" x2="10" y2="18" stroke="#38bdf8" strokeWidth="0.8" opacity="0.35" strokeLinecap="round" />
-                <line x1="26" y1="9.5" x2="22" y2="18" stroke="#38bdf8" strokeWidth="0.8" opacity="0.35" strokeLinecap="round" />
-                <line x1="16" y1="9.5" x2="16" y2="18" stroke="#38bdf8" strokeWidth="0.8" opacity="0.35" strokeLinecap="round" />
-                <rect x="10.5" y="18" width="11" height="9" rx="1.5" ry="1.5"
-                  fill="none" stroke="#38bdf8" strokeWidth="1.8" strokeLinejoin="round" className="drop-shadow-[0_0_8px_rgba(56,189,248,0.25)] group-hover:drop-shadow-[0_0_14px_rgba(56,189,248,0.4)] transition-all duration-500" />
-                <line x1="11" y1="21" x2="21" y2="21" stroke="#38bdf8" strokeWidth="1.2" opacity="0.5" strokeLinecap="round" />
-                <path d="M12.5 22.5 L15 22.5" stroke="#38bdf8" strokeWidth="0.8" opacity="0.3" strokeLinecap="round" />
-                <path d="M12.5 24.5 L17 24.5" stroke="#38bdf8" strokeWidth="0.8" opacity="0.2" strokeLinecap="round" />
-                <path d="M18 23 L21 23 L21 20" fill="none" stroke="#38bdf8" strokeWidth="1" opacity="0.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
-            <div className="flex flex-col leading-tight">
-              <span className="text-lg md:text-xl font-black tracking-[0.04em] text-white">
-                SKY<span className="text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.35)] group-hover:drop-shadow-[0_0_16px_rgba(255,255,255,0.5)] transition-all duration-500">DROP</span>
-              </span>
-            </div>
-          </Link>
+          <SkyDropLogo size="md" href="/" />
 
         {/* RIGHT SIDE */}
         <div className="flex items-center gap-4">

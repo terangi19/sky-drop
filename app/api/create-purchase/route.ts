@@ -139,6 +139,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: sellerError }, { status });
     }
 
+    const piTotal = Number(paymentIntent.amount_received || paymentIntent.amount || 0) / 100;
+
     const buyerProfile = await adminGetProfileByEmail(buyerEmail);
     const buyerName = resolveBuyerNameForStorage(body.buyerName, buyerProfile, buyerEmail);
 
@@ -155,7 +157,7 @@ export async function POST(req: NextRequest) {
       shippingAddress: body.shippingAddress || "",
       shippingFee: body.shippingFee || 0,
       processingFee: body.processingFee || 1.0,
-      total: body.total || Number(paymentIntent.amount_received || paymentIntent.amount || 0) / 100,
+      total: piTotal,
       badgeTransfer: body.badgeTransfer || "",
       type: body.type || "physical",
       digitalFileURL: body.digitalFileURL || "",

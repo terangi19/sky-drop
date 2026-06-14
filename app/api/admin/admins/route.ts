@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminDb } from "../../../lib/firebase-admin";
+import { getAdminDb, getAdminAuth } from "../../../lib/firebase-admin";
 import { AdminAuthError, requireAdminFromRequest } from "../../../lib/admin-request";
 import { writeAuditLog } from "../../../lib/admin-utils";
 import { isAdminEmail } from "../../../lib/admin-check";
@@ -8,7 +8,7 @@ import { AdminRole, defaultRoleForEmail, isSuperAdminEmail } from "../../../lib/
 type AdminEntry = { email: string; role: AdminRole; addedAt?: string; addedBy?: string };
 
 function seedAdmins(): AdminEntry[] {
-  const env = process.env.ADMIN_EMAILS || "rangitr16@gmail.com";
+  const env = process.env.ADMIN_EMAILS || "";
   return env.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean).map((email) => ({
     email,
     role: defaultRoleForEmail(email),
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     await requireAdminFromRequest(req);
     const db = getAdminDb();
     const snap = await db.collection("config").doc("adminRoles").get();
-    let admins: AdminEntry[] = snap.exists && Array.isArray(snap.data()?.admins) ? snap.data()!.admins : seedAdmins();
+    const admins: AdminEntry[] = snap.exists && Array.isArray(snap.data()?.admins) ? snap.data()!.admins : seedAdmins();
 
     if (!snap.exists) {
       await db.collection("config").doc("adminRoles").set({ admins });
@@ -74,6 +74,25 @@ export async function POST(req: NextRequest) {
     }
 
     await ref.set({ admins, updatedAt: new Date() });
+
+    // Sync flat admin email list for Firestore rules to read
+    const emailList = admins.map(a => a.email);
+    await db.collection("config").doc("adminEmails").set({ emails: emailList }, { merge: true });
+
+    // Sync Firebase custom claims for all admin users
+    for (const adminEntry of admins) {
+      try {
+        const userRec = await getAdminAuth().getUserByEmail(adminEntry.email);
+        const isSuperAdmin = isSuperAdminEmail(adminEntry.email);
+        if (userRec.customClaims?.admin !== true || userRec.customClaims?.superAdmin !== isSuperAdmin) {
+          await getAdminAuth().setCustomUserClaims(userRec.uid, {
+            admin: true,
+            superAdmin: isSuperAdmin,
+            role: adminEntry.role,
+          });
+        }
+      } catch {}
+    }
 
     await writeAuditLog({
       action: `admin_${action}`,

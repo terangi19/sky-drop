@@ -6,6 +6,7 @@ import { sellerPayoutCents } from "../../lib/purchase-service";
 import { isAdminEmail } from "../../lib/admin-check";
 import { writeAuditLog } from "../../lib/admin-utils";
 import { notifyAdmin } from "../../lib/admin-alerts";
+import { logSecurityWarning } from "../../lib/security-log";
 
 export async function POST(req: NextRequest) {
   try {
@@ -59,6 +60,11 @@ export async function POST(req: NextRequest) {
       const parsedAmount = Number(amount);
       const refundAmount = amount && !isNaN(parsedAmount) ? Math.round(parsedAmount * 100) : undefined;
 
+      const purchaseTotalCents = Math.round((Number(purchaseData.total) || 0) * 100);
+      if (purchaseTotalCents > 0 && refundAmount !== undefined && refundAmount > purchaseTotalCents) {
+        return NextResponse.json({ error: "Refund amount exceeds purchase total" }, { status: 400 });
+      }
+
       const refund = await getStripe().refunds.create({
         payment_intent: piId,
         amount: refundAmount,
@@ -70,6 +76,11 @@ export async function POST(req: NextRequest) {
         status: "refunded",
         refundedAt: new Date(),
         refundId: refund.id,
+      });
+
+      await logSecurityWarning("dispute_refund_issued", `Refund of ${refundAmount ? (refundAmount/100).toFixed(2) : "full"} issued for purchase ${purchaseId}`, {
+        actorEmail: decodedToken.email,
+        metadata: { purchaseId, amount: refundAmount, reason, stripeRefundId: refund.id },
       });
 
       await writeAuditLog({

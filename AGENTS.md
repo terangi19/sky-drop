@@ -222,6 +222,68 @@ If any fail: **block deployment**.
 
 ---
 
+# Security Architecture (Updated June 2026)
+
+## Admin Authorization — Three-Layer Model
+
+```
+Layer 1 (Fastest) — Environment Variable
+  ADMIN_EMAILS=user1@example.com,user2@example.com
+  SUPER_ADMIN_EMAILS=super@example.com
+  isAdminEmail() — synchronous, client & server, no Firestore needed
+
+Layer 2 (Authoritative) — Firestore config/adminRoles document
+  { admins: [{ email: "...", role: "super_admin|admin|moderator|support" }] }
+  isAdminUser() — async, server-only, checked after Layer 1
+  All admin API routes use requireAdminFromRequest() which calls this
+
+Layer 3 (Rules) — Firebase custom claims + Firestore config/adminEmails doc
+  request.auth.token.admin == true (set by syncAdminCustomClaim())
+  config/adminEmails.emails array (synced when adminRoles changes)
+  Used by firestore.rules for collection-level access control
+```
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `app/lib/admin-check.ts` | `isAdminEmail()` — env var only, no hardcoded fallback |
+| `app/lib/admin-check.server.ts` | `isAdminUser()` — Firestore-based, `syncAdminCustomClaim()` |
+| `app/lib/admin-roles.ts` | Role types, `isSuperAdminEmail()` — env var only |
+| `app/lib/admin-request.ts` | `requireAdminFromRequest()` — all admin API routes |
+| `app/lib/admin-alerts.ts` | Admin notifications via Firestore config, no hardcoded emails |
+| `app/lib/rate-limit.ts` | Upstash Redis → Firestore → in-memory fallback |
+| `app/lib/rate-limit-upstash.ts` | Upstash Redis sliding window rate limiter |
+| `app/lib/rate-limit-config.ts` | Centralized rate limit rules for all endpoints |
+| `app/lib/security-log.ts` | Security event logging (console + Firestore + Sentry) |
+
+## Rate Limiting Layers
+
+1. **Upstash Redis** (when `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are set) — distributed, production
+2. **Firestore** (`rateLimits` collection) — cross-instance fallback
+3. **In-memory** (`Map`) — per-instance, dev/edge fallback
+
+All sensitive endpoints have defined limits in `app/lib/rate-limit-config.ts`.
+
+## Security Event Logging
+
+All security-relevant events are logged to:
+- Console (`[security:severity]` prefix)
+- Firestore `securityEvents` collection (admin-reviewable)
+- Sentry (critical events only)
+
+Events tracked: failed admin access, rate limit violations, payment failures, webhook signature failures, dispute actions.
+
+## Environment Variables (New)
+
+```
+UPSTASH_REDIS_REST_URL=     # For distributed rate limiting
+UPSTASH_REDIS_REST_TOKEN=   # For distributed rate limiting
+SUPER_ADMIN_EMAILS=          # Overrides first ADMIN_EMAILS entry
+```
+
+---
+
 ## Final Rule
 
 Awhina should always make listing creation easier, never harder.

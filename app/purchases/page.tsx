@@ -603,7 +603,7 @@ export default function PurchasesPage() {
                   });
                   await updateDoc(doc(db, "purchases", disputeModal.id), { disputeStatus: "open" });
                   await createNotification({
-                    targetEmail: process.env.NEXT_PUBLIC_ADMIN_EMAIL || "rangitr16@gmail.com",
+                    targetEmail: process.env.NEXT_PUBLIC_ADMIN_EMAIL || "admin@skydrop.nz",
                     fromEmail: user!.email!,
                     type: "dispute_opened",
                     title: "New Dispute Opened",

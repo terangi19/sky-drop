@@ -12,7 +12,6 @@ import ScrollToTop from "./ScrollToTop";
 import PageEnter from "./PageEnter";
 
 const Spotlight = dynamic(() => import("./Spotlight"), { ssr: false });
-const SkyAiChat = dynamic(() => import("./SkyAiChat"), { ssr: false });
 const AwhinaPageGuideLayer = dynamic(() => import("./AwhinaPageGuideLayer"), { ssr: false });
 const VerificationBanner = dynamic(() => import("./VerificationBanner"), { ssr: false });
 const PWAProvider = dynamic(() => import("./PWAProvider"), { ssr: false });
@@ -31,7 +30,6 @@ export default function ClientAppShell({ children }: { children: React.ReactNode
             <Footer />
             <Spotlight />
             <ScrollToTop />
-            <SkyAiChat />
           </RouteGuard>
           <ToastContainer />
           <PWAProvider />

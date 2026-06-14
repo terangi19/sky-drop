@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AWHINA_NAME, AWHINA_THINKING } from "../lib/awhina-brand";
 import { getFreshIdToken } from "../lib/api-auth";
 import {
-  SKY_AI_QUICK_PROMPTS,
-  SKY_AI_WELCOME,
+  SKY_AI_PROFILE_QUICK_PROMPTS,
+  SKY_AI_PROFILE_WELCOME,
 } from "../lib/sky-ai-prompts";
 import { readProfileDraftFromSkyAi, syncProfileDraftToSkyAi } from "../lib/sky-ai-profile-context";
 import {
@@ -50,7 +50,7 @@ function DraftCheckItem({ done, label }: { done: boolean; label: string }) {
 
 export default function AwhinaProfileAssistant({ draft, onApplyFill, className = "" }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: WELCOME_ID, role: "assistant", text: SKY_AI_WELCOME },
+    { id: WELCOME_ID, role: "assistant", text: SKY_AI_PROFILE_WELCOME },
   ]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -212,7 +212,7 @@ export default function AwhinaProfileAssistant({ draft, onApplyFill, className =
               Talk to {AWHINA_NAME} — I&apos;ll fill your profile as we go.
             </p>
             <p className="mt-1 text-[12px] text-zinc-500">
-              Say who you are, your region, or ask me to write your bio.
+              Tell me about yourself — I'll build your profile as we go.
             </p>
           </div>
         </div>
@@ -252,17 +252,32 @@ export default function AwhinaProfileAssistant({ draft, onApplyFill, className =
         </div>
 
         <div className="mt-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-500">Profile draft</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-500">Profile Completion</p>
+            <span className="text-[11px] font-bold text-sky-400">
+              {Math.round(
+                ([checklist.username, checklist.bio, checklist.region, checklist.occupation, checklist.interests, checklist.social].filter(Boolean).length / 6) * 100
+              )}%
+            </span>
+          </div>
+          <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/[0.06]">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-sky-500 to-sky-400 transition-all duration-500"
+              style={{ width: `${([checklist.username, checklist.bio, checklist.region, checklist.occupation, checklist.interests, checklist.social].filter(Boolean).length / 6) * 100}%` }}
+            />
+          </div>
           <div className="mt-2 flex flex-wrap gap-2">
             <DraftCheckItem done={checklist.username} label="Username" />
-            <DraftCheckItem done={checklist.region} label="Region" />
             <DraftCheckItem done={checklist.bio} label="Bio" />
+            <DraftCheckItem done={checklist.region} label="Region" />
+            <DraftCheckItem done={checklist.occupation} label="Occupation" />
+            <DraftCheckItem done={checklist.interests} label="Interests" />
             <DraftCheckItem done={checklist.social} label="Social links" />
           </div>
         </div>
 
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {SKY_AI_QUICK_PROMPTS.map((p) => (
+          {SKY_AI_PROFILE_QUICK_PROMPTS.map((p) => (
             <button
               key={p.label}
               type="button"

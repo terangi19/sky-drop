@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { verifyIdToken } from "./firebase-admin";
 import { isAdminUser } from "./admin-check.server";
+import { logSecurityWarning } from "./security-log";
 
 export class AdminAuthError extends Error {
   status: number;
@@ -16,8 +17,26 @@ export async function requireAdminFromRequest(req: NextRequest) {
     throw new AdminAuthError(401, "Unauthorized");
   }
 
-  const decoded = await verifyIdToken(authHeader.slice(7));
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "unknown";
+
+  let decoded;
+  try {
+    decoded = await verifyIdToken(authHeader.slice(7));
+  } catch (err) {
+    await logSecurityWarning("admin_auth_failed", "Invalid token on admin route", {
+      ip,
+      metadata: { error: String(err) },
+    });
+    throw new AdminAuthError(401, "Unauthorized");
+  }
+
   if (!decoded.email || !(await isAdminUser(decoded.email, decoded.uid))) {
+    await logSecurityWarning("admin_access_denied", `Non-admin attempted admin route`, {
+      actorEmail: decoded.email,
+      actorUid: decoded.uid,
+      ip,
+      metadata: { path: req.nextUrl?.pathname },
+    });
     throw new AdminAuthError(403, "Admin only");
   }
 

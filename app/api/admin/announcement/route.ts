@@ -1,21 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminDb, getAdminAuth } from "../../../lib/firebase-admin";
-import { isAdminEmail } from "../../../lib/admin-check";
-
-const SUPER_ADMIN_EMAILS = ["rangitr16@gmail.com"];
-
-function isSuperAdmin(email?: string): boolean {
-  return !!email && SUPER_ADMIN_EMAILS.includes(email.toLowerCase());
-}
+import { getAdminDb } from "../../../lib/firebase-admin";
+import { AdminAuthError, requireAdminFromRequest } from "../../../lib/admin-request";
+import { isSuperAdminEmail } from "../../../lib/admin-roles";
 
 export async function POST(req: NextRequest) {
   try {
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const token = await getAdminAuth().verifyIdToken(authHeader.slice(7));
-    if (!isSuperAdmin(token.email)) return NextResponse.json({ error: "Super admin only" }, { status: 403 });
-    if (!isAdminEmail(token.email)) return NextResponse.json({ error: "Admin only" }, { status: 403 });
+    const admin = await requireAdminFromRequest(req);
+    if (!isSuperAdminEmail(admin.email)) {
+      return NextResponse.json({ error: "Super admin only" }, { status: 403 });
+    }
 
     const { message, type } = await req.json();
     if (!message) return NextResponse.json({ error: "Message required" }, { status: 400 });
@@ -32,18 +25,22 @@ export async function POST(req: NextRequest) {
 
     await db.collection("config").doc("announcement").set({
       message, type: type || "info", active: true,
-      createdAt: new Date(), createdBy: token.email,
+      createdAt: new Date(), createdBy: admin.email,
     });
 
     // Audit log
     await db.collection("adminAuditLog").add({
-      adminUid: token.uid, adminEmail: token.email,
+      adminUid: admin.uid, adminEmail: admin.email,
       action: "send_announcement", detail: message,
       createdAt: new Date(),
     });
 
     return NextResponse.json({ success: true, status: "active" });
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message || "Failed" }, { status: 500 });
+  } catch (e: unknown) {
+    if (e instanceof AdminAuthError) {
+      return NextResponse.json({ error: e.message }, { status: e.status });
+    }
+    const message = e instanceof Error ? e.message : "Failed";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

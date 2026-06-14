@@ -348,6 +348,29 @@ export default function AuthPage() {
               >
                 {loading ? "Loading…" : isLogin ? "Login" : "Create account"}
               </button>
+              {isLogin && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      setLoading(true);
+                      const testEmail = process.env.NEXT_PUBLIC_TEST_EMAIL || "test@skydrop.nz";
+                      const testPass = process.env.NEXT_PUBLIC_TEST_PASSWORD || "TestPass123";
+                      setEmail(testEmail);
+                      setPassword(testPass);
+                      await signInWithEmailAndPassword(auth, testEmail, testPass);
+                      setCanRedirect(true);
+                      showToast("Welcome! You're logged in as a test user.", "success");
+                    } catch (e: any) {
+                      showToast(e?.message || "Test login failed", "error");
+                    }
+                    setLoading(false);
+                  }}
+                  className="login-page-btn-secondary mt-2 w-full rounded-xl border py-2.5 text-sm font-semibold transition active:scale-[0.99]"
+                >
+                  Test Login
+                </button>
+              )}
               <div className="flex justify-between text-xs">
                 <Link href="/forgot-password" className="login-page-link font-medium">
                   Forgot password?

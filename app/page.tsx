@@ -50,6 +50,7 @@ import { isListingVisibleInMarketplace } from "./lib/listing-availability";
 import { isDemoListing } from "./lib/marketplace-display";
 import { adjustListingWatchlistCount } from "./lib/listing-watchlist-count";
 import { HOME_MARKETPLACE_THEME as t } from "./lib/browse-category-config";
+import { useSellerListingMeta } from "./lib/useSellerListingMeta";
 
 interface Listing {
   id: string;
@@ -187,8 +188,7 @@ export default function Home() {
   const lastOfferTime = useRef(0);
   const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
   const [authReady, setAuthReady] = useState(false);
-  const [sellerReviewStats, setSellerReviewStats] = useState<Record<string, { avg: number; count: number }>>({});
-  const [sellerBadges, setSellerBadges] = useState<Record<string, string>>({});
+  const { sellerReviewStats, sellerBadges, sellerFullyVerified } = useSellerListingMeta(listings);
   const [savedSearches, setSavedSearches] = useState<Array<{query: string; category: string; label: string}>>([]);
   const [showSaveSearch, setShowSaveSearch] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<Listing | null>(null);
@@ -291,68 +291,6 @@ export default function Home() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, [visibleCount]);
-
-  // Review stats — refetch when listings data or length changes
-  useEffect(() => {
-    if (listings.length === 0) return;
-    let cancelled = false;
-    (async () => {
-      const uniqueEmails = [...new Set(listings.map((l: any) => l.sellerEmail).filter(Boolean))] as string[];
-      if (uniqueEmails.length === 0 || cancelled) return;
-      const chunkSize = 10;
-      const stats: Record<string, { avg: number; count: number }> = {};
-      for (let i = 0; i < uniqueEmails.length; i += chunkSize) {
-        const chunk = uniqueEmails.slice(i, i + chunkSize);
-        try {
-          const snap = await getDocs(query(collection(db, "reviews"), where("sellerEmail", "in", chunk)));
-          if (cancelled) return;
-          const grouped: Record<string, number[]> = {};
-          snap.docs.forEach((d) => {
-            const data = d.data();
-            const email = data.sellerEmail as string;
-            if (!grouped[email]) grouped[email] = [];
-            grouped[email].push(data.rating || 0);
-          });
-          for (const email of chunk) {
-            const ratings = grouped[email] || [];
-            if (ratings.length > 0) {
-              stats[email] = {
-                avg: ratings.reduce((a, b) => a + b, 0) / ratings.length,
-                count: ratings.length,
-              };
-            }
-          }
-        } catch (e) { console.error(e); }
-      }
-      if (!cancelled) setSellerReviewStats(stats);
-    })();
-    return () => { cancelled = true; };
-  }, [listings]);
-
-  // Fetch seller profile badges (legendary/epic)
-  useEffect(() => {
-    if (listings.length === 0) return;
-    let cancelled = false;
-    (async () => {
-      const uniqueEmails = [...new Set(listings.map((l: any) => l.sellerEmail).filter(Boolean))] as string[];
-      if (uniqueEmails.length === 0 || cancelled) return;
-      const badges: Record<string, string> = {};
-      for (let i = 0; i < uniqueEmails.length; i += 10) {
-        const chunk = uniqueEmails.slice(i, i + 10);
-        try {
-          const snap = await getDocs(query(collection(db, "profiles"), where("email", "in", chunk)));
-          if (cancelled) return;
-          snap.docs.forEach((d) => {
-            const data = d.data();
-            const email = data.email as string;
-            if (data.profileBadge) badges[email] = data.profileBadge as string;
-          });
-        } catch (e) { console.error("Badge fetch error:", e); }
-      }
-      if (!cancelled) setSellerBadges(badges);
-    })();
-    return () => { cancelled = true; };
-  }, [listings]);
 
   // Infinite scroll via IntersectionObserver
   useEffect(() => {
@@ -761,12 +699,12 @@ export default function Home() {
 
       {/* HERO / SEARCH SECTION */}
       <section className={`${PAGE_SHELL_WIDE} pt-3 sm:pt-4`}>
-        <div className={`relative overflow-hidden rounded-[1.75rem] border border-white/[0.06] bg-gradient-to-b from-white/[0.03] via-transparent to-transparent backdrop-blur-sm ${t.heroShadow}`}>
+        <div className={`relative overflow-visible rounded-[1.75rem] border border-white/[0.06] bg-gradient-to-b from-white/[0.03] via-transparent to-transparent backdrop-blur-sm ${t.heroShadow}`}>
           <div className={`absolute inset-0 ${t.radial} pointer-events-none`} />
           <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
 
           {/* Live ticker */}
-          <div className="relative flex items-center justify-center gap-3 border-b border-white/[0.04] px-5 py-2">
+          <div className="relative z-10 flex items-center justify-center gap-3 border-b border-white/[0.04] px-5 py-2">
             <span className="flex shrink-0 items-center gap-1.5 text-[10px] font-medium tracking-wide text-white">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]" />
               Live
@@ -781,7 +719,7 @@ export default function Home() {
             })()}
           </div>
 
-          <div className="relative px-5 py-6 sm:px-10 sm:py-8">
+          <div className="relative z-10 px-5 py-6 sm:px-10 sm:py-8">
             <div className="mx-auto max-w-2xl text-center">
               <div className={`${t.badge} text-white/90`}>NZ Marketplace</div>
               <h1 className="text-[1.75rem] font-semibold tracking-[-0.03em] text-white sm:text-4xl sm:tracking-[-0.035em]">
@@ -927,6 +865,7 @@ export default function Home() {
         user={user}
         sellerReviewStats={sellerReviewStats}
         sellerBadges={sellerBadges}
+        sellerFullyVerified={sellerFullyVerified}
       />
 
       {/* LISTINGS */}
@@ -1073,6 +1012,7 @@ export default function Home() {
               }}
               sellerReviewStats={sellerReviewStats}
               sellerBadges={sellerBadges}
+              sellerFullyVerified={sellerFullyVerified}
               onPromote={(listing) => setPromoteItem(listing)}
               onDelete={(listing) => setDeleteConfirm(listing as Listing)}
             />

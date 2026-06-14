@@ -1,31 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken } from "../../../lib/firebase-admin";
 import { isAdminUser } from "../../../lib/admin-check.server";
-
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT = 10;
-const WINDOW_MS = 60_000;
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const entry = rateLimitMap.get(ip);
-  if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + WINDOW_MS });
-    return true;
-  }
-  if (entry.count >= RATE_LIMIT) return false;
-  entry.count++;
-  return true;
-}
+import { parseIpFromRequest } from "../../../lib/geo-check";
+import { rateLimit } from "../../../lib/rate-limit";
+import { DEFAULT_MAX_JSON_BYTES, isContentLengthOverLimit, payloadTooLargeResponse } from "../../../lib/request-body";
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "unknown";
-    if (!checkRateLimit(ip)) {
+    const ip = parseIpFromRequest(req.headers);
+    const { allowed } = await rateLimit(`auth-session:${ip}`, 10, 60_000);
+    if (!allowed) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }
+    if (isContentLengthOverLimit(req, DEFAULT_MAX_JSON_BYTES)) return payloadTooLargeResponse();
 
-    // Get and verify the Firebase ID token from the Authorization header
     const authHeader = req.headers.get("authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -49,7 +37,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Server not configured for sessions" }, { status: 500 });
     }
 
-    // Create signed session payload
     const payload = { email, uid, admin: true, exp: Date.now() + 86400000 };
     const encoder = new TextEncoder();
     const key = await crypto.subtle.importKey(

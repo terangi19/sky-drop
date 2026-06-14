@@ -4,6 +4,7 @@ import { getAdminDb } from "../../../lib/firebase-admin";
 import { createPurchaseWithAdmin } from "../../../lib/purchase-service";
 import { notifyAdmin, writeFailureRecord } from "../../../lib/admin-alerts";
 import * as Sentry from "@sentry/nextjs";
+import { logSecurityCritical } from "../../../lib/security-log";
 
 export async function POST(req: NextRequest) {
   const sig = req.headers.get("stripe-signature");
@@ -22,6 +23,9 @@ export async function POST(req: NextRequest) {
       eventType: "signature_verification_failed",
       stripeEventId: null,
       error: sigErr.message || "Invalid signature",
+    });
+    await logSecurityCritical("stripe_webhook_sig_failed", "Stripe webhook signature verification failed", {
+      metadata: { error: sigErr.message },
     });
     await notifyAdmin({
       type: "webhook_failure",

@@ -17,7 +17,15 @@ export default function SkyAiChat() {
 
   if (!user) return null;
 
-  if (pathname.startsWith("/admin") || pathname.startsWith("/post/ai") || pathname.startsWith("/post/listing") || pathname.startsWith("/login") || pathname.startsWith("/forgot-password") || pathname.startsWith("/create-account")) {
+  if (
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/post/ai") ||
+    pathname.startsWith("/post/listing") ||
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/create-account") ||
+    pathname === "/profile"
+  ) {
     return null;
   }
 

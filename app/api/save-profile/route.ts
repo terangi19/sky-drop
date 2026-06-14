@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken, getServerDb } from "../../lib/firebase-admin";
+import { parseIpFromRequest } from "../../lib/geo-check";
 import { rateLimit } from "../../lib/rate-limit";
+import { DEFAULT_MAX_JSON_BYTES, isContentLengthOverLimit, payloadTooLargeResponse } from "../../lib/request-body";
+import { verifiedFlagAfterUpdate } from "../../lib/seller-verified";
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+    const ip = parseIpFromRequest(req.headers);
     const { allowed } = await rateLimit(`save-profile:${ip}`, 10, 60_000);
     if (!allowed) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }
+    if (isContentLengthOverLimit(req, DEFAULT_MAX_JSON_BYTES)) return payloadTooLargeResponse();
 
     const authHeader = req.headers.get("authorization");
     if (!authHeader?.startsWith("Bearer ")) {
@@ -52,6 +56,10 @@ export async function POST(req: NextRequest) {
     if (!trimmedUsername) {
       return NextResponse.json({ error: "Username is required" }, { status: 400 });
     }
+    const isAdmin = decodedToken.email && (await import("../../lib/admin-check")).isAdminEmail(decodedToken.email);
+    if (trimmedUsername.includes(" ") && !isAdmin) {
+      return NextResponse.json({ error: "Usernames cannot contain spaces." }, { status: 400 });
+    }
 
     const db = getServerDb(idToken);
     const profileRef = db.collection("profiles").doc(decodedToken.uid);
@@ -68,6 +76,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Username already taken" }, { status: 409 });
       }
     }
+
+    const nextPhoneVerified =
+      existingData?.phoneVerified === true || phoneVerified === true;
+    const nextEmailVerified = !!decodedToken.email_verified;
 
     const profileData = {
       username: trimmedUsername,
@@ -97,16 +109,14 @@ export async function POST(req: NextRequest) {
         existingData?.phoneNumber ||
         existingData?.phone ||
         "",
-      phoneVerified:
-        existingData?.phoneVerified === true ||
-        existingData?.verified === true ||
-        phoneVerified === true,
-      verified:
-        existingData?.phoneVerified === true ||
-        existingData?.verified === true ||
-        phoneVerified === true,
+      phoneVerified: nextPhoneVerified,
+      verified: verifiedFlagAfterUpdate(existingData, {
+        phoneVerified: nextPhoneVerified,
+        emailVerified: nextEmailVerified,
+        kycStatus: existingData?.kycStatus,
+      }),
       email: decodedToken.email || "",
-      emailVerified: !!decodedToken.email_verified,
+      emailVerified: nextEmailVerified,
       bankAccountName:
         typeof bankAccountName === "string"
           ? bankAccountName.trim()

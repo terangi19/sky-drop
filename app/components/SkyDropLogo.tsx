@@ -4,9 +4,30 @@ import Link from "next/link";
 import { useId } from "react";
 
 const SIZE_MAP = {
-  sm: { badge: "h-8 w-8", text: "text-[15px]", sub: "text-[7px]" },
-  md: { badge: "h-10 w-10 md:h-11 md:w-11", text: "text-[17px] md:text-[19px]", sub: "text-[8px] md:text-[9px]" },
-  lg: { badge: "h-12 w-12", text: "text-2xl", sub: "text-[9px]" },
+  sm: {
+    badge: "h-8 w-8",
+    frame: "rounded-lg p-1",
+    text: "text-[14px]",
+    mark: "h-[2em] w-[2em]",
+    sub: "text-[7px]",
+    gap: "gap-2",
+  },
+  md: {
+    badge: "h-9 w-9 md:h-10 md:w-10",
+    frame: "rounded-[10px] p-1.5",
+    text: "text-[16px] md:text-[19px]",
+    mark: "h-[2em] w-[2em] md:h-[2.25em] md:w-[2.25em]",
+    sub: "text-[8px] md:text-[9px]",
+    gap: "gap-3",
+  },
+  lg: {
+    badge: "h-12 w-12",
+    frame: "rounded-xl p-2",
+    text: "text-2xl md:text-[26px]",
+    mark: "h-[2.2em] w-[2.2em]",
+    sub: "text-[9px]",
+    gap: "gap-3.5",
+  },
 } as const;
 
 type SkyDropLogoProps = {
@@ -101,20 +122,26 @@ export function SkyDropMark({ className = "", uid }: { className?: string; uid?:
 export function SkyDropWordmark({
   className = "",
   showMicroTag = false,
+  markClassName = "h-[1em] w-[1em]",
+  markUid,
 }: {
   className?: string;
   showMicroTag?: boolean;
+  markClassName?: string;
+  markUid?: string;
 }) {
   return (
     <div className={`flex flex-col ${className}`}>
-      <span className="font-bold leading-none tracking-[-0.02em]">
-        <span className="sky-drop-logo-sky text-white/95">Sky</span>
-        <span className="sky-drop-logo-drop ml-0.5 bg-gradient-to-r from-sky-300 via-sky-400 to-sky-400 bg-clip-text font-extrabold text-transparent">
-          Drop
-        </span>
+      <span className="inline-flex items-center leading-none">
+        <span className="sky-drop-logo-sky font-semibold">SKY</span>
+        <SkyDropMark
+          uid={markUid}
+          className={`mx-[0.12em] flex-shrink-0 ${markClassName}`}
+        />
+        <span className="sky-drop-logo-drop sky-drop-logo-drop-glow font-bold">DROP</span>
       </span>
       {showMicroTag && (
-        <span className="sky-drop-logo-tag mt-1 flex items-center gap-1.5 text-[8px] font-semibold uppercase tracking-[0.28em] text-sky-400/55">
+        <span className="sky-drop-logo-tag mt-1.5 flex items-center gap-1.5 text-[8px] font-semibold uppercase tracking-[0.28em] text-sky-400/55">
           <span className="h-px w-3 bg-gradient-to-r from-sky-400/70 to-sky-400/40" aria-hidden />
           NZ
         </span>
@@ -135,36 +162,43 @@ export default function SkyDropLogo({
   const s = SIZE_MAP[size];
   const markId = useId();
   const groupClass = interactive
-    ? "group transition-all duration-300 hover:scale-[1.02]"
-    : "";
+    ? "sky-drop-logo-group group transition-transform duration-300 hover:scale-[1.015] active:scale-[0.99]"
+    : "sky-drop-logo-group";
 
-  const content = (
-    <>
-      <div className={`relative flex-shrink-0 ${s.badge}`}>
-        {interactive && (
-          <div className="absolute -inset-1 rounded-full bg-sky-400/0 opacity-0 blur-md transition-all duration-500 group-hover:bg-sky-400/15 group-hover:opacity-100" />
-        )}
-        <SkyDropMark
-          uid={markId}
-          className={`relative z-10 h-full w-full ${interactive ? "transition-transform duration-500 group-hover:scale-[1.03]" : ""}`}
-        />
-      </div>
-      {showWordmark && (
-        <div className="flex flex-col leading-none">
-          <SkyDropWordmark className={s.text} showMicroTag={showMicroTag} />
-          {showTagline && (
-            <span
-              className={`${s.sub} mt-0.5 font-semibold uppercase tracking-[0.22em] text-[var(--nav-ice-muted)]`}
-            >
-              Marketplace
-            </span>
-          )}
-        </div>
+  const content = showWordmark ? (
+    <div className="flex flex-col leading-none">
+      <SkyDropWordmark
+        className={s.text}
+        showMicroTag={showMicroTag}
+        markClassName={s.mark}
+        markUid={markId}
+      />
+      {showTagline && (
+        <span
+          className={`${s.sub} mt-1 font-medium uppercase tracking-[0.24em] text-[var(--nav-ice-faint)]`}
+        >
+          Marketplace
+        </span>
       )}
-    </>
+    </div>
+  ) : (
+    <div
+      className={`relative flex-shrink-0 border border-white/[0.07] bg-gradient-to-b from-white/[0.07] to-white/[0.02] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_1px_2px_rgba(0,0,0,0.2)] ${s.frame} ${s.badge}`}
+    >
+      {interactive && (
+        <div
+          className="pointer-events-none absolute -inset-px rounded-[inherit] bg-sky-400/0 opacity-0 blur-md transition-all duration-500 group-hover:bg-sky-400/12 group-hover:opacity-100"
+          aria-hidden
+        />
+      )}
+      <SkyDropMark
+        uid={markId}
+        className={`relative z-10 h-full w-full ${interactive ? "transition-transform duration-500 group-hover:scale-[1.04]" : ""}`}
+      />
+    </div>
   );
 
-  const layoutClass = `flex items-center gap-3 ${groupClass} ${className}`;
+  const layoutClass = `flex items-center ${s.gap} ${groupClass} ${className}`;
 
   if (href) {
     return (

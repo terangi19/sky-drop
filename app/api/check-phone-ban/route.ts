@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken } from "../../lib/firebase-admin";
+import { parseIpFromRequest } from "../../lib/geo-check";
 import { rateLimit } from "../../lib/rate-limit";
+import { DEFAULT_MAX_JSON_BYTES, isContentLengthOverLimit, payloadTooLargeResponse } from "../../lib/request-body";
 import { isPhoneBlacklisted } from "../../lib/ban-store";
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const { allowed } = await rateLimit(`check-phone-ban:${ip}`, 30, 60_000);
+    const ip = parseIpFromRequest(req.headers);
+    const { allowed } = await rateLimit(`check-phone-ban:${ip}`, 20, 60_000);
     if (!allowed) return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    if (isContentLengthOverLimit(req, DEFAULT_MAX_JSON_BYTES)) return payloadTooLargeResponse();
 
     const authHeader = req.headers.get("authorization");
     if (!authHeader?.startsWith("Bearer ")) {

@@ -15,7 +15,7 @@ type Props = {
 };
 
 const KYC_DESCRIPTION =
-  "To list items for sale on Sky Drop, please submit a clear photo of yourself holding a valid driver licence or passport beside your face. You can still browse and buy items without completing seller verification.";
+  "To list items for sale on Sky Drop, complete ID verification — upload photos of your driver licence or passport (front and back). Phone verification is optional and adds a verified seller badge. You can still browse and buy items without completing seller verification.";
 
 function KycCallout({ children }: { children: ReactNode }) {
   return (

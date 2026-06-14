@@ -7,6 +7,11 @@ import {
   isAdminInitialized,
   verifyIdToken,
 } from "../../lib/firebase-admin";
+import { parseIpFromRequest } from "../../lib/geo-check";
+import { rateLimit } from "../../lib/rate-limit";
+import { notifyKycSubmittedToAdmins } from "../../lib/admin-alerts";
+
+export const runtime = "nodejs";
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
@@ -17,6 +22,12 @@ function storageDownloadUrl(bucketName: string, objectPath: string, token: strin
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = parseIpFromRequest(req.headers);
+    const { allowed } = await rateLimit(`submit-kyc:${ip}`, 3, 60_000);
+    if (!allowed) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+
     if (!isAdminInitialized()) {
       return NextResponse.json({ error: "Server not configured", code: "server_unconfigured" }, { status: 503 });
     }
@@ -107,6 +118,13 @@ export async function POST(req: NextRequest) {
       profilePatch.email = decoded.email;
     }
     await profileRef.set(profilePatch, { merge: true });
+
+    const profileData = profileSnap.exists ? profileSnap.data() : undefined;
+    await notifyKycSubmittedToAdmins({
+      uid: decoded.uid,
+      email: decoded.email,
+      username: typeof profileData?.username === "string" ? profileData.username : undefined,
+    });
 
     return NextResponse.json({ success: true, photoUrl });
   } catch (e) {

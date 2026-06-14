@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb, isAdminInitialized } from "../../../lib/firebase-admin";
 import { AdminAuthError, requireAdminFromRequest } from "../../../lib/admin-request";
 import { writeAuditLog } from "../../../lib/admin-utils";
+import { verifiedFlagAfterUpdate } from "../../../lib/seller-verified";
 
 type KycReviewAction = "approve" | "reject" | "revoke";
 
@@ -36,6 +37,24 @@ Reason: ${reason}<br><br>
 You can resubmit your verification from your profile page with corrected information.
 </p>
 <a href="https://skydrop.co.nz/profile" style="display:inline-block;background:#0ea5e9;color:#000;text-decoration:none;font-size:14px;font-weight:700;padding:12px 28px;border-radius:10px">View your profile →</a>
+</div>
+<div style="text-align:center;padding:24px 20px;font-size:11px;color:#555;max-width:480px;margin:0 auto">
+Ngā mihi,<br>The Sky Drop Team<br>
+<a href="https://skydrop.co.nz" style="color:#0ea5e9;text-decoration:none">skydrop.co.nz</a>
+</div>
+</div>`;
+
+const KYC_APPROVED_PARTIAL_EMAIL_HTML = (name: string) => `
+<div style="background:#0a0a0a;padding:40px 20px;font-family:sans-serif">
+<div style="max-width:480px;margin:0 auto;background:#141414;border-radius:12px;border:1px solid #242424;padding:32px">
+<div style="font-size:32px;margin-bottom:8px">✅</div>
+<h1 style="color:#ececec;font-size:20px;margin:0 0 4px">ID Verification Approved</h1>
+<p style="color:#a0a0a0;font-size:14px;line-height:1.6;margin:16px 0">
+Kia ora${name ? ` ${name}` : ""},<br><br>
+Your identity verification was approved.<br><br>
+You can start listing items for sale. Optionally verify your phone to unlock your verified seller badge on listings and your public profile.
+</p>
+<a href="https://skydrop.co.nz/profile" style="display:inline-block;background:#0ea5e9;color:#000;text-decoration:none;font-size:14px;font-weight:700;padding:12px 28px;border-radius:10px">Complete verification →</a>
 </div>
 <div style="text-align:center;padding:24px 20px;font-size:11px;color:#555;max-width:480px;margin:0 auto">
 Ngā mihi,<br>The Sky Drop Team<br>
@@ -111,12 +130,19 @@ export async function POST(req: NextRequest) {
     const displayName = profile?.displayName || profile?.username || "";
 
     if (action === "approve") {
+      const fullyVerified = verifiedFlagAfterUpdate(profile, { kycStatus: "approved" });
+
       await kycRef.set(
         { status: "approved", reviewedAt: now, reviewedBy: reviewer },
         { merge: true }
       );
       await profileRef.set(
-        { kycStatus: "approved", kycReviewedAt: now, kycReviewedBy: reviewer },
+        {
+          kycStatus: "approved",
+          verified: fullyVerified,
+          kycReviewedAt: now,
+          kycReviewedBy: reviewer,
+        },
         { merge: true }
       );
 
@@ -126,8 +152,9 @@ export async function POST(req: NextRequest) {
           type: "verification",
           targetEmail: email,
           fromEmail: admin.email!,
-          title: "Account Verified",
-          message: "Your Sky Drop account has been verified. Your verified badge is now visible on your profile and listings.",
+          title: "🎉 Your Sky Drop Account Has Been Verified",
+          message: "Kia ora! Great news! Your account has been reviewed and verified by the Sky Drop team. Your verified badge is now visible on your profile and listings, helping buyers and sellers identify you as a trusted member of the community.",
+          href: "/profile",
           read: false,
           createdAt: now,
         });
@@ -137,8 +164,10 @@ export async function POST(req: NextRequest) {
       if (email) {
         await sendEmail(
           email,
-          "🎉 You're Now Verified on Sky Drop",
-          VERIFIED_EMAIL_HTML(displayName)
+          fullyVerified ? "🎉 You're Now Verified on Sky Drop" : "ID Verification Approved — Sky Drop",
+          fullyVerified
+            ? VERIFIED_EMAIL_HTML(displayName)
+            : KYC_APPROVED_PARTIAL_EMAIL_HTML(displayName)
         );
       }
 
@@ -206,6 +235,7 @@ export async function POST(req: NextRequest) {
           fromEmail: admin.email!,
           title: "Verification Rejected",
           message: `Your identity verification was not approved. Reason: ${reason}`,
+          href: "/profile",
           read: false,
           createdAt: now,
         });
@@ -233,7 +263,12 @@ export async function POST(req: NextRequest) {
         { merge: true }
       );
       await profileRef.set(
-        { kycStatus: "banned_fake", kycReviewedAt: now, kycReviewedBy: reviewer },
+        {
+          kycStatus: "banned_fake",
+          verified: false,
+          kycReviewedAt: now,
+          kycReviewedBy: reviewer,
+        },
         { merge: true }
       );
 
@@ -244,6 +279,7 @@ export async function POST(req: NextRequest) {
           fromEmail: admin.email!,
           title: "Verification Revoked",
           message: "Your Sky Drop account verification has been revoked. Your verified badge has been removed.",
+          href: "/profile",
           read: false,
           createdAt: now,
         });

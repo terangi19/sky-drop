@@ -34,6 +34,8 @@ import {
   User,
 } from "firebase/auth";
 import { getListingBlockReason } from "../lib/seller-eligibility";
+import { isFullyVerifiedSeller, verifiedFlagAfterUpdate } from "../lib/seller-verified";
+import { isAdminEmail } from "../lib/admin-check";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { auth, db, storage, onAuthStateChanged } from "../lib/firebase";
 import { sendPhoneCode, verifyPhoneCode, maskPhone, isPhoneDevMode, formatNZPhone } from "../lib/phone-auth";
@@ -48,7 +50,13 @@ import { useProfile } from "../contexts/ProfileContext";
 import { sellerProfilePath } from "../lib/seller-profile-nav";
 import BrowseMarketplaceHero from "../components/BrowseMarketplaceHero";
 import { PAGE_SHELL_WIDE } from "../lib/page-layout";
-import BrowseAwhinaAssistantPanel from "../components/BrowseAwhinaAssistantPanel";
+import AwhinaProfileAssistant from "../components/AwhinaProfileAssistant";
+import {
+  consumePendingProfileFill,
+  mergeProfileFill,
+  SKY_AI_PROFILE_FILL_EVENT,
+  type SkyAiProfileFill,
+} from "../lib/sky-ai-profile-fill";
 import { HOME_MARKETPLACE_THEME as t } from "../lib/browse-category-config";
 
 interface ProfileData {
@@ -105,6 +113,7 @@ interface ProfileData {
   bankAccountName?: string;
   bankAccountNumber?: string;
   bankReference?: string;
+  kycStatus?: string;
   restricted?: boolean;
 }
 
@@ -186,6 +195,7 @@ const [poaStatus, setPoaStatus] = useState("unsubmitted");
 const [poaDocumentURL, setPoaDocumentURL] = useState("");
 const [poaRejectionReason, setPoaRejectionReason] = useState("");
 const [poaFile, setPoaFile] = useState<File | null>(null);
+const [poaFile2, setPoaFile2] = useState<File | null>(null);
 const [poaUploading, setPoaUploading] = useState(false);
 const [sellBadge, setSellBadge] = useState<string | null>(null);
 const [sellBadgePrice, setSellBadgePrice] = useState("50");
@@ -193,11 +203,13 @@ const [authRefreshing, setAuthRefreshing] = useState(false);
 const [activeTab, setActiveTab] = useState("profile");
 
 const tabs = [
-  { id: "profile", label: "Edit profile" },
+  { id: "profile", label: "Profile" },
   { id: "listings", label: "Listings" },
-  { id: "verification", label: "Verify" },
+  { id: "reviews", label: "Reviews" },
+  { id: "verification", label: "Verification" },
   { id: "payments", label: "Payments" },
-  { id: "notifications", label: "Alerts" },
+  { id: "notifications", label: "Notifications" },
+  { id: "settings", label: "Settings" },
   { id: "danger", label: "Delete" },
 ] as const;
 
@@ -230,7 +242,7 @@ const tabs = [
     setNotifOffers(data.notifOffers !== false);
     setNotifPriceDrop(data.notifPriceDrop || false);
     setPhone(data.phone || data.phoneNumber || "");
-    setPhoneVerified(!!(data.phoneVerified || data.verified));
+    setPhoneVerified(!!data.phoneVerified);
     setStripeAccountId(data.stripeAccountId || "");
     setBankAccountName(data.bankAccountName || "");
     setBankAccountNumber(data.bankAccountNumber || "");
@@ -247,11 +259,9 @@ const tabs = [
   const listingBlockReason = user
     ? getListingBlockReason({
         authEmailVerified: !!user.emailVerified,
-        phone: phone || profile.phone || profile.phoneNumber || "",
-        phoneVerified: phoneVerified || !!profile.phoneVerified || !!profile.verified,
-        authPhoneNumber: user.phoneNumber,
         restricted: !!profile.restricted,
         profileExists: !!(profile.username || profile.email || user.uid),
+        kycApproved: (profile.kycStatus || poaStatus) === "approved",
       })
     : null;
   const readyToList = listingBlockReason === null;
@@ -263,10 +273,20 @@ const tabs = [
       await user.reload();
       setUser(auth.currentUser);
       if (auth.currentUser?.emailVerified) {
-        showToast("Email verified — you can list items if your phone is verified too.", "success");
+        showToast("Email verified — complete ID verification to start selling.", "success");
         await setDoc(
           doc(db, "profiles", user.uid),
-          { emailVerified: true },
+          {
+            emailVerified: true,
+            verified: verifiedFlagAfterUpdate(
+              {
+                kycStatus: profile.kycStatus,
+                phoneVerified: phoneVerified || profile.phoneVerified,
+                emailVerified: profile.emailVerified,
+              },
+              { emailVerified: true }
+            ),
+          },
           { merge: true }
         );
       } else {
@@ -363,14 +383,17 @@ const tabs = [
       const snap = await getDoc(doc(db, "profiles", user.uid));
       const data = snap.data();
       const stored = String(data?.phone || data?.phoneNumber || "").trim();
-      if (stored && (data?.phoneVerified || data?.verified)) return;
+      if (stored && data?.phoneVerified) return;
+      const phonePatch = {
+        phone: authPhone,
+        phoneNumber: authPhone,
+        phoneVerified: true,
+      };
       await setDoc(
         doc(db, "profiles", user.uid),
         {
-          phone: authPhone,
-          phoneNumber: authPhone,
-          phoneVerified: true,
-          verified: true,
+          ...phonePatch,
+          verified: verifiedFlagAfterUpdate(data, phonePatch),
         },
         { merge: true }
       );
@@ -490,7 +513,7 @@ const tabs = [
     if (profile.region) score += 10;
     if (activeListings.length > 0) score += 15;
     if (profile.discord || profile.instagram || profile.tiktok) score += 5;
-    if (profile.verified) score += 10;
+    if (isFullyVerifiedSeller(profile)) score += 10;
     return Math.min(score, 100);
   }, [profile, activeListings]);
 
@@ -613,6 +636,11 @@ const tabs = [
           : "Enter a username.",
         "error"
       );
+      return;
+    }
+    const isAdmin = user?.email ? isAdminEmail(user.email) : false;
+    if (newUsername.includes(" ") && !isAdmin) {
+      showToast("Usernames cannot contain spaces.", "error");
       return;
     }
     try {
@@ -815,12 +843,22 @@ const tabs = [
         }
         const linkedPhone = claim.phone || formattedPhone;
         setPhone(linkedPhone);
-        await setDoc(doc(db, "profiles", user.uid), {
+        const phonePatch = {
           phone: linkedPhone,
           phoneNumber: linkedPhone,
           phoneVerified: true,
           phoneVerifiedAt: serverTimestamp(),
-          verified: true,
+        };
+        await setDoc(doc(db, "profiles", user.uid), {
+          ...phonePatch,
+          verified: verifiedFlagAfterUpdate(
+            {
+              kycStatus: profile.kycStatus || poaStatus,
+              phoneVerified: profile.phoneVerified,
+              emailVerified: profile.emailVerified || user.emailVerified,
+            },
+            { phoneVerified: true }
+          ),
         }, { merge: true });
         try {
           await user.reload();
@@ -961,14 +999,62 @@ const tabs = [
 
   const hasSocialLinks = [discord, instagram, tiktok, website].some((v) => v.trim().length > 0);
 
+  const profileDraft = useMemo<SkyAiProfileFill>(
+    () => ({
+      username: username.trim() || undefined,
+      bio: bio.trim() || undefined,
+      region: region || undefined,
+      discord: discord.trim() || undefined,
+      instagram: instagram.trim() || undefined,
+      tiktok: tiktok.trim() || undefined,
+      website: website.trim() || undefined,
+    }),
+    [username, bio, region, discord, instagram, tiktok, website]
+  );
+
+  const applyProfileFill = useCallback((fill: SkyAiProfileFill) => {
+    const merged = mergeProfileFill(profileDraft, fill);
+    if (merged.username) setUsername(merged.username);
+    if (merged.bio) setBio(merged.bio);
+    if (merged.region) setRegion(merged.region);
+    if (merged.discord || merged.instagram || merged.tiktok || merged.website) {
+      setShowSocialFields(true);
+    }
+    if (merged.discord) setDiscord(merged.discord);
+    if (merged.instagram) setInstagram(merged.instagram);
+    if (merged.tiktok) setTiktok(merged.tiktok);
+    if (merged.website) setWebsite(merged.website);
+  }, [profileDraft]);
+
+  useEffect(() => {
+    const pending = consumePendingProfileFill();
+    if (pending) applyProfileFill(pending);
+    const onFill = (e: Event) => {
+      const detail = (e as CustomEvent<SkyAiProfileFill>).detail;
+      if (detail) applyProfileFill(detail);
+    };
+    window.addEventListener(SKY_AI_PROFILE_FILL_EVENT, onFill);
+    return () => window.removeEventListener(SKY_AI_PROFILE_FILL_EVENT, onFill);
+  }, [applyProfileFill]);
+
   const settingsSection =
     "rounded-2xl border border-white/[0.06] bg-white/[0.015] p-5 sm:p-6";
   const fieldInput =
     "w-full rounded-xl border border-white/[0.08] bg-black/20 px-4 py-3 text-sm text-white outline-none transition-all duration-200 placeholder:text-zinc-500 focus:border-sky-500/40 focus:bg-black/30 focus:ring-2 focus:ring-sky-500/20";
   const primaryBtn = `rounded-xl bg-gradient-to-r ${t.listBtn} py-3 text-sm font-bold text-white shadow-lg transition hover:brightness-110 active:scale-[0.98] disabled:opacity-50`;
 
+  const isFullyVerified = useMemo(
+    () =>
+      isFullyVerifiedSeller({
+        kycStatus: profile.kycStatus || poaStatus,
+        phoneVerified: phoneVerified || profile.phoneVerified,
+        emailVerified: profile.emailVerified || user?.emailVerified,
+      }),
+    [profile.kycStatus, profile.phoneVerified, profile.emailVerified, phoneVerified, poaStatus, user?.emailVerified]
+  );
+
   const profileBadges = [
-    phoneVerified && { key: "verified", label: "Verified", className: "border-sky-500/25 bg-sky-500/10 text-sky-300" },
+    isFullyVerified && { key: "verified", label: "Verified", className: "border-sky-500/25 bg-sky-500/10 text-sky-300" },
     profile.topTrader && { key: "top", label: "Top Trader", className: "border-sky-500/25 bg-sky-500/10 text-sky-300" },
     profile.trustedSeller && { key: "trusted", label: "Trusted", className: "border-sky-500/25 bg-sky-500/10 text-sky-300" },
     profile.fastReply && { key: "fast", label: "Fast reply", className: "border-sky-500/25 bg-sky-500/10 text-sky-300" },
@@ -1024,8 +1110,6 @@ const tabs = [
           )}
 
 
-
-          <BrowseAwhinaAssistantPanel className="mb-0 mt-0 mx-auto w-full max-w-2xl text-left" />
 
           {/* Profile hero */}
           <div className={`relative overflow-hidden rounded-3xl border border-white/[0.04] ${t.heroShadow}`}>
@@ -1170,6 +1254,12 @@ const tabs = [
 
           {/* ===== TAB: PROFILE ===== */}
           {activeTab === "profile" && (
+            <div className="space-y-5">
+              <AwhinaProfileAssistant
+                draft={profileDraft}
+                onApplyFill={applyProfileFill}
+                className="w-full"
+              />
             <div className={settingsSection}>
               <div className="mb-6 flex items-center justify-between gap-3">
                 <div>
@@ -1184,7 +1274,7 @@ const tabs = [
 
               {!readyToList && (
                 <div className="mb-5 rounded-xl border border-sky-500/20 bg-sky-500/[0.04] px-4 py-3 text-sm text-sky-400/90">
-                  {listingBlockReason || "Verify your email and phone to create listings."}
+                  {listingBlockReason || "Complete ID verification to create listings."}
                 </div>
               )}
 
@@ -1278,9 +1368,26 @@ const tabs = [
                 )}
               </div>
             </div>
+            </div>
           )}
 
           {/* ===== TAB: LISTINGS ===== */}
+          {activeTab === "reviews" && (
+            <div className={settingsSection}>
+              <h2 className="mb-1 text-base font-bold text-white">Reviews</h2>
+              <p className="mb-5 text-sm text-zinc-500">Reviews from buyers and sellers about you.</p>
+              <p className="text-sm text-zinc-600">View your reviews on your <Link href="/reviews" className="text-sky-400 hover:underline">reviews page</Link>.</p>
+            </div>
+          )}
+
+          {activeTab === "settings" && (
+            <div className={settingsSection}>
+              <h2 className="mb-1 text-base font-bold text-white">Settings</h2>
+              <p className="mb-5 text-sm text-zinc-500">Account and notification settings.</p>
+              <p className="text-sm text-zinc-600">Manage your notifications in <Link href="/notifications" className="text-sky-400 hover:underline">notification settings</Link>.</p>
+            </div>
+          )}
+
           {activeTab === "listings" && (
             <div className={settingsSection}>
               <div className="flex items-center justify-between mb-5">
@@ -1388,7 +1495,7 @@ const tabs = [
           {activeTab === "verification" && (
             <div className={settingsSection}>
               <h2 className="mb-1 text-base font-bold text-white">Verification</h2>
-              <p className="mb-5 text-sm text-zinc-500">Verify email, phone, and address to sell on Sky Drop.</p>
+              <p className="mb-5 text-sm text-zinc-500">Complete ID verification to sell. Phone is optional — it adds a verified badge.</p>
 
               <div className="space-y-3">
                 <div className="rounded-xl border border-white/[0.04] bg-white/[0.02] px-4 py-3.5">
@@ -1423,7 +1530,7 @@ const tabs = [
                   <div className="flex items-center justify-between gap-4 mb-3">
                     <div>
                       <p className="text-sm font-medium text-white">Phone</p>
-                      <p className="text-xs text-zinc-500">Required to sell</p>
+                      <p className="text-xs text-zinc-500">Optional — adds a verified seller badge</p>
                     </div>
                     <p className="text-sm">
                       {phoneVerified ? (
@@ -1503,29 +1610,63 @@ const tabs = [
                     <p className="mb-3 text-xs text-red-400">Reason: {poaRejectionReason}</p>
                   )}
                   {(poaStatus === "unsubmitted" || poaStatus === "rejected") && (
-                    <div className="space-y-3">
-                      <p className="text-xs text-zinc-500">Upload one photo of you holding your driver&apos;s licence or passport next to your face.</p>
-                      <div>
-                        <label className="mb-1.5 block text-[11px] font-semibold text-zinc-400">Photo holding your ID</label>
-                        <input type="file" accept="image/*" capture="user" onChange={(e) => setPoaFile(e.target.files?.[0] || null)}
+                    <div className="space-y-4">
+                      <p className="text-xs text-zinc-500">Upload a clear photo of the front and back of your driver licence or passport. ID verification is required to sell on Sky Drop.</p>
+
+                      {/* Front of ID */}
+                      <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
+                        <label className="mb-2 flex items-center gap-2 text-xs font-semibold text-zinc-300">
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-sky-500/20 text-[10px] font-bold text-sky-400">1</span>
+                          Front of licence or passport
+                        </label>
+                        <input type="file" accept="image/*" onChange={(e) => setPoaFile(e.target.files?.[0] || null)}
                           className="w-full text-xs text-zinc-500 file:mr-3 file:rounded-xl file:border-0 file:bg-sky-500 file:px-4 file:py-2 file:text-xs file:font-semibold file:text-white hover:file:bg-sky-400 file:transition-colors" />
                       </div>
-                      {poaFile && (
+
+                      {/* Back of ID */}
+                      <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
+                        <label className="mb-2 flex items-center gap-2 text-xs font-semibold text-zinc-300">
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-sky-500/20 text-[10px] font-bold text-sky-400">2</span>
+                          Back of licence or passport
+                        </label>
+                        <input type="file" accept="image/*" onChange={(e) => setPoaFile2(e.target.files?.[0] || null)}
+                          className="w-full text-xs text-zinc-500 file:mr-3 file:rounded-xl file:border-0 file:bg-sky-500 file:px-4 file:py-2 file:text-xs file:font-semibold file:text-white hover:file:bg-sky-400 file:transition-colors" />
+                      </div>
+
+                      {/* Preview row */}
+                      {(poaFile || poaFile2) && (
+                        <div className="flex gap-2">
+                          {poaFile && (
+                            <div className="flex-1 overflow-hidden rounded-lg border border-sky-500/20 bg-black">
+                              <img src={URL.createObjectURL(poaFile)} alt="Front of ID" className="mx-auto max-h-32 w-full object-contain" />
+                              <p className="border-t border-white/[0.06] py-1 text-center text-[10px] text-zinc-500">Front</p>
+                            </div>
+                          )}
+                          {poaFile2 && (
+                            <div className="flex-1 overflow-hidden rounded-lg border border-sky-500/20 bg-black">
+                              <img src={URL.createObjectURL(poaFile2)} alt="Back of ID" className="mx-auto max-h-32 w-full object-contain" />
+                              <p className="border-t border-white/[0.06] py-1 text-center text-[10px] text-zinc-500">Back</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {poaFile && poaFile2 && (
                         <button onClick={async () => {
-                          if (!user?.uid || !poaFile) return;
+                          if (!user?.uid || !poaFile || !poaFile2) return;
                           const nsfw = await checkImage(poaFile);
-                          if (!nsfw.safe) {
-                            showToast(nsfw.reason ? `Photo not accepted: ${nsfw.reason}` : "Photo could not be accepted", "error");
-                            setPoaFile(null);
-                            return;
-                          }
+                          const nsfw2 = await checkImage(poaFile2);
+                          if (!nsfw.safe) { showToast(nsfw.reason || "Front photo could not be accepted", "error"); setPoaFile(null); return; }
+                          if (!nsfw2.safe) { showToast(nsfw2.reason || "Back photo could not be accepted", "error"); setPoaFile2(null); return; }
                           setPoaUploading(true);
                           try {
                             await submitKycPhoto(user, poaFile);
+                            await submitKycPhoto(user, poaFile2);
                             setPoaStatus("pending");
                             setPoaDocumentURL("");
                             setPoaFile(null);
-                            showToast("KYC photo submitted for review.", "success");
+                            setPoaFile2(null);
+                            showToast("KYC photos submitted for review.", "success");
                             await notifyKycSubmitted(user, username);
                           } catch (e) {
                             console.error(e);
@@ -1537,8 +1678,8 @@ const tabs = [
                           {poaUploading ? "Uploading..." : "Submit for verification"}
                         </button>
                       )}
-                      {!poaFile && (
-                        <p className="text-[11px] text-zinc-600">Select a photo above to submit.</p>
+                      {(!poaFile || !poaFile2) && (
+                        <p className="text-[11px] text-zinc-600">Select both front and back photos to submit.</p>
                       )}
                     </div>
                   )}

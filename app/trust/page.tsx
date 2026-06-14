@@ -21,18 +21,18 @@ const sections = [
   },
   {
     title: "Selling Limits",
-    content: "Your price cap increases as you earn positive reviews (rating 4+). Your ID verification (KYC) gives you a head start:",
+    content: "KYC (ID verification) is required before you can list items for sale. Your price cap increases as you earn positive reviews (rating 4+):",
     items: [
-      "No KYC: $200 cap · $1,000 after 3 positive reviews · $5,000 after 10 · unlimited after 25",
-      "KYC approved: $5,000 cap · unlimited after 10 positive reviews, no 30-day wait, ID Verified badge",
+      "KYC approved: $5,000 starting cap · unlimited after 10 positive reviews · unlimited listings · ID Verified badge",
+      "Without KYC approval you cannot create listings — verify your ID on Profile → Verification",
     ],
   },
   {
     title: "KYC — Identity Verification",
     content:
-      "Upload one photo of you holding your driver's licence or passport — that's all we need for ID verification. Admin reviews manually.",
+      "Upload photos of your driver's licence or passport (front and back) — that's all we need for ID verification. Phone verification is optional and adds a verified seller badge. Admin reviews manually.",
     items: [
-      "Approved: list immediately (no 30-day wait), $5,000 starting cap (unlimited after 10 positive reviews), unlimited listings, +20 trust score",
+      "Approved: list immediately, $5,000 starting cap (unlimited after 10 positive reviews), unlimited listings, +20 trust score",
       'Get an "ID Verified" badge on your profile and listings',
       "Your ID is stored securely with admin-only access",
       "If you commit fraud, your ID can be shared with law enforcement agencies where legally required",

@@ -990,3 +990,123 @@ body {
   .max-w-\[90rem\] { max-width: min(160rem, 96vw); }
   .max-w-\[120rem\] { max-width: min(180rem, 96vw); }
 }
+
+/* ── Sky Drop logo wordmark ── */
+.sky-drop-logo-sky {
+  color: #fff;
+  letter-spacing: -0.045em;
+}
+
+.sky-drop-logo-drop {
+  background: linear-gradient(108deg, #bae6fd 0%, #38bdf8 42%, #0ea5e9 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.045em;
+}
+
+.sky-drop-logo-drop-glow {
+  filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.22));
+}
+
+.sky-drop-logo-group:hover .sky-drop-logo-drop-glow {
+  animation: sky-drop-shimmer 2.4s ease-in-out;
+}
+
+@keyframes sky-drop-shimmer {
+  0%, 100% {
+    filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.22));
+  }
+  50% {
+    filter: drop-shadow(0 0 11px rgba(56, 189, 248, 0.42));
+  }
+}
+
+:root.light .sky-drop-logo-sep {
+  background-color: rgba(255, 255, 255, 0.35);
+}
+
+/* ── Āwhina homepage hero decorative layer ── */
+@keyframes awhina-breathe {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes awhina-hair-sway {
+  0%, 100% {
+    transform: rotate(-0.8deg);
+  }
+  50% {
+    transform: rotate(0.8deg);
+  }
+}
+
+@keyframes awhina-glow-pulse {
+  0%, 100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.75;
+  }
+}
+
+@keyframes awhina-particles {
+  0% {
+    transform: translateY(0) translateX(0);
+    opacity: 0.15;
+  }
+  25% {
+    opacity: 0.75;
+  }
+  50% {
+    transform: translateY(-14px) translateX(4px);
+    opacity: 0.55;
+  }
+  75% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(-28px) translateX(-3px);
+    opacity: 0.2;
+  }
+}
+
+@keyframes awhina-life-pulse {
+  0%, 92%, 100% {
+    opacity: 0;
+  }
+  94% {
+    opacity: 0.15;
+  }
+  96% {
+    opacity: 0;
+  }
+}
+
+.awhina-breathe {
+  animation: awhina-breathe 3.6s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+.awhina-hair-sway {
+  animation: awhina-hair-sway 4s ease-in-out infinite;
+  transform-origin: center 18%;
+  will-change: transform;
+}
+
+.awhina-glow-pulse {
+  animation: awhina-glow-pulse 4.2s ease-in-out infinite;
+}
+
+.awhina-particle {
+  animation: awhina-particles var(--duration, 15s) ease-in-out infinite;
+}
+
+.awhina-life-pulse {
+  background: radial-gradient(ellipse at center, rgba(56, 189, 248, 0.18), transparent 72%);
+  animation: awhina-life-pulse 7s ease-in-out infinite;
+}

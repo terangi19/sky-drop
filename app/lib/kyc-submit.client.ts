@@ -206,11 +206,11 @@ async function submitKycDirect(user: User, photoFile: File): Promise<void> {
 export async function submitKycPhoto(user: User, photoFile: File): Promise<void> {
   const production = isProductionClient();
 
+  // Try server API first (Admin SDK). On localhost, fall through to client-side if it fails.
   const usedApi = await submitKycViaApi(user, photoFile).catch((e) => {
-    if (e instanceof KycSubmitError) throw e;
-    if (production) {
-      throw new KycSubmitError(kycSubmitErrorMessage(e, "storage"), "storage", firebaseErrorCode(e));
-    }
+    if (production && e instanceof KycSubmitError) throw e;
+    if (production) throw new KycSubmitError(kycSubmitErrorMessage(e, "storage"), "storage", firebaseErrorCode(e));
+    console.warn("[kyc-submit] API upload failed, falling back to client-side:", e instanceof Error ? e.message : e);
     return false;
   });
 
@@ -224,13 +224,14 @@ export async function submitKycPhoto(user: User, photoFile: File): Promise<void>
     );
   }
 
+  // Local dev fallback — writes directly via Firebase client SDK
   await submitKycDirect(user, photoFile);
 }
 
 export async function notifyKycSubmitted(user: User, username?: string): Promise<void> {
   try {
     const token = await user.getIdToken();
-    await fetch("/api/admin/kyc-alert", {
+    await fetch("/api/kyc-notify", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({

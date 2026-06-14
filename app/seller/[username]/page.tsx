@@ -37,6 +37,12 @@ import {
   stripAtPrefix,
 } from "../../lib/public-display";
 import { resolveSellerBySlug } from "../../lib/seller-profile-lookup";
+import {
+  isFullyVerifiedSeller,
+  profileEmailVerified,
+  profileKycApproved,
+  profilePhoneVerified,
+} from "../../lib/seller-verified";
 
 interface ProfileData {
   username?: string;
@@ -51,8 +57,10 @@ interface ProfileData {
   tiktok?: string;
   hideOnline?: boolean;
   phoneVerified?: boolean;
+  emailVerified?: boolean;
   memberSince?: Timestamp;
   verified?: boolean;
+  kycStatus?: string;
   trustedSeller?: boolean;
   fastReply?: boolean;
   topTrader?: boolean;
@@ -300,7 +308,7 @@ export default function SellerPage() {
   const trustScore = useMemo(() => {
     const memberDate = profile?.memberSince?.toDate ? profile.memberSince.toDate() : null;
     return calculateTrustScore({
-      emailVerified: true,
+      emailVerified: profileEmailVerified(profile),
       hasProfile: true,
       hasBio: !!profile?.bio,
       hasPhoto: !!profile?.photoURL,
@@ -310,7 +318,8 @@ export default function SellerPage() {
     });
   }, [profile, sellerReportsCount, completedSalesCount]);
 
-  const isNotVerified = !profile?.verified && !profile?.phoneVerified;
+  const isFullyVerified = isFullyVerifiedSeller(profile);
+  const isNotVerified = !isFullyVerified;
 
   // Rating distribution
   const ratingCounts = useMemo(() => {
@@ -381,17 +390,17 @@ export default function SellerPage() {
                   <h1 className="text-lg sm:text-2xl font-black tracking-tight text-[var(--foreground)]">
                     {displayName}
                   </h1>
-                  {profile.verified && (
+                  {isFullyVerified && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold text-sky-400 ring-1 ring-sky-500/25 shadow-[0_0_10px_rgba(14,165,233,0.15)]">
                       <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
                       Verified
                     </span>
                   )}
                   {isNotVerified && (
-                    <span className="group relative inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-bold text-red-400 ring-1 ring-red-500/20 animate-breathe-border" title="This seller has not completed phone or ID verification yet.">
+                    <span className="group relative inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-bold text-red-400 ring-1 ring-red-500/20 animate-breathe-border" title="This seller has not completed email, phone, and ID verification yet.">
                       Not Verified
                       <span className="invisible group-hover:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-44 rounded-lg bg-zinc-800 px-2.5 py-1.5 text-[10px] text-[var(--foreground)] shadow-lg animate-fade-in-up pointer-events-none z-10">
-                        This seller has not completed phone or ID verification yet.
+                        This seller has not completed email, phone, and ID verification yet.
                       </span>
                     </span>
                   )}
@@ -611,12 +620,12 @@ export default function SellerPage() {
               <div className={`overflow-hidden rounded-xl border bg-zinc-900/80 p-5 shadow-[0_2px_12px_rgba(0,0,0,0.25)] ${isNotVerified ? 'border-red-500/30 animate-breathe-border' : 'border-zinc-700/50'}`}>
                 <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.15em] text-[var(--foreground)]">Trust &amp; Safety</h2>
                 <div className="space-y-3">
-                  {profile.verified ? (
+                  {isFullyVerified ? (
                     <div className="flex items-center gap-2">
                       <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-500/20 text-[10px]">✓</span>
                       <div>
                         <p className="text-xs font-bold text-sky-400">Verified Seller</p>
-                        <p className="text-[10px] text-[var(--muted)]">ID verification approved</p>
+                        <p className="text-[10px] text-[var(--muted)]">Email, phone, and ID verified</p>
                       </div>
                     </div>
                   ) : (
@@ -624,11 +633,28 @@ export default function SellerPage() {
                       <span className="flex h-6 w-6 items-center justify-center rounded-full bg-red-500/20 text-[10px] animate-pulse-dot">!</span>
                       <div>
                         <p className="text-xs font-bold text-red-400">Not Verified</p>
-                        <p className="text-[10px] text-[var(--muted)]">ID verification not completed</p>
+                        <p className="text-[10px] text-[var(--muted)]">Complete email, phone, and ID verification</p>
                       </div>
                     </div>
                   )}
-                  {profile.phoneVerified ? (
+                  {profileEmailVerified(profile) ? (
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-500/20 text-[10px]">✉</span>
+                      <div>
+                        <p className="text-xs font-bold text-sky-400">Email Verified</p>
+                        <p className="text-[10px] text-[var(--muted)]">Email address confirmed</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-700/40 text-[10px]">✉</span>
+                      <div>
+                        <p className="text-xs font-bold text-[var(--muted)]">Email Not Verified</p>
+                        <p className="text-[10px] text-zinc-600">Email address not confirmed</p>
+                      </div>
+                    </div>
+                  )}
+                  {profilePhoneVerified(profile) ? (
                     <div className="flex items-center gap-2">
                       <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-500/20 text-[10px]">📱</span>
                       <div>
@@ -642,6 +668,23 @@ export default function SellerPage() {
                       <div>
                         <p className="text-xs font-bold text-[var(--muted)]">Phone Not Verified</p>
                         <p className="text-[10px] text-zinc-600">Phone number not confirmed</p>
+                      </div>
+                    </div>
+                  )}
+                  {profileKycApproved(profile) ? (
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-500/20 text-[10px]">🪪</span>
+                      <div>
+                        <p className="text-xs font-bold text-sky-400">ID Verified</p>
+                        <p className="text-[10px] text-[var(--muted)]">Identity verification approved</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-700/40 text-[10px]">🪪</span>
+                      <div>
+                        <p className="text-xs font-bold text-[var(--muted)]">ID Not Verified</p>
+                        <p className="text-[10px] text-zinc-600">Identity verification not completed</p>
                       </div>
                     </div>
                   )}

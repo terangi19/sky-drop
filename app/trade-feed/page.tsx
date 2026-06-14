@@ -435,7 +435,7 @@ export default function TradeFeedPage() {
         listingTitle: post?.title || null,
         createdAt: serverTimestamp(),
       }).catch((err) => console.error("Failed to add message doc:", err));
-      await addDoc(collection(db, "notifications"), {
+      await createNotification({
         type: "message",
         targetEmail: post?.sellerEmail || "",
         fromEmail: user.email,
@@ -443,9 +443,7 @@ export default function TradeFeedPage() {
         message: `${username || user.email?.split("@")[0] || "Someone"}: ${text.trim().slice(0, 100)}`,
         listingId: postId,
         listingTitle: post?.title || "a trade",
-        read: false,
-        createdAt: serverTimestamp(),
-      }).catch((err) => console.error("Failed to add notification doc:", err));
+      }).catch((err) => console.error("Failed to add notification:", err));
       setReplyTexts((prev) => ({ ...prev, [postId]: "" }));
       const id = ++eventId.current;
       setLiveEvents((prev) => [{ id, icon: "💬", text: `New reply on ${post?.title || "a trade"}` }, ...prev].slice(0, 20));

@@ -26,3 +26,13 @@ export async function isAdminUser(email?: string | null, uid?: string): Promise<
 
   return false;
 }
+
+export async function syncAdminCustomClaim(uid: string, email: string): Promise<void> {
+  try {
+    const { getAdminAuth } = await import("./firebase-admin");
+    const isAdmin = await isAdminUser(email, uid);
+    await getAdminAuth().setCustomUserClaims(uid, { admin: isAdmin });
+  } catch (e) {
+    console.warn("[admin-check] Custom claim sync failed:", e);
+  }
+}

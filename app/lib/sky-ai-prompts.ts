@@ -28,6 +28,20 @@ export const SKY_AI_SELL_WELCOME =
 export const SKY_AI_WELCOME =
   `You can list **physical items, digital downloads, services, rentals, and vehicles** — I can fill the Sell form for you.\n\nAsk anything — or tap **What can you do?**`;
 
+export const SKY_AI_PROFILE_WELCOME =
+  `Kia ora, I'm ${AWHINA_NAME}. Tell me about yourself and I'll build your profile for you.\n\nTry: *"Write my bio"*, *"I'm a car dealer in Auckland"*, or *"Add my Instagram"*.`;
+
+export const SKY_AI_PROFILE_QUICK_PROMPTS: { label: string; query: string }[] = [
+  { label: "Write my bio", query: "Write a short bio for my profile" },
+  { label: "Update my region", query: "Set my region to Auckland" },
+  { label: "Add Instagram", query: "Add my Instagram @skycars" },
+  { label: "Add Facebook", query: "Add my Facebook page" },
+  { label: "Add Website", query: "Add my website" },
+  { label: "I'm a car dealer", query: "I'm a car dealer in Auckland" },
+  { label: "I sell BMW parts", query: "I sell BMW parts — write my bio" },
+  { label: "Improve my profile", query: "Make my profile look more trustworthy" },
+];
+
 /** User is asking what the assistant can do — not requesting navigation. */
 export function isSkyAiGeneralQuestion(message: string): boolean {
   const n = message.toLowerCase().replace(/[^\w\s?]/g, " ").trim();

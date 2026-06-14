@@ -41,6 +41,7 @@ interface HotThisWeekProps {
   user?: User | null;
   sellerReviewStats?: Record<string, { avg: number; count: number }>;
   sellerBadges?: Record<string, string>;
+  sellerFullyVerified?: Record<string, boolean>;
 }
 
 const NEON_CARD =

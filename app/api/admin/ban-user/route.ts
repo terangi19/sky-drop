@@ -1,25 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken, getAdminDb, getAdminApp, getAdminAuth, isAdminInitialized } from "../../../lib/firebase-admin";
-import { isAdminEmail } from "../../../lib/admin-check";
+import { getAdminDb, getAdminApp, getAdminAuth, isAdminInitialized } from "../../../lib/firebase-admin";
+import { AdminAuthError, requireAdminFromRequest } from "../../../lib/admin-request";
 import { blacklistPhone, recordUsedIp } from "../../../lib/ban-store";
 
 export async function POST(req: NextRequest) {
   try {
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    let adminToken;
-    try {
-      adminToken = await verifyIdToken(authHeader.slice(7));
-    } catch {
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
-    }
-
-    if (!isAdminEmail(adminToken.email)) {
-      return NextResponse.json({ error: "Admin only" }, { status: 403 });
-    }
+    await requireAdminFromRequest(req);
 
     const { uid } = await req.json();
     if (!uid || typeof uid !== "string") {
@@ -134,8 +120,11 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (e: any) {
-    console.error("[ban-user] Error:", e?.message || e);
+  } catch (e: unknown) {
+    if (e instanceof AdminAuthError) {
+      return NextResponse.json({ error: e.message }, { status: e.status });
+    }
+    console.error("[ban-user] Error:", e instanceof Error ? e.message : e);
     return NextResponse.json({ error: "Failed to ban user" }, { status: 500 });
   }
 }

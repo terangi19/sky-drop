@@ -2,10 +2,16 @@ export type SkyAiProfileFill = {
   username?: string;
   bio?: string;
   region?: string;
+  occupation?: string;
+  interests?: string[];
   discord?: string;
   instagram?: string;
+  facebook?: string;
   tiktok?: string;
+  youtube?: string;
   website?: string;
+  businessName?: string;
+  favouriteCategories?: string[];
 };
 
 export const SKY_AI_PROFILE_FILL_TAG =
@@ -55,14 +61,30 @@ export function normalizeSkyAiProfileFill(raw: Record<string, unknown>): SkyAiPr
     const r = normalizeRegion(String(raw.region));
     if (r) out.region = r;
   }
+  const occupation = pickString(raw.occupation, 100);
+  if (occupation) out.occupation = occupation;
+  if (Array.isArray(raw.interests)) {
+    const items = raw.interests.map((i: any) => String(i).trim()).filter(Boolean);
+    if (items.length > 0) out.interests = items.slice(0, 20);
+  }
   const discord = pickString(raw.discord, 60);
   if (discord) out.discord = discord;
   const instagram = raw.instagram ? normalizeSocial(String(raw.instagram), true) : undefined;
   if (instagram) out.instagram = instagram;
+  const facebook = raw.facebook ? normalizeSocial(String(raw.facebook), true) : undefined;
+  if (facebook) out.facebook = facebook;
   const tiktok = raw.tiktok ? normalizeSocial(String(raw.tiktok), true) : undefined;
   if (tiktok) out.tiktok = tiktok;
+  const youtube = raw.youtube ? normalizeSocial(String(raw.youtube), true) : undefined;
+  if (youtube) out.youtube = youtube;
   const website = pickString(raw.website, 200);
   if (website) out.website = website;
+  const businessName = pickString(raw.businessName, 100);
+  if (businessName) out.businessName = businessName;
+  if (Array.isArray(raw.favouriteCategories)) {
+    const cats = raw.favouriteCategories.map((c: any) => String(c).trim()).filter(Boolean);
+    if (cats.length > 0) out.favouriteCategories = cats.slice(0, 10);
+  }
   return out;
 }
 
@@ -112,17 +134,24 @@ export type ProfileDraftChecklist = {
   region: boolean;
   bio: boolean;
   social: boolean;
+  occupation: boolean;
+  interests: boolean;
 };
 
 export function profileDraftChecklist(draft: SkyAiProfileFill): ProfileDraftChecklist {
+  const items = draft.interests || [];
   return {
     username: !!draft.username?.trim(),
     region: !!draft.region?.trim(),
     bio: !!draft.bio?.trim(),
+    occupation: !!draft.occupation?.trim(),
+    interests: items.length > 0,
     social: !!(
       draft.discord?.trim() ||
       draft.instagram?.trim() ||
+      draft.facebook?.trim() ||
       draft.tiktok?.trim() ||
+      draft.youtube?.trim() ||
       draft.website?.trim()
     ),
   };

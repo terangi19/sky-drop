@@ -86,7 +86,7 @@ export default function VehiclesPage() {
   const [watchlistTick, setWatchlistTick] = useState(0);
   const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
 
-  const { sellerReviewStats, sellerBadges } = useSellerListingMeta(listings);
+  const { sellerReviewStats, sellerBadges, sellerFullyVerified } = useSellerListingMeta(listings);
 
   useEffect(() => {
     const refreshRecentlyViewed = () => setRecentlyViewed(getRecentlyViewed());
@@ -435,6 +435,7 @@ export default function VehiclesPage() {
                   onMakeOffer={(listing) => router.push(`/post/listing/${listing.id}`)}
                   sellerReviewStats={sellerReviewStats}
                   sellerBadges={sellerBadges}
+                  sellerFullyVerified={sellerFullyVerified}
                 />
               ))}
             </div>

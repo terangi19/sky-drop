@@ -28,6 +28,7 @@ export type ListingCardProps = {
   sellerReviewStats: Record<string, { avg: number; count: number }>;
   sellerBadges: Record<string, string>;
   sellerHandles?: Record<string, string>;
+  sellerFullyVerified?: Record<string, boolean>;
   onPromote?: (item: Record<string, any>) => void;
   onDelete?: (item: Record<string, any>) => void;
 };
@@ -44,6 +45,7 @@ export default function ListingCard({
   sellerReviewStats,
   sellerBadges,
   sellerHandles = {},
+  sellerFullyVerified = {},
   onPromote,
   onDelete,
 }: ListingCardProps) {
@@ -413,6 +415,11 @@ export default function ListingCard({
                         <span className="truncate text-[13px] font-semibold text-white/90">
                           {displayName}
                         </span>
+                        {sellerFullyVerified?.[email || ""] && (
+                          <span className="rounded border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[8px] font-bold text-sky-400">
+                            ✓ Verified
+                          </span>
+                        )}
                         {sellerBadges[email || ""] === "legendary" && (
                           <span className="rounded border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[8px] font-bold text-sky-400 animate-pulse">
                             👑 The Five

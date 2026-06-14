@@ -152,7 +152,7 @@ export const SEED_KNOWLEDGE: Omit<KnowledgeDoc, "id">[] = [
   },
   {
     title: "Account and profile settings",
-    content: "Your profile is at /profile. You can edit your bio (max 300 chars), username (unique @handle), and region (NZ region picker). Your avatar defaults to your first initial — click it to upload a new photo. Email verification is required to list or buy. You can verify your phone number on Profile for a verified seller badge. Connect connected payout account in Profile → Payment settings to receive card payments. Save bank account name and number for Arrange Purchase payments. Notification preferences can be managed from Profile settings.",
+    content: "Your profile is at /profile. You can edit your bio (max 300 chars), username (unique @handle), and region (NZ region picker). Your avatar defaults to your first initial — click it to upload a new photo. ID verification (KYC) is required to sell. Email verification is required to buy. You can optionally verify your phone number on Profile for a verified seller badge. Connect connected payout account in Profile → Payment settings to receive card payments. Save bank account name and number for Arrange Purchase payments. Notification preferences can be managed from Profile settings.",
     category: "account",
     tags: ["account", "profile", "settings", "avatar", "username", "bio", "verification"],
     keywords: ["edit profile", "change username", "verify account", "notification settings", "bank details"],
@@ -170,7 +170,7 @@ export const SEED_KNOWLEDGE: Omit<KnowledgeDoc, "id">[] = [
   },
   {
     title: "Seller limits and verification",
-    content: "Price caps increase with positive reviews. Non-KYC sellers start at $200 — $1,000 after 3 positive reviews, $5,000 after 10, unlimited after 25. KYC-approved sellers start at $5,000 — unlimited after 10 positive reviews. Email verification is required to list or buy. Listing moderation automatically checks for scam language, suspicious prices, and duplicate listings.",
+    content: "Price caps increase with positive reviews. Non-KYC sellers start at $200 — $1,000 after 3 positive reviews, $5,000 after 10, unlimited after 25. KYC-approved sellers start at $5,000 — unlimited after 10 positive reviews. ID verification (KYC) is required to sell. Listing moderation automatically checks for scam language, suspicious prices, and duplicate listings.",
     category: "selling",
     tags: ["seller limit", "verification", "badge", "trust", "new seller"],
     keywords: ["seller limits", "verified seller", "listing limit", "become verified", "seller badge"],

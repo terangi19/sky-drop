@@ -1,6 +1,7 @@
 import { getAdminDb } from "./firebase-admin";
 import { isPhoneBlacklisted } from "./ban-store";
 import { formatNZPhone, isValidNzMobile, phoneRegistryDocId } from "./phone-format";
+import { verifiedFlagAfterUpdate } from "./seller-verified";
 
 const COLLECTION = "phoneRegistry";
 
@@ -53,6 +54,14 @@ export async function claimVerifiedPhoneForUser(opts: {
         }
       }
 
+      const profileSnap = await tx.get(profileRef);
+      const existingProfile = profileSnap.data();
+      const phonePatch = {
+        phone: formatted,
+        phoneNumber: formatted,
+        phoneVerified: true,
+      };
+
       tx.set(
         registryRef,
         {
@@ -67,10 +76,8 @@ export async function claimVerifiedPhoneForUser(opts: {
       tx.set(
         profileRef,
         {
-          phone: formatted,
-          phoneNumber: formatted,
-          phoneVerified: true,
-          verified: true,
+          ...phonePatch,
+          verified: verifiedFlagAfterUpdate(existingProfile, phonePatch),
         },
         { merge: true }
       );

@@ -91,7 +91,7 @@ export default function BrowseCategoryPage({ config }: Props) {
   const [watchlistTick, setWatchlistTick] = useState(0);
   const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
 
-  const { sellerReviewStats, sellerBadges, sellerHandles } = useSellerListingMeta(listings);
+  const { sellerReviewStats, sellerBadges, sellerHandles, sellerFullyVerified } = useSellerListingMeta(listings);
 
   useEffect(() => {
     const refreshRecentlyViewed = () => setRecentlyViewed(getRecentlyViewed());
@@ -524,6 +524,7 @@ export default function BrowseCategoryPage({ config }: Props) {
           user={user}
           sellerReviewStats={sellerReviewStats}
           sellerBadges={sellerBadges}
+          sellerFullyVerified={sellerFullyVerified}
         />
 
         {listings.length === 0 ? (
@@ -612,6 +613,7 @@ export default function BrowseCategoryPage({ config }: Props) {
                   onMakeOffer={(listing) => router.push(`/post/listing/${listing.id}`)}
                   sellerReviewStats={sellerReviewStats}
                   sellerBadges={sellerBadges}
+          sellerFullyVerified={sellerFullyVerified}
                   sellerHandles={sellerHandles}
                 />
               ))}
