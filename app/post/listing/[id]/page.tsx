@@ -213,7 +213,7 @@ export default function ListingPage() {
         return;
       }
       router.push(
-        `/messages?user=${encodeURIComponent(data.sellerEmail || listing.sellerEmail || "")}&listing=${listingId}`
+        `/messages?user=${encodeURIComponent(listing.sellerUsername || data.sellerEmail || listing.sellerEmail || "")}&listing=${listingId}`
       );
     } catch (e) {
       console.error("Arrange purchase failed:", e);
@@ -1383,7 +1383,7 @@ Property Status: 🟢 Inquiry Active`;
                         await addDoc(collection(db, "messages"), {
                           type: "system",
                           text: buyerMsg,
-                          sender: "system",
+                          sender: user!.email!,
                           receiver: listing.sellerEmail,
                           participants: [user!.email!, listing.sellerEmail],
                           conversationId: convId,
@@ -1396,7 +1396,7 @@ Property Status: 🟢 Inquiry Active`;
                         await addDoc(collection(db, "messages"), {
                           type: "text",
                           text: `🟢 A user is interested in your property listing.\n\nUse this chat to discuss:\n• viewing arrangements\n• price/negotiation\n• property details\n• settlement or tenancy\n\nKeep all communication inside Sky Drop for protection.`,
-                          sender: "system",
+                          sender: user!.email!,
                           receiver: listing.sellerEmail,
                           participants: [user!.email!, listing.sellerEmail],
                           conversationId: convId,
@@ -1408,7 +1408,7 @@ Property Status: 🟢 Inquiry Active`;
                       } catch (e) {
                         console.error("Property inquiry failed:", e);
                       }
-                      router.push(`/messages?user=${encodeURIComponent(listing.sellerEmail || "")}&listing=${listingId}`);
+                      router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`);
                     }}
                     className="flex-1 rounded-lg bg-gradient-to-r from-sky-500 to-sky-500 py-3 text-[13px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]"
                   >
@@ -1458,14 +1458,14 @@ Property Status: 🟢 Inquiry Active`;
                         convId = convRef.id;
                       }
                       await addDoc(collection(db, "messages"), { type: "text", text: `Hi, I'm interested in "${listing.title}" — could you please provide a quote?`, sender: user!.email!, receiver: listing.sellerEmail, participants: [user!.email!, listing.sellerEmail], conversationId: convId, listingId, listingTitle: listing.title, read: false, createdAt: serverTimestamp() });
-                      router.push(`/messages?user=${encodeURIComponent(listing.sellerEmail || "")}&listing=${listingId}`);
+                      router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`);
                     }}
                     className="flex-1 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-[13px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]"
                   >
                     Request Quote
                   </button>
                   <button
-                    onClick={() => router.push(`/messages?user=${encodeURIComponent(listing.sellerEmail || "")}&listing=${listingId}`)}
+                    onClick={() => router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`)}
                     className="flex-1 rounded-lg border border-zinc-700 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-zinc-800 active:scale-[0.97]"
                   >
                     Message Seller
@@ -1614,7 +1614,7 @@ Application Status: 🟢 Active`;
                         await addDoc(collection(db, "messages"), {
                           type: "system",
                           text: buyerMsg,
-                          sender: "system",
+                          sender: user!.email!,
                           receiver: listing.sellerEmail,
                           participants: [user!.email!, listing.sellerEmail],
                           conversationId: convId,
@@ -1627,7 +1627,7 @@ Application Status: 🟢 Active`;
                         await addDoc(collection(db, "messages"), {
                           type: "text",
                           text: `🟢 A user is interested in your job listing.\n\nUse this chat to discuss:\n• experience/skills\n• availability\n• interview arrangements\n• pay/rates\n• job expectations\n\nKeep all communication inside Sky Drop for protection.`,
-                          sender: "system",
+                          sender: user!.email!,
                           receiver: listing.sellerEmail,
                           participants: [user!.email!, listing.sellerEmail],
                           conversationId: convId,
@@ -1640,11 +1640,10 @@ Application Status: 🟢 Active`;
                         console.error("Job inquiry failed:", e);
                       }
                       try { localStorage.setItem("skyJobPrefill", `Hi, I'm interested in this job 👋`); } catch {}
-                      router.push(`/messages?user=${encodeURIComponent(listing.sellerEmail || "")}&listing=${listingId}`);
+                      router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`);
                     }}
                     className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-sky-500 to-sky-500 py-3 text-[13px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:shadow-sky-500/30"
                   >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
                     Apply Now
                   </button>
                 </>
@@ -1722,7 +1721,7 @@ Service Status: 🟢 Inquiry Active`;
                         await addDoc(collection(db, "messages"), {
                           type: "system",
                           text: buyerMsg,
-                          sender: "system",
+                          sender: user!.email!,
                           receiver: listing.sellerEmail,
                           participants: [user!.email!, listing.sellerEmail],
                           conversationId: convId,
@@ -1735,7 +1734,7 @@ Service Status: 🟢 Inquiry Active`;
                         await addDoc(collection(db, "messages"), {
                           type: "text",
                           text: `🟢 A user is interested in hiring your service.\n\nUse this chat to discuss:\n• project requirements\n• pricing\n• deadlines\n• revisions\n• delivery expectations\n\nKeep all communication inside Sky Drop for protection.`,
-                          sender: "system",
+                          sender: user!.email!,
                           receiver: listing.sellerEmail,
                           participants: [user!.email!, listing.sellerEmail],
                           conversationId: convId,
@@ -1747,11 +1746,10 @@ Service Status: 🟢 Inquiry Active`;
                       } catch (e) {
                         console.error("Service inquiry failed:", e);
                       }
-                      router.push(`/messages?user=${encodeURIComponent(listing.sellerEmail || "")}&listing=${listingId}`);
+                      router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`)
                     }}
                     className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-sky-500 to-fuchsia-500 py-3 text-[13px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:shadow-sky-500/30"
                   >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
                     Message Seller
                   </button>
                   {listing.acceptOffers && (
@@ -1845,7 +1843,7 @@ Service Status: 🟢 Inquiry Active`;
                       </button>
                     </div>
                     <Link
-                      href={`/messages?user=${encodeURIComponent(listing.sellerEmail || "")}&listing=${listingId}`}
+                      href={`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`}
                       className="flex items-center justify-center rounded-lg border border-zinc-700 px-4 py-3 text-[12px] font-medium text-[var(--foreground)] transition hover:border-zinc-600 self-stretch">
                       Message
                     </Link>

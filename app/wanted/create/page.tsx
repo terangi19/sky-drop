@@ -8,6 +8,8 @@ import Background from "../../components/Background";
 import ThemeToggle from "../../components/ThemeToggle";
 import { showToast } from "../../components/Toast";
 import { getFreshIdToken } from "../../lib/api-auth";
+import TurnstileWidget from "../../components/TurnstileWidget";
+import { getTurnstileSiteKey } from "../../lib/turnstile";
 
 const WANTED_CATEGORIES = ["Items", "Services", "Rentals", "Vehicles"];
 
@@ -19,6 +21,7 @@ export default function WantedCreatePage() {
   const [category, setCategory] = useState("Items");
   const [location, setLocation] = useState("");
   const [loading, setLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -28,6 +31,12 @@ export default function WantedCreatePage() {
     }
     if (!budget) {
       showToast("Please enter your budget", "error");
+      return;
+    }
+
+    if (getTurnstileSiteKey() && !turnstileToken) {
+      showToast("Complete the security check to continue.", "error");
+      setLoading(false);
       return;
     }
 
@@ -47,6 +56,7 @@ export default function WantedCreatePage() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
+          turnstileToken,
           title,
           description,
           price: String(budget),
@@ -188,6 +198,11 @@ export default function WantedCreatePage() {
                 </div>
               </div>
 
+              <TurnstileWidget
+                onToken={(token) => setTurnstileToken(token)}
+                onExpire={() => setTurnstileToken("")}
+                className="mb-3 flex justify-center"
+              />
               <button
                 type="submit"
                 disabled={loading || !title || !budget}

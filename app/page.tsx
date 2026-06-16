@@ -608,19 +608,17 @@ export default function Home() {
     }
     lastOfferTime.current = Date.now();
     try {
-      await addDoc(collection(db, "messages"), {
-        sender: user.email,
-        receiver: offerListing.sellerEmail,
-        participants: [user.email, offerListing.sellerEmail],
-        type: "offer",
-        text: `Offer: $${offerAmount}`,
-        offer: { amount: Number(offerAmount), status: "pending" },
-        listingId: offerListing.id,
-        listingTitle: offerListing.title,
-        listingImage: offerListing.images?.[0] || offerListing.imageUrl || "",
-        listingPrice: offerListing.price,
-        read: false,
-        createdAt: serverTimestamp(),
+      const sendToken = await user.getIdToken();
+      await fetch("/api/send-message", {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${sendToken}` },
+        body: JSON.stringify({
+          type: "offer", receiver: offerListing.sellerEmail,
+          text: `Offer: $${offerAmount}`,
+          offerType: "make", offerAmount: String(offerAmount), offerStatus: "pending",
+          listingId: offerListing.id, listingTitle: offerListing.title,
+          listingImage: offerListing.images?.[0] || offerListing.imageUrl || "",
+          listingPrice: offerListing.price,
+        }),
       });
     } catch (e) {
       console.error("Failed to send offer:", e);

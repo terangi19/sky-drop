@@ -26,6 +26,8 @@ import {
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import { buildEmailHtml } from "../lib/email";
 import { formatNZPhone } from "../lib/phone-auth";
+import TurnstileWidget from "../components/TurnstileWidget";
+import { getTurnstileSiteKey } from "../lib/turnstile";
 
 const INPUT_CLASS =
   "login-page-input w-full rounded-xl px-4 py-3 text-sm";
@@ -101,6 +103,7 @@ export default function AuthPage() {
   const [kycStatus, setKycStatus] = useState("unsubmitted");
   const [canRedirect, setCanRedirect] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
   const signupInProgressRef = useRef(false);
 
   useEffect(() => {
@@ -130,6 +133,23 @@ export default function AuthPage() {
   async function handleAuth(e: React.FormEvent) {
     e.preventDefault();
     if (!email || !password) return;
+
+    if (getTurnstileSiteKey() && !turnstileToken) {
+      showToast("Complete the security check to continue.", "error");
+      return;
+    }
+    if (getTurnstileSiteKey()) {
+      const verifyRes = await fetch("/api/verify-turnstile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: turnstileToken }),
+      });
+      const verifyData = await verifyRes.json().catch(() => ({}));
+      if (!verifyData.success) {
+        showToast("Security check failed. Please try again.", "error");
+        return;
+      }
+    }
 
     if (!isLogin) {
       if (!acceptedTerms) {
@@ -341,6 +361,11 @@ export default function AuthPage() {
                   </span>
                 </label>
               )}
+              <TurnstileWidget
+                onToken={(token) => setTurnstileToken(token)}
+                onExpire={() => setTurnstileToken("")}
+                className="mb-3 flex justify-center"
+              />
               <button
                 type="submit"
                 disabled={loading}

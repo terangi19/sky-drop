@@ -76,13 +76,18 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.auth.uid == profileId
         && request.resource.data.email == request.auth.token.email;
-      // Users can update their own profile, but CANNOT write KYC verdict fields —
-      // those are server-only (Admin SDK via API routes). Exception: owner may set
-      // kycStatus to pending when submitting verification photos.
+      // Users can update their own profile, but CANNOT write server-managed fields:
+      //   - email (set on create only — change would enable impersonation)
+      //   - KYC verdict fields (admin review via API routes)
+      //   - Trust/badge fields (server-assigned only)
+      //   - riskFlag (abuse tracker writes via Admin SDK)
+      // Exception: owner may set kycStatus to pending when submitting verification photos.
       allow update: if request.auth != null
         && request.auth.uid == profileId
+        && !('email' in request.resource.data)
         && (!request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['kycStatus', 'kycReviewedAt', 'kycReviewedBy', 'kycBannedReason'])
+          .hasAny(['kycStatus', 'kycReviewedAt', 'kycReviewedBy', 'kycBannedReason',
+            'trustedSeller', 'verified', 'topTrader', 'profileBadge', 'fastReply', 'riskFlag'])
           || isKycPendingSelfSubmit());
     }
 
@@ -125,9 +130,12 @@ service cloud.firestore {
       allow read: if request.auth != null
         && resource.data.participants != null
         && request.auth.token.email in resource.data.participants;
+      // Sender MUST match the authenticated user. System messages are server-only (Admin SDK).
       allow create: if request.auth != null
         && request.resource.data.participants != null
-        && request.auth.token.email in request.resource.data.participants;
+        && request.auth.token.email in request.resource.data.participants
+        && request.resource.data.sender == request.auth.token.email
+        && request.resource.data.sender != "system";
       allow update: if request.auth != null
         && resource.data.participants != null
         && request.auth.token.email in resource.data.participants

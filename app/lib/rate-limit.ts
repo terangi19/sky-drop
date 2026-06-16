@@ -1,9 +1,26 @@
 import { rateLimitUpstash, isUpstashEnabled } from "./rate-limit-upstash";
 import { logSecurityWarning } from "./security-log";
+import {
+  evaluateFriction,
+  applyDelay,
+  recordViolation,
+  shouldSkipCaptcha,
+  shouldWaste,
+  type FrictionInput,
+  type FrictionDecision,
+} from "./adaptive-friction";
 
 const store = new Map<string, { count: number; resetAt: number }>();
 
 export type RateLimitResult = { allowed: boolean; remaining: number; limit: number };
+
+export type FrictionResult = RateLimitResult & {
+  delayMs: number;
+  downgrade: boolean;
+  riskTier: FrictionDecision["riskTier"];
+};
+
+export type { FrictionInput };
 
 const BLOCKED_KEY_CACHE = new Map<string, number>();
 
@@ -89,6 +106,53 @@ export async function rateLimit(
   memEntry.count++;
   return { allowed: true, remaining: maxRequests - memEntry.count, limit: maxRequests };
 }
+
+/**
+ * Adaptive friction limit — replaces hard 429 blocks with soft delays.
+ *
+ * 1. Evaluates behavioral risk signals
+ * 2. Applies adaptive delay (0ms for real users, up to 10s for bots)
+ * 3. Checks hard rate limit as safety net (still escalates but doesn't 429)
+ * 4. Returns downgrade flag for wasted-effort decisions
+ *
+ * API routes should use this instead of raw `rateLimit()` for all
+ * user-facing endpoints. The hard 429 is only returned when the
+ * edge proxy (25/10s burst) triggers, keeping the app layer smooth.
+ */
+export async function frictionLimit(
+  key: string,
+  maxRequests: number,
+  windowMs: number,
+  friction: FrictionInput
+): Promise<FrictionResult> {
+  const decision = await evaluateFriction(friction);
+  await applyDelay(decision.delayMs);
+
+  const result = await rateLimit(key, maxRequests, windowMs);
+
+  if (!result.allowed) {
+    recordViolation(friction.uid || friction.ip);
+    const extraDelay = Math.min(decision.delayMs + 3000, 15000);
+    await applyDelay(extraDelay);
+    return {
+      allowed: true,
+      remaining: 0,
+      limit: maxRequests,
+      delayMs: extraDelay,
+      downgrade: shouldWaste(decision.riskTier),
+      riskTier: decision.riskTier,
+    };
+  }
+
+  return {
+    ...result,
+    delayMs: decision.delayMs,
+    downgrade: decision.downgrade,
+    riskTier: decision.riskTier,
+  };
+}
+
+export { shouldSkipCaptcha, shouldWaste };
 
 // Clean up stale in-memory entries every 5 minutes
 setInterval(() => {

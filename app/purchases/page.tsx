@@ -23,6 +23,7 @@ interface Purchase {
   listingPrice: string;
   listingImage: string;
   sellerEmail: string;
+  sellerUsername?: string;
   buyerEmail: string;
   buyerName: string;
   buyerPhone: string;
@@ -430,7 +431,7 @@ export default function PurchasesPage() {
                       )}
 
                       <div className="mt-3 flex items-center gap-2 flex-wrap">
-                        <Link href={`/messages?user=${encodeURIComponent(p.sellerEmail || "")}&listing=${p.listingId}`}
+                        <Link href={`/messages?user=${encodeURIComponent(p.sellerUsername || p.sellerEmail || "")}&listing=${p.listingId}`}
                           className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-[11px] font-bold text-zinc-400 transition hover:bg-white/[0.05] hover:text-zinc-200 active:scale-[0.97]">
                           Message
                         </Link>

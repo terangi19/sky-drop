@@ -11,6 +11,11 @@
     "vercel-build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "check:drift": "bash -c '! grep -rn \"addDoc(collection(db,\" app/ --include=\"*.tsx\" --include=\"*.ts\" | grep -v node_modules | grep -v \".next\"' || (echo \"FAIL: Client Firestore writes found (addDoc)\" && exit 1)",
+    "check:drift:win": "Select-String -Pattern \"addDoc\\(collection\\(db,\" -Path app/**/*.tsx,app/**/*.ts -SimpleMatch -Quiet | ForEach-Object { if ($_) { Write-Error \"FAIL: Client Firestore writes found (addDoc)\"; exit 1 } }",
+    "build": "next build",
+    "vercel-build": "npm run check:drift:win; next build",
+    "start": "next start",
     "test": "playwright test",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed"

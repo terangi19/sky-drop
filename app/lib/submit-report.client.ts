@@ -43,7 +43,7 @@ export async function submitReportClient(input: ClientReportInput): Promise<void
 }
 
 export async function submitReportRequest(
-  input: ClientReportInput & { reportedUsername?: string }
+  input: ClientReportInput & { reportedUsername?: string; turnstileToken?: string }
 ): Promise<void> {
   const token = await auth.currentUser?.getIdToken(true);
   if (!token) {
@@ -59,7 +59,7 @@ export async function submitReportRequest(
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify(input),
+      body: JSON.stringify({ ...input, turnstileToken: input.turnstileToken || "" }),
     });
     const data = await res.json().catch(() => ({}));
     if (res.ok) return;

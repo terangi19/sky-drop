@@ -732,7 +732,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
               <span>Seller has been notified</span>
             </div>
             <button
-              onClick={() => router.push(`/messages?user=${encodeURIComponent(listing.sellerEmail || "")}&listing=${listing.id}&purchased=1`)}
+              onClick={() => router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listing.id}&purchased=1`)}
               className="mt-5 w-full rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-sky-400"
             >
               View Conversation

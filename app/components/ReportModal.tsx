@@ -4,6 +4,8 @@ import { useState } from "react";
 import { REPORT_REASONS } from "../lib/report-constants";
 import { submitReportRequest } from "../lib/submit-report.client";
 import { showToast } from "./Toast";
+import TurnstileWidget from "./TurnstileWidget";
+import { getTurnstileSiteKey } from "../lib/turnstile";
 
 interface ReportModalProps {
   isOpen: boolean;
@@ -28,11 +30,17 @@ export default function ReportModal({
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
 
   if (!isOpen) return null;
 
   async function handleSubmit() {
     if (!reason) return;
+
+    if (getTurnstileSiteKey() && !turnstileToken) {
+      showToast("Complete the security check to submit a report.", "error");
+      return;
+    }
 
     const cooldownKey = `report_cooldown_${type}_${targetId || targetUserEmail}`;
     try {
@@ -57,6 +65,7 @@ export default function ReportModal({
         reportedUserEmail: targetUserEmail,
         reason,
         details: message,
+        turnstileToken,
       });
 
       try {
@@ -109,6 +118,11 @@ export default function ReportModal({
               placeholder="Optional: add more details..."
               rows={3}
               className="mt-4 w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500"
+            />
+            <TurnstileWidget
+              onToken={(token) => setTurnstileToken(token)}
+              onExpire={() => setTurnstileToken("")}
+              className="mt-4 flex justify-center scale-[0.85] origin-center"
             />
             <div className="mt-4 flex gap-3">
               <button onClick={onClose} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] transition-all duration-150 hover:bg-zinc-700 active:scale-[0.98]">

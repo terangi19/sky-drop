@@ -91,7 +91,7 @@ export default function HotThisWeek({
           const username = item.sellerUsername || sellerEmail.split("@")[0] || "Seller";
           const isOwnListing = Boolean(user?.email && user.email === sellerEmail);
           const profileHref = isOwnListing ? "/profile" : `/seller/${item.sellerUsername || sellerEmail}`;
-          const messageHref = `/messages?user=${encodeURIComponent(sellerEmail)}&listing=${encodeURIComponent(item.id)}`;
+          const messageHref = `/messages?user=${encodeURIComponent(item.sellerUsername || sellerEmail)}&listing=${encodeURIComponent(item.id)}`;
 
           return (
             <HotWeekCard

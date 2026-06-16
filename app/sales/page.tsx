@@ -25,6 +25,7 @@ interface Purchase {
   listingImage: string;
   sellerEmail: string;
   buyerEmail: string;
+  buyerUsername?: string;
   buyerName: string;
   buyerPhone: string;
   deliveryMethod: string;
@@ -464,7 +465,7 @@ export default function SalesPage() {
                       {(s as any).fundsReleased && !(s as any).destinationCharge && (
                         <span className="text-[11px] text-sky-400 font-bold">✅ Funds Released</span>
                       )}
-                      <Link href={`/messages?user=${encodeURIComponent(s.buyerEmail || "")}&listing=${s.listingId}`}
+                      <Link href={`/messages?user=${encodeURIComponent(s.buyerUsername || s.buyerEmail || "")}&listing=${s.listingId}`}
                         className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-4 py-1.5 text-[11px] font-bold text-zinc-400 transition hover:bg-white/[0.05] hover:text-zinc-300 active:scale-[0.97]">
                         Message
                       </Link>

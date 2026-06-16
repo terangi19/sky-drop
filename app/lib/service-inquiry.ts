@@ -1,14 +1,5 @@
-import {
-  addDoc,
-  collection,
-  doc,
-  getDocs,
-  query,
-  serverTimestamp,
-  updateDoc,
-  where,
-} from "firebase/firestore";
-import { db } from "./firebase";
+import { getAuth } from "firebase/auth";
+import { getFreshIdToken } from "./api-auth";
 import {
   buildServiceInquiryCopy,
   normalizeServicePricingType,
@@ -36,74 +27,29 @@ export async function startServiceInquiry(input: {
 
   const pricingType = normalizeServicePricingType(servicePricingType, listingPrice);
   const convKey = `listing_${listingId}`;
-  const existingConv = await getDocs(
-    query(
-      collection(db, "conversations"),
-      where("convKey", "==", convKey),
-      where("participants", "array-contains", buyerEmail)
-    )
-  );
 
-  let convId: string;
-  const { buyerMsg, sellerMsg, lastMessage } = buildServiceInquiryCopy(
-    listingTitle,
-    pricingType,
-    listingPrice
-  );
+  const token = await getFreshIdToken();
+  if (!token) throw new Error("Not authenticated");
 
-  if (!existingConv.empty) {
-    convId = existingConv.docs[0]!.id;
-    await updateDoc(doc(db, "conversations", convId), {
-      updatedAt: serverTimestamp(),
-      lastMessage,
-      servicePricingType: pricingType,
-    });
-  } else {
-    const convRef = await addDoc(collection(db, "conversations"), {
-      convKey,
-      participants: [buyerEmail, sellerEmail],
-      buyerEmail,
-      sellerEmail,
-      listingId,
-      listingTitle,
-      listingPrice: listingPrice || "",
-      listingImage: listingImage || "",
-      listingType: "service",
-      servicePricingType: pricingType,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      lastMessage,
-    });
-    convId = convRef.id;
-
-    await addDoc(collection(db, "messages"), {
-      type: "system",
-      text: buyerMsg,
-      sender: "system",
-      receiver: sellerEmail,
-      participants: [buyerEmail, sellerEmail],
-      conversationId: convId,
-      listingId,
-      listingTitle,
-      read: false,
-      createdAt: serverTimestamp(),
-    });
-
-    await addDoc(collection(db, "messages"), {
+  const res = await fetch("/api/send-message", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
       type: "text",
-      text: sellerMsg,
-      sender: "system",
+      text: `Service inquiry: ${listingTitle}`,
       receiver: sellerEmail,
-      participants: [buyerEmail, sellerEmail],
-      conversationId: convId,
       listingId,
       listingTitle,
-      read: false,
-      createdAt: serverTimestamp(),
-    });
-  }
+      listingImage: listingImage || "",
+      _convKey: convKey,
+      _pricingType: pricingType,
+    }),
+  });
 
-  return convId;
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Failed to start service inquiry");
+
+  return data.conversationId || convKey;
 }
 
 export type { ServicePricingType };

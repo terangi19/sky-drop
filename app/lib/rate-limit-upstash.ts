@@ -2,6 +2,22 @@ import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
 let upstashRatelimit: Ratelimit | null = null;
+let statusLogged = false;
+
+function logStatus() {
+  if (statusLogged) return;
+  statusLogged = true;
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (url && token) {
+    console.log("[rate-limit] Upstash Redis ACTIVE — distributed rate limiting across all Vercel instances");
+  } else {
+    const env = process.env.NODE_ENV || "development";
+    console.log(`[rate-limit] WARNING: running in fallback mode (per-instance in-memory + Firestore) — ${env}`);
+    console.log("[rate-limit] Upstash Redis not configured. Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN in production.");
+    console.log("[rate-limit] Covered endpoints: signup, login, create-listing, messaging, reports, disputes, KYC, payments, offers, reviews");
+  }
+}
 
 function isProduction(): boolean {
   return process.env.NODE_ENV === "production" || !!process.env.VERCEL;
@@ -35,7 +51,9 @@ function getUpstashRatelimit(): Ratelimit | null {
 export function isUpstashEnabled(): boolean {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  return !!(url && token);
+  const enabled = !!(url && token);
+  logStatus();
+  return enabled;
 }
 
 export async function rateLimitUpstash(

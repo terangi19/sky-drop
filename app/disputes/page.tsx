@@ -129,7 +129,7 @@ export default function DisputesPage() {
                     )}
 
                     <div className="mt-3 flex items-center gap-2 flex-wrap">
-                      <Link href={`/messages?user=${encodeURIComponent(d.sellerEmail || "")}&listing=${d.listingId}`}
+                      <Link href={`/messages?user=${encodeURIComponent(d.sellerUsername || d.sellerEmail || "")}&listing=${d.listingId}`}
                         className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-[11px] font-bold text-zinc-400 transition hover:bg-white/[0.05] hover:text-zinc-300 active:scale-[0.97]">
                         Message Seller
                       </Link>

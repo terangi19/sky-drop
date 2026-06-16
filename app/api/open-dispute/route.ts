@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { verifyIdToken, getAdminDb, isAdminInitialized } from "../../lib/firebase-admin";
-import { rateLimit } from "../../lib/rate-limit";
+import { frictionLimit, shouldSkipCaptcha, type FrictionInput } from "../../lib/rate-limit";
+import { verifyTurnstileToken, isTurnstileConfigured } from "../../lib/turnstile";
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,10 +11,6 @@ export async function POST(req: NextRequest) {
     }
 
     const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const { allowed } = await rateLimit(`open-dispute:${ip}`, 5, 60_000);
-    if (!allowed) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-    }
 
     const authHeader = req.headers.get("authorization");
     if (!authHeader?.startsWith("Bearer ")) {
@@ -32,7 +29,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Email required" }, { status: 400 });
     }
 
+    const frictionInput: FrictionInput = { uid: decoded.uid, ip, action: "dispute" };
+    const rl = await frictionLimit(`open-dispute:${ip}`, 5, 60_000, frictionInput);
+
     const body = await req.json();
+
+    if (isTurnstileConfigured() && !shouldSkipCaptcha(rl.riskTier)) {
+      const turnstileToken = typeof body.turnstileToken === "string" ? body.turnstileToken : "";
+      if (!turnstileToken || !(await verifyTurnstileToken(turnstileToken))) {
+        return NextResponse.json({ error: "Security check failed" }, { status: 403 });
+      }
+    }
+
     const purchaseId = typeof body.purchaseId === "string" ? body.purchaseId : "";
     const reason = typeof body.reason === "string" ? body.reason.trim() : "";
     const description = typeof body.description === "string" ? body.description.trim() : "";

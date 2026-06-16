@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken } from "../../lib/firebase-admin";
-import { rateLimit } from "../../lib/rate-limit";
+import {
+  decide, applyDecisionDelay, persistRiskFlag, recordTurnstileAttempt,
+  type DecisionInput,
+} from "../../lib/abuse-decision-engine";
 import { submitReportAdmin } from "../../lib/submit-report.server";
+import { verifyTurnstileToken, isTurnstileConfigured } from "../../lib/turnstile";
 
 export async function POST(req: NextRequest) {
   try {
     const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const { allowed } = await rateLimit(`submit-report:${ip}`, 20, 60_000);
-    if (!allowed) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-    }
 
     const authHeader = req.headers.get("authorization");
     if (!authHeader?.startsWith("Bearer ")) {
@@ -24,7 +24,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid or expired session" }, { status: 401 });
     }
 
+    const decisionInput: DecisionInput = { uid: decoded.uid, ip, email: decoded.email, action: "report" };
+    const decision = await decide(decisionInput);
+    await applyDecisionDelay(decision);
+
     const body = await req.json().catch(() => ({}));
+
+    if (decision.captchaRequired && isTurnstileConfigured()) {
+      const turnstileToken = typeof body.turnstileToken === "string" ? body.turnstileToken : "";
+      if (!turnstileToken || !(await verifyTurnstileToken(turnstileToken))) {
+        recordTurnstileAttempt(decoded.uid, false);
+        return NextResponse.json({ error: "Security check failed" }, { status: 403 });
+      }
+      recordTurnstileAttempt(decoded.uid, true);
+    }
+
+    if (decision.verdict === "block") {
+      await persistRiskFlag(decoded.uid || "", `report_blocked:${decision.reason}`);
+      return NextResponse.json({ error: "Report could not be submitted" }, { status: 403 });
+    }
+
     const type = body.type === "listing" ? "listing" : body.type === "user" ? "user" : null;
     if (!type) {
       return NextResponse.json({ error: "Invalid report type" }, { status: 400 });

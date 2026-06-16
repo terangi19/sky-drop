@@ -263,6 +263,10 @@ Layer 3 (Rules) — Firebase custom claims + Firestore config/adminEmails doc
 2. **Firestore** (`rateLimits` collection) — cross-instance fallback
 3. **In-memory** (`Map`) — per-instance, dev/edge fallback
 
+**Current status: FALLBACK MODE** — `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are not set in any env file (`.env.local`, `.env.vercel`, Vercel dashboard). Rate limiting uses Firestore + in-memory. To enable distributed rate limiting, set these vars in the Vercel project dashboard.
+
+A startup log (`[rate-limit]`) confirms the active mode on first request.
+
 All sensitive endpoints have defined limits in `app/lib/rate-limit-config.ts`.
 
 ## Security Event Logging
@@ -277,10 +281,129 @@ Events tracked: failed admin access, rate limit violations, payment failures, we
 ## Environment Variables (New)
 
 ```
-UPSTASH_REDIS_REST_URL=     # For distributed rate limiting
-UPSTASH_REDIS_REST_TOKEN=   # For distributed rate limiting
-SUPER_ADMIN_EMAILS=          # Overrides first ADMIN_EMAILS entry
+UPSTASH_REDIS_REST_URL=           # For distributed rate limiting
+UPSTASH_REDIS_REST_TOKEN=         # For distributed rate limiting
+SUPER_ADMIN_EMAILS=                # Overrides first ADMIN_EMAILS entry
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=   # Cloudflare Turnstile bot protection
+TURNSTILE_SECRET_KEY=              # Cloudflare Turnstile secret key
 ```
+
+## Bot Protection (Cloudflare Turnstile)
+
+Implemented on:
+- **API routes**: create-listing, submit-report, open-dispute, auth/session — token verified server-side
+- **Client forms**: login/signup page — token verified via `/api/verify-turnstile` before Firebase Auth call
+- **TurnstileWidget** React component at `app/components/TurnstileWidget.tsx`
+
+When Turnstile env vars are not set, protection is skipped gracefully. Set them in Vercel dashboard / `.env.local` to enable.
+
+## System Message Security
+
+Firestore rules now block any client-side write with `sender: "system"`. Only Admin SDK (server code) can create system messages. All client inquiry messages now use the user's email as sender.
+
+## Abuse Tracking
+
+`app/lib/abuse-tracker.ts` tracks per-user activity:
+- Messages per minute (threshold: 30)
+- Listings per hour (threshold: 10)
+- Failed payments per hour (threshold: 5)
+- Signups per minute (threshold: 5)
+
+When thresholds are exceeded, `profiles/{uid}.riskFlag` is set to `true` and the action is blocked. RiskFlag state is readable via `isUserFlagged()`. Rate limits are automatically reduced for flagged users.
+
+## Identity Rule
+
+New features and new API routes must use **UID** (`token.uid`) as the primary user identifier, not email. Email remains only for Firebase Auth and display purposes. Do not add new `sellerEmail`-style fields to new collections.
+
+---
+
+## Unified Abuse Intelligence Layer
+
+### Single Decision Authority
+
+All sensitive actions flow through `app/lib/abuse-decision-engine.ts`:
+
+```
+Client → Rate Limit (Upstash) → Turnstile (probabilistic) → Abuse Decision Engine → Account Graph → Action → Audit Log
+```
+
+### Routes using the decision engine
+
+| Route | Engine | Verdict enforcement |
+|---|---|---|
+| `POST /api/create-listing` | `decide()` | block → 403, shadow → visibilityRank |
+| `POST /api/submit-report` | `decide()` | block → 403 |
+| `POST /api/open-dispute` | `decide()` | block → 403 |
+| `POST /api/auth/session` | `decide()` | slow/captcha applied |
+| `POST /api/send-message` | `decide()` | shadow → fake 200, block → 403, captcha → challenge |
+
+### Verdict outputs
+
+| Verdict | User sees | Actual effect |
+|---|---|---|
+| `allow` | Normal response | Full processing |
+| `slow` | Delayed response (0–2500ms) | Full processing after delay |
+| `captcha_required` | Turnstile challenge | Proceeds only if CAPTCHA passed |
+| `shadow_degrade` | Normal response | Action silently discarded or `visibilityRank` set to reduced/delayed/excluded |
+| `block` | Error message | Action rejected, riskFlag persisted to Firestore |
+
+### Fail-Open / Fail-Closed (production)
+
+| Subsystem | Behavior | Rationale |
+|---|---|---|
+| Payments | **FAIL CLOSED** | Money must never bypass protection |
+| Listings | **FAIL CLOSED** | Deny creation if engine uncertain |
+| Messaging | **FAIL CLOSED** | send-message API denies when engine degraded |
+| Reports | **FAIL CLOSED** | Deny submission if engine unavailable |
+| Disputes | **FAIL CLOSED** | Deny creation if engine unavailable |
+| Rate limiting (Upstash) | **FAIL CLOSED** in production | deny when Redis unreachable |
+| Graph system | **FAIL OPEN** | score=0 if unavailable (observational only) |
+| Audit logging | **FAIL OPEN** | best-effort, non-blocking |
+
+### Remaining client-side write paths (non-critical)
+
+These collections still use client SDK writes (not server-mediated):
+- `tradePosts`, `tradeShouts` — social feed, low risk
+- `service-inquiry` messages — converts to conversation messages
+- Homepage/trade-feed offers — writes message with offer type
+
+These are acceptable for the current architecture. Move to server-mediated if abuse patterns emerge.
+
+### Audit Log
+
+Every `decide()` call with verdict ≠ allow or score ≥ 10 writes to `abuse_decision_log`:
+- uid, ip, email, action, score, verdict, delayMs, captchaRequired, shadowRank, violations, turnstileHistory, timestamp
+
+### Drift Protection — CI Check
+
+Before every build, `npm run check:drift` runs and fails if any `addDoc(collection(db,` pattern remains in client code. This prevents accidental reintroduction of client-side Firestore writes.
+
+### Enforcement Contract
+
+All mutations MUST go through server API routes. Client-side Firestore writes are **forbidden** for:
+
+- messages
+- listings
+- tradePosts
+- tradeShouts
+- disputes
+- reports
+- conversations
+- reviews
+- purchases
+
+The only allowed pattern:
+```
+Browser → fetch("/api/*") → enforceProtection() → Abuse Decision Engine → Admin SDK → Firestore
+```
+
+### Simulation / Red-Team Testing
+
+Run `node scripts/simulate-abuse.cjs <scenario>` to test:
+- `signup-burst` — rapid account creation
+- `listing-spam` — repeated listings
+- `bot-farm` — multiple accounts from one IP
+- `content-reuse` — identical text across listings
 
 ---
 

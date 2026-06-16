@@ -2,17 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken } from "../../../lib/firebase-admin";
 import { isAdminUser } from "../../../lib/admin-check.server";
 import { parseIpFromRequest } from "../../../lib/geo-check";
-import { rateLimit } from "../../../lib/rate-limit";
+import { frictionLimit, shouldSkipCaptcha, type FrictionInput } from "../../../lib/rate-limit";
 import { DEFAULT_MAX_JSON_BYTES, isContentLengthOverLimit, payloadTooLargeResponse } from "../../../lib/request-body";
+import { verifyTurnstileToken, isTurnstileConfigured } from "../../../lib/turnstile";
 
 export async function POST(req: NextRequest) {
   try {
     const ip = parseIpFromRequest(req.headers);
-    const { allowed } = await rateLimit(`auth-session:${ip}`, 10, 60_000);
-    if (!allowed) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-    }
     if (isContentLengthOverLimit(req, DEFAULT_MAX_JSON_BYTES)) return payloadTooLargeResponse();
+
+    const body = await req.json().catch(() => ({}));
+
+    const frictionInput: FrictionInput = { ip, action: "login" };
+    const rl = await frictionLimit(`auth-session:${ip}`, 10, 60_000, frictionInput);
+
+    if (isTurnstileConfigured() && !shouldSkipCaptcha(rl.riskTier)) {
+      const turnstileToken = typeof body.turnstileToken === "string" ? body.turnstileToken : "";
+      if (!turnstileToken || !(await verifyTurnstileToken(turnstileToken))) {
+        return NextResponse.json({ error: "Security check failed" }, { status: 403 });
+      }
+    }
 
     const authHeader = req.headers.get("authorization");
     if (!authHeader?.startsWith("Bearer ")) {

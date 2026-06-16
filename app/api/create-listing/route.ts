@@ -2,9 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken, getAdminDb, getServerDb, isAdminInitialized } from "../../lib/firebase-admin";
 import { parseIpFromRequest } from "../../lib/geo-check";
 import { rateLimit } from "../../lib/rate-limit";
+import {
+  decide, applyDecisionDelay, persistRiskFlag, recordTurnstileAttempt,
+  type DecisionInput,
+} from "../../lib/abuse-decision-engine";
 import { DEFAULT_MAX_JSON_BYTES, isContentLengthOverLimit, payloadTooLargeResponse } from "../../lib/request-body";
 import { sanitizeListingContent } from "../../lib/sanitize";
 import { kycRequiredBlockMessage } from "../../lib/seller-eligibility";
+import { verifyTurnstileToken, isTurnstileConfigured } from "../../lib/turnstile";
+import { trackAndCheckAbuse } from "../../lib/abuse-tracker";
 
 const SCAM_KEYWORDS = [
   "bank transfer only", "crypto only", "pay outside", "whatsapp",
@@ -53,11 +59,6 @@ async function getSellerProfileForUid(uid: string, email?: string | null) {
 export async function POST(req: NextRequest) {
   try {
     const ip = parseIpFromRequest(req.headers);
-    const { allowed } = await rateLimit(`create-listing:${ip}`, 5, 60_000);
-    if (!allowed) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-    }
-    if (isContentLengthOverLimit(req, 512 * 1024)) return payloadTooLargeResponse();
 
     const authHeader = req.headers.get("authorization");
     if (!authHeader?.startsWith("Bearer ")) {
@@ -73,11 +74,48 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: message }, { status: 401 });
     }
 
+    const decisionInput: DecisionInput = {
+      uid: token.uid,
+      ip,
+      email: token.email,
+      action: "listing",
+      accountAgeSec: token.auth_time ? Math.floor((Date.now() / 1000) - token.auth_time) : undefined,
+    };
+
+    const decision = await decide(decisionInput);
+    await applyDecisionDelay(decision);
+
+    if (isContentLengthOverLimit(req, 512 * 1024)) return payloadTooLargeResponse();
+
     if (!token.email_verified) {
       return NextResponse.json({ error: "Please verify your email before creating a listing" }, { status: 403 });
     }
 
+    if (!(await trackAndCheckAbuse(token.uid, token.email || "", "listing", ip))) {
+      return NextResponse.json({ error: "You've reached the maximum number of listings. Please try again later." }, { status: 429 });
+    }
+
     const body = await req.json();
+
+    if (decision.captchaRequired && isTurnstileConfigured()) {
+      const turnstileToken = typeof body.turnstileToken === "string" ? body.turnstileToken : "";
+      if (!turnstileToken || !(await verifyTurnstileToken(turnstileToken))) {
+        recordTurnstileAttempt(token.uid, false);
+        return NextResponse.json({ error: "Security check failed. Please refresh and try again." }, { status: 403 });
+      }
+      recordTurnstileAttempt(token.uid, true);
+    }
+
+    if (decision.verdict === "block") {
+      await persistRiskFlag(token.uid, `listing_blocked:${decision.reason}`);
+      return NextResponse.json({ error: "Listing could not be created. Please try again later." }, { status: 403 });
+    }
+
+    if (decision.verdict === "shadow_degrade") {
+      // Shadow suppressed listings get a reduced visibility rank but still appear
+      // Will be set on the listing doc below
+    }
+
     const { title, description, price, category, listingType } = body;
 
     const allowedFields: string[] = [
@@ -222,6 +260,8 @@ export async function POST(req: NextRequest) {
       auctionEndsAt = new Date(clientData.auctionEndsAt as string);
     }
 
+    const shadowRank = decision.verdict === "shadow_degrade" ? decision.shadowRank : "normal";
+
     const finalData: Record<string, unknown> = {
       title: sanitizedTitle,
       description: sanitizedDesc,
@@ -239,6 +279,7 @@ export async function POST(req: NextRequest) {
       paymentType: clientData.paymentType || "stripe",
       createdAt: now,
       expiresAt,
+      visibilityRank: shadowRank,
       ...clientData,
       saleType,
     };

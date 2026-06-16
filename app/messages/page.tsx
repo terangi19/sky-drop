@@ -43,8 +43,11 @@ import {
   sanitizePublicText,
   sellerProfileSlug,
 } from "../lib/public-display";
+import { resolveSellerBySlug } from "../lib/seller-profile-lookup";
+import { getTurnstileSiteKey } from "../lib/turnstile";
 import { canSellerConfirmArrangeSale, countSellerSales } from "../lib/arrange-purchase-status";
 import { getFreshIdToken } from "../lib/api-auth";
+import TurnstileWidget from "../components/TurnstileWidget";
 import {
   blockedEmailsFromDocs,
   conversationKey,
@@ -108,6 +111,7 @@ function MessagesPage() {
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
   // Typing
   const [otherTyping, setOtherTyping] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
@@ -205,7 +209,14 @@ function MessagesPage() {
     }
     const param = getSearchParam("user");
     if (param) {
-      setChatUser(param);
+      if (isEmailLike(param)) {
+        setChatUser(param);
+      } else {
+        resolveSellerBySlug(param).then((resolved) => {
+          const profileEmail = (resolved?.data as any)?.email || param;
+          setChatUser(profileEmail);
+        }).catch(() => setChatUser(param));
+      }
       setChatListingId(getSearchParam("listing") || null);
       if (isMobile) setMobileView("chat");
     }
@@ -251,7 +262,26 @@ function MessagesPage() {
           const trust = calculateTrustScore(data as any);
           setSellerTrust({ score: trust.score, level: trust.score >= 80 ? "Trusted" : trust.score >= 50 ? "Established" : "New" });
         } else if (!cancelled) {
-          setSellerProfile(null);
+          const resolved = await resolveSellerBySlug(chatUser);
+          if (resolved && !cancelled) {
+            const data = resolved.data as any;
+            const profileEmail = data.email || chatUser;
+            const purchaseSnap = await getDocs(
+              query(collection(db, "purchases"), where("sellerEmail", "==", profileEmail))
+            );
+            const salesTotal = countSellerSales(
+              purchaseSnap.docs.map((d) => d.data() as { status?: string; paymentType?: string })
+            );
+            setSellerProfile({
+              id: resolved.uid,
+              ...data,
+              sales: salesTotal,
+            });
+            const trust = calculateTrustScore(data as any);
+            setSellerTrust({ score: trust.score, level: trust.score >= 80 ? "Trusted" : trust.score >= 50 ? "Established" : "New" });
+          } else {
+            setSellerProfile(null);
+          }
         }
       } catch (e) { console.error("Failed to fetch seller profile:", e); }
     })();
@@ -350,14 +380,26 @@ function MessagesPage() {
     return () => { cancelled = true; };
   }, [chatUser, user, messages, chatListingId]);
   // Fetch usernames
-  async function fetchUsername(email: string) {
-    if (!email || email === "system" || usernames[email]) return;
+  async function fetchUsername(identifier: string) {
+    if (!identifier || identifier === "system" || usernames[identifier]) return;
     try {
-      const snap = await getDocs(query(collection(db, "profiles"), where("email", "==", email)));
-      const handle = snap.empty
-        ? "User"
-        : publicHandleFromProfile(snap.docs[0].data() as { username?: string }, "User");
-      setUsernames((prev) => ({ ...prev, [email]: handle }));
+      const snap = await getDocs(query(collection(db, "profiles"), where("email", "==", identifier)));
+      let handle = "User";
+      if (!snap.empty) {
+        handle = publicHandleFromProfile(snap.docs[0].data() as { username?: string }, "User");
+      } else {
+        const resolved = await resolveSellerBySlug(identifier);
+        if (resolved) {
+          const profileEmail = (resolved.data as any)?.email || identifier;
+          if (usernames[profileEmail]) {
+            handle = usernames[profileEmail];
+          } else {
+            handle = publicHandleFromProfile(resolved.data as { username?: string }, "User");
+            setUsernames((prev) => ({ ...prev, [profileEmail]: handle }));
+          }
+        }
+      }
+      setUsernames((prev) => ({ ...prev, [identifier]: handle }));
     } catch (e) {
       console.error("Failed to fetch username:", e);
     }
@@ -476,15 +518,13 @@ function MessagesPage() {
       const storageRef = ref(storage, `chat_images/${user.uid}/${Date.now()}.jpg`);
       const snap = await uploadBytes(storageRef, blob);
       const imageUrl = await getDownloadURL(snap.ref);
-      await addDoc(collection(db, "messages"), {
-        type: "image",
-        imageUrl,
-        text: "",
-        sender: user.email,
-        receiver: chatUser,
-        participants: [user.email, chatUser],
-        ...(chatListingId ? { listingId: chatListingId, listingTitle: activeListingTitle || null } : {}),
-        createdAt: serverTimestamp(),
+      const token = await user.getIdToken();
+      await fetch("/api/send-message", {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          type: "image", imageUrl, text: "", receiver: chatUser,
+          listingId: chatListingId || undefined, listingTitle: activeListingTitle || undefined,
+        }),
       });
       createNotification({
         targetEmail: chatUser,
@@ -522,17 +562,14 @@ function MessagesPage() {
       const storageRef = ref(storage, `chat_files/${user.uid}/${Date.now()}_${fileAttachment.name}`);
       const snap = await uploadBytes(storageRef, blob);
       const fileUrl = await getDownloadURL(snap.ref);
-      await addDoc(collection(db, "messages"), {
-        type: "file",
-        fileUrl,
-        fileName: fileAttachment.name,
-        fileSize: fileAttachment.size,
-        text: "",
-        sender: user.email,
-        receiver: chatUser,
-        participants: [user.email, chatUser],
-        ...(chatListingId ? { listingId: chatListingId, listingTitle: activeListingTitle || null } : {}),
-        createdAt: serverTimestamp(),
+      const token = await user.getIdToken();
+      await fetch("/api/send-message", {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          type: "file", fileUrl, fileName: fileAttachment.name, fileSize: fileAttachment.size,
+          text: "", receiver: chatUser,
+          listingId: chatListingId || undefined, listingTitle: activeListingTitle || undefined,
+        }),
       });
       createNotification({
         targetEmail: chatUser,
@@ -595,6 +632,11 @@ function MessagesPage() {
       const kw = containsRiskyKeywords(message);
       if (kw) { setRiskyKeyword(kw); setShowSafetyWarning(true); return; }
     }
+    if (getTurnstileSiteKey() && !turnstileToken) {
+      showToast("Complete the security check to send messages.", "error");
+      return;
+    }
+
     const activeListingTitle = listingCard?.title || null;
     const activeListingImage = listingCard?.images?.[0] || listingCard?.image || listingCard?.imageUrl || null;
     const activeListingPrice = listingCard?.price || null;
@@ -615,13 +657,14 @@ function MessagesPage() {
       // Auto-scroll after optimistic update
       setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
 
-      await addDoc(collection(db, "messages"), {
-        text: message,
-        sender: user.email,
-        receiver: chatUser,
-        participants: [user.email, chatUser],
-        ...(chatListingId ? { listingId: chatListingId, listingTitle: activeListingTitle, listingImage: activeListingImage, listingPrice: activeListingPrice } : {}),
-        createdAt: serverTimestamp(),
+      const sendToken = await user.getIdToken();
+      await fetch("/api/send-message", {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${sendToken}` },
+        body: JSON.stringify({
+          text: message, receiver: chatUser,
+          listingId: chatListingId || undefined, listingTitle: activeListingTitle || undefined,
+          listingImage: activeListingImage || undefined, listingPrice: activeListingPrice || undefined,
+        }),
       });
       createNotification({
         targetEmail: chatUser,
@@ -641,7 +684,11 @@ function MessagesPage() {
     setScamWarning(false);
     setMessage("");
     try {
-      await addDoc(collection(db, "messages"), { text: pendingMessage, sender: user.email, receiver: chatUser, participants: [user.email, chatUser], createdAt: serverTimestamp() });
+      const sendToken = await user.getIdToken();
+      await fetch("/api/send-message", {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${sendToken}` },
+        body: JSON.stringify({ text: pendingMessage, receiver: chatUser }),
+      });
       createNotification({
         targetEmail: chatUser,
         fromEmail: user.email,
@@ -733,19 +780,20 @@ function MessagesPage() {
     if (!user?.email || !chatUser || sendingOffer) return;
     setSendingOffer(true);
     try {
-      const msgRef = await addDoc(collection(db, "messages"), {
-        type: "offer",
-        offerType: type,
-        offerAmount: amount || null,
-        offerStatus: type === "make" ? "pending" : type === "accept" ? "accepted" : type === "decline" ? "declined" : "countered",
-        text: type === "make" ? `Offer: $${amount || "?"}` : type === "accept" ? "Offer accepted" : type === "decline" ? "Offer declined" : "Counter offer",
-        sender: user.email,
-        receiver: chatUser,
-        participants: [user.email, chatUser],
-        listingId: chatListingId,
-        listingTitle: listingCard?.title || null,
-        createdAt: serverTimestamp(),
+      const sendToken = await user.getIdToken();
+      const msgRes = await fetch("/api/send-message", {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${sendToken}` },
+        body: JSON.stringify({
+          type: "offer", receiver: chatUser,
+          offerType: type,
+          offerAmount: amount || null,
+          offerStatus: type === "make" ? "pending" : type === "accept" ? "accepted" : type === "decline" ? "declined" : "countered",
+          text: type === "make" ? `Offer: $${amount || "?"}` : type === "accept" ? "Offer accepted" : type === "decline" ? "Offer declined" : "Counter offer",
+          listingId: chatListingId,
+          listingTitle: listingCard?.title || null,
+        }),
       });
+      const msgData = await msgRes.json().catch(() => ({}));
       // When offer is accepted, create purchase via API (server-side atomic transaction)
       if (type === "accept" && chatListingId && amount && user.email) {
         try {
@@ -757,7 +805,7 @@ function MessagesPage() {
               listingId: chatListingId,
               buyerEmail: chatUser,
               amount: Number(amount),
-              offerMessageId: msgRef.id,
+              offerMessageId: msgData.messageId,
               listingTitle: listingCard?.title || "",
               listingPrice: listingCard?.price || "",
               listingImage: listingCard?.images?.[0] || listingCard?.image || listingCard?.imageUrl || "",
@@ -1759,6 +1807,11 @@ function MessagesPage() {
                       <button onClick={() => setShowOfferInput(false)} className="rounded-xl bg-zinc-700 px-4 py-2 text-[11px] font-bold text-[var(--foreground)] hover:bg-zinc-600">Cancel</button>
                     </div>
                   )}
+                  <TurnstileWidget
+                    onToken={(token) => setTurnstileToken(token)}
+                    onExpire={() => setTurnstileToken("")}
+                    className="mb-2 scale-[0.7] origin-left"
+                  />
                   <div className="flex gap-2.5">
                     {/* Image attach button */}
                     <button onClick={() => fileInputRef.current?.click()}

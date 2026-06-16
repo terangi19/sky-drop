@@ -341,12 +341,17 @@ export default function TradeFeedPage() {
       return;
     }
     lastShoutTime.current = Date.now();
-    await addDoc(collection(db, "tradeShouts"), {
-      world: selectedWorld.length === 1 && selectedWorld[0] !== "all" ? selectedWorld[0] : "__general__",
-      text: msg,
-      by: username || user.email,
-      createdAt: serverTimestamp(),
-    });
+    try {
+      const token = await user.getIdToken();
+      await fetch("/api/create-trade-shout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          text: msg,
+          world: selectedWorld.length === 1 && selectedWorld[0] !== "all" ? selectedWorld[0] : "__general__",
+        }),
+      });
+    } catch (e) { console.error("Failed to send shout:", e); }
     if (!text) setShoutText("");
     playClick();
   }
@@ -380,19 +385,19 @@ export default function TradeFeedPage() {
         const snap = await uploadBytes(storageRef, file);
         images.push(await getDownloadURL(snap.ref));
       }
-      await addDoc(collection(db, "tradePosts"), {
-        type, title, price: price || "", message: message || "",
-        sellerEmail: user.email, sellerUsername: username || user.email,
-        world: selectedWorld.length === 1 ? selectedWorld[0] : null,
-        category: selectedFilter !== "All" ? selectedFilter : null,
-        status: "live",
-        saleType: type === "WTS" ? "buy_now" : type === "WTB" ? "buy_now_offers" : "trade",
-        replies: [], images, views: 1, offers: 0,
-        location: null,
-        pickupAvailable, shippingAvailable, pickupArea,
-        shippingFee: shippingAvailable && shippingFee ? Number(shippingFee) : null,
-        freeShipping: shippingAvailable ? freeShipping : false,
-        createdAt: serverTimestamp(),
+      const token = await user.getIdToken();
+      await fetch("/api/create-trade-post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          type, title, price: price || "", message: message || "",
+          world: selectedWorld.length === 1 ? selectedWorld[0] : null,
+          category: selectedFilter !== "All" ? selectedFilter : null,
+          images,
+          pickupAvailable, shippingAvailable, pickupArea,
+          shippingFee: shippingAvailable && shippingFee ? Number(shippingFee) : null,
+          freeShipping: shippingAvailable ? freeShipping : false,
+        }),
       });
       setTitle(""); setPrice(""); setMessage(""); setImageFiles([]); setImagePreviews([]); setShowComposer(false);
       setPickupAvailable(false); setShippingAvailable(false); setPickupArea(""); setShippingFee(""); setFreeShipping(false);
@@ -407,12 +412,22 @@ export default function TradeFeedPage() {
       showToast("You can only delete your own posts", "error");
       return;
     }
-    await deleteDoc(doc(db, "tradePosts", id));
+    try {
+      const token = await user!.getIdToken();
+      await fetch("/api/manage-trade-post", {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: "delete", postId: id }),
+      });
+    } catch (e) { console.error(e); }
   }
 
   async function updateTradeStatus(id: string, status: string) {
     try {
-      await updateDoc(doc(db, "tradePosts", id), { status });
+      const token = await user!.getIdToken();
+      await fetch("/api/manage-trade-post", {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: "status", postId: id, status }),
+      });
       showToast(`Marked as ${status}`, "success");
       playSuccess();
       confetti({ particleCount: 40, spread: 60, origin: { y: 0.6 } });
@@ -422,19 +437,12 @@ export default function TradeFeedPage() {
   async function addReply(postId: string, text: string) {
     if (!text.trim() || !user?.email) return;
     try {
-      const post = posts.find((p) => p.id === postId);
-      const replies = Array.isArray(post?.replies) ? [...post.replies] : [];
-      replies.push({ text: text.trim(), by: username || user.email, at: new Date().toISOString() });
-      await updateDoc(doc(db, "tradePosts", postId), { replies });
-      await addDoc(collection(db, "messages"), {
-        text: text.trim(),
-        sender: user.email,
-        receiver: post?.sellerEmail || "",
-        participants: [user.email, post?.sellerEmail].filter(Boolean),
-        listingId: postId,
-        listingTitle: post?.title || null,
-        createdAt: serverTimestamp(),
-      }).catch((err) => console.error("Failed to add message doc:", err));
+      const token = await user.getIdToken();
+      await fetch("/api/manage-trade-post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: "reply", postId, text: text.trim() }),
+      });
       await createNotification({
         type: "message",
         targetEmail: post?.sellerEmail || "",
@@ -950,7 +958,7 @@ export default function TradeFeedPage() {
                                   className="rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-3.5 py-1.5 text-[10px] font-bold text-white transition-all hover:shadow-[0_0_12px_rgba(14,165,233,0.2)] active:scale-95">Buy</button>
                               )}
                               {user?.email !== post.sellerEmail && (
-                                <Link href={`/messages?user=${encodeURIComponent(post.sellerEmail || "")}&listing=${encodeURIComponent(post.id)}`} onClick={(e) => e.stopPropagation()}
+                                <Link href={`/messages?user=${encodeURIComponent(post.sellerUsername || post.sellerEmail || "")}&listing=${encodeURIComponent(post.id)}`} onClick={(e) => e.stopPropagation()}
                                   className="rounded-xl border border-white/[0.06] px-3.5 py-1.5 text-[10px] font-bold text-zinc-400 hover:text-[var(--foreground)] hover:border-white/[0.12] transition">Chat</Link>
                               )}
                               {user?.email === post.sellerEmail && (
