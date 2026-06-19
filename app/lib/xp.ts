@@ -9,6 +9,26 @@ export function getLevelInfo(totalXP: number): { level: number; progress: number
   return { level, progress, xpToNext: XP_PER_LEVEL };
 }
 
+// Testing function to set user to a specific level
+export async function setUserLevel(userId: string, targetLevel: number): Promise<void> {
+  const profileRef = doc(db, "profiles", userId);
+  const targetXP = (targetLevel - 1) * XP_PER_LEVEL;
+  
+  try {
+    await runTransaction(db, async (transaction) => {
+      const snap = await transaction.get(profileRef);
+      if (!snap.exists()) return;
+      transaction.update(profileRef, {
+        xp: targetXP,
+      });
+    });
+    console.log(`Set user ${userId} to level ${targetLevel} (${targetXP} XP)`);
+  } catch (e) {
+    console.error("Failed to set user level:", e);
+    throw e;
+  }
+}
+
 export async function awardXP(
   userId: string,
   amount: number,

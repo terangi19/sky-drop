@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useScrollAnimation } from "../hooks/useScrollAnimation";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import { User } from "firebase/auth";
 import { collection, doc, limit, onSnapshot, query, where } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
-import { getLevelInfo } from "../lib/xp";
+import { getLevelInfo, setUserLevel } from "../lib/xp";
 import { trackChallenge } from "../lib/challenges";
 import { isAdminEmail } from "../lib/admin-check";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
@@ -51,6 +52,22 @@ export default function DashboardPage() {
     if (user?.uid) trackChallenge(user.uid, "visit_profile").catch(() => {});
   }, [user?.uid]);
 
+  // Temporary: Set level 10 for testing with Ctrl+Shift+L
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'L' && user?.email?.includes('testaudit')) {
+        e.preventDefault();
+        setUserLevel(user.uid, 10).then(() => {
+          console.log('Set to level 10 for testing');
+        }).catch(err => {
+          console.error('Failed to set level:', err);
+        });
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [user?.uid, user?.email]);
+
   useEffect(() => {
     if (!user?.email) return;
     const unsub1 = onSnapshot(
@@ -81,6 +98,8 @@ export default function DashboardPage() {
     );
     return () => { unsub1(); unsub2(); unsub3(); };
   }, [user?.email]);
+
+  const statCardsScrollAnimation = useScrollAnimation(0.1);
 
   const stats = useMemo(() => {
     const completed = sales.filter((s) => s.status === "delivered");
@@ -252,23 +271,36 @@ export default function DashboardPage() {
 
       <section className={`${PAGE_SHELL_WIDE} pb-10 pt-2 sm:pt-3`}>
         <BrowseMarketplaceHero badge="Seller Hub" title="Dashboard">
-          <p className="mt-3 text-sm text-zinc-400">
-            Hey {displayName} · Level {levelInfo.level} seller
-          </p>
-          <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {quickActions.map((action) => (
-              <Link
-                key={action.href}
-                href={action.href}
-                className={
-                  action.primary
-                    ? `relative overflow-hidden rounded-xl bg-gradient-to-r ${t.listBtn} p-3 text-center shadow-lg shadow-sky-500/20 transition-all duration-200 hover:brightness-110 hover:shadow-xl hover:shadow-sky-500/30 active:scale-[0.97] sm:p-4`
-                    : "rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 text-center transition-all duration-200 hover:border-sky-500/25 hover:bg-white/[0.06] hover:shadow-lg hover:shadow-black/10 active:scale-[0.98] sm:p-4"
-                }
-              >
-                <span className="block text-[12px] sm:text-[13px] font-bold text-white">{action.label}</span>
-              </Link>
-            ))}
+          <div className="mt-3 flex flex-col gap-3">
+            <p className="text-sm text-zinc-400">
+              Hey {displayName}
+            </p>
+            <div className="flex items-center gap-4">
+              <div className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 ${
+                levelInfo.level >= 10 
+                  ? "border-amber-500/40 bg-gradient-to-br from-amber-500/20 to-amber-500/5 shadow-[0_0_20px_rgba(245,158,11,0.15)]" 
+                  : "border-sky-500/20 bg-sky-500/10"
+              }`}>
+                <span className={`text-xs font-bold ${
+                  levelInfo.level >= 10 ? "text-amber-400" : "text-white"
+                }`}>
+                  Level {levelInfo.level}
+                  {levelInfo.level >= 10 && <span className="ml-1">👑</span>}
+                </span>
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between text-[10px] text-zinc-500 mb-1">
+                  <span>{xp} XP</span>
+                  <span>{levelInfo.xpToNext} XP to Level {levelInfo.level + 1}</span>
+                </div>
+                <div className="h-2 w-full rounded-full bg-zinc-800 overflow-hidden">
+                  <div 
+                    className="h-full rounded-full bg-gradient-to-r from-sky-500 to-sky-400 transition-all duration-500"
+                    style={{ width: `${levelInfo.progress}%` }}
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         </BrowseMarketplaceHero>
 

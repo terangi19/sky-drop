@@ -66,7 +66,7 @@ export default function ListingCard({
           tabIndex={0}
           aria-label={`View listing: ${item.title}. ${item.price ? `Price: $${item.price}.` : ''} ${categoryLabel} in ${item.condition || 'unknown condition'}`}
           aria-describedby={`listing-card-${item.id}-details`}
-          className="listing-card relative z-[1] flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.04] to-white/[0.01] backdrop-blur-sm transition-all duration-300 animate-fade-in-up hover:-translate-y-1.5 hover:border-[#6b8e6b]/40 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(107,142,107,0.22),0_0_60px_rgba(107,142,107,0.12)] active:-translate-y-0.5 active:scale-[0.985] active:border-[#5a7a5a]/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6b8e6b]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a0f]"
+          className="listing-card relative z-[1] flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.04] to-white/[0.01] backdrop-blur-sm transition-all duration-500 ease-out animate-fade-in-up hover:-translate-y-2 hover:border-[#6b8e6b]/50 hover:bg-white/[0.08] hover:shadow-[0_0_40px_rgba(107,142,107,0.3),0_0_80px_rgba(107,142,107,0.15)] active:-translate-y-1 active:scale-[0.98] active:border-[#5a7a5a]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6b8e6b]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a0f]"
           style={{
             animationDelay: `${Math.min(cardIndex, 10) * 40}ms`,
           }}
@@ -91,7 +91,7 @@ export default function ListingCard({
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.display = "none";
                 }}
-                className="aspect-[4/3] w-full object-cover opacity-0 transition-all duration-700 group-hover:scale-105 group-hover:rotate-1"
+                className="aspect-[4/3] w-full object-cover opacity-0 transition-all duration-700 ease-out group-hover:scale-110 group-hover:rotate-2"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />

@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { AWHINA_NAME } from "./lib/awhina-brand";
 import Navbar from "./components/Navbar";
 import Background from "./components/Background";
+import PageTransition from "./components/PageTransition";
 import { showToast } from "./components/Toast";
 import { cancelPendingXPByListing, trackListingDeleted } from "./lib/xpValidation";
 import { createNotification } from "./lib/notifications";
@@ -738,60 +739,45 @@ export default function Home() {
 
       {/* HERO / SEARCH SECTION */}
       <section className={`${PAGE_SHELL_WIDE} pt-3 sm:pt-4`}>
-        <div className={`relative overflow-visible rounded-[1.75rem] border border-white/[0.06] bg-gradient-to-b from-white/[0.03] via-transparent to-transparent backdrop-blur-sm ${t.heroShadow}`}>
+        <div className={`relative overflow-hidden rounded-[2rem] border border-white/[0.08] bg-gradient-to-br from-sky-500/[0.08] via-white/[0.02] to-purple-500/[0.06] backdrop-blur-sm ${t.heroShadow}`}>
           <div className={`absolute inset-0 ${t.radial} pointer-events-none`} />
           <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
 
-          {/* Live ticker */}
-          <div className="relative z-10 flex items-center justify-center gap-3 border-b border-white/[0.04] px-5 py-2">
-            <span className="flex shrink-0 items-center gap-1.5 text-[10px] font-medium tracking-wide text-white">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]" />
-              Live
-            </span>
-            <span className="h-3 w-px shrink-0 bg-white/[0.08]" />
-            {(() => {
-              const top = [...listings].filter((l: any) => (l.views || 0) > 0 || (l.bidCount || 0) > 0).sort((a: any, b: any) => (b.views || 0) + (b.bidCount || 0) - (a.views || 0) - (a.bidCount || 0)).slice(0, 3);
-              const label = top.length > 0
-                ? top.map((l: any) => l.title).join(" · ")
-                : "Trending listings across New Zealand";
-              return <span className="truncate text-[11px] text-white">{label}</span>;
-            })()}
-          </div>
-
-          <div className="relative z-10 px-5 py-6 sm:px-10 sm:py-8">
+          <div className="relative z-10 px-5 py-8 sm:px-8 sm:py-10">
             <div className="mx-auto max-w-2xl text-center">
-              <div className={`${t.badge} text-white/90`}>NZ Marketplace</div>
-              <h1 className="text-[1.75rem] font-semibold tracking-[-0.03em] text-white sm:text-4xl sm:tracking-[-0.035em]">
+              <div className={`${t.badge} text-white/90 mb-3`}>NZ Marketplace</div>
+              <h1 className="text-xl font-semibold tracking-tight text-white sm:text-3xl lg:text-4xl">
                 <span className={`bg-gradient-to-r ${t.titleGradient} bg-clip-text text-transparent ${t.titleDropShadow}`}>
                   Welcome to Sky Drop
                 </span>
               </h1>
-              <p className="mx-auto mt-2.5 max-w-lg text-center text-sm leading-relaxed text-zinc-400">
+              <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-zinc-300 sm:text-base">
                 {user ? (
-                  <>
-                    <span className="text-white">List your items, message buyers directly, and sell nationwide with Āwhina.</span>
-                  </>
+                  "List your items, message buyers directly, and sell nationwide with Āwhina AI assistance."
                 ) : (
-                  <span className="text-white">Free listings, secure checkout, and a marketplace built for New Zealand.</span>
+                  "Free listings, secure checkout, and a marketplace built for New Zealand."
                 )}
               </p>
               {user && (
-                <div className="mt-4 flex justify-center">
+                <div className="mt-6 flex justify-center">
                   <Link
                     href="/post/ai"
-                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 active:scale-[0.97]"
+                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-300 hover:shadow-xl hover:shadow-sky-500/30 hover:-translate-y-0.5 active:scale-[0.98]"
                   >
-                    Sell with {AWHINA_NAME}
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                    Create a Listing
                   </Link>
                 </div>
               )}
             </div>
 
             {/* Search */}
-            <div className="mx-auto mt-5 max-w-lg">
+            <div className="mx-auto mt-8 max-w-xl">
               <div className="group relative">
-                <div className={`absolute -inset-0.5 rounded-2xl bg-gradient-to-r ${t.searchGlow} opacity-0 blur-lg transition duration-500 group-focus-within:opacity-70`} />
-                <div className={`relative flex items-center rounded-2xl border border-white/[0.10] bg-black/30 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),0_4px_16px_rgba(0,0,0,0.2)] backdrop-blur-md transition-all duration-300 ${t.searchFocus}`}>
+                <div className="absolute -inset-0.5 rounded-2xl bg-gradient-to-r from-sky-500/30 via-purple-500/30 to-sky-500/30 opacity-0 blur-lg transition duration-500 group-focus-within:opacity-70" />
+                <div className="relative flex items-center rounded-xl border border-white/[0.10] bg-black/30 shadow-lg backdrop-blur-md transition-all duration-300 group-focus-within:border-sky-500/50 group-focus-within:bg-black/40">
                   <svg className="ml-4 h-4 w-4 shrink-0 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
@@ -801,9 +787,9 @@ export default function Home() {
                     value={search}
                     ref={searchRef}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="flex-1 bg-transparent px-3 py-4 text-[15px] text-white outline-none placeholder:text-zinc-500 transition-colors"
+                    className="flex-1 bg-transparent px-3 py-3 text-[15px] text-white outline-none placeholder:text-zinc-500 transition-colors"
                   />
-                  <div className="mr-2 flex items-center gap-1">
+                  <div className="mr-2 flex items-center gap-2">
                     {search && (
                       <button onClick={() => setSearch("")} className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-all duration-200 hover:bg-white/[0.10] hover:text-white hover:scale-110 active:scale-95" aria-label="Clear search">
                         <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -870,7 +856,6 @@ export default function Home() {
               </div>
             )}
           </div>
-
         </div>
       </section>
 
@@ -910,8 +895,8 @@ export default function Home() {
       {/* LISTINGS */}
       <section className={`${PAGE_SHELL_MARKETPLACE} pb-10`}>
 
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+          <div className="flex items-center gap-4">
             <h2 className="text-base font-semibold tracking-tight text-white sm:text-lg">
               {selectedCategory !== "All" ? selectedCategory : "Latest listings"}
             </h2>

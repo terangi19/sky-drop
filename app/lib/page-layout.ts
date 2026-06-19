@@ -26,6 +26,6 @@ export const PAGE_SHELL_CHAT = [
 
 /** Listing card grids — more columns on ultrawide and 4K screens. */
 export const LISTING_GRID =
-  "grid items-stretch gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-6 4xl:grid-cols-7 5xl:grid-cols-8";
+  "grid items-stretch gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-5 4xl:grid-cols-5 5xl:grid-cols-5";
 
 export const LISTING_GRID_MT = `mt-4 ${LISTING_GRID}`;
