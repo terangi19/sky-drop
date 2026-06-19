@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
-import { verifyIdToken } from "../../lib/firebase-admin";
+import { verifyIdToken, getAdminDb } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import { adminGetListing, requireAdminForCheckout } from "../../lib/checkout-server";
 import {
@@ -20,6 +20,7 @@ import {
 import {
   hasArrangePaymentDetails,
   pickArrangePaymentDetails,
+  type ArrangePaymentDetails,
 } from "../../lib/arrange-payment-details";
 import {
   assertListingAvailableForPurchase,
@@ -128,7 +129,20 @@ export async function POST(req: NextRequest) {
     const buyerName = await adminGetPublicName(buyerEmail);
     const buyerHandle = await adminGetPublicHandle(buyerEmail);
     const sellerProfile = await adminGetProfileByEmail(sellerEmail);
-    const paymentDetails = pickArrangePaymentDetails(sellerProfile);
+    // Fetch bank details from the secure subcollection, not the main profile doc
+    let paymentDetails: ArrangePaymentDetails = {};
+    if (sellerProfile?.uid) {
+      const bankSnap = await getAdminDb()
+        .collection("profiles")
+        .doc(sellerProfile.uid)
+        .collection("bankDetails")
+        .doc("private")
+        .get();
+      if (bankSnap.exists) {
+        const bankData = bankSnap.data() || {};
+        paymentDetails = pickArrangePaymentDetails(bankData);
+      }
+    }
     const sellerHasPay = hasArrangePaymentDetails(paymentDetails);
     const sellerMessageText = buildArrangePurchaseSellerMessage(
       buyerHandle,

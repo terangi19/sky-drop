@@ -13,7 +13,8 @@ import {
   loadSkyAiMessages,
 } from "../../lib/sky-ai-firestore";
 import { buildSkyAiSystemPrompt } from "../../lib/sky-ai-prompt";
-import { extractSkyAiReply } from "../../lib/sky-ai-listing-fill";
+import { mergeListingFillWithDraft } from "../../lib/sky-ai-draft-merge";
+import { extractSkyAiReply, type SkyAiListingFill } from "../../lib/sky-ai-listing-fill";
 import type { SkyAiHistoryItem, SkyAiListingContext } from "../../lib/sky-ai-types";
 import {
   isSkyAiGeneralQuestion,
@@ -85,6 +86,12 @@ function parseListingContext(body: unknown): SkyAiListingContext | null {
   if (!body || typeof body !== "object") return null;
   const c = body as Record<string, unknown>;
   const pick = (k: string) => (typeof c[k] === "string" ? c[k].trim() : "");
+  const extras = Array.isArray(c.extras)
+    ? (c.extras as unknown[])
+        .filter((x): x is string => typeof x === "string")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : undefined;
   const draft: SkyAiListingContext = {
     title: pick("title"),
     description: pick("description"),
@@ -93,6 +100,7 @@ function parseListingContext(body: unknown): SkyAiListingContext | null {
     price: pick("price"),
     listingType: pick("listingType"),
     location: pick("location"),
+    paymentType: pick("paymentType"),
     vehicleMake: pick("vehicleMake"),
     vehicleModel: pick("vehicleModel"),
     vehicleYear: pick("vehicleYear"),
@@ -101,8 +109,26 @@ function parseListingContext(body: unknown): SkyAiListingContext | null {
     vehicleBodyType: pick("vehicleBodyType"),
     vehicleFuelType: pick("vehicleFuelType"),
     vehicleTransmission: pick("vehicleTransmission"),
+    rentalPriceWeekly: pick("rentalPriceWeekly"),
+    rentalPriceMonthly: pick("rentalPriceMonthly"),
+    rentalDeposit: pick("rentalDeposit"),
+    stockQuantity: pick("stockQuantity"),
+    serviceDuration: pick("serviceDuration"),
+    extras: extras?.length ? extras : undefined,
   };
-  return Object.values(draft).some(Boolean) ? draft : null;
+  const hasScalar = Object.entries(draft).some(
+    ([k, v]) => k !== "extras" && typeof v === "string" && v.length > 0
+  );
+  return hasScalar || (extras && extras.length > 0) ? draft : null;
+}
+
+function mergeFillWithContext(
+  listingContext: SkyAiListingContext | null,
+  listingFill: SkyAiListingFill | undefined
+): SkyAiListingFill | undefined {
+  if (!listingFill) return undefined;
+  if (!listingContext) return listingFill;
+  return mergeListingFillWithDraft(listingContext, listingFill);
 }
 
 const MAX_SKY_AI_IMAGES = 4;
@@ -232,7 +258,36 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const shortcut = tryNavigationShortcut(message, pathname);
+    const hasListingIntent = pathname.startsWith("/post/ai") && (
+      // Structured field labels
+      /(?:^|\n)(title|price|description|location|condition|category|make|model|year|odometer|colour|color|transmission|fuel|mileage|km|kms)\s*:/i.test(message) ||
+      // Listing type keywords
+      /(?:rental|vehicle|service|digital|item|physical)\s+listing/i.test(message) ||
+      // Multiple field-like lines
+      (message.match(/(?:^|\n)\s*\w+\s*:/g) || []).length >= 2 ||
+      // Vehicle pattern: year + make/model + price
+      /\d{4}\s+[A-Za-z]+\s+[A-Za-z0-9]+.*\$[\d,]+/i.test(message) ||
+      // Year at start (vehicle shorthand like "2015 Mazda Axela blue")
+      /^\d{4}\s+[A-Za-z]/.test(message) ||
+      // Selling intent keywords
+      /\b(i('m| am| want to)?\s*(sell|selling|list|listing|post|create|make|put up|advertise)|for sale|selling my|i have a .* for sale|want to sell)\b/i.test(message) ||
+      // Item descriptions with price
+      /\$[\d,]+/.test(message) ||
+      // Vehicle brand keywords on sell page
+      /\b(toyota|honda|mazda|ford|holden|nissan|subaru|mitsubishi|hyundai|kia|bmw|mercedes|audi|volkswagen|vw|jeep|chevrolet|dodge|tesla|lexus|suzuki|isuzu|hilux|corolla|camry|rav4|cx-5|axela|swift|ranger|commodore)\b/i.test(message) ||
+      // Service/rental/digital signals on sell page
+      /\b(lawn|mow|clean|handyman|tutor|teach|photograph|design|seo|website|graphic|weekly rent|per week|bond|deposit|apartment|flat|room|house for rent|digital download|template|ebook|preset|notion|canva)\b/i.test(message) ||
+      // Physical item selling
+      /\b(ps5|playstation|xbox|iphone|samsung|laptop|macbook|tv|television|couch|sofa|fridge|washing machine|bike|bicycle|kayak|surfboard|guitar|camera)\b/i.test(message) ||
+      // Condition + item pattern
+      /\b(new|used|good condition|excellent condition|great condition|like new)\b.*\b(sell|selling|for sale|\$\d)/i.test(message) ||
+      // Located in + price
+      /\b(located in|based in|pickup from|auckland|wellington|christchurch|hamilton|tauranga|dunedin|palmerston|napier|rotorua|nelson|invercargill|waikato|otago)\b.*\$[\d,]+/i.test(message) ||
+      // Odometer / km reading
+      /\b\d{2,3}[\s,]?\d{3}\s*km\b/i.test(message)
+    );
+    const isAdviceQuestion = /\b(should i|which (sale type|one|option)|what.s (best|better|faster|quickest)|how much (should|is)|is it (safe|worth)|recommend|suggestion)\b/i.test(message);
+    const shortcut = !isAdviceQuestion && !hasListingIntent ? tryNavigationShortcut(message, pathname) : null;
     if (shortcut) {
       const reply = stripBold(shortcut.reply);
       if (uid && conversationId) {
@@ -301,7 +356,7 @@ export async function POST(req: NextRequest) {
         completion = await openai.chat.completions.create({
           model,
           temperature: 0.7,
-          max_tokens: 1400,
+          max_tokens: 2000,
           stream: true,
           messages,
         });
@@ -328,9 +383,14 @@ export async function POST(req: NextRequest) {
               );
             }
             const { text, navigateTo, listingFill } = extractSkyAiReply(full);
+            const mergedFill = mergeFillWithContext(listingContext, listingFill);
+            const finalNav = pathname.startsWith("/post/ai") && navigateTo === "/post/ai" ? undefined : navigateTo;
+            if (listingFill || mergedFill) {
+              console.log(`[Awhina] Listing fill: type=${listingFill?.listingType || mergedFill?.listingType}, title=${listingFill?.title || mergedFill?.title}, nav=${finalNav || "none"}`);
+            }
             if (uid && conversationId) {
               await safePersist(() =>
-                appendSkyAiExchange(conversationId, uid, message, text, navigateTo)
+                appendSkyAiExchange(conversationId, uid, message, text, finalNav)
               );
             }
             controller.enqueue(
@@ -338,8 +398,8 @@ export async function POST(req: NextRequest) {
                 sseLine({
                   type: "done",
                   reply: text,
-                  navigateTo,
-                  listingFill,
+                  navigateTo: finalNav,
+                  listingFill: mergedFill,
                   source: "ai",
                   conversationId: conversationId || undefined,
                 })
@@ -367,7 +427,7 @@ export async function POST(req: NextRequest) {
       completion = await openai.chat.completions.create({
         model,
         temperature: 0.7,
-        max_tokens: 1400,
+        max_tokens: 2000,
         messages,
       });
     } catch (openaiErr: unknown) {
@@ -380,17 +440,22 @@ export async function POST(req: NextRequest) {
 
     const raw = completion.choices[0]?.message?.content || "";
     const { text, navigateTo, listingFill } = extractSkyAiReply(raw);
+    const mergedFill = mergeFillWithContext(listingContext, listingFill);
+    const finalNav = pathname.startsWith("/post/ai") && navigateTo === "/post/ai" ? undefined : navigateTo;
+    if (listingFill || mergedFill) {
+      console.log(`[Awhina] Listing fill: type=${listingFill?.listingType || mergedFill?.listingType}, title=${listingFill?.title || mergedFill?.title}, nav=${finalNav || "none"}`);
+    }
 
     if (uid && conversationId) {
       await safePersist(() =>
-        appendSkyAiExchange(conversationId, uid, message, text, navigateTo)
+        appendSkyAiExchange(conversationId, uid, message, text, finalNav)
       );
     }
 
     return NextResponse.json({
       reply: text || "I couldn't generate a reply. Try again.",
-      navigateTo,
-      listingFill,
+      navigateTo: finalNav,
+      listingFill: mergedFill,
       source: "ai",
       conversationId: conversationId || undefined,
     });

@@ -36,6 +36,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Could not determine seller email" }, { status: 400 });
     }
 
+    // Verify buyerEmail matches the offer message's sender
+    if (isAdminInitialized()) {
+      const { getAdminDb } = await import("../../lib/firebase-admin");
+      const offerMsgSnap = await getAdminDb().collection("messages").doc(offerMessageId).get();
+      if (!offerMsgSnap.exists) {
+        return NextResponse.json({ error: "Offer message not found" }, { status: 404 });
+      }
+      const offerMsgData = offerMsgSnap.data()!;
+      if (offerMsgData.type !== "offer") {
+        return NextResponse.json({ error: "Message is not an offer" }, { status: 400 });
+      }
+      if (offerMsgData.sender !== buyerEmail) {
+        return NextResponse.json({ error: "Buyer email does not match offer sender" }, { status: 403 });
+      }
+    }
+
     const input: AcceptOfferInput = {
       listingId,
       listingTitle: listingTitle || "",

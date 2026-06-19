@@ -13,9 +13,9 @@ export default function OnlineCount({
 
       <div className="relative">
 
-        <div className="h-2 w-2 rounded-full bg-emerald-400" />
+        <div className="h-2 w-2 rounded-full bg-sky-400" />
 
-        <div className="absolute inset-0 animate-ping rounded-full bg-emerald-400 opacity-40" />
+        <div className="absolute inset-0 animate-ping rounded-full bg-sky-400 opacity-40" />
 
       </div>
 

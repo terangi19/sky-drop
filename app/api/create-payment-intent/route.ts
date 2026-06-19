@@ -244,7 +244,8 @@ export async function POST(req: NextRequest) {
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("[create-payment-intent]", msg);
+    console.error("[create-payment-intent] Error:", msg);
+    console.error("[create-payment-intent] Full error:", err);
 
     if (msg.includes("CHECKOUT_SERVER_NOT_CONFIGURED")) {
       return NextResponse.json(
@@ -256,8 +257,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (msg.includes("Stripe") || msg.includes("stripe")) {
+      return NextResponse.json(
+        { error: "Payment service error. Please try again." },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json(
-      { error: "Payment could not be processed. Please try again." },
+      { error: `Payment could not be processed: ${msg}` },
       { status: 500 }
     );
   }

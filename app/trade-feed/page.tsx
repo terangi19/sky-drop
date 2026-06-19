@@ -4,12 +4,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Navbar from "../components/Navbar";
+import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import Background from "../components/Background";
 import CheckoutModal from "../components/CheckoutModal";
 import PromoteModal from "../components/PromoteModal";
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from "firebase/firestore";
 import { User } from "firebase/auth";
 import { auth, db, storage, onAuthStateChanged } from "../lib/firebase";
+import { fetchSellerProfilesByListing } from "../lib/fetch-seller-profiles";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { checkImage } from "../lib/nsfw";
 import { showToast } from "../components/Toast";
@@ -18,14 +20,15 @@ import confetti from "canvas-confetti";
 import { playOffer, playSuccess, playClick } from "../lib/sounds";
 import { createNotification } from "../lib/notifications";
 import { useProfile } from "../contexts/ProfileContext";
+import { REVIEW_STAR_CLASS } from "../components/SellerReviewStars";
 
 const WORLDS = [
   { id: "all", label: "Categories", icon: "🌐", accent: "border-sky-500/20", glow: "shadow-[0_0_12px_rgba(14,165,233,0.06)]", color: "from-sky-400" },
   { id: "gaming", label: "Gaming", icon: "🎮", accent: "border-sky-500/20", glow: "shadow-[0_0_20px_rgba(14,165,233,0.12)]", color: "from-sky-400" },
   { id: "cars", label: "Cars", icon: "🚗", accent: "border-zinc-400/20", glow: "shadow-[0_0_20px_rgba(161,161,170,0.12)]", color: "from-zinc-300" },
-  { id: "fashion", label: "Fashion", icon: "👟", accent: "border-rose-400/20", glow: "shadow-[0_0_20px_rgba(251,113,133,0.12)]", color: "from-rose-400" },
+  { id: "fashion", label: "Fashion", icon: "👟", accent: "border-sky-400/20", glow: "shadow-[0_0_20px_rgba(251,113,133,0.12)]", color: "from-sky-400" },
   { id: "tech", label: "Tech", icon: "💻", accent: "border-blue-400/20", glow: "shadow-[0_0_20px_rgba(96,165,250,0.12)]", color: "from-blue-400" },
-  { id: "collector", label: "Collector", icon: "⭐", accent: "border-amber-400/20", glow: "shadow-[0_0_20px_rgba(251,191,36,0.12)]", color: "from-amber-400" },
+  { id: "collector", label: "Collector", icon: "⭐", accent: "border-sky-400/20", glow: "shadow-[0_0_20px_rgba(251,191,36,0.12)]", color: "from-sky-400" },
   { id: "digital", label: "Digital", icon: "📥", accent: "border-sky-400/20", glow: "shadow-[0_0_20px_rgba(14,165,233,0.12)]", color: "from-sky-400" },
 ];
 
@@ -36,7 +39,7 @@ const SUBCATEGORIES: Record<string, string[]> = {
   fashion: ["Sneakers", "Streetwear", "Designer", "Vintage", "Accessories"],
   tech: ["Phones", "PCs", "Cameras", "Audio", "Smart Home"],
   collector: ["Cards", "Figures", "Memorabilia", "Rare Items"],
-  digital: ["Templates & Assets", "E-books & Guides", "Art & Photography", "Software & Audio", "Gaming & 3D"],
+  digital: ["Templates & Assets", "E-books & Guides", "Art & Photography", "Software & Audio", "Gaming & 3D", "Web & App Development", "Graphic Design", "SEO & Digital Marketing", "Other Digital Services"],
 };
 
 const QUICK_REPLIES = ["Still available?", "Can pickup tonight.", "Sent offer.", "PM me", "Price negotiable?", "Trade?", "Interested"];
@@ -51,8 +54,8 @@ function formatTime(ts: any) {
 }
 
 function getTypePill(type: string) {
-  if (type === "WTB") return "bg-emerald-500/15 text-emerald-400";
-  if (type === "Trading") return "bg-violet-500/15 text-violet-400";
+  if (type === "WTB") return "bg-sky-500/15 text-sky-400";
+  if (type === "Trading") return "bg-sky-500/15 text-sky-400";
   return "bg-sky-500/15 text-sky-400";
 }
 
@@ -202,20 +205,21 @@ export default function TradeFeedPage() {
 
   // Fetch seller profile badges (legendary/epic)
   useEffect(() => {
-    const uniqueEmails = [...new Set(posts.map((p: any) => p.sellerEmail).filter(Boolean))] as string[];
-    if (uniqueEmails.length === 0) return;
+    if (posts.length === 0) return;
     const fetchBadges = async () => {
       const badges: Record<string, string> = {};
-      for (let i = 0; i < uniqueEmails.length; i += 10) {
-        const chunk = uniqueEmails.slice(i, i + 10);
-        try {
-          const snap = await getDocs(query(collection(db, "profiles"), where("email", "in", chunk)));
-          snap.docs.forEach((d) => {
-            const data = d.data();
-            const email = data.email as string;
-            if (data.profileBadge) badges[email] = data.profileBadge as string;
-          });
-        } catch (e) { console.error("Badge fetch error:", e); }
+      try {
+        const profiles = await fetchSellerProfilesByListing(
+          posts.map((p: { sellerEmail?: string; sellerId?: string }) => ({
+            sellerEmail: p.sellerEmail,
+            sellerId: p.sellerId,
+          }))
+        );
+        profiles.forEach((data, email) => {
+          if (data.profileBadge) badges[email] = data.profileBadge as string;
+        });
+      } catch {
+        /* optional */
       }
       setSellerBadges(badges);
     };
@@ -339,12 +343,17 @@ export default function TradeFeedPage() {
       return;
     }
     lastShoutTime.current = Date.now();
-    await addDoc(collection(db, "tradeShouts"), {
-      world: selectedWorld.length === 1 && selectedWorld[0] !== "all" ? selectedWorld[0] : "__general__",
-      text: msg,
-      by: username || user.email,
-      createdAt: serverTimestamp(),
-    });
+    try {
+      const token = await user.getIdToken();
+      await fetch("/api/create-trade-shout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          text: msg,
+          world: selectedWorld.length === 1 && selectedWorld[0] !== "all" ? selectedWorld[0] : "__general__",
+        }),
+      });
+    } catch (e) { console.error("Failed to send shout:", e); }
     if (!text) setShoutText("");
     playClick();
   }
@@ -378,19 +387,19 @@ export default function TradeFeedPage() {
         const snap = await uploadBytes(storageRef, file);
         images.push(await getDownloadURL(snap.ref));
       }
-      await addDoc(collection(db, "tradePosts"), {
-        type, title, price: price || "", message: message || "",
-        sellerEmail: user.email, sellerUsername: username || user.email,
-        world: selectedWorld.length === 1 ? selectedWorld[0] : null,
-        category: selectedFilter !== "All" ? selectedFilter : null,
-        status: "live",
-        saleType: type === "WTS" ? "buy_now" : type === "WTB" ? "buy_now_offers" : "trade",
-        replies: [], images, views: 1, offers: 0,
-        location: null,
-        pickupAvailable, shippingAvailable, pickupArea,
-        shippingFee: shippingAvailable && shippingFee ? Number(shippingFee) : null,
-        freeShipping: shippingAvailable ? freeShipping : false,
-        createdAt: serverTimestamp(),
+      const token = await user.getIdToken();
+      await fetch("/api/create-trade-post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          type, title, price: price || "", message: message || "",
+          world: selectedWorld.length === 1 ? selectedWorld[0] : null,
+          category: selectedFilter !== "All" ? selectedFilter : null,
+          images,
+          pickupAvailable, shippingAvailable, pickupArea,
+          shippingFee: shippingAvailable && shippingFee ? Number(shippingFee) : null,
+          freeShipping: shippingAvailable ? freeShipping : false,
+        }),
       });
       setTitle(""); setPrice(""); setMessage(""); setImageFiles([]); setImagePreviews([]); setShowComposer(false);
       setPickupAvailable(false); setShippingAvailable(false); setPickupArea(""); setShippingFee(""); setFreeShipping(false);
@@ -405,12 +414,22 @@ export default function TradeFeedPage() {
       showToast("You can only delete your own posts", "error");
       return;
     }
-    await deleteDoc(doc(db, "tradePosts", id));
+    try {
+      const token = await user!.getIdToken();
+      await fetch("/api/manage-trade-post", {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: "delete", postId: id }),
+      });
+    } catch (e) { console.error(e); }
   }
 
   async function updateTradeStatus(id: string, status: string) {
     try {
-      await updateDoc(doc(db, "tradePosts", id), { status });
+      const token = await user!.getIdToken();
+      await fetch("/api/manage-trade-post", {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: "status", postId: id, status }),
+      });
       showToast(`Marked as ${status}`, "success");
       playSuccess();
       confetti({ particleCount: 40, spread: 60, origin: { y: 0.6 } });
@@ -419,34 +438,26 @@ export default function TradeFeedPage() {
 
   async function addReply(postId: string, text: string) {
     if (!text.trim() || !user?.email) return;
+    const tradePost = posts.find((p: { id?: string }) => p.id === postId);
     try {
-      const post = posts.find((p) => p.id === postId);
-      const replies = Array.isArray(post?.replies) ? [...post.replies] : [];
-      replies.push({ text: text.trim(), by: username || user.email, at: new Date().toISOString() });
-      await updateDoc(doc(db, "tradePosts", postId), { replies });
-      await addDoc(collection(db, "messages"), {
-        text: text.trim(),
-        sender: user.email,
-        receiver: post?.sellerEmail || "",
-        participants: [user.email, post?.sellerEmail].filter(Boolean),
-        listingId: postId,
-        listingTitle: post?.title || null,
-        createdAt: serverTimestamp(),
-      }).catch((err) => console.error("Failed to add message doc:", err));
-      await addDoc(collection(db, "notifications"), {
+      const token = await user.getIdToken();
+      await fetch("/api/manage-trade-post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: "reply", postId, text: text.trim() }),
+      });
+      await createNotification({
         type: "message",
-        targetEmail: post?.sellerEmail || "",
+        targetEmail: tradePost?.sellerEmail || "",
         fromEmail: user.email,
         title: "New reply on your trade",
         message: `${username || user.email?.split("@")[0] || "Someone"}: ${text.trim().slice(0, 100)}`,
         listingId: postId,
-        listingTitle: post?.title || "a trade",
-        read: false,
-        createdAt: serverTimestamp(),
-      }).catch((err) => console.error("Failed to add notification doc:", err));
+        listingTitle: tradePost?.title || "a trade",
+      }).catch((err) => console.error("Failed to add notification:", err));
       setReplyTexts((prev) => ({ ...prev, [postId]: "" }));
       const id = ++eventId.current;
-      setLiveEvents((prev) => [{ id, icon: "💬", text: `New reply on ${post?.title || "a trade"}` }, ...prev].slice(0, 20));
+      setLiveEvents((prev) => [{ id, icon: "💬", text: `New reply on ${tradePost?.title || "a trade"}` }, ...prev].slice(0, 20));
       setTimeout(() => setLiveEvents((prev) => prev.filter((e) => e.id !== id)), 8000);
     } catch (e) { console.error(e); }
   }
@@ -563,12 +574,13 @@ export default function TradeFeedPage() {
 
       <section className="relative z-10 mx-auto max-w-[1600px] px-4 pb-8 pt-6">
         {/* ── PAGE TITLE ── */}
-        <div className="relative mb-6">
-          <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/5 via-emerald-500/5 to-transparent blur-3xl pointer-events-none" />
+        <div className="relative mb-6 text-center">
+          <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/5 via-sky-500/5 to-transparent blur-3xl pointer-events-none" />
           <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
             <span className="text-white drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">Trade Live</span>
           </h1>
-            <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl">A real-time community marketplace where members post, trade, and negotiate live. Browse active listings, make offers, and connect with buyers and sellers as deals happen — all in one feed.</p>
+          <AwhinaUnderHeader centered />
+            <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl mx-auto">A real-time community marketplace where members post, trade, and negotiate live. Browse active listings, make offers, and connect with buyers and sellers as deals happen — all in one feed.</p>
         </div>
 
         {/* ── HEADER ── */}
@@ -579,7 +591,7 @@ export default function TradeFeedPage() {
                 <span className="absolute inset-0 h-2 w-2 rounded-full bg-emerald-400 animate-ping opacity-75" />
                 <span className="relative h-2 w-2 rounded-full bg-emerald-400" />
               </span>
-              <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500">Live</span>
+              <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-400">Live</span>
             </div>
             <span className="h-3 w-px bg-zinc-800" />
             <span className="text-xs font-mono text-zinc-600">{String(posts.length).padStart(2, '0')} trades</span>
@@ -642,7 +654,7 @@ export default function TradeFeedPage() {
                 title={t === "WTS" ? "Want to Sell" : t === "WTB" ? "Want to Buy" : t === "Trading" ? "Open to trades" : ""}
                 className={`rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition ${
                   selectedType === t
-                    ? t === "WTB" ? "text-emerald-400 bg-emerald-500/[0.06]" : t === "Trading" ? "text-violet-400 bg-violet-500/[0.06]" : "text-sky-400 bg-sky-500/[0.06]"
+                    ? t === "WTB" ? "text-sky-400 bg-sky-500/[0.06]" : t === "Trading" ? "text-sky-400 bg-sky-500/[0.06]" : "text-sky-400 bg-sky-500/[0.06]"
                     : "text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.02]"
                 }`}>{t === "All" ? "All" : t}</button>
             ))}
@@ -672,14 +684,14 @@ export default function TradeFeedPage() {
                 </h2>
                 <span className="h-3 w-px bg-white/[0.04]" />
                 <span className="text-[11px] font-mono text-zinc-600">{String(filteredPosts.length).padStart(2, '0')}</span>
-                {hotPosts.length > 0 && <span className="text-[11px] font-medium text-orange-400/80">🔥 {hotPosts.length} hot</span>}
+                {hotPosts.length > 0 && <span className="text-[11px] font-medium text-sky-400/80">🔥 {hotPosts.length} hot</span>}
               </div>
               <div className="flex items-center gap-2">
                 {["all", "active"].map((s) => (
                   <button key={s} onClick={() => setStatusFilter(s)}
                     className={`rounded-lg px-2.5 py-1.5 text-[10px] font-medium transition ${
                       statusFilter === s
-                        ? s === "active" ? "text-emerald-400 bg-emerald-500/[0.06]" : "text-sky-400 bg-sky-500/[0.06]"
+                        ? s === "active" ? "text-sky-400 bg-sky-500/[0.06]" : "text-sky-400 bg-sky-500/[0.06]"
                         : "text-zinc-500 hover:text-zinc-300"
                     }`}>{s === "all" ? "All" : s}</button>
                 ))}
@@ -725,7 +737,7 @@ export default function TradeFeedPage() {
                   <label className="flex cursor-pointer items-center gap-1 rounded-xl border border-white/[0.04] bg-white/[0.02] px-3 py-2 text-[10px] text-zinc-500 hover:text-zinc-300 hover:border-white/[0.08] has-[:checked]:border-sky-500/40 has-[:checked]:bg-sky-500/[0.06] has-[:checked]:text-sky-400 transition-all">
                     <input type="checkbox" checked={pickupAvailable} onChange={(e) => setPickupAvailable(e.target.checked)} className="hidden" />📍 Pickup
                   </label>
-                  <label className="flex cursor-pointer items-center gap-1 rounded-xl border border-white/[0.04] bg-white/[0.02] px-3 py-2 text-[10px] text-zinc-500 hover:text-zinc-300 hover:border-white/[0.08] has-[:checked]:border-emerald-500/40 has-[:checked]:bg-emerald-500/[0.06] has-[:checked]:text-emerald-400 transition-all">
+                  <label className="flex cursor-pointer items-center gap-1 rounded-xl border border-white/[0.04] bg-white/[0.02] px-3 py-2 text-[10px] text-zinc-500 hover:text-zinc-300 hover:border-white/[0.08] has-[:checked]:border-sky-500/40 has-[:checked]:bg-sky-500/[0.06] has-[:checked]:text-sky-400 transition-all">
                     <input type="checkbox" checked={shippingAvailable} onChange={(e) => setShippingAvailable(e.target.checked)} className="hidden" />📦 Ship
                   </label>
                   <button onClick={() => fileInputRef.current?.click()}
@@ -773,7 +785,7 @@ export default function TradeFeedPage() {
                           <input type="number" placeholder="Fee" value={shippingFee} onChange={(e) => setShippingFee(e.target.value)}
                             className="w-20 rounded-xl border border-white/[0.06] bg-white/[0.02] py-1.5 pl-5 pr-2 text-[10px] text-[var(--foreground)] outline-none placeholder:text-zinc-600 focus:border-sky-500/30 focus:bg-white/[0.04] transition-all" />
                         </div>
-                        <label className="flex cursor-pointer items-center gap-1 rounded-xl border border-white/[0.04] bg-white/[0.02] px-2 py-1.5 text-[9px] text-zinc-500 has-[:checked]:text-emerald-400 transition-all">
+                        <label className="flex cursor-pointer items-center gap-1 rounded-xl border border-white/[0.04] bg-white/[0.02] px-2 py-1.5 text-[9px] text-zinc-500 has-[:checked]:text-sky-400 transition-all">
                           <input type="checkbox" checked={freeShipping} onChange={(e) => setFreeShipping(e.target.checked)} className="hidden" />Free
                         </label>
                       </div>
@@ -861,15 +873,15 @@ export default function TradeFeedPage() {
                           touchStartX.current = 0;
                         }}
                         className={`group relative flex gap-4 rounded-2xl border p-4 transition-all duration-300 cursor-pointer overflow-hidden ${
-                          isNew ? "border-amber-500/20" : isPopular ? "border-orange-500/15" : "border-white/[0.04]"
+                          isNew ? "border-sky-500/20" : isPopular ? "border-sky-500/15" : "border-white/[0.04]"
                         } bg-white/[0.015] hover:bg-white/[0.03] hover:border-white/[0.08] hover:shadow-xl hover:shadow-black/30`}
                       >
                         {/* Glass top highlight */}
                         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
                         {/* Status indicator dot */}
-                        {isNew && <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-amber-400 to-transparent" />}
-                        {isPopular && !isNew && <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-orange-400 to-transparent" />}
+                        {isNew && <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-sky-400 to-transparent" />}
+                        {isPopular && !isNew && <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-sky-400 to-transparent" />}
 
                         {/* Swipe actions overlay */}
                         {swipedId === post.id && (
@@ -903,7 +915,7 @@ export default function TradeFeedPage() {
                           <div className="flex items-center gap-2">
                             <span className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${getTypePill(post.type)}`}>{post.type}</span>
                             {post.status === "sold" && <span className="rounded-md bg-red-500/[0.08] px-2 py-0.5 text-[10px] font-medium text-red-400">Sold</span>}
-                            {isNew && <span className="text-[10px] font-medium text-amber-400">New</span>}
+                            {isNew && <span className="text-[10px] font-medium text-sky-400">New</span>}
                             <span className="text-[10px] text-zinc-600 ml-auto font-mono">{formatTime(post.createdAt)}</span>
                           </div>
 
@@ -927,12 +939,17 @@ export default function TradeFeedPage() {
                           <div className="mt-2.5 flex items-center gap-2 text-xs">
                             <Link href={`/seller/${post.sellerUsername || post.sellerEmail}`} onClick={(e) => e.stopPropagation()}
                               className="flex items-center gap-1.5 text-zinc-500 hover:text-sky-400 transition-colors">
-                              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-violet-500 text-[8px] font-bold text-white">
+                              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-sky-500 text-[8px] font-bold text-white">
                                 {sellerName?.charAt(0).toUpperCase() || "?"}
                               </div>
                               <span className="font-medium text-zinc-400">{sellerName}</span>
-                              {sellerBadges[post.sellerEmail || ""] === "legendary" && <span className="rounded bg-amber-500/[0.08] px-1.5 py-0.5 text-[8px] font-bold text-amber-400">👑 The Five</span>}
-                              {stats && stats.count > 0 && <span className="text-amber-400/80">★ {stats.avg.toFixed(1)}</span>}
+                              {sellerBadges[post.sellerEmail || ""] === "legendary" && <span className="rounded bg-sky-500/[0.08] px-1.5 py-0.5 text-[8px] font-bold text-sky-400">👑 The Five</span>}
+                              {stats && stats.count > 0 && (
+                                <span className="inline-flex items-center gap-0.5">
+                                  <span className={REVIEW_STAR_CLASS}>★</span>
+                                  <span className="text-white">{stats.avg.toFixed(1)}</span>
+                                </span>
+                              )}
                             </Link>
                             <span className="text-zinc-700">·</span>
                             {post.pickupAvailable && <span className="text-zinc-600">📍 {post.pickupArea || "Pickup"}</span>}
@@ -944,12 +961,12 @@ export default function TradeFeedPage() {
                                   className="rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-3.5 py-1.5 text-[10px] font-bold text-white transition-all hover:shadow-[0_0_12px_rgba(14,165,233,0.2)] active:scale-95">Buy</button>
                               )}
                               {user?.email !== post.sellerEmail && (
-                                <Link href={`/messages?user=${encodeURIComponent(post.sellerEmail || "")}&listing=${encodeURIComponent(post.id)}`} onClick={(e) => e.stopPropagation()}
+                                <Link href={`/messages?user=${encodeURIComponent(post.sellerUsername || post.sellerEmail || "")}&listing=${encodeURIComponent(post.id)}`} onClick={(e) => e.stopPropagation()}
                                   className="rounded-xl border border-white/[0.06] px-3.5 py-1.5 text-[10px] font-bold text-zinc-400 hover:text-[var(--foreground)] hover:border-white/[0.12] transition">Chat</Link>
                               )}
                               {user?.email === post.sellerEmail && (
                                 <button onClick={(e) => { e.stopPropagation(); setPromotePost(post); }}
-                                  className="rounded-xl border border-amber-500/20 px-3.5 py-1.5 text-[10px] font-bold text-amber-400 hover:bg-amber-500/[0.06] transition">📈 Promote</button>
+                                  className="rounded-xl border border-sky-500/20 px-3.5 py-1.5 text-[10px] font-bold text-sky-400 hover:bg-sky-500/[0.06] transition">📈 Promote</button>
                               )}
                               <div className="relative">
                                 <button onClick={(e) => { e.stopPropagation(); setMenuOpen(menuOpen === post.id ? null : post.id); }}
@@ -1036,8 +1053,8 @@ export default function TradeFeedPage() {
               <div className="flex items-center justify-between mb-4">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-500">Activity</p>
                 <span className="relative flex h-1.5 w-1.5">
-                  <span className="absolute inset-0 h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping opacity-75" />
-                  <span className="relative h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  <span className="absolute inset-0 h-1.5 w-1.5 rounded-full bg-sky-400 animate-ping opacity-75" />
+                  <span className="relative h-1.5 w-1.5 rounded-full bg-sky-400" />
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-2.5">
@@ -1047,7 +1064,7 @@ export default function TradeFeedPage() {
                 </div>
                 <div className="rounded-xl border border-white/[0.03] bg-white/[0.01] px-3.5 py-3">
                   <p className="text-[10px] text-zinc-600 font-mono uppercase tracking-wider">Trending</p>
-                  <p className="mt-1 text-xl font-black tracking-tight text-orange-400">{String(hotPosts.length).padStart(2, '0')}</p>
+                  <p className="mt-1 text-xl font-black tracking-tight text-sky-400">{String(hotPosts.length).padStart(2, '0')}</p>
                 </div>
               </div>
               <div className="mt-3 space-y-0.5 max-h-32 overflow-y-auto scrollbar-thin">
@@ -1094,8 +1111,8 @@ export default function TradeFeedPage() {
               <div className="flex items-center justify-between mb-4">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-zinc-500">💬 Shoutbox</p>
                 <span className="relative flex h-1.5 w-1.5">
-                  <span className="absolute inset-0 h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping opacity-75" />
-                  <span className="relative h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  <span className="absolute inset-0 h-1.5 w-1.5 rounded-full bg-sky-400 animate-ping opacity-75" />
+                  <span className="relative h-1.5 w-1.5 rounded-full bg-sky-400" />
                 </span>
               </div>
               <div className="max-h-80 overflow-y-auto mb-3 scrollbar-thin space-y-0.5" ref={shoutsEndRef} onScroll={handleShoutsScroll}>
@@ -1108,7 +1125,7 @@ export default function TradeFeedPage() {
                   shouts.map((s) => (
                     <div key={s.id} className="group relative rounded-lg px-2 py-2 transition hover:bg-white/[0.02]">
                       <div className="flex items-start gap-2.5">
-                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-violet-500 text-xs font-bold text-white mt-0.5">
+                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-sky-500 text-xs font-bold text-white mt-0.5">
                           {(s.by?.split("@")[0] || "?").charAt(0).toUpperCase()}
                         </div>
                         <div className="min-w-0 flex-1">
@@ -1133,7 +1150,7 @@ export default function TradeFeedPage() {
                   onChange={(e) => setShoutText(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") sendShout(); }}
                   className="w-full rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5 pr-10 text-sm text-[var(--foreground)] outline-none placeholder:text-zinc-600 focus:border-sky-500/30 focus:bg-white/[0.04] transition-all" />
-                <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-[9px] ${shoutText.length > 180 ? "text-amber-400" : "text-zinc-600"}`}>
+                <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-[9px] ${shoutText.length > 180 ? "text-sky-400" : "text-zinc-600"}`}>
                   {shoutText.length}/200
                 </span>
               </div>

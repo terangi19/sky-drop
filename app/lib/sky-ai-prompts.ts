@@ -1,11 +1,13 @@
+import { AWHINA_NAME } from "./awhina-brand";
+
 /** Shown on Quick Post (/post/ai) — listing-focused shortcuts */
 export const SKY_AI_SELL_QUICK_PROMPTS: { label: string; query: string }[] = [
-  { label: "Create listing", query: "Create my listing for me — fill title, description, price and open the sell page" },
-  { label: "List a service", query: "Help me list a service on Sky Drop — fill the sell form with listingType service" },
-  { label: "Sell digital", query: "Help me list a digital product on Sky Drop — fill the sell form with listingType digital" },
-  { label: "List rental", query: "Help me list something for rent on Sky Drop — fill rental rates and location" },
-  { label: "Improve description", query: "Improve my listing title and description" },
-  { label: "Price estimate", query: "Suggest a fair NZD price range for my item" },
+  { label: "🚗 Sell a vehicle", query: "I want to sell a vehicle — help me create a complete vehicle listing with all details filled in" },
+  { label: "🏠 List a rental", query: "I want to list a property or item for rent — fill the rental form with weekly rates and deposit" },
+  { label: "🔧 Offer a service", query: "I offer a local service and want to list it — fill the service form with pricing and description" },
+  { label: "💾 Sell digital", query: "I want to sell a digital product or online service — fill the digital listing form" },
+  { label: "✨ Improve listing", query: "Improve my listing title and description to be more compelling and get more views" },
+  { label: "💰 Price my item", query: "Suggest a fair NZD price for my item based on the NZ market" },
 ];
 
 export const SKY_AI_QUICK_PROMPTS: { label: string; query: string }[] = [
@@ -20,18 +22,31 @@ export const SKY_AI_QUICK_PROMPTS: { label: string; query: string }[] = [
   { label: "Seller guide", query: "Take me to seller guidelines" },
 ];
 
-export const SKY_AI_WELCOME =
-  "Kia ora — I'm **Sky AI**, your assistant on Sky Drop.\n\nYou can list **physical items, digital downloads, services, rentals, and vehicles** — I can fill the Sell form for you.\n\nAsk anything — or tap **What can you do?**";
-
-/** First message when opening Sky AI on Quick Post (/post/ai) */
 export const SKY_AI_SELL_WELCOME =
-  "Kia ora — my name is **Sky** and I'm here to help u list ur product. Tell me every detail, or tap 📷 to send photos — I'll add them to your listing and fill the form for u 🙂";
+  `Kia ora 👋 Tell me what you're selling — just describe it in plain English (or paste a full listing), and I'll fill the entire form for you.\n\nFor **vehicles** I fill make, model, year, km, colour, and more. For **rentals** I set weekly rates and deposit. For **services** I choose the right pricing type. For **digital products** I pick the correct category.\n\nOr tap 📷 to send photos and I'll figure it out from the image.`;
+
+export const SKY_AI_WELCOME =
+  `You can list **physical items, digital downloads, services, rentals, and vehicles** — I can fill the Sell form for you.\n\nAsk anything — or tap **What can you do?**`;
+
+export const SKY_AI_PROFILE_WELCOME =
+  `Kia ora, I'm ${AWHINA_NAME}. Tell me about yourself and I'll build your profile for you.\n\nTry: *"Write my bio"*, *"I'm a car dealer in Auckland"*, or *"Add my Instagram"*.`;
+
+export const SKY_AI_PROFILE_QUICK_PROMPTS: { label: string; query: string }[] = [
+  { label: "Write my bio", query: "Write a short bio for my profile" },
+  { label: "Update my region", query: "Set my region to Auckland" },
+  { label: "Add Instagram", query: "Add my Instagram @skycars" },
+  { label: "Add Facebook", query: "Add my Facebook page" },
+  { label: "Add Website", query: "Add my website" },
+  { label: "I'm a car dealer", query: "I'm a car dealer in Auckland" },
+  { label: "I sell BMW parts", query: "I sell BMW parts — write my bio" },
+  { label: "Improve my profile", query: "Make my profile look more trustworthy" },
+];
 
 /** User is asking what the assistant can do — not requesting navigation. */
 export function isSkyAiGeneralQuestion(message: string): boolean {
   const n = message.toLowerCase().replace(/[^\w\s?]/g, " ").trim();
   return (
-    /^(what can (you|u|sky ai|sky drop ai) do|what do (you|u) do|what are you|who are you|help|help me|capabilities)\??$/.test(
+    /^(what can (you|u|sky ai|āwhina|awhina|sky drop ai) do|what do (you|u) do|what are you|who are you|help|help me|capabilities)\??$/.test(
       n
     ) ||
     /\b(what can (you|u) do|what do (you|u) do|how can (you|u) help|what are your capabilities)\b/.test(
@@ -53,7 +68,7 @@ export function skyAiCapabilitiesReply(): string {
 • **Rentals** — gear, tools, vehicles by the day (/rentals)
 • **Vehicles** for sale
 
-**Sky AI**
+**${AWHINA_NAME}**
 • **Auto-fill** Sell — including digital, service, and rental listings
 • Improve copy and suggest fair **NZD** prices
 

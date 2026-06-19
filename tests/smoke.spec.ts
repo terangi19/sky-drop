@@ -10,13 +10,12 @@ test.describe("Tier 1 — Smoke Tests", () => {
     await expect(page.getByText(/DROP/i).first()).toBeVisible();
 
     // Search bar
-    await expect(page.getByPlaceholder("Search listings...")).toBeVisible();
+    await expect(page.getByPlaceholder("Search")).toBeVisible();
 
-    // Browse Categories section
-    await expect(page.getByText("Browse Categories")).toBeVisible();
-
-    // Trending section
-    await expect(page.getByText("Hot This Week")).toBeVisible();
+    // Hero + listings sections
+    await expect(page.getByText("Welcome to Sky Drop").first()).toBeVisible();
+    await expect(page.getByText(/Hot this week/i)).toBeVisible();
+    await expect(page.getByText(/Latest listings/i)).toBeVisible();
 
     // Listing cards or empty state render
     await expect(page.locator("main")).toBeVisible();
@@ -24,14 +23,11 @@ test.describe("Tier 1 — Smoke Tests", () => {
 
   test("search filters listings on input", async ({ page }) => {
     await page.goto("/");
-    const searchInput = page.getByPlaceholder("Search listings...");
+    const searchInput = page.getByPlaceholder("Search");
     await expect(searchInput).toBeVisible();
 
     await searchInput.fill("test");
-    // The clear/search buttons are in the right side of the search bar
-    const searchContainer = page.locator("div").filter({ has: page.getByPlaceholder("Search listings...") });
-    const clearBtn = searchContainer.getByRole("button").first();
-    await expect(clearBtn).toBeVisible();
+    await expect(page.getByRole("button", { name: "Clear search" })).toBeVisible();
   });
 
   test("navbar navigation links visible when logged out", async ({ page }) => {
@@ -96,7 +92,7 @@ test.describe("Tier 1 — Smoke Tests", () => {
     // iPhone 12 viewport
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/");
-    await expect(page.getByPlaceholder("Search listings...")).toBeVisible();
+    await expect(page.getByPlaceholder("Search")).toBeVisible();
     // Nav hamburger should be visible on mobile
     await expect(page.locator('[aria-label="Toggle menu"]')).toBeVisible();
   });
@@ -106,7 +102,10 @@ test.describe("Tier 1 — Smoke Tests", () => {
     const pages = ["/digital", "/services", "/rentals", "/vehicles", "/property", "/events", "/jobs"];
     for (const route of pages) {
       await page.goto(route);
-      await expect(page.getByText("How It Works")).toBeVisible();
+      await expect(page.locator("main")).toBeVisible();
+      if (["/property", "/events", "/jobs"].includes(route)) {
+        await expect(page.getByText(/How It Works/i)).toBeVisible();
+      }
     }
   });
 

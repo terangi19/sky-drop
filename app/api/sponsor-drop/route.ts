@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
         amount: 500,
         currency: "nzd",
         automatic_payment_methods: { enabled: true },
-        metadata: { listingId, sellerEmail, sellerUid: decodedToken.uid, type: "sponsor" },
+        metadata: { listingId, listingTitle: listingTitle || "", sellerEmail, sellerUid: decodedToken.uid, type: "sponsor" },
       },
       { idempotencyKey: `sponsor-${listingId}` }
     );

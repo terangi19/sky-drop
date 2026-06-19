@@ -5,14 +5,22 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { User } from "firebase/auth";
 import { auth, onAuthStateChanged } from "../lib/firebase";
+import {
+  AWHINA_ASK_LABEL,
+  AWHINA_NAME,
+  AWHINA_REQUEST_FAILED,
+  AWHINA_THINKING,
+} from "../lib/awhina-brand";
 import { skyAiRuleFallbackText } from "../lib/openai-health";
 import {
   dispatchListingFill,
+  SKY_AI_LISTING_FILL_EVENT,
   stripSkyAiMachineTags,
   type SkyAiListingFill,
 } from "../lib/sky-ai-listing-fill";
 import { SKY_AI_OPEN_EVENT, type SkyAiOpenDetail } from "../lib/sky-ai-events";
 import { SKY_AI_QUICK_PROMPTS, SKY_AI_WELCOME } from "../lib/sky-ai-prompts";
+import { mergeListingFillWithDraft } from "../lib/sky-ai-draft-merge";
 import { readListingDraftFromSkyAi } from "../lib/sky-ai-listing-context";
 import {
   dispatchListingImages,
@@ -45,27 +53,27 @@ export type SkyAiChatPanelProps = {
   /** Send this message once when the panel opens (e.g. quick prompt chip) */
   autoQuery?: string;
   onAutoQueryConsumed?: () => void;
+  onFill?: (fill: SkyAiListingFill) => void;
   quickPrompts?: QuickPrompt[];
   /** First assistant message (defaults to global welcome) */
   welcomeText?: string;
   className?: string;
 };
 
-function handleListingFill(fill: SkyAiListingFill | undefined, navigateTo?: string) {
+function handleListingFill(fill: SkyAiListingFill | undefined, _navigateTo?: string) {
+  if (!fill) return _navigateTo;
+  const merged = mergeListingFillWithDraft(readListingDraftFromSkyAi(), fill);
   const hasContent =
-    !!fill?.title ||
-    !!fill?.description ||
-    !!fill?.price ||
-    !!fill?.rentalPriceWeekly ||
-    !!fill?.rentalPriceMonthly ||
-    !!fill?.vehicleMake ||
-    !!fill?.vehicleModel;
-  if (!hasContent) return navigateTo;
-  dispatchListingFill(fill);
-  if (navigateTo) return navigateTo;
-  if (typeof window !== "undefined" && window.location.pathname.startsWith("/post/ai")) {
-    return undefined;
-  }
+    !!merged.title ||
+    !!merged.description ||
+    !!merged.price ||
+    !!merged.rentalPriceWeekly ||
+    !!merged.rentalPriceMonthly ||
+    !!merged.vehicleMake ||
+    !!merged.vehicleModel ||
+    !!(merged.extras && merged.extras.length > 0);
+  if (!hasContent) return _navigateTo;
+  dispatchListingFill(merged);
   return "/post/ai";
 }
 
@@ -73,7 +81,7 @@ function handleListingFill(fill: SkyAiListingFill | undefined, navigateTo?: stri
 function stripLegacyChatGptWarning(text: string): string {
   return text
     .replace(/\*\*ChatGPT mode is off\*\*[\s\S]*?---\n\n/g, "")
-    .replace(/\*\*Sky AI limited:\*\*[^\n]*\n\n/g, "")
+    .replace(/\*\*(Āwhina|Awhina) limited:\*\*[^\n]*\n\n/gi, "")
     .trim();
 }
 
@@ -82,7 +90,7 @@ function renderText(text: string) {
   return parts.map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**")) {
       return (
-        <strong key={i} className="font-semibold text-zinc-100">
+        <strong key={i} className="font-semibold text-always-white">
           {part.slice(2, -2)}
         </strong>
       );
@@ -101,6 +109,7 @@ export default function SkyAiChatPanel({
   onOpenChange,
   autoQuery,
   onAutoQueryConsumed,
+  onFill,
   quickPrompts = SKY_AI_QUICK_PROMPTS,
   welcomeText = SKY_AI_WELCOME,
   className = "",
@@ -128,10 +137,33 @@ export default function SkyAiChatPanel({
   const [busy, setBusy] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const navigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [listingPreviewFill, setListingPreviewFill] = useState<SkyAiListingFill | null>(null);
+  const fileInputRefInternal = useRef<HTMLInputElement>(null);
+  const [publishing, setPublishing] = useState(false);
   const [pendingImages, setPendingImages] = useState<PendingAttachment[]>([]);
   const [imageBusy, setImageBusy] = useState(false);
+  const [openAiReady, setOpenAiReady] = useState(true);
+
   useEffect(() => onAuthStateChanged(auth, setUser), []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/sky-ai/status")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data && typeof data.openaiReady === "boolean") {
+          setOpenAiReady(data.openaiReady);
+        }
+      })
+      .catch(() => {
+        /* keep default subtitle */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
@@ -186,6 +218,7 @@ export default function SkyAiChatPanel({
     setConversationId(null);
     setMessages(welcomeMessages(welcomeText));
     setShowHistory(false);
+    setListingPreviewFill(null);
   }, [welcomeText]);
 
   const openConversation = useCallback(async (id: string) => {
@@ -286,20 +319,41 @@ export default function SkyAiChatPanel({
 
       let navigateTo: string | undefined;
       let newConversationId = conversationId;
+      let finalMessage = trimmed ||
+        "I uploaded product photo(s). Analyze them and fill my Quick Post listing with LISTING_FILL.";
+
+      const isSellPage = pathname.startsWith("/post/ai");
+
+      if (isSellPage) {
+        const hasListingFields = /(?:^|\n)(title|price|description|location|condition|category|make|model|year|odometer|colour|color|transmission|fuel|mileage|km|kms)\s*:/i.test(finalMessage);
+        const hasListingType = /(?:rental|vehicle|service|digital|item|physical)\s+listing|for\s+(sale|rent)|wanted|auction/i.test(finalMessage);
+        const hasMultipleFields = (finalMessage.match(/(?:^|\n)\s*\w+\s*:/g) || []).length >= 2;
+        const hasVehicle = /\b(toyota|honda|mazda|ford|holden|nissan|subaru|mitsubishi|hyundai|kia|bmw|mercedes|audi|volkswagen|vw|hilux|corolla|camry|rav4|cx-5|axela|swift|ranger|commodore)\b/i.test(finalMessage);
+        const hasPrice = /\$[\d,]+/.test(finalMessage);
+        const hasSellingIntent = /\b(i('m| am| want to)?\s*(sell|selling|list|listing|post|create|advertise)|for sale|selling my|want to sell)\b/i.test(finalMessage);
+        const hasItem = /\b(ps5|playstation|xbox|iphone|samsung|laptop|macbook|tv|couch|sofa|fridge|bike|guitar|camera|lawn|mow|clean|handyman|tutor|design|website|template|ebook|apartment|flat|room)\b/i.test(finalMessage);
+        const hasOdometer = /\b\d{2,3}[\s,]?\d{3}\s*km\b/i.test(finalMessage);
+        const yearAtStart = /^\d{4}\s+[A-Za-z]/.test(finalMessage);
+
+        if (hasListingFields || hasListingType || hasMultipleFields || hasVehicle || (hasPrice && (hasSellingIntent || hasItem)) || hasOdometer || yearAtStart || hasSellingIntent) {
+          finalMessage = `[LISTING CREATION REQUEST]\nThe user is on the Sell page. Parse everything below as listing data and respond ONLY with LISTING_FILL JSON. Generate a complete listing (title, description, all relevant fields). Do not give general chat advice.\n\n${finalMessage}`;
+        }
+      }
 
       try {
         const token = await getFreshIdToken();
         const listingContext = readListingDraftFromSkyAi();
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 45000);
         const res = await fetch("/api/sky-ai", {
+          signal: controller.signal,
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           body: JSON.stringify({
-            message:
-              trimmed ||
-              "I uploaded product photo(s). Analyze them and fill my Quick Post listing with LISTING_FILL.",
+            message: finalMessage,
             pathname,
             history: user ? undefined : history,
             conversationId: user ? conversationId || undefined : undefined,
@@ -308,6 +362,7 @@ export default function SkyAiChatPanel({
             stream: true,
           }),
         });
+        clearTimeout(timeout);
 
         let responseHandled = false;
 
@@ -330,7 +385,7 @@ export default function SkyAiChatPanel({
             responseHandled = true;
           } else {
             throw new Error(
-              typeof data.error === "string" ? data.error : "Sky AI request failed"
+              typeof data.error === "string" ? data.error : AWHINA_REQUEST_FAILED
             );
           }
         }
@@ -370,14 +425,34 @@ export default function SkyAiChatPanel({
                 }
                 if (evt.type === "done") {
                   navigateTo = evt.navigateTo;
-                  const navFromFill = handleListingFill(evt.listingFill, navigateTo);
-                  if (navFromFill) navigateTo = navFromFill;
+                  responseHandled = true;
+                  if (isSellPage && navigateTo === "/post/ai") navigateTo = undefined;
+                  if (evt.listingFill && isSellPage) {
+                    setListingPreviewFill(evt.listingFill);
+                    const merged = mergeListingFillWithDraft(readListingDraftFromSkyAi(), evt.listingFill);
+                    onFill?.(merged);
+                    dispatchListingFill(merged);
+                    navigateTo = undefined;
+                    const aiReply = evt.reply || stripSkyAiMachineTags(accumulated);
+                    const cleanReply = aiReply && aiReply.length > 10
+                      ? aiReply
+                      : `Done! I've filled your listing — add photos above, then hit **Publish** below to go live.`;
+                    updateAssistant(assistantId, {
+                      text: cleanReply,
+                      streaming: false,
+                      navigating: false,
+                    });
+                  } else {
+                    const navFromFill = handleListingFill(evt.listingFill, navigateTo);
+                    if (navFromFill) navigateTo = navFromFill;
+                    const replyText = evt.reply || stripSkyAiMachineTags(accumulated);
+                    updateAssistant(assistantId, {
+                      text: replyText,
+                      streaming: false,
+                      navigating: !!navigateTo,
+                    });
+                  }
                   if (evt.conversationId) newConversationId = evt.conversationId;
-                  updateAssistant(assistantId, {
-                    text: evt.reply || stripSkyAiMachineTags(accumulated),
-                    streaming: false,
-                    navigating: !!navigateTo,
-                  });
                 }
                 if (evt.type === "error") throw new Error(evt.error || "Stream failed");
               } catch (parseErr) {
@@ -389,26 +464,53 @@ export default function SkyAiChatPanel({
         } else if (!responseHandled) {
           const data = await res.json();
           navigateTo = data.navigateTo;
-          const navFromFill = handleListingFill(data.listingFill, navigateTo);
-          if (navFromFill) navigateTo = navFromFill;
+          if (isSellPage && navigateTo === "/post/ai") navigateTo = undefined;
+          if (data.listingFill && isSellPage) {
+            setListingPreviewFill(data.listingFill);
+            const merged = mergeListingFillWithDraft(readListingDraftFromSkyAi(), data.listingFill);
+            onFill?.(merged);
+            dispatchListingFill(merged);
+            navigateTo = undefined;
+            const aiReply = data.reply || "";
+            const cleanReply = aiReply && aiReply.length > 10
+              ? aiReply
+              : `Done! I've filled your listing — add photos above, then hit **Publish** below to go live.`;
+            updateAssistant(assistantId, {
+              text: cleanReply,
+              streaming: false,
+              navigating: false,
+            });
+          } else {
+            const navFromFill = handleListingFill(data.listingFill, navigateTo);
+            if (navFromFill) navigateTo = navFromFill;
+            updateAssistant(assistantId, {
+              text: data.reply || "",
+              streaming: false,
+              navigating: !!navigateTo,
+            });
+          }
           if (data.conversationId) newConversationId = data.conversationId;
-          updateAssistant(assistantId, {
-            text: data.reply || "",
-            streaming: false,
-            navigating: !!navigateTo,
-          });
         }
       } catch (err) {
+        const isAbort = err instanceof Error && err.name === "AbortError";
+        const isFetchFail = err instanceof Error && (err.message.includes("fetch") || err.message.includes("network") || err.message.includes("Failed"));
         const rule = skyAiRuleFallbackText(trimmed, pathname);
-        navigateTo = rule.navigateTo;
-        let text = rule.text;
-        if (err instanceof Error && err.message && err.message !== "Sky AI request failed") {
-          text += `\n\n_${err.message}_`;
+        navigateTo = isSellPage && rule.navigateTo === "/post/ai" ? undefined : rule.navigateTo;
+        let text: string;
+        if (isAbort) {
+          text = "Request timed out — please try again. If this keeps happening, try a shorter message.";
+        } else if (isFetchFail) {
+          text = "Couldn't connect to Āwhina — check your internet connection and try again.";
+        } else {
+          text = rule.text;
+          if (err instanceof Error && err.message && err.message !== AWHINA_REQUEST_FAILED) {
+            text += `\n\n_${err.message}_`;
+          }
         }
         updateAssistant(assistantId, {
           text,
           streaming: false,
-          navigating: !!rule.navigateTo,
+          navigating: !!navigateTo,
         });
       }
 
@@ -451,10 +553,27 @@ export default function SkyAiChatPanel({
   }, [isSheet, respond, setOpen]);
 
   useEffect(() => {
+    const onFill = (e: Event) => {
+      const fill = (e as CustomEvent<SkyAiListingFill>).detail;
+      if (fill && pathname.startsWith("/post/ai")) {
+        setListingPreviewFill(fill);
+      }
+    };
+    window.addEventListener(SKY_AI_LISTING_FILL_EVENT, onFill);
+    return () => window.removeEventListener(SKY_AI_LISTING_FILL_EVENT, onFill);
+  }, [pathname]);
+
+  useEffect(() => {
     if (!autoQuery?.trim() || !open) return;
     respond(autoQuery.trim());
     onAutoQueryConsumed?.();
   }, [autoQuery, open, respond, onAutoQueryConsumed]);
+
+  useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(() => chatInputRef.current?.focus(), 100);
+    return () => clearTimeout(t);
+  }, [open]);
 
   const showThinking =
     busy && messages.length > 0 && messages[messages.length - 1]?.streaming && !messages[messages.length - 1]?.text;
@@ -463,17 +582,19 @@ export default function SkyAiChatPanel({
 
   const header = (
     <div
-      className={`flex items-center justify-between border-b border-sky-500/15 bg-gradient-to-r from-sky-500/[0.06] to-violet-500/[0.06] px-4 py-3 ${
+      className={`flex items-center justify-between border-b border-sky-500/15 bg-gradient-to-r from-sky-500/[0.06] to-sky-500/[0.06] px-4 py-3 ${
         isSheet ? "" : "rounded-t-xl"
       }`}
     >
       <div className="flex items-center gap-2">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/30 to-violet-500/25 text-sm shadow-[0_0_20px_rgba(56,189,248,0.25)] ring-1 ring-sky-400/30">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/30 to-sky-500/25 text-sm shadow-[0_0_20px_rgba(56,189,248,0.25)] ring-1 ring-sky-400/30">
           ✦
         </span>
         <div>
-          <p className="text-sm font-bold text-white">{isSheet ? "Ask Sky Anything" : "Sky AI"}</p>
-              <p className="text-[10px] text-sky-400/80">Listings · prices · safety</p>
+          <p className="text-sm font-bold text-always-white">{isSheet ? AWHINA_ASK_LABEL : AWHINA_NAME}</p>
+          <p className="text-[10px] text-sky-400/80">
+            {openAiReady === false ? "Built-in guides · navigation" : "Listings · prices · safety"}
+          </p>
         </div>
       </div>
       <div className="flex items-center gap-1">
@@ -490,15 +611,15 @@ export default function SkyAiChatPanel({
         <button
           type="button"
           onClick={startNewChat}
-          className="rounded-lg px-2 py-1.5 text-[10px] font-bold text-violet-400 hover:bg-violet-500/10"
+          className="rounded-lg px-2 py-1.5 text-[10px] font-bold text-sky-400 hover:bg-sky-500/10"
         >
           New
         </button>
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:bg-white/[0.06] hover:text-white"
-          aria-label="Close Sky AI"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:bg-white/[0.06] hover:text-always-white"
+          aria-label={`Close ${AWHINA_NAME}`}
         >
           ✕
         </button>
@@ -509,7 +630,7 @@ export default function SkyAiChatPanel({
   const body = (
     <>
       {showHistory && user && (
-        <div className="max-h-36 overflow-y-auto border-b border-white/[0.06] bg-black/20 px-2 py-2 scrollbar-thin">
+        <div className="max-h-36 overflow-y-auto border-b border-white/[0.06] awhina-chat-history-bg px-2 py-2 scrollbar-thin">
           {conversations.length === 0 ? (
             <p className="px-2 py-2 text-[10px] text-zinc-500">No saved chats yet.</p>
           ) : (
@@ -521,7 +642,7 @@ export default function SkyAiChatPanel({
                 className={`mb-1 w-full rounded-lg px-2 py-2 text-left text-[11px] transition ${
                   conversationId === c.id
                     ? "bg-sky-500/15 text-sky-300"
-                    : "text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200"
+                    : "text-zinc-400 hover:bg-white/[0.04] hover:text-always-white"
                 }`}
               >
                 <span className="line-clamp-1 font-medium">{c.title}</span>
@@ -532,8 +653,8 @@ export default function SkyAiChatPanel({
       )}
 
       {!user && (
-        <p className="border-b border-amber-500/20 bg-amber-500/[0.06] px-3 py-2 text-[10px] text-amber-400/90">
-          <Link href="/login" className="font-bold underline hover:text-amber-300">
+        <p className="border-b border-sky-500/20 bg-sky-500/[0.06] px-3 py-2 text-[10px] text-sky-400/90">
+          <Link href="/login" className="font-bold underline hover:text-sky-300">
             Sign in
           </Link>{" "}
           to save conversations across devices.
@@ -557,7 +678,7 @@ export default function SkyAiChatPanel({
                 className={`max-w-[92%] rounded-2xl px-3 py-2.5 text-[12px] leading-relaxed whitespace-pre-line ${
                   m.role === "user"
                     ? "bg-gradient-to-br from-sky-500/25 to-sky-600/15 text-sky-50 ring-1 ring-sky-500/20"
-                    : "border border-violet-500/15 bg-violet-500/[0.04] text-zinc-300 shadow-[0_0_24px_rgba(139,92,246,0.06)]"
+                    : "border border-sky-500/15 bg-sky-500/[0.04] text-always-white/90 shadow-[0_0_24px_rgba(139,92,246,0.06)]"
                 }`}
               >
                 {m.images && m.images.length > 0 && (
@@ -574,10 +695,10 @@ export default function SkyAiChatPanel({
                 )}
                 {m.text && renderText(m.text)}
                 {m.streaming && m.text && (
-                  <span className="ml-0.5 inline-block h-3 w-1 animate-pulse bg-violet-400/80" />
+                  <span className="ml-0.5 inline-block h-3 w-1 animate-pulse bg-sky-400/80" />
                 )}
                 {m.navigating && (
-                  <p className="mt-1.5 text-[10px] font-medium text-emerald-400/90 animate-pulse">
+                  <p className="mt-1.5 text-[10px] font-medium text-sky-400/90 animate-pulse">
                     Navigating…
                   </p>
                 )}
@@ -587,15 +708,173 @@ export default function SkyAiChatPanel({
         })}
         {showThinking && (
           <div className="flex justify-start">
-            <div className="rounded-2xl border border-violet-500/20 bg-violet-500/[0.05] px-3 py-2 text-[11px] text-violet-300/70">
-              Sky AI is thinking…
+            <div className="rounded-2xl border border-sky-500/20 bg-sky-500/[0.05] px-3 py-2 text-[11px] text-sky-300/70">
+              {AWHINA_THINKING}
             </div>
           </div>
         )}
+
       </div>
 
+      {listingPreviewFill && (
+        <div className="mx-3 mb-3 overflow-hidden rounded-2xl border border-emerald-500/30 awhina-chat-listing-preview shadow-[0_0_30px_rgba(16,185,129,0.08)] animate-fade-in-panel">
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-2.5">
+            <div className="flex items-center gap-2">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-[10px]">✅</span>
+              <span className="text-[11px] font-bold text-emerald-400">Listing ready — form filled</span>
+            </div>
+            <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-400">
+              {listingPreviewFill.listingType === "rental" && listingPreviewFill.rentalSubType
+                ? `rental · ${listingPreviewFill.rentalSubType}`
+                : listingPreviewFill.listingType || "physical"}
+            </span>
+          </div>
+
+          {/* Preview */}
+          <div className="px-4 py-3 space-y-1.5">
+            <p className="text-sm font-bold text-always-white leading-snug">{listingPreviewFill.title || "Untitled Listing"}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              {listingPreviewFill.price && (
+                <span className="text-base font-black text-emerald-400">${listingPreviewFill.price}</span>
+              )}
+              {listingPreviewFill.rentalPriceWeekly && listingPreviewFill.rentalSubType === "property" && (
+                <span className="text-base font-black text-emerald-400">${listingPreviewFill.rentalPriceWeekly}/wk</span>
+              )}
+              {listingPreviewFill.rentalPriceWeekly && !listingPreviewFill.price && listingPreviewFill.rentalSubType !== "property" && (
+                <span className="text-base font-black text-emerald-400">${listingPreviewFill.rentalPriceWeekly}/wk</span>
+              )}
+              {listingPreviewFill.category && (
+                <span className="rounded-full border border-white/[0.08] bg-white/[0.05] px-2 py-0.5 text-[10px] text-zinc-400">{listingPreviewFill.category}</span>
+              )}
+              {listingPreviewFill.location && (
+                <span className="text-[10px] text-zinc-500">📍 {listingPreviewFill.location}</span>
+              )}
+            </div>
+            {listingPreviewFill.vehicleMake && (
+              <p className="text-[11px] text-zinc-400">
+                {listingPreviewFill.vehicleYear} {listingPreviewFill.vehicleMake} {listingPreviewFill.vehicleModel}
+                {listingPreviewFill.vehicleOdometer ? ` · ${Number(listingPreviewFill.vehicleOdometer).toLocaleString()}km` : ""}
+                {listingPreviewFill.vehicleColour ? ` · ${listingPreviewFill.vehicleColour}` : ""}
+              </p>
+            )}
+            <p className="text-[10px] text-zinc-500 leading-relaxed line-clamp-2">{listingPreviewFill.description}</p>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="grid grid-cols-3 gap-2 border-t border-white/[0.06] px-4 py-3">
+            <button
+              type="button"
+              onClick={() => fileInputRefInternal.current?.click()}
+              className="flex flex-col items-center gap-1 rounded-xl border border-sky-500/25 bg-sky-500/10 px-2 py-2.5 text-center transition hover:bg-sky-500/20 active:scale-[0.97]"
+            >
+              <span className="text-base">📷</span>
+              <span className="text-[10px] font-bold text-sky-300">Add Photos</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setListingPreviewFill(null);
+                document.getElementById("listing-title")?.scrollIntoView({ behavior: "smooth", block: "center" });
+              }}
+              className="flex flex-col items-center gap-1 rounded-xl border border-white/[0.1] bg-white/[0.04] px-2 py-2.5 text-center transition hover:bg-white/[0.08] active:scale-[0.97]"
+            >
+              <span className="text-base">✏️</span>
+              <span className="text-[10px] font-bold text-zinc-300">Edit Listing</span>
+            </button>
+            <button
+              type="button"
+              disabled={publishing}
+              onClick={async () => {
+                setPublishing(true);
+                try {
+                  const token = await getFreshIdToken();
+                  if (!token) {
+                    updateAssistant("", { text: "" });
+                    setPublishing(false);
+                    document.getElementById("listing-submit-btn")?.click();
+                    return;
+                  }
+                  const fill = listingPreviewFill;
+                  if (!fill) { setPublishing(false); return; }
+                  const res = await fetch("/api/create-listing", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({
+                      title: fill.title || "Untitled",
+                      description: fill.description || "",
+                      price: fill.price || "0",
+                      category: fill.category || "Other",
+                      listingType: fill.listingType || "physical",
+                      type: fill.listingType || "physical",
+                      location: fill.location || "",
+                      condition: fill.condition || "Used - Good",
+                      paymentType: fill.paymentType || "contact",
+                      pickupAvailable: fill.pickupAvailable ?? true,
+                      shippingAvailable: fill.shippingAvailable ?? false,
+                      vehicleMake: fill.vehicleMake || "",
+                      vehicleModel: fill.vehicleModel || "",
+                      vehicleYear: fill.vehicleYear ? Number(fill.vehicleYear) : null,
+                      vehicleOdometer: fill.vehicleOdometer ? Number(fill.vehicleOdometer) : null,
+                      vehicleColour: fill.vehicleColour || "",
+                      vehicleBodyType: fill.vehicleBodyType || "",
+                      vehicleFuelType: fill.vehicleFuelType || "Petrol",
+                      vehicleTransmission: fill.vehicleTransmission || "Automatic",
+                      rentalPriceWeekly: fill.rentalPriceWeekly ? Number(fill.rentalPriceWeekly) : null,
+                      rentalPriceMonthly: fill.rentalPriceMonthly ? Number(fill.rentalPriceMonthly) : null,
+                      rentalDeposit: fill.rentalDeposit ? Number(fill.rentalDeposit) : null,
+                      stockQuantity: fill.stockQuantity ? Number(fill.stockQuantity) : null,
+                      serviceDuration: fill.serviceDuration || "",
+                      servicePricingType: fill.servicePricingType || "",
+                      pricingType: fill.pricingType || "fixed",
+                      acceptOffers: fill.acceptOffers ?? false,
+                      saleType: fill.saleType || "buy_now",
+                      status: "live",
+                      expiresAt: new Date(Date.now() + 14 * 86400000),
+                    }),
+                  });
+                  const data = await res.json().catch(() => ({}));
+                  if (res.ok && data.success && data.listingId) {
+                    setListingPreviewFill(null);
+                    setMessages(welcomeMessages(welcomeText));
+                    setConversationId(null);
+                    window.location.href = `/post/listing/${data.listingId}`;
+                  } else {
+                    const errMsg = data.error || `Failed to publish (${res.status})`;
+                    setMessages((prev) => [...prev, { id: `err-${Date.now()}`, role: "assistant", text: `❌ ${errMsg}\n\nTry scrolling down and clicking **Post Now** in the form instead.` }]);
+                  }
+                } catch (e) {
+                  setMessages((prev) => [...prev, { id: `err-${Date.now()}`, role: "assistant", text: "❌ Couldn't connect — check your internet and try again, or click **Post Now** in the form below." }]);
+                }
+                setPublishing(false);
+              }}
+              className="flex flex-col items-center gap-1 rounded-xl bg-gradient-to-b from-emerald-500 to-emerald-600 px-2 py-2.5 text-center shadow-lg shadow-emerald-500/20 transition hover:brightness-110 active:scale-[0.97] disabled:opacity-50"
+            >
+              <span className="text-base">{publishing ? "⏳" : "🚀"}</span>
+              <span className="text-[10px] font-bold text-always-white">{publishing ? "Publishing…" : "Publish"}</span>
+            </button>
+          </div>
+
+          {/* Photo reminder if no photos */}
+          <div className="border-t border-white/[0.04] px-4 py-2">
+            <p className="text-[10px] text-zinc-500">💡 Listings with photos sell 3× faster — add at least 3 before publishing.</p>
+          </div>
+        </div>
+      )}
+
+      <input ref={fileInputRefInternal} type="file" accept="image/*" multiple className="hidden" onChange={async (e) => {
+        const files = Array.from(e.target.files || []);
+        if (!files.length || !listingPreviewFill) return;
+        const prepared = await prepareSkyAiImages(files.slice(0, 8));
+        if ("error" in prepared) return;
+        if (prepared.dataUrls.length) {
+          dispatchListingImages(prepared.dataUrls, prepared.names);
+        }
+        e.target.value = "";
+      }} />
+
       <div
-        className={`border-t border-sky-500/15 bg-[#06080c]/90 px-3 py-2 ${
+        className={`border-t border-sky-500/15 awhina-chat-surface px-3 py-2 ${
           isSheet ? "max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]" : "rounded-b-xl"
         }`}
       >
@@ -624,7 +903,7 @@ export default function SkyAiChatPanel({
                 <button
                   type="button"
                   onClick={() => setPendingImages((prev) => prev.filter((_, i) => i !== idx))}
-                  className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-zinc-800 text-[10px] text-white ring-1 ring-white/20 hover:bg-red-500"
+                  className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-zinc-800 text-[10px] text-always-white ring-1 ring-white/20 hover:bg-red-500"
                   aria-label="Remove image"
                 >
                   ✕
@@ -664,12 +943,12 @@ export default function SkyAiChatPanel({
             placeholder="Describe what you're selling, or attach a photo…"
             disabled={busy}
             rows={2}
-            className="min-w-0 flex-1 resize-none rounded-xl border border-sky-500/20 bg-white/[0.03] px-3 py-2 text-[12px] text-white outline-none placeholder:text-zinc-600 focus:border-sky-400/50 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)]"
+            className="min-w-0 flex-1 resize-none rounded-xl border border-sky-500/20 bg-white/[0.03] px-3 py-2 text-[12px] text-always-white outline-none placeholder:text-zinc-500 focus:border-sky-400/50 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)]"
           />
           <button
             type="submit"
             disabled={!canSend}
-            className="shrink-0 self-end rounded-xl bg-gradient-to-r from-sky-500 to-violet-500 px-3 py-2.5 text-[11px] font-bold text-white shadow-[0_0_20px_rgba(14,165,233,0.25)] hover:brightness-110 disabled:opacity-40"
+            className="shrink-0 self-end rounded-xl bg-gradient-to-r from-sky-500 to-sky-500 px-3 py-2.5 text-[11px] font-bold text-always-white shadow-[0_0_20px_rgba(14,165,233,0.25)] hover:brightness-110 disabled:opacity-40"
           >
             Send
           </button>
@@ -681,7 +960,7 @@ export default function SkyAiChatPanel({
   if (!isSheet) {
     return (
       <div
-        className={`mt-4 flex flex-col overflow-hidden rounded-xl border border-sky-500/25 bg-[#080a10]/95 shadow-[0_0_30px_rgba(14,165,233,0.08)] animate-fade-in-panel ${className}`}
+        className={`mt-4 flex flex-col overflow-hidden rounded-xl border border-sky-500/25 awhina-chat awhina-chat-shell shadow-[0_0_30px_rgba(14,165,233,0.08)] animate-fade-in-panel ${className}`}
       >
         {header}
         {body}
@@ -692,7 +971,7 @@ export default function SkyAiChatPanel({
   return (
     <>
       <div
-        className={`fixed right-0 top-0 z-[10001] flex h-full w-full max-w-[400px] flex-col border-l border-sky-500/20 bg-[#080a10]/98 shadow-[0_0_60px_rgba(14,165,233,0.08)] backdrop-blur-xl transition-transform duration-300 ease-out ${
+        className={`awhina-chat awhina-chat-shell fixed right-0 top-0 z-[10001] flex h-full w-full max-w-[400px] flex-col border-l border-sky-500/20 shadow-[0_0_60px_rgba(14,165,233,0.08)] backdrop-blur-xl transition-transform duration-300 ease-out ${
           open ? "translate-x-0 animate-fade-in-panel" : "translate-x-full pointer-events-none"
         }`}
         aria-hidden={!open}
@@ -705,24 +984,29 @@ export default function SkyAiChatPanel({
         <button
           type="button"
           className="fixed inset-0 z-[10000] bg-black/50 md:bg-black/25 animate-fade-in-backdrop"
-          aria-label="Close Sky AI overlay"
+          aria-label={`Close ${AWHINA_NAME} overlay`}
           onClick={() => setOpen(false)}
         />
       )}
 
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className={`fixed bottom-6 z-[10002] flex items-center justify-center rounded-full border border-sky-400/40 bg-gradient-to-r from-[#0c0e14] to-[#12151f] p-3.5 text-sm font-bold text-white shadow-[0_0_30px_rgba(14,165,233,0.35)] ring-1 ring-sky-500/30 backdrop-blur-md transition-all hover:shadow-[0_0_40px_rgba(139,92,246,0.35)] active:scale-[0.98] max-md:bottom-24 ${
-          open ? "right-[400px] max-md:hidden" : "right-4"
-        }`}
-        aria-expanded={open}
-        aria-label={open ? "Close Ask Sky Anything" : "Open Ask Sky Anything assistant"}
-      >
-        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-violet-500 text-xs shadow-lg">
-          ✦
-        </span>
-      </button>
+      <div className={`fixed z-[10002] transition-all duration-300 ${open ? "opacity-0 pointer-events-none scale-75" : "opacity-100"} bottom-6 right-6 max-md:bottom-24 max-md:right-4`}>
+        <div className="relative group">
+          <span className="awhina-chat-fab-tooltip absolute -top-10 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-lg bg-zinc-900/95 border border-white/[0.06] text-[11px] font-semibold text-always-white whitespace-nowrap shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+            Ask {AWHINA_NAME}
+            <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 rotate-45 bg-zinc-900/95 border-r border-b border-white/[0.06]" />
+          </span>
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="relative flex h-[56px] w-[56px] items-center justify-center rounded-full border border-white/[0.06] bg-[#0c0e14]/80 backdrop-blur-xl shadow-[0_0_20px_rgba(14,165,233,0.12)] transition-all duration-300 hover:scale-110 hover:shadow-[0_0_35px_rgba(14,165,233,0.3)] hover:border-sky-400/40 active:scale-95"
+            aria-label={`Open ${AWHINA_ASK_LABEL}`}
+          >
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-sky-500 text-sm shadow-[0_0_12px_rgba(14,165,233,0.2)]">
+              ✦
+            </span>
+          </button>
+        </div>
+      </div>
     </>
   );
 }

@@ -6,23 +6,108 @@ import { useRouter } from "next/navigation";
 
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import LoginKycSection from "../components/LoginKycSection";
 import { showToast } from "../components/Toast";
+import SignupVerificationModal from "../components/SignupVerificationModal";
+import LoginSuccessModal from "../components/LoginSuccessModal";
 
 import {
   createUserWithEmailAndPassword,
   sendEmailVerification,
-  signInWithCustomToken,
   signInWithEmailAndPassword,
-  RecaptchaVerifier,
-  signInWithPhoneNumber,
+  type User,
 } from "firebase/auth";
 
-import { addDoc, collection, doc, getDocs, increment, query, serverTimestamp, setDoc, Timestamp, updateDoc, where } from "firebase/firestore";
-import { auth, db } from "../lib/firebase";
-import { createNotification } from "../lib/notifications";
+import {
+  doc,
+  runTransaction,
+  serverTimestamp,
+  setDoc,
+  Timestamp,
+} from "firebase/firestore";
+import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import { buildEmailHtml } from "../lib/email";
 import { formatNZPhone } from "../lib/phone-auth";
-import { isTestLoginUiEnabled } from "../lib/test-login";
+import TurnstileWidget from "../components/TurnstileWidget";
+import { getTurnstileSiteKey } from "../lib/turnstile";
+
+const INPUT_CLASS =
+  "login-page-input w-full rounded-xl px-4 py-3 text-sm";
+
+function defaultUsernameFromEmail(email: string): string {
+  const prefix = (email.split("@")[0] || "user").replace(/[^a-zA-Z0-9_]/g, "").slice(0, 20);
+  return prefix || "user";
+}
+
+async function createProfileWithReservedUsername(
+  uid: string,
+  email: string,
+  profileData: Record<string, unknown>
+): Promise<string> {
+  const base = defaultUsernameFromEmail(email);
+  return runTransaction(db, async (transaction) => {
+    let username = base;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const usernameKey = username.toLowerCase();
+      const usernameRef = doc(db, "usernames", usernameKey);
+      const usernameSnap = await transaction.get(usernameRef);
+      if (!usernameSnap.exists() || usernameSnap.data()?.uid === uid) {
+        transaction.set(usernameRef, { uid }, { merge: true });
+        transaction.set(
+          doc(db, "profiles", uid),
+          { ...profileData, email, username },
+          { merge: true }
+        );
+        return username;
+      }
+      username = `${base}${Math.random().toString(36).substring(2, 6)}`.slice(0, 24);
+    }
+    throw new Error("Could not reserve username");
+  });
+}
+
+function validatePasswordStrength(password: string): { valid: boolean; error?: string } {
+  if (password.length < 8) {
+    return { valid: false, error: "Password must be at least 8 characters" };
+  }
+  if (!/[A-Z]/.test(password)) {
+    return { valid: false, error: "Password must contain at least one uppercase letter" };
+  }
+  if (!/[a-z]/.test(password)) {
+    return { valid: false, error: "Password must contain at least one lowercase letter" };
+  }
+  if (!/[0-9]/.test(password)) {
+    return { valid: false, error: "Password must contain at least one number" };
+  }
+  if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+    return { valid: false, error: "Password must contain at least one special character" };
+  }
+  return { valid: true };
+}
+
+function friendlyAuthError(error: unknown): string {
+  const code =
+    error && typeof error === "object" && "code" in error
+      ? String((error as { code: string }).code)
+      : "";
+  switch (code) {
+    case "auth/email-already-in-use":
+      return "An account with this email already exists. Try logging in instead.";
+    case "auth/invalid-email":
+      return "Enter a valid email address.";
+    case "auth/weak-password":
+      return "Password is too weak. Use at least 8 characters with uppercase, lowercase, number, and special character.";
+    case "auth/wrong-password":
+    case "auth/invalid-credential":
+      return "Incorrect email or password.";
+    case "auth/user-not-found":
+      return "No account found with this email. Sign up instead.";
+    case "auth/too-many-requests":
+      return "Too many attempts. Please wait a few minutes and try again.";
+    default:
+      return error instanceof Error ? error.message : "Something went wrong";
+  }
+}
 
 export default function AuthPage() {
   const router = useRouter();
@@ -30,20 +115,19 @@ export default function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
-
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
-
-  // Phone verification step
-  const [step, setStep] = useState<"form" | "verify">("form");
-  const [phoneCode, setPhoneCode] = useState("");
-  const [phoneMsg, setPhoneMsg] = useState("");
-  const [phoneVerifying, setPhoneVerifying] = useState(false);
-  const confirmationResultRef = useRef<any>(null);
-  const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
-
   const [redirectTo, setRedirectTo] = useState("");
+  const [user, setUser] = useState<User | null>(null);
+  const [showBrowseModal, setShowBrowseModal] = useState(false);
+  const [kycStatus, setKycStatus] = useState("unsubmitted");
+  const [canRedirect, setCanRedirect] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [showSignupModal, setShowSignupModal] = useState(false);
+  const [showLoginSuccessModal, setShowLoginSuccessModal] = useState(false);
+  const signupInProgressRef = useRef(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -51,19 +135,50 @@ export default function AuthPage() {
     if (ref) setInviteCode(ref.toUpperCase());
     const redir = params.get("redirect");
     if (redir) setRedirectTo(redir);
+    if (params.get("signup") === "1" || params.get("mode") === "signup") {
+      setIsLogin(false);
+    }
   }, []);
 
   useEffect(() => {
-    return () => {
-      recaptchaRef.current?.clear();
-      recaptchaRef.current = null;
-    };
+    return onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      if (u && !signupInProgressRef.current) setCanRedirect(true);
+    });
   }, []);
+
+  useEffect(() => {
+    if (!user || !canRedirect || showLoginSuccessModal || showSignupModal) return;
+    const timer = setTimeout(() => router.push(redirectTo || "/"), 1500);
+    return () => clearTimeout(timer);
+  }, [user, canRedirect, redirectTo, router, showLoginSuccessModal, showSignupModal]);
 
   async function handleAuth(e: React.FormEvent) {
     e.preventDefault();
     if (!email || !password) return;
+
+    if (getTurnstileSiteKey() && !turnstileToken) {
+      showToast("Complete the security check to continue.", "error");
+      return;
+    }
+    if (getTurnstileSiteKey()) {
+      const verifyRes = await fetch("/api/verify-turnstile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: turnstileToken }),
+      });
+      const verifyData = await verifyRes.json().catch(() => ({}));
+      if (!verifyData.success) {
+        showToast("Security check failed. Please try again.", "error");
+        return;
+      }
+    }
+
     if (!isLogin) {
+      if (!acceptedTerms) {
+        showToast("Accept the Terms of Service and Privacy Policy to create an account.", "error");
+        return;
+      }
       const pwErrors: string[] = [];
       if (password.length < 8) pwErrors.push("at least 8 characters");
       if (!/[A-Z]/.test(password)) pwErrors.push("an uppercase letter");
@@ -72,336 +187,346 @@ export default function AuthPage() {
         showToast("Password needs " + pwErrors.join(", "), "error");
         return;
       }
+      const emailCheckRes = await fetch("/api/check-email-temp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      });
+      const emailCheckData = await emailCheckRes.json().catch(() => ({}));
+      if (emailCheckData.disposable) {
+        showToast("Temporary email addresses aren't allowed. Use a permanent email.", "error");
+        return;
+      }
       if (phone.trim()) {
         const formattedPhone = formatNZPhone(phone);
         if (!formattedPhone.startsWith("+642") || formattedPhone.length < 11) {
-          showToast("Enter a valid NZ phone number (e.g. 021 123 4567)", "error");
+          showToast("Enter a valid NZ phone number", "error");
           return;
         }
-        const existingPhone = await getDocs(query(collection(db, "profiles"), where("phone", "==", formattedPhone)));
-        if (!existingPhone.empty) {
-          showToast("This phone number is already registered to another account.", "error");
+        const phoneRes = await fetch("/api/check-phone-availability", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: formattedPhone }),
+        });
+        const phoneData = await phoneRes.json().catch(() => ({}));
+        if (!phoneRes.ok || !phoneData.available) {
+          showToast(phoneData.message || "Phone number already in use.", "error");
           return;
         }
       }
     }
 
+    setLoading(true);
+    if (!isLogin) signupInProgressRef.current = true;
     try {
-      setLoading(true);
-
       if (isLogin) {
-        const cred = await signInWithEmailAndPassword(auth, email, password);
-        router.push(redirectTo || "/");
+        await signInWithEmailAndPassword(auth, email, password);
+        setShowLoginSuccessModal(true);
+        showToast("Welcome back!", "success");
       } else {
+        // Validate password strength before creating account
+        const passwordValidation = validatePasswordStrength(password);
+        if (!passwordValidation.valid) {
+          showToast(passwordValidation.error || "Password does not meet requirements", "error");
+          setLoading(false);
+          return;
+        }
+        
         const cred = await createUserWithEmailAndPassword(auth, email, password);
+        const u = cred.user;
+        if (u) {
+          try {
+            await sendEmailVerification(u);
+          } catch (e) {
+            console.error("Email verification send failed:", e);
+          }
 
-        // Save basic profile
-        const user = auth.currentUser;
-        if (user) {
+          const formattedPhone = phone.trim() ? formatNZPhone(phone) : "";
           const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-          const profileData: Record<string, any> = {
-            email: user.email,
-            username: user.email?.split("@")[0] || "",
-            phone: phone.trim() || "",
+          const profileData: Record<string, unknown> = {
+            phone: formattedPhone,
             phoneVerified: false,
             referralCode: code,
             memberSince: Timestamp.now(),
             lastActive: Timestamp.now(),
             createdAt: serverTimestamp(),
           };
+
+          await createProfileWithReservedUsername(u.uid, u.email || email, profileData);
+
           if (inviteCode.trim()) {
             try {
-              const referrerQuery = query(collection(db, "profiles"), where("referralCode", "==", inviteCode.trim().toUpperCase()));
-              const referrerSnap = await getDocs(referrerQuery);
-              if (!referrerSnap.empty) {
-                const referrerDoc = referrerSnap.docs[0];
-                const referrerData = referrerDoc.data();
-                if (referrerData.email && referrerData.email !== user.email) {
-                  profileData.referredBy = inviteCode.trim().toUpperCase();
-                  await updateDoc(doc(db, "profiles", referrerDoc.id), {
-                    referralSignups: increment(1),
-                  });
-                  await addDoc(collection(db, "referralEvents"), {
-                    type: "signup",
-                    referrerEmail: referrerData.email,
-                    referredEmail: user.email,
-                    createdAt: serverTimestamp(),
-                  });
-                  await createNotification({
-                    type: "referral",
-                    targetEmail: referrerData.email,
-                    fromEmail: user.email || "",
-                    title: "🎉 You referred someone!",
-                    message: `${user.email} signed up using your referral code!`,
-                  });
-
-                  for (let i = 0; i < 5; i++) {
-                    await addDoc(collection(db, "dropTokens"), {
-                      ownerId: user.uid,
-                      ownerEmail: user.email,
-                      originDropId: "referral_reward",
-                      status: "available",
-                      createdAt: serverTimestamp(),
-                    });
-                  }
-                }
+              const token = await u.getIdToken();
+              const refRes = await fetch("/api/track-referral", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ referralCode: inviteCode.trim().toUpperCase() }),
+              });
+              const refData = await refRes.json().catch(() => ({}));
+              if (refRes.ok && refData.tracked && refData.referredBy) {
+                await setDoc(
+                  doc(db, "profiles", u.uid),
+                  { referredBy: refData.referredBy },
+                  { merge: true }
+                );
               }
             } catch (e) {
               console.error("Referral tracking failed:", e);
             }
           }
-          await setDoc(doc(db, "profiles", user.uid), profileData);
 
-          // Send welcome email
           try {
             const welcomeHtml = buildEmailHtml({
-              to: user.email!,
-              subject: "Welcome to Sky Drop — let's get started",
+              to: u.email!,
+              subject: "Welcome to Sky Drop",
               title: "Welcome to Sky Drop",
-              message: `Hi there,
-
-Thanks for joining Sky Drop — New Zealand's community marketplace.
-
-Here's how to get started:
-
-• Browse listings — Find what you need across 7 categories: tech, vehicles, property, services, events, rentals, and digital goods.
-• List an item — Post your first listing for free. It takes less than a minute.
-• Buy with confidence — All payments are processed securely through Stripe with buyer protection included.
-• Stay safe — Never pay outside Sky Drop. Keep all communication in our chat.
-
-Your account is ready. Now go explore.`,
+              message: "Thanks for joining. Browse anytime — complete KYC when you're ready to sell.",
               ctas: [{ label: "Browse Listings", url: process.env.NEXT_PUBLIC_URL || "https://skydrop.co.nz", primary: true }],
             });
             const token = await auth.currentUser?.getIdToken();
             await fetch("/api/send-email", {
               method: "POST",
               headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-              body: JSON.stringify({ to: user.email, subject: "Welcome to Sky Drop — let's get started", html: welcomeHtml }),
+              body: JSON.stringify({ to: u.email, subject: "Welcome to Sky Drop", html: welcomeHtml }),
             });
-          } catch (e) {
-            console.info("[Auth] Welcome email skipped:", e);
+          } catch {
+            /* optional */
           }
         }
-
-        showToast("Welcome to Sky Drop! Start browsing listings. Check spam for verification.", "success");
-        router.push("/");
+        signupInProgressRef.current = false;
+        setShowSignupModal(true);
+        showToast("Account created! Check your email to verify your address.", "success");
       }
-
       setEmail("");
       setPassword("");
-
-    } catch (error: any) {
-      console.error(error);
-      showToast(error.message, "error");
+    } catch (error: unknown) {
+      signupInProgressRef.current = false;
+      showToast(friendlyAuthError(error), "error");
     }
-
     setLoading(false);
   }
 
-  async function handleVerifyPhone() {
-    if (phoneCode.length !== 6) return;
-    setPhoneVerifying(true);
-    setPhoneMsg("Verifying...");
-    try {
-      const confirmation = confirmationResultRef.current;
-      if (!confirmation) { setPhoneMsg("No code sent."); setPhoneVerifying(false); return; }
-      await confirmation.confirm(phoneCode);
-      setPhoneMsg("Phone verified!");
-      const user = auth.currentUser;
-      if (user) {
-        await setDoc(doc(db, "profiles", user.uid), { phoneVerified: true }, { merge: true });
-      }
-      setTimeout(() => router.push("/profile"), 800);
-    } catch (e: any) {
-      setPhoneMsg(e.message || "Invalid code.");
-    }
-    setPhoneVerifying(false);
-  }
-
-  function handleSkip() {
-    router.push("/profile");
-  }
-
   return (
-    <main className="relative min-h-screen overflow-hidden bg-black text-[var(--foreground)]">
-      <Background />
-      <Navbar />
+    <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)] overflow-hidden">
+      <div className="absolute inset-0 backdrop-blur-md bg-black/40" />
+      <div className="relative z-10">
+        <Navbar />
+        <Background />
 
-      <section className="relative z-10 mx-auto max-w-md px-6 py-20">
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-950/80 p-8 shadow-2xl backdrop-blur">
-          <h1 className="text-4xl font-black text-sky-400">
-            {step === "verify" ? "Verify Phone" : isLogin ? "Login" : "Create Account"}
-          </h1>
+      <section className="relative z-10 mx-auto max-w-md px-6 py-16 sm:py-20">
+        <button
+          type="button"
+          onClick={() => {
+            if (user) {
+              router.push(redirectTo || "/");
+              return;
+            }
+            if (!isLogin) {
+              setIsLogin(true);
+              setPhone("");
+              return;
+            }
+            if (typeof window !== "undefined" && window.history.length > 1) {
+              router.back();
+            } else {
+              router.push("/");
+            }
+          }}
+          className="login-page-muted mb-6 inline-flex items-center gap-2 text-sm transition-colors hover:text-sky-400"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          {!user && !isLogin ? "Back to login" : "Back"}
+        </button>
 
-          <p className="mt-3 text-[var(--muted)]">
-            {step === "verify"
-              ? "Enter the 6-digit code sent to your phone."
-              : isLogin
-              ? "Welcome back to Sky Drop."
-              : "Create your Sky Drop account. A verified phone number is required to ensure a trusted marketplace for everyone."}
+        <div className="login-page-card rounded-2xl border p-8 backdrop-blur-sm">
+          <h1 className="login-page-title text-2xl font-black">{isLogin ? "Login" : "Create account"}</h1>
+          <p className="login-page-body mt-2 text-sm">
+            Browse and purchase freely. Seller verification is only required to list items.
           </p>
 
-          {step === "verify" ? (
-            <div className="mt-8 space-y-5">
-              <input
-                type="text"
-                placeholder="6-digit code"
-                value={phoneCode}
-                onChange={(e) => setPhoneCode(e.target.value)}
-                maxLength={6}
-                className="w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-center text-2xl font-bold tracking-[0.3em] text-[var(--foreground)] outline-none focus:border-sky-400"
-              />
-              {phoneMsg && (
-                <p className={`text-center text-sm ${phoneMsg.includes("verified") ? "text-emerald-400" : "text-zinc-400"}`}>
-                  {phoneMsg}
-                </p>
-              )}
-              <button
-                onClick={handleVerifyPhone}
-                disabled={phoneCode.length !== 6 || phoneVerifying}
-                className="w-full rounded-2xl bg-emerald-500 px-4 py-4 font-bold transition hover:bg-emerald-400 disabled:opacity-50"
-              >
-                {phoneVerifying ? "Verifying..." : "Verify Phone"}
-              </button>
-              <button
-                onClick={handleSkip}
-                className="w-full text-center text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
-              >
-                Skip for now — verify later in Profile
-              </button>
-            </div>
-          ) : (
-            <form onSubmit={handleAuth} className="mt-8 space-y-5">
+          {!user ? (
+            <form onSubmit={handleAuth} className="mt-6 space-y-4">
               <input
                 type="email"
                 placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 outline-none focus:border-sky-400"
+                className={INPUT_CLASS}
               />
-
               <input
                 type="password"
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 outline-none focus:border-sky-400"
+                className={INPUT_CLASS}
               />
-
               {!isLogin && (
                 <input
                   type="tel"
-                  placeholder="Phone (optional — needed for selling)"
+                  placeholder="Phone (optional)"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 outline-none focus:border-sky-400"
+                  className={INPUT_CLASS}
                 />
               )}
-
               {!isLogin && (
-                <input type="hidden" value={inviteCode} readOnly />
+                <label className="login-page-body flex cursor-pointer items-start gap-2.5 text-xs leading-relaxed">
+                  <input
+                    type="checkbox"
+                    checked={acceptedTerms}
+                    onChange={(e) => setAcceptedTerms(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-600"
+                  />
+                  <span>
+                    I agree to the{" "}
+                    <Link href="/terms" className="login-page-link font-medium underline">
+                      Terms of Service
+                    </Link>{" "}
+                    and{" "}
+                    <Link href="/privacy" className="login-page-link font-medium underline">
+                      Privacy Policy
+                    </Link>
+                  </span>
+                </label>
               )}
-
-              {phoneMsg && (
-                <p className="text-center text-sm text-[var(--muted)]">{phoneMsg}</p>
-              )}
-
+              <TurnstileWidget
+                onToken={(token) => setTurnstileToken(token)}
+                onExpire={() => setTurnstileToken("")}
+                className="mb-3 flex justify-center"
+              />
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-2xl bg-sky-500 px-4 py-4 font-bold transition hover:bg-sky-400 disabled:opacity-50"
+                className="login-page-btn-primary w-full rounded-xl py-3 font-bold transition active:scale-[0.99]"
               >
-                {loading
-                  ? "Loading..."
-                  : isLogin
-                  ? "Login"
-                  : "Create Account"}
+                {loading ? "Loading…" : isLogin ? "Login" : "Create account"}
               </button>
-
-              <Link
-                href="/forgot-password"
-                className="w-full text-xs text-right text-[var(--muted)] hover:text-sky-400 transition-colors"
-              >
-                Forgot password?
-              </Link>
-
-              {isTestLoginUiEnabled() && (
+              {isLogin && process.env.NODE_ENV === "development" && (
                 <button
                   type="button"
-                  disabled={loading}
                   onClick={async () => {
-                    setLoading(true);
                     try {
-                      const res = await fetch("/api/test-login", { method: "POST" });
-                      const data = await res.json().catch(() => ({}));
-                      if (!res.ok) {
-                        throw new Error(
-                          typeof data.error === "string"
-                            ? data.error
-                            : "Test login failed"
-                        );
-                      }
-                      if (!data.token || typeof data.token !== "string") {
-                        throw new Error("No sign-in token returned");
-                      }
-                      await signInWithCustomToken(auth, data.token);
-                      showToast("Signed in as test user", "success");
-                      router.push(redirectTo || "/");
-                    } catch (e: unknown) {
-                      const msg =
-                        e && typeof e === "object" && "code" in e
-                          ? String((e as { code?: string }).code)
-                          : "";
-                      const hint =
-                        msg === "auth/invalid-custom-token"
-                          ? "Firebase client config may not match your Admin project."
-                          : "";
-                      const message =
-                        e instanceof Error ? e.message : "Test login failed";
-                      showToast(hint ? `${message} ${hint}` : message, "error");
+                      setLoading(true);
+                      const testEmail = process.env.NEXT_PUBLIC_TEST_EMAIL || "test@skydrop.nz";
+                      const testPass = process.env.NEXT_PUBLIC_TEST_PASSWORD || "TestPass123";
+                      setEmail(testEmail);
+                      setPassword(testPass);
+                      await signInWithEmailAndPassword(auth, testEmail, testPass);
+                      setCanRedirect(true);
+                      showToast("Welcome! You're logged in as a test user.", "success");
+                    } catch (e: any) {
+                      showToast(e?.message || "Test login failed", "error");
                     }
                     setLoading(false);
                   }}
-                  className="w-full rounded-2xl border border-dashed border-emerald-500/30 bg-emerald-500/[0.03] px-4 py-3 text-sm font-bold text-emerald-400 transition hover:bg-emerald-500/[0.08] hover:border-emerald-500/50"
+                  className="login-page-btn-secondary mt-2 w-full rounded-xl border py-2.5 text-sm font-semibold transition active:scale-[0.99]"
                 >
-                  🧪 Test Login
+                  Test Login
                 </button>
               )}
+              <div className="flex justify-between text-xs">
+                <Link href="/forgot-password" className="login-page-link font-medium">
+                  Forgot password?
+                </Link>
+                <Link href="/" className="login-page-link font-medium">
+                  Browse listings
+                </Link>
+              </div>
             </form>
+          ) : (
+            <p className="login-page-body mt-6 text-sm">
+              Signed in as <span className="login-page-title font-semibold">{user.email}</span>
+            </p>
           )}
 
-          {/* Toggle Login/Signup */}
-          {step === "form" && (
-            <>
-              {isLogin && (
-                <button
-                  onClick={() => setIsLogin(false)}
-                  className="mt-6 w-full text-center text-sm text-sky-400 hover:underline"
-                >
-                  Need an account? Create one
-                </button>
-              )}
-              {!isLogin && (
-                <button
-                  onClick={() => setIsLogin(true)}
-                  className="mt-6 w-full text-center text-sm text-sky-400 hover:underline"
-                >
-                  Already have an account? Login
-                </button>
-              )}
-            </>
+          {!user && (
+            <button
+              type="button"
+              onClick={() => {
+                setIsLogin(!isLogin);
+                if (isLogin) setAcceptedTerms(false);
+              }}
+              className="login-page-link mt-4 w-full text-center text-sm font-medium hover:underline"
+            >
+              {isLogin ? "Need an account? Sign up" : "Already have an account? Login"}
+            </button>
           )}
 
-          <div className="mt-6 flex items-center justify-center gap-1.5 text-[11px] text-[var(--muted)]">
-            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-            </svg>
-            Payments protected by <span className="font-semibold tracking-tight">Stripe</span>
-          </div>
+          <LoginKycSection user={user} onKycStatusChange={setKycStatus} />
+
+          {user && kycStatus !== "approved" && (
+            <button
+              type="button"
+              onClick={() => setShowBrowseModal(true)}
+              className="login-page-btn-secondary mt-4 w-full rounded-xl border py-2.5 text-sm font-semibold"
+            >
+              Browse without verification
+            </button>
+          )}
         </div>
       </section>
-      <div id="recaptcha-container" />
+
+      {showBrowseModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in-backdrop"
+          onClick={() => setShowBrowseModal(false)}
+        >
+          <div
+            className="login-page-modal mx-4 w-full max-w-md rounded-2xl border p-6 shadow-2xl animate-fade-in-scale"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="login-page-title text-lg font-bold">Continue without seller verification?</h3>
+            <p className="login-page-body mt-3 text-sm leading-relaxed">
+              You can browse and buy items without verification. However, you will not be able to list items for sale
+              until seller verification is completed.
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowBrowseModal(false)}
+                className="login-page-btn-secondary flex-1 rounded-xl border py-3 text-sm font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowBrowseModal(false);
+                  router.push(redirectTo || "/");
+                }}
+                className="login-page-btn-primary flex-1 rounded-xl py-3 text-sm font-semibold"
+              >
+                Continue browsing
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      </div>
+
+      {showSignupModal && (
+        <SignupVerificationModal
+          onClose={() => setShowSignupModal(false)}
+          onVerify={() => {
+            setShowSignupModal(false);
+            router.push("/profile");
+          }}
+        />
+      )}
+
+      {showLoginSuccessModal && (
+        <LoginSuccessModal
+          onClose={() => setShowLoginSuccessModal(false)}
+          kycVerified={kycStatus === "approved"}
+          user={user}
+        />
+      )}
     </main>
   );
 }
+

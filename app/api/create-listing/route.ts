@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken, getAdminDb, getServerDb, isAdminInitialized, getAdminAuth } from "../../lib/firebase-admin";
+import { verifyIdToken, getAdminDb, getServerDb, isAdminInitialized } from "../../lib/firebase-admin";
+import { parseIpFromRequest } from "../../lib/geo-check";
 import { rateLimit } from "../../lib/rate-limit";
+import {
+  decide, applyDecisionDelay, persistRiskFlag, recordTurnstileAttempt,
+  type DecisionInput,
+} from "../../lib/abuse-decision-engine";
+import { DEFAULT_MAX_JSON_BYTES, isContentLengthOverLimit, payloadTooLargeResponse } from "../../lib/request-body";
 import { sanitizeListingContent } from "../../lib/sanitize";
-import { profileHasVerifiedPhone } from "../../lib/seller-eligibility";
+import { kycRequiredBlockMessage } from "../../lib/seller-eligibility";
+import { verifyTurnstileToken, isTurnstileConfigured } from "../../lib/turnstile";
+import { trackAndCheckAbuse } from "../../lib/abuse-tracker";
 
 const SCAM_KEYWORDS = [
   "bank transfer only", "crypto only", "pay outside", "whatsapp",
@@ -50,11 +58,7 @@ async function getSellerProfileForUid(uid: string, email?: string | null) {
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const { allowed } = await rateLimit(`create-listing:${ip}`, 5, 60_000);
-    if (!allowed) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-    }
+    const ip = parseIpFromRequest(req.headers);
 
     const authHeader = req.headers.get("authorization");
     if (!authHeader?.startsWith("Bearer ")) {
@@ -70,7 +74,48 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: message }, { status: 401 });
     }
 
+    const decisionInput: DecisionInput = {
+      uid: token.uid,
+      ip,
+      email: token.email,
+      action: "listing",
+      accountAgeSec: token.auth_time ? Math.floor((Date.now() / 1000) - token.auth_time) : undefined,
+    };
+
+    const decision = await decide(decisionInput);
+    await applyDecisionDelay(decision);
+
+    if (isContentLengthOverLimit(req, 512 * 1024)) return payloadTooLargeResponse();
+
+    if (!token.email_verified) {
+      return NextResponse.json({ error: "Please verify your email before creating a listing" }, { status: 403 });
+    }
+
+    if (!(await trackAndCheckAbuse(token.uid, token.email || "", "listing", ip))) {
+      return NextResponse.json({ error: "You've reached the maximum number of listings. Please try again later." }, { status: 429 });
+    }
+
     const body = await req.json();
+
+    if (decision.captchaRequired && isTurnstileConfigured()) {
+      const turnstileToken = typeof body.turnstileToken === "string" ? body.turnstileToken : "";
+      if (!turnstileToken || !(await verifyTurnstileToken(turnstileToken))) {
+        recordTurnstileAttempt(token.uid, false);
+        return NextResponse.json({ error: "Security check failed. Please refresh and try again." }, { status: 403 });
+      }
+      recordTurnstileAttempt(token.uid, true);
+    }
+
+    if (decision.verdict === "block") {
+      await persistRiskFlag(token.uid, `listing_blocked:${decision.reason}`);
+      return NextResponse.json({ error: "Listing could not be created. Please try again later." }, { status: 403 });
+    }
+
+    if (decision.verdict === "shadow_degrade") {
+      // Shadow suppressed listings get a reduced visibility rank but still appear
+      // Will be set on the listing doc below
+    }
+
     const { title, description, price, category, listingType } = body;
 
     const allowedFields: string[] = [
@@ -80,13 +125,16 @@ export async function POST(req: NextRequest) {
       "stockQuantity", "saleType", "acceptOffers",
       "startingBid", "reservePrice", "auctionEndsAt",
       "digitalStoragePath", "digitalFileName",
-      "serviceDuration", "rentalPriceWeekly", "rentalPriceMonthly", "rentalDeposit",
+      "serviceDuration", "rentalSubType", "rentalPriceWeekly", "rentalPriceMonthly", "rentalDeposit",
+      "rentalBedrooms", "rentalBathrooms", "rentalParkingSpaces", "rentalPropertyType", "rentalFurnishedStatus", "rentalPetsPolicy", "rentalMinTenancy", "rentalFeatures", "rentalAvailableDate",
+      "rentalVehicleSeats",
       "eventDate", "eventTime", "venue", "ticketQuantity", "ticketType",
       "vehicleMake", "vehicleModel", "vehicleYear", "vehicleOdometer",
       "vehicleFuelType", "vehicleTransmission", "vehicleBodyType", "vehicleColour",
       "jobCompany", "jobEmploymentType", "salaryMin", "salaryMax",
       "propertyType", "bedrooms", "bathrooms", "landArea", "floorArea", "parking",
       "paymentType",
+      "pricingType",
     ];
     const clientData: Record<string, unknown> = {};
     for (const key of allowedFields) {
@@ -99,6 +147,11 @@ export async function POST(req: NextRequest) {
           clientData[key] = body[key];
         }
       }
+    }
+
+    const VALID_LISTING_TYPES = ["physical", "digital", "service", "rental", "event", "vehicle", "job", "property", "wanted"];
+    if (listingType && !VALID_LISTING_TYPES.includes(listingType)) {
+      return NextResponse.json({ error: "Invalid listing type" }, { status: 400 });
     }
 
     if (!title || !description) {
@@ -122,6 +175,7 @@ export async function POST(req: NextRequest) {
 
     const numericPrice = Number(price) || 0;
     let salesCount = 0;
+    let kycApproved = false;
 
     if (isAdminInitialized()) {
       const sellerProfile = await getSellerProfileForUid(token.uid, token.email);
@@ -129,32 +183,12 @@ export async function POST(req: NextRequest) {
       if (sellerProfile) {
         salesCount = Number(sellerProfile.salesCount) || 0;
         reportsCount = Number(sellerProfile.reportsCount) || 0;
+        kycApproved = sellerProfile.kycStatus === "approved";
         if (sellerProfile.restricted) {
           return NextResponse.json({ error: "Your account is restricted. Contact support." }, { status: 403 });
         }
-        let emailVerified = !!token.email_verified;
-        if (!emailVerified) {
-          try {
-            const userRecord = await getAdminAuth().getUser(token.uid);
-            emailVerified = !!userRecord.emailVerified;
-          } catch {}
-        }
-        if (!emailVerified) {
-          return NextResponse.json({ error: "Please verify your email address before creating a listing." }, { status: 403 });
-        }
-        if (body.paymentType !== "contact") {
-          let authPhone: string | undefined;
-          try {
-            const userRecord = await getAdminAuth().getUser(token.uid);
-            authPhone = userRecord.phoneNumber;
-          } catch {
-            /* use profile only */
-          }
-          if (!profileHasVerifiedPhone(sellerProfile, authPhone)) {
-            return NextResponse.json({
-              error: "Please add and verify your phone number in Profile → Identity verification.",
-            }, { status: 403 });
-          }
+        if (!kycApproved) {
+          return NextResponse.json({ error: kycRequiredBlockMessage() }, { status: 403 });
         }
       } else {
         return NextResponse.json({ error: "Please complete your profile before creating a listing." }, { status: 403 });
@@ -186,10 +220,19 @@ export async function POST(req: NextRequest) {
         .where("status", "==", "live")
         .get();
 
-      const maxListings = salesCount >= 10 ? 100 : salesCount >= 3 ? 25 : 5;
+      const maxListings = kycApproved ? 9999 : 5;
       if (activeListings.size >= maxListings) {
         return NextResponse.json({
-          error: `You can only have ${maxListings} active listings. Complete some sales to unlock more.`,
+          error: kycApproved
+            ? `You can only have ${maxListings} active listings.`
+            : `You can only have ${maxListings} active listings. Complete KYC to unlock unlimited listings.`,
+        }, { status: 400 });
+      }
+
+      // Price cap check
+      if (numericPrice > 0 && !kycApproved && numericPrice > 600) {
+        return NextResponse.json({
+          error: "The maximum price for non-KYC sellers is $600. Verify your ID (KYC) to unlock unlimited pricing.",
         }, { status: 400 });
       }
     }
@@ -217,6 +260,8 @@ export async function POST(req: NextRequest) {
       auctionEndsAt = new Date(clientData.auctionEndsAt as string);
     }
 
+    const shadowRank = decision.verdict === "shadow_degrade" ? decision.shadowRank : "normal";
+
     const finalData: Record<string, unknown> = {
       title: sanitizedTitle,
       description: sanitizedDesc,
@@ -231,11 +276,12 @@ export async function POST(req: NextRequest) {
       status,
       views: 0,
       bidCount: 0,
-      paymentType: clientData.paymentType || "stripe",
       createdAt: now,
       expiresAt,
+      visibilityRank: shadowRank,
       ...clientData,
       saleType,
+      paymentType: String(clientData.paymentType || "contact"),
     };
 
     if (clientData.stockQuantity != null) {

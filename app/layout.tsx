@@ -3,6 +3,7 @@ import dynamic from "next/dynamic";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "./components/AuthProvider";
+import { AwhinaPageInsightProvider } from "./contexts/AwhinaPageInsightContext";
 import { RouteGuard } from "./components/RouteGuard";
 import { ProfileProvider } from "./contexts/ProfileContext";
 import VerificationBanner from "./components/VerificationBanner";
@@ -12,10 +13,11 @@ import ScrollToTop from "./components/ScrollToTop";
 import PageEnter from "./components/PageEnter";
 import PWAProvider from "./components/PWAProvider";
 
-const DropIndicator = dynamic(() => import("./components/DropIndicator"));
 const Spotlight = dynamic(() => import("./components/Spotlight"));
 const LegendaryClaimNotification = dynamic(() => import("./components/LegendaryClaimNotification"));
 const SkyAiChat = dynamic(() => import("./components/SkyAiChat"));
+const WantedLiveFeed = dynamic(() => import("./components/WantedLiveFeed"));
+const PlatformAnnouncement = dynamic(() => import("./components/PlatformAnnouncement"));
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -86,9 +88,15 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-[var(--background)] text-[var(--foreground)]">
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem("theme");if(t==="light")document.documentElement.classList.add("light");}catch(e){}})();`,
+          }}
+        />
         <script defer data-domain="skydrop.co.nz" src="https://plausible.io/js/script.js"></script>
         <script dangerouslySetInnerHTML={{
           __html: `
@@ -99,7 +107,7 @@ export default function RootLayout({
             })();
           `,
         }} />
-        <AuthProvider><ProfileProvider><VerificationBanner /><RouteGuard><PageEnter>{children}</PageEnter><Footer /><DropIndicator /><Spotlight /><ScrollToTop /><SkyAiChat /></RouteGuard><ToastContainer /><LegendaryClaimNotification /><PWAProvider /></ProfileProvider></AuthProvider>
+        <AuthProvider><ProfileProvider><AwhinaPageInsightProvider><VerificationBanner /><RouteGuard><PageEnter>{children}</PageEnter><Footer /><Spotlight /><ScrollToTop /><SkyAiChat /></RouteGuard><ToastContainer /><LegendaryClaimNotification /><WantedLiveFeed /><PlatformAnnouncement /><PWAProvider /></AwhinaPageInsightProvider></ProfileProvider></AuthProvider>
       </body>
     </html>
   );

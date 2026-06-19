@@ -1,6 +1,7 @@
 import { initializeApp, getApps, cert, applicationDefault, type App } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
 
 let app: App | null = null;
 
@@ -67,6 +68,12 @@ export function getAdminDb() {
   return _db;
 }
 
+let _storage: ReturnType<typeof getStorage> | null = null;
+export function getAdminStorage() {
+  if (!_storage) _storage = getStorage(getAdminApp());
+  return _storage;
+}
+
 export function isAdminInitialized(): boolean {
   return !!process.env.FIREBASE_SERVICE_ACCOUNT?.trim() || !!process.env.GOOGLE_APPLICATION_CREDENTIALS;
 }
@@ -100,31 +107,9 @@ export async function verifyIdToken(idToken: string): Promise<{ uid: string; ema
     }
   }
 
-  if (process.env.NODE_ENV === "production") {
-    throw new Error(
-      "Server auth is not configured. Set FIREBASE_SERVICE_ACCOUNT in Vercel environment variables."
-    );
-  }
-
-  // Local dev only — decode JWT without signature verification
-  try {
-    const parts = trimmed.split(".");
-    if (parts.length !== 3) throw new Error("Invalid token format");
-    const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
-    if (!payload.sub) throw new Error("Invalid token payload");
-    const exp = typeof payload.exp === "number" ? payload.exp : 0;
-    if (exp > 0 && exp * 1000 < Date.now()) {
-      throw new Error("Session expired. Please sign out and sign in again.");
-    }
-    return {
-      uid: payload.sub,
-      email: payload.email,
-      email_verified: payload.email_verified,
-    };
-  } catch (e: unknown) {
-    if (e instanceof Error && e.message.includes("Session expired")) throw e;
-    throw new Error("Invalid or expired token");
-  }
+  throw new Error(
+    "Server auth is not configured. Set FIREBASE_SERVICE_ACCOUNT in Vercel environment variables."
+  );
 }
 
 // ==================== Firestore REST API fallback ====================
@@ -364,6 +349,7 @@ function createRestDb(idToken: string) {
         },
         update: async (data: any) => { await restUpdate(idToken, path, data); },
         delete: async () => { await restDelete(idToken, path); },
+        collection: (subName: string) => collectionFn(`${path}/${subName}`),
       };
     },
     add: async (data: any) => {

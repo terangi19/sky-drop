@@ -4,13 +4,18 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import BrowseAwhinaAssistantPanel from "../components/BrowseAwhinaAssistantPanel";
+import { useAwhinaInsightEffect } from "../contexts/AwhinaPageInsightContext";
+import { buildPurchasesInsight } from "../lib/awhina-insights";
 import { User } from "firebase/auth";
-import { addDoc, collection, doc, onSnapshot, orderBy, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
+import { collection, doc, onSnapshot, orderBy, query, updateDoc, where } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import { getFreshIdToken } from "../lib/api-auth";
+import { openDisputeRequest } from "../lib/open-dispute.client";
 import { createNotification } from "../lib/notifications";
 import { awardXP } from "../lib/xp";
 import { showToast } from "../components/Toast";
+import { InteractiveReviewStars } from "../components/SellerReviewStars";
 
 interface Purchase {
   id: string;
@@ -19,6 +24,7 @@ interface Purchase {
   listingPrice: string;
   listingImage: string;
   sellerEmail: string;
+  sellerUsername?: string;
   buyerEmail: string;
   buyerName: string;
   buyerPhone: string;
@@ -58,14 +64,15 @@ const DISPUTE_LABELS: Record<string, string> = {
 
 const DISPUTE_STYLES: Record<string, string> = {
   open: "bg-red-500/10 text-red-400 border-red-500/20",
-  under_review: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-  resolved_buyer: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  under_review: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+  resolved_buyer: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   resolved_seller: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20",
-  refunded: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  refunded: "bg-sky-500/10 text-sky-400 border-sky-500/20",
 };
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Pending",
+  confirmed: "Confirmed",
   seller_confirming: "Confirmed",
   in_progress: "In Progress",
   shipped: "Shipped",
@@ -73,22 +80,55 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: "Cancelled",
   rented: "Rented",
   returned: "Returned",
+  arrange_requested: "Arrangement Requested",
+};
+
+const STATUS_DESCRIPTIONS: Record<string, string> = {
+  pending: "Waiting for seller confirmation",
+  confirmed: "Payment received - Order confirmed",
+  seller_confirming: "Seller has confirmed your order",
+  in_progress: "Service in progress",
+  shipped: "Item has been shipped",
+  delivered: "Order completed",
+  cancelled: "Order was cancelled",
+  rented: "Item is rented",
+  returned: "Item has been returned",
+  arrange_requested: "Waiting for seller to arrange payment",
 };
 
 const STATUS_STYLES: Record<string, string> = {
-  pending: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+  pending: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+  confirmed: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   seller_confirming: "bg-sky-500/10 text-sky-400 border-sky-500/20",
-  in_progress: "bg-violet-500/10 text-violet-400 border-violet-500/20",
+  in_progress: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   shipped: "bg-sky-500/10 text-sky-400 border-sky-500/20",
-  delivered: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  delivered: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   cancelled: "bg-red-500/10 text-red-400 border-red-500/20",
-  rented: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  rented: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   returned: "bg-blue-500/10 text-blue-400 border-blue-500/20",
 };
 
-const TIMELINE_STEPS = ["pending", "seller_confirming", "shipped", "delivered"];
-const SERVICE_TIMELINE_STEPS = ["pending", "in_progress", "completed", "delivered"];
-const RENTAL_TIMELINE_STEPS = ["pending", "rented", "returned", "completed"];
+const TIMELINE_STEPS = [
+  { key: "confirmed", label: "Confirmed", icon: "✅" },
+  { key: "shipped", label: "Shipped", icon: "📦" },
+  { key: "delivered", label: "Delivered", icon: "🏠" },
+];
+const SERVICE_TIMELINE_STEPS = [
+  { key: "confirmed", label: "Confirmed", icon: "✅" },
+  { key: "in_progress", label: "In Progress", icon: "⚙️" },
+  { key: "delivered", label: "Delivered", icon: "🏠" },
+];
+const RENTAL_TIMELINE_STEPS = [
+  { key: "confirmed", label: "Confirmed", icon: "✅" },
+  { key: "rented", label: "Rented", icon: "🔑" },
+  { key: "returned", label: "Returned", icon: "↩️" },
+  { key: "completed", label: "Completed", icon: "✅" },
+];
+const ARRANGE_TIMELINE_STEPS = [
+  { key: "arrange_requested", label: "Requested", icon: "📝" },
+  { key: "seller_confirming", label: "Confirmed", icon: "✅" },
+  { key: "delivered", label: "Completed", icon: "🏠" },
+];
 
 function formatDate(ts: any): string {
   if (!ts) return "";
@@ -96,15 +136,31 @@ function formatDate(ts: any): string {
   return new Date(ts).toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" });
 }
 
-function statusIndex(s: string, isService?: boolean, isRental?: boolean): number {
-  const steps = isRental ? RENTAL_TIMELINE_STEPS : isService ? SERVICE_TIMELINE_STEPS : TIMELINE_STEPS;
-  const i = steps.indexOf(s);
+function statusIndex(s: string, isService?: boolean, isRental?: boolean, isArrange?: boolean): number {
+  const steps = isArrange ? ARRANGE_TIMELINE_STEPS : isRental ? RENTAL_TIMELINE_STEPS : isService ? SERVICE_TIMELINE_STEPS : TIMELINE_STEPS;
+  // For Stripe payments (Pay Now), status starts at "confirmed" which is index 0
+  // For arrange purchases, status starts at "arrange_requested" which is index 0
+  const i = steps.findIndex((step) => step.key === s);
   return i >= 0 ? i : -1;
 }
 
-function timelineSteps(isService?: boolean, isRental?: boolean): string[] {
-  return isRental ? RENTAL_TIMELINE_STEPS : isService ? SERVICE_TIMELINE_STEPS : TIMELINE_STEPS;
+function timelineSteps(isService?: boolean, isRental?: boolean, isArrange?: boolean): Array<{ key: string; label: string; icon: string }> {
+  return isArrange ? ARRANGE_TIMELINE_STEPS : isRental ? RENTAL_TIMELINE_STEPS : isService ? SERVICE_TIMELINE_STEPS : TIMELINE_STEPS;
 }
+
+const SORT_OPTIONS = [
+  { value: "newest", label: "Newest" },
+  { value: "oldest", label: "Oldest" },
+  { value: "price-low", label: "Price ↑" },
+  { value: "price-high", label: "Price ↓" },
+] as const;
+
+const FILTER_TABS = [
+  { key: "all", label: "All" },
+  { key: "active", label: "Active" },
+  { key: "delivered", label: "Delivered" },
+  { key: "cancelled", label: "Cancelled" },
+] as const;
 
 export default function PurchasesPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -201,10 +257,20 @@ export default function PurchasesPage() {
   async function saveAddress() {
     if (!editAddress || !newAddress.trim()) return;
     try {
-      await updateDoc(doc(db, "purchases", editAddress.id), { shippingAddress: newAddress.trim() });
+      const token = await auth.currentUser?.getIdToken(true);
+      if (!token) { showToast("Please sign in again", "error"); return; }
+      const res = await fetch("/api/update-purchase-shipping", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ purchaseId: editAddress.id, shippingAddress: newAddress.trim() }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to save address");
+      }
       setEditAddress(null);
       setNewAddress("");
-    } catch (e) { console.error("Failed to update address:", e); showToast("Failed to save address", "error"); }
+    } catch (e: any) { console.error("Failed to update address:", e); showToast(e.message || "Failed to save address", "error"); }
   }
 
   const counts = useMemo(() => {
@@ -234,13 +300,19 @@ export default function PurchasesPage() {
     return items;
   }, [purchases, filter, search, sort]);
 
+  const awhinaInsight = useMemo(
+    () => buildPurchasesInsight(purchases, () => setFilter("active")),
+    [purchases]
+  );
+  useAwhinaInsightEffect(awhinaInsight);
+
   function nextAction(p: Purchase): { label: string; action: string; color: string; badge?: string } | null {
-    if (p.status === "shipped") return { label: "Confirm Received", action: "delivered", color: "bg-emerald-500" };
+    if (p.status === "shipped") return { label: "Confirm Received", action: "delivered", color: "bg-sky-500" };
     if (p.deliveryMethod === "pickup" && p.status === "seller_confirming") {
-      return { label: "Confirm Received", action: "delivered", color: "bg-emerald-500" };
+      return { label: "Confirm Received", action: "delivered", color: "bg-sky-500" };
     }
-    if (p.deliveryMethod === "service" && p.status === "in_progress") return { label: "Mark Completed", action: "delivered", color: "bg-violet-500" };
-    if (p.deliveryMethod === "service" && p.status === "completed") return { label: "Confirm Received", action: "delivered", color: "bg-emerald-500" };
+    if (p.deliveryMethod === "service" && p.status === "in_progress") return { label: "Mark Completed", action: "delivered", color: "bg-sky-500" };
+    if (p.deliveryMethod === "service" && p.status === "completed") return { label: "Confirm Received", action: "delivered", color: "bg-sky-500" };
     if (p.deliveryMethod === "rental" && p.status === "rented") return { label: "Return Item", action: "returned", color: "bg-sky-500" };
     return null;
   }
@@ -254,51 +326,106 @@ export default function PurchasesPage() {
     return { icon: "📦", text: p.shippingFee ? `Shipping — $${p.shippingFee}` : "Shipping", badge: "Shipping" };
   }
 
+  // TradeMe-style Timeline Component
+  function PurchaseTimeline({ purchase, isService, isRental, isArrange }: { purchase: Purchase; isService?: boolean; isRental?: boolean; isArrange?: boolean }) {
+    const steps = timelineSteps(isService, isRental, isArrange);
+    const currentIndex = statusIndex(purchase.status, isService, isRental, isArrange);
+    
+    if (currentIndex < 0) return null;
+    
+    return (
+      <div className="mt-3 rounded-lg border border-zinc-800/50 bg-zinc-900/30 p-3">
+        <div className="flex items-center justify-between">
+          {steps.map((step, index) => {
+            const isCompleted = index < currentIndex;
+            const isCurrent = index === currentIndex;
+            const isPending = index > currentIndex;
+            
+            return (
+              <div key={step.key} className="flex items-center gap-1.5 flex-1">
+                <div className={`flex items-center justify-center w-5 h-5 rounded-full text-[9px] transition-all ${
+                  isCompleted ? 'bg-emerald-500 text-white' : isCurrent ? 'bg-sky-500 text-white ring-2 ring-sky-500/40' : 'bg-zinc-800 text-zinc-500'
+                }`}>
+                  {isCompleted ? '✓' : step.icon}
+                </div>
+                <div className="flex-1">
+                  <p className={`text-[9px] font-medium truncate ${
+                    isCompleted ? 'text-emerald-400' : isCurrent ? 'text-sky-400' : 'text-zinc-500'
+                  }`}>
+                    {step.label}
+                  </p>
+                </div>
+                {index < steps.length - 1 && (
+                  <div className={`w-4 h-px ${
+                    isCompleted ? 'bg-emerald-500' : 'bg-zinc-800'
+                  }`} />
+                )}
+              </div>
+            );
+          })}
+        </div>
+        {STATUS_DESCRIPTIONS[purchase.status] && (
+          <p className="mt-2 text-[10px] text-zinc-400 text-center">
+            {STATUS_DESCRIPTIONS[purchase.status]}
+          </p>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+    <main className="relative min-h-screen bg-[var(--background)]">
       <Background />
       <Navbar />
 
-      <section className="relative z-10 mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
-
-        {/* Header */}
-        <Link href="/" className="inline-flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-[var(--foreground)] transition hover:border-zinc-700 hover:bg-zinc-800/60 mb-4 sm:mb-5">
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+      <div className="relative z-10 mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-12">
+        <Link href="/" className="inline-flex items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-sm text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-200 mb-5 sm:mb-6 group">
+          <svg className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
           Back
         </Link>
-        <div className="relative mb-8">
-          <div className="absolute -inset-20 bg-gradient-to-r from-emerald-500/5 via-sky-500/5 to-transparent blur-3xl pointer-events-none" />
+
+        <div className="relative mb-8 sm:mb-10 text-center">
+          <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/5 via-sky-300/5 to-transparent blur-3xl pointer-events-none" />
+          <div className="relative inline-flex items-center gap-2 rounded-full border border-sky-500/15 bg-sky-500/5 px-3 py-1 text-[10px] font-bold text-sky-400 mb-4 tracking-wide uppercase">
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M5 8l7-5 7 5M12 3v9" /></svg>
+            Orders
+          </div>
           <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
-            <span className="text-white drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">My Purchases</span>
+            <span className="bg-gradient-to-r from-white via-sky-200 to-white bg-clip-text text-transparent">My Purchases</span>
           </h1>
-          <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl">Your payment goes directly to the seller via Stripe. Track your orders, confirm delivery, manage disputes, and shop with confidence.</p>
-          <p className="relative mt-2 text-sm text-zinc-500">{purchases.length} total · {counts.active || 0} active</p>
+          <BrowseAwhinaAssistantPanel className="mt-4 mb-0 mx-auto w-full max-w-2xl text-left" />
+          <p className="relative mt-3 text-sm text-zinc-500">{purchases.length} total · {counts.active || 0} active</p>
         </div>
 
-        {/* Search + filter chips */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
           <div className="relative flex-1 max-w-xs">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
             </svg>
             <input type="text" placeholder="Search purchases..." value={search} onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] pl-10 pr-4 py-2.5 text-sm text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-emerald-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-emerald-500/10" />
+              className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
           </div>
-          <div className="flex gap-1.5 overflow-x-auto">
-            {[
-              { key: "all", label: "All" },
-              { key: "active", label: "Active" },
-              { key: "delivered", label: "Delivered" },
-              { key: "cancelled", label: "Cancelled" },
-            ].map((tab) => (
-              <button key={tab.key} onClick={() => setFilter(tab.key)}
-                className={`shrink-0 rounded-lg px-3.5 py-2 text-xs font-bold transition-all duration-200 ${
-                  filter === tab.key ? "bg-gradient-to-b from-emerald-500/20 to-emerald-500/10 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.06)]" : "text-zinc-500 hover:text-zinc-300"
+          <div className="flex items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.02] p-1">
+            {SORT_OPTIONS.map((opt) => (
+              <button key={opt.value} onClick={() => setSort(opt.value)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+                  sort === opt.value ? "bg-sky-500/15 text-sky-400 shadow-sm" : "text-zinc-500 hover:text-zinc-300"
                 }`}>
-                {tab.label}{counts[tab.key] > 0 ? ` (${counts[tab.key]})` : ""}
+                {opt.label}
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="flex gap-1.5 overflow-x-auto mb-6">
+          {FILTER_TABS.map((tab) => (
+            <button key={tab.key} onClick={() => setFilter(tab.key)}
+              className={`shrink-0 rounded-lg px-3.5 py-2 text-xs font-bold transition-all duration-200 ${
+                filter === tab.key ? "bg-sky-500/15 text-sky-400 shadow-sm" : "text-zinc-500 hover:text-zinc-300"
+              }`}>
+              {tab.label}{counts[tab.key] > 0 ? ` (${counts[tab.key]})` : ""}
+            </button>
+          ))}
         </div>
 
         {error && (
@@ -308,9 +435,9 @@ export default function PurchasesPage() {
         {loading ? (
           <div className="space-y-3">
             {[1,2,3].map((i) => (
-              <div key={i} className="rounded-2xl bg-white/[0.02] border border-white/[0.04] p-5 animate-pulse">
+              <div key={i} className="rounded-2xl border border-white/[0.04] bg-white/[0.02] p-4 sm:p-5 animate-pulse">
                 <div className="flex items-center gap-4">
-                  <div className="h-16 w-16 rounded-xl bg-white/[0.03]" />
+                  <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-xl bg-white/[0.03]" />
                   <div className="flex-1 space-y-2">
                     <div className="h-4 w-40 rounded bg-white/[0.03]" />
                     <div className="h-3 w-20 rounded bg-white/[0.03]" />
@@ -322,14 +449,14 @@ export default function PurchasesPage() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="mx-auto max-w-md mt-16 text-center">
-            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/[0.03] border border-white/[0.06]">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl border border-white/[0.06] bg-white/[0.02]">
               <svg className="h-8 w-8 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
               </svg>
             </div>
             <h2 className="text-2xl font-black tracking-tight text-white">Nothing here yet</h2>
             <p className="mt-2 text-sm text-zinc-500">Items you buy will show up here.</p>
-            <Link href="/" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-emerald-500/30 active:scale-[0.97]">
+            <Link href="/" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 active:scale-[0.97]">
               Browse Marketplace
             </Link>
           </div>
@@ -338,11 +465,14 @@ export default function PurchasesPage() {
             {filtered.slice(0, visibleCount).map((p) => {
               const dl = deliveryLabel(p);
               const action = nextAction(p);
+              const isService = p.deliveryMethod === "service";
+              const isRental = p.deliveryMethod === "rental";
+              const isArrange = p.paymentType === "contact";
               return (
-                <div key={p.id} className="rounded-2xl border border-white/[0.04] bg-white/[0.02] p-4 sm:p-5 transition-all duration-200 hover:bg-white/[0.04]">
+                <div key={p.id} className="group rounded-2xl border border-white/[0.04] bg-white/[0.02] p-4 sm:p-5 transition-all duration-200 hover:bg-white/[0.04] hover:border-white/[0.08]">
                   <div className="flex items-start gap-3 sm:gap-4">
                     <Link href={`/post/listing/${p.listingId}`} className="shrink-0">
-                      <div className="h-16 w-16 sm:h-20 sm:w-20 overflow-hidden rounded-xl bg-zinc-800 ring-1 ring-white/[0.06]">
+                      <div className="h-16 w-16 sm:h-20 sm:w-20 overflow-hidden rounded-xl bg-zinc-800 ring-1 ring-white/[0.06] transition-transform duration-300 group-hover:scale-[1.03]">
                         {p.listingImage ? (
                           <img src={p.listingImage} alt="" className="h-full w-full object-cover" />
                         ) : (
@@ -354,29 +484,32 @@ export default function PurchasesPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <Link href={`/post/listing/${p.listingId}`} className="text-sm font-bold text-[var(--foreground)] transition hover:text-emerald-400 line-clamp-1">{p.listingTitle}</Link>
-                          <p className="mt-0.5 text-sm font-semibold text-emerald-400">${Number(p.listingPrice).toFixed(2)}</p>
+                          <Link href={`/post/listing/${p.listingId}`} className="text-sm font-bold text-white transition hover:text-sky-400 line-clamp-1">{p.listingTitle}</Link>
+                          <p className="mt-0.5 text-sm font-semibold text-sky-400">${Number(p.listingPrice).toFixed(2)}</p>
                           <div className="mt-0.5 flex items-center gap-2 text-[11px] text-zinc-500">
-                            <Link href={`/seller/${p.sellerEmail}`} className="hover:text-emerald-400 transition-colors">Seller</Link>
+                            <Link href={`/seller/${p.sellerEmail}`} className="hover:text-sky-400 transition-colors">Seller</Link>
                             {p.createdAt && <span>· {formatDate(p.createdAt)}</span>}
                           </div>
                         </div>
-                        <div className="flex items-center gap-1.5 flex-wrap">
+                        <div className="flex items-center gap-1.5 flex-wrap shrink-0">
                           <span className={`shrink-0 rounded-full border px-3 py-0.5 text-[10px] font-bold ${STATUS_STYLES[p.status] || "bg-zinc-800/50 text-zinc-500 border-zinc-700/50"}`}>
                             {STATUS_LABELS[p.status] || p.status}
                           </span>
                           {!p.fundsReleased && p.status !== "cancelled" && p.status !== "refunded" && p.status !== "failed" && !(p as any).destinationCharge && (
-                            <span className="shrink-0 rounded-full border border-amber-500/15 bg-amber-500/[0.04] px-2.5 py-0.5 text-[9px] font-medium text-amber-400/70">
+                            <span className="shrink-0 rounded-full border border-sky-500/15 bg-sky-500/[0.04] px-2.5 py-0.5 text-[9px] font-medium text-sky-400/70">
                               🔒 Escrow
                             </span>
                           )}
                           {(p as any).destinationCharge && !p.fundsReleased && p.status !== "completed" && (
-                            <span className="shrink-0 rounded-full border border-emerald-500/15 bg-emerald-500/[0.04] px-2.5 py-0.5 text-[9px] font-medium text-emerald-400/70">
+                            <span className="shrink-0 rounded-full border border-sky-500/15 bg-sky-500/[0.04] px-2.5 py-0.5 text-[9px] font-medium text-sky-400/70">
                               💳 Paid to Seller
                             </span>
                           )}
                         </div>
                       </div>
+
+                      {/* TradeMe-style Timeline */}
+                      <PurchaseTimeline purchase={p} isService={isService} isRental={isRental} isArrange={isArrange} />
 
                       <div className="mt-2 flex items-center gap-2 text-[11px] text-zinc-500">
                         <span>{dl.icon} {dl.text}</span>
@@ -389,7 +522,6 @@ export default function PurchasesPage() {
                         </p>
                       )}
 
-                      {/* Dispute status */}
                       {p.disputeStatus && p.disputeStatus !== "resolved_seller" && (
                         <div className="mt-2 flex items-center gap-2">
                           <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${DISPUTE_STYLES[p.disputeStatus] || "bg-red-500/10 text-red-400 border-red-500/20"}`}>
@@ -398,10 +530,9 @@ export default function PurchasesPage() {
                         </div>
                       )}
 
-                      {/* Actions row */}
                       <div className="mt-3 flex items-center gap-2 flex-wrap">
-                        <Link href={`/messages?user=${encodeURIComponent(p.sellerEmail || "")}&listing=${p.listingId}`}
-                          className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-[11px] font-bold text-zinc-400 transition hover:bg-white/[0.05] hover:text-zinc-300 active:scale-[0.97]">
+                        <Link href={`/messages?user=${encodeURIComponent(p.sellerUsername || p.sellerEmail || "")}&listing=${p.listingId}`}
+                          className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-[11px] font-bold text-zinc-400 transition hover:bg-white/[0.05] hover:text-zinc-200 active:scale-[0.97]">
                           Message
                         </Link>
                         {p.deliveryMethod === "digital" && p.digitalFileURL && p.status === "delivered" && (
@@ -412,7 +543,7 @@ export default function PurchasesPage() {
                         )}
                         {p.status === "delivered" && !p.disputeStatus && (
                           <button onClick={() => { setReviewModal(p); setReviewRating(0); setReviewText(""); }}
-                            className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-1.5 text-[11px] font-bold text-amber-400 transition hover:bg-amber-500/10 active:scale-[0.97]">
+                            className="rounded-lg border border-sky-500/20 bg-sky-500/5 px-3 py-1.5 text-[11px] font-bold text-sky-400 transition hover:bg-sky-500/10 active:scale-[0.97]">
                             Review
                           </button>
                         )}
@@ -444,28 +575,22 @@ export default function PurchasesPage() {
             {visibleCount < filtered.length && (
               <div className="flex justify-center pt-2">
                 <button onClick={() => setVisibleCount(prev => prev + 10)}
-                  className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-5 py-2.5 text-xs font-bold text-zinc-400 transition hover:bg-white/[0.04] hover:text-zinc-300 active:scale-[0.97]">
+                  className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-5 py-2.5 text-xs font-bold text-zinc-400 transition hover:bg-white/[0.04] hover:text-zinc-200 active:scale-[0.97]">
                   Load More ({filtered.length - visibleCount})
                 </button>
               </div>
             )}
 
-            {/* Review Modal */}
             {reviewModal && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setReviewModal(null)}>
-                <div className="mx-4 w-full max-w-sm rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-                  <h3 className="text-lg font-black text-[var(--foreground)]">Leave a Review</h3>
-                  <p className="mt-1 text-sm text-[var(--muted)]">{reviewModal.listingTitle}</p>
-                  <div className="mt-4 flex items-center gap-1">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button key={star} onClick={() => setReviewRating(star)}
-                        className={`text-2xl transition ${star <= reviewRating ? "text-amber-400" : "text-zinc-700"}`}>★</button>
-                    ))}
-                  </div>
+                <div className="mx-4 w-full max-w-sm rounded-2xl border border-zinc-700/50 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                  <h3 className="text-lg font-black text-white">Leave a Review</h3>
+                  <p className="mt-1 text-sm text-zinc-400">{reviewModal.listingTitle}</p>
+                  <InteractiveReviewStars value={reviewRating} onChange={setReviewRating} className="mt-4" />
                   <textarea placeholder="Share your experience..." value={reviewText} onChange={(e) => setReviewText(e.target.value)}
-                    rows={3} className="mt-4 w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm text-[var(--foreground)] outline-none transition focus:border-emerald-500 placeholder:text-[var(--muted)]" />
+                    rows={3} className="mt-4 w-full rounded-xl border border-zinc-700/50 bg-zinc-800 px-4 py-3 text-sm text-white outline-none transition focus:border-sky-500 placeholder:text-zinc-500" />
                   <div className="mt-4 flex gap-3">
-                    <button onClick={() => setReviewModal(null)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700 active:scale-[0.97] transition-all">Cancel</button>
+                    <button onClick={() => setReviewModal(null)} className="flex-1 rounded-xl border border-zinc-700/50 bg-zinc-800 py-3 text-sm font-bold text-zinc-300 hover:bg-zinc-700 active:scale-[0.97] transition-all">Cancel</button>
                     <button disabled={!reviewRating || reviewSending} onClick={async () => {
                       setReviewSending(true);
                       try {
@@ -502,7 +627,7 @@ export default function PurchasesPage() {
                         showToast("Failed to submit review", "error");
                       }
                       setReviewSending(false);
-                    }} className="flex-1 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:shadow-xl active:scale-[0.97] disabled:opacity-50">
+                    }} className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97] disabled:opacity-50">
                       {reviewSending ? "Sending..." : "Submit Review"}
                     </button>
                   </div>
@@ -511,18 +636,18 @@ export default function PurchasesPage() {
             )}
           </div>
         )}
-      </section>
+      </div>
 
       {editAddress && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setEditAddress(null)}>
-          <div className="mx-4 w-full max-w-sm rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-black text-[var(--foreground)]">Update Address</h3>
-            <p className="mt-1 text-sm text-[var(--muted)]">{editAddress.listingTitle}</p>
+          <div className="mx-4 w-full max-w-sm rounded-2xl border border-zinc-700/50 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-black text-white">Update Address</h3>
+            <p className="mt-1 text-sm text-zinc-400">{editAddress.listingTitle}</p>
             <input type="text" value={newAddress} onChange={(e) => setNewAddress(e.target.value)} placeholder="New shipping address"
-              className="mt-4 w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm text-[var(--foreground)] outline-none transition focus:border-emerald-500 placeholder:text-[var(--muted)]" />
+              className="mt-4 w-full rounded-xl border border-zinc-700/50 bg-zinc-800 px-4 py-3 text-sm text-white outline-none transition focus:border-sky-500 placeholder:text-zinc-500" />
             <div className="mt-4 flex gap-3">
-              <button onClick={() => setEditAddress(null)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700 active:scale-[0.97] transition-all">Cancel</button>
-              <button onClick={saveAddress} className="flex-1 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:shadow-xl active:scale-[0.97]">Save</button>
+              <button onClick={() => setEditAddress(null)} className="flex-1 rounded-xl border border-zinc-700/50 bg-zinc-800 py-3 text-sm font-bold text-zinc-300 hover:bg-zinc-700 active:scale-[0.97] transition-all">Cancel</button>
+              <button onClick={saveAddress} className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">Save</button>
             </div>
           </div>
         </div>
@@ -530,9 +655,9 @@ export default function PurchasesPage() {
 
       {disputeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setDisputeModal(null)}>
-          <div className="mx-4 w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-black text-[var(--foreground)]">Open a Dispute</h3>
-            <p className="mt-1 text-sm text-[var(--muted)]">{disputeModal.listingTitle}</p>
+          <div className="mx-4 w-full max-w-md rounded-2xl border border-zinc-700/50 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-black text-white">Open a Dispute</h3>
+            <p className="mt-1 text-sm text-zinc-400">{disputeModal.listingTitle}</p>
             <p className="mt-3 rounded-lg border border-sky-500/20 bg-sky-500/5 px-3 py-2 text-[11px] leading-relaxed text-zinc-400">
               Admins review disputes using your <strong className="text-zinc-300">Sky Drop Messages</strong> with the seller — what was agreed, tracking, and timelines. Describe the issue below and mention anything important from chat. We cannot review SMS, WhatsApp, or email.
             </p>
@@ -540,7 +665,7 @@ export default function PurchasesPage() {
               <div>
                 <label className="text-xs font-bold text-zinc-500 mb-1 block">Reason</label>
                 <select value={disputeReason} onChange={(e) => setDisputeReason(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm text-[var(--foreground)] outline-none transition focus:border-red-500">
+                  className="w-full rounded-xl border border-zinc-700/50 bg-zinc-800 px-4 py-3 text-sm text-white outline-none transition focus:border-sky-500">
                   <option value="">Select a reason...</option>
                   <option value="not_received">Item not received</option>
                   <option value="not_as_described">Not as described</option>
@@ -554,56 +679,28 @@ export default function PurchasesPage() {
               <div>
                 <label className="text-xs font-bold text-zinc-500 mb-1 block">Describe the issue</label>
                 <textarea value={disputeDescription} onChange={(e) => setDisputeDescription(e.target.value)}
-                  rows={4} className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm text-[var(--foreground)] outline-none transition focus:border-red-500 placeholder:text-zinc-600"
+                  rows={4} className="w-full rounded-xl border border-zinc-700/50 bg-zinc-800 px-4 py-3 text-sm text-white outline-none transition focus:border-sky-500 placeholder:text-zinc-500"
                   placeholder="Explain what happened in detail..." />
               </div>
             </div>
             <div className="mt-4 flex gap-3">
-              <button onClick={() => setDisputeModal(null)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700 active:scale-[0.97] transition-all">Cancel</button>
+              <button onClick={() => setDisputeModal(null)} className="flex-1 rounded-xl border border-zinc-700/50 bg-zinc-800 py-3 text-sm font-bold text-zinc-300 hover:bg-zinc-700 active:scale-[0.97] transition-all">Cancel</button>
               <button disabled={!disputeReason || !disputeDescription.trim() || disputeSending} onClick={async () => {
                 setDisputeSending(true);
                 try {
-                  const disputeRef = await addDoc(collection(db, "disputes"), {
+                  await openDisputeRequest({
                     purchaseId: disputeModal.id,
-                    listingId: disputeModal.listingId,
-                    listingTitle: disputeModal.listingTitle,
-                    listingPrice: disputeModal.listingPrice,
-                    buyerEmail: user?.email,
-                    sellerEmail: disputeModal.sellerEmail,
                     reason: disputeReason,
                     description: disputeDescription.trim(),
-                    status: "open",
-                    stripePaymentIntentId: disputeModal.stripePaymentIntentId || "",
-                    createdAt: serverTimestamp(),
-                    updatedAt: serverTimestamp(),
-                  });
-                  await updateDoc(doc(db, "purchases", disputeModal.id), { disputeStatus: "open" });
-                  await createNotification({
-                    targetEmail: process.env.NEXT_PUBLIC_ADMIN_EMAIL || "rangitr16@gmail.com",
-                    fromEmail: user!.email!,
-                    type: "dispute_opened",
-                    title: "New Dispute Opened",
-                    message: `Dispute opened for "${disputeModal.listingTitle}" — ${disputeReason}`,
-                    listingId: disputeModal.listingId,
-                    listingTitle: disputeModal.listingTitle,
-                  });
-                  await createNotification({
-                    targetEmail: disputeModal.sellerEmail,
-                    fromEmail: user!.email!,
-                    type: "dispute_opened",
-                    title: "A dispute has been opened on your sale",
-                    message: `Buyer opened a dispute for "${disputeModal.listingTitle}" — Reason: ${disputeReason}. Admin will review both sides.`,
-                    listingId: disputeModal.listingId,
-                    listingTitle: disputeModal.listingTitle,
                   });
                   setDisputeModal(null);
                   showToast("Dispute opened. Admin will review shortly.");
                 } catch (e) {
                   console.error(e);
-                  showToast("Failed to open dispute. Try again.", "error");
+                  showToast(e instanceof Error ? e.message : "Failed to open dispute. Try again.", "error");
                 }
                 setDisputeSending(false);
-              }} className="flex-1 rounded-xl bg-gradient-to-r from-red-500 to-orange-500 py-3 text-sm font-bold text-white shadow-lg shadow-red-500/20 transition hover:shadow-xl active:scale-[0.97] disabled:opacity-50">
+              }} className="flex-1 rounded-xl bg-gradient-to-r from-red-500 to-sky-500 py-3 text-sm font-bold text-white shadow-lg shadow-red-500/20 transition hover:shadow-xl active:scale-[0.97] disabled:opacity-50">
                 {disputeSending ? "Opening..." : "Open Dispute"}
               </button>
             </div>

@@ -3,9 +3,18 @@
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import ThemeToggle from "../components/ThemeToggle";
 
 const faqs = [
+  {
+    section: "Āwhina — Sky Drop AI Assistant",
+    items: [
+      { q: "What is Āwhina?", a: "Āwhina is Sky Drop's built-in AI assistant. She can help you create listings, fill in listing details, estimate prices, answer questions about the platform, and guide you through buying and selling. You can chat with Āwhina from most pages on Sky Drop by tapping the chat bubble in the bottom-right corner." },
+      { q: "What can Āwhina do?", a: "Āwhina can auto-fill listing forms for physical items, vehicles, digital products, services, and rentals. She can suggest fair NZD prices, rewrite descriptions in a natural Kiwi seller voice, and answer questions about Sky Drop's features, payments, and policies." },
+      { q: "Does Āwhina store my conversations?", a: "Yes, if you're signed in, your conversations with Āwhina are saved so you can pick up where you left off. These are stored securely and are not shared with other users. You can start a new chat at any time." },
+    ],
+  },
   {
     section: "Buying",
     items: [
@@ -14,7 +23,7 @@ const faqs = [
       { q: "How do I pay on Arrange Purchase?", a: "After you tap Purchase, open Messages. If the seller added bank details on their profile, you'll see account info with Copy buttons. Pay only after you agree pickup or shipping in chat. Sky Drop does not move the money." },
       { q: "Why keep conversations on Sky Drop?", a: "So there is a record of price, delivery, and what was promised. For Stripe Checkout, disputes are reviewed using Messages (open from Purchases within 7 days of delivery) — we cannot see SMS, WhatsApp, or email. For Arrange Purchase, payment is between you and the seller, but staying in chat still helps if you report a problem or need admin review." },
       { q: "Is my payment protected?", a: "Stripe Checkout: yes — card payment goes to the seller's Stripe account and you can open a dispute from Purchases within 7 days. Arrange Purchase: payment is between you and the seller off-platform; keep chat on Sky Drop and trade carefully." },
-      { q: "How does Stripe Checkout work?", a: "Buy Now opens Stripe. Money goes to the seller's connected Stripe Express account (destination charges). A $1 buyer protection fee is added. Sky Drop does not hold buyer funds. Disputes are reviewed by admins; refunds go through Stripe when appropriate." },
+      { q: "How does Stripe Checkout work?", a: "Tapping Buy Now opens a secure Stripe checkout page where you pay by card. A $1 buyer protection fee is added at checkout. Funds go directly to the seller's connected Stripe Express account. Sky Drop does not hold buyer funds. Disputes are reviewed by admins; refunds go through Stripe when appropriate. For Arrange Purchase listings, payment (bank transfer, cash, etc.) is agreed in Messages and no Stripe fees apply." },
       { q: "What if the item doesn't arrive or is wrong?", a: "Stripe Checkout: open a dispute from Purchases within 7 days. Arrange Purchase: message the seller first; there is no card chargeback — choose Stripe listings when you want in-app payment protection." },
       { q: "Can I make an offer?", a: "If a seller has offers enabled, you'll see a 'Make Offer' button. Enter your offer and the seller can accept, decline, or counter." },
       { q: "How do I track my order?", a: "The seller updates the order status in their Sales page. You'll see status changes in your Purchases page: Pending → Confirmed → Shipped → Delivered. You can also message the seller directly." },
@@ -25,7 +34,7 @@ const faqs = [
     items: [
       { q: "How much does it cost to sell?", a: "Zero. Listing is free, selling is free. You only pay if you choose to promote a listing ($5 for 3 days of top placement)." },
       { q: "How do I get paid?", a: "Stripe Checkout listings: connect Stripe Express in Profile. Buyers pay by card; funds go to your Stripe account (typically 2–7 days to your bank). Arrange Purchase listings: agree payment in Messages — bank transfer, cash, etc. No Stripe required for those listings." },
-      { q: "Do I need Stripe to sell?", a: "Only if you use Stripe Checkout when posting. Choose Arrange Purchase at listing time if you want buyers to pay you directly without connecting Stripe." },
+      { q: "Do I need Stripe to sell?", a: "No. You can sell using Arrange Purchase without connecting Stripe. If you want to accept card payments through Stripe Checkout, you must connect a Stripe Express account in your Profile settings. Stripe Checkout and Arrange Purchase can be used independently." },
       { q: "How do I set up bank transfer for Arrange Purchase?", a: "Profile → Payment settings → add bank account name + number → Save bank details. When a buyer purchases, those details appear in Messages with copy buttons. Full steps: /seller-guidelines#arrange-payment" },
       { q: "I thought there was an escrow hold?", a: "Sky Drop no longer holds buyer money in escrow. Stripe Checkout uses destination charges (funds go straight to the seller's Stripe account). Arrange Purchase never touches card payments — buyer and seller arrange payment themselves in chat." },
       { q: "Are there listing limits?", a: "Yes — new sellers can have up to 5 active listings. After 3 completed sales, the limit increases to 25. After 10 sales, there's no limit. This prevents spam and builds trust with buyers." },
@@ -35,10 +44,13 @@ const faqs = [
     ],
   },
   {
-    section: "Account",
+    section: "Account & Verification",
     items: [
-      { q: "How do I sign up?", a: "Click 'Get Started' on the homepage. Sign up with your email or Google account. You must verify your email before you can list items or make purchases." },
-      { q: "Why do I need to verify my email?", a: "Email verification is required to prevent fake accounts and scams. It protects both buyers and sellers by ensuring everyone on the platform is a real person." },
+      { q: "How do I sign up?", a: "Go to /login?signup=1, or open Login and tap 'Need an account? Sign up'. Create an account with email and password. A verification email is sent right after signup. Phone number is optional — you can add and verify one later on your Profile." },
+      { q: "Why do I need to provide a phone number?", a: "You don't have to at signup — phone is optional. Adding and verifying a phone on Profile helps prevent fake accounts and shows a Verified badge on your listings. Your number is stored securely and is not shared publicly." },
+      { q: "Why do I need to verify my email and phone?", a: "Email verification helps secure your account and is required before buying. Phone verification is optional — it adds a Verified badge to your listings and profile. ID verification (KYC) is required before you can list items for sale." },
+      { q: "What is KYC verification?", a: "KYC (Know Your Customer) is identity verification for sellers. Completing KYC is required before you can list items for sale. KYC helps prevent fraud and ensures buyers know they're dealing with real, accountable people." },
+      { q: "What information do you store?", a: "We store information required to operate and secure the marketplace, including: profile information, email address, phone number, listings and listing images, messages sent through Sky Drop, transaction and order history, seller verification records, identity verification information (where applicable), and device, security, and fraud-prevention data. Payment information is processed securely by Stripe. Sky Drop does not store your full card details. For more information, please see our Privacy Policy." },
       { q: "How do I change my password?", a: "Go to your Profile page and scroll to the 'Security & Phone' section. Enter your current and new password, then click Update." },
       { q: "Can I delete my account?", a: "Yes — on your Profile page, scroll to the bottom. Type 'DELETE' and click Delete. This removes your profile and all data permanently." },
     ],
@@ -46,13 +58,14 @@ const faqs = [
   {
     section: "Trust & Safety",
     items: [
-      { q: "How does Sky Drop prevent scams?", a: "Listings are scanned before going live, sellers verify email and phone, new sellers have listing limits, and Stripe Checkout keeps card payments on-platform. Messaging warns you about risky off-platform contact. For Arrange Purchase, keep agreements in chat and prefer verified sellers." },
+      { q: "How does Sky Drop prevent scams?", a: "Sky Drop uses multiple layers of protection including email verification, phone verification, seller verification, listing limits for new sellers, fraud monitoring, dispute review processes, and identity verification requirements for eligible sellers." },
       { q: "How do I report a user or listing?", a: "On a seller's profile page, click 'Report'. On a listing, click 'Report listing' below the seller info. Select a reason and submit. Reports are reviewed by an admin." },
-      { q: "What should I do if a transaction goes wrong?", a: "First, message the seller through the platform. If that doesn't resolve it, open a dispute from your Purchases page within 7 days. An admin reviews the case and can issue a full refund, processed through Stripe's payment system." },
+      { q: "What should I do if a transaction goes wrong?", a: "Stripe Checkout: open a dispute within 7 days from your Purchases page. An admin will review evidence from both parties and, where appropriate, refunds will be processed through Stripe. Arrange Purchase: contact the seller through Messages first. While Arrange Purchase transactions are completed directly between buyer and seller, Sky Drop may review available evidence and take action against accounts that violate marketplace rules." },
       { q: "How do I spot a scam?", a: "On Stripe listings, only use Buy Now — never send gift cards or crypto to 'hold' an item. On Arrange Purchase, bank transfer after agreeing in chat is normal — but keep the conversation on Sky Drop. Report anyone pressuring you to pay before you've agreed terms in Messages." },
-      { q: "Can I trust seller reviews?", a: "Yes — only verified buyers who actually purchased the item can leave a review. This prevents fake reviews and ensures ratings reflect real experiences. Reviews can't be edited after submission." },
-      { q: "Can I block another user?", a: "Yes — go to their seller profile and click 'Block'. Blocked users can't message you. You can manage blocked users in your Messages settings." },
-      { q: "What information do you store?", a: "We store your profile info, listings, messages, and transaction history. All payments are handled by Stripe — we never store your card details. See our Privacy Policy for full details." },
+      { q: "Can I trust seller reviews?", a: "Only buyers who completed a transaction through Sky Drop can leave a review. This helps ensure reviews reflect genuine marketplace experiences and reduces fake or manipulated ratings." },
+      { q: "Can I block another user?", a: "Yes — go to their seller profile and click 'Block'. Blocked users can't message you. View and manage blocked users at /blocked." },
+      { q: "Messages or verification not working? Ad blockers", a: "Some browser extensions (uBlock Origin, AdGuard, Brave Shields, etc.) block Firebase requests and show ERR_BLOCKED_BY_CLIENT in the console. Sky Drop then cannot load messages, notifications, or save seller verification. Fix: disable the blocker for skydrop.co.nz, or whitelist firestore.googleapis.com, firebasestorage.googleapis.com, and identitytoolkit.googleapis.com. Seller verification uploads through our server when possible, so whitelisting skydrop.co.nz alone is usually enough." },
+      { q: "What happens if someone commits fraud?", a: "Fraudulent activity is not tolerated. Accounts involved in scams, deception, or illegal activity may be permanently removed from the platform and may be referred to law enforcement agencies or other appropriate authorities where legally required." },
     ],
   },
 ];
@@ -68,6 +81,7 @@ export default function FAQsPage() {
         </Link>
         <p className="text-xs uppercase tracking-wider text-[var(--muted)]">Help</p>
         <h1 className="mt-1 text-2xl font-black text-[var(--foreground)]">Frequently Asked Questions</h1>
+        <AwhinaUnderHeader className="mt-2" />
         <p className="mt-2 text-sm text-[var(--muted)]">Everything you need to know about buying and selling on Sky Drop.</p>
 
         <div className="mt-8 space-y-8">
