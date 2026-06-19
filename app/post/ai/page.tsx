@@ -333,15 +333,15 @@ export default function AIPostPage() {
       const msg =
         fill.listingType === "digital"
           ? isUpdate
-            ? "Āwhina updated your listing — upload your digital file, then publish"
-            : "Āwhina filled your listing — upload your digital file, then publish"
+            ? "Āwhina updated your listing — upload your digital file, then click Post Now"
+            : "Āwhina filled your listing — upload your digital file, then click Post Now"
           : imagePreviews.length > 0
             ? isUpdate
-              ? "Āwhina updated your listing — review and publish"
-              : "Āwhina filled your listing — review and publish"
+              ? "Āwhina updated your listing — review and click Post Now"
+              : "Āwhina filled your listing — review and click Post Now"
             : isUpdate
-              ? "Āwhina updated your listing — add photos and publish"
-              : "Āwhina filled your listing — add photos and publish";
+              ? "Āwhina updated your listing — add photos and click Post Now"
+              : "Āwhina filled your listing — add photos and click Post Now";
       showToast(msg);
       setTimeout(() => {
         document.getElementById("listing-title")?.scrollIntoView({ behavior: "smooth", block: "center" });
