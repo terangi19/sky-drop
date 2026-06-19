@@ -220,12 +220,12 @@ export default function WatchlistPage() {
         </Link>
 
         <div className="relative mb-8 sm:mb-10 text-center">
-          <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/5 via-sky-300/5 to-transparent blur-3xl pointer-events-none" />
-          <div className="relative inline-flex items-center gap-2 rounded-full border border-sky-500/15 bg-sky-500/5 px-3 py-1 text-[10px] font-bold text-sky-400 mb-4 tracking-wide uppercase">
+          <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/10 via-sky-300/5 to-purple-500/10 blur-3xl pointer-events-none" />
+          <div className="relative inline-flex items-center gap-2 rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-[10px] font-bold text-sky-300 mb-4 tracking-wide uppercase">
             <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" /></svg>
             Saved Items
           </div>
-          <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
+          <h1 className="relative text-3xl sm:text-4xl font-black tracking-tight">
             <span className="bg-gradient-to-r from-white via-sky-200 to-white bg-clip-text text-transparent">Watchlist</span>
           </h1>
           <BrowseAwhinaAssistantPanel className="mt-4 mb-0 mx-auto w-full max-w-2xl text-left" />
@@ -249,7 +249,7 @@ export default function WatchlistPage() {
           <>
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
               <div className="relative flex-1 max-w-xs">
-                <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-sky-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
                 </svg>
                 <input
@@ -257,18 +257,18 @@ export default function WatchlistPage() {
                   placeholder="Search watchlist..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10"
+                  className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10"
                 />
               </div>
-              <div className="flex items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.02] p-1">
+              <div className="flex items-center gap-1 rounded-xl border border-white/[0.08] bg-white/[0.02] p-1">
                 {SORT_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
                     onClick={() => setSortBy(opt.value)}
                     className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
                       sortBy === opt.value
-                        ? "bg-sky-500/15 text-sky-400 shadow-sm"
-                        : "text-zinc-500 hover:text-zinc-300"
+                        ? "bg-sky-500/15 text-sky-300 border border-sky-500/20"
+                        : "text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.03]"
                     }`}
                   >
                     {opt.label}
@@ -278,7 +278,7 @@ export default function WatchlistPage() {
               {filteredWatchlist.length > 0 && (
                 <button
                   onClick={() => setClearConfirm(true)}
-                  className="rounded-xl border border-red-500/15 bg-red-500/5 px-4 py-2.5 text-xs font-bold text-red-400 transition hover:bg-red-500/15 active:scale-[0.97] shrink-0"
+                  className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2.5 text-xs font-bold text-red-400 transition hover:bg-red-500/15 active:scale-[0.97] shrink-0"
                 >
                   Clear all
                 </button>

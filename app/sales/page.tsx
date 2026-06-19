@@ -326,12 +326,12 @@ export default function SalesPage() {
           Back
         </Link>
         <div className="relative mb-8 sm:mb-10 text-center">
-          <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/5 via-sky-300/5 to-transparent blur-3xl pointer-events-none" />
-          <div className="relative inline-flex items-center gap-2 rounded-full border border-sky-500/15 bg-sky-500/5 px-3 py-1 text-[10px] font-bold text-sky-400 mb-4 tracking-wide uppercase">
+          <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/10 via-sky-300/5 to-purple-500/10 blur-3xl pointer-events-none" />
+          <div className="relative inline-flex items-center gap-2 rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-[10px] font-bold text-sky-300 mb-4 tracking-wide uppercase">
             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" /></svg>
             Seller
           </div>
-          <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
+          <h1 className="relative text-3xl sm:text-4xl font-black tracking-tight">
             <span className="bg-gradient-to-r from-white via-sky-200 to-white bg-clip-text text-transparent">Sales</span>
           </h1>
           <BrowseAwhinaAssistantPanel className="mt-4 mb-0 mx-auto w-full max-w-2xl text-left" />
@@ -339,7 +339,7 @@ export default function SalesPage() {
 
         <div ref={ordersRef} />
         {/* Status filter tabs */}
-        <div className="flex gap-1.5 overflow-x-auto mb-6">
+        <div className="flex gap-1 overflow-x-auto mb-6 rounded-xl border border-white/[0.08] bg-white/[0.02] p-1">
           {[
             { key: "active", label: "Active" },
             { key: "completed", label: "Completed" },
@@ -348,7 +348,7 @@ export default function SalesPage() {
           ].map((tab) => (
             <button key={tab.key} onClick={() => setFilter(tab.key)}
               className={`shrink-0 rounded-lg px-3.5 py-2 text-xs font-bold transition-all duration-200 ${
-                filter === tab.key ? "bg-gradient-to-b from-sky-500/20 to-sky-500/10 text-sky-400 shadow-[0_0_15px_rgba(99,102,241,0.06)]" : "text-zinc-500 hover:text-zinc-300"
+                filter === tab.key ? "bg-sky-500/15 text-sky-300 border border-sky-500/20" : "text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.03]"
               }`}>
               {tab.label}{counts[tab.key] > 0 ? ` (${counts[tab.key]})` : ""}
             </button>
@@ -396,10 +396,11 @@ export default function SalesPage() {
         ) : (
           <div className="space-y-3">
             {filtered.map((s) => (
-              <div key={s.id} className="rounded-2xl border border-white/[0.04] bg-white/[0.02] p-4 sm:p-5 transition-all duration-200 hover:bg-white/[0.04]">
+              <div key={s.id} className="group relative overflow-hidden rounded-2xl border border-white/[0.06] bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-4 sm:p-5 transition-all duration-200 hover:bg-white/[0.06] hover:border-white/[0.10] hover:shadow-lg hover:shadow-black/20">
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="flex items-start gap-3 sm:gap-4">
                   <Link href={`/post/listing/${s.listingId}`} className="shrink-0">
-                    <div className="h-16 w-16 sm:h-20 sm:w-20 overflow-hidden rounded-xl bg-zinc-800 ring-1 ring-white/[0.06]">
+                    <div className="h-16 w-16 sm:h-20 sm:w-20 overflow-hidden rounded-xl bg-gradient-to-br from-zinc-800 to-zinc-900 ring-2 ring-white/[0.06] transition-transform duration-300 group-hover:scale-[1.03]">
                       {s.listingImage ? (
                         <img src={s.listingImage} alt="" className="h-full w-full object-cover" />
                       ) : (

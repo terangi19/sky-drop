@@ -1020,16 +1020,20 @@ export default function AIPostPage() {
 
         {/* Header */}
         <div className="mb-6 text-center">
-          <Link href="/" className="inline-flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-[var(--foreground)] transition hover:border-zinc-700 hover:bg-zinc-800/60 mb-5">
+          <Link href="/" className="inline-flex items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-2 text-sm text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-sky-500/10 hover:text-sky-300 mb-5">
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
             Back
           </Link>
           <div className="relative flex flex-col items-center">
-            <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/5 via-sky-500/5 to-sky-500/5 blur-3xl pointer-events-none" />
-            <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
-              <span className="text-[#0a1628] drop-shadow-[0_0_12px_rgba(14,165,233,0.15)] dark:text-white dark:drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">{editId ? "Edit Listing" : "Quick Post"}</span>
+            <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/10 via-sky-500/5 to-purple-500/10 blur-3xl pointer-events-none" />
+            <div className="relative mb-3 inline-flex items-center gap-2 rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-[11px] font-bold text-sky-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-sky-400 animate-pulse" />
+              {editId ? "Edit Listing" : "AI-Powered Listing"}
+            </div>
+            <h1 className="relative text-3xl sm:text-4xl font-black tracking-tight text-white">
+              {editId ? "Edit Your Listing" : "Create a Listing"}
             </h1>
-            <p className="relative mt-3 max-w-xl mx-auto text-sm leading-relaxed text-[#1e4976] dark:text-white">Sell faster with Āwhina. Describe your item or upload photos, and Āwhina will help create a professional listing in minutes.</p>
+            <p className="relative mt-3 max-w-xl mx-auto text-sm leading-relaxed text-zinc-400">Describe your item or upload photos, and Āwhina will help you create a professional listing in minutes.</p>
           </div>
         </div>
 
@@ -1061,7 +1065,8 @@ export default function AIPostPage() {
 
         {!editId && (
           <div className="mb-6">
-            <div className="relative overflow-hidden rounded-2xl border border-[#D6ECFF] bg-white p-5 shadow-[0_4px_24px_rgba(14,165,233,0.08)] dark:border-sky-500/20 dark:bg-gradient-to-br dark:from-sky-500/[0.06] dark:via-sky-500/[0.04] dark:to-zinc-950/80 dark:shadow-[0_0_40px_rgba(14,165,233,0.08)]">
+            <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-sky-500/[0.08] via-sky-500/[0.04] to-zinc-950/80 p-5 shadow-[0_0_40px_rgba(14,165,233,0.08)]">
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
               <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-sky-500/10 blur-2xl pointer-events-none" />
               <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex gap-3 min-w-0">
@@ -1069,9 +1074,9 @@ export default function AIPostPage() {
                     ✦
                   </span>
                   <div className="min-w-0">
-                    <h2 className="text-base font-bold text-[#111827] dark:text-white">Āwhina</h2>
-                    <p className="mt-1 text-xs leading-relaxed text-[#6B7280] dark:text-zinc-400">
-                      Tell me what you&apos;re selling and I&apos;ll help fill the listing for you 🙂
+                    <h2 className="text-base font-bold text-white">Āwhina</h2>
+                    <p className="mt-1 text-xs leading-relaxed text-zinc-400">
+                      Tell me what you&apos;re selling and I&apos;ll help fill the listing for you
                     </p>
                   </div>
                 </div>
@@ -1079,14 +1084,14 @@ export default function AIPostPage() {
                   <button
                     type="button"
                     onClick={() => setShowAwhinaGuide(true)}
-                    className="shrink-0 rounded-xl border border-sky-500/20 bg-sky-500/5 px-4 py-2.5 text-sm font-bold text-sky-400 hover:bg-sky-500/10"
+                    className="shrink-0 rounded-xl border border-sky-500/20 bg-sky-500/5 px-4 py-2.5 text-sm font-bold text-sky-400 hover:bg-sky-500/10 transition-colors"
                   >
-                    What's this?
+                    What&apos;s this?
                   </button>
                   <button
                     type="button"
                     onClick={() => setSkyChatOpen((v) => !v)}
-                    className="shrink-0 rounded-xl bg-gradient-to-r from-sky-500 to-sky-500 px-4 py-2.5 text-sm font-bold text-white shadow-[0_0_20px_rgba(14,165,233,0.25)] hover:brightness-110 active:scale-[0.98]"
+                    className="shrink-0 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-4 py-2.5 text-sm font-bold text-white shadow-[0_0_20px_rgba(14,165,233,0.25)] hover:brightness-110 active:scale-[0.98] transition-all"
                   >
                     {skyChatOpen ? "Hide chat" : "Ask Āwhina"}
                   </button>
@@ -1103,7 +1108,7 @@ export default function AIPostPage() {
                         setSkyAutoQuery(undefined);
                         setTimeout(() => setSkyAutoQuery(p.query), 0);
                       }}
-                      className="rounded-full border border-sky-500/25 bg-sky-500/10 px-2.5 py-1 text-[10px] font-semibold text-sky-300 hover:bg-sky-500/20"
+                      className="rounded-full border border-sky-500/25 bg-sky-500/10 px-2.5 py-1 text-[10px] font-semibold text-sky-300 hover:bg-sky-500/20 transition-colors"
                     >
                       {p.label}
                     </button>
@@ -1126,8 +1131,9 @@ export default function AIPostPage() {
 
         {/* Form Card */}
         <div className="relative">
-          <div className="absolute -inset-1 rounded-3xl bg-gradient-to-b from-sky-500/10 via-sky-500/5 to-transparent blur-xl pointer-events-none" />
-          <div className="relative rounded-2xl border border-[#D6ECFF] bg-white p-6 shadow-[0_4px_24px_rgba(14,165,233,0.06)] dark:border-white/[0.06] dark:bg-zinc-950/80 dark:shadow-2xl dark:shadow-black/40 sm:p-8">
+          <div className="absolute -inset-1 rounded-3xl bg-gradient-to-b from-sky-500/15 via-sky-500/5 to-purple-500/10 blur-xl pointer-events-none" />
+          <div className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-zinc-950/90 to-zinc-950/70 p-6 shadow-2xl shadow-black/40 backdrop-blur-xl sm:p-8">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
 
         {/* SCAM ALERT MODAL */}
         {scamAlert && (
@@ -1180,22 +1186,26 @@ export default function AIPostPage() {
 
         <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-500">
           {/* Progress Indicator */}
-          <div className="flex items-center justify-between rounded-xl bg-zinc-800/40 p-3 border border-zinc-700/50">
-            <div className="flex items-center gap-2">
-              <div className={`h-2 w-2 rounded-full ${formStep >= 1 ? 'bg-sky-500' : 'bg-zinc-600'}`} />
-              <span className={`text-xs font-medium ${formStep >= 1 ? 'text-sky-400' : 'text-zinc-500'}`}>Details</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className={`h-2 w-2 rounded-full ${formStep >= 2 ? 'bg-sky-500' : 'bg-zinc-600'}`} />
-              <span className={`text-xs font-medium ${formStep >= 2 ? 'text-sky-400' : 'text-zinc-500'}`}>Pricing</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className={`h-2 w-2 rounded-full ${formStep >= 3 ? 'bg-sky-500' : 'bg-zinc-600'}`} />
-              <span className={`text-xs font-medium ${formStep >= 3 ? 'text-sky-400' : 'text-zinc-500'}`}>Delivery</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className={`h-2 w-2 rounded-full ${formStep >= 4 ? 'bg-sky-500' : 'bg-zinc-600'}`} />
-              <span className={`text-xs font-medium ${formStep >= 4 ? 'text-sky-400' : 'text-zinc-500'}`}>Review</span>
+          <div className="relative rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+            <div className="absolute inset-x-0 top-1/2 mx-12 h-0.5 -translate-y-1/2 bg-zinc-700/50" />
+            <div className="relative grid grid-cols-4 gap-2">
+              {[
+                { step: 1, label: "Details" },
+                { step: 2, label: "Pricing" },
+                { step: 3, label: "Delivery" },
+                { step: 4, label: "Review" },
+              ].map(({ step, label }) => {
+                const active = formStep >= step;
+                const current = formStep === step;
+                return (
+                  <div key={step} className="flex flex-col items-center gap-2">
+                    <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all duration-300 ${active ? "bg-gradient-to-br from-sky-500 to-sky-400 text-white shadow-lg shadow-sky-500/20" : current ? "border-2 border-sky-500 bg-zinc-900 text-sky-400" : "border border-zinc-700 bg-zinc-800 text-zinc-500"}`}>
+                      {step}
+                    </div>
+                    <span className={`text-[11px] font-medium ${active ? "text-sky-400" : "text-zinc-500"}`}>{label}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -1940,7 +1950,7 @@ export default function AIPostPage() {
                       ? !price
                       : !price)
             }
-            className="w-full rounded-xl bg-gradient-to-r from-sky-600 to-sky-500 py-4 text-lg font-bold text-white shadow-xl shadow-sky-500/30 transition-all duration-200 hover:shadow-2xl hover:shadow-sky-500/40 hover:brightness-110 hover:from-sky-500 hover:to-sky-400 active:scale-[0.98] disabled:opacity-40 disabled:shadow-none disabled:hover:brightness-100 disabled:from-sky-600 disabled:to-sky-500">
+            className="w-full rounded-2xl bg-gradient-to-r from-sky-500 to-sky-400 py-4 text-lg font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-200 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:brightness-110 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 disabled:opacity-40 disabled:shadow-none disabled:hover:brightness-100 disabled:hover:translate-y-0">
             {loading ? (
               <span className="flex items-center justify-center gap-2">
                 <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none">
