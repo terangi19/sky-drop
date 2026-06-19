@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
+import { AwhinaUnderHeader } from "../../components/AwhinaOnlineBadge";
 import { showToast } from "../../components/Toast";
 
 import {
@@ -293,6 +294,7 @@ export default function ListingPage() {
         <h1 className="text-5xl font-black text-sky-400">
           Live Listings
         </h1>
+        <AwhinaUnderHeader className="mt-3" />
 
         <p className="mt-3 text-[var(--foreground)]">
           Browse real items posted on Sky Drop.

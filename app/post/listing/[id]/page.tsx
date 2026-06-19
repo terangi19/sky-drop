@@ -12,10 +12,11 @@ import JobApplicationModal from "../../../components/JobApplicationModal";
 import { showToast } from "../../../components/Toast";
 import { createNotification } from "../../../lib/notifications";
 import { User } from "firebase/auth";
-import { addDoc, collection, doc, getDoc, getDocs, increment, onSnapshot, query, runTransaction, serverTimestamp, updateDoc, where, Timestamp, setDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, increment, onSnapshot, query, serverTimestamp, updateDoc, where, Timestamp, setDoc } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../../../lib/firebase";
 import { detectScam } from "../../../lib/scamdetection";
 import { calculateTrustScore } from "../../../lib/trustscore";
+import { isFullyVerifiedSeller, profileEmailVerified } from "../../../lib/seller-verified";
 import { detectSuspiciousPrice } from "../../../lib/pricedetection";
 import { safeGetDoc, safeOnSnapshot, parseFirestoreError, isOnline } from "../../../lib/firestore";
 import { getFreshIdToken } from "../../../lib/api-auth";
@@ -28,6 +29,10 @@ import {
   countBuyerPurchasedQuantity,
   getBuyerPurchaseUiState,
 } from "../../../lib/buyer-purchase-ui";
+import { ReviewStars } from "../../../components/SellerReviewStars";
+import ServicePricingBadge from "../../../components/ServicePricingBadge";
+import { formatServicePriceDisplay } from "../../../lib/service-pricing";
+import { sendMessage } from "../../../lib/api-send-message";
 
 function getBidIncrement(price: number): number {
   if (price < 50) return 1;
@@ -120,6 +125,8 @@ interface SellerProfile {
   verified?: boolean;
   trustedSeller?: boolean;
   phoneVerified?: boolean;
+  emailVerified?: boolean;
+  kycStatus?: string;
   profileBadge?: string;
   [key: string]: unknown;
 }
@@ -207,7 +214,7 @@ export default function ListingPage() {
         return;
       }
       router.push(
-        `/messages?user=${encodeURIComponent(data.sellerEmail || listing.sellerEmail || "")}&listing=${listingId}`
+        `/messages?user=${encodeURIComponent(listing.sellerUsername || data.sellerEmail || listing.sellerEmail || "")}&listing=${listingId}`
       );
     } catch (e) {
       console.error("Arrange purchase failed:", e);
@@ -217,12 +224,17 @@ export default function ListingPage() {
     }
   }
 
-  // Auto-open Stripe checkout if navigated with ?buy=1 (not for Arrange Purchase listings)
+  // Auto-open checkout if navigated with ?buy=1 (Stripe for regular, Arrange Purchase for contact listings)
   useEffect(() => {
     if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("buy") === "1" && user?.email && listing) {
-      if (isContactListing) return;
+      if (listing.pricingType === "quote") return;
       if (isAuctionWinner) {
         setWinningBid(listing.currentBid || listing.startingBid || 0);
+      }
+      if (isContactListing) {
+        // For contact listings, trigger arrange purchase instead
+        handleArrangePurchase();
+        return;
       }
       const t = setTimeout(() => openStripeCheckout(), 0);
       return () => clearTimeout(t);
@@ -295,11 +307,27 @@ export default function ListingPage() {
 
     safeGetDoc(docRef).then((snap) => {
       if (!snap?.exists() || !mounted) return;
-      const sellerEmail = snap.data().sellerEmail as string | undefined;
+      const listingData = snap.data();
+      const sellerId = listingData.sellerId as string | undefined;
+      const sellerEmail = listingData.sellerEmail as string | undefined;
+
+      if (sellerId) {
+        getDoc(doc(db, "profiles", sellerId))
+          .then((profileSnap) => {
+            if (profileSnap.exists() && mounted) {
+              setSellerProfile(profileSnap.data() as SellerProfile);
+            }
+          })
+          .catch((e) => console.error("Failed to fetch seller profile:", e));
+      } else if (sellerEmail && auth.currentUser) {
+        getDocs(query(collection(db, "profiles"), where("email", "==", sellerEmail)))
+          .then((profileSnap) => {
+            if (!profileSnap.empty && mounted) setSellerProfile(profileSnap.docs[0].data() as SellerProfile);
+          })
+          .catch((e) => console.error("Failed to fetch seller profile:", e));
+      }
+
       if (!sellerEmail) return;
-      getDocs(query(collection(db, "profiles"), where("email", "==", sellerEmail))).then((profileSnap) => {
-        if (!profileSnap.empty && mounted) setSellerProfile(profileSnap.docs[0].data() as SellerProfile);
-      }).catch((e) => console.error("Failed to fetch seller profile:", e));
       getDocs(query(collection(db, "reports"), where("reportedUserEmail", "==", sellerEmail), where("status", "==", "pending"))).then((reportsSnap) => {
         if (mounted) setSellerReportsCount(reportsSnap.size);
       }).catch((e) => console.error("Failed to fetch reports:", e));
@@ -518,7 +546,7 @@ export default function ListingPage() {
     if (!sellerProfile) return null;
     const memberDate = sellerProfile.memberSince?.toDate ? sellerProfile.memberSince.toDate() : null;
     return calculateTrustScore({
-      emailVerified: true,
+      emailVerified: profileEmailVerified(sellerProfile),
       hasProfile: true,
       hasBio: !!sellerProfile.bio,
       hasPhoto: !!sellerProfile.photoURL,
@@ -528,10 +556,14 @@ export default function ListingPage() {
     });
   }, [sellerProfile, sellerReportsCount, sellerReviewData?.count]);
 
+  const isFullyVerified = useMemo(
+    () => (sellerProfile ? isFullyVerifiedSeller(sellerProfile) : false),
+    [sellerProfile]
+  );
+
   const isNotVerified = useMemo(() => {
     if (!sellerProfile) return false;
-    const hasVerified = sellerProfile?.verified || sellerProfile?.phoneVerified;
-    return !hasVerified;
+    return !isFullyVerifiedSeller(sellerProfile);
   }, [sellerProfile]);
 
   const isNewSeller = useMemo(() => {
@@ -541,7 +573,7 @@ export default function ListingPage() {
     if (daysOld > 7) return false;
     if (sellerProfile.photoURL) return false;
     if ((sellerReviewData?.count || 0) > 0) return false;
-    if (sellerProfile.verified) return false;
+    if (isFullyVerifiedSeller(sellerProfile)) return false;
     return true;
   }, [sellerProfile, sellerReviewData?.count]);
 
@@ -559,23 +591,18 @@ export default function ListingPage() {
     setOfferSending(true);
     try {
       const title = listing.title || "Unknown";
-      await addDoc(collection(db, "messages"), {
-        sender: user.email,
-        receiver: listing.sellerEmail,
-        participants: [user.email, listing.sellerEmail],
+      await sendMessage({
         type: "offer",
-        offerType: "make",
-        offerAmount: Number(offerAmount),
-        offerStatus: "pending",
         text: `Offer: $${offerAmount}`,
+        receiver: listing.sellerEmail,
         listingId: listing.id,
         listingTitle: listing.title,
         listingImage: listing.images?.[0] || listing.imageUrl || "",
         listingPrice: listing.price,
-        read: false,
-        createdAt: serverTimestamp(),
+        offerType: "make",
+        offerAmount: Number(offerAmount),
+        offerStatus: "pending",
       });
-      setOfferSent(true);
     } catch (e) {
       console.error("Failed to send offer:", e);
       showToast("Failed to send offer", "error");
@@ -595,124 +622,32 @@ export default function ListingPage() {
     const amount = Number(bidAmount);
     if (amount <= 0) { showToast("Enter a valid bid", "info"); return; }
 
-    if (!autoBidEnabled) {
-      try {
-        await runTransaction(db, async (transaction) => {
-          const ref = doc(db, "listings", listing.id);
-          const snap = await transaction.get(ref);
-          if (!snap.exists()) throw new Error("Listing not found");
-          const current = snap.data();
-          const currentBid = current.currentBid || current.startingBid || 0;
-          const minNext = getMinimumNextBid(currentBid);
-          if (current.auctionEndsAt && current.auctionEndsAt.toMillis() < Date.now()) throw new Error("Auction has ended");
-          if (!isListingAvailableForPurchase(current)) throw new Error("Listing is no longer available");
-          if (amount < minNext) throw new Error("Minimum bid is $" + minNext);
-          if (current.reservePrice && amount < current.reservePrice)
-            throw new Error("Bid must meet the reserve price of $" + current.reservePrice);
-          transaction.update(ref, {
-            currentBid: amount,
-            highestBidder: user.email,
-            bidCount: (current.bidCount || 0) + 1,
-          });
-        });
-        setShowBidModal(false);
-        setBidAmount("");
-        showToast("Bid placed!", "success");
-      } catch (e: any) {
-        console.error(e);
-        showToast(e.message || "Failed to place bid", "error");
-      }
-      return;
-    }
-
-    const newMax = amount;
-    let changes: any = {};
-    let outbidUser: string | null = null;
+    const token = await auth.currentUser?.getIdToken(true);
+    if (!token) { showToast("Please sign in again", "error"); return; }
 
     try {
-      await runTransaction(db, async (transaction) => {
-        const ref = doc(db, "listings", listing.id);
-        const snap = await transaction.get(ref);
-        if (!snap.exists()) throw new Error("Listing not found");
-
-        const current = snap.data();
-        const startingBid = current.startingBid || 0;
-
-        if (current.auctionEndsAt && current.auctionEndsAt.toMillis() < Date.now())
-          throw new Error("Auction has ended");
-        if (!isListingAvailableForPurchase(current))
-          throw new Error("Listing is no longer available");
-
-        const currentBid = current.currentBid || startingBid;
-        const currentMaxBid = current.currentMaxBid || 0;
-        const secondMaxBid = current.secondMaxBid || 0;
-
-        if (current.reservePrice && newMax < current.reservePrice)
-          throw new Error("Bid must meet the reserve price of $" + current.reservePrice);
-
-        if (!current.highestBidder) {
-          if (newMax < startingBid)
-            throw new Error("Bid must be at least $" + startingBid);
-          changes = {
-            currentBid: startingBid,
-            currentMaxBid: newMax,
-            secondMaxBid: 0,
-            highestBidder: user.email,
-            bidCount: (current.bidCount || 0) + 1,
-          };
-        } else if (current.highestBidder === user.email) {
-          if (newMax <= currentMaxBid)
-            throw new Error("Your max bid is already $" + currentMaxBid + " or higher");
-          changes = { currentMaxBid: newMax };
-        } else {
-          const minNext = getMinimumNextBid(currentBid);
-          if (newMax < minNext)
-            throw new Error("Minimum bid is $" + minNext);
-
-          if (newMax > currentMaxBid) {
-            const inc = getBidIncrement(currentBid);
-            const newPrice = Math.min(newMax, currentMaxBid + inc);
-            outbidUser = current.highestBidder;
-            changes = {
-              currentBid: newPrice,
-              currentMaxBid: newMax,
-              secondMaxBid: Math.max(secondMaxBid, currentMaxBid),
-              highestBidder: user.email,
-              bidCount: (current.bidCount || 0) + 1,
-            };
-          } else if (newMax > secondMaxBid) {
-            const inc = getBidIncrement(currentBid);
-            const newPrice = Math.min(currentMaxBid, newMax + inc);
-            if (newPrice > currentBid) {
-              changes = {
-                currentBid: newPrice,
-                secondMaxBid: newMax,
-                bidCount: (current.bidCount || 0) + 1,
-              };
-            } else {
-              throw new Error("Bid too low to change current price");
-            }
-          } else {
-            throw new Error("Bid must be at least $" + getMinimumNextBid(secondMaxBid));
-          }
-        }
-
-        if (current.auctionEndsAt) {
-          const msLeft = current.auctionEndsAt.toMillis() - Date.now();
-          if (msLeft > 0 && msLeft < 300000) {
-            const newEnd = new Date(Date.now() + 300000);
-            changes.auctionEndsAt = Timestamp.fromDate(newEnd);
-            changes.auctionExtended = true;
-          }
-        }
-
-        transaction.update(ref, changes);
+      const res = await fetch("/api/place-bid", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          listingId: listing.id,
+          amount,
+          autoBid: autoBidEnabled,
+        }),
       });
 
-      setListing((prev) => prev ? { ...prev, ...changes } : prev);
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to place bid");
+      }
+
+      setListing((prev) => prev ? { ...prev, currentBid: data.currentBid } : prev);
       setShowBidModal(false);
       setBidAmount("");
-      showToast("Auto bid placed!", "success");
+      showToast("Bid placed!", "success");
 
       try {
         const { createNotification } = await import("../../../lib/notifications");
@@ -721,31 +656,26 @@ export default function ListingPage() {
           fromEmail: user.email,
           type: "bid",
           title: "New bid on your listing",
-          message: `${user.email} bid $${newMax} on "${listing.title}"`,
+          message: `${user.email} bid $${amount} on "${listing.title}"`,
           listingId: listing.id,
           listingTitle: listing.title,
           listingImage: listing.images?.[0] || listing.imageUrl,
-          total: Number(newMax),
+          total: Number(amount),
         });
-        // Bid confirmation to bidder
         await createNotification({
           targetEmail: user.email || "",
           fromEmail: listing.sellerEmail || "",
           type: "bid_confirmation",
           title: "Bid Placed",
-          message: `Your bid of $${newMax} has been placed on "${listing.title}".\n\nWe'll notify you if you're outbid.`,
+          message: `Your bid of $${amount} has been placed on "${listing.title}".\n\nWe'll notify you if you're outbid.`,
           listingId: listing.id,
           listingTitle: listing.title,
           listingImage: listing.images?.[0] || listing.imageUrl,
-          total: Number(newMax),
+          total: Number(amount),
         });
-      } catch (_) {}
-
-      if (outbidUser && outbidUser !== listing.sellerEmail) {
-        try {
-          const { createNotification } = await import("../../../lib/notifications");
+        if (data.outbidUser && data.outbidUser !== listing.sellerEmail) {
           await createNotification({
-            targetEmail: outbidUser,
+            targetEmail: data.outbidUser,
             fromEmail: user.email,
             type: "outbid",
             title: "You've been outbid!",
@@ -754,11 +684,11 @@ export default function ListingPage() {
             listingTitle: listing.title,
             listingImage: listing.images?.[0] || listing.imageUrl,
           });
-        } catch (_) {}
-      }
+        }
+      } catch (_) {}
     } catch (e: any) {
       console.error(e);
-      showToast(e.message || "Failed to place auto bid", "error");
+      showToast(e.message || "Failed to place bid", "error");
     }
   }
 
@@ -800,23 +730,17 @@ export default function ListingPage() {
 
   const sellerName = listing.sellerUsername || listing.sellerEmail?.split("@")[0] || "Unknown";
   const sellerInitial = sellerName.charAt(0).toUpperCase();
-  const sellerStars = Math.floor((sellerStatsData?.avg || 0));
-  const sellerHasHalf = ((sellerStatsData?.avg || 0) % 1) >= 0.5;
-
   async function sendMessageToSeller() {
     if (!user?.email || !listing.sellerEmail || !messageText.trim()) return;
     setSendingMessage(true);
     try {
-      await addDoc(collection(db, "messages"), {
+      await sendMessage({
         text: messageText.trim(),
-        sender: user.email,
         receiver: listing.sellerEmail,
-        participants: [user.email, listing.sellerEmail],
         listingId: listingId,
         listingTitle: listing.title || "Listing",
         listingImage: listing.imageUrl || listing.image || null,
         listingPrice: listing.price || null,
-        createdAt: serverTimestamp(),
       });
       setMessageSent(true);
       setMessageText("");
@@ -837,8 +761,8 @@ export default function ListingPage() {
           <div className="mx-4 w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl animate-fade-in-scale" onClick={(e) => e.stopPropagation()}>
             {offerSent ? (
               <div className="py-4 text-center">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/20">
-                  <svg className="h-7 w-7 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-sky-500/20">
+                  <svg className="h-7 w-7 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                   </svg>
                 </div>
@@ -949,11 +873,11 @@ export default function ListingPage() {
 
         {/* Scam Warning Banner */}
         {scamResult?.isScam && (
-          <div className="mb-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2">
+          <div className="mb-3 rounded-xl border border-sky-500/20 bg-sky-500/5 px-3 py-2">
             <div className="flex items-start gap-3">
-              <span className="mt-0.5 text-amber-400 text-sm">⚠️</span>
+              <span className="mt-0.5 text-sky-400 text-sm">⚠️</span>
               <div>
-                <p className="text-sm font-bold text-amber-300">Safety Notice</p>
+                <p className="text-sm font-bold text-sky-300">Safety Notice</p>
                 <p className="mt-0.5 text-xs text-[var(--muted)]">
                   This listing may contain suspicious content. Trade safely — avoid paying outside Sky Drop and report suspicious sellers.
                 </p>
@@ -964,11 +888,11 @@ export default function ListingPage() {
 
         {/* Price Warning */}
         {priceWarning && (
-          <div className="mb-3 rounded-xl border border-amber-500/15 bg-amber-500/5 px-3 py-2">
+          <div className="mb-3 rounded-xl border border-sky-500/15 bg-sky-500/5 px-3 py-2">
             <div className="flex items-start gap-2">
-              <span className="mt-0.5 text-amber-400/80 text-sm">⚠️</span>
+              <span className="mt-0.5 text-sky-400/80 text-sm">⚠️</span>
               <div>
-                <p className="text-xs font-bold text-amber-300/90">Price unusually low</p>
+                <p className="text-xs font-bold text-sky-300/90">Price unusually low</p>
                 <p className="mt-0.5 text-[11px] text-[var(--muted)]">Trade carefully and verify the item before purchasing.</p>
               </div>
             </div>
@@ -1035,7 +959,7 @@ export default function ListingPage() {
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-sky-500/10 px-2.5 py-0.5 text-[10px] font-bold text-sky-400">{listing.category || "Other"}</span>
               {listing.condition && (
-                <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${listing.condition === "New" ? "bg-emerald-500/10 text-emerald-400" : "bg-zinc-800 text-[var(--foreground)]"}`}>
+                <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${listing.condition === "New" ? "bg-sky-500/10 text-sky-400" : "bg-zinc-800 text-[var(--foreground)]"}`}>
                   {listing.condition}
                 </span>
               )}
@@ -1051,8 +975,17 @@ export default function ListingPage() {
             <h1 className="text-xl font-black tracking-tight text-[var(--foreground)]">{listing.title}</h1>
 
             {/* 3. PRICE */}
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black text-[var(--foreground)]">{listing.price ? `$${listing.price}` : listing.type === "service" ? "Price negotiable" : `$${listing.price}`}</span>
+            <div className="flex flex-wrap items-baseline gap-2">
+              {listing.type === "service" && <ServicePricingBadge listing={listing} />}
+              <span className="text-3xl font-black text-[var(--foreground)]">
+                {listing.type === "service"
+                  ? formatServicePriceDisplay(listing)
+                  : listing.pricingType === "quote"
+                    ? "Contact Seller for Quote"
+                    : listing.price
+                      ? `$${listing.price}`
+                      : "Price on request"}
+              </span>
               {!isListingVisibleInMarketplace(listing) && (
                 <span className="rounded bg-red-600/90 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[var(--foreground)]">Sold</span>
               )}
@@ -1060,26 +993,26 @@ export default function ListingPage() {
                 <span className="rounded bg-zinc-700/90 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[var(--muted)]">Expired</span>
               )}
               {(listing as any).promotedUntil?.toMillis?.() > Date.now() && (
-                <span className="rounded bg-amber-500/90 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">📈 Promoted</span>
+                <span className="rounded bg-sky-500/90 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">📈 Promoted</span>
               )}
             </div>
 
             {purchaseUi.showPurchasedBanner && purchaseUi.bannerText && (
-              <div className="mt-2 flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5">
-                <span className="text-emerald-400 text-[11px]">✓ {purchaseUi.bannerText}</span>
+              <div className="mt-2 flex items-center gap-1.5 rounded-lg border border-sky-500/20 bg-sky-500/10 px-3 py-1.5">
+                <span className="text-sky-400 text-[11px]">✓ {purchaseUi.bannerText}</span>
               </div>
             )}
 
             {(listing.saleType === "auction" || listing.saleType === "auction_buy_now") && (
-              <div className="mt-3 space-y-1.5 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+              <div className="mt-3 space-y-1.5 rounded-lg border border-sky-500/20 bg-sky-500/5 p-3">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-[var(--muted)]">Current Bid</span>
-                  <span className="font-black text-lg text-amber-400">${listing.currentBid || listing.startingBid || 0}</span>
+                  <span className="font-black text-lg text-sky-400">${listing.currentBid || listing.startingBid || 0}</span>
                 </div>
                 <div className="flex items-center justify-between text-[10px] text-[var(--muted)]">
                   <span>{listing.bidCount || 0} bids</span>
                   {listing.reservePrice && (
-                    <span className={listing.currentBid >= listing.reservePrice ? "text-emerald-400" : "text-amber-400"}>
+                    <span className={listing.currentBid >= listing.reservePrice ? "text-sky-400" : "text-sky-400"}>
                       Reserve {listing.currentBid >= listing.reservePrice ? "met ✅" : "not met"}
                     </span>
                   )}
@@ -1087,21 +1020,21 @@ export default function ListingPage() {
                 {auctionEnded ? (
                   <>
                     {user?.email === listing.highestBidder ? (
-                      <div className="text-[10px] text-emerald-400 font-bold">🎉 You won this auction!</div>
+                      <div className="text-[10px] text-sky-400 font-bold">🎉 You won this auction!</div>
                     ) : user?.email !== listing.sellerEmail ? (
                       <div className="text-[10px] text-red-400">Auction ended — you didn't win</div>
                     ) : (
-                      <div className="text-[10px] text-amber-400">Auction ended — winner: {listing.highestBidder || "unknown"}</div>
+                      <div className="text-[10px] text-sky-400">Auction ended — winner: {listing.highestBidder || "unknown"}</div>
                     )}
                     <div className="text-[10px] text-[var(--muted)]">Auction ended</div>
                   </>
                 ) : (
                   <>
                     {user?.email === listing.highestBidder && (
-                      <div className="text-[10px] text-emerald-400">✓ You're winning</div>
+                      <div className="text-[10px] text-sky-400">✓ You're winning</div>
                     )}
                     {user && listing.bidCount > 0 && user.email !== listing.highestBidder && user.email !== listing.sellerEmail && (
-                      <div className="text-[10px] text-amber-400">You've been outbid</div>
+                      <div className="text-[10px] text-sky-400">You've been outbid</div>
                     )}
                     {listing.auctionEndsAt && (
                       <div className="text-[10px] text-[var(--muted)]">
@@ -1126,13 +1059,16 @@ export default function ListingPage() {
               <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 p-3">
                 <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
                   <span className="shrink-0 text-sky-400">📥</span>
-                  <span>Digital Download — Instant Delivery</span>
+                  <span>{listing.pricingType === "quote" ? "Service delivered remotely — Request a Quote" : (listing as { paymentType?: string }).paymentType === "contact" ? "Digital product — arrange payment & delivery in Messages" : "Digital Download — Instant Delivery"}</span>
                 </div>
+                {listing.pricingType === "quote" && (
+                  <span className="mt-1.5 inline-flex rounded-full border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400">Quote Required</span>
+                )}
               </div>
             ) : listing.type === "service" ? (
-              <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-3 space-y-1.5">
+              <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 p-3 space-y-1.5">
                 <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
-                  <span className="shrink-0 text-violet-400">🤝</span>
+                  <span className="shrink-0 text-sky-400">🤝</span>
                   <span>Service — Discuss scope in messages</span>
                 </div>
                 {listing.serviceDuration && (
@@ -1141,21 +1077,21 @@ export default function ListingPage() {
                   </div>
                 )}
                 <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
-                  <span>{listing.price ? `💰 $${listing.price}` : "💬 Price negotiable — send an offer"}</span>
+                  <span>💰 {formatServicePriceDisplay(listing)}</span>
                 </div>
               </div>
             ) : listing.type === "rental" ? (
-              <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-1.5">
+              <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 p-3 space-y-1.5">
                 <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
-                  <span className="shrink-0 text-emerald-400">🔑</span>
+                  <span className="shrink-0 text-sky-400">🔑</span>
                   <span>Rental — Pickup from {listing.location || "seller's location"}</span>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-emerald-400 font-bold">
+                <div className="flex items-center gap-2 text-xs text-sky-400 font-bold">
                   <span>${(Number(listing.price) || 0).toFixed(2)}/day{listing.rentalPriceWeekly ? ` · $${Number(listing.rentalPriceWeekly).toFixed(2)}/wk` : ""}{listing.rentalPriceMonthly ? ` · $${Number(listing.rentalPriceMonthly).toFixed(2)}/mo` : ""}</span>
                 </div>
                 {listing.rentalDeposit && (
                   <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
-                    <span className="text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">🔒 $${(Number(listing.rentalDeposit) || 0).toFixed(2)} refundable deposit</span>
+                    <span className="text-sky-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">🔒 $${(Number(listing.rentalDeposit) || 0).toFixed(2)} refundable deposit</span>
                   </div>
                 )}
                 {listing.condition && (
@@ -1170,9 +1106,9 @@ export default function ListingPage() {
                 )}
               </div>
             ) : listing.type === "event" ? (
-              <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-3 space-y-1.5">
+              <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 p-3 space-y-1.5">
                 <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
-                  <span className="shrink-0 text-yellow-400">🎟</span>
+                  <span className="shrink-0 text-sky-400">🎟</span>
                   <span>Event Tickets — {listing.ticketType || "General Admission"}</span>
                 </div>
                 {listing.eventDate && (
@@ -1193,9 +1129,9 @@ export default function ListingPage() {
                 )}
               </div>
             ) : listing.type === "property" ? (
-              <div className="rounded-lg border border-rose-500/20 bg-rose-500/5 p-3 space-y-1.5">
+              <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 p-3 space-y-1.5">
                 <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
-                  <span className="shrink-0 text-rose-400">🏠</span>
+                  <span className="shrink-0 text-sky-400">🏠</span>
                   <span>Property — {listing.propertyType || "House"}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-[var(--muted)]">
@@ -1242,9 +1178,9 @@ export default function ListingPage() {
                 )}
               </div>
             ) : listing.type === "job" ? (
-              <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3 space-y-1.5">
+              <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 p-3 space-y-1.5">
                 <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
-                  <span className="shrink-0 text-cyan-400">💼</span>
+                  <span className="shrink-0 text-sky-400">💼</span>
                   <span>Job — {listing.jobEmploymentType || "Full-time"}</span>
                 </div>
                 {listing.jobCompany && (
@@ -1278,7 +1214,7 @@ export default function ListingPage() {
                 )}
                 {listing.shippingAvailable && (
                   <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
-                    <span className="shrink-0 text-emerald-400">
+                    <span className="shrink-0 text-sky-400">
                       {listing.freeShipping || listing.shippingFee === 0 ? "🚚" : "📦"}
                     </span>
                     <span>
@@ -1295,7 +1231,7 @@ export default function ListingPage() {
                 )}
                 {listing.stockQuantity != null && listing.stockQuantity > 0 && (
                   <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
-                    <span className="shrink-0 text-amber-400">📦</span>
+                    <span className="shrink-0 text-sky-400">📦</span>
                     <span>{listing.stockQuantity} Available</span>
                   </div>
                 )}
@@ -1311,39 +1247,6 @@ export default function ListingPage() {
                     onClick={async (e) => {
                       e.stopPropagation();
                       try {
-                        const convKey = `listing_${listingId}`;
-                        const existingConv = await getDocs(
-                          query(
-                            collection(db, "conversations"),
-                            where("convKey", "==", convKey),
-                            where("participants", "array-contains", user!.email!)
-                          )
-                        );
-
-                        let convId: string;
-                        if (!existingConv.empty) {
-                          convId = existingConv.docs[0].id;
-                          await updateDoc(doc(db, "conversations", convId), {
-                            updatedAt: serverTimestamp(),
-                            lastMessage: `Property inquiry started`,
-                          });
-                        } else {
-                          const convRef = await addDoc(collection(db, "conversations"), {
-                            convKey,
-                            participants: [user!.email!, listing.sellerEmail],
-                            buyerEmail: user!.email!,
-                            sellerEmail: listing.sellerEmail,
-                            listingId,
-                            listingTitle: listing.title,
-                            listingPrice: listing.price,
-                            listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
-                            createdAt: serverTimestamp(),
-                            updatedAt: serverTimestamp(),
-                            lastMessage: `Property inquiry started`,
-                          });
-                          convId = convRef.id;
-                        }
-
                         const buyerMsg = `🏡 Property inquiry started for "${listing.title}"
 
 You're now connected with the property owner/agent.
@@ -1360,54 +1263,66 @@ Please keep all communication inside Sky Drop for protection.
 
 Property Status: 🟢 Inquiry Active`;
 
-                        await addDoc(collection(db, "messages"), {
+                        const result = await sendMessage({
                           type: "system",
                           text: buyerMsg,
-                          sender: "system",
                           receiver: listing.sellerEmail,
-                          participants: [user!.email!, listing.sellerEmail],
-                          conversationId: convId,
                           listingId,
                           listingTitle: listing.title,
-                          read: false,
-                          createdAt: serverTimestamp(),
+                          listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
+                          listingPrice: listing.price,
+                          createConversation: true,
+                          convKey: `listing_${listingId}`,
+                          buyerEmail: user!.email!,
+                          sellerEmail: listing.sellerEmail,
                         });
 
-                        await addDoc(collection(db, "messages"), {
+                        await sendMessage({
                           type: "text",
                           text: `🟢 A user is interested in your property listing.\n\nUse this chat to discuss:\n• viewing arrangements\n• price/negotiation\n• property details\n• settlement or tenancy\n\nKeep all communication inside Sky Drop for protection.`,
-                          sender: "system",
                           receiver: listing.sellerEmail,
-                          participants: [user!.email!, listing.sellerEmail],
-                          conversationId: convId,
                           listingId,
                           listingTitle: listing.title,
-                          read: false,
-                          createdAt: serverTimestamp(),
+                          conversationId: result.conversationId,
                         });
                       } catch (e) {
                         console.error("Property inquiry failed:", e);
                       }
-                      router.push(`/messages?user=${encodeURIComponent(listing.sellerEmail || "")}&listing=${listingId}`);
+                      router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`);
                     }}
-                    className="flex-1 rounded-lg bg-gradient-to-r from-rose-500 to-pink-500 py-3 text-[13px] font-bold text-white shadow-lg shadow-rose-500/20 transition hover:shadow-xl active:scale-[0.97]"
+                    style={{
+                      width: "100%",
+                      minHeight: "44px",
+                    }}
+                    className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98] whitespace-nowrap"
                   >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
                     Contact Owner
                   </button>
                   {listing.acceptOffers && (
                     <button onClick={() => setShowOffer(true)}
-                      className="rounded-lg border border-zinc-700 px-3 py-3 text-[12px] font-medium text-[var(--muted)] transition hover:border-zinc-600 hover:text-[var(--foreground)]">
+                      style={{
+                        width: "100%",
+                        minHeight: "44px",
+                      }}
+                      className="flex items-center justify-center gap-2 rounded-xl border-2 border-zinc-700 bg-zinc-900/60 px-5 py-3 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-zinc-600 hover:bg-zinc-800/60 whitespace-nowrap"
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                      </svg>
                       Make Offer
                     </button>
                   )}
                 </>
               ) : user?.email === listing.sellerEmail ? (
                 <div className="flex gap-2 w-full">
-                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 rounded-lg bg-gradient-to-r from-rose-500 to-pink-500 py-3 text-center text-[13px] font-bold text-white shadow-lg shadow-rose-500/20 transition hover:shadow-xl active:scale-[0.97]">
+                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 rounded-lg bg-gradient-to-r from-sky-500 to-sky-500 py-3 text-center text-[13px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">
                     ✏️ Edit Listing
                   </Link>
                   <button onClick={() => setShowPromote(true)}
-                    className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-3 text-[13px] font-bold text-amber-400 transition hover:bg-amber-500/15">
+                    className="rounded-lg border border-sky-500/30 bg-sky-500/5 px-3 py-3 text-[13px] font-bold text-sky-400 transition hover:bg-sky-500/15">
                     📈 Promote
                   </button>
                 </div>
@@ -1419,52 +1334,165 @@ Property Status: 🟢 Inquiry Active`;
             </div>
             )}
 
+            {/* 5. QUOTE REQUIRED — digital services */}
+            {listing.type === "digital" && listing.pricingType === "quote" && isListingVisibleInMarketplace(listing) && !isExpired && (
+            <div className="flex gap-2">
+              {user && user.email !== listing.sellerEmail ? (
+                <>
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      await sendMessage({
+                        type: "text",
+                        text: `Hi, I'm interested in "${listing.title}" — could you please provide a quote?`,
+                        receiver: listing.sellerEmail,
+                        listingId,
+                        listingTitle: listing.title,
+                        listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
+                        listingPrice: listing.price,
+                        createConversation: true,
+                        convKey: `listing_${listingId}`,
+                        buyerEmail: user!.email!,
+                        sellerEmail: listing.sellerEmail,
+                      });
+                      router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`);
+                    }}
+                    style={{
+                      width: "100%",
+                      minHeight: "44px",
+                    }}
+                    className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98] whitespace-nowrap"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Request Quote
+                  </button>
+                  <button
+                    onClick={() => router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`)}
+                    style={{
+                      width: "100%",
+                      minHeight: "44px",
+                    }}
+                    className="flex items-center justify-center gap-2 rounded-xl border-2 border-zinc-700 bg-zinc-900/60 px-5 py-3 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-zinc-600 hover:bg-zinc-800/60 whitespace-nowrap"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    Message Seller
+                  </button>
+                </>
+              ) : user?.email === listing.sellerEmail ? (
+                <div className="flex gap-2 w-full">
+                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-center text-[13px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">✏️ Edit Listing</Link>
+                  <button onClick={() => setShowPromote(true)} className="rounded-lg border border-sky-500/30 bg-sky-500/5 px-3 py-3 text-[13px] font-bold text-sky-400 transition hover:bg-sky-500/15">📈 Promote</button>
+                </div>
+              ) : (
+                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="flex-1 rounded-lg border border-zinc-700 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-zinc-800">Sign in</button>
+              )}
+            </div>
+            )}
+
             {/* 5. BUY BUTTONS */}
-            {isListingAvailableForPurchase(listing) && !isExpired && listing.type !== "service" && listing.type !== "job" && listing.type !== "property" && listing.type !== "rental" && (purchaseUi.canPurchaseMore || (isContactListing && buyerArrangeRequestCount > 0)) && (
+            {isListingAvailableForPurchase(listing) && !isExpired && listing.type !== "service" && listing.type !== "job" && listing.type !== "property" && listing.type !== "rental" && !(listing.type === "digital" && listing.pricingType === "quote") && (purchaseUi.canPurchaseMore || (isContactListing && buyerArrangeRequestCount > 0)) && (
             <div className="flex gap-2">
               {user && user.email !== listing.sellerEmail ? (
                 <>
                   {(listing as any).paymentType === "contact" ? (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleArrangePurchase();
-                      }}
-                      disabled={arrangingPurchase}
-                      className="flex-1 rounded-lg bg-emerald-500 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-emerald-400 disabled:opacity-60"
-                    >
-                      {arrangingPurchase
-                        ? "Connecting…"
-                        : buyerArrangeRequestCount > 0
-                          ? "🤝 Open chat"
-                          : `🤝 Request purchase — $${listing.price}`}
-                    </button>
+                    <>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleArrangePurchase();
+                        }}
+                        disabled={arrangingPurchase}
+                        style={{
+                          width: "100%",
+                          minHeight: "44px",
+                        }}
+                        className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
+                      >
+                        {arrangingPurchase ? (
+                          "Connecting…"
+                        ) : buyerArrangeRequestCount > 0 ? (
+                          <>
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                            Open Chat
+                          </>
+                        ) : (
+                          <>
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                            Request Purchase — ${listing.price}
+                          </>
+                        )}
+                      </button>
+                      <p className="mt-1 text-[10px] leading-relaxed text-zinc-500">Arrange Purchase is handled directly between buyer and seller. Keep communication on Sky Drop so we can review evidence if something goes wrong.</p>
+                    </>
                   ) : isAuctionWinner ? (
-                    <button
-                      onClick={() => { setWinningBid(listing.currentBid || listing.startingBid || 0); openStripeCheckout(); }}
-                      className="flex-1 rounded-lg bg-emerald-500 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-emerald-400"
-                    >
-                      Pay Now — ${listing.currentBid || listing.startingBid || 0}
-                    </button>
+                    <>
+                      <button
+                        onClick={() => { setWinningBid(listing.currentBid || listing.startingBid || 0); openStripeCheckout(); }}
+                        style={{
+                          width: "100%",
+                          minHeight: "44px",
+                        }}
+                        className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98] whitespace-nowrap"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                        </svg>
+                        Pay Now — ${listing.currentBid || listing.startingBid || 0}
+                      </button>
+                      <p className="mt-1 text-[10px] leading-relaxed text-zinc-500">Secure payment through Stripe with buyer protection. Funds held in escrow until you confirm receipt.</p>
+                    </>
                   ) : (
-                    <button
-                      onClick={() => openStripeCheckout()}
-                      className="flex-1 rounded-lg bg-sky-500 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-sky-400"
-                    >
-                      Buy Now
-                    </button>
+                    <>
+                      <button
+                        onClick={() => openStripeCheckout()}
+                        style={{
+                          width: "100%",
+                          minHeight: "44px",
+                        }}
+                        className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98] whitespace-nowrap"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                        Buy Now — ${listing.price}
+                      </button>
+                      <p className="mt-1 text-[10px] leading-relaxed text-zinc-500">Secure payment through Stripe with buyer protection. Funds held in escrow until you confirm receipt.</p>
+                    </>
                   )}
                   {!auctionEnded && (listing.saleType === "auction" || listing.saleType === "auction_buy_now") && user && user.email !== listing.sellerEmail && (
                     <button onClick={() => { setShowBidModal(true); setBidAmount(String(getMinimumNextBid(listing.currentBid || listing.startingBid || 0))); }}
-                      className="flex-1 rounded-lg border border-amber-500/40 bg-amber-500/10 py-2.5 text-[13px] font-bold text-amber-400 transition hover:bg-amber-500/20">
+                      style={{
+                        width: "100%",
+                        minHeight: "44px",
+                      }}
+                      className="flex items-center justify-center gap-2 rounded-xl border-2 border-sky-500/40 bg-sky-500/10 px-5 py-3 text-sm font-bold text-sky-400 transition-all duration-200 hover:bg-sky-500/20 hover:border-sky-500/60 whitespace-nowrap"
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
                       Bid Now
                     </button>
                   )}
                   {(listing as any).paymentType !== "contact" && listing.acceptOffers && (
                     <button
                       onClick={() => setShowOffer(true)}
-                        className="rounded-lg border border-zinc-700 px-3 py-3 text-[12px] font-medium text-[var(--muted)] transition hover:border-zinc-600 hover:text-[var(--foreground)]"
+                      style={{
+                        width: "100%",
+                        minHeight: "44px",
+                      }}
+                      className="flex items-center justify-center gap-2 rounded-xl border-2 border-zinc-700 bg-zinc-900/60 px-5 py-3 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-zinc-600 hover:bg-zinc-800/60 whitespace-nowrap"
                     >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                      </svg>
                       Make Offer
                     </button>
                   )}
@@ -1475,7 +1503,7 @@ Property Status: 🟢 Inquiry Active`;
                     ✏️ Edit Listing
                   </Link>
                   <button onClick={() => setShowPromote(true)}
-                    className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-3 text-[13px] font-bold text-amber-400 transition hover:bg-amber-500/15">
+                    className="rounded-lg border border-sky-500/30 bg-sky-500/5 px-3 py-3 text-[13px] font-bold text-sky-400 transition hover:bg-sky-500/15">
                     📈 Promote
                   </button>
                 </div>
@@ -1496,39 +1524,6 @@ Property Status: 🟢 Inquiry Active`;
                     onClick={async (e) => {
                       e.stopPropagation();
                       try {
-                        const convKey = `listing_${listingId}`;
-                        const existingConv = await getDocs(
-                          query(
-                            collection(db, "conversations"),
-                            where("convKey", "==", convKey),
-                            where("participants", "array-contains", user!.email!)
-                          )
-                        );
-
-                        let convId: string;
-                        if (!existingConv.empty) {
-                          convId = existingConv.docs[0].id;
-                          await updateDoc(doc(db, "conversations", convId), {
-                            updatedAt: serverTimestamp(),
-                            lastMessage: `Job inquiry started`,
-                          });
-                        } else {
-                          const convRef = await addDoc(collection(db, "conversations"), {
-                            convKey,
-                            participants: [user!.email!, listing.sellerEmail],
-                            buyerEmail: user!.email!,
-                            sellerEmail: listing.sellerEmail,
-                            listingId,
-                            listingTitle: listing.title,
-                            listingPrice: listing.price,
-                            listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
-                            createdAt: serverTimestamp(),
-                            updatedAt: serverTimestamp(),
-                            lastMessage: `Job inquiry started`,
-                          });
-                          convId = convRef.id;
-                        }
-
                         const buyerMsg = `💼 Job inquiry started for "${listing.title}"
 
 You're now connected with the employer.
@@ -1545,46 +1540,42 @@ Please keep all communication inside Sky Drop for protection.
 
 Application Status: 🟢 Active`;
 
-                        await addDoc(collection(db, "messages"), {
+                        const result = await sendMessage({
                           type: "system",
                           text: buyerMsg,
-                          sender: "system",
                           receiver: listing.sellerEmail,
-                          participants: [user!.email!, listing.sellerEmail],
-                          conversationId: convId,
                           listingId,
                           listingTitle: listing.title,
-                          read: false,
-                          createdAt: serverTimestamp(),
+                          listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
+                          listingPrice: listing.price,
+                          createConversation: true,
+                          convKey: `listing_${listingId}`,
+                          buyerEmail: user!.email!,
+                          sellerEmail: listing.sellerEmail,
                         });
 
-                        await addDoc(collection(db, "messages"), {
+                        await sendMessage({
                           type: "text",
                           text: `🟢 A user is interested in your job listing.\n\nUse this chat to discuss:\n• experience/skills\n• availability\n• interview arrangements\n• pay/rates\n• job expectations\n\nKeep all communication inside Sky Drop for protection.`,
-                          sender: "system",
                           receiver: listing.sellerEmail,
-                          participants: [user!.email!, listing.sellerEmail],
-                          conversationId: convId,
                           listingId,
                           listingTitle: listing.title,
-                          read: false,
-                          createdAt: serverTimestamp(),
+                          conversationId: result.conversationId,
                         });
                       } catch (e) {
                         console.error("Job inquiry failed:", e);
                       }
                       try { localStorage.setItem("skyJobPrefill", `Hi, I'm interested in this job 👋`); } catch {}
-                      router.push(`/messages?user=${encodeURIComponent(listing.sellerEmail || "")}&listing=${listingId}`);
+                      router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`);
                     }}
-                    className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-cyan-500 to-teal-500 py-3 text-[13px] font-bold text-white shadow-lg shadow-cyan-500/20 transition hover:shadow-xl hover:shadow-cyan-500/30"
+                    className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-sky-500 to-sky-500 py-3 text-[13px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:shadow-sky-500/30"
                   >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
                     Apply Now
                   </button>
                 </>
               ) : user?.email === listing.sellerEmail ? (
                 <div className="flex gap-2 w-full">
-                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 rounded-lg bg-cyan-500 py-3 text-center text-[13px] font-bold text-white transition hover:bg-cyan-400">
+                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 rounded-lg bg-sky-500 py-3 text-center text-[13px] font-bold text-white transition hover:bg-sky-400">
                     Edit Listing
                   </Link>
                 </div>
@@ -1604,39 +1595,6 @@ Application Status: 🟢 Active`;
                   <button
                     onClick={async () => {
                       try {
-                        const convKey = `listing_${listingId}`;
-                        const existingConv = await getDocs(
-                          query(
-                            collection(db, "conversations"),
-                            where("convKey", "==", convKey),
-                            where("participants", "array-contains", user!.email!)
-                          )
-                        );
-
-                        let convId: string;
-                        if (!existingConv.empty) {
-                          convId = existingConv.docs[0].id;
-                          await updateDoc(doc(db, "conversations", convId), {
-                            updatedAt: serverTimestamp(),
-                            lastMessage: `Service inquiry started`,
-                          });
-                        } else {
-                          const convRef = await addDoc(collection(db, "conversations"), {
-                            convKey,
-                            participants: [user!.email!, listing.sellerEmail],
-                            buyerEmail: user!.email!,
-                            sellerEmail: listing.sellerEmail,
-                            listingId,
-                            listingTitle: listing.title,
-                            listingPrice: listing.price,
-                            listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
-                            createdAt: serverTimestamp(),
-                            updatedAt: serverTimestamp(),
-                            lastMessage: `Service inquiry started`,
-                          });
-                          convId = convRef.id;
-                        }
-
                         const buyerMsg = `🛠️ Service inquiry started for "${listing.title}"
 
 You're now connected with the service provider.
@@ -1653,39 +1611,35 @@ Please keep all communication and payments inside Sky Drop for protection.
 
 Service Status: 🟢 Inquiry Active`;
 
-                        await addDoc(collection(db, "messages"), {
+                        const result = await sendMessage({
                           type: "system",
                           text: buyerMsg,
-                          sender: "system",
                           receiver: listing.sellerEmail,
-                          participants: [user!.email!, listing.sellerEmail],
-                          conversationId: convId,
                           listingId,
                           listingTitle: listing.title,
-                          read: false,
-                          createdAt: serverTimestamp(),
+                          listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
+                          listingPrice: listing.price,
+                          createConversation: true,
+                          convKey: `listing_${listingId}`,
+                          buyerEmail: user!.email!,
+                          sellerEmail: listing.sellerEmail,
                         });
 
-                        await addDoc(collection(db, "messages"), {
+                        await sendMessage({
                           type: "text",
                           text: `🟢 A user is interested in hiring your service.\n\nUse this chat to discuss:\n• project requirements\n• pricing\n• deadlines\n• revisions\n• delivery expectations\n\nKeep all communication inside Sky Drop for protection.`,
-                          sender: "system",
                           receiver: listing.sellerEmail,
-                          participants: [user!.email!, listing.sellerEmail],
-                          conversationId: convId,
                           listingId,
                           listingTitle: listing.title,
-                          read: false,
-                          createdAt: serverTimestamp(),
+                          conversationId: result.conversationId,
                         });
                       } catch (e) {
                         console.error("Service inquiry failed:", e);
                       }
-                      router.push(`/messages?user=${encodeURIComponent(listing.sellerEmail || "")}&listing=${listingId}`);
+                      router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`)
                     }}
-                    className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 py-3 text-[13px] font-bold text-white shadow-lg shadow-violet-500/20 transition hover:shadow-xl hover:shadow-violet-500/30"
+                    className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-sky-500 to-fuchsia-500 py-3 text-[13px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:shadow-sky-500/30"
                   >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
                     Message Seller
                   </button>
                   {listing.acceptOffers && (
@@ -1697,7 +1651,7 @@ Service Status: 🟢 Inquiry Active`;
                 </>
               ) : user?.email === listing.sellerEmail ? (
                 <div className="flex gap-2 w-full">
-                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 py-3 text-center text-[13px] font-bold text-white shadow-lg shadow-violet-500/20 transition hover:shadow-xl active:scale-[0.97]">
+                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 rounded-lg bg-gradient-to-r from-sky-500 to-fuchsia-500 py-3 text-center text-[13px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">
                     ✏️ Edit Listing
                   </Link>
                 </div>
@@ -1727,7 +1681,7 @@ Service Status: 🟢 Inquiry Active`;
                               setRentalDays(diff);
                             }
                           }}
-                            className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3 py-2 text-xs text-[var(--foreground)] outline-none transition focus:border-emerald-500" />
+                            className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3 py-2 text-xs text-[var(--foreground)] outline-none transition focus:border-sky-500" />
                         </div>
                         <div>
                           <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Return date</label>
@@ -1738,13 +1692,13 @@ Service Status: 🟢 Inquiry Active`;
                               setRentalDays(diff);
                             }
                           }} min={pickupDate || undefined}
-                            className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3 py-2 text-xs text-[var(--foreground)] outline-none transition focus:border-emerald-500" />
+                            className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3 py-2 text-xs text-[var(--foreground)] outline-none transition focus:border-sky-500" />
                         </div>
                       </div>
                       {rentalDays > 0 && (
                         <div className="rounded-lg bg-zinc-800/40 px-3 py-2 text-xs">
                           <div className="space-y-1">
-                            <p className="font-medium text-emerald-400 text-[11px]">
+                            <p className="font-medium text-sky-400 text-[11px]">
                               ${(Number(listing.price) || 0).toFixed(2)}/day
                               {listing.rentalPriceWeekly ? ` · $${Number(listing.rentalPriceWeekly).toFixed(2)}/wk` : ""}
                               {listing.rentalPriceMonthly ? ` · $${Number(listing.rentalPriceMonthly).toFixed(2)}/mo` : ""}
@@ -1756,7 +1710,7 @@ Service Status: 🟢 Inquiry Active`;
                           </div>
                           {listing.rentalDeposit && (
                             <div className="mt-0.5 flex items-center justify-between text-[var(--muted)]">
-                              <span className="text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">🔒 Refundable Deposit</span>
+                              <span className="text-sky-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">🔒 Refundable Deposit</span>
                               <span>$${(Number(listing.rentalDeposit) || 0).toFixed(2)}</span>
                             </div>
                           )}
@@ -1774,19 +1728,19 @@ Service Status: 🟢 Inquiry Active`;
                         if (rentalDays < 1) { showToast("Select pickup and return dates", "info"); return; }
                         openStripeCheckout();
                       }}
-                        className="w-full rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 py-3 text-[13px] font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:shadow-xl hover:shadow-emerald-500/30">
+                        className="w-full rounded-lg bg-gradient-to-r from-sky-500 to-sky-500 py-3 text-[13px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:shadow-sky-500/30">
                         Rent Now {rentalDays > 0 ? `— $${(Number(listing.price) * rentalDays + 1).toFixed(2)}` : ""}
                       </button>
                     </div>
                     <Link
-                      href={`/messages?user=${encodeURIComponent(listing.sellerEmail || "")}&listing=${listingId}`}
+                      href={`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`}
                       className="flex items-center justify-center rounded-lg border border-zinc-700 px-4 py-3 text-[12px] font-medium text-[var(--foreground)] transition hover:border-zinc-600 self-stretch">
                       Message
                     </Link>
                   </>
                 ) : user?.email === listing.sellerEmail ? (
                   <div className="flex gap-2 w-full">
-                    <Link href={`/post/ai?edit=${listingId}`} className="flex-1 rounded-lg bg-emerald-500 py-3 text-center text-[13px] font-bold text-white transition hover:bg-emerald-400">
+                    <Link href={`/post/ai?edit=${listingId}`} className="flex-1 rounded-lg bg-sky-500 py-3 text-center text-[13px] font-bold text-white transition hover:bg-sky-400">
                       Edit Listing
                     </Link>
                   </div>
@@ -1800,21 +1754,21 @@ Service Status: 🟢 Inquiry Active`;
             )}
 
             {/* Payment & Contact Info */}
-            {user && user.email !== listing.sellerEmail && (
+            {user && user.email !== listing.sellerEmail && listing.pricingType !== "quote" && (
               (listing as any).paymentType === "contact" ? (
-                <a href="/escrow#arrange" target="_blank" rel="noopener noreferrer" className="rounded-lg border border-emerald-500/10 bg-emerald-500/[0.03] px-3.5 py-2.5 block transition hover:bg-emerald-500/[0.06]">
-                  <p className="text-xs font-bold text-emerald-400">🤝 Arrange Purchase — ${(listing as any).price}</p>
-                  <p className="mt-0.5 text-[10px] leading-relaxed text-zinc-500">Tap Purchase to chat and agree payment with the seller. <span className="text-emerald-400/70 underline">How it works →</span></p>
+                <a href="/escrow#arrange" target="_blank" rel="noopener noreferrer" className="rounded-lg border border-sky-500/10 bg-sky-500/[0.03] px-3.5 py-2.5 block transition hover:bg-sky-500/[0.06]">
+                  <p className="text-xs font-bold text-sky-400">🤝 Arrange Purchase — ${(listing as any).price}</p>
+                  <p className="mt-0.5 text-[10px] leading-relaxed text-zinc-500">Tap Purchase to chat and agree payment with the seller. Keep communication on Sky Drop so we can review evidence if something goes wrong. <span className="text-sky-400/70 underline">How it works →</span></p>
                 </a>
               ) : (
-                <a href="/escrow#stripe" target="_blank" rel="noopener noreferrer" className="rounded-lg border border-emerald-500/10 bg-emerald-500/[0.03] px-3.5 py-2.5 block transition hover:bg-emerald-500/[0.06]">
+                <a href="/escrow#stripe" target="_blank" rel="noopener noreferrer" className="rounded-lg border border-sky-500/10 bg-sky-500/[0.03] px-3.5 py-2.5 block transition hover:bg-sky-500/[0.06]">
                   <div className="flex items-center gap-1.5 mb-1">
-                    <svg viewBox="0 0 24 24" className="h-4 w-4 text-emerald-400 shrink-0" fill="currentColor">
+                    <svg viewBox="0 0 24 24" className="h-4 w-4 text-sky-400 shrink-0" fill="currentColor">
                       <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.866 6.001 1.632V2.94c-1.608-.732-3.965-1.413-6.076-1.413-3.659 0-6.328 1.803-6.328 4.866 0 3.354 2.547 4.545 5.644 5.604 2.162.795 3.251 1.499 3.251 2.476 0 .968-.747 1.49-2.153 1.49-2.49 0-5.206-1.156-6.748-2.041v4.133c1.682.827 4.127 1.435 6.824 1.435 3.943 0 6.827-1.835 6.827-5.017.001-3.452-2.587-4.596-5.617-5.608z"/>
                     </svg>
-                    <span className="text-xs font-bold text-emerald-400">Stripe Secure Checkout</span>
+                    <span className="text-xs font-bold text-sky-400">Stripe Secure Checkout</span>
                   </div>
-                  <p className="text-[10px] leading-relaxed text-zinc-500">Your payment is processed by Stripe. <span className="text-emerald-400/70 underline">How it works →</span></p>
+                  <p className="text-[10px] leading-relaxed text-zinc-500">Your payment is processed by Stripe. <span className="text-sky-400/70 underline">How it works →</span></p>
                 </a>
               )
             )}
@@ -1844,25 +1798,26 @@ Service Status: 🟢 Inquiry Active`;
                       <span className="truncate text-sm font-medium text-[var(--foreground)]">
                         {user?.email === listing.sellerEmail ? "You" : sellerName}
                       </span>
-                      {sellerProfile?.verified && (
+                      {isFullyVerified && (
                         <span className="shrink-0 text-[10px] text-sky-400">Verified</span>
                       )}
                       {sellerProfile?.trustedSeller && (
-                        <span className="shrink-0 text-[10px] text-emerald-400">Trusted</span>
+                        <span className="shrink-0 text-[10px] text-sky-400">Trusted</span>
                       )}
                       {isNewSeller && (
-                        <span className="shrink-0 text-[10px] text-amber-400">New</span>
+                        <span className="shrink-0 text-[10px] text-sky-400">New</span>
                       )}
                       {sellerProfile?.profileBadge === "epic" && (
-                        <span className="shrink-0 text-[10px] text-violet-400 font-bold">💎 Epic</span>
+                        <span className="shrink-0 text-[10px] text-sky-400 font-bold">💎 Epic</span>
                       )}
                       {sellerProfile?.profileBadge === "legendary" && (
-                        <span className="shrink-0 text-[10px] text-amber-400 font-bold animate-pulse">👑 The Five</span>
+                        <span className="shrink-0 text-[10px] text-sky-400 font-bold animate-pulse">👑 The Five</span>
                       )}
                     </div>
-                    <div className="mt-0.5 flex items-center gap-2 text-[11px] text-[var(--muted)]">
-                      <span>{'★'.repeat(sellerStars)}{sellerHasHalf ? '½' : ''} {(sellerStatsData?.avg || 0).toFixed(1)}</span>
-                      <span>{sellerStatsData?.count || 0} sale{(sellerStatsData?.count || 0) !== 1 ? "s" : ""}</span>
+                    <div className="mt-0.5 flex items-center gap-2 text-[11px]">
+                      <ReviewStars rating={sellerStatsData?.avg || 0} />
+                      <span className="text-white">{(sellerStatsData?.avg || 0).toFixed(1)}</span>
+                      <span className="text-zinc-500">{sellerStatsData?.count || 0} sale{(sellerStatsData?.count || 0) !== 1 ? "s" : ""}</span>
                       {sellerProfile?.memberSince && (
                         <span>· {(sellerProfile.memberSince as any).seconds ? new Date((sellerProfile.memberSince as any).seconds * 1000).getFullYear() : ""}</span>
                       )}
@@ -1875,7 +1830,7 @@ Service Status: 🟢 Inquiry Active`;
               {user && user.email !== listing.sellerEmail && (
                 <button
                   onClick={() => setShowReportModal(true)}
-                  className="mt-1.5 flex items-center gap-1 text-[11px] text-[var(--muted)] transition hover:text-amber-400"
+                  className="mt-1.5 flex items-center gap-1 text-[11px] text-[var(--muted)] transition hover:text-sky-400"
                 >
                   <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0l2.77-.693a9 9 0 016.208.682l.108.054a9 9 0 006.086.71l3.114-.732a48.524 48.524 0 01-.005-10.499l-3.11.732a9 9 0 01-6.085-.711l-.108-.054a9 9 0 00-6.208-.682L3 4.5M3 15V4.5" />
@@ -1892,7 +1847,7 @@ Service Status: 🟢 Inquiry Active`;
                   </div>
                   {messageSent ? (
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-emerald-400">✓ Message sent!</span>
+                      <span className="text-xs text-sky-400">✓ Message sent!</span>
                       <button onClick={() => setMessageSent(false)} className="ml-auto text-[10px] text-[var(--muted)] underline hover:text-[var(--foreground)]">Send another</button>
                     </div>
                   ) : (
@@ -1938,10 +1893,10 @@ Service Status: 🟢 Inquiry Active`;
                     </div>
 
                     {q.answer ? (
-                      <div className="mt-2 ml-6 flex items-start gap-2 border-l-2 border-emerald-500/30 pl-3">
+                      <div className="mt-2 ml-6 flex items-start gap-2 border-l-2 border-sky-500/30 pl-3">
                         <span className="text-xs mt-0.5">💬</span>
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs text-emerald-300">{q.answer}</p>
+                          <p className="text-xs text-sky-300">{q.answer}</p>
                           <p className="mt-0.5 text-[9px] text-[var(--muted)]">Seller · {q.answeredAt?.toDate?.() ? new Date(q.answeredAt.toDate()).toLocaleDateString() : ""}</p>
                         </div>
                       </div>
@@ -1951,19 +1906,26 @@ Service Status: 🟢 Inquiry Active`;
                           <div className="flex gap-2">
                             <input type="text" value={answerText} onChange={(e) => setAnswerText(e.target.value)}
                               placeholder="Type your answer..." maxLength={500}
-                              className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800/80 px-3 py-1.5 text-[11px] text-[var(--foreground)] outline-none transition focus:border-emerald-500" />
+                              className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800/80 px-3 py-1.5 text-[11px] text-[var(--foreground)] outline-none transition focus:border-sky-500" />
                             <button onClick={async () => {
                               if (!answerText.trim()) return;
                               try {
-                                await updateDoc(doc(db, "listingQuestions", q.id), { answer: answerText.trim(), answeredAt: serverTimestamp() });
+                                const token = await user?.getIdToken();
+                                if (!token) return;
+                                const res = await fetch("/api/listing-question", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                                  body: JSON.stringify({ action: "answer", questionId: q.id, answer: answerText.trim() }),
+                                });
+                                if (!res.ok) throw new Error("Failed");
                                 setAnswerText(""); setAnsweringId(null);
                               } catch {}
-                            }} className="rounded-lg bg-emerald-500 px-3 py-1.5 text-[10px] font-bold text-white hover:bg-emerald-400">Answer</button>
+                            }} className="rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white hover:bg-sky-400">Answer</button>
                             <button onClick={() => { setAnsweringId(null); setAnswerText(""); }} className="text-[10px] text-[var(--muted)] hover:text-white px-1">✕</button>
                           </div>
                         ) : (
                           <button onClick={() => { setAnsweringId(q.id); setAnswerText(""); }}
-                            className="rounded-lg border border-emerald-500/30 px-3 py-1.5 text-[10px] font-bold text-emerald-400 transition hover:bg-emerald-500/10">
+                            className="rounded-lg border border-sky-500/30 px-3 py-1.5 text-[10px] font-bold text-sky-400 transition hover:bg-sky-500/10">
                             Answer
                           </button>
                         )}
@@ -1971,7 +1933,7 @@ Service Status: 🟢 Inquiry Active`;
                     ) : null}
 
                     {!q.answer && user?.email !== listing.sellerEmail && (
-                      <p className="mt-1 ml-6 text-[9px] text-amber-500">Awaiting seller response</p>
+                      <p className="mt-1 ml-6 text-[9px] text-sky-500">Awaiting seller response</p>
                     )}
                   </div>
                 ))}
@@ -1985,14 +1947,20 @@ Service Status: 🟢 Inquiry Active`;
                     <button onClick={async () => {
                       if (!newQuestion.trim() || !listing) return;
                       setSendingQuestion(true);
+                      const questionText = newQuestion.trim();
                       try {
-                        await addDoc(collection(db, "listingQuestions"), {
-                          listingId: listing.id,
-                          askerEmail: user.email,
-                          askerName: user.email?.split("@")[0] || "Someone",
-                          question: newQuestion.trim(),
-                          createdAt: serverTimestamp(),
+                        const token = await user.getIdToken();
+                        const res = await fetch("/api/listing-question", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                          body: JSON.stringify({
+                            action: "ask",
+                            listingId: listing.id,
+                            question: questionText,
+                            askerName: user.email?.split("@")[0] || "Someone",
+                          }),
                         });
+                        if (!res.ok) throw new Error("Failed");
                         setNewQuestion("");
                         showToast("Question submitted", "success");
                       } catch (e) { console.error("Q&A submit error:", e); showToast("Failed to submit question", "error"); }
@@ -2005,7 +1973,7 @@ Service Status: 🟢 Inquiry Active`;
                           fromEmail: user.email,
                           type: "question",
                           title: `New question on "${listing.title}"`,
-                          message: newQuestion.trim().slice(0, 100),
+                          message: questionText.slice(0, 100),
                           listingId: listing.id,
                           listingTitle: listing.title,
                           listingImage: listing.images?.[0] || listing.imageUrl || "",
@@ -2045,7 +2013,7 @@ Service Status: 🟢 Inquiry Active`;
       {sellerListings.length > 0 && (
         <section className="relative z-10 mx-auto max-w-5xl px-6 pb-10">
           <div className="flex items-center gap-2 mb-4">
-            <div className="h-4 w-0.5 rounded-full bg-gradient-to-b from-sky-500 to-violet-500" />
+            <div className="h-4 w-0.5 rounded-full bg-gradient-to-b from-sky-500 to-sky-500" />
             <h2 className="text-sm font-bold text-white">More from {listing.sellerUsername || listing.sellerEmail?.split("@")[0] || "this seller"}</h2>
           </div>
           <div className="mt-3 flex gap-3 overflow-x-auto pb-1 scrollbar-none">
@@ -2055,7 +2023,7 @@ Service Status: 🟢 Inquiry Active`;
                 {l.images?.[0] || l.imageUrl || l.image ? (
                   <img src={l.images?.[0] || l.imageUrl || l.image || ""} alt="" loading="lazy" className="h-20 w-full rounded-lg object-cover" />
                 ) : (
-                  <div className="h-20 w-full rounded-lg bg-gradient-to-br from-sky-500/10 via-violet-500/10 to-purple-600/10 flex items-center justify-center text-xs text-[var(--muted)]">SD</div>
+                  <div className="h-20 w-full rounded-lg bg-gradient-to-br from-sky-500/10 via-sky-500/10 to-sky-600/10 flex items-center justify-center text-xs text-[var(--muted)]">SD</div>
                 )}
                 <p className="mt-2 truncate text-xs font-bold text-[var(--foreground)]">{l.title}</p>
                 <p className="text-xs font-black text-sky-400">${l.price}</p>
@@ -2065,7 +2033,7 @@ Service Status: 🟢 Inquiry Active`;
         </section>
       )}
 
-      {showCheckout && user?.email && !isContactListing && (
+      {showCheckout && user?.email && !isContactListing && listing.pricingType !== "quote" && (
         <CheckoutModal
           listing={{ ...listing, rentalDays, pickupDate, returnDate }}
           buyerEmail={user.email}
@@ -2111,13 +2079,13 @@ Service Status: 🟢 Inquiry Active`;
             </div>
             <label className="mt-3 flex cursor-pointer items-center gap-2.5">
               <input type="checkbox" checked={autoBidEnabled} onChange={(e) => setAutoBidEnabled(e.target.checked)}
-                className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-amber-500 focus:ring-amber-500/30" />
+                className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-sky-500 focus:ring-sky-500/30" />
               <span className="text-xs text-[var(--muted)]">Auto bid <span className="text-[var(--foreground)]">— automatically bid up to this amount if outbid</span></span>
             </label>
             <div className="mt-5 flex gap-3">
               <button onClick={() => setShowBidModal(false)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700">Cancel</button>
               <button onClick={submitBid} disabled={!bidAmount}
-                className="flex-1 rounded-xl bg-amber-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-amber-400 disabled:opacity-50">{autoBidEnabled ? "Auto Bid" : "Place Bid"}</button>
+                className="flex-1 rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-sky-400 disabled:opacity-50">{autoBidEnabled ? "Auto Bid" : "Place Bid"}</button>
             </div>
           </div>
         </div>

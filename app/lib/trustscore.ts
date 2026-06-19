@@ -42,10 +42,10 @@ export function calculateTrustScore(params: {
 
   let label: string;
   let color: string;
-  if (score >= 80) { label = "Trusted"; color = "text-emerald-400"; }
+  if (score >= 80) { label = "Trusted"; color = "text-sky-400"; }
   else if (score >= 60) { label = "Good"; color = "text-sky-400"; }
   else if (score >= 40) { label = "Average"; color = "text-zinc-400"; }
-  else { label = "Low"; color = "text-orange-400"; }
+  else { label = "Low"; color = "text-sky-400"; }
 
   return { score, label, color };
 }

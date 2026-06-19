@@ -3,21 +3,15 @@
 import { useEffect, useState } from "react";
 import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
+import { AwhinaUnderHeader } from "../../components/AwhinaOnlineBadge";
 import ThemeToggle from "../../components/ThemeToggle";
 import { showToast } from "../../components/Toast";
+import { adminFetch } from "../../lib/admin-fetch.client";
 import {
-  addDoc,
   collection,
-  doc,
-  getDoc,
-  getDocs,
   onSnapshot,
   orderBy,
   query,
-  serverTimestamp,
-  setDoc,
-  Timestamp,
-  updateDoc,
   where,
 } from "firebase/firestore";
 import {
@@ -28,7 +22,6 @@ import {
   db,
   onAuthStateChanged,
 } from "../../lib/firebase";
-import { createNotification } from "../../lib/notifications";
 import { isAdminEmail } from "../../lib/admin-check";
 
 type Tab = "address" | "digital" | "listings";
@@ -50,15 +43,18 @@ export default function AdminVerificationPage() {
   useEffect(() => {
     if (tab === "address") {
       setLoading(true);
-      const q = query(collection(db, "profiles"), where("proofOfAddress.status", "==", "pending"));
-      const unsub = onSnapshot(q, (snap) => {
-        setProfiles(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        setLoading(false);
-      }, (err) => {
-        console.error("Failed to load pending verifications:", err);
-        setLoading(false);
-      });
-      return () => unsub();
+      // Use server-side API route to fetch KYC submissions securely
+      adminFetch("/api/admin/kyc-list")
+        .then((res) => res.json())
+        .then((data) => {
+          setProfiles(data.submissions || []);
+          setLoading(false);
+        })
+        .catch((err) => {
+          console.error("Failed to load pending verifications:", err);
+          showToast("Failed to load KYC submissions", "error");
+          setLoading(false);
+        });
     } else if (tab === "digital") {
       setLoading(true);
       const q = query(collection(db, "tradePosts"), where("type", "==", "digital"));
@@ -87,157 +83,93 @@ export default function AdminVerificationPage() {
   const isAdmin = isAdminEmail(user?.email);
 
   async function handleApprove(profileId: string) {
-    if (!confirm("Approve this user's proof of address?")) return;
+    if (!confirm("Approve this user's KYC verification?")) return;
     try {
-      await setDoc(doc(db, "profiles", profileId), {
-        proofOfAddress: { status: "approved", reviewedAt: Timestamp.now(), reviewedBy: user?.email || "admin" },
-      }, { merge: true });
-
-      const profileSnap = await getDoc(doc(db, "profiles", profileId));
-      const profileData = profileSnap.data();
-      if (profileData?.email) {
-        await createNotification({
-          targetEmail: profileData.email,
-          fromEmail: user!.email!,
-          type: "verification",
-          title: "Address Verified ✓",
-          message: "Your proof of address has been approved.",
-        });
-      }
-
-      const referredBy = profileData?.referredBy;
-      if (referredBy) {
-        const referrerQuery = query(collection(db, "profiles"), where("referralCode", "==", referredBy));
-        const referrerSnap = await getDocs(referrerQuery);
-        if (!referrerSnap.empty) {
-          const referrer = referrerSnap.docs[0];
-          const referrerData = referrer.data();
-          if (referrerData.phoneVerified) {
-            for (let i = 0; i < 3; i++) {
-              await addDoc(collection(db, "dropTokens"), {
-                ownerId: referrer.id,
-                ownerEmail: referrerData.email || "",
-                originDropId: "referral_reward",
-                status: "available",
-                createdAt: serverTimestamp(),
-              });
-            }
-            await createNotification({
-              targetEmail: referrerData.email || "",
-              fromEmail: user!.email!,
-              type: "referral_reward",
-              title: "🎁 Referral Reward Earned!",
-              message: "Your referral completed verification — you earned 3 Drop Tokens!",
-            });
-          }
-        }
-      }
-    } catch (e) { console.error(e); }
+      await adminFetch("/api/admin/kyc-review", {
+        method: "POST",
+        body: JSON.stringify({ uid: profileId, action: "approve" }),
+      });
+      showToast("KYC approved.", "success");
+    } catch (e) {
+      console.error(e);
+      showToast(e instanceof Error ? e.message : "Approve failed", "error");
+    }
   }
 
   async function handleReject(profileId: string) {
     const reason = rejectInputs[profileId]?.trim();
     if (!reason) { showToast("Enter a rejection reason.", "error"); return; }
     try {
-      await setDoc(doc(db, "profiles", profileId), {
-        proofOfAddress: { status: "rejected", rejectionReason: reason, reviewedAt: Timestamp.now(), reviewedBy: user?.email || "admin" },
-      }, { merge: true });
-
-      const profileSnap = await getDoc(doc(db, "profiles", profileId));
-      const profileData = profileSnap.data();
-      if (profileData?.email) {
-        await createNotification({
-          targetEmail: profileData.email,
-          fromEmail: user!.email!,
-          type: "verification",
-          title: "Address Verification Rejected",
-          message: `Your proof of address was rejected. Reason: ${reason}`,
-        });
-      }
-
+      await adminFetch("/api/admin/kyc-review", {
+        method: "POST",
+        body: JSON.stringify({ uid: profileId, action: "reject", reason }),
+      });
       setRejectInputs((prev) => { const next = { ...prev }; delete next[profileId]; return next; });
-    } catch (e) { console.error(e); }
+      showToast("KYC rejected.", "success");
+    } catch (e) {
+      console.error(e);
+      showToast(e instanceof Error ? e.message : "Reject failed", "error");
+    }
   }
 
   async function handleApproveDigital(listingId: string) {
     if (!confirm("Approve this digital listing?")) return;
     try {
-      await updateDoc(doc(db, "tradePosts", listingId), { status: "live" });
-      const snap = await getDoc(doc(db, "tradePosts", listingId));
-      const data = snap.data();
-      if (data?.sellerEmail) {
-        await createNotification({
-          targetEmail: data.sellerEmail,
-          fromEmail: user!.email!,
-          type: "verification",
-          title: "Digital Listing Approved",
-          message: `Your digital listing "${data.title}" has been approved and is now live.`,
-          listingTitle: data.title,
-        });
-      }
-    } catch (e) { console.error(e); }
+      await adminFetch("/api/admin/verify-listing", {
+        method: "POST",
+        body: JSON.stringify({ listingId, action: "approve", type: "digital" }),
+      });
+      showToast("Digital listing approved.", "success");
+    } catch (e) {
+      console.error(e);
+      showToast(e instanceof Error ? e.message : "Approve failed", "error");
+    }
   }
 
   async function handleRejectDigital(listingId: string) {
     const reason = rejectInputs[`dig_${listingId}`]?.trim();
     if (!reason) { showToast("Enter a rejection reason.", "error"); return; }
     try {
-      await updateDoc(doc(db, "tradePosts", listingId), { status: "rejected" });
-      const snap = await getDoc(doc(db, "tradePosts", listingId));
-      const data = snap.data();
-      if (data?.sellerEmail) {
-        await createNotification({
-          targetEmail: data.sellerEmail,
-          fromEmail: user!.email!,
-          type: "listing_rejected",
-          title: "Digital Listing Rejected",
-          message: `Your digital listing "${data.title}" was rejected. Reason: ${reason}`,
-          listingTitle: data.title,
-        });
-      }
+      await adminFetch("/api/admin/verify-listing", {
+        method: "POST",
+        body: JSON.stringify({ listingId, action: "reject", type: "digital", reason }),
+      });
       setRejectInputs((prev) => { const next = { ...prev }; delete next[`dig_${listingId}`]; return next; });
-    } catch (e) { console.error(e); }
+      showToast("Digital listing rejected.", "success");
+    } catch (e) {
+      console.error(e);
+      showToast(e instanceof Error ? e.message : "Reject failed", "error");
+    }
   }
 
   async function handleApproveListing(listingId: string) {
     if (!confirm("Approve this listing? It will go live immediately.")) return;
     try {
-      await updateDoc(doc(db, "listings", listingId), { status: "live" });
-      const snap = await getDoc(doc(db, "listings", listingId));
-      const data = snap.data();
-      if (data?.sellerEmail) {
-        await createNotification({
-          targetEmail: data.sellerEmail,
-          fromEmail: user!.email!,
-          type: "verification",
-          title: "Listing Approved",
-          message: `Your listing "${data.title}" has been approved and is now live on the marketplace.`,
-          listingTitle: data.title,
-          listingId: listingId,
-        });
-      }
-    } catch (e) { console.error(e); }
+      await adminFetch("/api/admin/verify-listing", {
+        method: "POST",
+        body: JSON.stringify({ listingId, action: "approve", type: "listing" }),
+      });
+      showToast("Listing approved.", "success");
+    } catch (e) {
+      console.error(e);
+      showToast(e instanceof Error ? e.message : "Approve failed", "error");
+    }
   }
 
   async function handleRejectListing(listingId: string) {
     const reason = rejectInputs[`lst_${listingId}`]?.trim();
     if (!reason) { showToast("Enter a rejection reason.", "error"); return; }
     try {
-      await updateDoc(doc(db, "listings", listingId), { status: "rejected" });
-      const snap = await getDoc(doc(db, "listings", listingId));
-      const data = snap.data();
-      if (data?.sellerEmail) {
-        await createNotification({
-          targetEmail: data.sellerEmail,
-          fromEmail: user!.email!,
-          type: "listing_rejected",
-          title: "Listing Rejected",
-          message: `Your listing "${data.title}" was rejected. Reason: ${reason}`,
-          listingTitle: data.title,
-        });
-      }
+      await adminFetch("/api/admin/verify-listing", {
+        method: "POST",
+        body: JSON.stringify({ listingId, action: "reject", type: "listing", reason }),
+      });
       setRejectInputs((prev) => { const next = { ...prev }; delete next[`lst_${listingId}`]; return next; });
-    } catch (e) { console.error(e); }
+      showToast("Listing rejected.", "success");
+    } catch (e) {
+      console.error(e);
+      showToast(e instanceof Error ? e.message : "Reject failed", "error");
+    }
   }
 
   if (!isAdmin) {
@@ -248,6 +180,7 @@ export default function AdminVerificationPage() {
           <div className="max-w-xl rounded-[40px] border border-red-500/20 bg-[var(--card)] p-12 text-center shadow-2xl backdrop-blur-xl">
             <div className="mb-6 text-7xl">🔒</div>
             <h1 className="text-5xl font-black text-red-500">Access Denied</h1>
+            <AwhinaUnderHeader centered className="mt-4" />
             <p className="mt-6 text-lg leading-8 text-[var(--muted)]">You do not have permission to access this page.</p>
           </div>
         </section>
@@ -267,7 +200,8 @@ export default function AdminVerificationPage() {
 
       <section className="relative z-10 mx-auto max-w-5xl px-6 py-12">
         <div className="mb-8">
-          <h1 className="text-4xl font-black text-emerald-500">Verification Review</h1>
+          <h1 className="text-4xl font-black text-sky-500">Verification Review</h1>
+          <AwhinaUnderHeader className="mt-2" />
           <p className="mt-2 text-[var(--muted)]">Review submissions and pending listings.</p>
         </div>
 
@@ -284,9 +218,9 @@ export default function AdminVerificationPage() {
         {tab === "listings" ? (
           <>
             <div className="mb-8 grid gap-4 sm:grid-cols-2">
-              <div className="rounded-2xl border border-amber-500/20 bg-[var(--card)] p-5 shadow-xl">
+              <div className="rounded-2xl border border-sky-500/20 bg-[var(--card)] p-5 shadow-xl">
                 <p className="text-sm text-[var(--muted)]">Pending Listings</p>
-                <p className="mt-1 text-3xl font-black text-amber-400">{pendingListings.length}</p>
+                <p className="mt-1 text-3xl font-black text-sky-400">{pendingListings.length}</p>
               </div>
             </div>
 
@@ -301,12 +235,12 @@ export default function AdminVerificationPage() {
             ) : (
               <div className="space-y-6">
                 {pendingListings.map((listing) => (
-                  <div key={listing.id} className="rounded-2xl border border-amber-500/20 bg-[var(--card)] p-6 shadow-xl">
+                  <div key={listing.id} className="rounded-2xl border border-sky-500/20 bg-[var(--card)] p-6 shadow-xl">
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <span className="text-lg font-bold text-[var(--foreground)]">{listing.title}</span>
-                          <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400">Pending</span>
+                          <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold text-sky-400">Pending</span>
                         </div>
                         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-[var(--muted)]">
                           <span>Seller: {listing.sellerEmail || "—"}</span>
@@ -322,7 +256,7 @@ export default function AdminVerificationPage() {
                     </div>
                     <div className="mt-4 flex flex-wrap gap-3">
                       <button onClick={() => handleApproveListing(listing.id)}
-                        className="rounded-xl bg-emerald-500/15 px-5 py-2.5 text-xs font-bold text-emerald-400 transition hover:bg-emerald-500/25">
+                        className="rounded-xl bg-sky-500/15 px-5 py-2.5 text-xs font-bold text-sky-400 transition hover:bg-sky-500/25">
                         ✅ Approve
                       </button>
                       <input type="text" value={rejectInputs[`lst_${listing.id}`] || ""} onChange={(e) => setRejectInputs((prev) => ({ ...prev, [`lst_${listing.id}`]: e.target.value }))}
@@ -367,7 +301,7 @@ export default function AdminVerificationPage() {
                     </div>
                     <div className="mt-4 flex flex-wrap gap-3">
                       <button onClick={() => handleApproveDigital(listing.id)}
-                        className="rounded-xl bg-emerald-500/15 px-5 py-2.5 text-xs font-bold text-emerald-400 transition hover:bg-emerald-500/25">
+                        className="rounded-xl bg-sky-500/15 px-5 py-2.5 text-xs font-bold text-sky-400 transition hover:bg-sky-500/25">
                         ✅ Approve
                       </button>
                       <input type="text" value={rejectInputs[`dig_${listing.id}`] || ""} onChange={(e) => setRejectInputs((prev) => ({ ...prev, [`dig_${listing.id}`]: e.target.value }))}
@@ -386,9 +320,9 @@ export default function AdminVerificationPage() {
         ) : (
           <>
             <div className="mb-8 grid gap-4 sm:grid-cols-2">
-              <div className="rounded-2xl border border-emerald-500/20 bg-[var(--card)] p-5 shadow-xl">
+              <div className="rounded-2xl border border-sky-500/20 bg-[var(--card)] p-5 shadow-xl">
                 <p className="text-sm text-[var(--muted)]">Pending Reviews</p>
-                <p className="mt-1 text-3xl font-black text-emerald-400">{profiles.length}</p>
+                <p className="mt-1 text-3xl font-black text-sky-400">{profiles.length}</p>
               </div>
             </div>
 
@@ -403,36 +337,45 @@ export default function AdminVerificationPage() {
             ) : (
               <div className="space-y-6">
                 {profiles.map((profile) => (
-                  <div key={profile.id} className="rounded-2xl border border-emerald-500/20 bg-[var(--card)] p-6 shadow-xl">
+                  <div key={profile.id} className="rounded-2xl border border-sky-500/20 bg-[var(--card)] p-6 shadow-xl">
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <span className="text-lg font-bold text-[var(--foreground)]">{profile.email || "No email"}</span>
-                          {profile.phoneVerified && <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400">Phone ✓</span>}
+                          {profile.phoneVerified && <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold text-sky-400">Phone ✓</span>}
                         </div>
                         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-[var(--muted)]">
                           <span>Username: {profile.username || "—"}</span>
                           <span>Phone: {profile.phone || "—"}</span>
-                          {profile.referredBy && <span>Referred by: <span className="font-bold text-amber-400">{profile.referredBy}</span></span>}
+                          {profile.referredBy && <span>Referred by: <span className="font-bold text-sky-400">{profile.referredBy}</span></span>}
+                          {profile.submittedAt?.toDate ? <span>Submitted: {profile.submittedAt.toDate().toLocaleDateString()}</span> : null}
                           {profile.proofOfAddress?.submittedAt?.toDate && <span>Submitted: {profile.proofOfAddress.submittedAt.toDate().toLocaleDateString()}</span>}
                         </div>
                       </div>
                     </div>
 
-                    {/* Document preview */}
-                    {profile.proofOfAddress?.documentURL && (
-                      <div className="mt-4">
-                        <a href={profile.proofOfAddress.documentURL} target="_blank" rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 rounded-xl bg-zinc-800/50 px-4 py-2 text-xs font-bold text-sky-400 hover:bg-zinc-700/50 transition">
-                          📄 View Document →
-                        </a>
+                    {/* Document preview — supports both legacy proofOfAddress and new kycSubmissions */}
+                    {(profile.proofOfAddress?.documentURL || profile.idImageUrl) && (
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {profile.idImageUrl && (
+                          <a href={profile.idImageUrl} target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 rounded-xl bg-zinc-800/50 px-4 py-2 text-xs font-bold text-sky-400 hover:bg-zinc-700/50 transition">
+                            📷 View ID Image →
+                          </a>
+                        )}
+                        {profile.proofOfAddress?.documentURL && (
+                          <a href={profile.proofOfAddress.documentURL} target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 rounded-xl bg-zinc-800/50 px-4 py-2 text-xs font-bold text-sky-400 hover:bg-zinc-700/50 transition">
+                            📄 View Document →
+                          </a>
+                        )}
                       </div>
                     )}
 
                     {/* Approve / Reject */}
                     <div className="mt-4 flex flex-wrap gap-3">
                       <button onClick={() => handleApprove(profile.id)}
-                        className="rounded-xl bg-emerald-500/15 px-5 py-2.5 text-xs font-bold text-emerald-400 transition hover:bg-emerald-500/25">
+                        className="rounded-xl bg-sky-500/15 px-5 py-2.5 text-xs font-bold text-sky-400 transition hover:bg-sky-500/25">
                         ✅ Approve
                       </button>
                       <input type="text" value={rejectInputs[profile.id] || ""} onChange={(e) => setRejectInputs((prev) => ({ ...prev, [profile.id]: e.target.value }))}

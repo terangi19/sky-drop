@@ -5,9 +5,10 @@ import { FieldValue } from "firebase-admin/firestore";
 import { rateLimit } from "../../lib/rate-limit";
 
 async function logStripeKeyInfo() {
+  if (process.env.NODE_ENV === "production") return;
   const key = process.env.STRIPE_SECRET_KEY || "";
   const prefix = key.slice(0, 7);
-  console.log("[Stripe Connect] Key prefix:", prefix, "| length:", key.length);
+  console.warn("[Stripe Connect] Key prefix:", prefix, "| length:", key.length);
 }
 
 export async function POST(req: NextRequest) {
@@ -37,8 +38,10 @@ export async function POST(req: NextRequest) {
     logStripeKeyInfo();
 
     const balance = await s.balance.retrieve();
-    console.log("[Stripe Connect] Balance livemode:", balance.livemode);
-    console.log("[Stripe Connect] Balance available currencies:", balance.available.map((b: any) => b.currency));
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[Stripe Connect] Balance livemode:", balance.livemode);
+      console.warn("[Stripe Connect] Balance available currencies:", balance.available.map((b: any) => b.currency));
+    }
 
     const db = getServerDb(idToken);
 

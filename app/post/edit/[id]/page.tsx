@@ -13,6 +13,7 @@ import {
 } from "firebase/firestore";
 
 import Navbar from "../../../components/Navbar";
+import { AwhinaUnderHeader } from "../../../components/AwhinaOnlineBadge";
 import ThemeToggle from "../../../components/ThemeToggle";
 
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -302,8 +303,9 @@ export default function EditListingPage({
       <ThemeToggle />
 
       <div className="mx-auto max-w-3xl px-6 py-16">
-        <h1 className="text-5xl font-black text-sky-400 mb-10">Edit listing</h1>
-        <p className="mt-3 text-[var(--muted)]">Update your listing details.</p>
+        <h1 className="text-5xl font-black text-sky-400">Edit listing</h1>
+        <AwhinaUnderHeader className="mt-3" />
+        <p className="mt-3 mb-10 text-[var(--muted)]">Update your listing details.</p>
 
         <div className="rounded-[40px] border border-white/10 bg-black/40 p-8 shadow-2xl backdrop-blur-xl">
           <div className="space-y-6">
@@ -468,7 +470,7 @@ export default function EditListingPage({
                       type="checkbox"
                       checked={freeShipping}
                       onChange={(e) => setFreeShipping(e.target.checked)}
-                      className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-emerald-500 focus:ring-emerald-500/30"
+                      className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-sky-500 focus:ring-sky-500/30"
                     />
                     <span className="text-xs text-[var(--foreground)]">Free shipping</span>
                   </label>

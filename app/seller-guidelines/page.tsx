@@ -13,7 +13,7 @@ export default function SellerGuidelinesPage() {
           Back to Marketplace
         </Link>
 
-        <div className="mb-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-500/20">
+        <div className="mb-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-sky-500/20">
           <span className="text-3xl">📋</span>
         </div>
 
@@ -27,7 +27,9 @@ export default function SellerGuidelinesPage() {
         </Section>
 
         <Section title="Fees" icon="💰">
-          <p>Selling is <strong className="text-white">free to list</strong>. A $1.00 buyer protection fee is added to each purchase — this covers dispute resolution and platform operations. Stripe also charges standard payment processing fees (typically 2-3%). There are no subscription fees or hidden costs.</p>
+          <p>Selling is <strong className="text-white">free to list</strong>. There are no subscription fees or hidden costs.</p>
+          <p className="mt-2">For purchases completed through <strong className="text-white">Stripe Checkout</strong>, a $1.00 buyer protection fee is added to help cover dispute resolution and platform operations. Standard Stripe payment processing fees also apply.</p>
+          <p className="mt-2"><strong className="text-white">Arrange Purchase</strong> transactions do not incur Stripe processing fees and are handled directly between the buyer and seller. Payment methods like bank transfer, cash, or in-person payment are agreed in Messages.</p>
         </Section>
 
         <Section title="Getting Paid" icon="🏦">

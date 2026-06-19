@@ -1,31 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken, getServerDb, isAdminInitialized } from "../../../lib/firebase-admin";
-import { isAdminEmail } from "../../../lib/admin-check";
-
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT = 10;
-const WINDOW_MS = 60_000;
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const entry = rateLimitMap.get(ip);
-  if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + WINDOW_MS });
-    return true;
-  }
-  if (entry.count >= RATE_LIMIT) return false;
-  entry.count++;
-  return true;
-}
+import { verifyIdToken } from "../../../lib/firebase-admin";
+import { isAdminUser } from "../../../lib/admin-check.server";
+import { parseIpFromRequest } from "../../../lib/geo-check";
+import { frictionLimit, shouldSkipCaptcha, type FrictionInput } from "../../../lib/rate-limit";
+import { DEFAULT_MAX_JSON_BYTES, isContentLengthOverLimit, payloadTooLargeResponse } from "../../../lib/request-body";
+import { verifyTurnstileToken, isTurnstileConfigured } from "../../../lib/turnstile";
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "unknown";
-    if (!checkRateLimit(ip)) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    const ip = parseIpFromRequest(req.headers);
+    if (isContentLengthOverLimit(req, DEFAULT_MAX_JSON_BYTES)) return payloadTooLargeResponse();
+
+    const body = await req.json().catch(() => ({}));
+
+    const frictionInput: FrictionInput = { ip, action: "login" };
+    const rl = await frictionLimit(`auth-session:${ip}`, 10, 60_000, frictionInput);
+
+    if (isTurnstileConfigured() && !shouldSkipCaptcha(rl.riskTier)) {
+      const turnstileToken = typeof body.turnstileToken === "string" ? body.turnstileToken : "";
+      if (!turnstileToken || !(await verifyTurnstileToken(turnstileToken))) {
+        return NextResponse.json({ error: "Security check failed" }, { status: 403 });
+      }
     }
 
-    // Get and verify the Firebase ID token from the Authorization header
     const authHeader = req.headers.get("authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -41,15 +38,7 @@ export async function POST(req: NextRequest) {
     const email = decodedToken.email || "";
     const uid = decodedToken.uid;
 
-    // Check membership in the admin-users Firestore collection
-    let dbAdmin = false;
-    try {
-      const db2 = getServerDb(idToken);
-      const adminDoc = await db2.collection("admin-users").doc(uid).get();
-      dbAdmin = adminDoc.exists && adminDoc.data()?.role === "admin";
-    } catch {}
-
-    if (!isAdminEmail(email) && !dbAdmin) {
+    if (!(await isAdminUser(email, uid))) {
       return NextResponse.json({ error: "Not authorized" }, { status: 403 });
     }
 
@@ -57,7 +46,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Server not configured for sessions" }, { status: 500 });
     }
 
-    // Create signed session payload
     const payload = { email, uid, admin: true, exp: Date.now() + 86400000 };
     const encoder = new TextEncoder();
     const key = await crypto.subtle.importKey(

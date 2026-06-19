@@ -1,0 +1,81 @@
+export default function VehiclesPage() {
+  const router = useRouter();
+  const [listings, setListings] = useState<any[]>([]);
+  const [selectedRegion, setSelectedRegion] = useState("All");
+  const [selectedCity, setSelectedCity] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [user, setUser] = useState<User | null>(null);
+  const [watchlistTick, setWatchlistTick] = useState(0);
+
+  const { sellerReviewStats, sellerBadges } = useSellerListingMeta(listings);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => setUser(u));
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    const q = query(collection(db, "listings"), where("type", "==", "vehicle"));
+    const unsub = onSnapshot(q, (snap) => {
+      const items: any[] = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() } as any))
+        .filter((i: any) => isListingVisibleInMarketplace(i));
+      items.sort((a: any, b: any) => ((b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0)));
+      setListings(items);
+    }, (err) => { console.error("Failed to load vehicles:", err); });
+    return () => unsub();
+  }, []);
+
+  function handleBuyNow(item: any) {
+    if (!isListingVisibleInMarketplace(item)) return;
+    if (item.paymentType === "contact") {
+      router.push(`/post/listing/${item.id}`);
+      return;
+    }
+    router.push(`/post/listing/${item.id}?buy=1`);
+  }
+
+  async function toggleWatchlist(item: any) {
+    if (user?.uid) {
+      try {
+        const snap = await getDoc(doc(db, "users", user.uid, "watchlist", item.id));
+        if (snap.exists()) {
+          await deleteDoc(doc(db, "users", user.uid, "watchlist", item.id));
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    const existing = JSON.parse(localStorage.getItem("watchlist") || "[]");
+    const index = existing.findIndex((fav: any) => fav.id === item.id);
+
+    if (index >= 0) {
+      existing.splice(index, 1);
+      localStorage.setItem("watchlist", JSON.stringify(existing));
+      showToast("Removed from watchlist", "info");
+    } else {
+      existing.unshift(item);
+      localStorage.setItem("watchlist", JSON.stringify(existing));
+      if (user?.uid) {
+        setDoc(doc(db, "users", user.uid, "watchlist", item.id), {
+          id: item.id,
+          title: item.title,
+          price: item.price,
+          imageUrl: item.imageUrl || item.image || "",
+          savedPrice: item.price,
+          savedAt: new Date().toISOString(),
+        }).catch((e) => {
+          console.error("Watchlist save failed:", e);
+          showToast("Failed to save to watchlist", "error");
+        });
+      }
+      showToast("Added to watchlist!");
+    }
+    setWatchlistTick((t) => t + 1);
+  }
+
+  const checkWatchlist = (id: string) => {
+    void watchlistTick;
+    return isInWatchlist(id);
+  };

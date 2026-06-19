@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 test.describe("Authentication", () => {
   test("login page loads", async ({ page }) => {
     await page.goto("/login");
-    await expect(page.getByRole("heading", { name: /Login|Create Account/ })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("heading", { name: /Login|Create account/ })).toBeVisible({ timeout: 10000 });
   });
 
   test("homepage loads without auth", async ({ page }) => {
@@ -42,7 +42,7 @@ test.describe("Authentication", () => {
   test("signup toggle switches to create account mode", async ({ page }) => {
     await page.goto("/login");
     await expect(page.getByRole("heading", { name: "Login" })).toBeVisible({ timeout: 10000 });
-    await page.getByRole("button", { name: /Create one/ }).click();
-    await expect(page.getByRole("heading", { name: "Create Account" })).toBeVisible({ timeout: 10000 });
+    await page.getByRole("button", { name: /Sign up/i }).click();
+    await expect(page.getByRole("heading", { name: "Create account" })).toBeVisible({ timeout: 10000 });
   });
 });

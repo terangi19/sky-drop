@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken, getServerDb } from "../../lib/firebase-admin";
+import { parseIpFromRequest } from "../../lib/geo-check";
 import { rateLimit } from "../../lib/rate-limit";
+import { DEFAULT_MAX_JSON_BYTES, isContentLengthOverLimit, payloadTooLargeResponse } from "../../lib/request-body";
+import { verifiedFlagAfterUpdate } from "../../lib/seller-verified";
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+    const ip = parseIpFromRequest(req.headers);
     const { allowed } = await rateLimit(`save-profile:${ip}`, 10, 60_000);
     if (!allowed) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }
+    if (isContentLengthOverLimit(req, DEFAULT_MAX_JSON_BYTES)) return payloadTooLargeResponse();
 
     const authHeader = req.headers.get("authorization");
     if (!authHeader?.startsWith("Bearer ")) {
@@ -41,6 +45,25 @@ export async function POST(req: NextRequest) {
       notifWatchlist,
       notifOffers,
       notifPriceDrop,
+      notifOffersTrades,
+      notifMessageRequests,
+      notifListingActivity,
+      notifListingReplies,
+      notifReactions,
+      notifMentions,
+      notifDisputes,
+      notifReports,
+      notifAccountReview,
+      notifPurchases,
+      notifEscrow,
+      notifRefunds,
+      notifSecurity,
+      notifPlatform,
+      notifIntensity,
+      notifQuietHours,
+      notifQuietHoursStart,
+      notifQuietHoursEnd,
+      notifDigest,
       phone,
       phoneVerified,
       bankAccountName,
@@ -51,6 +74,10 @@ export async function POST(req: NextRequest) {
     const trimmedUsername = typeof username === "string" ? username.trim() : "";
     if (!trimmedUsername) {
       return NextResponse.json({ error: "Username is required" }, { status: 400 });
+    }
+    const isAdmin = decodedToken.email && (await import("../../lib/admin-check")).isAdminEmail(decodedToken.email);
+    if (trimmedUsername.includes(" ") && !isAdmin) {
+      return NextResponse.json({ error: "Usernames cannot contain spaces." }, { status: 400 });
     }
 
     const db = getServerDb(idToken);
@@ -68,6 +95,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Username already taken" }, { status: 409 });
       }
     }
+
+    const nextPhoneVerified =
+      existingData?.phoneVerified === true || phoneVerified === true;
+    const nextEmailVerified = !!decodedToken.email_verified;
 
     const profileData = {
       username: trimmedUsername,
@@ -87,6 +118,25 @@ export async function POST(req: NextRequest) {
       notifWatchlist: notifWatchlist !== false,
       notifOffers: notifOffers !== false,
       notifPriceDrop: !!notifPriceDrop,
+      notifOffersTrades: notifOffersTrades !== false,
+      notifMessageRequests: notifMessageRequests !== false,
+      notifListingActivity: notifListingActivity !== false,
+      notifListingReplies: notifListingReplies !== false,
+      notifReactions: notifReactions !== false,
+      notifMentions: !!notifMentions,
+      notifDisputes: true,
+      notifReports: true,
+      notifAccountReview: true,
+      notifPurchases: true,
+      notifEscrow: true,
+      notifRefunds: true,
+      notifSecurity: notifSecurity !== false,
+      notifPlatform: notifPlatform !== false,
+      notifIntensity: notifIntensity || "balanced",
+      notifQuietHours: !!notifQuietHours,
+      notifQuietHoursStart: notifQuietHoursStart || "22:00",
+      notifQuietHoursEnd: notifQuietHoursEnd || "08:00",
+      notifDigest: !!notifDigest,
       phone:
         (typeof phone === "string" && phone.trim()) ||
         existingData?.phone ||
@@ -97,31 +147,26 @@ export async function POST(req: NextRequest) {
         existingData?.phoneNumber ||
         existingData?.phone ||
         "",
-      phoneVerified:
-        existingData?.phoneVerified === true ||
-        existingData?.verified === true ||
-        phoneVerified === true,
-      verified:
-        existingData?.phoneVerified === true ||
-        existingData?.verified === true ||
-        phoneVerified === true,
+      phoneVerified: nextPhoneVerified,
+      verified: verifiedFlagAfterUpdate(existingData, {
+        phoneVerified: nextPhoneVerified,
+        emailVerified: nextEmailVerified,
+        kycStatus: existingData?.kycStatus,
+      }),
       email: decodedToken.email || "",
-      emailVerified: !!decodedToken.email_verified,
-      bankAccountName:
-        typeof bankAccountName === "string"
-          ? bankAccountName.trim()
-          : existingData?.bankAccountName || "",
-      bankAccountNumber:
-        typeof bankAccountNumber === "string"
-          ? bankAccountNumber.trim()
-          : existingData?.bankAccountNumber || "",
-      bankReference:
-        typeof bankReference === "string"
-          ? bankReference.trim()
-          : existingData?.bankReference || "",
+      emailVerified: nextEmailVerified,
       memberSince: existingData?.memberSince || new Date(),
       lastActive: new Date(),
     };
+
+    const bankData: Record<string, string> = {};
+    if (typeof bankAccountName === "string") bankData.bankAccountName = bankAccountName.trim();
+    if (typeof bankAccountNumber === "string") bankData.bankAccountNumber = bankAccountNumber.trim();
+    if (typeof bankReference === "string") bankData.bankReference = bankReference.trim();
+
+    if (Object.keys(bankData).length > 0) {
+      await db.collection("profiles").doc(decodedToken.uid).collection("bankDetails").doc("private").set(bankData, { merge: true });
+    }
 
     await profileRef.set(profileData, { merge: true });
 
