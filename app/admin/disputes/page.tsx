@@ -6,19 +6,12 @@ import Background from "../../components/Background";
 import { AwhinaUnderHeader } from "../../components/AwhinaOnlineBadge";
 import ThemeToggle from "../../components/ThemeToggle";
 import { showToast } from "../../components/Toast";
+import { adminFetch } from "../../lib/admin-fetch.client";
 import {
-  addDoc,
   collection,
-  deleteDoc,
-  doc,
-  getDoc,
-  getDocs,
   onSnapshot,
   orderBy,
   query,
-  Timestamp,
-  updateDoc,
-  where,
 } from "firebase/firestore";
 import {
   User,
@@ -79,73 +72,66 @@ export default function AdminDisputesPage() {
   async function handleReview(disputeId: string) {
     setActionLoading(disputeId);
     try {
-      await updateDoc(doc(db, "disputes", disputeId), {
-        status: "under_review",
-        updatedAt: Timestamp.now(),
+      await adminFetch("/api/admin/disputes-manage", {
+        method: "POST",
+        body: JSON.stringify({
+          disputeId,
+          action: "review",
+          adminNotes: adminNotes[disputeId] || "",
+        }),
       });
-      await updateDoc(doc(db, "purchases", disputes.find(d => d.id === disputeId)?.purchaseId), {
-        disputeStatus: "under_review",
-      });
-    } catch (e) { console.error(e); }
+      setAdminNotes((prev) => { const n = { ...prev }; delete n[disputeId]; return n; });
+      showToast("Marked as under review.", "success");
+    } catch (e) {
+      console.error(e);
+      showToast(e instanceof Error ? e.message : "Action failed", "error");
+    }
     setActionLoading(null);
   }
 
-  async function handleResolveSeller(disputeId: string, purchaseId: string) {
+  async function handleResolveSeller(disputeId: string) {
     setActionLoading(disputeId);
     try {
-      await updateDoc(doc(db, "disputes", disputeId), {
-        status: "resolved_seller",
-        adminNotes: adminNotes[disputeId] || "Resolved in seller's favor",
-        resolvedAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-      });
-      await updateDoc(doc(db, "purchases", purchaseId), {
-        disputeStatus: "resolved_seller",
+      await adminFetch("/api/admin/disputes-manage", {
+        method: "POST",
+        body: JSON.stringify({
+          disputeId,
+          action: "resolve_seller",
+          adminNotes: adminNotes[disputeId] || "Resolved in seller's favor",
+        }),
       });
       setAdminNotes((prev) => { const n = { ...prev }; delete n[disputeId]; return n; });
-    } catch (e) { console.error(e); }
+      showToast("Resolved in seller's favor.", "success");
+    } catch (e) {
+      console.error(e);
+      showToast(e instanceof Error ? e.message : "Action failed", "error");
+    }
     setActionLoading(null);
   }
 
   async function handleRefund(dispute: any) {
     setActionLoading(dispute.id);
     try {
-      const token = await auth.currentUser?.getIdToken();
-      const res = await fetch("/api/disputes", {
+      const data = await adminFetch("/api/admin/disputes-manage", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
         body: JSON.stringify({
+          disputeId: dispute.id,
           action: "refund",
-          purchaseId: dispute.purchaseId,
+          adminNotes: adminNotes[dispute.id] || "Refund issued to buyer",
           stripePaymentIntentId: dispute.stripePaymentIntentId,
           amount: Number(dispute.listingPrice),
-          reason: `Dispute: ${dispute.reason}`,
         }),
       });
-      const data = await res.json();
-      if (!data.success) {
-        showToast("Refund failed: " + (data.error || "Unknown error"), "error");
-        setActionLoading(null);
-        return;
+      if (data.refundId) {
+        showToast(`Refund processed (${data.refundId}).`, "success");
+      } else {
+        showToast("Refund recorded.", "success");
       }
-
-      await updateDoc(doc(db, "disputes", dispute.id), {
-        status: "refunded",
-        refundAmount: Number(dispute.listingPrice),
-        stripeRefundId: data.refundId,
-        adminNotes: adminNotes[dispute.id] || "Refund issued to buyer",
-        resolvedAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-      });
-      await updateDoc(doc(db, "purchases", dispute.purchaseId), {
-        disputeStatus: "refunded",
-        status: "cancelled",
-      });
       setRefundModal(null);
       setAdminNotes((prev) => { const n = { ...prev }; delete n[dispute.id]; return n; });
     } catch (e) {
       console.error(e);
-      showToast("Refund processing failed.", "error");
+      showToast(e instanceof Error ? e.message : "Refund processing failed.", "error");
     }
     setActionLoading(null);
   }
@@ -244,7 +230,7 @@ export default function AdminDisputesPage() {
                             {actionLoading === d.id ? "..." : "Mark Under Review"}
                           </button>
                         )}
-                        <button onClick={() => handleResolveSeller(d.id, d.purchaseId)} disabled={actionLoading === d.id}
+                        <button onClick={() => handleResolveSeller(d.id)} disabled={actionLoading === d.id}
                           className="rounded-xl bg-zinc-700/50 px-4 py-2 text-xs font-bold text-[var(--foreground)] transition hover:bg-zinc-600/50 disabled:opacity-50">
                           Resolve in Seller's Favor
                         </button>

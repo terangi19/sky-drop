@@ -10,6 +10,7 @@ interface NotificationInput {
   listingId?: string;
   listingTitle?: string;
   listingImage?: string;
+  purchaseId?: string;
   total?: number;
   buyerName?: string;
   sellerName?: string;
@@ -48,6 +49,7 @@ export async function createNotification(input: NotificationInput) {
         listingId: input.listingId || null,
         listingTitle: input.listingTitle || null,
         listingImage: input.listingImage || null,
+        purchaseId: input.purchaseId || null,
         total: input.total || null,
       }),
     });
@@ -60,10 +62,14 @@ export async function createNotification(input: NotificationInput) {
 
   // Push notification
   try {
+    const pushToken = await auth.currentUser?.getIdToken();
     const url = input.listingId ? `/post/listing/${input.listingId}` : "/messages";
     const res = await fetch("/api/send-push", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(pushToken ? { Authorization: `Bearer ${pushToken}` } : {}),
+      },
       body: JSON.stringify({
         targetEmail: input.targetEmail,
         title: input.title,

@@ -8,6 +8,8 @@ import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import LoginKycSection from "../components/LoginKycSection";
 import { showToast } from "../components/Toast";
+import SignupVerificationModal from "../components/SignupVerificationModal";
+import LoginSuccessModal from "../components/LoginSuccessModal";
 
 import {
   createUserWithEmailAndPassword,
@@ -64,6 +66,25 @@ async function createProfileWithReservedUsername(
   });
 }
 
+function validatePasswordStrength(password: string): { valid: boolean; error?: string } {
+  if (password.length < 8) {
+    return { valid: false, error: "Password must be at least 8 characters" };
+  }
+  if (!/[A-Z]/.test(password)) {
+    return { valid: false, error: "Password must contain at least one uppercase letter" };
+  }
+  if (!/[a-z]/.test(password)) {
+    return { valid: false, error: "Password must contain at least one lowercase letter" };
+  }
+  if (!/[0-9]/.test(password)) {
+    return { valid: false, error: "Password must contain at least one number" };
+  }
+  if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+    return { valid: false, error: "Password must contain at least one special character" };
+  }
+  return { valid: true };
+}
+
 function friendlyAuthError(error: unknown): string {
   const code =
     error && typeof error === "object" && "code" in error
@@ -75,7 +96,7 @@ function friendlyAuthError(error: unknown): string {
     case "auth/invalid-email":
       return "Enter a valid email address.";
     case "auth/weak-password":
-      return "Password is too weak. Use at least 8 characters with uppercase and a number.";
+      return "Password is too weak. Use at least 8 characters with uppercase, lowercase, number, and special character.";
     case "auth/wrong-password":
     case "auth/invalid-credential":
       return "Incorrect email or password.";
@@ -104,6 +125,8 @@ export default function AuthPage() {
   const [canRedirect, setCanRedirect] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [showSignupModal, setShowSignupModal] = useState(false);
+  const [showLoginSuccessModal, setShowLoginSuccessModal] = useState(false);
   const signupInProgressRef = useRef(false);
 
   useEffect(() => {
@@ -125,10 +148,10 @@ export default function AuthPage() {
   }, []);
 
   useEffect(() => {
-    if (!user || !canRedirect) return;
+    if (!user || !canRedirect || showLoginSuccessModal || showSignupModal) return;
     const timer = setTimeout(() => router.push(redirectTo || "/"), 1500);
     return () => clearTimeout(timer);
-  }, [user, canRedirect, redirectTo, router]);
+  }, [user, canRedirect, redirectTo, router, showLoginSuccessModal, showSignupModal]);
 
   async function handleAuth(e: React.FormEvent) {
     e.preventDefault();
@@ -198,9 +221,17 @@ export default function AuthPage() {
     try {
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
-        setCanRedirect(true);
+        setShowLoginSuccessModal(true);
         showToast("Welcome back!", "success");
       } else {
+        // Validate password strength before creating account
+        const passwordValidation = validatePasswordStrength(password);
+        if (!passwordValidation.valid) {
+          showToast(passwordValidation.error || "Password does not meet requirements", "error");
+          setLoading(false);
+          return;
+        }
+        
         const cred = await createUserWithEmailAndPassword(auth, email, password);
         const u = cred.user;
         if (u) {
@@ -266,7 +297,7 @@ export default function AuthPage() {
           }
         }
         signupInProgressRef.current = false;
-        setCanRedirect(true);
+        setShowSignupModal(true);
         showToast("Account created! Check your email to verify your address.", "success");
       }
       setEmail("");
@@ -279,9 +310,11 @@ export default function AuthPage() {
   }
 
   return (
-    <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-      <Background />
-      <Navbar />
+    <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)] overflow-hidden">
+      <div className="absolute inset-0 backdrop-blur-md bg-black/40" />
+      <div className="relative z-10">
+        <Navbar />
+        <Background />
 
       <section className="relative z-10 mx-auto max-w-md px-6 py-16 sm:py-20">
         <button
@@ -473,6 +506,24 @@ export default function AuthPage() {
             </div>
           </div>
         </div>
+      )}
+      </div>
+
+      {showSignupModal && (
+        <SignupVerificationModal
+          onClose={() => setShowSignupModal(false)}
+          onVerify={() => {
+            setShowSignupModal(false);
+            router.push("/profile");
+          }}
+        />
+      )}
+
+      {showLoginSuccessModal && (
+        <LoginSuccessModal
+          onClose={() => setShowLoginSuccessModal(false)}
+          kycVerified={kycStatus === "approved"}
+        />
       )}
     </main>
   );

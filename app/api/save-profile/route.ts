@@ -155,21 +155,18 @@ export async function POST(req: NextRequest) {
       }),
       email: decodedToken.email || "",
       emailVerified: nextEmailVerified,
-      bankAccountName:
-        typeof bankAccountName === "string"
-          ? bankAccountName.trim()
-          : existingData?.bankAccountName || "",
-      bankAccountNumber:
-        typeof bankAccountNumber === "string"
-          ? bankAccountNumber.trim()
-          : existingData?.bankAccountNumber || "",
-      bankReference:
-        typeof bankReference === "string"
-          ? bankReference.trim()
-          : existingData?.bankReference || "",
       memberSince: existingData?.memberSince || new Date(),
       lastActive: new Date(),
     };
+
+    const bankData: Record<string, string> = {};
+    if (typeof bankAccountName === "string") bankData.bankAccountName = bankAccountName.trim();
+    if (typeof bankAccountNumber === "string") bankData.bankAccountNumber = bankAccountNumber.trim();
+    if (typeof bankReference === "string") bankData.bankReference = bankReference.trim();
+
+    if (Object.keys(bankData).length > 0) {
+      await db.collection("profiles").doc(decodedToken.uid).collection("bankDetails").doc("private").set(bankData, { merge: true });
+    }
 
     await profileRef.set(profileData, { merge: true });
 

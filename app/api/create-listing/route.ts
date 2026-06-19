@@ -276,12 +276,12 @@ export async function POST(req: NextRequest) {
       status,
       views: 0,
       bidCount: 0,
-      paymentType: clientData.paymentType || "stripe",
       createdAt: now,
       expiresAt,
       visibilityRank: shadowRank,
       ...clientData,
       saleType,
+      paymentType: String(clientData.paymentType || "contact"),
     };
 
     if (clientData.stockQuantity != null) {

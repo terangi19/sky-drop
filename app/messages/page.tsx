@@ -350,11 +350,21 @@ function MessagesPage() {
     const unreadMsgs = relevant.filter((m: any) => m.sender !== user.email && !m.read && !seenBatchRef.current.has(m.id));
     for (const msg of unreadMsgs) {
       seenBatchRef.current.add(msg.id);
-      updateDoc(doc(db, "messages", msg.id), { read: true, readAt: serverTimestamp() }).catch((e) => console.error("Failed to mark message read:", e));
     }
 
-    // Also mark corresponding notification documents as read
     if (unreadMsgs.length > 0) {
+      const messageIds = unreadMsgs.map((m: any) => m.id);
+      const tokenP = user.getIdToken();
+      tokenP.then((token) => {
+        if (cancelled) return;
+        fetch("/api/mark-messages-read", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ messageIds }),
+        }).catch((e) => console.error("Failed to batch mark messages read:", e));
+      }).catch((e) => console.error("Failed to get token for mark-read:", e));
+
+      // Also mark corresponding notification documents as read
       getDocs(
         query(
           collection(db, "notifications"),
@@ -751,16 +761,21 @@ function MessagesPage() {
         archived.push(chatUser);
         localStorage.setItem("archivedConversations", JSON.stringify(archived));
       }
-      // Mark messages as read for Navbar badge
       const dismissed = JSON.parse(localStorage.getItem("dismissedNotifications") || "[]");
       const relevant = messages.filter((m: any) =>
         messageInActiveConversation(m, user.email, chatUser, chatListingId)
       );
       for (const msg of relevant) {
         if (!dismissed.includes(msg.id)) dismissed.push(msg.id);
-        updateDoc(doc(db, "messages", msg.id), { read: true }).catch((e) => console.error("Failed to mark message read:", e));
       }
       localStorage.setItem("dismissedNotifications", JSON.stringify(dismissed));
+      const messageIds = relevant.map((m: any) => m.id);
+      const token = await user.getIdToken();
+      fetch("/api/mark-messages-read", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ messageIds }),
+      }).catch((e) => console.error("Failed to mark archived messages read:", e));
     } catch {}
     setShowMenu(false); setChatUser(""); setChatListingId(null);
   }
@@ -768,8 +783,15 @@ function MessagesPage() {
     if (!user?.email) return;
     setClearAllConfirm(false);
     const ids = [...new Set(messages.map((m: any) => m.id))];
-    const results = await Promise.allSettled(ids.map((id) => deleteDoc(doc(db, "messages", id))));
-    const failed = results.filter((r) => r.status === "rejected").length;
+    const token = await user.getIdToken();
+    const res = await fetch("/api/delete-messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ messageIds: ids }),
+    });
+    const data = await res.json().catch(() => ({}));
+    const marked = data.marked || 0;
+    const failed = data.failed || 0;
     setChatUser("");
     setChatListingId(null);
     if (failed === 0) showToast("All messages cleared", "info");

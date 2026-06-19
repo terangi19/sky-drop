@@ -9,12 +9,9 @@ import { showToast } from "../../components/Toast";
 import { adminFetch } from "../../lib/admin-fetch.client";
 import {
   collection,
-  doc,
-  getDoc,
   onSnapshot,
   orderBy,
   query,
-  updateDoc,
   where,
 } from "firebase/firestore";
 import {
@@ -25,7 +22,6 @@ import {
   db,
   onAuthStateChanged,
 } from "../../lib/firebase";
-import { createNotification } from "../../lib/notifications";
 import { isAdminEmail } from "../../lib/admin-check";
 
 type Tab = "address" | "digital" | "listings";
@@ -47,16 +43,18 @@ export default function AdminVerificationPage() {
   useEffect(() => {
     if (tab === "address") {
       setLoading(true);
-      // Read from the locked kycSubmissions collection — image URLs never stored on profiles
-      const q = query(collection(db, "kycSubmissions"), where("status", "==", "pending"));
-      const unsub = onSnapshot(q, (snap) => {
-        setProfiles(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        setLoading(false);
-      }, (err) => {
-        console.error("Failed to load pending verifications:", err);
-        setLoading(false);
-      });
-      return () => unsub();
+      // Use server-side API route to fetch KYC submissions securely
+      adminFetch("/api/admin/kyc-list")
+        .then((res) => res.json())
+        .then((data) => {
+          setProfiles(data.submissions || []);
+          setLoading(false);
+        })
+        .catch((err) => {
+          console.error("Failed to load pending verifications:", err);
+          showToast("Failed to load KYC submissions", "error");
+          setLoading(false);
+        });
     } else if (tab === "digital") {
       setLoading(true);
       const q = query(collection(db, "tradePosts"), where("type", "==", "digital"));
@@ -117,82 +115,61 @@ export default function AdminVerificationPage() {
   async function handleApproveDigital(listingId: string) {
     if (!confirm("Approve this digital listing?")) return;
     try {
-      await updateDoc(doc(db, "tradePosts", listingId), { status: "live" });
-      const snap = await getDoc(doc(db, "tradePosts", listingId));
-      const data = snap.data();
-      if (data?.sellerEmail) {
-        await createNotification({
-          targetEmail: data.sellerEmail,
-          fromEmail: user!.email!,
-          type: "verification",
-          title: "Digital Listing Approved",
-          message: `Your digital listing "${data.title}" has been approved and is now live.`,
-          listingTitle: data.title,
-        });
-      }
-    } catch (e) { console.error(e); }
+      await adminFetch("/api/admin/verify-listing", {
+        method: "POST",
+        body: JSON.stringify({ listingId, action: "approve", type: "digital" }),
+      });
+      showToast("Digital listing approved.", "success");
+    } catch (e) {
+      console.error(e);
+      showToast(e instanceof Error ? e.message : "Approve failed", "error");
+    }
   }
 
   async function handleRejectDigital(listingId: string) {
     const reason = rejectInputs[`dig_${listingId}`]?.trim();
     if (!reason) { showToast("Enter a rejection reason.", "error"); return; }
     try {
-      await updateDoc(doc(db, "tradePosts", listingId), { status: "rejected" });
-      const snap = await getDoc(doc(db, "tradePosts", listingId));
-      const data = snap.data();
-      if (data?.sellerEmail) {
-        await createNotification({
-          targetEmail: data.sellerEmail,
-          fromEmail: user!.email!,
-          type: "listing_rejected",
-          title: "Digital Listing Rejected",
-          message: `Your digital listing "${data.title}" was rejected. Reason: ${reason}`,
-          listingTitle: data.title,
-        });
-      }
+      await adminFetch("/api/admin/verify-listing", {
+        method: "POST",
+        body: JSON.stringify({ listingId, action: "reject", type: "digital", reason }),
+      });
       setRejectInputs((prev) => { const next = { ...prev }; delete next[`dig_${listingId}`]; return next; });
-    } catch (e) { console.error(e); }
+      showToast("Digital listing rejected.", "success");
+    } catch (e) {
+      console.error(e);
+      showToast(e instanceof Error ? e.message : "Reject failed", "error");
+    }
   }
 
   async function handleApproveListing(listingId: string) {
     if (!confirm("Approve this listing? It will go live immediately.")) return;
     try {
-      await updateDoc(doc(db, "listings", listingId), { status: "live" });
-      const snap = await getDoc(doc(db, "listings", listingId));
-      const data = snap.data();
-      if (data?.sellerEmail) {
-        await createNotification({
-          targetEmail: data.sellerEmail,
-          fromEmail: user!.email!,
-          type: "verification",
-          title: "Listing Approved",
-          message: `Your listing "${data.title}" has been approved and is now live on the marketplace.`,
-          listingTitle: data.title,
-          listingId: listingId,
-        });
-      }
-    } catch (e) { console.error(e); }
+      await adminFetch("/api/admin/verify-listing", {
+        method: "POST",
+        body: JSON.stringify({ listingId, action: "approve", type: "listing" }),
+      });
+      showToast("Listing approved.", "success");
+    } catch (e) {
+      console.error(e);
+      showToast(e instanceof Error ? e.message : "Approve failed", "error");
+    }
   }
 
   async function handleRejectListing(listingId: string) {
     const reason = rejectInputs[`lst_${listingId}`]?.trim();
     if (!reason) { showToast("Enter a rejection reason.", "error"); return; }
     try {
-      await updateDoc(doc(db, "listings", listingId), { status: "rejected" });
-      const snap = await getDoc(doc(db, "listings", listingId));
-      const data = snap.data();
-      if (data?.sellerEmail) {
-        await createNotification({
-          targetEmail: data.sellerEmail,
-          fromEmail: user!.email!,
-          type: "listing_rejected",
-          title: "Listing Rejected",
-          message: `Your listing "${data.title}" was rejected. Reason: ${reason}`,
-          listingTitle: data.title,
-        });
-      }
+      await adminFetch("/api/admin/verify-listing", {
+        method: "POST",
+        body: JSON.stringify({ listingId, action: "reject", type: "listing", reason }),
+      });
       setRejectInputs((prev) => { const next = { ...prev }; delete next[`lst_${listingId}`]; return next; });
-    } catch (e) { console.error(e); }
+      showToast("Listing rejected.", "success");
+    } catch (e) {
+      console.error(e);
+      showToast(e instanceof Error ? e.message : "Reject failed", "error");
+    }
   }
 
   if (!isAdmin) {

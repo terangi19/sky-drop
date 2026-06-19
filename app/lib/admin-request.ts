@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { verifyIdToken } from "./firebase-admin";
 import { isAdminUser } from "./admin-check.server";
 import { logSecurityWarning } from "./security-log";
+import { rateLimit } from "./rate-limit";
 
 export class AdminAuthError extends Error {
   status: number;
@@ -18,6 +19,14 @@ export async function requireAdminFromRequest(req: NextRequest) {
   }
 
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "unknown";
+
+  // Baseline rate limit: 40 requests per minute per IP across all admin routes.
+  // Sensitive actions (ban, user-action) may add stricter per-route limits.
+  const { allowed } = await rateLimit(`admin:${ip}`, 40, 60_000);
+  if (!allowed) {
+    await logSecurityWarning("rate_limit_admin", "Admin rate limit exceeded", { ip });
+    throw new AdminAuthError(429, "Too many requests");
+  }
 
   let decoded;
   try {

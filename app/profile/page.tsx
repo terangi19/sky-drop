@@ -7,7 +7,6 @@ import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import { sanitizeHtml } from "../lib/sanitize";
 import {
-  addDoc,
   arrayUnion,
   collection,
   deleteDoc,
@@ -417,6 +416,21 @@ const tabs = [
     setDoc(ref, { lastActive: Timestamp.now() }, { merge: true }).catch((e) => console.error("Failed to update lastActive:", e));
   }, [user?.uid]);
 
+  // Read bank details from the secure subcollection (not the main profile doc)
+  useEffect(() => {
+    if (!user?.uid) return;
+    const bankRef = doc(db, "profiles", user.uid, "bankDetails", "private");
+    const unsub = onSnapshot(bankRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        setBankAccountName(data.bankAccountName || "");
+        setBankAccountNumber(data.bankAccountNumber || "");
+        setBankReference(data.bankReference || "");
+      }
+    });
+    return () => unsub();
+  }, [user?.uid]);
+
   useEffect(() => {
     if (loading) return;
     const hash = typeof window !== "undefined" ? window.location.hash.slice(1) : "";
@@ -781,6 +795,11 @@ const tabs = [
       }
 
       const clientMerge: Record<string, unknown> = { ...profilePayload };
+      // Never write bank details to the main profile doc — they're stored server-side
+      // in profiles/{uid}/bankDetails/private which has owner-only Firestore rules.
+      delete clientMerge.bankAccountName;
+      delete clientMerge.bankAccountNumber;
+      delete clientMerge.bankReference;
       if (!phoneToSave && isPhoneMarkedVerified) {
         delete clientMerge.phone;
         delete clientMerge.phoneNumber;
@@ -2038,16 +2057,23 @@ const tabs = [
                 const existing = await getDocs(query(collection(db, "tradePosts"), where("sellerEmail", "==", user!.email), where("badgeForSale", "==", sellBadge), where("status", "==", "live")));
                 if (!existing.empty) { showToast("You already have an active listing for this badge.", "info"); setSellBadge(null); return; }
                 const title = sellBadge === "epic" ? "💎 Epic Seller Badge" : "👑 The Five Badge";
-                const ref = await addDoc(collection(db, "tradePosts"), {
-                  type: "WTS", title, price, message: sellBadge === "epic" ? "Epic Seller badge for sale." : "👑 The Five badge for sale. Only 5 exist on Sky Drop.",
-                  sellerEmail: user!.email, sellerUsername: username || user!.email,
-                  badgeForSale: sellBadge, status: "live", saleType: "buy_now",
-                  replies: [], images: [], views: 1, offers: 0,
-                  createdAt: serverTimestamp(),
-                });
-                setSellBadge(null);
-                showToast("Badge listed for sale! View it in Trade Feed.", "success");
-                router.push("/trade-feed");
+                try {
+                  const { createTradePostRequest } = await import("../lib/create-trade-post.client");
+                  await createTradePostRequest({
+                    type: "WTS",
+                    title,
+                    price,
+                    message: sellBadge === "epic" ? "Epic Seller badge for sale." : "👑 The Five badge for sale. Only 5 exist on Sky Drop.",
+                    sellerUsername: username || user!.email || "",
+                    badgeForSale: sellBadge as "epic" | "legendary",
+                    status: "live",
+                  });
+                  setSellBadge(null);
+                  showToast("Badge listed for sale! View it in Trade Feed.", "success");
+                  router.push("/trade-feed");
+                } catch (e) {
+                  showToast(e instanceof Error ? e.message : "Failed to list badge.", "error");
+                }
               }} className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all hover:shadow-xl active:scale-[0.97]">
                 List for Sale
               </button>

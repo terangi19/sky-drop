@@ -8,9 +8,10 @@ import BrowseAwhinaAssistantPanel from "../components/BrowseAwhinaAssistantPanel
 import { useAwhinaInsightEffect } from "../contexts/AwhinaPageInsightContext";
 import { buildPurchasesInsight } from "../lib/awhina-insights";
 import { User } from "firebase/auth";
-import { addDoc, collection, doc, onSnapshot, orderBy, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
+import { collection, doc, onSnapshot, orderBy, query, updateDoc, where } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import { getFreshIdToken } from "../lib/api-auth";
+import { openDisputeRequest } from "../lib/open-dispute.client";
 import { createNotification } from "../lib/notifications";
 import { awardXP } from "../lib/xp";
 import { showToast } from "../components/Toast";
@@ -220,10 +221,20 @@ export default function PurchasesPage() {
   async function saveAddress() {
     if (!editAddress || !newAddress.trim()) return;
     try {
-      await updateDoc(doc(db, "purchases", editAddress.id), { shippingAddress: newAddress.trim() });
+      const token = await auth.currentUser?.getIdToken(true);
+      if (!token) { showToast("Please sign in again", "error"); return; }
+      const res = await fetch("/api/update-purchase-shipping", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ purchaseId: editAddress.id, shippingAddress: newAddress.trim() }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to save address");
+      }
       setEditAddress(null);
       setNewAddress("");
-    } catch (e) { console.error("Failed to update address:", e); showToast("Failed to save address", "error"); }
+    } catch (e: any) { console.error("Failed to update address:", e); showToast(e.message || "Failed to save address", "error"); }
   }
 
   const counts = useMemo(() => {
@@ -588,44 +599,16 @@ export default function PurchasesPage() {
               <button disabled={!disputeReason || !disputeDescription.trim() || disputeSending} onClick={async () => {
                 setDisputeSending(true);
                 try {
-                  const disputeRef = await addDoc(collection(db, "disputes"), {
+                  await openDisputeRequest({
                     purchaseId: disputeModal.id,
-                    listingId: disputeModal.listingId,
-                    listingTitle: disputeModal.listingTitle,
-                    listingPrice: disputeModal.listingPrice,
-                    buyerEmail: user?.email,
-                    sellerEmail: disputeModal.sellerEmail,
                     reason: disputeReason,
                     description: disputeDescription.trim(),
-                    status: "open",
-                    stripePaymentIntentId: disputeModal.stripePaymentIntentId || "",
-                    createdAt: serverTimestamp(),
-                    updatedAt: serverTimestamp(),
-                  });
-                  await updateDoc(doc(db, "purchases", disputeModal.id), { disputeStatus: "open" });
-                  await createNotification({
-                    targetEmail: process.env.NEXT_PUBLIC_ADMIN_EMAIL || "admin@skydrop.nz",
-                    fromEmail: user!.email!,
-                    type: "dispute_opened",
-                    title: "New Dispute Opened",
-                    message: `Dispute opened for "${disputeModal.listingTitle}" — ${disputeReason}`,
-                    listingId: disputeModal.listingId,
-                    listingTitle: disputeModal.listingTitle,
-                  });
-                  await createNotification({
-                    targetEmail: disputeModal.sellerEmail,
-                    fromEmail: user!.email!,
-                    type: "dispute_opened",
-                    title: "A dispute has been opened on your sale",
-                    message: `Buyer opened a dispute for "${disputeModal.listingTitle}" — Reason: ${disputeReason}. Admin will review both sides.`,
-                    listingId: disputeModal.listingId,
-                    listingTitle: disputeModal.listingTitle,
                   });
                   setDisputeModal(null);
                   showToast("Dispute opened. Admin will review shortly.");
                 } catch (e) {
                   console.error(e);
-                  showToast("Failed to open dispute. Try again.", "error");
+                  showToast(e instanceof Error ? e.message : "Failed to open dispute. Try again.", "error");
                 }
                 setDisputeSending(false);
               }} className="flex-1 rounded-xl bg-gradient-to-r from-red-500 to-sky-500 py-3 text-sm font-bold text-white shadow-lg shadow-red-500/20 transition hover:shadow-xl active:scale-[0.97] disabled:opacity-50">

@@ -1,7 +1,6 @@
-import { addDoc, collection, doc, getDocs, query, serverTimestamp, Timestamp, updateDoc, where } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { db, storage } from "./firebase";
-import { createNotification } from "./notifications";
+import { collection, getDocs, query, where } from "firebase/firestore";
+import { auth, db, storage } from "./firebase";
 
 export interface JobApplication {
   id: string;
@@ -16,8 +15,8 @@ export interface JobApplication {
   resumeURL?: string;
   resumeName?: string;
   status: "pending" | "reviewed" | "accepted" | "rejected";
-  createdAt: Timestamp;
-  reviewedAt?: Timestamp;
+  createdAt: import("firebase/firestore").Timestamp;
+  reviewedAt?: import("firebase/firestore").Timestamp;
   employerNotes?: string;
 }
 
@@ -44,30 +43,24 @@ export async function submitApplication(data: {
     resumeURL = await getDownloadURL(storageRef);
   }
 
-  await addDoc(collection(db, "jobApplications"), {
-    listingId: data.listingId,
-    listingTitle: data.listingTitle,
-    employerEmail: data.employerEmail,
-    employerId: data.employerId,
-    applicantEmail: data.applicantEmail,
-    applicantName: data.applicantName,
-    applicantPhone: data.applicantPhone,
-    coverLetter: data.coverLetter,
-    resumeURL,
-    resumeName,
-    status: "pending",
-    createdAt: serverTimestamp(),
+  const token = await auth.currentUser?.getIdToken(true);
+  if (!token) {
+    throw new Error("Please sign in again");
+  }
+
+  const res = await fetch("/api/submit-job-application", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ ...data, resumeURL, resumeName }),
   });
 
-  await createNotification({
-    targetEmail: data.employerEmail,
-    fromEmail: data.applicantEmail,
-    type: "job_application",
-    title: `New application for "${data.listingTitle}"`,
-    message: `${data.applicantName} has applied for your job listing.`,
-    listingId: data.listingId,
-    listingTitle: data.listingTitle,
-  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(typeof body.error === "string" ? body.error : "Failed to submit application");
+  }
 }
 
 export async function updateApplicationStatus(
@@ -78,25 +71,32 @@ export async function updateApplicationStatus(
   applicantEmail?: string,
   employerEmail?: string
 ): Promise<void> {
-  const updateData: any = {
-    status,
-    reviewedAt: serverTimestamp(),
-  };
-  if (employerNotes !== undefined) updateData.employerNotes = employerNotes;
-  await updateDoc(doc(db, "jobApplications", applicationId), updateData);
-
-  if ((status === "accepted" || status === "rejected") && applicantEmail && listingTitle) {
-    await createNotification({
-      targetEmail: applicantEmail,
-      fromEmail: employerEmail || "system@skydrop.nz",
-      type: status === "accepted" ? "verification" : "warning",
-      title: status === "accepted" ? "Application Accepted! 🎉" : "Application Status Update",
-      message: status === "accepted"
-        ? `Your application for "${listingTitle}" has been accepted! The employer will be in touch soon.`
-        : `Your application for "${listingTitle}" has been updated.${employerNotes ? ` Notes: ${employerNotes}` : ""}`,
-      listingTitle,
-    });
+  const token = await auth.currentUser?.getIdToken(true);
+  if (!token) {
+    throw new Error("Please sign in again");
   }
+
+  const res = await fetch("/api/update-job-application", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      applicationId,
+      status,
+      employerNotes,
+    }),
+  });
+
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(typeof body.error === "string" ? body.error : "Failed to update application");
+  }
+
+  void listingTitle;
+  void applicantEmail;
+  void employerEmail;
 }
 
 export async function hasApplied(listingId: string, email: string): Promise<boolean> {

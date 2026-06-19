@@ -1,8 +1,52 @@
 import { NextRequest, NextResponse } from "next/server";
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import { verifyIdToken, getAdminDb, isAdminInitialized } from "../../lib/firebase-admin";
 import { frictionLimit, shouldSkipCaptcha, type FrictionInput } from "../../lib/rate-limit";
 import { verifyTurnstileToken, isTurnstileConfigured } from "../../lib/turnstile";
+import { getAdminAlertRecipient } from "../../lib/admin-alerts";
+
+async function notifyDisputeOpened(
+  db: Firestore,
+  opts: {
+    buyerEmail: string;
+    sellerEmail: string;
+    listingId: string;
+    listingTitle: string;
+    reason: string;
+  }
+) {
+  const now = new Date();
+  const adminEmail = await getAdminAlertRecipient();
+  const notifications: Array<Record<string, unknown>> = [
+    {
+      type: "dispute_opened",
+      targetEmail: opts.sellerEmail,
+      fromEmail: opts.buyerEmail,
+      title: "A dispute has been opened on your sale",
+      message: `Buyer opened a dispute for "${opts.listingTitle}" — Reason: ${opts.reason}. Admin will review both sides.`,
+      listingId: opts.listingId,
+      listingTitle: opts.listingTitle,
+      read: false,
+      createdAt: now,
+    },
+  ];
+  if (adminEmail) {
+    notifications.push({
+      type: "dispute_opened",
+      targetEmail: adminEmail,
+      fromEmail: opts.buyerEmail,
+      title: "New Dispute Opened",
+      message: `Dispute opened for "${opts.listingTitle}" — ${opts.reason}`,
+      listingId: opts.listingId,
+      listingTitle: opts.listingTitle,
+      read: false,
+      createdAt: now,
+    });
+  }
+  for (const n of notifications) {
+    await db.collection("notifications").add(n);
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -84,6 +128,14 @@ export async function POST(req: NextRequest) {
     await purchaseRef.update({
       disputeStatus: "open",
       updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    await notifyDisputeOpened(db, {
+      buyerEmail,
+      sellerEmail: String(purchase.sellerEmail || ""),
+      listingId: String(purchase.listingId || ""),
+      listingTitle: String(purchase.listingTitle || ""),
+      reason,
     });
 
     return NextResponse.json({ success: true, disputeId: disputeRef.id });

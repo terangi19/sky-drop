@@ -79,6 +79,7 @@ export async function POST(req: NextRequest) {
           sellerEmail: meta.sellerEmail,
           status: "pending",
           paid: true,
+          paymentIntentId: pi.id,
           createdAt: new Date(),
         });
         for (let i = 0; i < 2; i++) {

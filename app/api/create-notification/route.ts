@@ -5,6 +5,7 @@ import { rateLimit } from "../../lib/rate-limit";
 import { isAdminEmail } from "../../lib/admin-check";
 import { parseIpFromRequest } from "../../lib/geo-check";
 import { DEFAULT_MAX_JSON_BYTES, isContentLengthOverLimit, payloadTooLargeResponse } from "../../lib/request-body";
+import { assertNotificationAllowed } from "../../lib/notification-policy";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -49,6 +50,7 @@ export async function POST(req: NextRequest) {
       listingTitle,
       listingImage,
       total,
+      purchaseId,
     } = body;
 
     if (
@@ -78,6 +80,18 @@ export async function POST(req: NextRequest) {
     }
 
     const db = getAdminDb();
+    const policy = await assertNotificationAllowed(db, {
+      senderEmail,
+      targetEmail: target,
+      fromEmail: from,
+      type,
+      listingId: typeof listingId === "string" ? listingId : null,
+      purchaseId: typeof purchaseId === "string" ? purchaseId : null,
+    });
+    if (policy.ok === false) {
+      return NextResponse.json({ error: policy.reason }, { status: 403 });
+    }
+
     const ref = await db.collection("notifications").add({
       type: type.slice(0, 64),
       targetEmail: target,

@@ -69,10 +69,8 @@ service cloud.firestore {
     }
 
     match /profiles/{profileId} {
-      // Public seller pages use get by uid (via usernames/{slug} → profiles/{uid}).
-      // Collection queries (email/username) require auth to block bulk enumeration.
-      allow get: if true;
-      allow list: if request.auth != null;
+      // Require authentication for all profile reads to prevent data scraping
+      allow read: if request.auth != null;
       allow create: if request.auth != null
         && request.auth.uid == profileId
         && request.resource.data.email == request.auth.token.email;
@@ -89,6 +87,10 @@ service cloud.firestore {
           .hasAny(['kycStatus', 'kycReviewedAt', 'kycReviewedBy', 'kycBannedReason',
             'trustedSeller', 'verified', 'topTrader', 'profileBadge', 'fastReply', 'riskFlag'])
           || isKycPendingSelfSubmit());
+
+      match /bankDetails/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == profileId;
+      }
     }
 
     // KYC submissions — ID photos and identity data.
@@ -176,12 +178,7 @@ service cloud.firestore {
     // Reviews: only real buyers can review, one per purchase
     match /reviews/{reviewId} {
       allow read: if true;
-      allow create: if request.auth != null
-        && isEmailVerified()
-        && request.resource.data.reviewerEmail == request.auth.token.email
-        && request.resource.data.sellerEmail != request.auth.token.email
-        && exists(/databases/$(database)/documents/purchases/$(request.resource.data.purchaseId))
-        && get(/databases/$(database)/documents/purchases/$(request.resource.data.purchaseId)).data.buyerEmail == request.auth.token.email;
+      allow create: if false;
       allow update: if request.auth != null
         && resource.data.reviewerEmail == request.auth.token.email;
       allow delete: if request.auth != null
@@ -189,11 +186,7 @@ service cloud.firestore {
     }
 
     match /reports/{reportId} {
-      allow create: if request.auth != null
-        && request.resource.data.reporterUserId == request.auth.uid
-        && request.resource.data.reporterUserEmail == request.auth.token.email
-        && request.resource.data.status == 'pending'
-        && (request.resource.data.type == 'user' || request.resource.data.type == 'listing');
+      allow create: if false;
       allow read: if request.auth != null
         && (isAdmin() || resource.data.reporterUserId == request.auth.uid);
       allow update, delete: if request.auth != null && isAdmin();
@@ -201,8 +194,7 @@ service cloud.firestore {
 
     match /tradePosts/{postId} {
       allow read: if true;
-      allow create: if request.auth != null && isEmailVerified()
-        && request.resource.data.sellerEmail == request.auth.token.email;
+      allow create: if false;
       allow update: if request.auth != null
         && (resource.data.sellerEmail == request.auth.token.email
           || isCheckoutReservationUpdate()
@@ -253,15 +245,13 @@ service cloud.firestore {
 
     match /sponsoredDrops/{docId} {
       allow read: if true;
-      allow create: if request.auth != null
-        && request.resource.data.sellerEmail == request.auth.token.email;
-      allow update: if request.auth != null
-        && resource.data.sellerEmail == request.auth.token.email;
+      allow create: if false;
+      allow update: if false;
     }
 
     match /dropTokens/{tokenId} {
       allow read: if request.auth != null && resource.data.ownerId == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
+      allow create: if false;
       allow update: if request.auth != null && resource.data.ownerId == request.auth.uid;
     }
 
@@ -291,12 +281,8 @@ service cloud.firestore {
 
     match /listingQuestions/{questionId} {
       allow read: if true;
-      allow create: if request.auth != null
-        && isEmailVerified()
-        && request.resource.data.askerEmail == request.auth.token.email;
-      allow update: if request.auth != null
-        && (resource.data.askerEmail == request.auth.token.email
-          || resource.data.listingSellerEmail == request.auth.token.email);
+      allow create: if false;
+      allow update: if false;
     }
 
     match /commissions/{commissionId} {
@@ -320,10 +306,8 @@ service cloud.firestore {
       allow read: if request.auth != null
         && (resource.data.employerEmail == request.auth.token.email
           || resource.data.applicantEmail == request.auth.token.email);
-      allow create: if request.auth != null && isEmailVerified()
-        && request.resource.data.applicantEmail == request.auth.token.email;
-      allow update: if request.auth != null
-        && resource.data.employerEmail == request.auth.token.email;
+      allow create: if false;
+      allow update: if false;
     }
 
     // Bid history — immutable audit trail of every bid placed
@@ -378,9 +362,7 @@ service cloud.firestore {
     }
 
     match /disputes/{disputeId} {
-      allow create: if request.auth != null
-        && request.resource.data.buyerEmail == request.auth.token.email
-        && request.resource.data.purchaseId is string;
+      allow create: if false;
       allow read: if request.auth != null
         && (resource.data.buyerEmail == request.auth.token.email
           || resource.data.sellerEmail == request.auth.token.email

@@ -12,7 +12,7 @@ import JobApplicationModal from "../../../components/JobApplicationModal";
 import { showToast } from "../../../components/Toast";
 import { createNotification } from "../../../lib/notifications";
 import { User } from "firebase/auth";
-import { addDoc, collection, doc, getDoc, getDocs, increment, onSnapshot, query, runTransaction, serverTimestamp, updateDoc, where, Timestamp, setDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, increment, onSnapshot, query, serverTimestamp, updateDoc, where, Timestamp, setDoc } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../../../lib/firebase";
 import { detectScam } from "../../../lib/scamdetection";
 import { calculateTrustScore } from "../../../lib/trustscore";
@@ -32,6 +32,7 @@ import {
 import { ReviewStars } from "../../../components/SellerReviewStars";
 import ServicePricingBadge from "../../../components/ServicePricingBadge";
 import { formatServicePriceDisplay } from "../../../lib/service-pricing";
+import { sendMessage } from "../../../lib/api-send-message";
 
 function getBidIncrement(price: number): number {
   if (price < 50) return 1;
@@ -586,23 +587,18 @@ export default function ListingPage() {
     setOfferSending(true);
     try {
       const title = listing.title || "Unknown";
-      await addDoc(collection(db, "messages"), {
-        sender: user.email,
-        receiver: listing.sellerEmail,
-        participants: [user.email, listing.sellerEmail],
+      await sendMessage({
         type: "offer",
-        offerType: "make",
-        offerAmount: Number(offerAmount),
-        offerStatus: "pending",
         text: `Offer: $${offerAmount}`,
+        receiver: listing.sellerEmail,
         listingId: listing.id,
         listingTitle: listing.title,
         listingImage: listing.images?.[0] || listing.imageUrl || "",
         listingPrice: listing.price,
-        read: false,
-        createdAt: serverTimestamp(),
+        offerType: "make",
+        offerAmount: Number(offerAmount),
+        offerStatus: "pending",
       });
-      setOfferSent(true);
     } catch (e) {
       console.error("Failed to send offer:", e);
       showToast("Failed to send offer", "error");
@@ -622,124 +618,32 @@ export default function ListingPage() {
     const amount = Number(bidAmount);
     if (amount <= 0) { showToast("Enter a valid bid", "info"); return; }
 
-    if (!autoBidEnabled) {
-      try {
-        await runTransaction(db, async (transaction) => {
-          const ref = doc(db, "listings", listing.id);
-          const snap = await transaction.get(ref);
-          if (!snap.exists()) throw new Error("Listing not found");
-          const current = snap.data();
-          const currentBid = current.currentBid || current.startingBid || 0;
-          const minNext = getMinimumNextBid(currentBid);
-          if (current.auctionEndsAt && current.auctionEndsAt.toMillis() < Date.now()) throw new Error("Auction has ended");
-          if (!isListingAvailableForPurchase(current)) throw new Error("Listing is no longer available");
-          if (amount < minNext) throw new Error("Minimum bid is $" + minNext);
-          if (current.reservePrice && amount < current.reservePrice)
-            throw new Error("Bid must meet the reserve price of $" + current.reservePrice);
-          transaction.update(ref, {
-            currentBid: amount,
-            highestBidder: user.email,
-            bidCount: (current.bidCount || 0) + 1,
-          });
-        });
-        setShowBidModal(false);
-        setBidAmount("");
-        showToast("Bid placed!", "success");
-      } catch (e: any) {
-        console.error(e);
-        showToast(e.message || "Failed to place bid", "error");
-      }
-      return;
-    }
-
-    const newMax = amount;
-    let changes: any = {};
-    let outbidUser: string | null = null;
+    const token = await auth.currentUser?.getIdToken(true);
+    if (!token) { showToast("Please sign in again", "error"); return; }
 
     try {
-      await runTransaction(db, async (transaction) => {
-        const ref = doc(db, "listings", listing.id);
-        const snap = await transaction.get(ref);
-        if (!snap.exists()) throw new Error("Listing not found");
-
-        const current = snap.data();
-        const startingBid = current.startingBid || 0;
-
-        if (current.auctionEndsAt && current.auctionEndsAt.toMillis() < Date.now())
-          throw new Error("Auction has ended");
-        if (!isListingAvailableForPurchase(current))
-          throw new Error("Listing is no longer available");
-
-        const currentBid = current.currentBid || startingBid;
-        const currentMaxBid = current.currentMaxBid || 0;
-        const secondMaxBid = current.secondMaxBid || 0;
-
-        if (current.reservePrice && newMax < current.reservePrice)
-          throw new Error("Bid must meet the reserve price of $" + current.reservePrice);
-
-        if (!current.highestBidder) {
-          if (newMax < startingBid)
-            throw new Error("Bid must be at least $" + startingBid);
-          changes = {
-            currentBid: startingBid,
-            currentMaxBid: newMax,
-            secondMaxBid: 0,
-            highestBidder: user.email,
-            bidCount: (current.bidCount || 0) + 1,
-          };
-        } else if (current.highestBidder === user.email) {
-          if (newMax <= currentMaxBid)
-            throw new Error("Your max bid is already $" + currentMaxBid + " or higher");
-          changes = { currentMaxBid: newMax };
-        } else {
-          const minNext = getMinimumNextBid(currentBid);
-          if (newMax < minNext)
-            throw new Error("Minimum bid is $" + minNext);
-
-          if (newMax > currentMaxBid) {
-            const inc = getBidIncrement(currentBid);
-            const newPrice = Math.min(newMax, currentMaxBid + inc);
-            outbidUser = current.highestBidder;
-            changes = {
-              currentBid: newPrice,
-              currentMaxBid: newMax,
-              secondMaxBid: Math.max(secondMaxBid, currentMaxBid),
-              highestBidder: user.email,
-              bidCount: (current.bidCount || 0) + 1,
-            };
-          } else if (newMax > secondMaxBid) {
-            const inc = getBidIncrement(currentBid);
-            const newPrice = Math.min(currentMaxBid, newMax + inc);
-            if (newPrice > currentBid) {
-              changes = {
-                currentBid: newPrice,
-                secondMaxBid: newMax,
-                bidCount: (current.bidCount || 0) + 1,
-              };
-            } else {
-              throw new Error("Bid too low to change current price");
-            }
-          } else {
-            throw new Error("Bid must be at least $" + getMinimumNextBid(secondMaxBid));
-          }
-        }
-
-        if (current.auctionEndsAt) {
-          const msLeft = current.auctionEndsAt.toMillis() - Date.now();
-          if (msLeft > 0 && msLeft < 300000) {
-            const newEnd = new Date(Date.now() + 300000);
-            changes.auctionEndsAt = Timestamp.fromDate(newEnd);
-            changes.auctionExtended = true;
-          }
-        }
-
-        transaction.update(ref, changes);
+      const res = await fetch("/api/place-bid", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          listingId: listing.id,
+          amount,
+          autoBid: autoBidEnabled,
+        }),
       });
 
-      setListing((prev) => prev ? { ...prev, ...changes } : prev);
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to place bid");
+      }
+
+      setListing((prev) => prev ? { ...prev, currentBid: data.currentBid } : prev);
       setShowBidModal(false);
       setBidAmount("");
-      showToast("Auto bid placed!", "success");
+      showToast("Bid placed!", "success");
 
       try {
         const { createNotification } = await import("../../../lib/notifications");
@@ -748,31 +652,26 @@ export default function ListingPage() {
           fromEmail: user.email,
           type: "bid",
           title: "New bid on your listing",
-          message: `${user.email} bid $${newMax} on "${listing.title}"`,
+          message: `${user.email} bid $${amount} on "${listing.title}"`,
           listingId: listing.id,
           listingTitle: listing.title,
           listingImage: listing.images?.[0] || listing.imageUrl,
-          total: Number(newMax),
+          total: Number(amount),
         });
-        // Bid confirmation to bidder
         await createNotification({
           targetEmail: user.email || "",
           fromEmail: listing.sellerEmail || "",
           type: "bid_confirmation",
           title: "Bid Placed",
-          message: `Your bid of $${newMax} has been placed on "${listing.title}".\n\nWe'll notify you if you're outbid.`,
+          message: `Your bid of $${amount} has been placed on "${listing.title}".\n\nWe'll notify you if you're outbid.`,
           listingId: listing.id,
           listingTitle: listing.title,
           listingImage: listing.images?.[0] || listing.imageUrl,
-          total: Number(newMax),
+          total: Number(amount),
         });
-      } catch (_) {}
-
-      if (outbidUser && outbidUser !== listing.sellerEmail) {
-        try {
-          const { createNotification } = await import("../../../lib/notifications");
+        if (data.outbidUser && data.outbidUser !== listing.sellerEmail) {
           await createNotification({
-            targetEmail: outbidUser,
+            targetEmail: data.outbidUser,
             fromEmail: user.email,
             type: "outbid",
             title: "You've been outbid!",
@@ -781,11 +680,11 @@ export default function ListingPage() {
             listingTitle: listing.title,
             listingImage: listing.images?.[0] || listing.imageUrl,
           });
-        } catch (_) {}
-      }
+        }
+      } catch (_) {}
     } catch (e: any) {
       console.error(e);
-      showToast(e.message || "Failed to place auto bid", "error");
+      showToast(e.message || "Failed to place bid", "error");
     }
   }
 
@@ -831,16 +730,13 @@ export default function ListingPage() {
     if (!user?.email || !listing.sellerEmail || !messageText.trim()) return;
     setSendingMessage(true);
     try {
-      await addDoc(collection(db, "messages"), {
+      await sendMessage({
         text: messageText.trim(),
-        sender: user.email,
         receiver: listing.sellerEmail,
-        participants: [user.email, listing.sellerEmail],
         listingId: listingId,
         listingTitle: listing.title || "Listing",
         listingImage: listing.imageUrl || listing.image || null,
         listingPrice: listing.price || null,
-        createdAt: serverTimestamp(),
       });
       setMessageSent(true);
       setMessageText("");
@@ -1159,7 +1055,7 @@ export default function ListingPage() {
               <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 p-3">
                 <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
                   <span className="shrink-0 text-sky-400">📥</span>
-                  <span>{listing.pricingType === "quote" ? "Service delivered remotely — Request a Quote" : "Digital Download — Instant Delivery"}</span>
+                  <span>{listing.pricingType === "quote" ? "Service delivered remotely — Request a Quote" : (listing as { paymentType?: string }).paymentType === "contact" ? "Digital product — arrange payment & delivery in Messages" : "Digital Download — Instant Delivery"}</span>
                 </div>
                 {listing.pricingType === "quote" && (
                   <span className="mt-1.5 inline-flex rounded-full border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400">Quote Required</span>
@@ -1347,39 +1243,6 @@ export default function ListingPage() {
                     onClick={async (e) => {
                       e.stopPropagation();
                       try {
-                        const convKey = `listing_${listingId}`;
-                        const existingConv = await getDocs(
-                          query(
-                            collection(db, "conversations"),
-                            where("convKey", "==", convKey),
-                            where("participants", "array-contains", user!.email!)
-                          )
-                        );
-
-                        let convId: string;
-                        if (!existingConv.empty) {
-                          convId = existingConv.docs[0].id;
-                          await updateDoc(doc(db, "conversations", convId), {
-                            updatedAt: serverTimestamp(),
-                            lastMessage: `Property inquiry started`,
-                          });
-                        } else {
-                          const convRef = await addDoc(collection(db, "conversations"), {
-                            convKey,
-                            participants: [user!.email!, listing.sellerEmail],
-                            buyerEmail: user!.email!,
-                            sellerEmail: listing.sellerEmail,
-                            listingId,
-                            listingTitle: listing.title,
-                            listingPrice: listing.price,
-                            listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
-                            createdAt: serverTimestamp(),
-                            updatedAt: serverTimestamp(),
-                            lastMessage: `Property inquiry started`,
-                          });
-                          convId = convRef.id;
-                        }
-
                         const buyerMsg = `🏡 Property inquiry started for "${listing.title}"
 
 You're now connected with the property owner/agent.
@@ -1396,30 +1259,27 @@ Please keep all communication inside Sky Drop for protection.
 
 Property Status: 🟢 Inquiry Active`;
 
-                        await addDoc(collection(db, "messages"), {
+                        const result = await sendMessage({
                           type: "system",
                           text: buyerMsg,
-                          sender: user!.email!,
                           receiver: listing.sellerEmail,
-                          participants: [user!.email!, listing.sellerEmail],
-                          conversationId: convId,
                           listingId,
                           listingTitle: listing.title,
-                          read: false,
-                          createdAt: serverTimestamp(),
+                          listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
+                          listingPrice: listing.price,
+                          createConversation: true,
+                          convKey: `listing_${listingId}`,
+                          buyerEmail: user!.email!,
+                          sellerEmail: listing.sellerEmail,
                         });
 
-                        await addDoc(collection(db, "messages"), {
+                        await sendMessage({
                           type: "text",
                           text: `🟢 A user is interested in your property listing.\n\nUse this chat to discuss:\n• viewing arrangements\n• price/negotiation\n• property details\n• settlement or tenancy\n\nKeep all communication inside Sky Drop for protection.`,
-                          sender: user!.email!,
                           receiver: listing.sellerEmail,
-                          participants: [user!.email!, listing.sellerEmail],
-                          conversationId: convId,
                           listingId,
                           listingTitle: listing.title,
-                          read: false,
-                          createdAt: serverTimestamp(),
+                          conversationId: result.conversationId,
                         });
                       } catch (e) {
                         console.error("Property inquiry failed:", e);
@@ -1463,17 +1323,19 @@ Property Status: 🟢 Inquiry Active`;
                   <button
                     onClick={async (e) => {
                       e.stopPropagation();
-                      const convKey = `listing_${listingId}`;
-                      const existingConv = await getDocs(query(collection(db, "conversations"), where("convKey", "==", convKey), where("participants", "array-contains", user!.email!)));
-                      let convId: string;
-                      if (!existingConv.empty) {
-                        convId = existingConv.docs[0].id;
-                        await updateDoc(doc(db, "conversations", convId), { updatedAt: serverTimestamp(), lastMessage: "Quote requested" });
-                      } else {
-                        const convRef = await addDoc(collection(db, "conversations"), { convKey, participants: [user!.email!, listing.sellerEmail], buyerEmail: user!.email!, sellerEmail: listing.sellerEmail, listingId, listingTitle: listing.title, listingPrice: listing.price, listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "", createdAt: serverTimestamp(), updatedAt: serverTimestamp(), lastMessage: "Quote requested" });
-                        convId = convRef.id;
-                      }
-                      await addDoc(collection(db, "messages"), { type: "text", text: `Hi, I'm interested in "${listing.title}" — could you please provide a quote?`, sender: user!.email!, receiver: listing.sellerEmail, participants: [user!.email!, listing.sellerEmail], conversationId: convId, listingId, listingTitle: listing.title, read: false, createdAt: serverTimestamp() });
+                      await sendMessage({
+                        type: "text",
+                        text: `Hi, I'm interested in "${listing.title}" — could you please provide a quote?`,
+                        receiver: listing.sellerEmail,
+                        listingId,
+                        listingTitle: listing.title,
+                        listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
+                        listingPrice: listing.price,
+                        createConversation: true,
+                        convKey: `listing_${listingId}`,
+                        buyerEmail: user!.email!,
+                        sellerEmail: listing.sellerEmail,
+                      });
                       router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`);
                     }}
                     className="flex-1 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-[13px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]"
@@ -1578,39 +1440,6 @@ Property Status: 🟢 Inquiry Active`;
                     onClick={async (e) => {
                       e.stopPropagation();
                       try {
-                        const convKey = `listing_${listingId}`;
-                        const existingConv = await getDocs(
-                          query(
-                            collection(db, "conversations"),
-                            where("convKey", "==", convKey),
-                            where("participants", "array-contains", user!.email!)
-                          )
-                        );
-
-                        let convId: string;
-                        if (!existingConv.empty) {
-                          convId = existingConv.docs[0].id;
-                          await updateDoc(doc(db, "conversations", convId), {
-                            updatedAt: serverTimestamp(),
-                            lastMessage: `Job inquiry started`,
-                          });
-                        } else {
-                          const convRef = await addDoc(collection(db, "conversations"), {
-                            convKey,
-                            participants: [user!.email!, listing.sellerEmail],
-                            buyerEmail: user!.email!,
-                            sellerEmail: listing.sellerEmail,
-                            listingId,
-                            listingTitle: listing.title,
-                            listingPrice: listing.price,
-                            listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
-                            createdAt: serverTimestamp(),
-                            updatedAt: serverTimestamp(),
-                            lastMessage: `Job inquiry started`,
-                          });
-                          convId = convRef.id;
-                        }
-
                         const buyerMsg = `💼 Job inquiry started for "${listing.title}"
 
 You're now connected with the employer.
@@ -1627,30 +1456,27 @@ Please keep all communication inside Sky Drop for protection.
 
 Application Status: 🟢 Active`;
 
-                        await addDoc(collection(db, "messages"), {
+                        const result = await sendMessage({
                           type: "system",
                           text: buyerMsg,
-                          sender: user!.email!,
                           receiver: listing.sellerEmail,
-                          participants: [user!.email!, listing.sellerEmail],
-                          conversationId: convId,
                           listingId,
                           listingTitle: listing.title,
-                          read: false,
-                          createdAt: serverTimestamp(),
+                          listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
+                          listingPrice: listing.price,
+                          createConversation: true,
+                          convKey: `listing_${listingId}`,
+                          buyerEmail: user!.email!,
+                          sellerEmail: listing.sellerEmail,
                         });
 
-                        await addDoc(collection(db, "messages"), {
+                        await sendMessage({
                           type: "text",
                           text: `🟢 A user is interested in your job listing.\n\nUse this chat to discuss:\n• experience/skills\n• availability\n• interview arrangements\n• pay/rates\n• job expectations\n\nKeep all communication inside Sky Drop for protection.`,
-                          sender: user!.email!,
                           receiver: listing.sellerEmail,
-                          participants: [user!.email!, listing.sellerEmail],
-                          conversationId: convId,
                           listingId,
                           listingTitle: listing.title,
-                          read: false,
-                          createdAt: serverTimestamp(),
+                          conversationId: result.conversationId,
                         });
                       } catch (e) {
                         console.error("Job inquiry failed:", e);
@@ -1685,39 +1511,6 @@ Application Status: 🟢 Active`;
                   <button
                     onClick={async () => {
                       try {
-                        const convKey = `listing_${listingId}`;
-                        const existingConv = await getDocs(
-                          query(
-                            collection(db, "conversations"),
-                            where("convKey", "==", convKey),
-                            where("participants", "array-contains", user!.email!)
-                          )
-                        );
-
-                        let convId: string;
-                        if (!existingConv.empty) {
-                          convId = existingConv.docs[0].id;
-                          await updateDoc(doc(db, "conversations", convId), {
-                            updatedAt: serverTimestamp(),
-                            lastMessage: `Service inquiry started`,
-                          });
-                        } else {
-                          const convRef = await addDoc(collection(db, "conversations"), {
-                            convKey,
-                            participants: [user!.email!, listing.sellerEmail],
-                            buyerEmail: user!.email!,
-                            sellerEmail: listing.sellerEmail,
-                            listingId,
-                            listingTitle: listing.title,
-                            listingPrice: listing.price,
-                            listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
-                            createdAt: serverTimestamp(),
-                            updatedAt: serverTimestamp(),
-                            lastMessage: `Service inquiry started`,
-                          });
-                          convId = convRef.id;
-                        }
-
                         const buyerMsg = `🛠️ Service inquiry started for "${listing.title}"
 
 You're now connected with the service provider.
@@ -1734,30 +1527,27 @@ Please keep all communication and payments inside Sky Drop for protection.
 
 Service Status: 🟢 Inquiry Active`;
 
-                        await addDoc(collection(db, "messages"), {
+                        const result = await sendMessage({
                           type: "system",
                           text: buyerMsg,
-                          sender: user!.email!,
                           receiver: listing.sellerEmail,
-                          participants: [user!.email!, listing.sellerEmail],
-                          conversationId: convId,
                           listingId,
                           listingTitle: listing.title,
-                          read: false,
-                          createdAt: serverTimestamp(),
+                          listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
+                          listingPrice: listing.price,
+                          createConversation: true,
+                          convKey: `listing_${listingId}`,
+                          buyerEmail: user!.email!,
+                          sellerEmail: listing.sellerEmail,
                         });
 
-                        await addDoc(collection(db, "messages"), {
+                        await sendMessage({
                           type: "text",
                           text: `🟢 A user is interested in hiring your service.\n\nUse this chat to discuss:\n• project requirements\n• pricing\n• deadlines\n• revisions\n• delivery expectations\n\nKeep all communication inside Sky Drop for protection.`,
-                          sender: user!.email!,
                           receiver: listing.sellerEmail,
-                          participants: [user!.email!, listing.sellerEmail],
-                          conversationId: convId,
                           listingId,
                           listingTitle: listing.title,
-                          read: false,
-                          createdAt: serverTimestamp(),
+                          conversationId: result.conversationId,
                         });
                       } catch (e) {
                         console.error("Service inquiry failed:", e);
@@ -2036,7 +1826,14 @@ Service Status: 🟢 Inquiry Active`;
                             <button onClick={async () => {
                               if (!answerText.trim()) return;
                               try {
-                                await updateDoc(doc(db, "listingQuestions", q.id), { answer: answerText.trim(), answeredAt: serverTimestamp() });
+                                const token = await user?.getIdToken();
+                                if (!token) return;
+                                const res = await fetch("/api/listing-question", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                                  body: JSON.stringify({ action: "answer", questionId: q.id, answer: answerText.trim() }),
+                                });
+                                if (!res.ok) throw new Error("Failed");
                                 setAnswerText(""); setAnsweringId(null);
                               } catch {}
                             }} className="rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white hover:bg-sky-400">Answer</button>
@@ -2066,14 +1863,20 @@ Service Status: 🟢 Inquiry Active`;
                     <button onClick={async () => {
                       if (!newQuestion.trim() || !listing) return;
                       setSendingQuestion(true);
+                      const questionText = newQuestion.trim();
                       try {
-                        await addDoc(collection(db, "listingQuestions"), {
-                          listingId: listing.id,
-                          askerEmail: user.email,
-                          askerName: user.email?.split("@")[0] || "Someone",
-                          question: newQuestion.trim(),
-                          createdAt: serverTimestamp(),
+                        const token = await user.getIdToken();
+                        const res = await fetch("/api/listing-question", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                          body: JSON.stringify({
+                            action: "ask",
+                            listingId: listing.id,
+                            question: questionText,
+                            askerName: user.email?.split("@")[0] || "Someone",
+                          }),
                         });
+                        if (!res.ok) throw new Error("Failed");
                         setNewQuestion("");
                         showToast("Question submitted", "success");
                       } catch (e) { console.error("Q&A submit error:", e); showToast("Failed to submit question", "error"); }
@@ -2086,7 +1889,7 @@ Service Status: 🟢 Inquiry Active`;
                           fromEmail: user.email,
                           type: "question",
                           title: `New question on "${listing.title}"`,
-                          message: newQuestion.trim().slice(0, 100),
+                          message: questionText.slice(0, 100),
                           listingId: listing.id,
                           listingTitle: listing.title,
                           listingImage: listing.images?.[0] || listing.imageUrl || "",

@@ -349,6 +349,7 @@ function createRestDb(idToken: string) {
         },
         update: async (data: any) => { await restUpdate(idToken, path, data); },
         delete: async () => { await restDelete(idToken, path); },
+        collection: (subName: string) => collectionFn(`${path}/${subName}`),
       };
     },
     add: async (data: any) => {

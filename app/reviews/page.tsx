@@ -10,16 +10,13 @@ import Navbar from "../components/Navbar";
 import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import Background from "../components/Background";
 import ThemeToggle from "../components/ThemeToggle";
-import { showToast } from "../components/Toast";
 import { ReviewStars } from "../components/SellerReviewStars";
 
 import {
-  addDoc,
   collection,
   onSnapshot,
   orderBy,
   query,
-  serverTimestamp,
 } from "firebase/firestore";
 
 import {
@@ -49,15 +46,6 @@ export default function ReviewsPage() {
 
   const [reviews, setReviews] =
     useState<Review[]>([]);
-
-  const [sellerEmail, setSellerEmail] =
-    useState("");
-
-  const [rating, setRating] =
-    useState(5);
-
-  const [reviewText, setReviewText] =
-    useState("");
 
   useEffect(() => {
     const unsubscribeAuth =
@@ -96,37 +84,6 @@ export default function ReviewsPage() {
     return () => unsubscribe();
   }, []);
 
-  async function submitReview() {
-    if (!user?.email) {
-      showToast("You must be logged in.", "error");
-      return;
-    }
-
-    if (!sellerEmail.trim() || !reviewText.trim()) {
-      showToast("Fill all fields.", "error");
-      return;
-    }
-
-    try {
-      await addDoc(collection(db, "reviews"), {
-        sellerEmail,
-        rating,
-        reviewText,
-        reviewer: user.email,
-        createdAt: serverTimestamp(),
-      });
-
-      setSellerEmail("");
-      setReviewText("");
-      setRating(5);
-
-      showToast("Review submitted.");
-    } catch (error) {
-      console.error(error);
-      showToast("Failed to submit review.", "error");
-    }
-  }
-
   return (
     <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)] transition-colors duration-300">
       <Background />
@@ -149,78 +106,29 @@ export default function ReviewsPage() {
           </p>
         </div>
 
-        {/* REVIEW FORM */}
+        {/* LEAVE REVIEW — purchase-gated via API */}
         <div className="rounded-[40px] border border-[var(--card-border)] bg-[var(--card)] p-8 shadow-2xl backdrop-blur-xl">
           <h2 className="text-3xl font-black">
-            Leave Review
+            Leave a Review
           </h2>
-
-          <div className="mt-6 grid gap-5">
-            <input
-              type="text"
-              placeholder="Seller email..."
-              value={sellerEmail}
-              onChange={(e) =>
-                setSellerEmail(
-                  e.target.value
-                )
-              }
-              className="rounded-2xl border border-[var(--card-border)] bg-[var(--soft-card)] px-5 py-4 outline-none transition focus:border-sky-400"
-            />
-
-            <select
-              value={rating}
-              onChange={(e) =>
-                setRating(
-                  Number(
-                    e.target.value
-                  )
-                )
-              }
-              className="rounded-2xl border border-[var(--card-border)] bg-[var(--soft-card)] px-5 py-4 outline-none"
+          <p className="mt-3 text-[var(--muted)]">
+            Reviews are tied to completed purchases. After you confirm receipt, you can rate the seller from your order history.
+          </p>
+          {user ? (
+            <Link
+              href="/purchases"
+              className="mt-6 inline-flex rounded-2xl bg-sky-500 px-8 py-4 font-black text-[var(--foreground)] transition hover:bg-sky-400"
             >
-              <option value={5}>
-                ⭐⭐⭐⭐⭐ 5 Stars
-              </option>
-
-              <option value={4}>
-                ⭐⭐⭐⭐ 4 Stars
-              </option>
-
-              <option value={3}>
-                ⭐⭐⭐ 3 Stars
-              </option>
-
-              <option value={2}>
-                ⭐⭐ 2 Stars
-              </option>
-
-              <option value={1}>
-                ⭐ 1 Star
-              </option>
-            </select>
-
-            <textarea
-              placeholder="Write review..."
-              value={reviewText}
-              onChange={(e) =>
-                setReviewText(
-                  e.target.value
-                )
-              }
-              rows={5}
-              className="rounded-2xl border border-[var(--card-border)] bg-[var(--soft-card)] px-5 py-4 outline-none transition focus:border-sky-400"
-            />
-
-            <button
-              onClick={
-                submitReview
-              }
-              className="rounded-2xl bg-sky-500 px-8 py-4 font-black text-[var(--foreground)] transition hover:bg-sky-400"
+              Go to My Purchases
+            </Link>
+          ) : (
+            <Link
+              href="/login"
+              className="mt-6 inline-flex rounded-2xl bg-sky-500 px-8 py-4 font-black text-[var(--foreground)] transition hover:bg-sky-400"
             >
-              Submit Review
-            </button>
-          </div>
+              Sign in to review
+            </Link>
+          )}
         </div>
 
         {/* REVIEWS */}
@@ -261,7 +169,7 @@ export default function ReviewsPage() {
 
                         <p className="mt-1 text-sm text-[var(--muted)]">
                           Reviewed by{" "}
-                          {review.reviewer?.split("@")[0] || "Verified Buyer"}
+                          {review.reviewer?.split("@")[0] || review.buyerEmail?.split("@")[0] || "Verified Buyer"}
                         </p>
                       </div>
 

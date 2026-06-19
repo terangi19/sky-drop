@@ -99,7 +99,16 @@ export async function rateLimit(
     }
   } catch {}
 
-  // Layer 4: Fall back to in-memory only
+  // Layer 4: Production fail-closed when distributed limiting unavailable
+  const isProd = process.env.NODE_ENV === "production" || !!process.env.VERCEL;
+  if (isProd) {
+    logSecurityWarning("rate_limit_fail_closed", `Rate limit unavailable for ${key}`, {
+      metadata: { key, maxRequests, windowMs },
+    });
+    return { allowed: false, remaining: 0, limit: maxRequests };
+  }
+
+  // Dev: in-memory only
   if (!memEntry || now > memEntry.resetAt) {
     store.set(key, { count: 1, resetAt: now + windowMs });
     return { allowed: true, remaining: maxRequests - 1, limit: maxRequests };

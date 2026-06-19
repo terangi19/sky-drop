@@ -7,7 +7,7 @@ import { AwhinaUnderHeader } from "../../components/AwhinaOnlineBadge";
 import Background from "../../components/Background";
 import ThemeToggle from "../../components/ThemeToggle";
 import { User } from "firebase/auth";
-import { collection, onSnapshot, orderBy, query, where, doc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { collection, onSnapshot, orderBy, query, where } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../../lib/firebase";
 import type { JobApplication } from "../../lib/jobApplications";
 
@@ -41,17 +41,25 @@ export default function EmployerApplicationsPage() {
   }, [user]);
 
   async function handleStatusChange(id: string, status: "pending" | "reviewed" | "accepted" | "rejected") {
-    await updateDoc(doc(db, "jobApplications", id), {
-      status,
-      reviewedAt: serverTimestamp(),
+    const token = await user?.getIdToken();
+    if (!token) return;
+    await fetch("/api/update-job-application", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ applicationId: id, status }),
     });
   }
 
   async function handleSaveNotes(id: string) {
     const notes = notesInput[id]?.trim();
-    if (notes) {
-      await updateDoc(doc(db, "jobApplications", id), { employerNotes: notes });
-    }
+    if (!notes) return;
+    const token = await user?.getIdToken();
+    if (!token) return;
+    await fetch("/api/update-job-application", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ applicationId: id, employerNotes: notes }),
+    });
   }
 
   const filtered = filter === "all" ? applications : applications.filter((a) => a.status === filter);

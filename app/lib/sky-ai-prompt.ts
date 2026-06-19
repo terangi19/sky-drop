@@ -206,8 +206,8 @@ If ACTIVE LISTING DRAFT exists, start with **Updated listing draft:** then show 
 
 EXAMPLE OUTPUT FORMAT (do not copy these values — generate your own based on user input):
 - Vehicle: [[LISTING_FILL]]\n{"title":"2007 BMW 335i Manual","listingType":"vehicle","category":"Cars","price":"20000","vehicleMake":"BMW","vehicleModel":"335i","vehicleYear":"2007","vehicleOdometer":"187000","vehicleColour":"Black","vehicleBodyType":"Coupe","vehicleFuelType":"Petrol","vehicleTransmission":"Manual","condition":"Used - Good","paymentType":"contact","location":"Auckland","description":"..."}\n[[/LISTING_FILL]]
-- Digital: [[LISTING_FILL]]\n{"title":"Canva Brand Kit Bundle","listingType":"digital","category":"Templates & Assets","price":"35","paymentType":"stripe","description":"..."}\n[[/LISTING_FILL]]
-- Service: [[LISTING_FILL]]\n{"title":"Lawn Mowing — Hamilton","listingType":"service","category":"Trades & Repairs","servicePricingType":"fixed","price":"50","serviceDuration":"1-2 hours","paymentType":"stripe","description":"..."}\n[[/LISTING_FILL]]
+- Digital: [[LISTING_FILL]]\n{"title":"Canva Brand Kit Bundle","listingType":"digital","category":"Templates & Assets","price":"35","paymentType":"contact","description":"..."}\n[[/LISTING_FILL]]
+- Service: [[LISTING_FILL]]\n{"title":"Lawn Mowing — Hamilton","listingType":"service","category":"Trades & Repairs","servicePricingType":"fixed","price":"50","serviceDuration":"1-2 hours","paymentType":"contact","description":"..."}\n[[/LISTING_FILL]]
 - Rental property: [[LISTING_FILL]]\n{"title":"3BR House for Rent — Hamilton","listingType":"rental","rentalSubType":"property","rentalPropertyType":"House","category":"Property","rentalPriceWeekly":"650","rentalDeposit":"1300","rentalBedrooms":"3","rentalBathrooms":"2","rentalParkingSpaces":"1","rentalFurnishedStatus":"Unfurnished","rentalPetsPolicy":"No Pets","rentalMinTenancy":"12 Months","rentalAvailableDate":"2026-08-01","rentalFeatures":["Heat Pump","Fibre Internet"],"location":"Hamilton","description":"..."}\n[[/LISTING_FILL]]
 - Rental equipment: [[LISTING_FILL]]\n{"title":"STIHL Chainsaw for Hire — Dunedin","listingType":"rental","rentalSubType":"equipment","category":"Equipment","price":"45","rentalPriceWeekly":"180","rentalDeposit":"200","stockQuantity":"2","condition":"Used - Good","location":"Dunedin","description":"..."}\n[[/LISTING_FILL]]
 - Rental vehicle: [[LISTING_FILL]]\n{"title":"Toyota HiAce Van for Rent — Auckland","listingType":"rental","rentalSubType":"vehicle","category":"Vehicles","price":"120","rentalPriceWeekly":"700","rentalDeposit":"500","vehicleMake":"Toyota","vehicleModel":"HiAce","vehicleYear":"2018","vehicleTransmission":"Automatic","condition":"Used - Good","location":"Auckland","description":"..."}\n[[/LISTING_FILL]]
@@ -233,7 +233,7 @@ LISTING TYPE RULES:
 
 COMMON RULES:
 - price = NZD number string. Always suggest a price if none given.
-- paymentType: stripe|contact
+- paymentType: stripe|contact — default "contact" (Arrange Purchase) for ALL listing types unless the user explicitly asks for card/Stripe checkout
 - location: include when provided
 - Generate keywords naturally in description — no separate tags field
 - conditions for physical/vehicle/rental only (New|Used - Like New|Used - Good|Used - Fair)

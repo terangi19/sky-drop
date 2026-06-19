@@ -120,7 +120,7 @@ export default function AIPostPage() {
   const [pricingType, setPricingType] = useState<"fixed" | "quote">("fixed");
   const [servicePricingType, setServicePricingType] = useState<ServicePricingType>("fixed");
   const [acceptOffers, setAcceptOffers] = useState(false);
-  const [paymentType, setPaymentType] = useState("stripe");
+  const [paymentType, setPaymentType] = useState("contact");
 
   const [editId, setEditId] = useState<string | null>(null);
   const [existingImages, setExistingImages] = useState<string[]>([]);
@@ -463,6 +463,7 @@ export default function AIPostPage() {
       setFloorArea(data.floorArea != null ? String(data.floorArea) : "");
       setParking(data.parking != null ? String(data.parking) : "");
       setAcceptOffers(!!data.acceptOffers);
+      setPaymentType(data.paymentType === "stripe" ? "stripe" : "contact");
       setPricingType(data.pricingType === "quote" ? "quote" : "fixed");
       setServicePricingType(
         normalizeServicePricingType(data.servicePricingType, data.price, data.description)
@@ -866,6 +867,7 @@ export default function AIPostPage() {
       setPickupArea(""); setShippingFee(""); setFreeShipping(false);
       setStockQuantity("");
       setSaleType("buy_now"); setBuyNowPrice(""); setStartingBid(""); setReservePrice(""); setAuctionDuration("3"); setExpiresIn("14");
+      setPaymentType("contact");
       setListingType("physical"); setDigitalFileURL(""); setDigitalFileName(""); setDigitalStoragePath(""); setServiceDuration(""); setRentalSubType("equipment"); setRentalPriceWeekly(""); setRentalPriceMonthly(""); setRentalDeposit(""); setRentalBedrooms(""); setRentalBathrooms(""); setRentalParkingSpaces(""); setRentalFurnishedStatus("Unfurnished"); setRentalPetsPolicy("No Pets"); setRentalAvailableDate(""); setRentalMinTenancy("Flexible"); setRentalFeatures([]); setEventDate(""); setEventTime(""); setVenue(""); setTicketQuantity(""); setTicketType("General Admission"); setVehicleMake(""); setVehicleModel(""); setVehicleYear(""); setVehicleOdometer(""); setVehicleBodyType("SUV"); setVehicleFuelType("Petrol"); setVehicleTransmission("Automatic"); setVehicleColour(""); setJobCompany(""); setJobEmploymentType("Full-time"); setSalaryMin(""); setSalaryMax(""); setPropertyType("House"); setBedrooms(""); setBathrooms(""); setLandArea(""); setFloorArea(""); setParking(""); setAcceptOffers(false); setCondition("New");
       setEditId(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -1206,10 +1208,18 @@ export default function AIPostPage() {
           </div>
           )}
 
-          {(listingType === "physical" || listingType === "vehicle") && (
+          {(listingType !== "wanted" && listingType !== "job" && listingType !== "property") && (
           <div className="space-y-3">
             <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Payment Type</label>
             <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setPaymentType("contact")}
+                className={`rounded-xl border px-4 py-3 text-xs font-bold text-left transition-all duration-200 active:scale-[0.97] ${
+                  paymentType === "contact" ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.06)]" : "border-white/[0.06] bg-white/[0.02] text-zinc-500 hover:bg-white/[0.04] hover:border-white/[0.12]"
+                }`}>
+                <span className="flex items-center gap-1.5">🤝 Arrange Purchase</span>
+                <span className="ml-1 rounded bg-sky-500/20 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-sky-300">Default</span>
+                <p className="mt-1 text-[9px] font-normal text-zinc-500">Bank transfer, cash, or pickup — agree payment in Messages</p>
+              </button>
               <button type="button" onClick={() => setPaymentType("stripe")}
                 className={`rounded-xl border px-4 py-3 text-xs font-bold text-left transition-all duration-200 active:scale-[0.97] ${
                   paymentType === "stripe" ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.06)]" : "border-white/[0.06] bg-white/[0.02] text-zinc-500 hover:bg-white/[0.04] hover:border-white/[0.12]"
@@ -1221,14 +1231,7 @@ export default function AIPostPage() {
                   <span className="font-bold tracking-tight">Stripe</span>
                   <span className="text-[10px] font-normal text-zinc-500">Checkout</span>
                 </span>
-                <p className="mt-1 text-[9px] font-normal text-zinc-500">Buyers pay through Stripe</p>
-              </button>
-              <button type="button" onClick={() => setPaymentType("contact")}
-                className={`rounded-xl border px-4 py-3 text-xs font-bold text-left transition-all duration-200 active:scale-[0.97] ${
-                  paymentType === "contact" ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.06)]" : "border-white/[0.06] bg-white/[0.02] text-zinc-500 hover:bg-white/[0.04] hover:border-white/[0.12]"
-                }`}>
-                <span className="flex items-center gap-1.5">🤝 Arrange Purchase</span>
-                <p className="mt-1 text-[9px] font-normal text-zinc-500">Contact the seller to arrange payment, shipping, or collection</p>
+                <p className="mt-1 text-[9px] font-normal text-zinc-500">Card payment — requires Stripe Connect on your profile</p>
               </button>
             </div>
             {paymentType === "contact" && (
@@ -1261,7 +1264,7 @@ export default function AIPostPage() {
                 { key: "vehicle", icon: "🚗", label: "Vehicle", desc: "Motor vehicles for sale.", examples: "Cars, motorcycles, boats, caravans, trucks.", action: () => { setCategory("Cars"); setSaleType("buy_now"); setAcceptOffers(false); } },
                 { key: "wanted", icon: "📋", label: "Wanted", desc: "Post what you're looking for and let sellers come to you.", examples: "Looking for a car, need a service, want to rent something.", action: () => { setCategory("Items"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); } },
               ].map((t) => (
-                <button key={t.key} type="button" onClick={() => { setListingType(t.key as any); t.action(); }}
+                <button key={t.key} type="button" onClick={() => { setListingType(t.key as any); setPaymentType("contact"); t.action(); }}
                   className={`group relative rounded-2xl border p-4 text-left transition-all duration-200 active:scale-[0.97] ${
                     listingType === t.key
                       ? "border-sky-400/40 bg-gradient-to-b from-sky-500/[0.08] to-sky-500/[0.03] shadow-[0_0_30px_rgba(14,165,233,0.1)] ring-1 ring-sky-400/20"

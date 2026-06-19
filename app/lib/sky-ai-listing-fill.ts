@@ -590,6 +590,9 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
     const pt = normalizePaymentType(raw.paymentType);
     if (pt) out.paymentType = pt;
   }
+  if (!out.paymentType) {
+    out.paymentType = "contact";
+  }
   if (listingType === "vehicle" || raw.vehicleMake || raw.vehicleModel) {
     if (!out.listingType && listingType !== "rental") out.listingType = "vehicle";
     if (!out.category && listingType !== "rental") out.category = "Cars";

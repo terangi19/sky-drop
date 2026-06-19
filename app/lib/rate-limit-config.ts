@@ -64,6 +64,11 @@ export const RATE_LIMITS: Record<string, RateLimitRule> = {
   sendPush: { name: "send-push", max: 15, windowMs: 60_000 },
   sendNotifEmail: { name: "send-notif-email", max: 30, windowMs: 60_000 },
   createNotification: { name: "create-notification", max: 30, windowMs: 60_000 },
+  createTradePost: { name: "create-trade-post", max: 10, windowMs: 60_000 },
+  listingQuestion: { name: "listing-question", max: 20, windowMs: 60_000 },
+  submitJobApplication: { name: "submit-job-application", max: 10, windowMs: 60_000 },
+  updateJobApplication: { name: "update-job-application", max: 20, windowMs: 60_000 },
+  confirmSponsorDrop: { name: "confirm-sponsor-drop", max: 5, windowMs: 60_000 },
 
   // Referrals & misc
   trackReferral: { name: "track-referral", max: 8, windowMs: 60_000 },
@@ -81,6 +86,17 @@ export const RATE_LIMITS: Record<string, RateLimitRule> = {
 
   // Public endpoints
   listingViewPublic: { name: "listing-view-public", max: 8, windowMs: 60_000 },
+
+  // Admin
+  adminVerifyListing: { name: "admin-verify-listing", max: 30, windowMs: 60_000 },
+  adminRejectListing: { name: "admin-reject-listing", max: 30, windowMs: 60_000 },
+  adminApproveDigital: { name: "admin-approve-digital", max: 30, windowMs: 60_000 },
+  adminRejectDigital: { name: "admin-reject-digital", max: 30, windowMs: 60_000 },
+  adminResolveDispute: { name: "admin-resolve-dispute", max: 20, windowMs: 60_000 },
+  adminBanUser: { name: "admin-ban-user", max: 10, windowMs: 60_000 },
+  adminUserAction: { name: "admin-user-action", max: 20, windowMs: 60_000 },
+  adminSettings: { name: "admin-settings", max: 10, windowMs: 60_000 },
+  adminDashboard: { name: "admin-dashboard", max: 20, windowMs: 60_000 },
 };
 
 export function getRateLimitKey(namespace: string, identifier: string): string {

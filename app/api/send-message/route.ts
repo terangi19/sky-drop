@@ -37,26 +37,37 @@ export async function POST(req: NextRequest) {
     const fileSize = typeof body.fileSize === "number" ? body.fileSize : 0;
     const receiver = typeof body.receiver === "string" ? body.receiver.trim() : "";
     const listingId = typeof body.listingId === "string" ? body.listingId.trim() : "";
-    const conversationId = typeof body.conversationId === "string" ? body.conversationId.trim() : "";
+    let conversationId = typeof body.conversationId === "string" ? body.conversationId.trim() : "";
     const listingTitle = typeof body.listingTitle === "string" ? body.listingTitle.trim() : "";
     const listingImage = typeof body.listingImage === "string" ? body.listingImage : "";
     const listingPrice = typeof body.listingPrice === "string" ? body.listingPrice : "";
     const turnstileToken = typeof body.turnstileToken === "string" ? body.turnstileToken : "";
     const requestId = typeof body.requestId === "string" ? body.requestId : undefined;
+    const createConversation = body.createConversation === true;
+    const convKey = typeof body.convKey === "string" ? body.convKey.trim() : "";
+    const buyerEmail = typeof body.buyerEmail === "string" ? body.buyerEmail.trim() : "";
+    const sellerEmail = typeof body.sellerEmail === "string" ? body.sellerEmail.trim() : "";
+    const offerAmount = typeof body.offerAmount === "number" ? body.offerAmount : NaN;
+    const offerType = typeof body.offerType === "string" ? body.offerType : "";
+    const offerStatus = typeof body.offerStatus === "string" ? body.offerStatus : "pending";
 
-    // ── Validate ──
-
-    if (!["text", "image", "file", "offer"].includes(msgType)) {
+    if (!["text", "image", "file", "offer", "system"].includes(msgType)) {
       return NextResponse.json({ error: "Invalid message type" }, { status: 400 });
     }
     if (msgType === "text" && (!text || text.length > 2000)) {
-      return NextResponse.json({ error: "Message must be 1–2000 characters" }, { status: 400 });
+      return NextResponse.json({ error: "Message must be 1\u20132000 characters" }, { status: 400 });
+    }
+    if (msgType === "system") {
+      if (!text || text.length > 2000) {
+        return NextResponse.json({ error: "System message must be 1\u20132000 characters" }, { status: 400 });
+      }
     }
     if (!receiver) {
       return NextResponse.json({ error: "Receiver is required" }, { status: 400 });
     }
-
-    // ── Abuse decision engine ──
+    if (msgType === "offer" && (!isFinite(offerAmount) || offerAmount <= 0)) {
+      return NextResponse.json({ error: "Offer must include a valid positive amount" }, { status: 400 });
+    }
 
     const input: DecisionInput = {
       uid: decoded.uid,
@@ -70,8 +81,6 @@ export async function POST(req: NextRequest) {
     const decision = await decide(input);
     await applyDecisionDelay(decision);
 
-    // ── Turnstile (probabilistic) ──
-
     if (decision.captchaRequired && isTurnstileConfigured()) {
       if (!turnstileToken || !(await verifyTurnstileToken(turnstileToken))) {
         recordTurnstileAttempt(decoded.uid, false);
@@ -80,28 +89,20 @@ export async function POST(req: NextRequest) {
       recordTurnstileAttempt(decoded.uid, true);
     }
 
-    // ── Block ──
-
     if (decision.verdict === "block") {
       await persistRiskFlag(decoded.uid, `message_blocked:${decision.reason}`);
       return NextResponse.json({ error: "Message could not be sent" }, { status: 403 });
     }
-
-    // ── Scam check ──
 
     const scamResult = detectScam(text);
     if (scamResult.isScam) {
       return NextResponse.json({ error: "Message flagged as suspicious" }, { status: 400 });
     }
 
-    // ── Shadow degrade: simulate success but don't write ──
-
     if (decision.verdict === "shadow_degrade") {
       registerAction(decoded.uid, ip, input.contentHash);
       return NextResponse.json({ success: true, shadowDegraded: true });
     }
-
-    // ── Write message via Admin SDK ──
 
     if (!isAdminInitialized()) {
       return NextResponse.json({ error: "Server not configured" }, { status: 500 });
@@ -109,6 +110,25 @@ export async function POST(req: NextRequest) {
 
     const db = getAdminDb();
     const participants = [decoded.email, receiver];
+
+    if (createConversation && !conversationId) {
+      const convData: Record<string, unknown> = {
+        participants,
+        buyerEmail: buyerEmail || decoded.email,
+        sellerEmail: sellerEmail || receiver,
+        listingTitle: listingTitle || null,
+        listingPrice: listingPrice || null,
+        listingImage: listingImage || null,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+        lastMessage: text.slice(0, 100),
+      };
+      if (convKey) convData.convKey = convKey;
+      if (listingId) convData.listingId = listingId;
+
+      const convRef = await db.collection("conversations").add(convData);
+      conversationId = convRef.id;
+    }
 
     const messageData: Record<string, unknown> = {
       type: msgType,
@@ -132,29 +152,30 @@ export async function POST(req: NextRequest) {
       messageData.fileSize = fileSize;
     }
     if (msgType === "offer") {
-      messageData.offerType = body.offerType || null;
-      messageData.offerAmount = body.offerAmount || null;
-      messageData.offerStatus = body.offerStatus || "pending";
+      messageData.offerType = offerType || null;
+      messageData.offerAmount = offerAmount;
+      messageData.offerStatus = offerStatus || "pending";
     }
 
     const msgRef = await db.collection("messages").add(messageData);
 
-    // ── Create or update conversation ──
-
     if (conversationId) {
-      await db.collection("conversations").doc(conversationId).update({
-        updatedAt: FieldValue.serverTimestamp(),
-        lastMessage: text.slice(0, 100),
-      });
+      try {
+        await db.collection("conversations").doc(conversationId).update({
+          updatedAt: FieldValue.serverTimestamp(),
+          lastMessage: text.slice(0, 100),
+        });
+      } catch {
+        console.warn("[send-message] conversation update failed (conversationId may not exist):", conversationId);
+      }
     }
-
-    // ── Register graph action ──
 
     registerAction(decoded.uid, ip, input.contentHash);
 
     return NextResponse.json({
       success: true,
       messageId: msgRef.id,
+      conversationId: conversationId || undefined,
       delayMs: decision.delayMs,
     });
 

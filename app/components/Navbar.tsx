@@ -97,7 +97,13 @@ export default function Navbar() {
       try { localStorage.setItem("dismissedNotifications", JSON.stringify([...next])); } catch (e) { console.error("Failed to save dismissed notifications:", e); }
     } catch {}
     if (type === "message" || type === "offer") {
-      updateDoc(doc(db, "messages", id), { read: true }).catch((e) => console.error("Failed to mark message read:", e));
+      auth.currentUser?.getIdToken().then((token) => {
+        fetch("/api/mark-messages-read", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ messageIds: [id] }),
+        }).catch((e) => console.error("Failed to mark message read:", e));
+      }).catch((e) => console.error("Failed to get token:", e));
     } else {
       updateDoc(doc(db, "notifications", id), { read: true }).catch((e) => console.error("Failed to mark notification read:", e));
     }

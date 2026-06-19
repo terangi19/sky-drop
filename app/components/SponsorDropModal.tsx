@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import stripePromise from "../lib/stripe-client";
-import { collection, addDoc, doc, getDoc, serverTimestamp, Timestamp, updateDoc } from "firebase/firestore";
-import { auth, db } from "../lib/firebase";
+import { auth } from "../lib/firebase";
 import { showToast } from "./Toast";
 
 interface SponsorDropModalProps {
@@ -26,7 +25,7 @@ function PaymentForm({ listingId, listingTitle, sellerEmail, userId, targetPage,
     if (!stripe || !elements) return;
     setError("");
 
-    const { error: submitError } = await stripe.confirmPayment({
+    const { error: submitError, paymentIntent } = await stripe.confirmPayment({
       elements,
       confirmParams: { return_url: `${window.location.origin}/dashboard` },
       redirect: "if_required",
@@ -34,40 +33,33 @@ function PaymentForm({ listingId, listingTitle, sellerEmail, userId, targetPage,
 
     if (submitError) {
       setError("Payment failed. Try again.");
-    } else {
-      try {
-        await addDoc(collection(db, "sponsoredDrops"), {
-          listingId,
-          listingTitle,
-          sellerEmail,
-          sellerUid: userId,
-          targetPage,
-          status: "pending",
-          paid: true,
-          createdAt: serverTimestamp(),
-        });
-        for (let i = 0; i < 2; i++) {
-          await addDoc(collection(db, "dropTokens"), {
-            ownerId: userId,
-            ownerEmail: sellerEmail,
-            originDropId: "sponsor_reward",
-            status: "available",
-            createdAt: serverTimestamp(),
-          });
-        }
+      return;
+    }
 
-        const listingRef = doc(db, "listings", listingId);
-        const listingSnap = await getDoc(listingRef);
-        const currentPromoted = listingSnap.data()?.promotedUntil?.toMillis?.() || 0;
-        const baseTime = Math.max(Date.now(), currentPromoted);
-        await updateDoc(listingRef, {
-          promotedUntil: Timestamp.fromMillis(baseTime + 3 * 86400000),
-        });
+    const paymentIntentId = paymentIntent?.id;
+    if (!paymentIntentId) {
+      setError("Payment incomplete. Try again.");
+      return;
+    }
 
-        onSuccess();
-      } catch {
-        setError("Failed to activate sponsorship.");
+    try {
+      const token = await auth.currentUser?.getIdToken(true);
+      const res = await fetch("/api/confirm-sponsor-drop", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ paymentIntentId, targetPage }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(typeof data.error === "string" ? data.error : "Failed to activate sponsorship.");
+        return;
       }
+      onSuccess();
+    } catch {
+      setError("Failed to activate sponsorship.");
     }
   }
 

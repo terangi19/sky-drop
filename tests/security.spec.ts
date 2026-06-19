@@ -70,6 +70,11 @@ test.describe("Security — Authentication & Authorization", () => {
       { method: "POST", path: "/api/arrange-purchase", data: { listingId: "test" } },
       { method: "POST", path: "/api/confirm-arrange-sale", data: { purchaseId: "test" } },
       { method: "GET", path: "/api/seller-earnings", data: {} },
+      { method: "POST", path: "/api/create-notification", data: { targetEmail: "a@b.com", fromEmail: "a@b.com", type: "message", title: "t", message: "m" } },
+      { method: "POST", path: "/api/confirm-sponsor-drop", data: { paymentIntentId: "pi_test" } },
+      { method: "POST", path: "/api/listing-question", data: { action: "ask", listingId: "test", question: "q" } },
+      { method: "POST", path: "/api/submit-job-application", data: { listingId: "test" } },
+      { method: "POST", path: "/api/create-trade-post", data: { title: "test" } },
       { method: "POST", path: "/api/send-email", data: { to: "test@test.com", subject: "test", body: "test" } },
     ];
 
@@ -189,6 +194,53 @@ test.describe("Security — Authentication & Authorization", () => {
     });
   });
 
+  test.describe("Notification policy enforcement", () => {
+    test("create-notification without auth returns 401", async ({ request }) => {
+      const res = await apiPost(request, "/api/create-notification", {
+        targetEmail: "seller@test.com",
+        fromEmail: "buyer@test.com",
+        type: "message",
+        title: "Hi",
+        message: "Hello",
+        listingId: "fake-listing",
+      });
+      expect(res.status()).toBe(401);
+    });
+
+    test("create-notification with invalid token returns 401", async ({ request }) => {
+      const res = await request.post("/api/create-notification", {
+        headers: { ...testHeaders(), Authorization: "Bearer invalid-token" },
+        data: {
+          targetEmail: "seller@test.com",
+          fromEmail: "buyer@test.com",
+          type: "message",
+          title: "Hi",
+          message: "Hello",
+        },
+      });
+      expect(res.status()).toBe(401);
+    });
+  });
+
+  test.describe("Open dispute validation", () => {
+    test("open-dispute without auth returns 401", async ({ request }) => {
+      const res = await apiPost(request, "/api/open-dispute", {
+        purchaseId: "fake",
+        reason: "not_received",
+        description: "Item never arrived",
+      });
+      expect(res.status()).toBe(401);
+    });
+
+    test("open-dispute with invalid token returns 401", async ({ request }) => {
+      const res = await request.post("/api/open-dispute", {
+        headers: { ...testHeaders(), Authorization: "Bearer not-a-real-jwt" },
+        data: { purchaseId: "fake", reason: "test", description: "test" },
+      });
+      expect(res.status()).toBe(401);
+    });
+  });
+
   test.describe("Rate limiting on sensitive endpoints", () => {
     test("check-email-temp returns rate limited after many requests", async ({ request }) => {
       const spamIp = "10.98.0.1";
@@ -206,6 +258,30 @@ test.describe("Security — Authentication & Authorization", () => {
       for (let i = 0; i < 20; i++) {
         const res = await apiPost(request, "/api/listing-view", { listingId: "rate-limit-test-id" }, spamIp);
         if (res.status() === 429) { rateLimited = true; break; }
+      }
+      expect(rateLimited).toBeTruthy();
+    });
+
+    test("create-notification rate limited after burst from same IP", async ({ request }) => {
+      const spamIp = "10.98.0.3";
+      let rateLimited = false;
+      for (let i = 0; i < 40; i++) {
+        const res = await apiPost(
+          request,
+          "/api/create-notification",
+          {
+            targetEmail: `target${i}@test.com`,
+            fromEmail: "spammer@test.com",
+            type: "message",
+            title: "spam",
+            message: "spam",
+          },
+          spamIp
+        );
+        if (res.status() === 429) {
+          rateLimited = true;
+          break;
+        }
       }
       expect(rateLimited).toBeTruthy();
     });
