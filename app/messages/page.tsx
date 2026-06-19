@@ -1083,13 +1083,13 @@ function MessagesPage() {
                   return (
                     <button key={key}
                       onClick={() => { setChatUser(convo.participant); setChatListingId(convo.listingId); if (isMobile) setMobileView("chat"); }}
-                      className={`flex w-full items-start gap-3 border-b border-[var(--card-border)] px-4 py-3.5 text-left transition hover:bg-sky-500/5 ${chatUser === convo.participant && chatListingId === convo.listingId ? "bg-sky-500/10" : ""}`}>
+                      className={`flex w-full items-start gap-3 border-b border-[var(--card-border)] px-4 py-3.5 text-left transition-all duration-200 hover:bg-sky-500/5 ${chatUser === convo.participant && chatListingId === convo.listingId ? "bg-sky-500/10" : ""}`}>
                       {/* Thumbnail */}
-                      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-zinc-800">
+                      <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-zinc-800 to-zinc-900 ring-2 ring-white/[0.04]">
                         {convo.msg.listingImage ? (
                           <img src={convo.msg.listingImage} alt="" className="h-full w-full object-cover" />
                         ) : (
-                          <div className="flex h-full items-center justify-center text-sm text-[var(--muted)]">
+                          <div className="flex h-full items-center justify-center text-sm font-bold text-sky-400">
                             {getDisplayName(convo.participant)?.[0]?.toUpperCase?.() || "?"}
                           </div>
                         )}
@@ -1097,13 +1097,13 @@ function MessagesPage() {
                       {/* Content */}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
-                          <span className={`truncate text-[13px] ${unreadCount > 0 ? "font-bold" : "font-medium"} text-[var(--foreground)]`}>
+                          <span className={`truncate text-[13px] ${unreadCount > 0 ? "font-bold text-[var(--foreground)]" : "font-medium text-[var(--foreground)]"}`}>
                             {getDisplayName(convo.participant)}
                           </span>
                           <span className="shrink-0 text-[10px] text-[var(--muted)]">{formatTime(convo.msg.createdAt)}</span>
                           {hasOffer && <span className="ml-1 shrink-0 text-[10px]">💰</span>}
                         </div>
-                        <p className={`mt-0.5 truncate text-[11px] ${unreadCount > 0 ? "font-medium text-[var(--foreground)]" : "text-[var(--muted)]"}`}>
+                        <p className={`mt-1 truncate text-[12px] leading-relaxed ${unreadCount > 0 ? "font-medium text-[var(--foreground)]" : "text-[var(--muted)]"}`}>
                           {convo.msg.text
                             ? formatMessageText(convo.msg.text)
                             : convo.msg.type === "image"
@@ -1117,12 +1117,12 @@ function MessagesPage() {
                                     : ""}
                         </p>
                         {convo.listingTitle && (
-                          <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-[8px] font-medium text-sky-400 truncate max-w-full">{convo.listingTitle}</span>
+                          <span className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-sky-500/20 bg-sky-500/10 px-2 py-0.5 text-[9px] font-medium text-sky-400 truncate max-w-full">{convo.listingTitle}</span>
                         )}
                       </div>
                       {/* Unread badge */}
                       {unreadCount > 0 && (
-                        <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[8px] font-bold text-white shrink-0 mt-0.5">
+                        <span className="flex h-5 min-w-[18px] items-center justify-center rounded-full bg-sky-500 px-1.5 text-[9px] font-bold text-white shrink-0 mt-0.5 shadow-[0_0_8px_rgba(56,189,248,0.3)]">
                           {unreadCount > 9 ? "9+" : unreadCount}
                         </span>
                       )}
@@ -1166,7 +1166,7 @@ function MessagesPage() {
           {/* CHAT AREA */}
           <div className={`flex flex-1 flex-col ${isMobile && mobileView === "list" ? "hidden" : "flex"}`}>
             {/* Chat header */}
-            <div className="flex items-center justify-between border-b border-[var(--card-border)] px-5 py-3">
+            <div className="flex items-center justify-between border-b border-[var(--card-border)] bg-white/[0.01] px-5 py-3.5">
               <div className="flex items-center gap-3 min-w-0">
                 {isMobile && (
                   <button onClick={() => setMobileView("list")} className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-white/[0.05] hover:text-[var(--foreground)]">
@@ -1177,30 +1177,32 @@ function MessagesPage() {
                 )}
                 {chatUser ? (
                   <>
-                    {/* Feature 4: Clickable avatar for profile preview */}
+                    {/* Clickable avatar for profile preview */}
                     <div className="relative">
                       <button onClick={() => setShowProfilePreview(!showProfilePreview)}
-                        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-sky-500/20 text-[13px] font-bold text-sky-400 transition hover:bg-sky-500/30">
+                        className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-500/10 text-[14px] font-bold text-sky-400 transition hover:from-sky-500/30 hover:to-sky-500/20 ring-2 ring-white/[0.04]">
                         {getDisplayName(chatUser)[0].toUpperCase()}
                       </button>
                       {/* Profile preview popover */}
                       {showProfilePreview && (
-                        <div ref={profilePreviewRef} className="absolute left-0 top-12 z-50 w-56 overflow-hidden rounded-2xl border border-white/[0.06] bg-[#111318]/95 shadow-2xl backdrop-blur-xl"
+                        <div ref={profilePreviewRef} className="absolute left-0 top-12 z-50 w-60 overflow-hidden rounded-2xl border border-white/[0.08] bg-zinc-950/95 shadow-2xl shadow-black/40 backdrop-blur-xl"
                           onClick={(e) => e.stopPropagation()}>
-                          <div className="p-4 text-center">
-                            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-sky-500/20 text-[16px] font-bold text-sky-400">
+                          <div className="relative h-16 bg-gradient-to-r from-sky-500/20 via-sky-500/10 to-purple-500/20">
+                            <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-sky-500/20 to-sky-500/10 text-[16px] font-bold text-sky-400 ring-4 ring-zinc-950/95">
                               {getDisplayName(chatUser)[0].toUpperCase()}
                             </div>
-                            <p className="mt-2 text-[13px] font-bold text-[var(--foreground)]">{getDisplayName(chatUser)}</p>
+                          </div>
+                          <div className="p-4 pt-8 text-center">
+                            <p className="text-[14px] font-bold text-[var(--foreground)]">{getDisplayName(chatUser)}</p>
                             {sellerProfile && (
                               <>
-                                <p className="mt-0.5 text-[10px] text-[var(--muted)]">
-                                  {sellerProfile.verified && <span className="text-sky-400">Verified &#10003;</span>}
-                                  {sellerProfile.trustedSeller && <span className="ml-1 text-sky-400">Trusted</span>}
-                                  {sellerProfile.profileBadge === "epic" && <span className="ml-1 text-sky-400 font-bold">💎 Epic</span>}
-                                  {sellerProfile.profileBadge === "legendary" && <span className="ml-1 text-sky-400 font-bold animate-pulse">👑 The Five</span>}
-                                </p>
-                                <p className="mt-1 text-[11px] text-[var(--muted)]">{sellerProfile.sales || 0} sales</p>
+                                <div className="mt-1 flex flex-wrap items-center justify-center gap-1 text-[10px] text-[var(--muted)]">
+                                  {sellerProfile.verified && <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-sky-400">Verified</span>}
+                                  {sellerProfile.trustedSeller && <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-sky-400">Trusted</span>}
+                                  {sellerProfile.profileBadge === "epic" && <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-sky-400 font-bold">💎 Epic</span>}
+                                  {sellerProfile.profileBadge === "legendary" && <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-sky-400 font-bold animate-pulse">👑 The Five</span>}
+                                </div>
+                                <p className="mt-2 text-[11px] text-[var(--muted)]">{sellerProfile.sales || 0} sales</p>
                                 {sellerProfile.memberSince && (
                                   <p className="text-[10px] text-[var(--muted)]">Member since {new Date(sellerProfile.memberSince.seconds * 1000).getFullYear()}</p>
                                 )}
@@ -1215,7 +1217,7 @@ function MessagesPage() {
                                 })
                               )}`}
                               onClick={() => setShowProfilePreview(false)}
-                              className="mt-3 inline-block w-full rounded-xl bg-sky-500 py-2 text-[11px] font-bold text-white transition hover:bg-sky-400">
+                              className="mt-3 inline-block w-full rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-2 text-[11px] font-bold text-white transition hover:brightness-110">
                               View Profile
                             </Link>
                           </div>

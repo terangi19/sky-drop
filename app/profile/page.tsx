@@ -1217,26 +1217,26 @@ const tabs = [
 
 
           {/* Profile hero */}
-          <div className={`relative overflow-hidden rounded-3xl border border-white/[0.04] ${t.heroShadow}`}>
-            <div className={`absolute inset-0 ${t.radial} pointer-events-none`} />
+          <div className="relative overflow-hidden rounded-3xl border border-white/[0.06] bg-gradient-to-br from-white/[0.03] to-white/[0.01] shadow-2xl shadow-black/20">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
             <div
-              className="group relative z-10 h-24 cursor-pointer overflow-hidden sm:h-28"
+              className="group relative z-10 h-32 cursor-pointer overflow-hidden sm:h-40"
               onClick={() => bannerRef.current?.click()}
             >
               {bannerUrl ? (
                 <img src={bannerUrl} alt="" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
               ) : (
-                <div className="h-full w-full bg-gradient-to-r from-sky-500/10 via-sky-500/5 to-transparent" />
+                <div className="h-full w-full bg-gradient-to-br from-sky-500/15 via-sky-500/5 to-purple-500/10" />
               )}
               <div className="absolute inset-0 bg-gradient-to-t from-[var(--background)] via-transparent to-transparent" />
-              <span className="absolute right-3 top-3 rounded-full border border-white/[0.08] bg-black/50 px-3 py-1 text-[10px] font-medium text-white/80 opacity-0 backdrop-blur-md transition-opacity duration-300 group-hover:opacity-100">
+              <span className="absolute right-3 top-3 rounded-full border border-white/[0.08] bg-black/50 px-3 py-1.5 text-[10px] font-medium text-white/80 opacity-0 backdrop-blur-md transition-opacity duration-300 group-hover:opacity-100">
                 {bannerUrl ? "Change banner" : "Add banner"}
               </span>
             </div>
             <input ref={bannerRef} type="file" accept="image/*" className="hidden" onChange={handleBannerUpload} />
 
-            <div className="relative z-10 px-5 pb-5 sm:px-6 sm:pb-6">
-              <div className="-mt-11 flex items-end gap-4 sm:-mt-12 sm:gap-5">
+            <div className="relative z-10 px-5 pb-6 sm:px-8 sm:pb-8">
+              <div className="-mt-14 flex flex-col items-start gap-4 sm:-mt-16 sm:flex-row sm:items-end sm:gap-6">
                 <button
                   type="button"
                   onClick={() => avatarRef.current?.click()}
@@ -1247,43 +1247,43 @@ const tabs = [
                       <img
                         src={avatarUrl}
                         alt=""
-                        className="h-[4.5rem] w-[4.5rem] rounded-xl border-[3px] border-[var(--background)] object-cover shadow-xl sm:h-20 sm:w-20 transition-transform duration-300 group-hover/avatar:scale-105"
+                        className="h-24 w-24 rounded-2xl border-[4px] border-[var(--background)] object-cover shadow-2xl sm:h-28 sm:w-28 transition-transform duration-300 group-hover/avatar:scale-105"
                       />
-                      <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/0 transition-all duration-300 group-hover/avatar:bg-black/50">
-                        <span className="text-xs font-bold text-white opacity-0 transition-opacity duration-300 group-hover/avatar:opacity-100">Edit</span>
+                      <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/0 transition-all duration-300 group-hover/avatar:bg-black/50">
+                        <span className="text-sm font-bold text-white opacity-0 transition-opacity duration-300 group-hover/avatar:opacity-100">Edit</span>
                       </div>
                     </div>
                   ) : (
                     <div className="relative">
-                      <div className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-xl border-[3px] border-[var(--background)] bg-zinc-900 text-xl font-bold text-sky-400 shadow-xl sm:h-20 sm:w-20">
+                      <div className="flex h-24 w-24 items-center justify-center rounded-2xl border-[4px] border-[var(--background)] bg-gradient-to-br from-zinc-800 to-zinc-900 text-3xl font-bold text-sky-400 shadow-2xl sm:h-28 sm:w-28">
                         {initial}
                       </div>
-                      <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/0 transition-all duration-300 hover:bg-black/50">
-                        <span className="text-xs font-bold text-white opacity-0 transition-opacity duration-300 group-hover/avatar:opacity-100">Add</span>
+                      <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/0 transition-all duration-300 hover:bg-black/50">
+                        <span className="text-sm font-bold text-white opacity-0 transition-opacity duration-300 group-hover/avatar:opacity-100">Add</span>
                       </div>
                     </div>
                   )}
                 </button>
                 <input ref={avatarRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
 
-                <div className="min-w-0 flex-1 pb-0.5">
-                  <h2 className="truncate text-xl font-black tracking-tight text-white sm:text-2xl">
+                <div className="min-w-0 flex-1 pb-1">
+                  <h2 className="truncate text-2xl font-black tracking-tight text-white sm:text-3xl">
                     {contextUsername || username || "User"}
                   </h2>
-                  <p className="truncate text-xs text-zinc-400 sm:text-sm">
+                  <p className="mt-1 truncate text-sm text-zinc-400">
                     {completion}% complete · {region || "No region set"} · Joined {memberDate}
                   </p>
                   {(profileBadges.length > 0 || !hideOnline) && (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
+                    <div className="mt-3 flex flex-wrap gap-2">
                       {!hideOnline && (
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/20 bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold text-sky-300">
-                          <span className="h-1.5 w-1.5 rounded-full bg-sky-400 animate-pulse" /> Online
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold text-emerald-300">
+                          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" /> Online
                         </span>
                       )}
                       {profileBadges.map((badge) => (
                         <span
                           key={badge.key}
-                          className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold ${badge.className}`}
+                          className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-bold ${badge.className}`}
                         >
                           {badge.label}
                         </span>
@@ -1291,42 +1291,42 @@ const tabs = [
                     </div>
                   )}
                 </div>
+
+                <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:pb-1">
+                  {(contextUsername || username) && (
+                    <Link
+                      href={sellerProfilePath(contextUsername || username)}
+                      className={`inline-flex items-center gap-1.5 ${primaryBtn} px-4 py-2 text-xs`}
+                    >
+                      Public profile
+                    </Link>
+                  )}
+                  <Link
+                    href="/dashboard"
+                    className="inline-flex items-center rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-xs font-semibold text-zinc-300 transition hover:border-sky-500/25 hover:bg-white/[0.06] hover:text-white"
+                  >
+                    Dashboard
+                  </Link>
+                  <Link
+                    href="/messages"
+                    className="inline-flex items-center rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-xs font-semibold text-zinc-300 transition hover:border-sky-500/25 hover:bg-white/[0.06] hover:text-white"
+                  >
+                    Messages
+                  </Link>
+                </div>
               </div>
 
-              <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
+              <div className="mt-6 grid grid-cols-3 gap-3 sm:gap-4">
                 {statItems.map((s) => (
-                  <div key={s.label} className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] px-3 py-3 text-center transition-all duration-300 hover:border-white/[0.12] hover:shadow-lg hover:shadow-black/20">
+                  <div key={s.label} className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.06] to-white/[0.01] px-4 py-4 text-center transition-all duration-300 hover:border-white/[0.14] hover:shadow-lg hover:shadow-black/20 hover:-translate-y-0.5">
                     <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${s.accent}`} />
                     <div className="flex flex-col items-center">
-                      <span className="text-2xl opacity-80">{s.icon}</span>
-                      <p className="mt-1 text-base font-black text-white sm:text-lg">{s.value}</p>
+                      <span className="text-2xl opacity-90">{s.icon}</span>
+                      <p className="mt-1 text-lg font-black text-white sm:text-xl">{s.value}</p>
                       <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">{s.label}</p>
                     </div>
                   </div>
                 ))}
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                {(contextUsername || username) && (
-                  <Link
-                    href={sellerProfilePath(contextUsername || username)}
-                    className={`inline-flex items-center gap-1.5 ${primaryBtn} px-4 py-2 text-xs`}
-                  >
-                    Public profile
-                  </Link>
-                )}
-                <Link
-                  href="/dashboard"
-                  className="inline-flex items-center rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-xs font-semibold text-zinc-300 transition hover:border-sky-500/25 hover:bg-white/[0.06] hover:text-white"
-                >
-                  Dashboard
-                </Link>
-                <Link
-                  href="/messages"
-                  className="inline-flex items-center rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-xs font-semibold text-zinc-300 transition hover:border-sky-500/25 hover:bg-white/[0.06] hover:text-white"
-                >
-                  Messages
-                </Link>
               </div>
             </div>
           </div>
@@ -1334,7 +1334,7 @@ const tabs = [
           <div className="grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
           {/* Tabs */}
           <nav
-            className="flex gap-1.5 overflow-x-auto rounded-2xl border border-white/[0.06] bg-white/[0.015] p-1.5 scrollbar-none lg:sticky lg:top-24 lg:flex-col lg:overflow-visible"
+            className="flex gap-1 overflow-x-auto rounded-2xl border border-white/[0.06] bg-white/[0.015] p-1.5 scrollbar-none lg:sticky lg:top-24 lg:flex-col lg:overflow-visible"
             role="tablist"
             aria-label="Profile sections"
           >
@@ -1347,8 +1347,8 @@ const tabs = [
                 className={`shrink-0 rounded-xl px-3.5 py-2.5 text-left text-xs font-semibold transition-all duration-200 sm:text-sm lg:w-full ${
                   activeTab === tab.id
                     ? tab.id === "danger"
-                      ? "bg-red-500/15 text-red-300"
-                      : "bg-sky-500/15 text-sky-300"
+                      ? "bg-red-500/15 text-red-300 border border-red-500/20"
+                      : "bg-sky-500/15 text-sky-300 border border-sky-500/20"
                     : tab.id === "danger"
                       ? "text-red-400/60 hover:bg-red-500/10 hover:text-red-300"
                       : "text-zinc-500 hover:bg-white/[0.04] hover:text-white"
