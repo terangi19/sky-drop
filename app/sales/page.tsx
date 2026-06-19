@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import BrowseAwhinaAssistantPanel from "../components/BrowseAwhinaAssistantPanel";
 import { User } from "firebase/auth";
 import { collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, where } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
@@ -13,6 +14,8 @@ import { createNotification } from "../lib/notifications";
 import { awardXP } from "../lib/xp";
 import { showToast } from "../components/Toast";
 import { isEmailLike } from "../lib/public-display";
+import { useAwhinaInsightEffect } from "../contexts/AwhinaPageInsightContext";
+import { buildSalesInsight } from "../lib/awhina-insights";
 
 interface Purchase {
   id: string;
@@ -22,6 +25,7 @@ interface Purchase {
   listingImage: string;
   sellerEmail: string;
   buyerEmail: string;
+  buyerUsername?: string;
   buyerName: string;
   buyerPhone: string;
   deliveryMethod: string;
@@ -38,15 +42,15 @@ interface Purchase {
 }
 
 const statusStyles: Record<string, string> = {
-  arrange_requested: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-  pending: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-  seller_confirming: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20",
+  arrange_requested: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+  pending: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+  seller_confirming: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   shipped: "bg-sky-500/10 text-sky-400 border-sky-500/20",
-  in_progress: "bg-violet-500/10 text-violet-400 border-violet-500/20",
-  delivered: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-  completed: "bg-green-500/10 text-green-400 border-green-500/20",
+  in_progress: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+  delivered: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+  completed: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   cancelled: "bg-red-500/10 text-red-400 border-red-500/20",
-  rented: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  rented: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   returned: "bg-blue-500/10 text-blue-400 border-blue-500/20",
 };
 
@@ -90,6 +94,7 @@ export default function SalesPage() {
   const [trackingNumber, setTrackingNumber] = useState("");
   const [sellerStripeId, setSellerStripeId] = useState("");
   const [filter, setFilter] = useState("active");
+  const ordersRef = useRef<HTMLDivElement>(null);
   const [confirmingSaleId, setConfirmingSaleId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -132,6 +137,15 @@ export default function SalesPage() {
     });
     return () => unsub();
   }, [user?.email]);
+
+  const salesInsight = useMemo(
+    () => buildSalesInsight(sales, () => {
+      setFilter("active");
+      ordersRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }),
+    [sales]
+  );
+  useAwhinaInsightEffect(salesInsight);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: sales.length };
@@ -307,19 +321,23 @@ export default function SalesPage() {
       <section className="relative z-10 mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
 
         {/* Header */}
-        <Link href="/" className="inline-flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-[var(--foreground)] transition hover:border-zinc-700 hover:bg-zinc-800/60 mb-4 sm:mb-5">
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+        <Link href="/" className="inline-flex items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-sm text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-200 mb-5 sm:mb-6 group">
+          <svg className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
           Back
         </Link>
-        <div className="relative mb-8">
-          <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/5 via-violet-500/5 to-transparent blur-3xl pointer-events-none" />
+        <div className="relative mb-8 sm:mb-10 text-center">
+          <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/5 via-sky-300/5 to-transparent blur-3xl pointer-events-none" />
+          <div className="relative inline-flex items-center gap-2 rounded-full border border-sky-500/15 bg-sky-500/5 px-3 py-1 text-[10px] font-bold text-sky-400 mb-4 tracking-wide uppercase">
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" /></svg>
+            Seller
+          </div>
           <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
-            <span className="text-white drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">Sales</span>
+            <span className="bg-gradient-to-r from-white via-sky-200 to-white bg-clip-text text-transparent">Sales</span>
           </h1>
-          <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl">Track your sales, manage orders, and get paid — all in one place. When a buyer pays, the money goes directly to your Stripe account. Every transaction is handled by Stripe from listing to payout.</p>
-          <p className="relative mt-2 text-sm text-zinc-500">{filtered.length} of {sales.length} total</p>
+          <BrowseAwhinaAssistantPanel className="mt-4 mb-0 mx-auto w-full max-w-2xl text-left" />
         </div>
 
+        <div ref={ordersRef} />
         {/* Status filter tabs */}
         <div className="flex gap-1.5 overflow-x-auto mb-6">
           {[
@@ -330,7 +348,7 @@ export default function SalesPage() {
           ].map((tab) => (
             <button key={tab.key} onClick={() => setFilter(tab.key)}
               className={`shrink-0 rounded-lg px-3.5 py-2 text-xs font-bold transition-all duration-200 ${
-                filter === tab.key ? "bg-gradient-to-b from-indigo-500/20 to-indigo-500/10 text-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.06)]" : "text-zinc-500 hover:text-zinc-300"
+                filter === tab.key ? "bg-gradient-to-b from-sky-500/20 to-sky-500/10 text-sky-400 shadow-[0_0_15px_rgba(99,102,241,0.06)]" : "text-zinc-500 hover:text-zinc-300"
               }`}>
               {tab.label}{counts[tab.key] > 0 ? ` (${counts[tab.key]})` : ""}
             </button>
@@ -338,9 +356,9 @@ export default function SalesPage() {
         </div>
 
         {!sellerStripeId && (
-          <div className="mb-6 rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-4 text-sm">
-            <p className="font-bold text-amber-400">⚠️ Stripe Not Connected</p>
-            <p className="mt-1 text-amber-400/70">Connect Stripe to receive payouts from your sales. <Link href="/profile?tab=payouts" className="text-sky-400 underline hover:text-sky-300">Go to Profile →</Link></p>
+          <div className="mb-6 rounded-xl border border-sky-500/20 bg-sky-500/[0.04] p-4 text-sm">
+            <p className="font-bold text-sky-400">⚠️ Stripe Not Connected</p>
+            <p className="mt-1 text-sky-400/70">Connect Stripe to receive payouts from your sales. <Link href="/profile?tab=payouts" className="text-sky-400 underline hover:text-sky-300">Go to Profile →</Link></p>
           </div>
         )}
 
@@ -371,7 +389,7 @@ export default function SalesPage() {
             </div>
             <h2 className="text-2xl font-black tracking-tight text-white">No {filter === "active" ? "active " : filter === "completed" ? "completed " : filter === "cancelled" ? "cancelled " : ""}sales yet</h2>
             <p className="mt-2 text-sm text-zinc-500">{filter === "all" ? "When someone buys your items, they'll show up here." : `No sales match the "${filter}" filter.`}</p>
-            <Link href="/post/ai" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-indigo-500/30 active:scale-[0.97]">
+            <Link href="/post/ai" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 active:scale-[0.97]">
               Create a Listing
             </Link>
           </div>
@@ -393,8 +411,8 @@ export default function SalesPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <Link href={`/post/listing/${s.listingId}`} className="text-sm font-bold text-[var(--foreground)] transition hover:text-indigo-400 line-clamp-1">{s.listingTitle}</Link>
-                        <p className="mt-0.5 text-sm font-semibold text-indigo-400">${s.listingPrice}</p>
+                        <Link href={`/post/listing/${s.listingId}`} className="text-sm font-bold text-[var(--foreground)] transition hover:text-sky-400 line-clamp-1">{s.listingTitle}</Link>
+                        <p className="mt-0.5 text-sm font-semibold text-sky-400">${s.listingPrice}</p>
                         <div className="mt-0.5 flex items-center gap-2 text-[11px] text-zinc-500">
                           <span>
                             {s.buyerName && !isEmailLike(s.buyerName)
@@ -426,28 +444,28 @@ export default function SalesPage() {
                         <button
                           onClick={() => confirmArrangeSale(s.id)}
                           disabled={confirmingSaleId === s.id}
-                          className="rounded-lg bg-emerald-500 px-4 py-1.5 text-[11px] font-bold text-white transition hover:bg-emerald-400 disabled:opacity-60 active:scale-[0.97]"
+                          className="rounded-lg bg-sky-500 px-4 py-1.5 text-[11px] font-bold text-white transition hover:bg-sky-400 disabled:opacity-60 active:scale-[0.97]"
                         >
                           {confirmingSaleId === s.id ? "Updating…" : "Mark sold to buyer"}
                         </button>
                       ) : null}
                       {nextStatus[s.status] && !s.disputeStatus && !(s as any).fundsReleased ? (
                         <button onClick={() => setConfirmAction({ id: s.id, status: nextStatus[s.status].status, label: nextStatus[s.status].label })}
-                          className="rounded-lg bg-gradient-to-r from-indigo-500 to-violet-500 px-4 py-1.5 text-[11px] font-bold text-white shadow-lg shadow-indigo-500/20 transition hover:shadow-xl active:scale-[0.97]">
+                          className="rounded-lg bg-gradient-to-r from-sky-500 to-sky-500 px-4 py-1.5 text-[11px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">
                           {nextStatus[s.status].label}
                         </button>
                       ) : null}
                       {(s as any).paymentType === "contact" ? (
-                        <span className="text-[11px] text-emerald-400/80 font-bold">🤝 Arrange Purchase — payment off-platform</span>
+                        <span className="text-[11px] text-sky-400/80 font-bold">🤝 Arrange Purchase — payment off-platform</span>
                       ) : (s as any).destinationCharge ? (
-                        <span className="text-[11px] text-emerald-400 font-bold">✅ Funds sent to your Stripe account</span>
+                        <span className="text-[11px] text-sky-400 font-bold">✅ Funds sent to your Stripe account</span>
                       ) : s.status === "delivered" && !(s as any).fundsReleased ? (
-                        <span className="text-[11px] text-amber-400 font-bold">🔒 Funds Held in Escrow</span>
+                        <span className="text-[11px] text-sky-400 font-bold">🔒 Funds Held in Escrow</span>
                       ) : null}
                       {(s as any).fundsReleased && !(s as any).destinationCharge && (
-                        <span className="text-[11px] text-emerald-400 font-bold">✅ Funds Released</span>
+                        <span className="text-[11px] text-sky-400 font-bold">✅ Funds Released</span>
                       )}
-                      <Link href={`/messages?user=${encodeURIComponent(s.buyerEmail || "")}&listing=${s.listingId}`}
+                      <Link href={`/messages?user=${encodeURIComponent(s.buyerUsername || s.buyerEmail || "")}&listing=${s.listingId}`}
                         className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-4 py-1.5 text-[11px] font-bold text-zinc-400 transition hover:bg-white/[0.05] hover:text-zinc-300 active:scale-[0.97]">
                         Message
                       </Link>
@@ -496,7 +514,7 @@ export default function SalesPage() {
                     }
                   }
                 }}
-                className="flex-1 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-500/20 transition hover:shadow-xl active:scale-[0.97]">Confirm</button>
+                className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 to-sky-500 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">Confirm</button>
             </div>
           </div>
         </div>

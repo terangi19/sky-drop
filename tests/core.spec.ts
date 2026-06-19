@@ -7,14 +7,11 @@ test.describe("Tier 2 — Core Flows", () => {
       { param: "digital", label: "Digital" },
       { param: "service", label: "Service" },
       { param: "rental", label: "Rental" },
-      { param: "event", label: "Event" },
       { param: "vehicle", label: "Vehicle" },
-      { param: "job", label: "Job" },
-      { param: "property", label: "Property" },
+      { param: "wanted", label: "Wanted" },
     ];
     for (const t of types) {
       await page.goto(`/post/ai?type=${t.param}`);
-      // The selected type card should have sky-blue text
       const selected = page.locator("button").filter({ has: page.getByText(t.label, { exact: true }) });
       await expect(selected.first()).toBeVisible();
     }
@@ -27,7 +24,7 @@ test.describe("Tier 2 — Core Flows", () => {
 
   test("create listing shows event fields when Event is selected", async ({ page }) => {
     await page.goto("/post/ai?type=event");
-    await expect(page.getByText("Event Date")).toBeVisible();
+    await expect(page.getByText(/Event date/i)).toBeVisible();
   });
 
   test("create listing shows vehicle fields when Vehicle is selected", async ({ page }) => {
@@ -48,13 +45,13 @@ test.describe("Tier 2 — Core Flows", () => {
 
   test("create listing shows rental fields when Rental is selected", async ({ page }) => {
     await page.goto("/post/ai?type=rental");
-    await expect(page.getByText("Rental Details")).toBeVisible();
-    await expect(page.getByText("Daily rate")).toBeVisible();
+    await expect(page.getByText("Rental Type")).toBeVisible();
+    await expect(page.getByText(/Daily Rate/i)).toBeVisible();
   });
 
   test("create listing shows service fields when Service is selected", async ({ page }) => {
     await page.goto("/post/ai?type=service");
-    await expect(page.getByText("Service Details")).toBeVisible();
+    await expect(page.getByText("Pricing Type")).toBeVisible();
   });
 
   test("create listing shows digital fields when Digital is selected", async ({ page }) => {

@@ -6,11 +6,13 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "dev": "next dev --port 3000",
+    "dev": "next dev --port 3000 --hostname 0.0.0.0",
     "build": "next build",
     "vercel-build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "check:drift": "bash -c '! grep -rn \"addDoc(collection(db,\" app/ --include=\"*.tsx\" --include=\"*.ts\" | grep -v node_modules | grep -v \".next\"' || (echo \"FAIL: Client Firestore writes found (addDoc)\" && exit 1)",
+    "check:drift:win": "if (Get-ChildItem -Recurse -Filter \"*.tsx\",\"*.ts\" app/ | Select-String -Pattern \"addDoc\\(collection\\(db,\" -SimpleMatch -Quiet) { Write-Error \"FAIL: Client Firestore writes found (addDoc)\"; exit 1 }",
     "test": "playwright test",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed"
@@ -20,7 +22,11 @@
     "@stripe/react-stripe-js": "^6.4.0",
     "@stripe/stripe-js": "^9.6.0",
     "@tensorflow/tfjs": "^4.22.0",
+    "@types/dompurify": "^3.0.5",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.38.0",
     "canvas-confetti": "^1.9.4",
+    "dompurify": "^3.4.11",
     "firebase": "^10.12.2",
     "firebase-admin": "^13.10.0",
     "lucide-react": "^1.14.0",
@@ -30,9 +36,11 @@
     "openai": "^6.42.0",
     "react": "18.2.0",
     "react-dom": "18.2.0",
+    "resend": "^4.2.0",
     "stripe": "^22.1.1"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^3.0.4",
     "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
@@ -41,6 +49,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.8"
   }
 }

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
+import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import Background from "../components/Background";
 import ThemeToggle from "../components/ThemeToggle";
 import {
@@ -40,16 +41,16 @@ interface NotificationItem {
 
 const TYPE_META: Record<string, { icon: string; color: string }> = {
   message: { icon: "💬", color: "bg-sky-500/20" },
-  offer: { icon: "💰", color: "bg-amber-500/20" },
-  sold: { icon: "✅", color: "bg-emerald-500/20" },
-  verification: { icon: "🔐", color: "bg-violet-500/20" },
+  offer: { icon: "💰", color: "bg-sky-500/20" },
+  sold: { icon: "✅", color: "bg-sky-500/20" },
+  verification: { icon: "🔐", color: "bg-sky-500/20" },
   warning: { icon: "⚠️", color: "bg-red-500/20" },
-  watchlist: { icon: "⭐", color: "bg-yellow-500/20" },
-  referral: { icon: "🎉", color: "bg-pink-500/20" },
+  watchlist: { icon: "⭐", color: "bg-sky-500/20" },
+  referral: { icon: "🎉", color: "bg-sky-500/20" },
   purchase_confirmation: { icon: "📦", color: "bg-sky-500/20" },
-  offer_accepted: { icon: "✅", color: "bg-emerald-500/20" },
+  offer_accepted: { icon: "✅", color: "bg-sky-500/20" },
   offer_declined: { icon: "❌", color: "bg-red-500/20" },
-  counter_offer: { icon: "🔄", color: "bg-amber-500/20" },
+  counter_offer: { icon: "🔄", color: "bg-sky-500/20" },
   dispute_opened: { icon: "⚠️", color: "bg-red-500/20" },
 };
 
@@ -160,14 +161,19 @@ export default function NotificationsPage() {
 
   async function markAllAsRead() {
     if (!user?.email) return;
+    const unreadIds = notifications.filter((n) => !n.read).map((n) => n.id);
+    if (unreadIds.length === 0) return;
     try {
-      const unreadIds = notifications.filter((n) => !n.read).map((n) => n.id);
-      for (const id of unreadIds) {
-        await updateDoc(doc(db, "notifications", id), { read: true });
-      }
+      await Promise.all(
+        unreadIds.map((id) => updateDoc(doc(db, "notifications", id), { read: true }))
+      );
+      setNotifications((prev) =>
+        prev.map((n) => (n.read ? n : { ...n, read: true }))
+      );
       showToast("All notifications marked as read");
     } catch (e) {
       console.error("Mark all read error:", e);
+      showToast("Could not mark notifications as read. Try again.", "error");
     }
   }
 
@@ -179,7 +185,7 @@ export default function NotificationsPage() {
         <Background /><Navbar /><ThemeToggle />
         <div className="relative z-10 mx-auto max-w-3xl px-4 py-20 text-center">
           <p className="text-[var(--muted)]">Please log in to view notifications.</p>
-          <Link href="/login" className="mt-4 inline-block rounded-lg bg-sky-500 px-6 py-2.5 text-sm font-bold text-white hover:bg-sky-400">Log In</Link>
+          <Link href="/login" className="mt-4 inline-block rounded-lg bg-red-500 px-6 py-2.5 text-sm font-bold text-white hover:bg-red-400">Log In</Link>
         </div>
       </main>
     );
@@ -190,14 +196,20 @@ export default function NotificationsPage() {
       <Background /><Navbar /><ThemeToggle />
 
       <section className="relative z-10 mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-black tracking-tight sm:text-3xl">Notifications</h1>
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="relative text-center sm:text-left">
+            <div className="inline-flex items-center gap-2 rounded-full border border-red-500/15 bg-red-500/5 px-3 py-1 text-[10px] font-bold text-red-400 mb-3 tracking-wide uppercase">
+              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" /></svg>
+              Alerts
+            </div>
+            <h1 className="text-2xl font-black tracking-tight sm:text-3xl">
+              <span className="bg-gradient-to-r from-white via-red-200 to-white bg-clip-text text-transparent">Notifications</span>
+            </h1>
             <p className="mt-1 text-sm text-zinc-500">{notifications.length} notification{notifications.length !== 1 ? "s" : ""}</p>
           </div>
           {unreadCount > 0 && (
             <button onClick={markAllAsRead}
-              className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3.5 py-2 text-[11px] font-bold text-zinc-400 transition hover:bg-white/[0.04] hover:text-white active:scale-[0.97]">
+              className="rounded-lg border border-red-500/15 bg-red-500/5 px-3.5 py-2 text-[11px] font-bold text-red-400 transition hover:bg-red-500/15 active:scale-[0.97]">
               Mark all as read ({unreadCount})
             </button>
           )}
@@ -224,7 +236,7 @@ export default function NotificationsPage() {
             </div>
             <h2 className="text-xl font-black tracking-tight text-white">No notifications yet</h2>
             <p className="mt-2 text-sm text-zinc-500">Messages, offers, and updates will appear here.</p>
-            <Link href="/" className="mt-6 inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">
+            <Link href="/" className="mt-6 inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-red-500 to-red-400 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-red-500/20 transition hover:shadow-xl active:scale-[0.97]">
               Browse Marketplace
             </Link>
           </div>
@@ -238,7 +250,7 @@ export default function NotificationsPage() {
                   <Link key={n.id} href={href}
                     className={`group relative flex items-start gap-3 rounded-xl border px-4 py-3.5 transition-all duration-200 hover:-translate-y-0.5 ${
                       !n.read
-                        ? "border-sky-500/10 bg-sky-500/[0.04] hover:bg-sky-500/[0.06] hover:border-sky-500/20"
+                        ? "border-red-500/10 bg-red-500/[0.04] hover:bg-red-500/[0.06] hover:border-red-500/20"
                         : "border-transparent bg-white/[0.01] hover:bg-white/[0.03]"
                     }`}>
                     <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${meta.color}`}>
@@ -255,11 +267,11 @@ export default function NotificationsPage() {
                         </p>
                       )}
                       {n.listingTitle && (
-                        <p className="mt-0.5 text-[10px] text-sky-400/60">{n.listingTitle}</p>
+                        <p className="mt-0.5 text-[10px] text-red-400/60">{n.listingTitle}</p>
                       )}
                     </div>
                     {!n.read && (
-                      <span className="absolute right-2.5 top-3 h-1.5 w-1.5 rounded-full bg-sky-400" />
+                      <span className="absolute right-2.5 top-3 h-1.5 w-1.5 rounded-full bg-red-400" />
                     )}
                   </Link>
                 );

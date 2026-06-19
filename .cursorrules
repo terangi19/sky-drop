@@ -1,0 +1,22 @@
+# Cursor AI Rules
+
+## DO NOT TOUCH — Āwhina AI Integration
+
+The following files are owned by a specific implementation and must NOT be modified, refactored, or "improved" by AI tools without explicit instruction:
+
+- `app/api/sky-ai/route.ts`
+- `app/lib/sky-ai-listing-fill.ts`
+- `app/lib/sky-ai-prompt.ts`
+- `app/lib/sky-ai-prompts.ts`
+- `app/lib/sky-ai-form-actions.ts`
+- `app/lib/sky-ai-listing-context.ts`
+- `app/lib/sky-ai-draft-merge.ts`
+- `app/lib/sky-ai-events.ts`
+- `app/lib/sky-ai-images.ts`
+- `app/lib/sky-ai-types.ts`
+- `app/lib/openai-health.ts`
+- `app/lib/openai-errors.ts`
+- `app/components/SkyAiChatPanel.tsx`
+- `app/post/ai/page.tsx`
+
+Do not auto-complete, suggest changes, refactor, or rewrite any of these files unless the user explicitly asks.

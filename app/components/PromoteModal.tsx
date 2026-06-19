@@ -61,6 +61,11 @@ export default function PromoteModal({ listing, collectionName = "listings", onC
   const [showConfetti, setShowConfetti] = useState(false);
 
   useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
+
+  useEffect(() => {
     if (step === "success") {
       playSuccess();
       setShowConfetti(true);
@@ -83,8 +88,8 @@ export default function PromoteModal({ listing, collectionName = "listings", onC
   const imageSrc = listing.images?.[0] || listing.image || "";
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4" onClick={onClose}>
-      <div className="w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl overflow-hidden relative" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in-backdrop" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl overflow-hidden relative animate-fade-in-up" onClick={(e) => e.stopPropagation()}>
         {showConfetti && (
           <div className="absolute inset-0 z-50 pointer-events-none">
             {Array.from({ length: 30 }).map((_, i) => (
@@ -102,7 +107,7 @@ export default function PromoteModal({ listing, collectionName = "listings", onC
         )}
         {step === "success" ? (
           <div className="flex flex-col items-center px-6 py-10 text-center animate-fade-in-up">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/20">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-sky-500/20">
               <AnimatedCheckmark />
             </div>
             <h2 className="mt-4 text-lg font-black text-[var(--foreground)]">Promoted!</h2>

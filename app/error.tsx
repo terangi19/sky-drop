@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AwhinaUnderHeader } from "./components/AwhinaOnlineBadge";
 
 export default function Error({ error, reset }: { error: Error; reset: () => void }) {
   console.error("[ErrorBoundary]", error);
@@ -14,6 +15,7 @@ export default function Error({ error, reset }: { error: Error; reset: () => voi
           </svg>
         </div>
         <h1 className="mt-4 text-xl font-black text-[var(--foreground)]">Something went wrong</h1>
+        <AwhinaUnderHeader centered className="mt-2" />
         <p className="mt-2 text-sm text-[var(--muted)]">An unexpected error occurred. Please try again.</p>
         <div className="mt-6 flex gap-3 justify-center">
           <button onClick={reset} className="rounded-xl bg-sky-500 px-6 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-sky-400">Try again</button>

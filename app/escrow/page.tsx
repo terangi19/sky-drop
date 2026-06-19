@@ -1,5 +1,6 @@
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import Link from "next/link";
 
 export default function PaymentsPage() {
@@ -18,6 +19,7 @@ export default function PaymentsPage() {
         </div>
 
         <h1 className="text-4xl sm:text-5xl font-black tracking-tight">How Payments Work</h1>
+        <AwhinaUnderHeader className="mt-3" />
         <p className="mt-4 text-lg text-[var(--muted)] leading-relaxed">
           Sellers choose how buyers pay when they create a listing. Sky Drop supports{" "}
           <strong className="text-white">Stripe Checkout</strong> (pay on-platform) and{" "}
@@ -34,9 +36,9 @@ export default function PaymentsPage() {
           </a>
           <a
             href="#arrange"
-            className="rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.04] p-5 transition hover:border-emerald-500/35"
+            className="rounded-2xl border border-sky-500/20 bg-sky-500/[0.04] p-5 transition hover:border-sky-500/35"
           >
-            <p className="text-sm font-bold text-emerald-400">Arrange Purchase</p>
+            <p className="text-sm font-bold text-sky-400">Arrange Purchase</p>
             <p className="mt-1 text-xs text-[var(--muted)]">Purchase button — chat opens, you agree bank transfer, cash, pickup, etc.</p>
           </a>
         </div>
@@ -49,7 +51,7 @@ export default function PaymentsPage() {
           </p>
 
           <div className="mt-8 space-y-6">
-            <Step number={1} title="Buyer taps Buy Now" description="Checkout opens in-app. A $1.00 buyer protection fee is added to the item price." />
+            <Step number={1} title="Buyer completes Stripe Checkout" description="Checkout opens in-app. A $1.00 buyer protection fee is added to the item price." />
             <Step number={2} title="Stripe processes payment" description="Card details go to Stripe (PCI Level 1). The payment is sent to the seller's connected Stripe account." />
             <Step number={3} title="Order & messaging" description="A purchase record is created. Buyer and seller coordinate delivery in Messages." />
             <Step number={4} title="Disputes (Stripe purchases)" description="If something goes wrong, open a dispute from Purchases within 7 days. Admins can issue refunds through Stripe when appropriate." />
@@ -70,8 +72,8 @@ export default function PaymentsPage() {
             <Step number={4} title="Know the trade-off" description="Arrange Purchase is flexible but has no card chargeback. Use Stripe Checkout when you want in-app payment and dispute support tied to a Stripe payment." />
           </div>
 
-          <div className="mt-6 rounded-2xl border border-amber-500/15 bg-amber-500/[0.04] p-5">
-            <p className="text-sm font-bold text-amber-400">Seller note</p>
+          <div className="mt-6 rounded-2xl border border-sky-500/15 bg-sky-500/[0.04] p-5">
+            <p className="text-sm font-bold text-sky-400">Seller note</p>
             <p className="mt-1 text-xs text-[var(--muted)] leading-relaxed">
               Stripe Connect is only required for Stripe Checkout listings. Arrange Purchase listings can be sold without connecting Stripe.
             </p>
@@ -81,11 +83,11 @@ export default function PaymentsPage() {
         <div className="mt-12 space-y-4">
           <h2 className="text-xl font-black text-white">Protections</h2>
 
-          <div className="rounded-2xl border border-emerald-500/15 bg-emerald-500/[0.04] p-5">
+          <div className="rounded-2xl border border-sky-500/15 bg-sky-500/[0.04] p-5">
             <div className="flex gap-3">
               <span className="text-xl shrink-0 mt-0.5">✅</span>
               <div>
-                <h3 className="text-sm font-bold text-emerald-400">Stripe Checkout</h3>
+                <h3 className="text-sm font-bold text-sky-400">Stripe Checkout</h3>
                 <p className="mt-1 text-xs text-[var(--muted)] leading-relaxed">
                   Stripe handles fraud tooling and processing. Disputes on paid orders are reviewed by Sky Drop; refunds go through Stripe when the seller is at fault.
                 </p>
@@ -93,11 +95,11 @@ export default function PaymentsPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-emerald-500/15 bg-emerald-500/[0.04] p-5">
+          <div className="rounded-2xl border border-sky-500/15 bg-sky-500/[0.04] p-5">
             <div className="flex gap-3">
               <span className="text-xl shrink-0 mt-0.5">💬</span>
               <div>
-                <h3 className="text-sm font-bold text-emerald-400">Arrange Purchase</h3>
+                <h3 className="text-sm font-bold text-sky-400">Arrange Purchase</h3>
                 <p className="mt-1 text-xs text-[var(--muted)] leading-relaxed">
                   Messaging stays on-platform so there is a record of what was agreed. Payment itself is between buyer and seller — trade carefully and prefer verified sellers.
                 </p>
@@ -109,7 +111,8 @@ export default function PaymentsPage() {
         <div className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
           <h2 className="text-lg font-bold text-white">Fees</h2>
           <p className="mt-2 text-sm text-[var(--muted)] leading-relaxed">
-            Stripe Checkout: $1.00 buyer protection fee per purchase (plus Stripe processing). Arrange Purchase: no Sky Drop payment fee — standard listing is free.
+            <strong className="text-white">Stripe Checkout:</strong> $1.00 buyer protection fee per purchase (plus standard Stripe processing fees).<br className="mt-1" />
+            <strong className="text-white">Arrange Purchase:</strong> no Stripe processing fees. Payment methods (bank transfer, cash, etc.) are agreed directly between buyer and seller in Messages. Standard listing is always free.
           </p>
         </div>
 

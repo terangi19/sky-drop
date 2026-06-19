@@ -86,7 +86,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const to = "rangitr16@gmail.com";
+    const adminEmails = process.env.ADMIN_EMAILS
+      ? process.env.ADMIN_EMAILS.split(",").map(e => e.trim()).filter(Boolean)
+      : [];
+    const to = adminEmails.length > 0 ? adminEmails[0] : "admin@skydrop.nz";
     const listingTitle = "Sony WH-1000XM5 — Like New";
     const total = 349;
 

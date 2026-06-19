@@ -17,7 +17,7 @@ export default function TradeTicker({
 
       <div className="flex items-center border-b border-white/[0.04] px-4 py-3">
 
-        <div className="mr-2 h-2 w-2 rounded-full bg-emerald-400" />
+        <div className="mr-2 h-2 w-2 rounded-full bg-sky-400" />
 
         <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--muted)]">
 

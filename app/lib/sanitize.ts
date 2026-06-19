@@ -1,12 +1,8 @@
+import DOMPurify from 'dompurify';
+
 export function sanitizeHtml(input: string): string {
   if (!input) return "";
-  return input
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#x27;")
-    .replace(/\//g, "&#x2F;");
+  return DOMPurify.sanitize(input);
 }
 
 export function sanitizeForFirestore(input: string): string {
@@ -16,11 +12,9 @@ export function sanitizeForFirestore(input: string): string {
 
 export function sanitizeListingContent(input: string): string {
   if (!input) return "";
-  return input
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-    .replace(/\s+on\w+\s*=\s*("(?:[^"]*)"|'(?:[^']*)'|[^\s>]+)/gi, "")
-    .replace(/javascript\s*:/gi, "")
-    .replace(/<[^>]*>/g, "")
+  // Use DOMPurify for comprehensive XSS protection, then strip all HTML tags
+  const sanitized = DOMPurify.sanitize(input, { ALLOWED_TAGS: [] });
+  return sanitized
     .replace(/[\u0000-\u001F]/g, "")
     .slice(0, 5000)
     .trim();
