@@ -224,13 +224,17 @@ export default function ListingPage() {
     }
   }
 
-  // Auto-open Stripe checkout if navigated with ?buy=1 (not for Arrange Purchase or Quote listings)
+  // Auto-open checkout if navigated with ?buy=1 (Stripe for regular, Arrange Purchase for contact listings)
   useEffect(() => {
     if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("buy") === "1" && user?.email && listing) {
-      if (isContactListing) return;
       if (listing.pricingType === "quote") return;
       if (isAuctionWinner) {
         setWinningBid(listing.currentBid || listing.startingBid || 0);
+      }
+      if (isContactListing) {
+        // For contact listings, trigger arrange purchase instead
+        handleArrangePurchase();
+        return;
       }
       const t = setTimeout(() => openStripeCheckout(), 0);
       return () => clearTimeout(t);
@@ -1286,13 +1290,28 @@ Property Status: 🟢 Inquiry Active`;
                       }
                       router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`);
                     }}
-                    className="flex-1 rounded-lg bg-gradient-to-r from-sky-500 to-sky-500 py-3 text-[13px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]"
+                    style={{
+                      width: "100%",
+                      minHeight: "44px",
+                    }}
+                    className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98] whitespace-nowrap"
                   >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
                     Contact Owner
                   </button>
                   {listing.acceptOffers && (
                     <button onClick={() => setShowOffer(true)}
-                      className="rounded-lg border border-zinc-700 px-3 py-3 text-[12px] font-medium text-[var(--muted)] transition hover:border-zinc-600 hover:text-[var(--foreground)]">
+                      style={{
+                        width: "100%",
+                        minHeight: "44px",
+                      }}
+                      className="flex items-center justify-center gap-2 rounded-xl border-2 border-zinc-700 bg-zinc-900/60 px-5 py-3 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-zinc-600 hover:bg-zinc-800/60 whitespace-nowrap"
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                      </svg>
                       Make Offer
                     </button>
                   )}
@@ -1338,14 +1357,28 @@ Property Status: 🟢 Inquiry Active`;
                       });
                       router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`);
                     }}
-                    className="flex-1 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-[13px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]"
+                    style={{
+                      width: "100%",
+                      minHeight: "44px",
+                    }}
+                    className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98] whitespace-nowrap"
                   >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
                     Request Quote
                   </button>
                   <button
                     onClick={() => router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`)}
-                    className="flex-1 rounded-lg border border-zinc-700 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-zinc-800 active:scale-[0.97]"
+                    style={{
+                      width: "100%",
+                      minHeight: "44px",
+                    }}
+                    className="flex items-center justify-center gap-2 rounded-xl border-2 border-zinc-700 bg-zinc-900/60 px-5 py-3 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-zinc-600 hover:bg-zinc-800/60 whitespace-nowrap"
                   >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
                     Message Seller
                   </button>
                 </>
@@ -1373,42 +1406,93 @@ Property Status: 🟢 Inquiry Active`;
                           handleArrangePurchase();
                         }}
                         disabled={arrangingPurchase}
-                        className="flex-1 rounded-lg bg-sky-500 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-sky-400 disabled:opacity-60"
+                        style={{
+                          width: "100%",
+                          minHeight: "44px",
+                        }}
+                        className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
                       >
-                        {arrangingPurchase
-                          ? "Connecting…"
-                          : buyerArrangeRequestCount > 0
-                            ? "🤝 Open chat"
-                            : `🤝 Request purchase — $${listing.price}`}
+                        {arrangingPurchase ? (
+                          "Connecting…"
+                        ) : buyerArrangeRequestCount > 0 ? (
+                          <>
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                            Open Chat
+                          </>
+                        ) : (
+                          <>
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                            Request Purchase — ${listing.price}
+                          </>
+                        )}
                       </button>
                       <p className="mt-1 text-[10px] leading-relaxed text-zinc-500">Arrange Purchase is handled directly between buyer and seller. Keep communication on Sky Drop so we can review evidence if something goes wrong.</p>
                     </>
                   ) : isAuctionWinner ? (
-                    <button
-                      onClick={() => { setWinningBid(listing.currentBid || listing.startingBid || 0); openStripeCheckout(); }}
-                      className="flex-1 rounded-lg bg-sky-500 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-sky-400"
-                    >
-                      Pay Now — ${listing.currentBid || listing.startingBid || 0}
-                    </button>
+                    <>
+                      <button
+                        onClick={() => { setWinningBid(listing.currentBid || listing.startingBid || 0); openStripeCheckout(); }}
+                        style={{
+                          width: "100%",
+                          minHeight: "44px",
+                        }}
+                        className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98] whitespace-nowrap"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                        </svg>
+                        Pay Now — ${listing.currentBid || listing.startingBid || 0}
+                      </button>
+                      <p className="mt-1 text-[10px] leading-relaxed text-zinc-500">Secure payment through Stripe with buyer protection. Funds held in escrow until you confirm receipt.</p>
+                    </>
                   ) : (
-                    <button
-                      onClick={() => openStripeCheckout()}
-                      className="flex-1 rounded-lg bg-sky-500 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-sky-400"
-                    >
-                      Buy Now
-                    </button>
+                    <>
+                      <button
+                        onClick={() => openStripeCheckout()}
+                        style={{
+                          width: "100%",
+                          minHeight: "44px",
+                        }}
+                        className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98] whitespace-nowrap"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                        Buy Now — ${listing.price}
+                      </button>
+                      <p className="mt-1 text-[10px] leading-relaxed text-zinc-500">Secure payment through Stripe with buyer protection. Funds held in escrow until you confirm receipt.</p>
+                    </>
                   )}
                   {!auctionEnded && (listing.saleType === "auction" || listing.saleType === "auction_buy_now") && user && user.email !== listing.sellerEmail && (
                     <button onClick={() => { setShowBidModal(true); setBidAmount(String(getMinimumNextBid(listing.currentBid || listing.startingBid || 0))); }}
-                      className="flex-1 rounded-lg border border-sky-500/40 bg-sky-500/10 py-2.5 text-[13px] font-bold text-sky-400 transition hover:bg-sky-500/20">
+                      style={{
+                        width: "100%",
+                        minHeight: "44px",
+                      }}
+                      className="flex items-center justify-center gap-2 rounded-xl border-2 border-sky-500/40 bg-sky-500/10 px-5 py-3 text-sm font-bold text-sky-400 transition-all duration-200 hover:bg-sky-500/20 hover:border-sky-500/60 whitespace-nowrap"
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
                       Bid Now
                     </button>
                   )}
                   {(listing as any).paymentType !== "contact" && listing.acceptOffers && (
                     <button
                       onClick={() => setShowOffer(true)}
-                        className="rounded-lg border border-zinc-700 px-3 py-3 text-[12px] font-medium text-[var(--muted)] transition hover:border-zinc-600 hover:text-[var(--foreground)]"
+                      style={{
+                        width: "100%",
+                        minHeight: "44px",
+                      }}
+                      className="flex items-center justify-center gap-2 rounded-xl border-2 border-zinc-700 bg-zinc-900/60 px-5 py-3 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-zinc-600 hover:bg-zinc-800/60 whitespace-nowrap"
                     >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                      </svg>
                       Make Offer
                     </button>
                   )}

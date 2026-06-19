@@ -218,6 +218,7 @@ export async function createPurchaseWithAdmin(input: CreatePurchaseInput): Promi
 
     const type = input.type || "physical";
     const computedStatus = input.status === "delivered" ? "delivered"
+      : input.status === "confirmed" ? "confirmed" // Allow TradeMe-style auto-confirmation
       : type === "rental" ? "rented"
       : type === "service" ? "in_progress"
       : "pending";

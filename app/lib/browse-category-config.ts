@@ -50,51 +50,12 @@ export type BrowseCategoryConfig = {
 };
 
 export const BROWSE_CATEGORY_CONFIGS: Record<string, BrowseCategoryConfig> = {
-  vehicle: {
-    listingType: "vehicle",
-    emoji: "🚗",
-    pageTitle: "Vehicles Marketplace",
-    subtitle:
-      "Browse cars, trucks, motorbikes, and more. Buy or bid on vehicles across New Zealand.",
-    searchPlaceholder: "Search make, model, title, location...",
-    listCtaShort: "List",
-    listCtaLong: "List a Vehicle with Awhina",
-    sellCta: "Sell a Vehicle with Awhina",
-    postAiType: "vehicle",
-    trendingFallback: "🔥 Trending vehicles across New Zealand",
-    itemSingular: "vehicle",
-    itemPlural: "vehicles",
-    listingsHeading: "Vehicle Listings",
-    emptyTitle: "No vehicles listed yet",
-    emptySubtitle: "Be the first to list a vehicle.",
-    filterMode: "region",
-    extraSearchFields: (item) =>
-      [
-        item.vehicleMake,
-        item.vehicleModel,
-        item.make,
-        item.model,
-        item.vehicleBodyType,
-        item.vehicleFuelType,
-        item.vehicleTransmission,
-        item.fuelType,
-        item.transmission,
-        item.vehicleColour,
-        item.year,
-        item.vehicleYear,
-      ].filter(Boolean) as string[],
-    trustRow: [
-      "🔍 Browse & filter by region",
-      "💰 Buy or bid with confidence",
-      "🛡️ Buyer protection included",
-    ],
-  },
   rental: {
     listingType: "rental",
     emoji: "🔑",
     pageTitle: "Rentals Marketplace",
     subtitle:
-      "Rent homes, rooms, vehicles, tools, and equipment. Message the owner to arrange pickup and return.",
+      "Rent vehicles, tools, and equipment. Message the owner to arrange pickup and return.",
     searchPlaceholder: "Search rentals, location, category...",
     listCtaShort: "List",
     listCtaLong: "List a Rental with Awhina",
@@ -181,34 +142,6 @@ export const BROWSE_CATEGORY_CONFIGS: Record<string, BrowseCategoryConfig> = {
       "🔍 Browse by category",
       "⚡ Instant digital delivery",
       "🛡️ Buyer protection included",
-    ],
-  },
-  property: {
-    listingType: "property",
-    emoji: "🏠",
-    pageTitle: "Property Marketplace",
-    subtitle:
-      "Find homes, apartments, land, and commercial property across New Zealand. Buy, auction, or enquire.",
-    searchPlaceholder: "Search property, location, type...",
-    listCtaShort: "List",
-    listCtaLong: "List Property with Awhina",
-    sellCta: "List Property with Awhina",
-    postAiType: "property",
-    trendingFallback: "🔥 Trending property across New Zealand",
-    itemSingular: "property",
-    itemPlural: "properties",
-    listingsHeading: "Property Listings",
-    emptyTitle: "No property listed yet",
-    emptySubtitle: "Be the first to list a property.",
-    filterMode: "region",
-    extraSearchFields: (item) =>
-      [item.propertyType, item.bedrooms, item.bathrooms, item.landArea].filter(
-        Boolean
-      ) as string[],
-    trustRow: [
-      "🔍 Browse & filter by region",
-      "💬 Contact sellers directly",
-      "🛡️ Secure payments through Sky Drop",
     ],
   },
   job: {

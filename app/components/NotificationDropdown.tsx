@@ -37,31 +37,42 @@ type NotificationDropdownProps = {
 
 const TYPE_META: Record<
   string,
-  { icon: string; color: string }
+  { icon: string; color: string; priority: "high" | "medium" | "low" }
 > = {
   message: {
     icon: "\uD83D\uDCAC",
-    color: "bg-sky-500/20",
+    color: "bg-sky-500/20 border-sky-500/30",
+    priority: "low",
   },
   offer: {
     icon: "\uD83D\uDCB0",
-    color: "bg-sky-500/20",
+    color: "bg-amber-500/20 border-amber-500/30",
+    priority: "high",
   },
   sold: {
     icon: "\u2705",
-    color: "bg-sky-500/20",
+    color: "bg-emerald-500/20 border-emerald-500/30",
+    priority: "high",
   },
   verification: {
     icon: "\uD83D\uDD10",
-    color: "bg-sky-500/20",
+    color: "bg-violet-500/20 border-violet-500/30",
+    priority: "high",
   },
   warning: {
     icon: "\u26A0\uFE0F",
-    color: "bg-red-500/20",
+    color: "bg-red-500/20 border-red-500/30",
+    priority: "high",
   },
   watchlist: {
     icon: "\u2B50",
-    color: "bg-sky-500/20",
+    color: "bg-orange-500/20 border-orange-500/30",
+    priority: "medium",
+  },
+  purchase: {
+    icon: "\uD83D\uDCEB",
+    color: "bg-emerald-500/20 border-emerald-500/30",
+    priority: "high",
   },
 };
 
@@ -132,14 +143,16 @@ export default function NotificationDropdown({
             Activity
           </h2>
         </div>
-        {notifications.length > 0 && (
-          <button
-            onClick={handleClearAll}
-            className="rounded-lg px-2.5 py-1 text-[10px] font-medium text-[var(--muted)] transition hover:bg-white/[0.04] hover:text-[var(--foreground)]"
-          >
-            Clear all
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {notifications.length > 0 && (
+            <button
+              onClick={handleClearAll}
+              className="rounded-lg px-2.5 py-1 text-[10px] font-medium text-[var(--muted)] transition hover:bg-white/[0.04] hover:text-[var(--foreground)]"
+            >
+              Clear all
+            </button>
+          )}
+        </div>
       </div>
 
       {/* LIST */}
@@ -188,89 +201,119 @@ export default function NotificationDropdown({
                   notification.unread;
 
                 return (
-                  <Link
+                  <div
                     key={
                       notification.id
                         ? `${notification.id}-${index}`
                         : `notif-${index}`
                     }
-                    href={
-                      notification.href
-                    }
-                    onClick={() => {
-                      onMarkSeen?.(
-                        notification.id,
-                        notification.type
-                      );
-                      onClose?.();
-                    }}
-                    className={`relative mx-1.5 mb-0.5 flex items-start gap-3 rounded-xl px-3 py-2.5 transition-all duration-200 ${
-                      isUnread
-                        ? "border border-sky-500/10 bg-sky-500/[0.06] hover:border-sky-500/20 hover:bg-sky-500/[0.1]"
-                        : "border border-transparent hover:border-white/[0.06] hover:bg-white/[0.03]"
-                    }`}
+                    className="relative mx-1.5 mb-0.5"
                   >
-                    {/* AVATAR + TYPE BADGE */}
-                    <div className="relative flex-shrink-0">
-                      <div
-                        className={`flex h-9 w-9 items-center justify-center rounded-xl text-[11px] font-medium text-[var(--foreground)] ${typeMeta.color}`}
-                      >
-                        {notification.sender?.[0]?.toUpperCase() ||
-                          "?"}
+                    <Link
+                      href={
+                        notification.href
+                      }
+                      onClick={() => {
+                        onMarkSeen?.(
+                          notification.id,
+                          notification.type
+                        );
+                        onClose?.();
+                      }}
+                      className={`relative flex items-start gap-3 rounded-xl px-3 py-3 transition-all duration-200 ${
+                        isUnread
+                          ? `border ${typeMeta.color} hover:opacity-80 shadow-lg shadow-black/10`
+                          : "border border-transparent hover:border-white/[0.06] hover:bg-white/[0.03]"
+                      }`}
+                    >
+                      {/* AVATAR + TYPE BADGE */}
+                      <div className="relative flex-shrink-0">
+                        <div
+                          className={`flex h-10 w-10 items-center justify-center rounded-xl text-[11px] font-bold text-[var(--foreground)] border ${typeMeta.color}`}
+                        >
+                          {notification.sender?.[0]?.toUpperCase() ||
+                            "?"}
+                        </div>
+                        <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#111318] text-[8px] leading-none ring-1 ring-white/[0.06] shadow-md">
+                          {typeMeta.icon}
+                        </span>
+                        {typeMeta.priority === "high" && (
+                          <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-red-500 ring-2 ring-[#111318]">
+                            <span className="text-[6px]">!</span>
+                          </span>
+                        )}
                       </div>
-                      <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#111318] text-[7px] leading-none ring-1 ring-white/[0.06]">
-                        {typeMeta.icon}
-                      </span>
-                    </div>
 
-                    {/* CONTENT */}
-                    <div className="min-w-0 flex-1">
-                      {notification.listingTitle ? (
-                        <p className="truncate text-[13px] font-semibold text-[var(--foreground)]">
-                          {
-                            notification.listingTitle
-                          }
-                        </p>
-                      ) : (
-                        <p className="text-[12px] font-medium text-[var(--foreground)]">
-                          {displaySender}
-                        </p>
-                      )}
-                      <div className="mt-0.5 flex items-center gap-1.5">
+                      {/* CONTENT */}
+                      <div className="min-w-0 flex-1">
                         {notification.listingTitle ? (
-                          <p className="truncate text-[11px] text-[var(--muted)]">
-                            by {displaySender}
+                          <p className="truncate text-[13px] font-bold text-[var(--foreground)]">
+                            {
+                              notification.listingTitle
+                            }
                           </p>
                         ) : (
-                          <p className="text-[11px] text-[var(--muted)]">
-                            {notification.type === "offer"
-                              ? "Made an offer"
-                              : "Sent a message"}
+                          <p className="text-[12px] font-bold text-[var(--foreground)]">
+                            {displaySender}
                           </p>
                         )}
-                        {notification.type ===
-                          "offer" && (
-                          <span className="rounded-full bg-sky-500/10 px-1.5 py-0.5 text-[8px] font-medium text-sky-400">
-                            Offer
-                          </span>
-                        )}
-                        {notification.type ===
-                          "sold" && (
-                          <span className="rounded-full bg-sky-500/10 px-1.5 py-0.5 text-[8px] font-medium text-sky-400">
-                            Sold
-                          </span>
-                        )}
+                        <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
+                          {notification.listingTitle ? (
+                            <p className="truncate text-[11px] text-[var(--muted)]">
+                              by {displaySender}
+                            </p>
+                          ) : (
+                            <p className="text-[11px] text-[var(--muted)]">
+                              {notification.type === "offer"
+                                ? "Made an offer"
+                                : notification.type === "purchase"
+                                  ? "Purchase update"
+                                  : "Sent a message"}
+                            </p>
+                          )}
+                          {notification.type ===
+                            "offer" && (
+                            <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[8px] font-bold text-amber-400 border border-amber-500/30">
+                              Offer
+                            </span>
+                          )}
+                          {notification.type ===
+                            "sold" && (
+                            <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[8px] font-bold text-emerald-400 border border-emerald-500/30">
+                              Sold
+                            </span>
+                          )}
+                          {notification.type ===
+                            "purchase" && (
+                            <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[8px] font-bold text-emerald-400 border border-emerald-500/30">
+                              Purchase
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-0.5 text-[10px] text-[var(--muted)]">
+                          {notification.time}
+                        </p>
                       </div>
-                      <p className="mt-0.5 text-[10px] text-[var(--muted)]">
-                        {notification.time}
-                      </p>
-                    </div>
 
-                    {/* UNREAD DOT */}
-                    {isUnread && (
-                      <span className="absolute right-2.5 top-3 h-1.5 w-1.5 rounded-full bg-sky-400 animate-pulse-dot" />
-                    )}
-                  </Link>
+                      {/* UNREAD DOT */}
+                      {isUnread && (
+                        <span className="absolute right-2.5 top-3 h-2 w-2 rounded-full bg-sky-400 shadow-[0_0_6px_rgba(56,189,248,0.4)] animate-pulse" />
+                      )}
+                    </Link>
+                    {/* ACTION BUTTON */}
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        onMarkSeen?.(notification.id, notification.type);
+                      }}
+                      className="absolute right-1 top-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Mark as read"
+                    >
+                      <svg className="h-3 w-3 text-[var(--muted)] hover:text-[var(--foreground)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </button>
+                  </div>
                 );
               }
             )}

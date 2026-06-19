@@ -72,6 +72,19 @@ interface CheckoutModalProps {
 type DeliveryMethod = "pickup" | "shipping" | "badge" | "digital" | "rental" | "event" | null;
 type Step = "form" | "card" | "processing" | "share_address" | "success" | "error";
 
+interface ProgressStep {
+  key: string;
+  label: string;
+  icon: string;
+}
+
+const CHECKOUT_STEPS: ProgressStep[] = [
+  { key: "form", label: "Details", icon: "📝" },
+  { key: "card", label: "Payment", icon: "💳" },
+  { key: "processing", label: "Confirm", icon: "⏳" },
+  { key: "success", label: "Complete", icon: "✅" },
+];
+
 function PaymentForm({ total, listingId, title, price, buyerEmail, paymentIntentId, onSuccess, onBack, badgeForSale, sellerEmail, collectionName, type, digitalFileURL, digitalFileName, digitalStoragePath }: {
   total: number; listingId: string; title: string; price: string; buyerEmail: string; paymentIntentId: string; onSuccess: (confirmedPaymentIntentId: string) => void; onBack: () => void; badgeForSale?: string; sellerEmail?: string; collectionName?: string; type?: string; digitalFileURL?: string; digitalFileName?: string; digitalStoragePath?: string;
 }) {
@@ -103,7 +116,16 @@ function PaymentForm({ total, listingId, title, price, buyerEmail, paymentIntent
 
     setSubmitting(false);
     if (submitError) {
-      setError("Payment failed. Please try another payment method or try again.");
+      const errorMessage = submitError.message || "Payment failed";
+      if (errorMessage.includes("card")) {
+        setError("Your card was declined. Please try a different payment method or check your card details.");
+      } else if (errorMessage.includes("insufficient funds")) {
+        setError("Insufficient funds. Please try a different payment method.");
+      } else if (errorMessage.includes("expired")) {
+        setError("Your card has expired. Please use a different payment method.");
+      } else {
+        setError("Payment failed. Please try again or contact support if the issue persists.");
+      }
       return;
     }
 
@@ -116,8 +138,20 @@ function PaymentForm({ total, listingId, title, price, buyerEmail, paymentIntent
   }
 
   return (
-    <form onSubmit={handlePay} className="space-y-3">
-      <PaymentElement onReady={() => setElementReady(true)} />
+    <form onSubmit={handlePay} className="space-y-4">
+      <div className="relative">
+        <PaymentElement onReady={() => setElementReady(true)} />
+        {!elementReady && (
+          <div className="absolute inset-0 flex items-center justify-center bg-zinc-950/50 rounded-xl animate-pulse">
+            <div className="flex items-center gap-2 text-[var(--muted)]">
+              <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span className="text-xs">Loading payment form...</span>
+            </div>
+          </div>
+        )}
+      </div>
       <div className="flex items-center justify-center gap-1.5 text-[11px] text-[var(--muted)]">
         <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
@@ -126,21 +160,33 @@ function PaymentForm({ total, listingId, title, price, buyerEmail, paymentIntent
         Payments protected by <span className="font-semibold tracking-tight">Stripe</span>
       </div>
       {error && (
-        <div className="rounded-lg border border-red-800/40 bg-red-900/20 p-3 text-xs text-red-400">
-          {error}
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-xs text-red-400 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-start gap-2">
+            <svg className="h-4 w-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>{error}</span>
+          </div>
         </div>
       )}
       <button
         type="submit"
         disabled={!stripe || !elementReady || submitting}
-        className="w-full rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-sky-400 disabled:opacity-50"
+        className="w-full rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-lg disabled:hover:shadow-sky-500/20 disabled:hover:brightness-100 disabled:active:scale-100"
       >
-        {submitting ? "Processing..." : `Pay $${total.toFixed(2)}`}
+        {submitting ? (
+          <span className="flex items-center justify-center gap-2">
+            <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Processing...
+          </span>
+        ) : `Pay $${total.toFixed(2)}`}
       </button>
       <button
         type="button"
         onClick={onBack}
-        className="w-full rounded-xl border border-zinc-700 py-3 text-sm font-bold text-[var(--muted)] transition hover:border-zinc-600 hover:text-[var(--foreground)]"
+        className="w-full rounded-xl border border-zinc-700 py-3 text-sm font-bold text-[var(--muted)] transition-all duration-200 hover:border-zinc-600 hover:text-[var(--foreground)] hover:bg-white/[0.02] active:scale-[0.97]"
       >
         Cancel
       </button>
@@ -175,6 +221,8 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
   const [purchaseError, setPurchaseError] = useState("");
   const [showConfetti, setShowConfetti] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
+  const [sellerRating, setSellerRating] = useState<number | null>(null);
+  const [sellerResponseTime, setSellerResponseTime] = useState<string | null>(null);
 
   const shippingAmount = listing.shippingFee && !listing.freeShipping ? listing.shippingFee : 0;
   const itemPrice = winningBid || Number(listing.price) || 0;
@@ -197,6 +245,21 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
   function formatShippingAddress() {
     const parts = [address.trim(), `${city.trim()} ${postcode.trim()}`.trim(), country.trim()].filter(Boolean);
     return parts.join(", ");
+  }
+
+  function getCurrentStepIndex(): number {
+    const stepIndexMap: Record<Step, number> = { form: 0, card: 1, processing: 2, share_address: 2, success: 3, error: 2 };
+    return stepIndexMap[step] || 0;
+  }
+
+  function getEstimatedDelivery(): string {
+    if (deliveryMethod === "pickup") return "Available for pickup";
+    if (deliveryMethod === "digital") return "Instant delivery";
+    if (deliveryMethod === "shipping") {
+      const days = listing.shipsWithinDays || 3;
+      return `Estimated delivery: ${days} business days`;
+    }
+    return "Delivery details confirmed";
   }
 
   // Restore body scroll on unmount
@@ -234,7 +297,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
     }
   }, [step]);
 
-  // Auto-fill from last checkout or saved profile shipping fields
+  // Auto-fill from last checkout or saved profile shipping fields & load seller info
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -266,9 +329,23 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
       } catch (e) {
         console.error("Failed to load profile shipping info:", e);
       }
+
+      // Load seller trust info
+      if (listing.sellerEmail && !cancelled) {
+        try {
+          const sellerQuery = await getDoc(doc(db, "profiles", listing.sellerEmail.split("@")[0]));
+          if (sellerQuery.exists()) {
+            const sellerData = sellerQuery.data();
+            setSellerRating(sellerData.sellerRating || null);
+            setSellerResponseTime(sellerData.averageResponseTime || null);
+          }
+        } catch (e) {
+          console.error("Failed to load seller info:", e);
+        }
+      }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [listing.sellerEmail]);
 
   function safeClose() {
     document.body.style.overflow = "";
@@ -591,17 +668,16 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 animate-fade-in-backdrop"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-6"
       onClick={safeClose}
     >
       <div
-        ref={modalRef}
-        className={`w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl overflow-hidden transition-all duration-300 ${
-          step === "success" || step === "share_address" || step === "error" ? "max-w-sm" : ""
-        }`}
-        onClick={(e) => e.stopPropagation()}
-        style={{ animation: "slideUp 0.25s ease-out" }}
-      >
+      ref={modalRef}
+      className={`w-full max-w-lg rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl max-h-[92vh] overflow-y-auto my-4 sm:my-0 mx-auto ${
+        step === "success" || step === "share_address" || step === "error" ? "max-w-sm" : ""
+      }`}
+      onClick={(e) => e.stopPropagation()}
+    >
         {step === "share_address" ? (
           <div className="flex flex-col px-6 py-8 text-center">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-sky-500/20">
@@ -706,6 +782,8 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
             </div>
             <h2 className="mt-4 text-lg font-black text-[var(--foreground)]">Payment Successful</h2>
             {orderId && <p className="mt-1 text-xs text-[var(--muted)]">Order #{orderId.slice(-6).toUpperCase()}</p>}
+            
+            {/* TradeMe-style Order Receipt */}
             <div className="mt-4 rounded-lg bg-zinc-900/40 px-4 py-3 text-left text-xs">
               <div className="flex items-center justify-between text-[var(--muted)]">
                 <span>{isRental ? `Rental — $${listing.price}/day × ${listing.rentalDays || 1} day(s)` : "Item"}</span>
@@ -724,28 +802,59 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
               <div className="mt-2 flex items-center justify-between border-t border-zinc-800 pt-2 text-sm font-bold text-[var(--foreground)]"><span>Total Due Today</span><span>${total.toFixed(2)}</span></div>
               {isRental && listing.rentalDeposit && <p className="mt-1 text-[10px] text-sky-400/70">${Number(listing.rentalDeposit).toFixed(2)} refundable after safe return.</p>}
             </div>
+            
+            {/* TradeMe-style Next Steps */}
+            <div className="mt-4 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-left">
+              <p className="text-[11px] font-bold text-emerald-400 mb-2">What happens next?</p>
+              <div className="space-y-2">
+                <div className="flex items-start gap-2">
+                  <span className="text-[10px] mt-0.5">1️⃣</span>
+                  <p className="text-[10px] text-emerald-400/80">Order confirmed - Seller has received your shipping details</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-[10px] mt-0.5">2️⃣</span>
+                  <p className="text-[10px] text-emerald-400/80">{isDigital ? "Download from your Purchases page" : deliveryMethod === "shipping" ? "Seller will ship to your address" : "Arrange pickup with seller"}</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-[10px] mt-0.5">3️⃣</span>
+                  <p className="text-[10px] text-emerald-400/80">Track order status in your Purchases</p>
+                </div>
+              </div>
+            </div>
+            
             <div className="mt-3 rounded-lg border border-sky-500/15 bg-sky-500/[0.04] px-3 py-2 text-left text-[10px] leading-relaxed text-sky-400/80">
-              💳 Secured by Stripe
+              💳 Secured by Stripe · 🛡️ Buyer Protection Active
             </div>
             <div className="mt-2 flex items-center justify-center gap-1 text-xs text-[var(--muted)]">
               <span className="text-sky-400">✓</span>
               <span>Seller has been notified</span>
             </div>
-            <button
-              onClick={() => router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listing.id}&purchased=1`)}
-              className="mt-5 w-full rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-sky-400"
-            >
-              View Conversation
-            </button>
-            <button
-              onClick={safeClose}
-              className="mt-2 w-full rounded-xl border border-zinc-700 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-zinc-800"
-            >
-              Done
-            </button>
+            
+            {/* TradeMe-style Action Buttons */}
+            <div className="mt-5 space-y-2">
+              <button
+                onClick={() => router.push("/purchases")}
+                className="w-full rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-sky-400"
+              >
+                View Order Details
+              </button>
+              <button
+                onClick={() => router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listing.id}&purchased=1`)}
+                className="w-full rounded-xl border border-zinc-700 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-zinc-800"
+              >
+                Message Seller
+              </button>
+              <button
+                onClick={safeClose}
+                className="w-full rounded-xl border border-zinc-800 py-2 text-xs font-bold text-[var(--muted)] transition hover:text-[var(--foreground)]"
+              >
+                Continue Browsing
+              </button>
+            </div>
           </div>
         ) : (
           <>
+            {/* Progress Stepper */}
             <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
               <h2 className="text-sm font-bold text-[var(--foreground)]">
                 {step === "card" ? "Enter Card Details" : "Complete Purchase"}
@@ -755,6 +864,34 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
+            </div>
+            
+            {/* TradeMe-style Progress Indicator */}
+            <div className="flex items-center justify-between border-b border-zinc-800/50 px-4 py-3 bg-zinc-900/30">
+              {CHECKOUT_STEPS.map((stepItem, index) => {
+                const currentIndex = getCurrentStepIndex();
+                const isCompleted = index < currentIndex;
+                const isCurrent = index === currentIndex;
+                return (
+                  <div key={stepItem.key} className="flex items-center gap-2 flex-1">
+                    <div className={`flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold transition-all ${
+                      isCompleted ? 'bg-sky-500 text-white' : isCurrent ? 'bg-sky-500/20 text-sky-400 ring-2 ring-sky-500/40' : 'bg-zinc-800 text-zinc-500'
+                    }`}>
+                      {isCompleted ? '✓' : stepItem.icon}
+                    </div>
+                    <span className={`text-[10px] font-medium ${
+                      isCompleted ? 'text-sky-400' : isCurrent ? 'text-[var(--foreground)]' : 'text-zinc-500'
+                    }`}>
+                      {stepItem.label}
+                    </span>
+                    {index < CHECKOUT_STEPS.length - 1 && (
+                      <div className={`flex-1 h-px mx-2 ${
+                        isCompleted ? 'bg-sky-500' : 'bg-zinc-800'
+                      }`} />
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             <div className="flex items-center gap-3 border-b border-zinc-800/50 px-4 py-3">
@@ -767,9 +904,16 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                 <p className="truncate text-sm font-bold text-[var(--foreground)]">{listing.title}</p>
                 <p className="text-xs text-[var(--muted)]">${listing.price}</p>
               </div>
+              {/* Seller Trust Badge */}
+              {sellerRating && (
+                <div className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-1 border border-emerald-500/20">
+                  <span className="text-[10px]">⭐</span>
+                  <span className="text-[10px] font-bold text-emerald-400">{sellerRating.toFixed(1)}</span>
+                </div>
+              )}
             </div>
 
-            <div className="space-y-4 overflow-y-auto px-4 py-4 max-h-[60vh]">
+            <div className="space-y-4 px-4 py-4">
               {step === "form" && (
                 <>
                   {!isBadge && (listing.pickupAvailable && listing.shippingAvailable) && (
@@ -790,7 +934,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                             }`}>
                               {deliveryMethod === "pickup" && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
                             </span>
-                            <span>📍 Pickup{listing.pickupArea ? ` — ${listing.pickupArea}` : ""}</span>
+                            <span>📍 Pickup available</span>
                           </button>
                         )}
                         {listing.shippingAvailable && (
@@ -841,6 +985,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                     </div>
                   </div>
 
+                  {/* TradeMe-style Order Summary with Protection */}
                   <div className="rounded-lg bg-zinc-900/40 px-3.5 py-3 text-xs">
                     <div className="flex items-center justify-between text-[var(--muted)]">
                       <span>{isRental ? `Rental — $${listing.price}/day × ${listing.rentalDays || 1} day(s)` : "Item"}</span>
@@ -867,6 +1012,32 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                       <span>${total.toFixed(2)}</span>
                     </div>
                     {isRental && listing.rentalDeposit && <p className="mt-1 text-[10px] text-sky-400/70">${Number(listing.rentalDeposit).toFixed(2)} refundable after safe return.</p>}
+                  </div>
+
+                  {/* TradeMe-style Buyer Protection Banner */}
+                  <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3.5 py-3">
+                    <div className="flex items-start gap-2">
+                      <span className="text-lg">🛡️</span>
+                      <div>
+                        <p className="text-[11px] font-bold text-emerald-400">Buyer Protection</p>
+                        <p className="mt-1 text-[10px] text-emerald-400/80 leading-relaxed">
+                          Your payment is protected. If the item doesn't arrive or isn't as described, you may be eligible for a full refund.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Estimated Delivery */}
+                  <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 px-3.5 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">📦</span>
+                      <div>
+                        <p className="text-[11px] font-bold text-sky-400">{getEstimatedDelivery()}</p>
+                        {sellerResponseTime && (
+                          <p className="mt-1 text-[10px] text-sky-400/70">Seller typically responds within {sellerResponseTime}</p>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   {intentError && (

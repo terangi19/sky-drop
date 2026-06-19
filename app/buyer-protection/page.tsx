@@ -47,7 +47,7 @@ export default function BuyerProtectionPage() {
 
           <FeatureCard icon="📦" title="Physical items" description="Pay with Stripe Checkout for dispute protection. If the item doesn't arrive or isn't as described, open a dispute within 7 days. Arrange Purchase is also available — payment is agreed directly between buyer and seller in Messages." />
           <FeatureCard icon="💾" title="Digital products" description="Digital downloads are delivered instantly after payment via Stripe Checkout. If the file is faulty or doesn't match the description, open a dispute within 7 days. For custom digital work with Quote Required pricing, discuss scope in Messages before purchasing." />
-          <FeatureCard icon="🛠️" title="Services" description="For local services, discuss the scope in Messages first. Payment is held until you confirm the service is completed. If the work isn't completed as agreed, open a dispute within 7 days." />
+          <FeatureCard icon="🛠️" title="Services" description="For local services, discuss the scope in Messages first. Complete payment through Stripe Checkout or Arrange Purchase. If the work isn't completed as agreed, open a dispute within 7 days." />
           <FeatureCard icon="🔑" title="Rentals" description="Rental listings include daily, weekly, or monthly rates. Rental agreements and deposits are managed between the renter and owner through Messages." />
           <FeatureCard icon="🚗" title="Vehicles" description="Vehicle purchases typically use Arrange Purchase (bank transfer). We recommend inspecting the vehicle in person before completing payment. All seller identity is verified through KYC." />
         </div>

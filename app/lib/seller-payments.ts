@@ -52,3 +52,11 @@ export function validateSellerForCheckout(
   }
   return null;
 }
+
+/** Check if seller has Stripe configured for Pay Now */
+export function sellerHasStripeConfigured(
+  sellerProfile: SellerProfileSlice | undefined | null
+): boolean {
+  if (!sellerProfile) return false;
+  return !!sellerProfile.stripeAccountId;
+}

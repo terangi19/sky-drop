@@ -129,16 +129,86 @@ export default function AIPostPage() {
   const [scamAlert, setScamAlert] = useState<{ title: string; message: string; found: string[] } | null>(null);
   const [priceAlert, setPriceAlert] = useState(false);
   const [confirmedSubmit, setConfirmedSubmit] = useState(false);
+  const [showKycModal, setShowKycModal] = useState(false);
+  const [showTypeConfirmModal, setShowTypeConfirmModal] = useState(false);
+  const [pendingTypeChange, setPendingTypeChange] = useState<string | null>(null);
+  const [showTypeGuideModal, setShowTypeGuideModal] = useState(false);
+  const [showAwhinaGuide, setShowAwhinaGuide] = useState(false);
 
   const [skyChatOpen, setSkyChatOpen] = useState(false);
   const [skyAutoQuery, setSkyAutoQuery] = useState<string | undefined>();
   const [draftExtras, setDraftExtras] = useState<string[]>([]);
+  const [formStep, setFormStep] = useState(1);
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   const isDigital = listingType === "digital";
   const classifierRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const manualEdit = useRef<Set<string>>(new Set());
+
+  // Validation functions
+  const validateTitle = (value: string) => {
+    if (!value.trim()) return "Title is required";
+    if (value.trim().length < 3) return "Title must be at least 3 characters";
+    if (value.trim().length > 100) return "Title must be less than 100 characters";
+    return "";
+  };
+
+  const validatePrice = (value: string, type?: string) => {
+    const numPrice = Number(value);
+    if (!value.trim()) return "Price is required";
+    if (isNaN(numPrice) || numPrice <= 0) return "Price must be a positive number";
+    if (numPrice > 1000000) return "Price seems too high. Please verify.";
+    return "";
+  };
+
+  const validateDescription = (value: string) => {
+    if (!value.trim()) return "Description is required";
+    if (value.trim().length < 10) return "Description must be at least 10 characters";
+    return "";
+  };
+
+  const validateLocation = (value: string) => {
+    if (!value.trim()) return "Location is required";
+    return "";
+  };
+
+  const validateEmail = (value: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!value.trim()) return "Email is required";
+    if (!emailRegex.test(value)) return "Invalid email format";
+    return "";
+  };
+
+  const validatePhone = (value: string) => {
+    const phoneRegex = /^[\d\s+\-()]{8,}$/;
+    if (!value.trim()) return "Phone number is required";
+    if (!phoneRegex.test(value)) return "Invalid phone number format";
+    return "";
+  };
+
+  // Real-time validation handlers
+  const handleTitleChange = (value: string) => {
+    setTitle(value);
+    setValidationErrors(prev => ({ ...prev, title: validateTitle(value) }));
+  };
+
+  const handlePriceChange = (value: string) => {
+    setPrice(value);
+    setValidationErrors(prev => ({ ...prev, price: validatePrice(value, listingType) }));
+  };
+
+  const handleDescriptionChange = (value: string) => {
+    setDescription(value);
+    setValidationErrors(prev => ({ ...prev, description: validateDescription(value) }));
+  };
+
+  const handleLocationChange = (value: string) => {
+    setLocation(value);
+    setValidationErrors(prev => ({ ...prev, location: validateLocation(value) }));
+  };
 
   useEffect(() => {
     const stored = readListingDraftFromSkyAi();
@@ -583,15 +653,18 @@ export default function AIPostPage() {
       }
       const profileSnap = user?.uid ? await getDoc(doc(db, "profiles", user.uid)) : null;
       const profileData = profileSnap?.exists() ? profileSnap.data() : null;
+      const kycApproved = profileData?.kycStatus === "approved";
       const blockReason = getListingBlockReason({
         authEmailVerified: auth.currentUser?.emailVerified ?? user.emailVerified,
         phone: profileData ? String(profileData.phone || profileData.phoneNumber || "") : "",
         phoneVerified: !!profileData?.phoneVerified || !!profileData?.verified,
         authPhoneNumber: auth.currentUser?.phoneNumber,
         profileExists: profileSnap?.exists(),
+        kycApproved,
       });
       if (blockReason) {
-        showToast(blockReason, "error");
+        setShowKycModal(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
       }
     }
@@ -900,6 +973,37 @@ export default function AIPostPage() {
     setTimeout(() => createListing(), 0);
   }
 
+  function handleTypeChange(newType: string, action: () => void) {
+    if (listingType === newType) {
+      action();
+      return;
+    }
+    setPendingTypeChange(newType);
+    setShowTypeConfirmModal(true);
+  }
+
+  function confirmTypeChange() {
+    setShowTypeConfirmModal(false);
+    const type = pendingTypeChange;
+    setPendingTypeChange(null);
+    if (!type) return;
+
+    const typeConfig = [
+      { key: "physical", icon: "📦", label: "Physical", desc: "Real items that can be picked up or shipped.", examples: "Phones, furniture, tools, clothing, collectibles.", action: () => setAcceptOffers(false) },
+      { key: "digital", icon: "💾", label: "Digital", desc: "Digital products and online services delivered remotely.", examples: "Software, templates, e-books, web design, graphic design, SEO, digital marketing.", action: () => { setCategory("Other Digital Services"); setPricingType("fixed"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); } },
+      { key: "service", icon: "🛠️", label: "Service", desc: "Local services performed in person.", examples: "Lawn mowing, cleaning, tutoring, photography, trades, handyman work, personal training.", action: () => { setCategory("Other Services"); setServicePricingType("fixed"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(true); setSaleType("buy_now"); } },
+      { key: "rental", icon: "🔑", label: "Rental", desc: "Something people can hire or rent temporarily.", examples: "Houses, rooms, trailers, equipment, party gear.", action: () => { setCategory("Other"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); setLocation(""); setCondition("New"); } },
+      { key: "vehicle", icon: "🚗", label: "Vehicle", desc: "Motor vehicles for sale.", examples: "Cars, motorcycles, boats, caravans, trucks.", action: () => { setCategory("Cars"); setSaleType("buy_now"); setAcceptOffers(false); } },
+      { key: "wanted", icon: "📋", label: "Wanted", desc: "Post what you're looking for and let sellers come to you.", examples: "Looking for a car, need a service, want to rent something.", action: () => { setCategory("Items"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); } },
+    ].find(t => t.key === type);
+
+    if (typeConfig) {
+      setListingType(typeConfig.key as any);
+      setPaymentType("contact");
+      typeConfig.action();
+    }
+  }
+
   return (
     <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <Background />
@@ -971,13 +1075,22 @@ export default function AIPostPage() {
                     </p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setSkyChatOpen((v) => !v)}
-                  className="shrink-0 rounded-xl bg-gradient-to-r from-sky-500 to-sky-500 px-4 py-2.5 text-sm font-bold text-white shadow-[0_0_20px_rgba(14,165,233,0.25)] hover:brightness-110 active:scale-[0.98]"
-                >
-                  {skyChatOpen ? "Hide chat" : "Ask Āwhina"}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAwhinaGuide(true)}
+                    className="shrink-0 rounded-xl border border-sky-500/20 bg-sky-500/5 px-4 py-2.5 text-sm font-bold text-sky-400 hover:bg-sky-500/10"
+                  >
+                    What's this?
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSkyChatOpen((v) => !v)}
+                    className="shrink-0 rounded-xl bg-gradient-to-r from-sky-500 to-sky-500 px-4 py-2.5 text-sm font-bold text-white shadow-[0_0_20px_rgba(14,165,233,0.25)] hover:brightness-110 active:scale-[0.98]"
+                  >
+                    {skyChatOpen ? "Hide chat" : "Ask Āwhina"}
+                  </button>
+                </div>
               </div>
               {!skyChatOpen && (
                 <div className="relative mt-4 flex flex-wrap gap-1.5">
@@ -1065,33 +1178,53 @@ export default function AIPostPage() {
           </div>
         )}
 
-        <div className="space-y-5">
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Title</label>
-            <input id="listing-title" type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" placeholder="What are you selling?" />
+        <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-500">
+          {/* Progress Indicator */}
+          <div className="flex items-center justify-between rounded-xl bg-zinc-800/40 p-3 border border-zinc-700/50">
+            <div className="flex items-center gap-2">
+              <div className={`h-2 w-2 rounded-full ${formStep >= 1 ? 'bg-sky-500' : 'bg-zinc-600'}`} />
+              <span className={`text-xs font-medium ${formStep >= 1 ? 'text-sky-400' : 'text-zinc-500'}`}>Details</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className={`h-2 w-2 rounded-full ${formStep >= 2 ? 'bg-sky-500' : 'bg-zinc-600'}`} />
+              <span className={`text-xs font-medium ${formStep >= 2 ? 'text-sky-400' : 'text-zinc-500'}`}>Pricing</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className={`h-2 w-2 rounded-full ${formStep >= 3 ? 'bg-sky-500' : 'bg-zinc-600'}`} />
+              <span className={`text-xs font-medium ${formStep >= 3 ? 'text-sky-400' : 'text-zinc-500'}`}>Delivery</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className={`h-2 w-2 rounded-full ${formStep >= 4 ? 'bg-sky-500' : 'bg-zinc-600'}`} />
+              <span className={`text-xs font-medium ${formStep >= 4 ? 'text-sky-400' : 'text-zinc-500'}`}>Review</span>
+            </div>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Description</label>
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10 resize-none" placeholder="Describe your item in detail..." />
+          <div className="space-y-1.5 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
+            <label className="text-sm font-bold text-white tracking-wide">Title</label>
+            <input id="listing-title" type="text" value={title} onChange={(e) => handleTitleChange(e.target.value)} className={`w-full rounded-xl border px-4 py-3 text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:bg-white/[0.05] focus:ring-2 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:border-white/[0.12] placeholder="What are you selling?" ${validationErrors.title ? 'border-red-500/50 focus:border-red-500/60 focus:ring-red-500/20' : 'border-white/[0.06] focus:border-sky-500/60 focus:ring-sky-500/20'}`} placeholder="What are you selling?" />
+            {validationErrors.title && (
+              <p className="mt-1 text-[10px] text-red-400 animate-in fade-in slide-in-from-top-2">{validationErrors.title}</p>
+            )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+          <div className="space-y-1.5 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150">
+            <label className="text-sm font-bold text-white tracking-wide">Description</label>
+            <textarea value={description} onChange={(e) => handleDescriptionChange(e.target.value)} rows={4} className={`w-full rounded-xl border px-4 py-3 text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:bg-white/[0.05] focus:ring-2 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:border-white/[0.12] resize-none placeholder="Describe your item in detail..." ${validationErrors.description ? 'border-red-500/50 focus:border-red-500/60 focus:ring-red-500/20' : 'border-white/[0.06] focus:border-sky-500/60 focus:ring-sky-500/20'}`} placeholder="Describe your item in detail..." />
+            {validationErrors.description && (
+              <p className="mt-1 text-[10px] text-red-400 animate-in fade-in slide-in-from-top-2">{validationErrors.description}</p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-200">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Category</label>
-              <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-3 text-[var(--foreground)] outline-none transition-all duration-200 focus:border-sky-500/40 focus:ring-2 focus:ring-sky-500/10 appearance-none cursor-pointer">
+              <label className="text-sm font-semibold text-white">Category</label>
+              <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-3 text-[var(--foreground)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-zinc-800 focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:border-zinc-600 appearance-none cursor-pointer">
                 {listingType === "digital" ? (
                   <><option>Templates & Assets</option><option>E-books & Guides</option><option>Art & Photography</option><option>Software & Audio</option><option>Gaming & 3D</option><option>Web & App Development</option><option>Graphic Design</option><option>SEO & Digital Marketing</option><option>Other Digital Services</option></>
                 ) : listingType === "service" ? (
                   <><option>Trades & Repairs</option><option>Cleaning & Maintenance</option><option>Tutoring & Lessons</option><option>Photography</option><option>Personal Training</option><option>Events & Catering</option><option>Other Services</option></>
-                ) : listingType === "event" ? (
-                  <><option>Concerts & Gigs</option><option>Festivals</option><option>Sports</option><option>Workshops & Classes</option><option>Community</option><option>Food & Drink</option><option>Other</option></>
-                ) : listingType === "property" ? (
-                  <><option>Property</option><option>Houses</option><option>Apartments</option><option>Land</option><option>Commercial</option></>
-                ) : listingType === "job" ? (
-                  <><option>Jobs</option><option>IT & Tech</option><option>Design & Creative</option><option>Sales & Marketing</option><option>Trades & Services</option><option>Other</option></>
                 ) : listingType === "rental" ? (
-                  <><option>Other</option><option>Vehicles</option><option>Equipment</option><option>Property</option></>
+                  <><option>Other</option><option>Vehicles</option><option>Equipment</option></>
                 ) : listingType === "wanted" ? (
                   <><option>Items</option><option>Services</option><option>Rentals</option><option>Vehicles</option></>
                 ) : (
@@ -1099,10 +1232,10 @@ export default function AIPostPage() {
                 )}
               </select>
             </div>
-            {(listingType === "physical" || listingType === "vehicle" || listingType === "property") && (
+            {listingType === "physical" && (
             <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Condition</label>
-              <select value={condition} onChange={(e) => setCondition(e.target.value)} className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-3 text-[var(--foreground)] outline-none transition-all duration-200 focus:border-sky-500/40 focus:ring-2 focus:ring-sky-500/10 appearance-none cursor-pointer">
+              <label className="text-sm font-semibold text-white">Condition</label>
+              <select value={condition} onChange={(e) => setCondition(e.target.value)} className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-3 text-[var(--foreground)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-zinc-800 focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:border-zinc-600 appearance-none cursor-pointer">
                 <option>New</option><option>Used - Like New</option><option>Used - Good</option><option>Used - Fair</option>
               </select>
             </div>
@@ -1116,8 +1249,9 @@ export default function AIPostPage() {
                 <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Salary / Price *</label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">$</span>
-                  <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] pl-8 pr-4 py-3 text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
+                  <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] pl-8 pr-4 py-3 text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:border-white/[0.12]" />
                 </div>
+                <p className="text-[10px] text-zinc-500">Set the salary range or fixed price for this position.</p>
               </div>
             ) : saleType === "buy_now" && listingType === "service" && servicePricingType === "request_quote" ? (
               <div className="space-y-1.5">
@@ -1138,8 +1272,14 @@ export default function AIPostPage() {
                 </label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">$</span>
-                  <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] pl-8 pr-4 py-3 text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
+                  <input type="number" value={price} onChange={(e) => handlePriceChange(e.target.value)} placeholder="0" className={`w-full rounded-xl border pl-8 pr-4 py-3 text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:bg-white/[0.05] focus:ring-2 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:border-white/[0.12] ${validationErrors.price ? 'border-red-500/50 focus:border-red-500/60 focus:ring-red-500/20' : 'border-white/[0.06] focus:border-sky-500/60 focus:ring-sky-500/20'}`} />
                 </div>
+                {validationErrors.price && (
+                  <p className="mt-1 text-[10px] text-red-400 animate-in fade-in slide-in-from-top-2">{validationErrors.price}</p>
+                )}
+                {listingType === "wanted" && <p className="text-[10px] text-zinc-500">Set your budget for this item.</p>}
+                {listingType === "service" && servicePricingType === "hourly" && <p className="text-[10px] text-zinc-500">Charge per hour for your service.</p>}
+                {(listingType === "physical" || listingType === "vehicle" || listingType === "property") && <p className="text-[10px] text-zinc-500">Set the fixed price for this item.</p>}
               </div>
             ) : (
               <div className="space-y-1.5">
@@ -1148,27 +1288,19 @@ export default function AIPostPage() {
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">$</span>
                   <input type="number" value={startingBid} onChange={(e) => setStartingBid(e.target.value)} placeholder="0" className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] pl-8 pr-4 py-3 text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
                 </div>
+                <p className="text-[10px] text-zinc-500">Minimum price to start the auction. Bidders can place higher bids.</p>
               </div>
             )}
-            {listingType !== "job" && saleType === "auction_buy_now" && (
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Buy Now Price <span className="text-zinc-600 font-normal">(optional)</span></label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">$</span>
-                  <input type="number" value={buyNowPrice} onChange={(e) => setBuyNowPrice(e.target.value)} placeholder="0" className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] pl-8 pr-4 py-3 text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
-                </div>
-              </div>
-            )}
-            {(listingType === "physical" || listingType === "vehicle" || listingType === "property" || listingType === "wanted") && (
+            {(listingType === "physical" || listingType === "wanted") && (
             <div className="space-y-1.5">
               <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Location</label>
-              <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="City" className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
+              <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="City" className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-[var(--foreground)] placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:border-white/[0.12]" />
             </div>
             )}
           </div>
           )}
 
-          {(listingType === "physical" || listingType === "vehicle" || listingType === "property") && (saleType === "auction" || saleType === "auction_buy_now") && (
+          {listingType === "physical" && saleType === "auction" && (
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Reserve Price <span className="text-[var(--muted)] font-normal">(optional)</span></label>
@@ -1188,14 +1320,13 @@ export default function AIPostPage() {
             </div>
           )}
 
-          {(listingType === "physical" || listingType === "vehicle" || listingType === "property") && (
+          {listingType === "physical" && (
           <div className="space-y-3">
             <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Sale Type</label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {[
                 { id: "buy_now", label: "Buy Now" },
                 { id: "auction", label: "Auction" },
-                { id: "auction_buy_now", label: "Auction + Buy Now" },
               ].map((opt) => (
                 <button key={opt.id} type="button" onClick={() => setSaleType(opt.id)}
                   className={`rounded-xl border px-4 py-3 text-xs font-bold text-left transition-all duration-200 active:scale-[0.97] ${
@@ -1211,6 +1342,13 @@ export default function AIPostPage() {
           {(listingType !== "wanted" && listingType !== "job" && listingType !== "property") && (
           <div className="space-y-3">
             <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Payment Type</label>
+            <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 px-4 py-3">
+              <p className="text-xs text-sky-300 leading-relaxed">
+                <span className="font-bold">Choose your payment method:</span><br />
+                <span className="text-zinc-400">🤝 Arrange Purchase</span> — No platform fees, arrange payment directly with seller in Messages. Use for trusted transactions.<br />
+                <span className="text-zinc-400">💳 Stripe Checkout</span> — Card payment with buyer protection. Requires Stripe Connect setup.
+              </p>
+            </div>
             <div className="grid grid-cols-2 gap-2">
               <button type="button" onClick={() => setPaymentType("contact")}
                 className={`rounded-xl border px-4 py-3 text-xs font-bold text-left transition-all duration-200 active:scale-[0.97] ${
@@ -1251,20 +1389,24 @@ export default function AIPostPage() {
 
           {/* Listing Type */}
           <div className="space-y-4">
-            <div>
-              <label className="text-base font-bold text-white">What are you selling?</label>
-              <p className="mt-1 text-xs text-zinc-500">Choose the option that best matches what you're offering.</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-base font-bold text-white">What are you selling?</label>
+                <p className="mt-1 text-xs text-zinc-500">Choose the option that best matches what you're offering.</p>
+              </div>
+              <button type="button" onClick={() => setShowTypeGuideModal(true)} className="text-xs text-sky-400 hover:text-sky-300 underline">
+                Not sure?
+              </button>
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
               {[
-                { key: "physical", icon: "📦", label: "Physical", desc: "Real items that can be picked up or shipped.", examples: "Phones, furniture, tools, clothing, collectibles.", action: () => setAcceptOffers(false) },
+                { key: "physical", icon: "📦", label: "Physical", desc: "Real items including vehicles that can be picked up or shipped.", examples: "Phones, furniture, tools, clothing, cars, collectibles.", action: () => setAcceptOffers(false) },
                 { key: "digital", icon: "💾", label: "Digital", desc: "Digital products and online services delivered remotely.", examples: "Software, templates, e-books, web design, graphic design, SEO, digital marketing.", action: () => { setCategory("Other Digital Services"); setPricingType("fixed"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); } },
                 { key: "service", icon: "🛠️", label: "Service", desc: "Local services performed in person.", examples: "Lawn mowing, cleaning, tutoring, photography, trades, handyman work, personal training.", action: () => { setCategory("Other Services"); setServicePricingType("fixed"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(true); setSaleType("buy_now"); } },
-                { key: "rental", icon: "🔑", label: "Rental", desc: "Something people can hire or rent temporarily.", examples: "Houses, rooms, trailers, equipment, party gear.", action: () => { setCategory("Other"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); setLocation(""); setCondition("New"); } },
-                { key: "vehicle", icon: "🚗", label: "Vehicle", desc: "Motor vehicles for sale.", examples: "Cars, motorcycles, boats, caravans, trucks.", action: () => { setCategory("Cars"); setSaleType("buy_now"); setAcceptOffers(false); } },
+                { key: "rental", icon: "🔑", label: "Rental", desc: "Something people can hire or rent temporarily.", examples: "Equipment, vehicles, party gear.", action: () => { setCategory("Other"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); setLocation(""); setCondition("New"); } },
                 { key: "wanted", icon: "📋", label: "Wanted", desc: "Post what you're looking for and let sellers come to you.", examples: "Looking for a car, need a service, want to rent something.", action: () => { setCategory("Items"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); } },
               ].map((t) => (
-                <button key={t.key} type="button" onClick={() => { setListingType(t.key as any); setPaymentType("contact"); t.action(); }}
+                <button key={t.key} type="button" onClick={() => handleTypeChange(t.key, t.action)}
                   className={`group relative rounded-2xl border p-4 text-left transition-all duration-200 active:scale-[0.97] ${
                     listingType === t.key
                       ? "border-sky-400/40 bg-gradient-to-b from-sky-500/[0.08] to-sky-500/[0.03] shadow-[0_0_30px_rgba(14,165,233,0.1)] ring-1 ring-sky-400/20"
@@ -1343,67 +1485,6 @@ export default function AIPostPage() {
             </div>
           )}
 
-          {/* Vehicle Details */}
-          {listingType === "vehicle" && (
-            <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
-              <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Vehicle Details</label>
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Make *</label>
-                    <input type="text" value={vehicleMake} onChange={(e) => setVehicleMake(e.target.value)} placeholder="e.g. Toyota"
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Model *</label>
-                    <input type="text" value={vehicleModel} onChange={(e) => setVehicleModel(e.target.value)} placeholder="e.g. Corolla"
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Year</label>
-                    <input type="number" value={vehicleYear} onChange={(e) => setVehicleYear(e.target.value)} placeholder="e.g. 2020"
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Odometer (km)</label>
-                    <input type="number" value={vehicleOdometer} onChange={(e) => setVehicleOdometer(e.target.value)} placeholder="e.g. 50000"
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Colour</label>
-                    <input type="text" value={vehicleColour} onChange={(e) => setVehicleColour(e.target.value)} placeholder="e.g. White"
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Body type</label>
-                    <select value={vehicleBodyType} onChange={(e) => setVehicleBodyType(e.target.value)}
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
-                      <option>SUV</option><option>Sedan</option><option>Hatchback</option><option>Wagon</option><option>Coupe</option><option>Convertible</option><option>Ute</option><option>Van</option><option>Truck</option><option>Motorcycle</option><option>Other</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Fuel type</label>
-                    <select value={vehicleFuelType} onChange={(e) => setVehicleFuelType(e.target.value)}
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
-                      <option>Petrol</option><option>Diesel</option><option>Electric</option><option>Hybrid</option><option>Plug-in Hybrid</option><option>Other</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Transmission</label>
-                    <select value={vehicleTransmission} onChange={(e) => setVehicleTransmission(e.target.value)}
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
-                      <option>Automatic</option><option>Manual</option><option>Tiptronic</option><option>CVT</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Job Details */}
           {listingType === "job" && (
             <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
@@ -1450,54 +1531,7 @@ export default function AIPostPage() {
             </div>
           )}
 
-          {/* Property Details */}
-          {listingType === "property" && (
-            <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
-              <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Property Details</label>
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Property type</label>
-                    <select value={propertyType} onChange={(e) => setPropertyType(e.target.value)}
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
-                      <option>House</option><option>Apartment</option><option>Unit</option><option>Townhouse</option><option>Lifestyle</option><option>Land</option><option>Commercial</option><option>Other</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Parking spaces</label>
-                    <input type="number" value={parking} onChange={(e) => setParking(e.target.value)} placeholder="e.g. 2"
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Bedrooms</label>
-                    <input type="number" value={bedrooms} onChange={(e) => setBedrooms(e.target.value)} placeholder="e.g. 3"
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Bathrooms</label>
-                    <input type="number" value={bathrooms} onChange={(e) => setBathrooms(e.target.value)} placeholder="e.g. 2"
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Land area (m²)</label>
-                    <input type="number" value={landArea} onChange={(e) => setLandArea(e.target.value)} placeholder="e.g. 675"
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Floor area (m²)</label>
-                    <input type="number" value={floorArea} onChange={(e) => setFloorArea(e.target.value)} placeholder="e.g. 150"
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Accept Offers — physical, vehicle, service, property only */}
+          {/* Accept Offers — physical, service only */}
           {listingType !== "digital" && listingType !== "event" && listingType !== "job" && listingType !== "wanted" && !(listingType === "service" && offersDisabledForService(servicePricingType)) && (
             <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
               <div className="flex items-start">
@@ -1571,13 +1605,16 @@ export default function AIPostPage() {
             <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4 space-y-4">
               <div>
                 <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Pricing Type</label>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                  {SERVICE_PRICING_OPTIONS.map((opt) => (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {[
+                    { value: "fixed", label: "Fixed Price", hint: "Set a fixed price for your service" },
+                    { value: "request_quote", label: "Quote Required", hint: "Buyers contact you for a custom quote" },
+                  ].map((opt) => (
                     <button
                       key={opt.value}
                       type="button"
                       onClick={() => {
-                        setServicePricingType(opt.value);
+                        setServicePricingType(opt.value as "fixed" | "request_quote");
                         if (opt.value === "request_quote") {
                           setPrice("");
                           setAcceptOffers(false);
@@ -1594,7 +1631,7 @@ export default function AIPostPage() {
                   ))}
                 </div>
                 <p className="mt-2 text-[10px] text-[var(--muted)]">
-                  {SERVICE_PRICING_OPTIONS.find((o) => o.value === servicePricingType)?.hint}
+                  {servicePricingType === "fixed" ? "Set a fixed price for your service" : "Buyers contact you for a custom quote"}
                 </p>
               </div>
               <div>
@@ -1619,9 +1656,8 @@ export default function AIPostPage() {
               {/* Rental Sub-Type Selector */}
               <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
                 <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Rental Type</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   {([
-                    { id: "property", icon: "🏠", label: "Property" },
                     { id: "equipment", icon: "🔧", label: "Equipment" },
                     { id: "vehicle", icon: "🚗", label: "Vehicle" },
                   ] as const).map((opt) => (
@@ -1639,161 +1675,13 @@ export default function AIPostPage() {
                 </div>
               </div>
 
-              {/* Location — all sub-types */}
+              {/* Location */}
               <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
-                <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">
-                  {rentalSubType === "property" ? "Property address / suburb *" : "Pickup location *"}
-                </label>
+                <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Pickup location *</label>
                 <input type="text" value={location} onChange={(e) => setLocation(e.target.value)}
-                  placeholder={rentalSubType === "property" ? "e.g. Auckland CBD, Wellington" : "City or suburb"}
+                  placeholder="City or suburb"
                   className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
               </div>
-
-              {/* PROPERTY RENTAL */}
-              {rentalSubType === "property" && (
-                <div className="rounded-xl border border-sky-500/20 bg-sky-500/[0.04] p-4 space-y-4">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-sky-400">Property Rental</p>
-
-                  {/* Property Type */}
-                  <div>
-                    <label className="mb-2 block text-[10px] font-medium text-[var(--muted)]">Property Type *</label>
-                    <div className="grid grid-cols-5 gap-1.5">
-                      {(["House", "Apartment", "Townhouse", "Unit", "Room"] as const).map((pt) => (
-                        <button key={pt} type="button" onClick={() => setRentalPropertyType(pt)}
-                          className={`rounded-lg border px-2 py-2 text-center text-[11px] font-bold transition-all active:scale-[0.97] ${
-                            rentalPropertyType === pt
-                              ? "border-sky-500/40 bg-sky-500/10 text-sky-400"
-                              : "border-white/[0.06] bg-white/[0.02] text-zinc-500 hover:border-white/[0.12] hover:bg-white/[0.04]"
-                          }`}>{pt}</button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Weekly rent + bond */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Weekly Rent *</label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                        <input type="number" value={rentalPriceWeekly} onChange={(e) => {
-                          setRentalPriceWeekly(e.target.value);
-                          const w = Number(e.target.value);
-                          if (w > 0 && !manualEdit.current.has("monthly")) setRentalPriceMonthly(String(Math.round(w * 4)));
-                          if (w > 0 && !manualEdit.current.has("price")) setPrice(String(Math.round(w / 7)));
-                        }}
-                          placeholder="e.g. 550"
-                          className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[10px] font-medium text-sky-400">Bond Amount</label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                        <input type="number" value={rentalDeposit} onChange={(e) => setRentalDeposit(e.target.value)}
-                          placeholder="e.g. 1100"
-                          className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                      </div>
-                      <p className="mt-1 text-[10px] text-zinc-600">Typically 2 weeks rent</p>
-                    </div>
-                  </div>
-
-                  {/* Bedrooms / bathrooms / parking spaces */}
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Bedrooms</label>
-                      <input type="number" min="0" value={rentalBedrooms} onChange={(e) => setRentalBedrooms(e.target.value)}
-                        placeholder="e.g. 3"
-                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Bathrooms</label>
-                      <input type="number" min="0" value={rentalBathrooms} onChange={(e) => setRentalBathrooms(e.target.value)}
-                        placeholder="e.g. 2"
-                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Parking Spaces</label>
-                      <input type="number" min="0" value={rentalParkingSpaces} onChange={(e) => setRentalParkingSpaces(e.target.value)}
-                        placeholder="0"
-                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                    </div>
-                  </div>
-
-                  {/* Furnished Status */}
-                  <div>
-                    <label className="mb-2 block text-[10px] font-medium text-[var(--muted)]">Furnished Status</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {(["Furnished", "Partly Furnished", "Unfurnished"] as const).map((fs) => (
-                        <button key={fs} type="button" onClick={() => setRentalFurnishedStatus(fs)}
-                          className={`rounded-lg border px-2 py-2 text-center text-[11px] font-bold transition-all active:scale-[0.97] ${
-                            rentalFurnishedStatus === fs
-                              ? "border-sky-500/40 bg-sky-500/10 text-sky-400"
-                              : "border-white/[0.06] bg-white/[0.02] text-zinc-500 hover:border-white/[0.12] hover:bg-white/[0.04]"
-                          }`}>{fs}</button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Pets Policy */}
-                  <div>
-                    <label className="mb-2 block text-[10px] font-medium text-[var(--muted)]">Pets Policy</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {(["No Pets", "Cats Allowed", "Dogs Allowed", "Pets By Negotiation"] as const).map((pp) => (
-                        <button key={pp} type="button" onClick={() => setRentalPetsPolicy(pp)}
-                          className={`rounded-lg border px-2 py-2 text-center text-[11px] font-bold transition-all active:scale-[0.97] ${
-                            rentalPetsPolicy === pp
-                              ? "border-sky-500/40 bg-sky-500/10 text-sky-400"
-                              : "border-white/[0.06] bg-white/[0.02] text-zinc-500 hover:border-white/[0.12] hover:bg-white/[0.04]"
-                          }`}>{pp}</button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Available from */}
-                  <div>
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Available From</label>
-                    <input type="date" value={rentalAvailableDate} onChange={(e) => setRentalAvailableDate(e.target.value)}
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                  </div>
-
-                  {/* Minimum Tenancy */}
-                  <div>
-                    <label className="mb-2 block text-[10px] font-medium text-[var(--muted)]">Minimum Tenancy <span className="text-zinc-600">(optional)</span></label>
-                    <div className="grid grid-cols-4 gap-2">
-                      {(["Flexible", "3 Months", "6 Months", "12 Months"] as const).map((mt) => (
-                        <button key={mt} type="button" onClick={() => setRentalMinTenancy(mt)}
-                          className={`rounded-lg border px-2 py-2 text-center text-[11px] font-bold transition-all active:scale-[0.97] ${
-                            rentalMinTenancy === mt
-                              ? "border-sky-500/40 bg-sky-500/10 text-sky-400"
-                              : "border-white/[0.06] bg-white/[0.02] text-zinc-500 hover:border-white/[0.12] hover:bg-white/[0.04]"
-                          }`}>{mt}</button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Optional Features */}
-                  <div>
-                    <label className="mb-2 block text-[10px] font-medium text-[var(--muted)]">Features <span className="text-zinc-600">(optional)</span></label>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {["Fibre Internet", "Heat Pump", "Air Conditioning", "Dishwasher", "Washing Machine", "Garage", "Balcony", "Healthy Homes Compliant"].map((feat) => {
-                        const active = rentalFeatures.includes(feat);
-                        return (
-                          <button key={feat} type="button"
-                            onClick={() => setRentalFeatures(active ? rentalFeatures.filter(f => f !== feat) : [...rentalFeatures, feat])}
-                            className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-left text-[11px] font-medium transition-all active:scale-[0.97] ${
-                              active
-                                ? "border-sky-500/40 bg-sky-500/10 text-sky-400"
-                                : "border-white/[0.06] bg-white/[0.02] text-zinc-500 hover:border-white/[0.12] hover:bg-white/[0.04]"
-                            }`}>
-                            <span className={`h-3 w-3 flex-shrink-0 rounded-sm border ${active ? "border-sky-500 bg-sky-500" : "border-zinc-600"}`} />
-                            {feat}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* EQUIPMENT RENTAL */}
               {rentalSubType === "equipment" && (
@@ -1839,7 +1727,7 @@ export default function AIPostPage() {
                   </div>
                   <p className="text-[10px] text-zinc-500">Weekly and monthly auto-calculated — edit manually to override.</p>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3">
                     <div>
                       <label className="mb-1 block text-[10px] font-medium text-sky-400">Refundable Deposit</label>
                       <div className="relative">
@@ -1848,12 +1736,6 @@ export default function AIPostPage() {
                           placeholder="e.g. 200"
                           className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
                       </div>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Quantity Available</label>
-                      <input type="number" value={stockQuantity} onChange={(e) => setStockQuantity(e.target.value)}
-                        placeholder="e.g. 2"
-                        className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
                     </div>
                   </div>
 
@@ -1973,7 +1855,17 @@ export default function AIPostPage() {
           {/* Delivery Options — physical & vehicle */}
           {(listingType === "physical" || listingType === "vehicle") && (
           <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/40 p-4">
-            <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Delivery Options</label>
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-sm font-bold text-[var(--foreground)]">Delivery Options</label>
+              <button
+                type="button"
+                onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
+                className="text-xs text-sky-400 hover:text-sky-300 transition"
+              >
+                {showAdvancedOptions ? "Show less" : "Show more"}
+              </button>
+            </div>
+            <p className="mb-3 text-[10px] text-zinc-500">Select how buyers can receive the item. You can offer both pickup and shipping.</p>
             <div className="space-y-3">
               <label className="flex cursor-pointer items-center gap-2.5">
                 <input type="checkbox" checked={pickupAvailable} onChange={(e) => setPickupAvailable(e.target.checked)}
@@ -1983,41 +1875,40 @@ export default function AIPostPage() {
               {pickupAvailable && (
                 <div className="ml-7">
                   <input type="text" value={pickupArea} onChange={(e) => setPickupArea(e.target.value)}
-                    placeholder="Pickup area / suburb"
+                    placeholder="Pickup location"
                     className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                  <p className="mt-1 text-[10px] text-zinc-500">Buyers will pick up the item from your location.</p>
                 </div>
               )}
-              <label className="flex cursor-pointer items-center gap-2.5">
-                <input type="checkbox" checked={shippingAvailable} onChange={(e) => setShippingAvailable(e.target.checked)}
-                  className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-sky-500 focus:ring-sky-500/30" />
-                <span className="text-sm text-[var(--foreground)]">Shipping available</span>
-              </label>
+              {showAdvancedOptions && (
+              <div className="border-t border-zinc-700/50 pt-3 mt-3 space-y-3">
+                <label className="flex cursor-pointer items-center gap-2.5">
+                  <input type="checkbox" checked={shippingAvailable} onChange={(e) => setShippingAvailable(e.target.checked)}
+                    className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-sky-500 focus:ring-sky-500/30" />
+                  <span className="text-sm text-[var(--foreground)]">Shipping available</span>
+                </label>
               {shippingAvailable && (
-                <>
-                  <label className="flex cursor-pointer items-center gap-2 ml-7">
+                <div className="ml-7">
+                  <label className="flex cursor-pointer items-center gap-2">
                     <input type="checkbox" checked={freeShipping} onChange={(e) => { setFreeShipping(e.target.checked); if (e.target.checked) setShippingFee(""); }}
                       className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-sky-500 focus:ring-sky-500/30" />
                     <span className="text-xs text-[var(--foreground)]">Free shipping</span>
                   </label>
                   {!freeShipping && (
-                    <div className="ml-7">
+                    <div className="mt-2">
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
                         <input type="number" value={shippingFee} onChange={(e) => setShippingFee(e.target.value)}
                           placeholder="Shipping fee"
                           className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
                       </div>
+                      <p className="mt-1 text-[10px] text-zinc-500">Buyers pay this shipping fee on top of the item price.</p>
                     </div>
                   )}
-                </>
+                </div>
               )}
-
-              <div>
-                <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Stock quantity</label>
-                <input type="number" value={stockQuantity} onChange={(e) => setStockQuantity(e.target.value)}
-                  placeholder="e.g. 5"
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
               </div>
+              )}
             </div>
           </div>
           )}
@@ -2049,7 +1940,7 @@ export default function AIPostPage() {
                       ? !price
                       : !price)
             }
-            className="w-full rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-4 text-lg font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98] disabled:opacity-40 disabled:shadow-none disabled:hover:brightness-100">
+            className="w-full rounded-xl bg-gradient-to-r from-sky-600 to-sky-500 py-4 text-lg font-bold text-white shadow-xl shadow-sky-500/30 transition-all duration-200 hover:shadow-2xl hover:shadow-sky-500/40 hover:brightness-110 hover:from-sky-500 hover:to-sky-400 active:scale-[0.98] disabled:opacity-40 disabled:shadow-none disabled:hover:brightness-100 disabled:from-sky-600 disabled:to-sky-500">
             {loading ? (
               <span className="flex items-center justify-center gap-2">
                 <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none">
@@ -2064,6 +1955,148 @@ export default function AIPostPage() {
           </div>
         </div>
       </div>
+
+      {/* KYC Verification Required Modal */}
+      {showKycModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setShowKycModal(false)}>
+          <div className="mx-4 w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-black text-sky-400">Verification Required</h3>
+              <button onClick={() => setShowKycModal(false)} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
+            </div>
+            <p className="mt-4 text-sm text-[var(--foreground)]">
+              You must verify your ID (KYC) before you can list items for sale on Sky Drop.
+            </p>
+            <p className="mt-2 text-xs text-[var(--muted)]">
+              This helps protect our community and prevents fraudulent listings.
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button onClick={() => setShowKycModal(false)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700">Cancel</button>
+              <button onClick={() => { setShowKycModal(false); window.location.href = "/profile"; }} className="flex-1 rounded-xl bg-sky-500 py-3 text-sm font-bold text-white hover:bg-sky-400">Verify Now</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Type Change Confirmation Modal */}
+      {showTypeConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setShowTypeConfirmModal(false)}>
+          <div className="mx-4 w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-black text-sky-400">Change Listing Type?</h3>
+              <button onClick={() => setShowTypeConfirmModal(false)} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
+            </div>
+            <p className="mt-4 text-sm text-[var(--foreground)]">
+              Changing the listing type will reset some form fields and may affect pricing options.
+            </p>
+            <p className="mt-2 text-xs text-[var(--muted)]">
+              Make sure this is the correct type for what you're selling.
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button onClick={() => setShowTypeConfirmModal(false)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700">Cancel</button>
+              <button onClick={confirmTypeChange} className="flex-1 rounded-xl bg-sky-500 py-3 text-sm font-bold text-white hover:bg-sky-400">Confirm Change</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Listing Type Guide Modal */}
+      {showTypeGuideModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setShowTypeGuideModal(false)}>
+          <div className="mx-4 w-full max-w-lg max-h-[80vh] overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-black text-sky-400">Which listing type should I choose?</h3>
+              <button onClick={() => setShowTypeGuideModal(false)} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
+            </div>
+            <div className="mt-4 space-y-4">
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">📦</span>
+                  <h4 className="font-bold text-white">Physical Items</h4>
+                </div>
+                <p className="mt-2 text-sm text-zinc-400">Real items that can be picked up or shipped, including vehicles.</p>
+                <p className="mt-1 text-xs text-zinc-500">Best for: Phones, furniture, tools, clothing, cars, collectibles.</p>
+              </div>
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">💾</span>
+                  <h4 className="font-bold text-white">Digital Products</h4>
+                </div>
+                <p className="mt-2 text-sm text-zinc-400">Digital files and online services delivered remotely.</p>
+                <p className="mt-1 text-xs text-zinc-500">Best for: Software, templates, e-books, web design, SEO.</p>
+              </div>
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">🛠️</span>
+                  <h4 className="font-bold text-white">Services</h4>
+                </div>
+                <p className="mt-2 text-sm text-zinc-400">Local services performed in person at your location.</p>
+                <p className="mt-1 text-xs text-zinc-500">Best for: Lawn mowing, cleaning, tutoring, trades, photography.</p>
+              </div>
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">🔑</span>
+                  <h4 className="font-bold text-white">Rentals</h4>
+                </div>
+                <p className="mt-2 text-sm text-zinc-400">Equipment or vehicles available for temporary hire.</p>
+                <p className="mt-1 text-xs text-zinc-500">Best for: Equipment, vehicles, party gear.</p>
+              </div>
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">📋</span>
+                  <h4 className="font-bold text-white">Wanted</h4>
+                </div>
+                <p className="mt-2 text-sm text-zinc-400">Post what you're looking for and sellers will contact you.</p>
+                <p className="mt-1 text-xs text-zinc-500">Best for: Finding rare items, getting quotes, rental needs.</p>
+              </div>
+            </div>
+            <div className="mt-6">
+              <button onClick={() => setShowTypeGuideModal(false)} className="w-full rounded-xl bg-sky-500 py-3 text-sm font-bold text-white hover:bg-sky-400">Got it</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Awhina Guide Modal */}
+      {showAwhinaGuide && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setShowAwhinaGuide(false)}>
+          <div className="mx-4 w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-black text-sky-400">What is Āwhina?</h3>
+              <button onClick={() => setShowAwhinaGuide(false)} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
+            </div>
+            <div className="mt-4">
+              <p className="text-sm text-[var(--foreground)]">
+                Āwhina is an AI assistant that helps you create professional listings quickly.
+              </p>
+              <ul className="mt-3 space-y-2 text-sm text-zinc-400">
+                <li className="flex gap-2">
+                  <span className="text-sky-400">•</span>
+                  <span>Upload photos and Āwhina will describe your item</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-sky-400">•</span>
+                  <span>Type what you're selling and Āwhina fills in the details</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-sky-400">•</span>
+                  <span>Auto-selects the right category and pricing model</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-sky-400">•</span>
+                  <span>Always review and edit before publishing</span>
+                </li>
+              </ul>
+              <p className="mt-4 text-xs text-zinc-500">
+                You can still fill the form manually if you prefer. Āwhina is here to help speed things up!
+              </p>
+            </div>
+            <div className="mt-6">
+              <button onClick={() => setShowAwhinaGuide(false)} className="w-full rounded-xl bg-sky-500 py-3 text-sm font-bold text-white hover:bg-sky-400">Got it</button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

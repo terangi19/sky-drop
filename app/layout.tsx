@@ -16,7 +16,6 @@ import PWAProvider from "./components/PWAProvider";
 const Spotlight = dynamic(() => import("./components/Spotlight"));
 const LegendaryClaimNotification = dynamic(() => import("./components/LegendaryClaimNotification"));
 const SkyAiChat = dynamic(() => import("./components/SkyAiChat"));
-const AwhinaPageGuideLayer = dynamic(() => import("./components/AwhinaPageGuideLayer"));
 const WantedLiveFeed = dynamic(() => import("./components/WantedLiveFeed"));
 const PlatformAnnouncement = dynamic(() => import("./components/PlatformAnnouncement"));
 
@@ -89,9 +88,15 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-[var(--background)] text-[var(--foreground)]">
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem("theme");if(t==="light")document.documentElement.classList.add("light");}catch(e){}})();`,
+          }}
+        />
         <script defer data-domain="skydrop.co.nz" src="https://plausible.io/js/script.js"></script>
         <script dangerouslySetInnerHTML={{
           __html: `
@@ -102,7 +107,7 @@ export default function RootLayout({
             })();
           `,
         }} />
-        <AuthProvider><ProfileProvider><AwhinaPageInsightProvider><VerificationBanner /><RouteGuard><PageEnter>{children}</PageEnter><AwhinaPageGuideLayer /><Footer /><Spotlight /><ScrollToTop /><SkyAiChat /></RouteGuard><ToastContainer /><LegendaryClaimNotification /><WantedLiveFeed /><PlatformAnnouncement /><PWAProvider /></AwhinaPageInsightProvider></ProfileProvider></AuthProvider>
+        <AuthProvider><ProfileProvider><AwhinaPageInsightProvider><VerificationBanner /><RouteGuard><PageEnter>{children}</PageEnter><Footer /><Spotlight /><ScrollToTop /><SkyAiChat /></RouteGuard><ToastContainer /><LegendaryClaimNotification /><WantedLiveFeed /><PlatformAnnouncement /><PWAProvider /></AwhinaPageInsightProvider></ProfileProvider></AuthProvider>
       </body>
     </html>
   );

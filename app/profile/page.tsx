@@ -234,6 +234,7 @@ const [poaRejectionReason, setPoaRejectionReason] = useState("");
 const [poaFile, setPoaFile] = useState<File | null>(null);
 const [poaFile2, setPoaFile2] = useState<File | null>(null);
 const [poaUploading, setPoaUploading] = useState(false);
+const [kycIdType, setKycIdType] = useState<"driver_licence" | "passport">("driver_licence");
 const [sellBadge, setSellBadge] = useState<string | null>(null);
 const [sellBadgePrice, setSellBadgePrice] = useState("50");
 const [authRefreshing, setAuthRefreshing] = useState(false);
@@ -1080,9 +1081,9 @@ const tabs = [
   const bannerUrl = profile.bannerURL;
 
   const statItems = [
-    { label: "Sales", value: String(stats.sales) },
-    { label: "Listings", value: String(activeListings.length) },
-    { label: "Followers", value: String(stats.followers) },
+    { label: "Sales", value: String(stats.sales), icon: "💰", accent: "from-emerald-500 to-emerald-400" },
+    { label: "Listings", value: String(activeListings.length), icon: "📦", accent: "from-violet-500 to-violet-400" },
+    { label: "Followers", value: String(stats.followers), icon: "👥", accent: "from-sky-500 to-sky-400" },
   ];
 
   const notifToggles = [
@@ -1294,9 +1295,13 @@ const tabs = [
 
               <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
                 {statItems.map((s) => (
-                  <div key={s.label} className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-center">
-                    <p className="text-base font-black text-white sm:text-lg">{s.value}</p>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">{s.label}</p>
+                  <div key={s.label} className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] px-3 py-3 text-center transition-all duration-300 hover:border-white/[0.12] hover:shadow-lg hover:shadow-black/20">
+                    <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${s.accent}`} />
+                    <div className="flex flex-col items-center">
+                      <span className="text-2xl opacity-80">{s.icon}</span>
+                      <p className="mt-1 text-base font-black text-white sm:text-lg">{s.value}</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">{s.label}</p>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1687,8 +1692,14 @@ const tabs = [
           {/* ===== TAB: VERIFICATION ===== */}
           {activeTab === "verification" && (
             <div className={settingsSection}>
-              <h2 className="mb-1 text-base font-bold text-white">Verification</h2>
-              <p className="mb-5 text-sm text-zinc-500">Complete ID verification to sell. Phone is optional — it adds a verified badge.</p>
+              <h2 className="mb-4 text-base font-bold text-white">Verification</h2>
+
+              <div className="mb-5 rounded-xl border border-sky-500/20 bg-sky-500/5 px-4 py-3.5">
+                <p className="text-sm font-semibold text-sky-400">Why verify?</p>
+                <p className="mt-1.5 text-sm text-zinc-300 leading-relaxed">
+                  ID verification is required to sell items on Sky Drop. It helps prevent fraud, builds trust with buyers, and enables you to list all types of items. Verification typically takes 1-2 business days.
+                </p>
+              </div>
 
               <div className="space-y-3">
                 <div className="rounded-xl border border-white/[0.04] bg-white/[0.02] px-4 py-3.5">
@@ -1720,10 +1731,14 @@ const tabs = [
                 </div>
 
                 <div className="rounded-xl border border-white/[0.04] bg-white/[0.02] px-4 py-3.5">
+                  <div className="mb-3 rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3">
+                    <p className="text-xs font-medium text-red-400">Phone verification is required</p>
+                    <p className="mt-1 text-xs text-zinc-400">One phone number per account for security and account recovery.</p>
+                  </div>
                   <div className="flex items-center justify-between gap-4 mb-3">
                     <div>
                       <p className="text-sm font-medium text-white">Phone</p>
-                      <p className="text-xs text-zinc-500">Optional — adds a verified seller badge</p>
+                      <p className="text-xs text-zinc-500">Required — verify your phone number</p>
                     </div>
                     <p className="text-sm">
                       {phoneVerified ? (
@@ -1762,9 +1777,9 @@ const tabs = [
                     </div>
                   )}
                   {phoneVerified && (
-                    <button type="button" onClick={handleRemovePhone} className="mt-2 text-xs text-zinc-500 hover:text-red-400 transition-colors">
-                      Remove phone number
-                    </button>
+                    <p className="mt-2 text-xs text-sky-400">
+                      ✓ Phone verified. You cannot change your phone number.
+                    </p>
                   )}
                   {phoneMsg && (
                     <p
@@ -1787,7 +1802,7 @@ const tabs = [
                   <div className="flex items-center justify-between gap-4 mb-3">
                     <div>
                       <p className="text-sm font-medium text-white">ID Verification (KYC)</p>
-                      <p className="text-xs text-zinc-500">One photo holding your licence or passport</p>
+                      <p className="text-xs text-zinc-500">Upload your ID for verification</p>
                     </div>
                     <p className="text-sm">
                       {poaStatus === "approved" && <span className="text-sky-400 font-medium">Approved</span>}
@@ -1804,27 +1819,55 @@ const tabs = [
                   )}
                   {(poaStatus === "unsubmitted" || poaStatus === "rejected") && (
                     <div className="space-y-4">
-                      <p className="text-xs text-zinc-500">Upload a clear photo of the front and back of your driver licence or passport. ID verification is required to sell on Sky Drop.</p>
+                      <p className="text-xs text-zinc-500">Upload a clear photo of your ID for verification. ID verification is required to sell on Sky Drop.</p>
+
+                      {/* ID Type Selector */}
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setKycIdType("driver_licence")}
+                          className={`flex-1 rounded-lg border px-3 py-2 text-xs font-semibold transition ${
+                            kycIdType === "driver_licence"
+                              ? "border-sky-500 bg-sky-500/10 text-sky-400"
+                              : "border-white/[0.08] bg-white/[0.02] text-zinc-500 hover:border-white/[0.12]"
+                          }`}
+                        >
+                          Driver Licence
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setKycIdType("passport")}
+                          className={`flex-1 rounded-lg border px-3 py-2 text-xs font-semibold transition ${
+                            kycIdType === "passport"
+                              ? "border-sky-500 bg-sky-500/10 text-sky-400"
+                              : "border-white/[0.08] bg-white/[0.02] text-zinc-500 hover:border-white/[0.12]"
+                          }`}
+                        >
+                          Passport
+                        </button>
+                      </div>
 
                       {/* Front of ID */}
                       <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
                         <label className="mb-2 flex items-center gap-2 text-xs font-semibold text-zinc-300">
                           <span className="flex h-5 w-5 items-center justify-center rounded-full bg-sky-500/20 text-[10px] font-bold text-sky-400">1</span>
-                          Front of licence or passport
+                          Front of {kycIdType === "passport" ? "passport" : "licence"}
                         </label>
                         <input type="file" accept="image/*" onChange={(e) => setPoaFile(e.target.files?.[0] || null)}
                           className="w-full text-xs text-zinc-500 file:mr-3 file:rounded-xl file:border-0 file:bg-sky-500 file:px-4 file:py-2 file:text-xs file:font-semibold file:text-white hover:file:bg-sky-400 file:transition-colors" />
                       </div>
 
-                      {/* Back of ID */}
-                      <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
-                        <label className="mb-2 flex items-center gap-2 text-xs font-semibold text-zinc-300">
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-sky-500/20 text-[10px] font-bold text-sky-400">2</span>
-                          Back of licence or passport
-                        </label>
-                        <input type="file" accept="image/*" onChange={(e) => setPoaFile2(e.target.files?.[0] || null)}
-                          className="w-full text-xs text-zinc-500 file:mr-3 file:rounded-xl file:border-0 file:bg-sky-500 file:px-4 file:py-2 file:text-xs file:font-semibold file:text-white hover:file:bg-sky-400 file:transition-colors" />
-                      </div>
+                      {/* Back of ID - only for driver licence */}
+                      {kycIdType === "driver_licence" && (
+                        <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
+                          <label className="mb-2 flex items-center gap-2 text-xs font-semibold text-zinc-300">
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-sky-500/20 text-[10px] font-bold text-sky-400">2</span>
+                            Back of licence
+                          </label>
+                          <input type="file" accept="image/*" onChange={(e) => setPoaFile2(e.target.files?.[0] || null)}
+                            className="w-full text-xs text-zinc-500 file:mr-3 file:rounded-xl file:border-0 file:bg-sky-500 file:px-4 file:py-2 file:text-xs file:font-semibold file:text-white hover:file:bg-sky-400 file:transition-colors" />
+                        </div>
+                      )}
 
                       {/* Preview row */}
                       {(poaFile || poaFile2) && (
@@ -1844,17 +1887,22 @@ const tabs = [
                         </div>
                       )}
 
-                      {poaFile && poaFile2 && (
+                      {poaFile && (kycIdType === "passport" || poaFile2) && (
                         <button onClick={async () => {
-                          if (!user?.uid || !poaFile || !poaFile2) return;
+                          if (!user?.uid || !poaFile) return;
+                          if (kycIdType === "driver_licence" && !poaFile2) return;
                           const nsfw = await checkImage(poaFile);
-                          const nsfw2 = await checkImage(poaFile2);
                           if (!nsfw.safe) { showToast(nsfw.reason || "Front photo could not be accepted", "error"); setPoaFile(null); return; }
-                          if (!nsfw2.safe) { showToast(nsfw2.reason || "Back photo could not be accepted", "error"); setPoaFile2(null); return; }
+                          if (kycIdType === "driver_licence" && poaFile2) {
+                            const nsfw2 = await checkImage(poaFile2);
+                            if (!nsfw2.safe) { showToast(nsfw2.reason || "Back photo could not be accepted", "error"); setPoaFile2(null); return; }
+                          }
                           setPoaUploading(true);
                           try {
                             await submitKycPhoto(user, poaFile);
-                            await submitKycPhoto(user, poaFile2);
+                            if (kycIdType === "driver_licence" && poaFile2) {
+                              await submitKycPhoto(user, poaFile2);
+                            }
                             setPoaStatus("pending");
                             setPoaDocumentURL("");
                             setPoaFile(null);
@@ -1871,8 +1919,10 @@ const tabs = [
                           {poaUploading ? "Uploading..." : "Submit for verification"}
                         </button>
                       )}
-                      {(!poaFile || !poaFile2) && (
-                        <p className="text-[11px] text-zinc-600">Select both front and back photos to submit.</p>
+                      {(!poaFile || (kycIdType === "driver_licence" && !poaFile2)) && (
+                        <p className="text-[11px] text-zinc-600">
+                          {kycIdType === "passport" ? "Select front photo to submit." : "Select both front and back photos to submit."}
+                        </p>
                       )}
                     </div>
                   )}
@@ -1893,7 +1943,7 @@ const tabs = [
           {activeTab === "payments" && (
             <div id="payment-settings" className={settingsSection}>
               <h2 className="mb-1 text-base font-bold text-white">Payments</h2>
-              <p className="mb-5 text-sm text-zinc-500">Bank transfer for Arrange Purchase, or Stripe for card checkout.</p>
+              <p className="mb-5 text-sm text-zinc-500">Set up how you want to receive payments when you sell items. Bank transfer for Arrange Purchase (buyer contacts you directly), or Stripe for instant card checkout.</p>
 
               <div className="mb-5 space-y-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
                 <div className="flex items-center justify-between gap-2">

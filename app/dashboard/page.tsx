@@ -11,7 +11,7 @@ import { getLevelInfo } from "../lib/xp";
 import { trackChallenge } from "../lib/challenges";
 import { isAdminEmail } from "../lib/admin-check";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
-import { sumStripeCheckoutEarnings } from "../lib/seller-payments";
+import { sumStripeCheckoutEarnings, sellerHasStripeConfigured } from "../lib/seller-payments";
 import { REVIEW_STAR_CLASS } from "../components/SellerReviewStars";
 import BrowseMarketplaceHero from "../components/BrowseMarketplaceHero";
 import { HOME_MARKETPLACE_THEME as t } from "../lib/browse-category-config";
@@ -25,6 +25,7 @@ export default function DashboardPage() {
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [xp, setXp] = useState(0);
+  const [sellerProfile, setSellerProfile] = useState<any>(null);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -38,7 +39,10 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!user?.uid) return;
     const unsub = onSnapshot(doc(db, "profiles", user.uid), (snap) => {
-      if (snap.exists()) setXp(snap.data().xp || 0);
+      if (snap.exists()) {
+        setXp(snap.data().xp || 0);
+        setSellerProfile(snap.data());
+      }
     });
     return () => unsub();
   }, [user?.uid]);
@@ -127,25 +131,22 @@ export default function DashboardPage() {
         value: String(stats.totalSales),
         hint: `${stats.completedSales} completed · ${stats.pendingOrders} pending`,
         accent: "from-sky-500 to-sky-400",
-      },
-      {
-        label: "Stripe earnings",
-        value: `$${stats.stripeEarnings.toFixed(2)}`,
-        hint: "Delivered card checkouts only",
-        accent: "from-sky-500 to-sky-400",
+        icon: "📊",
       },
       {
         label: "Active listings",
         value: String(stats.activeListings),
         hint: `${listings.length} total posted`,
-        accent: "from-sky-500 to-sky-400",
+        accent: "from-violet-500 to-violet-400",
+        icon: "📦",
       },
       {
         label: "Seller rating",
         value: stats.reviewCount > 0 ? stats.avgRating : "—",
         hint: stats.reviewCount > 0 ? `${stats.reviewCount} review${stats.reviewCount > 1 ? "s" : ""}` : "No reviews yet",
-        accent: "from-sky-500 to-sky-400",
+        accent: "from-amber-500 to-amber-400",
         star: stats.reviewCount > 0,
+        icon: "⭐",
       },
     ],
     [stats, listings.length]
@@ -157,17 +158,65 @@ export default function DashboardPage() {
         <Background />
         <Navbar />
         <section className={`${PAGE_SHELL_WIDE} pb-10 pt-2 sm:pt-3`}>
-          <div className={`h-48 rounded-3xl border border-white/[0.04] bg-white/[0.02] animate-pulse ${t.heroShadow}`} />
-          <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-28 rounded-2xl border border-white/[0.04] bg-white/[0.02] animate-pulse" />
+          <div className={`h-48 rounded-3xl border border-white/[0.04] bg-gradient-to-br from-white/[0.04] to-white/[0.01] animate-shimmer ${t.heroShadow}`}>
+            <div className="h-full w-full bg-gradient-to-r from-transparent via-white/[0.05] to-transparent animate-shimmer-slow" />
+          </div>
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-4 animate-shimmer" style={{ animationDelay: `${i * 100}ms` }}>
+                <div className="h-3 w-16 rounded-full bg-white/[0.08] mb-3" />
+                <div className="h-8 w-20 rounded-lg bg-white/[0.06] mb-2" />
+                <div className="h-2 w-24 rounded-full bg-white/[0.04]" />
+              </div>
             ))}
           </div>
           <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
-            <div className="h-72 rounded-2xl border border-white/[0.04] bg-white/[0.02] animate-pulse" />
-            <div className="h-72 rounded-2xl border border-white/[0.04] bg-white/[0.02] animate-pulse" />
+            <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-6 animate-shimmer" style={{ animationDelay: '400ms' }}>
+              <div className="h-4 w-24 rounded-full bg-white/[0.08] mb-4" />
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-white/[0.06]" />
+                    <div className="flex-1">
+                      <div className="h-3 w-32 rounded-full bg-white/[0.06] mb-2" />
+                      <div className="h-2 w-24 rounded-full bg-white/[0.04]" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-5 animate-shimmer" style={{ animationDelay: '500ms' }}>
+                <div className="h-4 w-20 rounded-full bg-white/[0.08] mb-3" />
+                <div className="h-6 w-24 rounded-lg bg-white/[0.06]" />
+              </div>
+              <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-5 animate-shimmer" style={{ animationDelay: '600ms' }}>
+                <div className="h-4 w-20 rounded-full bg-white/[0.08] mb-3" />
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-8 w-full rounded-lg bg-white/[0.06]" />
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         </section>
+        <style jsx>{`
+          @keyframes shimmer {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+          }
+          @keyframes shimmer-slow {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+          }
+          .animate-shimmer {
+            animation: shimmer 2s ease-in-out infinite;
+          }
+          .animate-shimmer-slow {
+            animation: shimmer-slow 3s ease-in-out infinite;
+          }
+        `}</style>
       </main>
     );
   }
@@ -206,18 +255,18 @@ export default function DashboardPage() {
           <p className="mt-3 text-sm text-zinc-400">
             Hey {displayName} · Level {levelInfo.level} seller
           </p>
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2">
             {quickActions.map((action) => (
               <Link
                 key={action.href}
                 href={action.href}
                 className={
                   action.primary
-                    ? `inline-flex items-center rounded-xl bg-gradient-to-r ${t.listBtn} px-4 py-2 text-[13px] font-bold text-white shadow-lg transition hover:brightness-110 active:scale-[0.97]`
-                    : "inline-flex items-center rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-[13px] font-semibold text-zinc-300 transition hover:border-sky-500/25 hover:bg-white/[0.06] hover:text-white active:scale-[0.98]"
+                    ? `relative overflow-hidden rounded-xl bg-gradient-to-r ${t.listBtn} p-3 text-center shadow-lg shadow-sky-500/20 transition-all duration-200 hover:brightness-110 hover:shadow-xl hover:shadow-sky-500/30 active:scale-[0.97] sm:p-4`
+                    : "rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 text-center transition-all duration-200 hover:border-sky-500/25 hover:bg-white/[0.06] hover:shadow-lg hover:shadow-black/10 active:scale-[0.98] sm:p-4"
                 }
               >
-                {action.label}
+                <span className="block text-[12px] sm:text-[13px] font-bold text-white">{action.label}</span>
               </Link>
             ))}
           </div>
@@ -237,28 +286,52 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        {!sellerHasStripeConfigured(sellerProfile) && (
+          <div className="mb-5 rounded-2xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-4 sm:px-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-bold text-amber-400">💳 Set up Stripe for instant payments</p>
+                <p className="mt-1 text-xs text-amber-400/80">
+                  Enable Pay Now to receive instant card payments. Without Stripe, buyers can only use Arrange Purchase.
+                </p>
+              </div>
+              <Link
+                href="/profile"
+                className="shrink-0 rounded-lg bg-gradient-to-r from-amber-500 to-amber-500 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-amber-500/20 transition hover:brightness-110 active:scale-[0.97]"
+              >
+                Set up Stripe
+              </Link>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {statCards.map((card) => (
             <div
               key={card.label}
-              className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5"
+              className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-4 sm:p-5 transition-all duration-300 hover:border-white/[0.12] hover:shadow-lg hover:shadow-black/20"
             >
-              <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r ${card.accent} opacity-60`} />
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-500">{card.label}</p>
-              <p className="mt-2 text-2xl font-black text-white sm:text-3xl">
-                {card.star && <span className={`${REVIEW_STAR_CLASS} mr-1 text-xl`}>★</span>}
-                {card.value}
-              </p>
-              <p className="mt-1 text-[11px] text-zinc-500">{card.hint}</p>
+              <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${card.accent}`} />
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-500">{card.label}</p>
+                  <p className="mt-2 text-2xl font-black text-white sm:text-3xl">
+                    {card.star && <span className={`${REVIEW_STAR_CLASS} mr-1 text-xl`}>★</span>}
+                    {card.value}
+                  </p>
+                  <p className="mt-1 text-[11px] text-zinc-500">{card.hint}</p>
+                </div>
+                <span className="text-3xl opacity-80">{card.icon}</span>
+              </div>
             </div>
           ))}
         </div>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
-          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.015] p-5 sm:p-6">
+          <div className="rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-5 sm:p-6 transition-all duration-300 hover:border-white/[0.12]">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className={`h-6 w-1 rounded-full bg-gradient-to-b ${t.barGradient}`} />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/10 text-lg">📋</div>
                 <div>
                   <h2 className="text-base font-black text-white">Recent orders</h2>
                   <p className="text-[11px] text-zinc-500">Your latest sales activity</p>
@@ -272,8 +345,9 @@ export default function DashboardPage() {
             </div>
 
             {sales.length === 0 ? (
-              <div className="mt-8 rounded-xl border border-dashed border-white/[0.08] bg-white/[0.02] px-6 py-10 text-center">
-                <p className="text-sm text-zinc-400">No orders yet.</p>
+              <div className="mt-8 rounded-xl border border-dashed border-white/[0.08] bg-gradient-to-br from-white/[0.02] to-transparent px-6 py-10 text-center">
+                <span className="text-4xl">📦</span>
+                <p className="mt-3 text-sm text-zinc-400">No orders yet.</p>
                 <p className="mt-1 text-xs text-zinc-500">Create a listing to start selling on Sky Drop.</p>
                 <Link
                   href="/post/ai"
@@ -285,7 +359,8 @@ export default function DashboardPage() {
             ) : (
               <div className="mt-5 divide-y divide-white/[0.05]">
                 {sales.slice(0, 6).map((s) => (
-                  <div key={s.id} className="flex items-center gap-3 py-3.5 first:pt-0 last:pb-0">
+                  <div key={s.id} className="flex items-center gap-4 py-4 first:pt-0 last:pb-0 transition-all duration-200 hover:bg-white/[0.02] rounded-xl px-2 -mx-2">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/10 text-lg">🛒</div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-bold text-white">{s.listingTitle}</p>
                       <p className="mt-0.5 text-xs text-zinc-500">
@@ -293,9 +368,9 @@ export default function DashboardPage() {
                       </p>
                     </div>
                     <span
-                      className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-bold capitalize ${
+                      className={`shrink-0 rounded-full border px-3 py-1 text-[10px] font-bold capitalize ${
                         s.status === "delivered"
-                          ? "border-sky-500/20 bg-sky-500/10 text-sky-400"
+                          ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
                           : s.status === "pending"
                             ? "border-sky-500/20 bg-sky-500/10 text-sky-400"
                             : s.status === "cancelled"
@@ -312,9 +387,12 @@ export default function DashboardPage() {
           </div>
 
           <aside className="space-y-4">
-            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.015] p-5">
-              <h3 className="text-sm font-black text-white">Payouts</h3>
-              <p className="mt-3 text-2xl font-black text-sky-400">${stats.stripeEarnings.toFixed(2)}</p>
+            <div className="rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-5 transition-all duration-300 hover:border-white/[0.12]">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-lg">💰</div>
+                <h3 className="text-sm font-black text-white">Payouts</h3>
+              </div>
+              <p className="mt-3 text-2xl font-black text-emerald-400">${stats.stripeEarnings.toFixed(2)}</p>
               <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
                 Stripe earnings from delivered orders. Arrange Purchase sales are paid off-platform.
               </p>
@@ -326,8 +404,11 @@ export default function DashboardPage() {
               </Link>
             </div>
 
-            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.015] p-5">
-              <h3 className="text-sm font-black text-white">Shortcuts</h3>
+            <div className="rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-5 transition-all duration-300 hover:border-white/[0.12]">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10 text-lg">⚡</div>
+                <h3 className="text-sm font-black text-white">Shortcuts</h3>
+              </div>
               <div className="mt-3 space-y-2">
                 {[
                   { href: "/list-list", label: "All listings", meta: `${listings.length} posted` },
@@ -348,11 +429,14 @@ export default function DashboardPage() {
             </div>
 
             {expiringSoon.length > 0 && (
-              <div className="rounded-2xl border border-sky-500/15 bg-sky-500/[0.04] p-5">
-                <h3 className="text-sm font-black text-sky-300">Expiring soon</h3>
+              <div className="rounded-2xl border border-sky-500/20 bg-gradient-to-br from-sky-500/[0.08] to-sky-500/[0.02] p-5 transition-all duration-300 hover:border-sky-500/30">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/20 text-lg">⏰</div>
+                  <h3 className="text-sm font-black text-sky-300">Expiring soon</h3>
+                </div>
                 <div className="mt-3 space-y-2">
                   {expiringSoon.slice(0, 3).map((l) => (
-                    <div key={l.id} className="flex items-center justify-between gap-2 rounded-xl border border-sky-500/10 bg-black/20 px-3 py-2.5">
+                    <div key={l.id} className="flex items-center justify-between gap-2 rounded-xl border border-sky-500/15 bg-black/30 px-3 py-2.5 transition-all duration-200 hover:bg-black/40">
                       <div className="min-w-0">
                         <p className="truncate text-xs font-bold text-white">{l.title}</p>
                         <p className="text-[10px] text-sky-400/90">
@@ -361,7 +445,7 @@ export default function DashboardPage() {
                       </div>
                       <Link
                         href={`/post/ai?edit=${l.id}`}
-                        className="shrink-0 text-[10px] font-bold text-sky-400 hover:text-sky-300"
+                        className="shrink-0 rounded-lg bg-sky-500/20 px-2 py-1 text-[10px] font-bold text-sky-400 hover:bg-sky-500/30 transition-colors"
                       >
                         Edit
                       </Link>

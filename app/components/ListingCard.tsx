@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import type { User } from "firebase/auth";
@@ -52,6 +53,7 @@ export default function ListingCard({
   const isVisible = isListingVisibleInMarketplace(item);
   const imageSrc = item.images?.[0] || item.imageUrl || item.image;
   const isOwner = user?.email === item.sellerEmail;
+  const [showTrustLegend, setShowTrustLegend] = useState(false);
 
   const categoryLabel =
     item.type === "vehicle" ? "Cars" : item.category || "Other";
@@ -62,6 +64,8 @@ export default function ListingCard({
         <div
           role="button"
           tabIndex={0}
+          aria-label={`View listing: ${item.title}. ${item.price ? `Price: $${item.price}.` : ''} ${categoryLabel} in ${item.condition || 'unknown condition'}`}
+          aria-describedby={`listing-card-${item.id}-details`}
           className="listing-card relative z-[1] flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.04] to-white/[0.01] backdrop-blur-sm transition-all duration-300 animate-fade-in-up hover:-translate-y-1.5 hover:border-[#6b8e6b]/40 hover:bg-white/[0.07] hover:shadow-[0_0_30px_rgba(107,142,107,0.22),0_0_60px_rgba(107,142,107,0.12)] active:-translate-y-0.5 active:scale-[0.985] active:border-[#5a7a5a]/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6b8e6b]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a0f]"
           style={{
             animationDelay: `${Math.min(cardIndex, 10) * 40}ms`,
@@ -76,7 +80,7 @@ export default function ListingCard({
         >
           {/* Image section */}
           {imageSrc ? (
-            <div className="relative shrink-0 overflow-hidden">
+            <div className="relative shrink-0 overflow-hidden bg-zinc-900">
               <img
                 src={cdnUrl(imageSrc)}
                 alt={item.title}
@@ -87,9 +91,10 @@ export default function ListingCard({
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.display = "none";
                 }}
-                className="aspect-[4/3] w-full object-cover opacity-0 transition-all duration-700 group-hover:scale-105"
+                className="aspect-[4/3] w-full object-cover opacity-0 transition-all duration-700 group-hover:scale-105 group-hover:rotate-1"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               {!isVisible && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-[2px]">
                   <span className="rounded-xl bg-gradient-to-br from-red-500 to-red-600 px-5 py-2 text-xs font-black uppercase tracking-widest text-white shadow-xl shadow-red-500/30">
@@ -101,37 +106,37 @@ export default function ListingCard({
               {/* Badges */}
               <div className="absolute top-3 left-3 flex flex-col gap-1.5">
                 {isVisible && (item.views || 0) > 3 && (
-                  <span className="rounded-full bg-gradient-to-r from-sky-500/90 to-sky-600/90 px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg backdrop-blur-sm">
+                  <span className="rounded-full bg-gradient-to-r from-orange-500 to-orange-600 px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg shadow-orange-500/30 backdrop-blur-sm animate-pulse">
                     🔥 Hot
                   </span>
                 )}
                 {item.promotedUntil?.toMillis?.() > Date.now() && (
-                  <span className="rounded-full bg-gradient-to-r from-sky-500/90 to-blue-600/90 px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg backdrop-blur-sm">
+                  <span className="rounded-full bg-gradient-to-r from-purple-500 to-purple-600 px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg shadow-purple-500/30 backdrop-blur-sm">
                     📈 Promoted
                   </span>
                 )}
                 {isVisible && item.createdAt?.seconds && Date.now() / 1000 - item.createdAt.seconds < 86400 && (
-                  <span className="rounded-full bg-gradient-to-r from-sky-500/90 to-sky-600/90 px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg backdrop-blur-sm">
+                  <span className="rounded-full bg-gradient-to-r from-emerald-500 to-emerald-600 px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg shadow-emerald-500/30 backdrop-blur-sm">
                     New
                   </span>
                 )}
                 {isVisible && String(item.saleType || "").includes("auction") && (
-                  <span className="rounded-full bg-gradient-to-r from-sky-500/90 to-sky-600/90 px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg backdrop-blur-sm">
+                  <span className="rounded-full bg-gradient-to-r from-amber-500 to-amber-600 px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg shadow-amber-500/30 backdrop-blur-sm">
                     ⏰ Auction
                   </span>
                 )}
                 {item.type === "digital" && isVisible && (
-                  <span className="rounded-full bg-gradient-to-r from-sky-500/90 to-sky-600/90 px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg backdrop-blur-sm">
+                  <span className="rounded-full bg-gradient-to-r from-cyan-500 to-cyan-600 px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg shadow-cyan-500/30 backdrop-blur-sm">
                     📥 Digital
                   </span>
                 )}
                 {item.type === "vehicle" && isVisible && (
-                  <span className="rounded-full bg-gradient-to-r from-sky-500/90 to-sky-600/90 px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg backdrop-blur-sm">
+                  <span className="rounded-full bg-gradient-to-r from-blue-500 to-blue-600 px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg shadow-blue-500/30 backdrop-blur-sm">
                     🚗 Vehicle
                   </span>
                 )}
                 {isVisible && item.expiresAt?.toMillis?.() < Date.now() && (
-                  <span className="rounded-full bg-zinc-800/90 px-2.5 py-0.5 text-[9px] font-bold text-white/80 backdrop-blur-sm">
+                  <span className="rounded-full bg-zinc-700/90 px-2.5 py-0.5 text-[9px] font-bold text-white/80 backdrop-blur-sm">
                     Expired
                   </span>
                 )}
@@ -188,7 +193,9 @@ export default function ListingCard({
                   e.stopPropagation();
                   onToggleWatchlist(item);
                 }}
-                className="relative shrink-0 text-base opacity-60 transition-all duration-200 hover:opacity-100 hover:scale-110 active:scale-95"
+                aria-label={isInWatchlist(item.id) ? `Remove ${item.title} from watchlist` : `Add ${item.title} to watchlist`}
+                aria-pressed={isInWatchlist(item.id)}
+                className="relative shrink-0 text-base opacity-60 transition-all duration-200 hover:opacity-100 hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
               >
                 {isInWatchlist(item.id) ? (
                   <span>❤️</span>
@@ -229,22 +236,22 @@ export default function ListingCard({
               {item.type === "service" ? (
                 <>
                   <ServicePricingBadge listing={item} size="sm" />
-                  <p className="text-xl sm:text-2xl font-black tracking-tight text-white">
+                  <p className="text-2xl sm:text-3xl font-black tracking-tight text-white drop-shadow-lg">
                     {formatServicePriceDisplay(item)}
                   </p>
                 </>
               ) : item.pricingType === "quote" ? (
                 <>
-                  <p className="text-xl sm:text-2xl font-black tracking-tight text-white">Contact Seller for Quote</p>
-                  <span className="rounded-full border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400">Quote Required</span>
+                  <p className="text-lg sm:text-xl font-bold tracking-tight text-white/90">Contact for Quote</p>
+                  <span className="rounded-full border border-amber-400/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-bold text-amber-400">Quote Required</span>
                 </>
               ) : (
-              <p className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+              <p className="text-3xl sm:text-4xl font-black tracking-tight text-white drop-shadow-lg">
                 ${item.price}
               </p>
               )}
               {(item.saleType === "auction" || item.saleType === "auction_buy_now") && (
-                <span className="text-sm font-semibold text-sky-400">
+                <span className="rounded-lg bg-amber-500/20 px-2 py-1 text-sm font-bold text-amber-400 border border-amber-500/30">
                   Bid: ${item.currentBid || item.startingBid || 0}
                 </span>
               )}
@@ -430,7 +437,38 @@ export default function ListingCard({
                             💎 Epic
                           </span>
                         )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowTrustLegend(!showTrustLegend);
+                          }}
+                          className="text-white/30 hover:text-sky-400 transition-colors"
+                        >
+                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </button>
                       </div>
+                      {showTrustLegend && (
+                        <div className="mt-2 rounded-lg border border-sky-500/20 bg-sky-500/5 px-3 py-2">
+                          <p className="text-[10px] font-semibold text-sky-400">Trust Signals</p>
+                          <div className="mt-1.5 space-y-1 text-[9px] text-zinc-400">
+                            <div className="flex items-center gap-1.5">
+                              <span className="rounded border border-sky-500/30 bg-sky-500/10 px-1 py-0.5 text-[8px] font-bold text-sky-400">✓</span>
+                              <span>ID verified seller</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="rounded border border-sky-500/30 bg-sky-500/10 px-1 py-0.5 text-[8px] font-bold text-sky-400">👑</span>
+                              <span>Top 5 sellers (The Five)</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="rounded border border-sky-500/30 bg-sky-500/10 px-1 py-0.5 text-[8px] font-bold text-sky-400">💎</span>
+                              <span>High-rated seller (Epic)</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                       <div className="flex items-center gap-1 text-[11px] text-white/70">
                         <SellerReviewSummary
                           avg={avgRating}

@@ -6,6 +6,9 @@
   --breakpoint-5xl: 240rem;
 }
 
+/* Sky Drop theme toggle uses .light on <html>; dark: utilities apply only when NOT in light mode */
+@custom-variant dark (&:where(:root:not(.light) &));
+
 :root {
   --cream: #ffffff;
   --review-star: #fbbf24;
@@ -117,7 +120,7 @@ body {
 :root:not(.light) .text-\[\#6B7280\] { color: rgba(255, 255, 255, 0.7) !important; }
 :root:not(.light) .text-\[\#0a1628\] { color: #ffffff !important; }
 :root:not(.light) .text-\[\#1e4976\] { color: rgba(255, 255, 255, 0.8) !important; }
-:root.light .text-white { color: #0a1628 !important; }
+:root.light .text-white { color: #000000 !important; }
 :root.light header .text-white { color: #ffffff !important; }
 /* Listing / trending cards — white copy on dark card surfaces (light mode too) */
 .text-always-white { color: #ffffff !important; }
@@ -331,15 +334,104 @@ body {
 :root.light .text-neutral-500 { color: #000000 !important; }
 :root.light .text-gray-400 { color: #000000 !important; }
 :root.light .text-gray-500 { color: #000000 !important; }
-:root.light .text-black { color: #0a1628 !important; }
+:root.light .text-black { color: #000000 !important; }
+:root.light .text-zinc-100 { color: #000000 !important; }
+:root.light .text-slate-300,
+:root.light .text-slate-400,
+:root.light .text-slate-500,
+:root.light .text-slate-600,
+:root.light .text-slate-700,
+:root.light .text-slate-800,
+:root.light .text-slate-900 { color: #000000 !important; }
+:root.light .text-gray-300,
+:root.light .text-gray-600,
+:root.light .text-gray-700,
+:root.light .text-gray-800,
+:root.light .text-gray-900 { color: #000000 !important; }
+:root.light .text-neutral-300,
+:root.light .text-neutral-600,
+:root.light .text-neutral-700,
+:root.light .text-neutral-800,
+:root.light .text-neutral-900 { color: #000000 !important; }
+:root.light .text-emerald-300,
+:root.light .text-emerald-400,
+:root.light .text-emerald-500,
+:root.light .text-emerald-600 { color: #000000 !important; }
+:root.light .text-amber-300,
+:root.light .text-amber-400,
+:root.light .text-amber-500,
+:root.light .text-amber-600 { color: #000000 !important; }
+:root.light .text-orange-300,
+:root.light .text-orange-400,
+:root.light .text-orange-500,
+:root.light .text-orange-600 { color: #000000 !important; }
+:root.light .text-red-300,
+:root.light .text-red-400,
+:root.light .text-red-500,
+:root.light .text-red-600 { color: #000000 !important; }
+:root.light .text-green-300,
+:root.light .text-green-400,
+:root.light .text-green-500,
+:root.light .text-green-600 { color: #000000 !important; }
+:root.light .text-blue-300,
+:root.light .text-blue-400,
+:root.light .text-blue-500,
+:root.light .text-blue-600 { color: #000000 !important; }
+:root.light .text-purple-300,
+:root.light .text-purple-400,
+:root.light .text-purple-500,
+:root.light .text-purple-600 { color: #000000 !important; }
+:root.light .text-pink-300,
+:root.light .text-pink-400,
+:root.light .text-pink-500,
+:root.light .text-pink-600 { color: #000000 !important; }
+:root.light .text-cyan-300,
+:root.light .text-cyan-400,
+:root.light .text-cyan-500,
+:root.light .text-cyan-600 { color: #000000 !important; }
+:root.light .text-teal-300,
+:root.light .text-teal-400,
+:root.light .text-teal-500,
+:root.light .text-teal-600 { color: #000000 !important; }
+:root.light .text-indigo-300,
+:root.light .text-indigo-400,
+:root.light .text-indigo-500,
+:root.light .text-indigo-600 { color: #000000 !important; }
+:root.light .text-violet-300,
+:root.light .text-violet-400,
+:root.light .text-violet-500,
+:root.light .text-violet-600 { color: #000000 !important; }
+:root.light .text-rose-300,
+:root.light .text-rose-400,
+:root.light .text-rose-500,
+:root.light .text-rose-600 { color: #000000 !important; }
+:root.light .text-yellow-300,
+:root.light .text-yellow-400,
+:root.light .text-yellow-500,
+:root.light .text-yellow-600 { color: #000000 !important; }
+:root.light .text-lime-300,
+:root.light .text-lime-400,
+:root.light .text-lime-500,
+:root.light .text-lime-600 { color: #000000 !important; }
+:root.light .text-\[\#111827\],
+:root.light .text-\[\#6B7280\],
+:root.light .text-\[\#0a1628\],
+:root.light .text-\[\#1e4976\],
+:root.light .text-\[\#374151\],
+:root.light .text-\[\#9CA3AF\],
+:root.light .text-\[\#D1D5DB\] { color: #000000 !important; }
+:root.light .hover\:text-zinc-200:hover,
+:root.light .hover\:text-zinc-300:hover,
+:root.light .hover\:text-zinc-400:hover,
+:root.light .hover\:text-zinc-500:hover { color: #000000 !important; }
 :root.light header {
   border-bottom-color: rgba(14, 165, 233, 0.2) !important;
   background: rgba(10, 22, 40, 0.97) !important;
 }
-:root.light header [class*="drop-shadow-"] { color: #38bdf8 !important; }
-:root.light .from-white { --tw-gradient-from: #0a1628 !important; }
-:root.light .via-sky-200 { --tw-gradient-via: #38bdf8 !important; }
-:root.light .to-white { --tw-gradient-to: #0a1628 !important; }
+:root.light header [class*="drop-shadow-"] { color: #ffffff !important; }
+:root.light .from-white { --tw-gradient-from: #000000 !important; }
+:root.light .via-sky-200 { --tw-gradient-via: #000000 !important; }
+:root.light .to-white { --tw-gradient-to: #000000 !important; }
 :root.light .from-orange-500\/\[0\.04\] { --tw-gradient-from: rgba(14, 165, 233, 0.08) !important; }
 
 /* ── LIGHT INPUTS / SELECTS ── */
@@ -347,9 +439,9 @@ body {
 :root.light textarea,
 :root.light select {
   background-color: #ffffff !important;
-  border-color: rgba(10, 22, 40, 0.14) !important;
-  color: #0a1628 !important;
-  box-shadow: 0 1px 2px rgba(14, 165, 233, 0.04) !important;
+  border-color: rgba(0, 0, 0, 0.14) !important;
+  color: #000000 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
 }
 :root.light input:hover,
 :root.light textarea:hover,
@@ -364,11 +456,12 @@ body {
 }
 :root.light input::placeholder,
 :root.light textarea::placeholder {
-  color: #60a5d8 !important;
+  color: #000000 !important;
+  opacity: 0.5 !important;
 }
 :root.light section select option {
   background-color: #ffffff !important;
-  color: #0a1628 !important;
+  color: #000000 !important;
 }
 
 /* ── PREMIUM HOMEPAGE LIGHT MODE ── */
@@ -394,16 +487,22 @@ body {
 }
 
 :root.light .text-sky-500,
-:root.light .text-accent {
-  color: #0284c7 !important;
+:root.light .text-accent,
+:root.light .text-sky-200,
+:root.light .text-sky-300,
+:root.light .text-sky-400,
+:root.light .text-sky-600,
+:root.light .text-sky-700 {
+  color: #000000 !important;
 }
 
-:root.light .text-sky-200 { color: #0284c7 !important; }
-:root.light .text-sky-300 { color: #0284c7 !important; }
-:root.light .text-sky-400 { color: #0284c7 !important; }
 :root.light header .text-sky-200,
 :root.light header .text-sky-300,
-:root.light header .text-sky-400 { color: #7dd3fc !important; }
+:root.light header .text-sky-400,
+:root.light header .text-sky-500,
+:root.light header .text-accent {
+  color: #ffffff !important;
+}
 
 :root.light .border-sky-500,
 :root.light .border-accent {
@@ -418,16 +517,36 @@ body {
 /* ── PILLS / CHIPS ── */
 :root.light .rounded-full.bg-zinc-800,
 :root.light span.rounded-full.bg-zinc-800 {
-  background-color: #e0f2fe !important;
-  color: #0c4a6e !important;
-  border: 1px solid rgba(14, 165, 233, 0.2) !important;
+  background-color: #f0f0f0 !important;
+  color: #000000 !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
 }
 
 :root.light .bg-zinc-800\/60.rounded-full,
 :root.light [class*="rounded-full"].bg-zinc-800 {
-  background-color: #e0f2fe !important;
-  color: #0c4a6e !important;
-  border: 1px solid rgba(14, 165, 233, 0.2) !important;
+  background-color: #f0f0f0 !important;
+  color: #000000 !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+}
+
+/* White text on filled/colored buttons and badges in light mode */
+:root.light .bg-sky-500,
+:root.light .bg-sky-500 *,
+:root.light .bg-accent,
+:root.light .bg-accent *,
+:root.light .bg-emerald-500,
+:root.light .bg-emerald-500 *,
+:root.light .bg-emerald-600,
+:root.light .bg-emerald-600 *,
+:root.light .bg-red-500,
+:root.light .bg-red-500 *,
+:root.light .bg-red-600,
+:root.light .bg-red-600 *,
+:root.light .from-sky-500.to-sky-400,
+:root.light .from-sky-500.to-sky-400 *,
+:root.light .from-emerald-500.to-emerald-600,
+:root.light .from-emerald-500.to-emerald-600 * {
+  color: #ffffff !important;
 }
 
 /* ── PREMIUM BUTTON STYLING ── */
@@ -507,7 +626,13 @@ body {
 
 :root.light footer {
   background-color: #ffffff !important;
-  border-top: 1px solid rgba(14, 165, 233, 0.14) !important;
+  border-top: 1px solid rgba(0, 0, 0, 0.12) !important;
+  color: #000000 !important;
+}
+
+:root.light footer a,
+:root.light footer p {
+  color: #000000 !important;
 }
 
 /* ── PREMIUM SCROLLBAR ── */

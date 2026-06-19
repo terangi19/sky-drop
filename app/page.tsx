@@ -24,8 +24,10 @@ import {
 
 import PromoteModal from "./components/PromoteModal";
 import MarketplaceListingCard from "./components/MarketplaceListingCard";
+import ArrangePurchaseModal from "./components/ArrangePurchaseModal";
 import HotThisWeek from "./components/HotThisWeek";
 import { LISTING_GRID, LISTING_GRID_MT, PAGE_SHELL_MARKETPLACE, PAGE_SHELL_WIDE } from "./lib/page-layout";
+import { sellerHasStripeConfigured } from "./lib/seller-payments";
 import {
   addDoc,
   collection,
@@ -184,6 +186,8 @@ export default function Home() {
   const [showOfferModal, setShowOfferModal] = useState(false);
   const [offerListing, setOfferListing] = useState<Listing | null>(null);
   const [offerAmount, setOfferAmount] = useState("");
+  const [showArrangeModal, setShowArrangeModal] = useState(false);
+  const [arrangeListing, setArrangeListing] = useState<Listing | null>(null);
 
   const lastOfferTime = useRef(0);
   const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
@@ -368,12 +372,35 @@ export default function Home() {
      }
    }
 
-    function handleBuyNow(item: Listing) {
+    async function handleBuyNow(item: Listing) {
         if (!isListingVisibleInMarketplace(item)) return;
+        
+        // Check if seller has Stripe configured for Pay Now
         if (item.paymentType === "contact") {
-          router.push(`/post/listing/${item.id}`);
+          setArrangeListing(item);
+          setShowArrangeModal(true);
           return;
         }
+        
+        // For Stripe payments, check if seller has Stripe configured
+        if (item.sellerEmail) {
+          try {
+            const sellerSnap = await getDoc(doc(db, "profiles", item.sellerEmail.split("@")[0]));
+            if (sellerSnap.exists()) {
+              const sellerData = sellerSnap.data();
+              if (!sellerHasStripeConfigured(sellerData)) {
+                // Seller doesn't have Stripe, default to Arrange Purchase
+                setArrangeListing(item);
+                setShowArrangeModal(true);
+                return;
+              }
+            }
+          } catch (e) {
+            console.error("Failed to check seller Stripe status:", e);
+            // On error, try Stripe checkout
+          }
+        }
+        
         router.push(`/post/listing/${item.id}?buy=1`);
       }
 
@@ -695,6 +722,20 @@ export default function Home() {
         </div>
       )}
 
+      {/* ARRANGE PURCHASE MODAL */}
+      {showArrangeModal && arrangeListing && user?.email && (
+        <ArrangePurchaseModal
+          listing={arrangeListing}
+          buyerEmail={user.email}
+          onClose={() => { setShowArrangeModal(false); setArrangeListing(null); }}
+          onSuccess={(conversationId) => {
+            setShowArrangeModal(false);
+            setArrangeListing(null);
+            router.push(`/messages?user=${encodeURIComponent(arrangeListing.sellerUsername || arrangeListing.sellerEmail || "")}&listing=${arrangeListing.id}`);
+          }}
+        />
+      )}
+
       {/* HERO / SEARCH SECTION */}
       <section className={`${PAGE_SHELL_WIDE} pt-3 sm:pt-4`}>
         <div className={`relative overflow-visible rounded-[1.75rem] border border-white/[0.06] bg-gradient-to-b from-white/[0.03] via-transparent to-transparent backdrop-blur-sm ${t.heroShadow}`}>
@@ -749,28 +790,28 @@ export default function Home() {
             {/* Search */}
             <div className="mx-auto mt-5 max-w-lg">
               <div className="group relative">
-                <div className={`absolute -inset-px rounded-2xl bg-gradient-to-r ${t.searchGlow} opacity-0 blur-md transition duration-500 group-focus-within:opacity-60`} />
-                <div className={`relative flex items-center rounded-2xl border border-white/[0.08] bg-black/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-md transition-all duration-300 ${t.searchFocus}`}>
-                  <svg className="ml-4 h-4 w-4 shrink-0 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                <div className={`absolute -inset-0.5 rounded-2xl bg-gradient-to-r ${t.searchGlow} opacity-0 blur-lg transition duration-500 group-focus-within:opacity-70`} />
+                <div className={`relative flex items-center rounded-2xl border border-white/[0.10] bg-black/30 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3),0_4px_16px_rgba(0,0,0,0.2)] backdrop-blur-md transition-all duration-300 ${t.searchFocus}`}>
+                  <svg className="ml-4 h-4 w-4 shrink-0 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                   <input
                     type="text"
-                    placeholder="Search"
+                    placeholder="Search listings..."
                     value={search}
                     ref={searchRef}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="flex-1 bg-transparent px-3 py-3.5 text-[15px] text-white outline-none placeholder:text-white"
+                    className="flex-1 bg-transparent px-3 py-4 text-[15px] text-white outline-none placeholder:text-zinc-500 transition-colors"
                   />
-                  <div className="mr-1.5 flex items-center gap-1">
+                  <div className="mr-2 flex items-center gap-1">
                     {search && (
-                      <button onClick={() => setSearch("")} className="flex h-8 w-8 items-center justify-center rounded-lg text-white transition hover:bg-white/[0.06] hover:text-white" aria-label="Clear search">
+                      <button onClick={() => setSearch("")} className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-all duration-200 hover:bg-white/[0.10] hover:text-white hover:scale-110 active:scale-95" aria-label="Clear search">
                         <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                       </button>
                     )}
                     {(search || selectedCategory !== "All") && (
-                      <button onClick={saveSearch} className="flex h-8 w-8 items-center justify-center rounded-lg text-white transition hover:bg-white/[0.06] hover:text-sky-300" title="Save search" aria-label="Save search">
-                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <button onClick={saveSearch} className="flex h-8 w-8 items-center justify-center rounded-lg text-sky-400 transition-all duration-200 hover:bg-sky-500/20 hover:text-sky-300 hover:scale-110 active:scale-95" title="Save search" aria-label="Save search">
+                        <svg className="h-3.5 w-3.5 transition-transform duration-200 group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                         </svg>
                       </button>
@@ -785,26 +826,26 @@ export default function Home() {
               <div className="flex max-w-full gap-2 overflow-x-auto px-1 pb-0.5 scrollbar-none">
                 <button
                   onClick={() => setSelectedCategory("All")}
-                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-medium transition-all ${
+                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-medium transition-all duration-200 active:scale-95 ${
                     selectedCategory === "All"
-                      ? "border-sky-400/30 bg-sky-500/10 text-white shadow-[0_0_24px_rgba(14,165,233,0.1)]"
-                      : "border-white/[0.06] bg-white/[0.02] text-white/70 hover:border-white/10 hover:text-white"
+                      ? "border-sky-400/30 bg-sky-500/10 text-white shadow-[0_0_24px_rgba(14,165,233,0.1)] hover:shadow-[0_0_32px_rgba(14,165,233,0.15)]"
+                      : "border-white/[0.06] bg-white/[0.02] text-white/70 hover:border-white/10 hover:text-white hover:bg-white/[0.04]"
                   }`}
                 >
-                  <span className="text-sm leading-none">✨</span>
+                  <span className="text-sm leading-none transition-transform duration-200 group-hover:scale-110">✨</span>
                   All
                 </button>
                 {activeCategories.map((cat) => (
                   <button
                     key={cat.name}
                     onClick={() => setSelectedCategory(cat.name)}
-                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-medium transition-all ${
+                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-medium transition-all duration-200 active:scale-95 ${
                       selectedCategory === cat.name
-                        ? "border-sky-400/30 bg-sky-500/10 text-white shadow-[0_0_24px_rgba(14,165,233,0.1)]"
-                        : "border-white/[0.06] bg-white/[0.02] text-zinc-400 hover:border-white/10 hover:text-zinc-200"
+                        ? "border-sky-400/30 bg-sky-500/10 text-white shadow-[0_0_24px_rgba(14,165,233,0.1)] hover:shadow-[0_0_32px_rgba(14,165,233,0.15)]"
+                        : "border-white/[0.06] bg-white/[0.02] text-zinc-400 hover:border-white/10 hover:text-zinc-200 hover:bg-white/[0.04]"
                     }`}
                   >
-                    <span className="text-sm leading-none">{cat.emoji}</span>
+                    <span className="text-sm leading-none transition-transform duration-200 hover:scale-110">{cat.emoji}</span>
                     {cat.name}
                   </button>
                 ))}
@@ -815,15 +856,15 @@ export default function Home() {
             {savedSearches.length > 0 && (
               <div className="mt-5 flex flex-wrap justify-center gap-2">
                 {savedSearches.map((s) => (
-                  <div key={s.label} className="group flex items-center gap-1 rounded-full border border-sky-500/15 bg-sky-500/5 px-3 py-1 text-[11px] text-white transition hover:border-sky-500/30 hover:bg-sky-500/10">
-                    <button onClick={() => applySavedSearch(s)} className="flex items-center gap-1">
-                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <div key={s.label} className="group flex items-center gap-1.5 rounded-full border border-sky-500/20 bg-gradient-to-r from-sky-500/10 to-sky-500/5 px-3.5 py-1.5 text-[11px] text-white transition-all duration-200 hover:border-sky-500/40 hover:bg-sky-500/15 hover:shadow-lg hover:shadow-sky-500/10">
+                    <button onClick={() => applySavedSearch(s)} className="flex items-center gap-1.5">
+                      <svg className="h-3 w-3 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                       </svg>
-                      {s.label || s.query}
-                      {(() => { const m = savedSearchMatchCounts.find(m => m.label === s.label); if (m && m.count > 0) return <span className="ml-1 rounded-full bg-sky-500/20 px-1.5 py-0.5 text-[9px] font-bold text-white">{m.count}</span>; return null; })()}
+                      <span className="font-medium">{s.label || s.query}</span>
+                      {(() => { const m = savedSearchMatchCounts.find(m => m.label === s.label); if (m && m.count > 0) return <span className="ml-1 rounded-full bg-sky-500/30 px-2 py-0.5 text-[9px] font-bold text-sky-300 border border-sky-500/30">{m.count}</span>; return null; })()}
                     </button>
-                    <button onClick={() => removeSavedSearch(s.label)} className="text-sky-400/50 hover:text-red-400 ml-0.5" title="Remove saved search">&times;</button>
+                    <button onClick={() => removeSavedSearch(s.label)} className="text-sky-400/60 hover:text-red-400 ml-0.5 transition-colors" title="Remove saved search">&times;</button>
                   </div>
                 ))}
               </div>
@@ -946,39 +987,39 @@ export default function Home() {
           )}
 
         {!loading && filteredListings.length === 0 && (
-          <div className="relative mx-auto max-w-md mt-12 text-center">
+          <div className="relative mx-auto max-w-md mt-16 text-center">
             {listings.length === 0 ? (
               <>
-                <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500/10 to-sky-500/10 border border-sky-500/20">
-                  <svg className="h-8 w-8 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-sky-500/20 via-sky-500/10 to-transparent border border-sky-500/30 shadow-[0_0_30px_rgba(14,165,233,0.15)] animate-pulse-slow">
+                  <svg className="h-10 w-10 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                   </svg>
                 </div>
-                <h2 className="text-2xl font-black tracking-tight text-white">Welcome to Sky Drop</h2>
-                <p className="mt-2 text-sm text-white">No listings yet — be the first to list something!</p>
-                <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
+                <h2 className="text-2xl font-black tracking-tight text-white mb-2">Welcome to Sky Drop</h2>
+                <p className="text-sm text-zinc-400 mb-6">No listings yet — be the first to list something and start selling!</p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
                   <Link href="/post/ai"
-                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">
+                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.97]">
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
                     Create a Listing
                   </Link>
                   <Link href="/about"
-                    className="inline-flex items-center gap-2 rounded-xl border border-zinc-600 px-6 py-3 text-sm font-bold text-zinc-300 transition hover:bg-zinc-800">
+                    className="inline-flex items-center gap-2 rounded-xl border border-white/[0.10] bg-white/[0.02] px-6 py-3.5 text-sm font-bold text-zinc-300 transition-all duration-200 hover:bg-white/[0.05] hover:border-white/[0.15] hover:text-white active:scale-[0.97]">
                     Learn More
                   </Link>
                 </div>
               </>
             ) : (
               <>
-                <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/[0.03] border border-white/[0.06]">
-                  <svg className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-white/[0.05] via-white/[0.02] to-transparent border border-white/[0.10] shadow-[0_0_30px_rgba(255,255,255,0.05)]">
+                  <svg className="h-10 w-10 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
-                <h2 className="text-2xl font-black tracking-tight text-white">No listings found</h2>
-                <p className="mt-2 text-sm text-white">Try adjusting your filters or search.</p>
+                <h2 className="text-2xl font-black tracking-tight text-white mb-2">No listings found</h2>
+                <p className="text-sm text-zinc-400 mb-6">Try adjusting your filters or search terms to find what you're looking for.</p>
                 <button onClick={() => { setSelectedCategory("All"); setSelectedCondition("All"); setSelectedRegion("All"); setSearch(""); }}
-                  className="mt-5 rounded-lg border border-sky-500/20 bg-sky-500/5 px-5 py-2.5 text-sm font-bold text-sky-400 transition hover:bg-sky-500/10 hover:border-sky-500/30">
+                  className="rounded-xl border border-sky-500/30 bg-sky-500/10 px-6 py-3.5 text-sm font-bold text-sky-400 shadow-lg shadow-sky-500/10 transition-all duration-200 hover:bg-sky-500/15 hover:border-sky-500/40 hover:shadow-xl hover:shadow-sky-500/15 active:scale-[0.97]">
                   Clear all filters
                 </button>
               </>

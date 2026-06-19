@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import ThemeToggle from "../components/ThemeToggle";
-import BrowseAwhinaAssistantPanel from "../components/BrowseAwhinaAssistantPanel";
 import { PAGE_SHELL_CHAT } from "../lib/page-layout";
 import {
   addDoc,
@@ -601,17 +600,12 @@ function MessagesPage() {
     if (!user?.email) { showToast("Please log in first", "info"); return; }
     if (!chatUser.trim()) { showToast("Select a conversation", "info"); return; }
     if (blockedUsers.includes(chatUser)) { showToast("This user is blocked", "error"); return; }
-    if (Date.now() - lastMessageTime.current < 2000) {
-      showToast("Please wait before sending another message", "info");
-      return;
-    }
-    lastMessageTime.current = Date.now();
 
     // Anti-spam: track recipients per hour
     try {
       const msgTracker = JSON.parse(localStorage.getItem("msgTracker") || "{}");
       const now = Date.now();
-      if (msgTracker[chatUser] && now - msgTracker[chatUser] < 60000) {
+      if (msgTracker[chatUser] && now - msgTracker[chatUser] < 5000) {
         showToast("Please wait before messaging this user again", "info");
         return;
       }
@@ -621,20 +615,6 @@ function MessagesPage() {
       }
       localStorage.setItem("msgTracker", JSON.stringify(msgTracker));
     } catch (e) { console.error("Msg tracker error:", e); }
-
-    // Anti-spam: detect duplicate messages (same text sent recently)
-    if (!skipSafety) {
-      try {
-        const recentMessages: string[] = JSON.parse(localStorage.getItem("recentMessages") || "[]");
-        if (recentMessages.includes(message.trim().toLowerCase())) {
-          showToast("You already sent this message recently", "info");
-          return;
-        }
-        recentMessages.push(message.trim().toLowerCase());
-        if (recentMessages.length > 20) recentMessages.shift();
-        localStorage.setItem("recentMessages", JSON.stringify(recentMessages));
-      } catch (e) { console.error("Recent messages tracker error:", e); }
-    }
 
     if (!skipSafety) {
       const result = detectScam(message);
@@ -1664,15 +1644,15 @@ function MessagesPage() {
                         // Image message
                         if (msg.type === "image") {
                           return (
-                            <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
+                            <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
                               <div className="max-w-[75%]">
-                                <div className={`overflow-hidden rounded-2xl ${isOwn ? "rounded-br-md" : "rounded-bl-md"} shadow-lg`}>
+                                <div className={`overflow-hidden rounded-2xl shadow-xl transition-all duration-200 hover:shadow-2xl ${isOwn ? "rounded-br-md border border-sky-500/20" : "rounded-bl-md border border-zinc-700/30"}`}>
                                   {(msg.imageUrl || msg.imageData) && (
-                                    <img src={msg.imageUrl || msg.imageData} alt="Shared image" className="max-h-64 w-full object-cover"
+                                    <img src={msg.imageUrl || msg.imageData} alt="Shared image" className="max-h-80 w-full object-cover"
                                       onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                                   )}
-                                  {msg.text && <p className="px-4 py-2 text-[13px]">{msg.text}</p>}
-                                  <div className={`flex items-center justify-end gap-1 px-4 pb-2 ${isOwn ? "" : ""}`}>
+                                  {msg.text && <div className={`px-4 py-3 text-[14px] ${isOwn ? "bg-gradient-to-br from-sky-500/20 to-sky-600/15" : "bg-gradient-to-br from-zinc-800/80 to-zinc-900/60"}`}><p>{msg.text}</p></div>}
+                                  <div className={`flex items-center justify-end gap-1 px-4 pb-3 ${isOwn ? "bg-gradient-to-br from-sky-500/20 to-sky-600/15" : "bg-gradient-to-br from-zinc-800/80 to-zinc-900/60"}`}>
                                     <span className={`text-[9px] ${isOwn ? "text-white/60" : "text-[var(--muted)]"}`}>{formatFullTime(msg.createdAt) || formatTime(msg.createdAt)}</span>
                                   </div>
                                 </div>
@@ -1761,25 +1741,25 @@ function MessagesPage() {
                         }
                         // Text message
                         return (
-                          <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
+                          <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
                             <div className="max-w-[75%]">
-                              <div className={`rounded-2xl px-4 py-2.5 text-[14px] ${isOwn ? "rounded-br-md bg-sky-500/15 text-[var(--foreground)]" : "rounded-bl-md bg-zinc-800/60 text-[var(--foreground)]"}`}>
+                              <div className={`rounded-2xl px-4 py-3 text-[14px] shadow-lg transition-all duration-200 hover:shadow-xl ${isOwn ? "rounded-br-md bg-gradient-to-br from-sky-500/20 to-sky-600/15 text-[var(--foreground)] border border-sky-500/20" : "rounded-bl-md bg-gradient-to-br from-zinc-800/80 to-zinc-900/60 text-[var(--foreground)] border border-zinc-700/30"}`}>
                                 {!isOwn && (() => { const check = detectScam(msg.text || ""); return check.isScam ? (
-                                  <span className="mb-1.5 inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[9px] font-bold text-red-400" title={`Flagged: ${check.keywords.join(", ")}`}>&#9888;&#65039; Caution</span>
+                                  <span className="mb-2 inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2.5 py-1 text-[9px] font-bold text-red-400 border border-red-500/20" title={`Flagged: ${check.keywords.join(", ")}`}>&#9888;&#65039; Caution</span>
                                 ) : null; })()}
                                 {!isOwn && containsRiskyKeywords(msg.text || "") && (
-                                  <span className="mb-1.5 inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2 py-0.5 text-[9px] font-bold text-sky-400">&#9888;&#65039; Off-platform mention</span>
+                                  <span className="mb-2 inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2.5 py-1 text-[9px] font-bold text-sky-400 border border-sky-500/20">&#9888;&#65039; Off-platform mention</span>
                                 )}
                                 <p className="break-words whitespace-pre-line text-[14px] leading-relaxed">{formatMessageText(msg.text)}</p>
                                 {/* Status + timestamp */}
-                                <div className="mt-1.5 flex items-center justify-end gap-1">
+                                <div className="mt-2 flex items-center justify-end gap-1">
                                   <span className={`text-[9px] ${isOwn ? "text-white/60" : "text-[var(--muted)]"}`}>{formatTime(msg.createdAt)}</span>
                                   {isOwn && (
                                     <span className="text-[10px]">
                                       {msg.read ? (
-                                        <svg className="h-3 w-3 text-white/70" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 7.5l-12 12L5 13l1.5-1.5 5 5 10.5-10.5L23.5 7.5zM17.5 7.5l-6 6-1.5-1.5 6-6 1.5 1.5z" /></svg>
+                                        <svg className="h-3.5 w-3.5 text-sky-400" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 7.5l-12 12L5 13l1.5-1.5 5 5 10.5-10.5L23.5 7.5zM17.5 7.5l-6 6-1.5-1.5 6-6 1.5 1.5z" /></svg>
                                       ) : (
-                                        <svg className="h-3 w-3 text-white/50" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" /></svg>
+                                        <svg className="h-3.5 w-3.5 text-white/50" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" /></svg>
                                       )}
                                     </span>
                                   )}

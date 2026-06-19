@@ -72,6 +72,7 @@ const DISPUTE_STYLES: Record<string, string> = {
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Pending",
+  confirmed: "Confirmed",
   seller_confirming: "Confirmed",
   in_progress: "In Progress",
   shipped: "Shipped",
@@ -79,10 +80,25 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: "Cancelled",
   rented: "Rented",
   returned: "Returned",
+  arrange_requested: "Arrangement Requested",
+};
+
+const STATUS_DESCRIPTIONS: Record<string, string> = {
+  pending: "Waiting for seller confirmation",
+  confirmed: "Payment received - Order confirmed",
+  seller_confirming: "Seller has confirmed your order",
+  in_progress: "Service in progress",
+  shipped: "Item has been shipped",
+  delivered: "Order completed",
+  cancelled: "Order was cancelled",
+  rented: "Item is rented",
+  returned: "Item has been returned",
+  arrange_requested: "Waiting for seller to arrange payment",
 };
 
 const STATUS_STYLES: Record<string, string> = {
   pending: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+  confirmed: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   seller_confirming: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   in_progress: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   shipped: "bg-sky-500/10 text-sky-400 border-sky-500/20",
@@ -92,9 +108,27 @@ const STATUS_STYLES: Record<string, string> = {
   returned: "bg-blue-500/10 text-blue-400 border-blue-500/20",
 };
 
-const TIMELINE_STEPS = ["pending", "seller_confirming", "shipped", "delivered"];
-const SERVICE_TIMELINE_STEPS = ["pending", "in_progress", "completed", "delivered"];
-const RENTAL_TIMELINE_STEPS = ["pending", "rented", "returned", "completed"];
+const TIMELINE_STEPS = [
+  { key: "confirmed", label: "Confirmed", icon: "✅" },
+  { key: "shipped", label: "Shipped", icon: "📦" },
+  { key: "delivered", label: "Delivered", icon: "🏠" },
+];
+const SERVICE_TIMELINE_STEPS = [
+  { key: "confirmed", label: "Confirmed", icon: "✅" },
+  { key: "in_progress", label: "In Progress", icon: "⚙️" },
+  { key: "delivered", label: "Delivered", icon: "🏠" },
+];
+const RENTAL_TIMELINE_STEPS = [
+  { key: "confirmed", label: "Confirmed", icon: "✅" },
+  { key: "rented", label: "Rented", icon: "🔑" },
+  { key: "returned", label: "Returned", icon: "↩️" },
+  { key: "completed", label: "Completed", icon: "✅" },
+];
+const ARRANGE_TIMELINE_STEPS = [
+  { key: "arrange_requested", label: "Requested", icon: "📝" },
+  { key: "seller_confirming", label: "Confirmed", icon: "✅" },
+  { key: "delivered", label: "Completed", icon: "🏠" },
+];
 
 function formatDate(ts: any): string {
   if (!ts) return "";
@@ -102,14 +136,16 @@ function formatDate(ts: any): string {
   return new Date(ts).toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" });
 }
 
-function statusIndex(s: string, isService?: boolean, isRental?: boolean): number {
-  const steps = isRental ? RENTAL_TIMELINE_STEPS : isService ? SERVICE_TIMELINE_STEPS : TIMELINE_STEPS;
-  const i = steps.indexOf(s);
+function statusIndex(s: string, isService?: boolean, isRental?: boolean, isArrange?: boolean): number {
+  const steps = isArrange ? ARRANGE_TIMELINE_STEPS : isRental ? RENTAL_TIMELINE_STEPS : isService ? SERVICE_TIMELINE_STEPS : TIMELINE_STEPS;
+  // For Stripe payments (Pay Now), status starts at "confirmed" which is index 0
+  // For arrange purchases, status starts at "arrange_requested" which is index 0
+  const i = steps.findIndex((step) => step.key === s);
   return i >= 0 ? i : -1;
 }
 
-function timelineSteps(isService?: boolean, isRental?: boolean): string[] {
-  return isRental ? RENTAL_TIMELINE_STEPS : isService ? SERVICE_TIMELINE_STEPS : TIMELINE_STEPS;
+function timelineSteps(isService?: boolean, isRental?: boolean, isArrange?: boolean): Array<{ key: string; label: string; icon: string }> {
+  return isArrange ? ARRANGE_TIMELINE_STEPS : isRental ? RENTAL_TIMELINE_STEPS : isService ? SERVICE_TIMELINE_STEPS : TIMELINE_STEPS;
 }
 
 const SORT_OPTIONS = [
@@ -290,6 +326,53 @@ export default function PurchasesPage() {
     return { icon: "📦", text: p.shippingFee ? `Shipping — $${p.shippingFee}` : "Shipping", badge: "Shipping" };
   }
 
+  // TradeMe-style Timeline Component
+  function PurchaseTimeline({ purchase, isService, isRental, isArrange }: { purchase: Purchase; isService?: boolean; isRental?: boolean; isArrange?: boolean }) {
+    const steps = timelineSteps(isService, isRental, isArrange);
+    const currentIndex = statusIndex(purchase.status, isService, isRental, isArrange);
+    
+    if (currentIndex < 0) return null;
+    
+    return (
+      <div className="mt-3 rounded-lg border border-zinc-800/50 bg-zinc-900/30 p-3">
+        <div className="flex items-center justify-between">
+          {steps.map((step, index) => {
+            const isCompleted = index < currentIndex;
+            const isCurrent = index === currentIndex;
+            const isPending = index > currentIndex;
+            
+            return (
+              <div key={step.key} className="flex items-center gap-1.5 flex-1">
+                <div className={`flex items-center justify-center w-5 h-5 rounded-full text-[9px] transition-all ${
+                  isCompleted ? 'bg-emerald-500 text-white' : isCurrent ? 'bg-sky-500 text-white ring-2 ring-sky-500/40' : 'bg-zinc-800 text-zinc-500'
+                }`}>
+                  {isCompleted ? '✓' : step.icon}
+                </div>
+                <div className="flex-1">
+                  <p className={`text-[9px] font-medium truncate ${
+                    isCompleted ? 'text-emerald-400' : isCurrent ? 'text-sky-400' : 'text-zinc-500'
+                  }`}>
+                    {step.label}
+                  </p>
+                </div>
+                {index < steps.length - 1 && (
+                  <div className={`w-4 h-px ${
+                    isCompleted ? 'bg-emerald-500' : 'bg-zinc-800'
+                  }`} />
+                )}
+              </div>
+            );
+          })}
+        </div>
+        {STATUS_DESCRIPTIONS[purchase.status] && (
+          <p className="mt-2 text-[10px] text-zinc-400 text-center">
+            {STATUS_DESCRIPTIONS[purchase.status]}
+          </p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <main className="relative min-h-screen bg-[var(--background)]">
       <Background />
@@ -382,6 +465,9 @@ export default function PurchasesPage() {
             {filtered.slice(0, visibleCount).map((p) => {
               const dl = deliveryLabel(p);
               const action = nextAction(p);
+              const isService = p.deliveryMethod === "service";
+              const isRental = p.deliveryMethod === "rental";
+              const isArrange = p.paymentType === "contact";
               return (
                 <div key={p.id} className="group rounded-2xl border border-white/[0.04] bg-white/[0.02] p-4 sm:p-5 transition-all duration-200 hover:bg-white/[0.04] hover:border-white/[0.08]">
                   <div className="flex items-start gap-3 sm:gap-4">
@@ -421,6 +507,9 @@ export default function PurchasesPage() {
                           )}
                         </div>
                       </div>
+
+                      {/* TradeMe-style Timeline */}
+                      <PurchaseTimeline purchase={p} isService={isService} isRental={isRental} isArrange={isArrange} />
 
                       <div className="mt-2 flex items-center gap-2 text-[11px] text-zinc-500">
                         <span>{dl.icon} {dl.text}</span>

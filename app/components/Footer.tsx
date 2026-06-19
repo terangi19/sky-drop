@@ -8,7 +8,6 @@ export default function Footer() {
         <div className="flex items-center gap-4">
           <Link href="/about" className="transition hover:text-[var(--foreground)]">About</Link>
           <Link href="/faqs" className="transition hover:text-[var(--foreground)]">FAQs</Link>
-          <Link href="/escrow" className="transition hover:text-[var(--foreground)]">Payments</Link>
           <Link href="/buyer-protection" className="transition hover:text-[var(--foreground)]">Buyer Protection</Link>
           <Link href="/seller-guidelines" className="transition hover:text-[var(--foreground)]">Seller Guide</Link>
           <Link href="/terms" className="transition hover:text-[var(--foreground)]">Terms</Link>

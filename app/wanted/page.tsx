@@ -44,7 +44,7 @@ import BrowseMarketplaceHero from "../components/BrowseMarketplaceHero";
 import { HOME_MARKETPLACE_THEME as t } from "../lib/browse-category-config";
 import { LISTING_GRID_MT, PAGE_SHELL_MARKETPLACE } from "../lib/page-layout";
 
-const WANTED_CATEGORIES = ["All", "Items", "Services", "Rentals", "Vehicles"];
+const WANTED_CATEGORIES = ["All", "Items", "Services", "Rentals"];
 
 function wantedSearchText(item: Record<string, unknown>): string {
   return [

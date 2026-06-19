@@ -523,6 +523,7 @@ export default function AuthPage() {
         <LoginSuccessModal
           onClose={() => setShowLoginSuccessModal(false)}
           kycVerified={kycStatus === "approved"}
+          user={user}
         />
       )}
     </main>

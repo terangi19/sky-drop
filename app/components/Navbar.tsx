@@ -318,7 +318,7 @@ export default function Navbar() {
                 Sell
               </Link>
               <div className="relative group px-1">
-                <button className={`flex items-center gap-1 transition-colors duration-200 cursor-pointer ${isActive("/vehicles") || isActive("/digital") || isActive("/services") || isActive("/rentals") || pathname === "/" ? "text-[var(--nav-ice)]" : "text-[var(--nav-ice-muted)] hover:text-[var(--nav-ice)]"}`}>
+                <button className={`flex items-center gap-1 transition-colors duration-200 cursor-pointer ${isActive("/digital") || isActive("/services") || isActive("/rentals") || pathname === "/" ? "text-[var(--nav-ice)]" : "text-[var(--nav-ice-muted)] hover:text-[var(--nav-ice)]"}`}>
                   <span>Browse</span>
                   <svg className="h-3 w-3 transition-transform duration-300 group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
                 </button>
@@ -339,10 +339,6 @@ export default function Navbar() {
                   <Link href="/rentals" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[var(--nav-ice-muted)] hover:text-[var(--nav-ice)] hover:bg-white/[0.06] transition-all duration-200 group/dd">
                     <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/[0.04] text-xs group-hover/dd:bg-white/[0.08] transition-colors">🔑</span>
                     <div><div className="text-sm font-medium">Rentals</div><div className="text-[10px] text-[var(--nav-ice-faint)]">Tools, equipment, cameras</div></div>
-                  </Link>
-                  <Link href="/vehicles" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[var(--nav-ice-muted)] hover:text-[var(--nav-ice)] hover:bg-white/[0.06] transition-all duration-200 group/dd">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/[0.04] text-xs group-hover/dd:bg-white/[0.08] transition-colors">🚗</span>
-                    <div><div className="text-sm font-medium">Vehicles</div><div className="text-[10px] text-[var(--nav-ice-faint)]">Cars, bikes, boats</div></div>
                   </Link>
                   <Link href="/wanted" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[var(--nav-ice-muted)] hover:text-[var(--nav-ice)] hover:bg-white/[0.06] transition-all duration-200 group/dd">
                     <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/[0.04] text-xs group-hover/dd:bg-white/[0.08] transition-colors">📋</span>
@@ -394,7 +390,6 @@ export default function Navbar() {
                 <Link href="/digital" className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-[var(--nav-ice-muted)] hover:text-[var(--nav-ice)] hover:bg-white/[0.06] active:bg-white/[0.08] transition-colors" onClick={() => setMobileMenuOpen(false)}><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-sm">📥</span><div><div className="font-bold">Digital Store</div><div className="text-[10px] text-[var(--nav-ice-faint)]">E-books, software, assets</div></div></Link>
                 <Link href="/services" className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-[var(--nav-ice-muted)] hover:text-[var(--nav-ice)] hover:bg-white/[0.06] active:bg-white/[0.08] transition-colors" onClick={() => setMobileMenuOpen(false)}><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-sm">🤝</span><div><div className="font-bold">Services</div><div className="text-[10px] text-[var(--nav-ice-faint)]">Freelance, consulting, gigs</div></div></Link>
                 <Link href="/rentals" className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-[var(--nav-ice-muted)] hover:text-[var(--nav-ice)] hover:bg-white/[0.06] active:bg-white/[0.08] transition-colors" onClick={() => setMobileMenuOpen(false)}><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-sm">🔑</span><div><div className="font-bold">Rentals</div><div className="text-[10px] text-[var(--nav-ice-faint)]">Tools, equipment, cameras</div></div></Link>
-                <Link href="/vehicles" className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-[var(--nav-ice-muted)] hover:text-[var(--nav-ice)] hover:bg-white/[0.06] active:bg-white/[0.08] transition-colors" onClick={() => setMobileMenuOpen(false)}><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-sm">🚗</span><div><div className="font-bold">Vehicles</div><div className="text-[10px] text-[var(--nav-ice-faint)]">Cars, bikes, boats</div></div></Link>
                 <Link href="/wanted" className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-[var(--nav-ice-muted)] hover:text-[var(--nav-ice)] hover:bg-white/[0.06] active:bg-white/[0.08] transition-colors" onClick={() => setMobileMenuOpen(false)}><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-sm">📋</span><div><div className="font-bold">Wanted</div><div className="text-[10px] text-[var(--nav-ice-faint)]">People looking to buy, hire, rent</div></div></Link>
                 <div className="my-1.5 mx-4 border-t border-white/[0.04]" />
                 <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--nav-ice-faint)]">Your Stuff</div>
