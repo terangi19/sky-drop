@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { auth } from "../../lib/firebase";
 
 interface ComponentStatus {
   name: string;
@@ -14,7 +15,10 @@ export default function SystemArchitecturePage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("/api/security-health");
+        const token = await auth.currentUser?.getIdToken();
+        const res = await fetch("/api/security-health", {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
         const data = await res.json();
         if (data.integrity?.checks) {
           setComponents(data.integrity.checks);

@@ -1,5 +1,7 @@
 import { rateLimitUpstash, isUpstashEnabled } from "./rate-limit-upstash";
 import { logSecurityWarning } from "./security-log";
+
+export { isUpstashEnabled };
 import {
   evaluateFriction,
   applyDelay,

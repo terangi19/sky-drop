@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { auth } from "../../lib/firebase";
 
 interface SecurityData {
   integrity: any;
@@ -19,9 +20,17 @@ export default function SecurityDashboardPage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("/api/security-health");
+        const token = await auth.currentUser?.getIdToken();
+        const res = await fetch("/api/security-health", {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
         if (!res.ok) { setError("Not authorized"); setLoading(false); return; }
         const json = await res.json();
+        if (!json.recentDecisions && !json.recentSecurityEvents && json.ok !== undefined) {
+          setError("Not authorized");
+          setLoading(false);
+          return;
+        }
         setData(json);
       } catch { setError("Failed to load"); }
       setLoading(false);

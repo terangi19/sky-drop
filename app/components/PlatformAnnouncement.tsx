@@ -8,12 +8,19 @@ export default function PlatformAnnouncement() {
   const [announcement, setAnnouncement] = useState<any>(null);
 
   useEffect(() => {
-    const unsub = onSnapshot(doc(db, "config", "announcement"), (snap) => {
-      if (!snap.exists()) { setAnnouncement(null); return; }
-      const data = snap.data();
-      if (data.active) setAnnouncement(data);
-      else setAnnouncement(null);
-    });
+    const unsub = onSnapshot(
+      doc(db, "config", "announcement"),
+      (snap) => {
+        if (!snap.exists()) { setAnnouncement(null); return; }
+        const data = snap.data();
+        if (data.active) setAnnouncement(data);
+        else setAnnouncement(null);
+      },
+      (err) => {
+        const code = err && typeof err === "object" && "code" in err ? String((err as { code: string }).code) : "";
+        if (code !== "permission-denied") console.error("Announcement listener error:", err);
+      }
+    );
     return () => unsub();
   }, []);
 

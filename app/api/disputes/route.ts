@@ -34,6 +34,10 @@ export async function POST(req: NextRequest) {
     const { action } = body;
 
     if (action === "refund") {
+      if (!isAdminEmail(decodedToken.email)) {
+        return NextResponse.json({ error: "Admin only" }, { status: 403 });
+      }
+
       const { purchaseId, amount, reason } = body;
       if (!purchaseId) {
         return NextResponse.json({ error: "Missing purchase ID" }, { status: 400 });
@@ -44,8 +48,26 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Purchase not found" }, { status: 404 });
       }
       const purchaseData = purchaseDoc.data()!;
-      if (purchaseData.buyerEmail !== decodedToken.email && !isAdminEmail(decodedToken.email)) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+
+      const disputeStatus = String(purchaseData.disputeStatus || "");
+      if (!["open", "pending", "under_review"].includes(disputeStatus)) {
+        return NextResponse.json({ error: "No active dispute for this purchase" }, { status: 400 });
+      }
+
+      const openDisputes = await db.collection("disputes")
+        .where("purchaseId", "==", purchaseId)
+        .limit(5)
+        .get();
+      const hasOpenDispute = openDisputes.docs.some((d) => {
+        const status = String(d.data().status || "");
+        return status === "open" || status === "under_review";
+      });
+      if (!hasOpenDispute) {
+        return NextResponse.json({ error: "No open dispute record found" }, { status: 400 });
+      }
+
+      if (purchaseData.status === "refunded") {
+        return NextResponse.json({ error: "Purchase already refunded" }, { status: 400 });
       }
 
       const piId = purchaseData.stripePaymentIntentId;

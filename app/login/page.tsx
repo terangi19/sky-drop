@@ -373,7 +373,7 @@ export default function AuthPage() {
               >
                 {loading ? "Loading…" : isLogin ? "Login" : "Create account"}
               </button>
-              {isLogin && (
+              {isLogin && process.env.NODE_ENV === "development" && (
                 <button
                   type="button"
                   onClick={async () => {

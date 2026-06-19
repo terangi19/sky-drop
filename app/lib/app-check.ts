@@ -39,7 +39,7 @@ export function initAppCheck(): AppCheck | null {
     isTokenAutoRefreshEnabled: true,
   });
 
-  console.log("[app-check] reCAPTCHA v3 App Check initialized");
+  if (process.env.NODE_ENV !== "production") console.log("[app-check] reCAPTCHA v3 App Check initialized");
   return appCheckInstance;
 }
 

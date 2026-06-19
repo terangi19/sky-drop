@@ -302,11 +302,27 @@ export default function ListingPage() {
 
     safeGetDoc(docRef).then((snap) => {
       if (!snap?.exists() || !mounted) return;
-      const sellerEmail = snap.data().sellerEmail as string | undefined;
+      const listingData = snap.data();
+      const sellerId = listingData.sellerId as string | undefined;
+      const sellerEmail = listingData.sellerEmail as string | undefined;
+
+      if (sellerId) {
+        getDoc(doc(db, "profiles", sellerId))
+          .then((profileSnap) => {
+            if (profileSnap.exists() && mounted) {
+              setSellerProfile(profileSnap.data() as SellerProfile);
+            }
+          })
+          .catch((e) => console.error("Failed to fetch seller profile:", e));
+      } else if (sellerEmail && auth.currentUser) {
+        getDocs(query(collection(db, "profiles"), where("email", "==", sellerEmail)))
+          .then((profileSnap) => {
+            if (!profileSnap.empty && mounted) setSellerProfile(profileSnap.docs[0].data() as SellerProfile);
+          })
+          .catch((e) => console.error("Failed to fetch seller profile:", e));
+      }
+
       if (!sellerEmail) return;
-      getDocs(query(collection(db, "profiles"), where("email", "==", sellerEmail))).then((profileSnap) => {
-        if (!profileSnap.empty && mounted) setSellerProfile(profileSnap.docs[0].data() as SellerProfile);
-      }).catch((e) => console.error("Failed to fetch seller profile:", e));
       getDocs(query(collection(db, "reports"), where("reportedUserEmail", "==", sellerEmail), where("status", "==", "pending"))).then((reportsSnap) => {
         if (mounted) setSellerReportsCount(reportsSnap.size);
       }).catch((e) => console.error("Failed to fetch reports:", e));

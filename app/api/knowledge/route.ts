@@ -5,13 +5,13 @@ import { parseIpFromRequest } from "../../lib/geo-check";
 import { KNOWLEDGE_CATEGORIES, matchKnowledge, type KnowledgeDoc, SEED_KNOWLEDGE } from "../../lib/knowledge-base";
 import { rateLimit } from "../../lib/rate-limit";
 import { DEFAULT_MAX_JSON_BYTES, isContentLengthOverLimit, payloadTooLargeResponse } from "../../lib/request-body";
+import { getFirestore } from "firebase-admin/firestore";
+import { getApps } from "firebase-admin/app";
 
 const DB_COLLECTION = "knowledge";
 const MAX_KNOWLEDGE_DOCS = 200;
 
 function getDb() {
-  const { getFirestore } = require("firebase-admin/firestore");
-  const { getApps } = require("firebase-admin/app");
   const admin = getApps()[0];
   if (!admin) return null;
   return getFirestore(admin);

@@ -65,7 +65,7 @@ export function registerAccount(uid: string, ip: string, deviceHash?: string) {
   if (deviceHash) node.deviceHashes.add(deviceHash);
 
   if (ipNode.accountCount >= SUSPICIOUS_ACCOUNTS_PER_IP) {
-    console.log(`${GRAPH_LOG} suspicious IP cluster: ${ip} → ${ipNode.accountCount} accounts`);
+    if (process.env.NODE_ENV !== "production") console.warn(`${GRAPH_LOG} suspicious IP cluster: ${ip} → ${ipNode.accountCount} accounts`);
   }
 }
 

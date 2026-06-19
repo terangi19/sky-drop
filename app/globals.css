@@ -145,6 +145,161 @@ body {
 :root.light .awhina-panel .text-white {
   color: #ffffff !important;
 }
+
+/* Āwhina chat — dark surface + light copy in all themes (fixes light-mode global text flips) */
+.awhina-chat {
+  --awhina-chat-bg: rgba(8, 10, 16, 0.98);
+  --awhina-chat-surface: rgba(6, 8, 12, 0.92);
+  --awhina-chat-text: #f4f4f5;
+  --awhina-chat-text-muted: #d4d4d8;
+  --awhina-chat-text-subtle: #a1a1aa;
+  --awhina-chat-accent: #7dd3fc;
+  --awhina-chat-accent-strong: #38bdf8;
+  --awhina-chat-accent-muted: rgba(125, 211, 252, 0.85);
+  --awhina-chat-input-bg: rgba(255, 255, 255, 0.05);
+  --awhina-chat-input-border: rgba(14, 165, 233, 0.22);
+  --awhina-chat-placeholder: #9ca3af;
+  --awhina-chat-chip-bg: rgba(14, 165, 233, 0.12);
+  --awhina-chat-assistant-bg: rgba(14, 165, 233, 0.06);
+  --awhina-chat-user-bg: rgba(14, 165, 233, 0.22);
+  --awhina-chat-history-bg: rgba(0, 0, 0, 0.22);
+  color: var(--awhina-chat-text);
+}
+
+.awhina-chat-history-bg {
+  background-color: var(--awhina-chat-history-bg);
+}
+
+:root.light .awhina-chat {
+  --awhina-chat-bg: rgba(10, 22, 40, 0.98);
+  --awhina-chat-surface: rgba(8, 18, 34, 0.96);
+  --awhina-chat-placeholder: #94a3b8;
+  background-color: var(--awhina-chat-bg) !important;
+  border-color: rgba(14, 165, 233, 0.35) !important;
+}
+
+.awhina-chat-shell {
+  background-color: var(--awhina-chat-bg);
+}
+
+.awhina-chat-surface {
+  background-color: var(--awhina-chat-surface);
+}
+
+.awhina-chat-listing-preview {
+  background: linear-gradient(to bottom, rgba(16, 185, 129, 0.08), rgba(10, 22, 40, 0.95)) !important;
+}
+
+:root.light .awhina-chat .text-white,
+:root.light .awhina-chat .text-zinc-100,
+:root.light .awhina-chat .text-zinc-200,
+:root.light .awhina-chat .text-zinc-300,
+:root.light .awhina-chat .text-sky-50,
+:root.light .awhina-chat .text-always-white,
+:root.light .awhina-chat .text-always-white\/90 {
+  color: var(--awhina-chat-text) !important;
+}
+
+:root.light .awhina-chat .text-always-white\/90 {
+  color: rgba(244, 244, 245, 0.92) !important;
+}
+
+:root.light .awhina-chat .text-zinc-400,
+:root.light .awhina-chat .text-zinc-500,
+:root.light .awhina-chat .text-zinc-600,
+:root.light .awhina-chat .text-zinc-700 {
+  color: var(--awhina-chat-text-subtle) !important;
+}
+
+:root.light .awhina-chat .text-sky-200,
+:root.light .awhina-chat .text-sky-300,
+:root.light .awhina-chat .text-sky-400,
+:root.light .awhina-chat .text-sky-500,
+:root.light .awhina-chat .text-sky-500\/70 {
+  color: var(--awhina-chat-accent) !important;
+}
+
+:root.light .awhina-chat .text-sky-400\/80,
+:root.light .awhina-chat .text-sky-400\/90,
+:root.light .awhina-chat .text-sky-300\/70,
+:root.light .awhina-chat .text-sky-200\/90 {
+  color: var(--awhina-chat-accent-muted) !important;
+}
+
+:root.light .awhina-chat .hover\:text-white:hover,
+:root.light .awhina-chat .hover\:text-zinc-200:hover {
+  color: var(--awhina-chat-text) !important;
+}
+
+:root.light .awhina-chat textarea,
+:root.light .awhina-chat input[type="text"] {
+  color: var(--awhina-chat-text) !important;
+  background-color: var(--awhina-chat-input-bg) !important;
+  border-color: var(--awhina-chat-input-border) !important;
+}
+
+:root.light .awhina-chat textarea::placeholder,
+:root.light .awhina-chat input::placeholder {
+  color: var(--awhina-chat-placeholder) !important;
+  opacity: 1 !important;
+}
+
+:root.light .awhina-chat .bg-zinc-950,
+:root.light .awhina-chat .bg-zinc-950\/50,
+:root.light .awhina-chat .bg-zinc-950\/80,
+:root.light .awhina-chat .bg-zinc-800,
+:root.light .awhina-chat .bg-black\/20,
+:root.light .awhina-chat .bg-black\/25,
+:root.light .awhina-chat .bg-white\/\[0\.02\],
+:root.light .awhina-chat .bg-white\/\[0\.03\],
+:root.light .awhina-chat .bg-white\/\[0\.04\],
+:root.light .awhina-chat .bg-white\/\[0\.05\],
+:root.light .awhina-chat .bg-white\/\[0\.06\],
+:root.light .awhina-chat .bg-white\/\[0\.08\],
+:root.light .awhina-chat .bg-white\/\[0\.10\] {
+  background-color: var(--awhina-chat-input-bg) !important;
+}
+
+:root.light .awhina-chat .bg-sky-500\/\[0\.04\],
+:root.light .awhina-chat .bg-sky-500\/\[0\.05\],
+:root.light .awhina-chat .bg-sky-500\/\[0\.06\],
+:root.light .awhina-chat .bg-sky-500\/10,
+:root.light .awhina-chat .bg-sky-500\/15,
+:root.light .awhina-chat .bg-sky-500\/20,
+:root.light .awhina-chat .bg-sky-500\/25 {
+  background-color: var(--awhina-chat-chip-bg) !important;
+}
+
+:root.light .awhina-chat .from-sky-500\/25,
+:root.light .awhina-chat .to-sky-600\/15 {
+  background-image: linear-gradient(to bottom right, rgba(14, 165, 233, 0.28), rgba(2, 132, 199, 0.18)) !important;
+}
+
+:root.light .awhina-chat .border-white\/\[0\.04\],
+:root.light .awhina-chat .border-white\/\[0\.05\],
+:root.light .awhina-chat .border-white\/\[0\.06\],
+:root.light .awhina-chat .border-white\/\[0\.08\],
+:root.light .awhina-chat .border-white\/\[0\.10\],
+:root.light .awhina-chat .border-white\/\[0\.12\] {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+:root.light .awhina-chat .from-sky-500.to-sky-500,
+:root.light .awhina-chat .from-sky-500.to-sky-400,
+:root.light .awhina-chat .from-emerald-500.to-emerald-600 {
+  color: #ffffff !important;
+}
+
+:root.light .awhina-chat .from-emerald-500.to-emerald-600 .text-always-white {
+  color: #ffffff !important;
+}
+
+:root.light .awhina-chat-fab-tooltip {
+  background-color: rgba(10, 22, 40, 0.96) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
+}
+
 :root.light .text-white\/95 { color: #000000 !important; }
 :root.light header .text-white\/95 { color: #ffffff !important; }
 :root.light .text-white\/90 { color: #000000 !important; }

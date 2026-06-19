@@ -1,18 +1,28 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getMetrics } from "../../lib/security-metrics";
 import { runIntegrityCheck } from "../../lib/runtime-integrity-check";
 import { isAdminInitialized, getAdminDb } from "../../lib/firebase-admin";
+import { AdminAuthError, requireAdminFromRequest } from "../../lib/admin-request";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  // Basic server check — no auth required for health
+export async function GET(req: NextRequest) {
   const integrity = await runIntegrityCheck();
 
-  // Metrics are always available (in-memory)
+  try {
+    await requireAdminFromRequest(req);
+  } catch (err) {
+    if (err instanceof AdminAuthError) {
+      return NextResponse.json({
+        ok: integrity.overall !== "UNSAFE",
+        status: integrity.overall || "HEALTHY",
+      });
+    }
+    throw err;
+  }
+
   const metrics = getMetrics();
 
-  // Firestore data (requires Admin SDK)
   let recentDecisions: unknown[] = [];
   let recentSecurityEvents: unknown[] = [];
 
@@ -23,8 +33,8 @@ export async function GET() {
         db.collection("abuse_decision_log").orderBy("timestamp", "desc").limit(50).get(),
         db.collection("securityEvents").orderBy("timestamp", "desc").limit(50).get(),
       ]);
-      recentDecisions = decisionSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      recentSecurityEvents = eventSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      recentDecisions = decisionSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      recentSecurityEvents = eventSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
     } catch {}
   }
 

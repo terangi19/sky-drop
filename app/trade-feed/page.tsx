@@ -11,6 +11,7 @@ import PromoteModal from "../components/PromoteModal";
 import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from "firebase/firestore";
 import { User } from "firebase/auth";
 import { auth, db, storage, onAuthStateChanged } from "../lib/firebase";
+import { fetchSellerProfilesByListing } from "../lib/fetch-seller-profiles";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { checkImage } from "../lib/nsfw";
 import { showToast } from "../components/Toast";
@@ -204,20 +205,21 @@ export default function TradeFeedPage() {
 
   // Fetch seller profile badges (legendary/epic)
   useEffect(() => {
-    const uniqueEmails = [...new Set(posts.map((p: any) => p.sellerEmail).filter(Boolean))] as string[];
-    if (uniqueEmails.length === 0) return;
+    if (posts.length === 0) return;
     const fetchBadges = async () => {
       const badges: Record<string, string> = {};
-      for (let i = 0; i < uniqueEmails.length; i += 10) {
-        const chunk = uniqueEmails.slice(i, i + 10);
-        try {
-          const snap = await getDocs(query(collection(db, "profiles"), where("email", "in", chunk)));
-          snap.docs.forEach((d) => {
-            const data = d.data();
-            const email = data.email as string;
-            if (data.profileBadge) badges[email] = data.profileBadge as string;
-          });
-        } catch (e) { console.error("Badge fetch error:", e); }
+      try {
+        const profiles = await fetchSellerProfilesByListing(
+          posts.map((p: { sellerEmail?: string; sellerId?: string }) => ({
+            sellerEmail: p.sellerEmail,
+            sellerId: p.sellerId,
+          }))
+        );
+        profiles.forEach((data, email) => {
+          if (data.profileBadge) badges[email] = data.profileBadge as string;
+        });
+      } catch {
+        /* optional */
       }
       setSellerBadges(badges);
     };
@@ -436,6 +438,7 @@ export default function TradeFeedPage() {
 
   async function addReply(postId: string, text: string) {
     if (!text.trim() || !user?.email) return;
+    const tradePost = posts.find((p: { id?: string }) => p.id === postId);
     try {
       const token = await user.getIdToken();
       await fetch("/api/manage-trade-post", {
@@ -445,16 +448,16 @@ export default function TradeFeedPage() {
       });
       await createNotification({
         type: "message",
-        targetEmail: post?.sellerEmail || "",
+        targetEmail: tradePost?.sellerEmail || "",
         fromEmail: user.email,
         title: "New reply on your trade",
         message: `${username || user.email?.split("@")[0] || "Someone"}: ${text.trim().slice(0, 100)}`,
         listingId: postId,
-        listingTitle: post?.title || "a trade",
+        listingTitle: tradePost?.title || "a trade",
       }).catch((err) => console.error("Failed to add notification:", err));
       setReplyTexts((prev) => ({ ...prev, [postId]: "" }));
       const id = ++eventId.current;
-      setLiveEvents((prev) => [{ id, icon: "💬", text: `New reply on ${post?.title || "a trade"}` }, ...prev].slice(0, 20));
+      setLiveEvents((prev) => [{ id, icon: "💬", text: `New reply on ${tradePost?.title || "a trade"}` }, ...prev].slice(0, 20));
       setTimeout(() => setLiveEvents((prev) => prev.filter((e) => e.id !== id)), 8000);
     } catch (e) { console.error(e); }
   }

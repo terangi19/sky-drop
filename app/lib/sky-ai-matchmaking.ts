@@ -188,12 +188,12 @@ export async function runMatchmaking(listing: MatchmakingListing): Promise<void>
   const keywords = extractKeywords(listing);
   if (keywords.length === 0) return;
 
-  console.log(`[matchmaking] Listing ${listing.id} (${listing.type}): keywords=${keywords.join(", ")}`);
+  if (process.env.NODE_ENV !== "production") console.warn(`[matchmaking] Listing ${listing.id} (${listing.type}): keywords=${keywords.join(", ")}`);
 
   if (listing.type === "wanted") {
     // Wanted → find matching active listings
     const matches = await searchMatchingListings(keywords, listing.sellerEmail);
-    console.log(`[matchmaking] Found ${matches.length} matching listings for wanted post ${listing.id}`);
+    if (process.env.NODE_ENV !== "production") console.warn(`[matchmaking] Found ${matches.length} matching listings for wanted post ${listing.id}`);
 
     for (const match of matches) {
       await sendMatchNotification({
@@ -218,7 +218,7 @@ export async function runMatchmaking(listing: MatchmakingListing): Promise<void>
   } else {
     // Regular listing → find matching wanted posts
     const matches = await searchMatchingWanted(keywords, listing.sellerEmail);
-    console.log(`[matchmaking] Found ${matches.length} matching wanted posts for listing ${listing.id}`);
+    if (process.env.NODE_ENV !== "production") console.warn(`[matchmaking] Found ${matches.length} matching wanted posts for listing ${listing.id}`);
 
     for (const match of matches) {
       await sendMatchNotification({

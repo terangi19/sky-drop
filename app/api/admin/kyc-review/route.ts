@@ -3,6 +3,7 @@ import { getAdminDb, isAdminInitialized } from "../../../lib/firebase-admin";
 import { AdminAuthError, requireAdminFromRequest } from "../../../lib/admin-request";
 import { writeAuditLog } from "../../../lib/admin-utils";
 import { verifiedFlagAfterUpdate } from "../../../lib/seller-verified";
+import { sendEmail as sendEmailTransport } from "../../../lib/email-transport";
 
 type KycReviewAction = "approve" | "reject" | "revoke";
 
@@ -80,8 +81,7 @@ Ngā mihi,<br>The Sky Drop Team<br>
 </div>`;
 
 function sendEmail(to: string, subject: string, html: string) {
-  const { sendEmail: send } = require("../../../lib/email-transport");
-  return send({ to, subject, html }).catch((err: any) =>
+  return sendEmailTransport({ to, subject, html }).catch((err: any) =>
     console.error("[kyc-review] Email send failed:", err)
   );
 }

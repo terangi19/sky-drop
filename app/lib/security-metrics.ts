@@ -31,7 +31,7 @@ const routeCounters = new Map<string, RouteCounter>();
 const requestHistory: MetricWindow[] = [];
 const decisionOutcomes = new Map<string, number>(); // verdict → count
 const topIps = new Map<string, { count: number; lastSeen: number; blocked: number }>();
-const topUsers = new Map<string, { uid: string; email?: string; count: number; blocked: number }>();
+const topUsers = new Map<string, { uid: string; email?: string; count: number; blocked: number; lastSeen: number }>();
 const windowStart = Date.now();
 
 const WINDOW_MS = 900_000; // 15 min rolling window
@@ -71,8 +71,9 @@ export function recordRequest(
   // Top users
   if (uid) {
     let uEntry = topUsers.get(uid);
-    if (!uEntry) { uEntry = { uid, email, count: 0, blocked: 0 }; topUsers.set(uid, uEntry); }
+    if (!uEntry) { uEntry = { uid, email, count: 0, blocked: 0, lastSeen: now }; topUsers.set(uid, uEntry); }
     uEntry.count++;
+    uEntry.lastSeen = now;
     if (verdict === "block") uEntry.blocked++;
   }
 

@@ -80,6 +80,25 @@ interface ProfileData {
   notifWatchlist?: boolean;
   notifOffers?: boolean;
   notifPriceDrop?: boolean;
+  notifOffersTrades?: boolean;
+  notifMessageRequests?: boolean;
+  notifListingActivity?: boolean;
+  notifListingReplies?: boolean;
+  notifReactions?: boolean;
+  notifMentions?: boolean;
+  notifDisputes?: boolean;
+  notifReports?: boolean;
+  notifAccountReview?: boolean;
+  notifPurchases?: boolean;
+  notifEscrow?: boolean;
+  notifRefunds?: boolean;
+  notifSecurity?: boolean;
+  notifPlatform?: boolean;
+  notifIntensity?: string;
+  notifQuietHours?: boolean;
+  notifQuietHoursStart?: string;
+  notifQuietHoursEnd?: string;
+  notifDigest?: boolean;
   memberSince?: Timestamp;
   lastActive?: Timestamp;
   verified?: boolean;
@@ -162,6 +181,25 @@ export default function ProfilePage() {
   const [notifWatchlist, setNotifWatchlist] = useState(true);
   const [notifOffers, setNotifOffers] = useState(true);
   const [notifPriceDrop, setNotifPriceDrop] = useState(false);
+  const [notifOffersTrades, setNotifOffersTrades] = useState(true);
+  const [notifMessageRequests, setNotifMessageRequests] = useState(true);
+  const [notifListingActivity, setNotifListingActivity] = useState(true);
+  const [notifListingReplies, setNotifListingReplies] = useState(true);
+  const [notifReactions, setNotifReactions] = useState(true);
+  const [notifMentions, setNotifMentions] = useState(false);
+  const [notifDisputes, setNotifDisputes] = useState(true);
+  const [notifReports, setNotifReports] = useState(true);
+  const [notifAccountReview, setNotifAccountReview] = useState(true);
+  const [notifPurchases, setNotifPurchases] = useState(true);
+  const [notifEscrow, setNotifEscrow] = useState(true);
+  const [notifRefunds, setNotifRefunds] = useState(true);
+  const [notifSecurity, setNotifSecurity] = useState(true);
+  const [notifPlatform, setNotifPlatform] = useState(true);
+  const [notifIntensity, setNotifIntensity] = useState("balanced");
+  const [notifQuietHours, setNotifQuietHours] = useState(false);
+  const [notifQuietHoursStart, setNotifQuietHoursStart] = useState("22:00");
+  const [notifQuietHoursEnd, setNotifQuietHoursEnd] = useState("08:00");
+  const [notifDigest, setNotifDigest] = useState(false);
 
   const [listings, setListings] = useState<Listing[]>([]);
   const [listingsLoading, setListingsLoading] = useState(true);
@@ -241,6 +279,25 @@ const tabs = [
     setNotifWatchlist(data.notifWatchlist !== false);
     setNotifOffers(data.notifOffers !== false);
     setNotifPriceDrop(data.notifPriceDrop || false);
+    setNotifOffersTrades(data.notifOffersTrades !== false);
+    setNotifMessageRequests(data.notifMessageRequests !== false);
+    setNotifListingActivity(data.notifListingActivity !== false);
+    setNotifListingReplies(data.notifListingReplies !== false);
+    setNotifReactions(data.notifReactions !== false);
+    setNotifMentions(data.notifMentions || false);
+    setNotifDisputes(data.notifDisputes !== false);
+    setNotifReports(data.notifReports !== false);
+    setNotifAccountReview(data.notifAccountReview !== false);
+    setNotifPurchases(data.notifPurchases !== false);
+    setNotifEscrow(data.notifEscrow !== false);
+    setNotifRefunds(data.notifRefunds !== false);
+    setNotifSecurity(data.notifSecurity !== false);
+    setNotifPlatform(data.notifPlatform !== false);
+    setNotifIntensity(data.notifIntensity || "balanced");
+    setNotifQuietHours(data.notifQuietHours || false);
+    setNotifQuietHoursStart(data.notifQuietHoursStart || "22:00");
+    setNotifQuietHoursEnd(data.notifQuietHoursEnd || "08:00");
+    setNotifDigest(data.notifDigest || false);
     setPhone(data.phone || data.phoneNumber || "");
     setPhoneVerified(!!data.phoneVerified);
     setStripeAccountId(data.stripeAccountId || "");
@@ -670,6 +727,25 @@ const tabs = [
         notifWatchlist,
         notifOffers,
         notifPriceDrop,
+        notifOffersTrades,
+        notifMessageRequests,
+        notifListingActivity,
+        notifListingReplies,
+        notifReactions,
+        notifMentions,
+        notifDisputes,
+        notifReports,
+        notifAccountReview,
+        notifPurchases,
+        notifEscrow,
+        notifRefunds,
+        notifSecurity,
+        notifPlatform,
+        notifIntensity,
+        notifQuietHours,
+        notifQuietHoursStart,
+        notifQuietHoursEnd,
+        notifDigest,
         bankAccountName: bankAccountName.trim(),
         bankAccountNumber: bankAccountNumber.trim(),
         bankReference: bankReference.trim(),
@@ -791,13 +867,13 @@ const tabs = [
       console.warn("[profile] handleSendPhoneCode — blocked", { user: !!user, phone: !!phone, sendingPhone, phoneCooldown });
       return;
     }
-    console.log("[profile] handleSendPhoneCode — user click", { phone });
+    if (process.env.NODE_ENV !== "production") console.log("[profile] handleSendPhoneCode — user click", { phone });
     setSendingPhone(true);
     setPhoneMsg("Sending code...");
     setPhoneCode("");
     try {
       const result = await sendPhoneCode(phone);
-      console.log("[profile] sendPhoneCode result", result);
+      if (process.env.NODE_ENV !== "production") console.log("[profile] sendPhoneCode result", result);
       if (result.sent) {
         setPhoneSent(true);
         setPhoneMsg(
@@ -969,6 +1045,15 @@ const tabs = [
       window.location.href = data.url;
     } catch (e) { console.error(e); showToast("Failed to open Stripe onboarding", "error"); }
   }
+
+  // Notification toggle components
+  const ToggleRow = ({ label, val, set }: { label: string; val: boolean; set: (v: boolean) => void }) => (
+    <label className="flex cursor-pointer items-center justify-between gap-4 py-2.5 text-sm first:pt-0 last:pb-0 hover:bg-white/[0.02]">
+      <span className="text-zinc-300">{label}</span>
+      <input type="checkbox" checked={val} onChange={(e) => set(e.target.checked)}
+        className="h-4 w-4 shrink-0 rounded border-zinc-600 bg-zinc-800 text-sky-500 focus:ring-sky-500/30" />
+    </label>
+  );
 
   const initial = (contextUsername || username || "U").charAt(0).toUpperCase();
   const memberDate = profile.memberSince?.toDate().toLocaleDateString("en-NZ", { year: "numeric", month: "short" }) || "2026";
@@ -1382,9 +1467,98 @@ const tabs = [
 
           {activeTab === "settings" && (
             <div className={settingsSection}>
-              <h2 className="mb-1 text-base font-bold text-white">Settings</h2>
-              <p className="mb-5 text-sm text-zinc-500">Account and notification settings.</p>
-              <p className="text-sm text-zinc-600">Manage your notifications in <Link href="/notifications" className="text-sky-400 hover:underline">notification settings</Link>.</p>
+              <div className="mb-5 flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-white">Settings</h2>
+                  <p className="mt-0.5 text-sm text-zinc-500">Notification preferences and controls.</p>
+                </div>
+                <button onClick={() => saveProfile()} disabled={!!saving}
+                  className="rounded-xl bg-sky-500 px-4 py-2 text-xs font-bold text-white transition hover:bg-sky-400 active:scale-[0.97]">
+                  {saving ? "Saving..." : "Save changes"}
+                </button>
+              </div>
+
+              {/* Notification Groups */}
+              <div className="space-y-4">
+
+                {/* 1. Messages */}
+                <div className="rounded-xl border border-white/[0.04] bg-white/[0.02] p-4">
+                  <h3 className="mb-3 text-sm font-semibold text-white">Messages</h3>
+                  <div className="divide-y divide-white/[0.04]">
+                    <ToggleRow label="New messages" val={notifMessages} set={setNotifMessages} />
+                    <ToggleRow label="Offers &amp; trades" val={notifOffersTrades} set={setNotifOffersTrades} />
+                    <ToggleRow label="Message requests" val={notifMessageRequests} set={setNotifMessageRequests} />
+                  </div>
+                </div>
+
+                {/* 2. Marketplace */}
+                <div className="rounded-xl border border-white/[0.04] bg-white/[0.02] p-4">
+                  <h3 className="mb-3 text-sm font-semibold text-white">Marketplace</h3>
+                  <div className="divide-y divide-white/[0.04]">
+                    <ToggleRow label="Listing activity (views, offers, sales)" val={notifListingActivity} set={setNotifListingActivity} />
+                    <ToggleRow label="Replies to my listings" val={notifListingReplies} set={setNotifListingReplies} />
+                  </div>
+                </div>
+
+                {/* 3. Social */}
+                <div className="rounded-xl border border-white/[0.04] bg-white/[0.02] p-4">
+                  <h3 className="mb-3 text-sm font-semibold text-white">Social / Trade Feed</h3>
+                  <div className="divide-y divide-white/[0.04]">
+                    <ToggleRow label="Reactions, follows, comments" val={notifReactions} set={setNotifReactions} />
+                    <ToggleRow label="Mentions" val={notifMentions} set={setNotifMentions} />
+                  </div>
+                </div>
+
+                {/* 4. System */}
+                <div className="rounded-xl border border-white/[0.04] bg-white/[0.02] p-4">
+                  <h3 className="mb-3 text-sm font-semibold text-white">System</h3>
+                  <div className="divide-y divide-white/[0.04]">
+                    <ToggleRow label="Security alerts" val={notifSecurity} set={setNotifSecurity} />
+                    <ToggleRow label="Platform updates" val={notifPlatform} set={setNotifPlatform} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Controls */}
+              <div className="mt-6 space-y-4">
+                <div className="rounded-xl border border-white/[0.04] bg-white/[0.02] p-4">
+                  <h3 className="mb-3 text-sm font-semibold text-white">Notification intensity</h3>
+                  <div className="flex gap-2">
+                    {["minimal", "balanced", "active"].map((level) => (
+                      <button key={level} onClick={() => setNotifIntensity(level)}
+                        className={`flex-1 rounded-lg py-2 text-xs font-medium transition ${
+                          notifIntensity === level
+                            ? "bg-sky-500 text-white"
+                            : "bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08]"
+                        }`}>
+                        {level.charAt(0).toUpperCase() + level.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-white/[0.04] bg-white/[0.02] p-4">
+                  <ToggleRow label="Quiet hours (mute non-critical)" val={notifQuietHours} set={setNotifQuietHours} />
+                  {notifQuietHours && (
+                    <div className="mt-3 flex gap-3">
+                      <div className="flex-1">
+                        <label className="mb-1 block text-xs text-zinc-500">From</label>
+                        <input type="time" value={notifQuietHoursStart} onChange={(e) => setNotifQuietHoursStart(e.target.value)}
+                          className="w-full rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-sm text-zinc-300" />
+                      </div>
+                      <div className="flex-1">
+                        <label className="mb-1 block text-xs text-zinc-500">To</label>
+                        <input type="time" value={notifQuietHoursEnd} onChange={(e) => setNotifQuietHoursEnd(e.target.value)}
+                          className="w-full rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-sm text-zinc-300" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-xl border border-white/[0.04] bg-white/[0.02] p-4">
+                  <ToggleRow label="Daily digest (summary email)" val={notifDigest} set={setNotifDigest} />
+                </div>
+              </div>
             </div>
           )}
 

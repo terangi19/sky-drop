@@ -3,10 +3,13 @@
 import { useEffect, useState } from "react";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "./firebase";
+import { fetchSellerProfilesByListing } from "./fetch-seller-profiles";
 import { isFullyVerifiedSeller } from "./seller-verified";
 
 /** Seller review averages and profile badges for listing cards. */
-export function useSellerListingMeta(listings: { sellerEmail?: string }[]) {
+export function useSellerListingMeta(
+  listings: { sellerEmail?: string; sellerId?: string }[]
+) {
   const [sellerReviewStats, setSellerReviewStats] = useState<
     Record<string, { avg: number; count: number }>
   >({});
@@ -65,31 +68,21 @@ export function useSellerListingMeta(listings: { sellerEmail?: string }[]) {
     let cancelled = false;
 
     (async () => {
-      const uniqueEmails = [
-        ...new Set(listings.map((l) => l.sellerEmail).filter(Boolean)),
-      ] as string[];
-      if (uniqueEmails.length === 0 || cancelled) return;
+      if (cancelled) return;
 
       const badges: Record<string, string> = {};
       const handles: Record<string, string> = {};
       const verifiedMap: Record<string, boolean> = {};
-      for (let i = 0; i < uniqueEmails.length; i += 10) {
-        const chunk = uniqueEmails.slice(i, i + 10);
-        try {
-          const snap = await getDocs(
-            query(collection(db, "profiles"), where("email", "in", chunk))
-          );
-          if (cancelled) return;
-          snap.docs.forEach((d) => {
-            const data = d.data();
-            const email = data.email as string;
-            if (data.profileBadge) badges[email] = data.profileBadge as string;
-            if (data.username) handles[email] = data.username as string;
-            if (isFullyVerifiedSeller(data)) verifiedMap[email] = true;
-          });
-        } catch (e) {
-          console.error("Badge fetch error:", e);
-        }
+      try {
+        const profiles = await fetchSellerProfilesByListing(listings);
+        if (cancelled) return;
+        profiles.forEach((data, email) => {
+          if (data.profileBadge) badges[email] = data.profileBadge as string;
+          if (data.username) handles[email] = data.username as string;
+          if (isFullyVerifiedSeller(data)) verifiedMap[email] = true;
+        });
+      } catch {
+        /* badges are optional — skip on permission/offline errors */
       }
       if (!cancelled) setSellerBadges(badges);
       if (!cancelled) setSellerHandles(handles);

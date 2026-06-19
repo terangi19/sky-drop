@@ -39,7 +39,7 @@ function DraftCheckItem({ done, label }: { done: boolean; label: string }) {
       className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
         done
           ? "border-sky-500/25 bg-sky-500/10 text-sky-300"
-          : "border-white/[0.06] bg-white/[0.02] text-zinc-500"
+          : "border-white/[0.06] bg-white/[0.02] text-zinc-500 awhina-chat-muted"
       }`}
     >
       <span className={done ? "text-sky-400" : "text-zinc-600"}>{done ? "✓" : "○"}</span>
@@ -198,7 +198,7 @@ export default function AwhinaProfileAssistant({ draft, onApplyFill, className =
 
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border border-sky-500/20 bg-zinc-950/50 shadow-[0_12px_40px_rgba(14,165,233,0.08)] backdrop-blur-2xl ${className}`}
+      className={`awhina-chat awhina-chat-shell relative overflow-hidden rounded-2xl border border-sky-500/20 shadow-[0_12px_40px_rgba(14,165,233,0.08)] backdrop-blur-2xl ${className}`}
     >
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/40 to-transparent" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(56,189,248,0.12),transparent_60%)]" />
@@ -208,10 +208,10 @@ export default function AwhinaProfileAssistant({ draft, onApplyFill, className =
           <AwhinaAvatar speaking={busy} size="md" />
           <div className="min-w-0 flex-1">
             <AwhinaOnlineBadge />
-            <p className="mt-2 text-sm font-medium text-zinc-100">
+            <p className="mt-2 text-sm font-medium text-always-white">
               Talk to {AWHINA_NAME} — I&apos;ll fill your profile as we go.
             </p>
-            <p className="mt-1 text-[12px] text-zinc-500">
+            <p className="mt-1 text-[12px] text-zinc-400">
               Tell me about yourself — I'll build your profile as we go.
             </p>
           </div>
@@ -219,13 +219,13 @@ export default function AwhinaProfileAssistant({ draft, onApplyFill, className =
 
         <div
           ref={scrollRef}
-          className="mt-4 max-h-44 space-y-2 overflow-y-auto rounded-xl border border-white/[0.05] bg-black/25 px-3 py-2.5 scrollbar-thin"
+          className="mt-4 max-h-44 space-y-2 overflow-y-auto rounded-xl border border-white/[0.05] awhina-chat-history-bg px-3 py-2.5 scrollbar-thin"
         >
           {messages.map((m) => (
             <div
               key={m.id}
               className={`text-[12px] leading-relaxed ${
-                m.role === "user" ? "text-right text-sky-200/90" : "text-zinc-300"
+                m.role === "user" ? "text-right text-sky-300" : "text-always-white/90"
               }`}
             >
               {m.role === "user" && (
@@ -297,12 +297,12 @@ export default function AwhinaProfileAssistant({ draft, onApplyFill, className =
             onChange={(e) => setInput(e.target.value)}
             disabled={busy}
             placeholder='e.g. "I sell cars in Auckland" or "Write my bio"'
-            className="min-w-0 flex-1 rounded-xl border border-sky-500/20 bg-white/[0.03] px-3 py-2.5 text-[13px] text-white outline-none placeholder:text-zinc-600 focus:border-sky-400/50"
+            className="min-w-0 flex-1 rounded-xl border border-sky-500/20 bg-white/[0.03] px-3 py-2.5 text-[13px] text-always-white outline-none placeholder:text-zinc-500 focus:border-sky-400/50"
           />
           <button
             type="submit"
             disabled={busy || !input.trim()}
-            className="shrink-0 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-4 py-2.5 text-xs font-bold text-white shadow-[0_0_20px_rgba(56,189,248,0.2)] transition hover:brightness-110 disabled:opacity-40"
+            className="shrink-0 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-4 py-2.5 text-xs font-bold text-always-white shadow-[0_0_20px_rgba(56,189,248,0.2)] transition hover:brightness-110 disabled:opacity-40"
           >
             Send
           </button>

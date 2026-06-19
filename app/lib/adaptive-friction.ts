@@ -216,8 +216,8 @@ export async function evaluateFriction(input: FrictionInput): Promise<FrictionDe
   const cp = shouldCaptcha(tier);
   const downgrade = shouldDowngrade(tier);
 
-  if (score >= 15) {
-    console.log(`${FRICTION_LOG_PREFIX} ${input.action} | ${key.slice(0, 16)}... | tier=${tier} score=${Math.round(score)} delay=${delayMs}ms captcha=${cp} downgrade=${downgrade}`);
+  if (score >= 15 && process.env.NODE_ENV !== "production") {
+    console.warn(`${FRICTION_LOG_PREFIX} ${input.action} | ${key.slice(0, 16)}... | tier=${tier} score=${Math.round(score)} delay=${delayMs}ms captcha=${cp} downgrade=${downgrade}`);
   }
 
   return { delayMs, captchaProbability: cp ? TIERS[tier].captchaChance : 0, downgrade, riskTier: tier };
@@ -230,7 +230,7 @@ export async function evaluateFriction(input: FrictionInput): Promise<FrictionDe
 export function recordViolation(uidOrIp: string) {
   const s = getOrCreateSignals(uidOrIp);
   s.violations++;
-  console.log(`${FRICTION_LOG_PREFIX} violation recorded for ${uidOrIp.slice(0, 16)}... (total: ${s.violations})`);
+  if (process.env.NODE_ENV !== "production") console.warn(`${FRICTION_LOG_PREFIX} violation recorded for ${uidOrIp.slice(0, 16)}... (total: ${s.violations})`);
 }
 
 /**

@@ -19,25 +19,32 @@ export default function LegendaryClaimNotification() {
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
-    const unsub = onSnapshot(doc(db, "config", "platform"), (snap) => {
-      if (!snap.exists()) return;
-      const data = snap.data();
-      const lastClaim = data.lastLegendaryClaim as LegendaryClaim | undefined;
-      if (!lastClaim) return;
+    const unsub = onSnapshot(
+      doc(db, "config", "platform"),
+      (snap) => {
+        if (!snap.exists()) return;
+        const data = snap.data();
+        const lastClaim = data.lastLegendaryClaim as LegendaryClaim | undefined;
+        if (!lastClaim) return;
 
-      const key = JSON.stringify(lastClaim);
-      if (key === prevRef.current) return;
-      prevRef.current = key;
+        const key = JSON.stringify(lastClaim);
+        if (key === prevRef.current) return;
+        prevRef.current = key;
 
-      timersRef.current.forEach(clearTimeout);
-      timersRef.current = [];
+        timersRef.current.forEach(clearTimeout);
+        timersRef.current = [];
 
-      setClaim(lastClaim);
-      setAnimState("entering");
-      timersRef.current.push(setTimeout(() => setAnimState("showing"), 800));
-      timersRef.current.push(setTimeout(() => setAnimState("exiting"), 7000));
-      timersRef.current.push(setTimeout(() => setAnimState("idle"), 7800));
-    });
+        setClaim(lastClaim);
+        setAnimState("entering");
+        timersRef.current.push(setTimeout(() => setAnimState("showing"), 800));
+        timersRef.current.push(setTimeout(() => setAnimState("exiting"), 7000));
+        timersRef.current.push(setTimeout(() => setAnimState("idle"), 7800));
+      },
+      (err) => {
+        const code = err && typeof err === "object" && "code" in err ? String((err as { code: string }).code) : "";
+        if (code !== "permission-denied") console.error("Legendary claim listener error:", err);
+      }
+    );
     return () => {
       unsub();
       timersRef.current.forEach(clearTimeout);

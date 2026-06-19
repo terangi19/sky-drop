@@ -251,7 +251,7 @@ export async function decide(input: DecisionInput): Promise<AbuseDecision> {
   const reason = score >= 15 ? `score=${Math.round(score)} flagged=${flagged}` : undefined;
 
   if (score >= 15 || verdict === "block") {
-    console.log(`${DECISION_LOG} ${input.action} | ${key.slice(0, 16)}... | verdict=${verdict} score=${Math.round(score)} delay=${delayMs}ms shadow=${shadowRank}`);
+    if (process.env.NODE_ENV !== "production") console.warn(`${DECISION_LOG} ${input.action} | ${key.slice(0, 16)}... | verdict=${verdict} score=${Math.round(score)} delay=${delayMs}ms shadow=${shadowRank}`);
   }
 
   // Audit log for all non-allow decisions

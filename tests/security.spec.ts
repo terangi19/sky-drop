@@ -90,6 +90,18 @@ test.describe("Security — Authentication & Authorization", () => {
     }
   });
 
+  test.describe("Public health endpoint does not leak security data", () => {
+    test("GET /api/security-health returns minimal payload without auth", async ({ request }) => {
+      const res = await apiGet(request, "/api/security-health");
+      expect(res.status()).toBe(200);
+      const json = await res.json();
+      expect(json.recentDecisions).toBeUndefined();
+      expect(json.recentSecurityEvents).toBeUndefined();
+      expect(json.metrics).toBeUndefined();
+      expect(typeof json.ok).toBe("boolean");
+    });
+  });
+
   test.describe("Admin-only API routes reject non-admin", () => {
     const adminRoutes = [
       { method: "POST", path: "/api/admin/verify", data: {} },

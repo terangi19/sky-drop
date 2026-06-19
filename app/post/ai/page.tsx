@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
-import ThemeToggle from "../../components/ThemeToggle";
 import { User } from "firebase/auth";
 import { doc, getDoc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -903,7 +902,6 @@ export default function AIPostPage() {
     <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <Background />
       <Navbar />
-      <ThemeToggle />
       {imagePreviews.length > 0 && <img ref={imgRef} src={imagePreviews[0]} style={{display:'none'}} />}
 
         <div className="relative z-10 mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-12">

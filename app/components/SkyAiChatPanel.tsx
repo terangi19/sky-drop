@@ -90,7 +90,7 @@ function renderText(text: string) {
   return parts.map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**")) {
       return (
-        <strong key={i} className="font-semibold text-zinc-100">
+        <strong key={i} className="font-semibold text-always-white">
           {part.slice(2, -2)}
         </strong>
       );
@@ -591,7 +591,7 @@ export default function SkyAiChatPanel({
           ✦
         </span>
         <div>
-          <p className="text-sm font-bold text-white">{isSheet ? AWHINA_ASK_LABEL : AWHINA_NAME}</p>
+          <p className="text-sm font-bold text-always-white">{isSheet ? AWHINA_ASK_LABEL : AWHINA_NAME}</p>
           <p className="text-[10px] text-sky-400/80">
             {openAiReady === false ? "Built-in guides · navigation" : "Listings · prices · safety"}
           </p>
@@ -618,7 +618,7 @@ export default function SkyAiChatPanel({
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:bg-white/[0.06] hover:text-white"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:bg-white/[0.06] hover:text-always-white"
           aria-label={`Close ${AWHINA_NAME}`}
         >
           ✕
@@ -630,7 +630,7 @@ export default function SkyAiChatPanel({
   const body = (
     <>
       {showHistory && user && (
-        <div className="max-h-36 overflow-y-auto border-b border-white/[0.06] bg-black/20 px-2 py-2 scrollbar-thin">
+        <div className="max-h-36 overflow-y-auto border-b border-white/[0.06] awhina-chat-history-bg px-2 py-2 scrollbar-thin">
           {conversations.length === 0 ? (
             <p className="px-2 py-2 text-[10px] text-zinc-500">No saved chats yet.</p>
           ) : (
@@ -642,7 +642,7 @@ export default function SkyAiChatPanel({
                 className={`mb-1 w-full rounded-lg px-2 py-2 text-left text-[11px] transition ${
                   conversationId === c.id
                     ? "bg-sky-500/15 text-sky-300"
-                    : "text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200"
+                    : "text-zinc-400 hover:bg-white/[0.04] hover:text-always-white"
                 }`}
               >
                 <span className="line-clamp-1 font-medium">{c.title}</span>
@@ -678,7 +678,7 @@ export default function SkyAiChatPanel({
                 className={`max-w-[92%] rounded-2xl px-3 py-2.5 text-[12px] leading-relaxed whitespace-pre-line ${
                   m.role === "user"
                     ? "bg-gradient-to-br from-sky-500/25 to-sky-600/15 text-sky-50 ring-1 ring-sky-500/20"
-                    : "border border-sky-500/15 bg-sky-500/[0.04] text-zinc-300 shadow-[0_0_24px_rgba(139,92,246,0.06)]"
+                    : "border border-sky-500/15 bg-sky-500/[0.04] text-always-white/90 shadow-[0_0_24px_rgba(139,92,246,0.06)]"
                 }`}
               >
                 {m.images && m.images.length > 0 && (
@@ -717,7 +717,7 @@ export default function SkyAiChatPanel({
       </div>
 
       {listingPreviewFill && (
-        <div className="mx-3 mb-3 overflow-hidden rounded-2xl border border-emerald-500/30 bg-gradient-to-b from-emerald-500/[0.07] to-zinc-950/80 shadow-[0_0_30px_rgba(16,185,129,0.08)] animate-fade-in-panel">
+        <div className="mx-3 mb-3 overflow-hidden rounded-2xl border border-emerald-500/30 awhina-chat-listing-preview shadow-[0_0_30px_rgba(16,185,129,0.08)] animate-fade-in-panel">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-2.5">
             <div className="flex items-center gap-2">
@@ -733,7 +733,7 @@ export default function SkyAiChatPanel({
 
           {/* Preview */}
           <div className="px-4 py-3 space-y-1.5">
-            <p className="text-sm font-bold text-white leading-snug">{listingPreviewFill.title || "Untitled Listing"}</p>
+            <p className="text-sm font-bold text-always-white leading-snug">{listingPreviewFill.title || "Untitled Listing"}</p>
             <div className="flex flex-wrap items-center gap-2">
               {listingPreviewFill.price && (
                 <span className="text-base font-black text-emerald-400">${listingPreviewFill.price}</span>
@@ -851,7 +851,7 @@ export default function SkyAiChatPanel({
               className="flex flex-col items-center gap-1 rounded-xl bg-gradient-to-b from-emerald-500 to-emerald-600 px-2 py-2.5 text-center shadow-lg shadow-emerald-500/20 transition hover:brightness-110 active:scale-[0.97] disabled:opacity-50"
             >
               <span className="text-base">{publishing ? "⏳" : "🚀"}</span>
-              <span className="text-[10px] font-bold text-white">{publishing ? "Publishing…" : "Publish"}</span>
+              <span className="text-[10px] font-bold text-always-white">{publishing ? "Publishing…" : "Publish"}</span>
             </button>
           </div>
 
@@ -874,7 +874,7 @@ export default function SkyAiChatPanel({
       }} />
 
       <div
-        className={`border-t border-sky-500/15 bg-[#06080c]/90 px-3 py-2 ${
+        className={`border-t border-sky-500/15 awhina-chat-surface px-3 py-2 ${
           isSheet ? "max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]" : "rounded-b-xl"
         }`}
       >
@@ -903,7 +903,7 @@ export default function SkyAiChatPanel({
                 <button
                   type="button"
                   onClick={() => setPendingImages((prev) => prev.filter((_, i) => i !== idx))}
-                  className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-zinc-800 text-[10px] text-white ring-1 ring-white/20 hover:bg-red-500"
+                  className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-zinc-800 text-[10px] text-always-white ring-1 ring-white/20 hover:bg-red-500"
                   aria-label="Remove image"
                 >
                   ✕
@@ -943,12 +943,12 @@ export default function SkyAiChatPanel({
             placeholder="Describe what you're selling, or attach a photo…"
             disabled={busy}
             rows={2}
-            className="min-w-0 flex-1 resize-none rounded-xl border border-sky-500/20 bg-white/[0.03] px-3 py-2 text-[12px] text-white outline-none placeholder:text-zinc-600 focus:border-sky-400/50 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)]"
+            className="min-w-0 flex-1 resize-none rounded-xl border border-sky-500/20 bg-white/[0.03] px-3 py-2 text-[12px] text-always-white outline-none placeholder:text-zinc-500 focus:border-sky-400/50 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)]"
           />
           <button
             type="submit"
             disabled={!canSend}
-            className="shrink-0 self-end rounded-xl bg-gradient-to-r from-sky-500 to-sky-500 px-3 py-2.5 text-[11px] font-bold text-white shadow-[0_0_20px_rgba(14,165,233,0.25)] hover:brightness-110 disabled:opacity-40"
+            className="shrink-0 self-end rounded-xl bg-gradient-to-r from-sky-500 to-sky-500 px-3 py-2.5 text-[11px] font-bold text-always-white shadow-[0_0_20px_rgba(14,165,233,0.25)] hover:brightness-110 disabled:opacity-40"
           >
             Send
           </button>
@@ -960,7 +960,7 @@ export default function SkyAiChatPanel({
   if (!isSheet) {
     return (
       <div
-        className={`mt-4 flex flex-col overflow-hidden rounded-xl border border-sky-500/25 bg-[#080a10]/95 shadow-[0_0_30px_rgba(14,165,233,0.08)] animate-fade-in-panel ${className}`}
+        className={`mt-4 flex flex-col overflow-hidden rounded-xl border border-sky-500/25 awhina-chat awhina-chat-shell shadow-[0_0_30px_rgba(14,165,233,0.08)] animate-fade-in-panel ${className}`}
       >
         {header}
         {body}
@@ -971,7 +971,7 @@ export default function SkyAiChatPanel({
   return (
     <>
       <div
-        className={`fixed right-0 top-0 z-[10001] flex h-full w-full max-w-[400px] flex-col border-l border-sky-500/20 bg-[#080a10]/98 shadow-[0_0_60px_rgba(14,165,233,0.08)] backdrop-blur-xl transition-transform duration-300 ease-out ${
+        className={`awhina-chat awhina-chat-shell fixed right-0 top-0 z-[10001] flex h-full w-full max-w-[400px] flex-col border-l border-sky-500/20 shadow-[0_0_60px_rgba(14,165,233,0.08)] backdrop-blur-xl transition-transform duration-300 ease-out ${
           open ? "translate-x-0 animate-fade-in-panel" : "translate-x-full pointer-events-none"
         }`}
         aria-hidden={!open}
@@ -991,7 +991,7 @@ export default function SkyAiChatPanel({
 
       <div className={`fixed z-[10002] transition-all duration-300 ${open ? "opacity-0 pointer-events-none scale-75" : "opacity-100"} bottom-6 right-6 max-md:bottom-24 max-md:right-4`}>
         <div className="relative group">
-          <span className="absolute -top-10 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-lg bg-zinc-900/95 border border-white/[0.06] text-[11px] font-semibold text-white whitespace-nowrap shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+          <span className="awhina-chat-fab-tooltip absolute -top-10 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-lg bg-zinc-900/95 border border-white/[0.06] text-[11px] font-semibold text-always-white whitespace-nowrap shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
             Ask {AWHINA_NAME}
             <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 rotate-45 bg-zinc-900/95 border-r border-b border-white/[0.06]" />
           </span>
