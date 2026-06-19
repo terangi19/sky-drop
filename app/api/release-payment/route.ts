@@ -100,12 +100,22 @@ export async function POST(req: NextRequest) {
       // Admin can release regardless of dispute or timing
     } else if (isSeller) {
       // Check if auto-release window has passed (14 days after deliveredAt or 14 days after createdAt)
-      const deliveredAt = purchase.deliveredAt?.toMillis?.() || purchase.deliveredAt?.seconds * 1000;
-      const createdAt = purchase.createdAt?.toMillis?.() || purchase.createdAt?.seconds * 1000;
+      function toMs(ts: any): number | null {
+        if (!ts) return null;
+        if (typeof ts.toMillis === "function") return ts.toMillis();
+        if (typeof ts.seconds === "number") return ts.seconds * 1000;
+        if (ts instanceof Date) return ts.getTime();
+        const parsed = new Date(ts).getTime();
+        return Number.isFinite(parsed) ? parsed : null;
+      }
+      const deliveredAt = toMs(purchase.deliveredAt);
+      const createdAt = toMs(purchase.createdAt);
       const now = Date.now();
-      const autoReleaseElapsed = deliveredAt
-        ? (now - deliveredAt) > 14 * 86400000  // 14 days after delivery confirmation
-        : (now - createdAt) > 14 * 86400000;   // 14 days after purchase
+      const autoReleaseElapsed = deliveredAt != null
+        ? (now - deliveredAt) > 14 * 86400000
+        : createdAt != null
+          ? (now - createdAt) > 14 * 86400000
+          : false;
 
       if (!autoReleaseElapsed) {
         return NextResponse.json({ error: "Funds are held in escrow until the buyer confirms receipt. Auto-release will trigger after 14 days." }, { status: 400 });
@@ -209,7 +219,7 @@ export async function POST(req: NextRequest) {
       actorEmail: decodedToken.email || "",
       purchaseId,
       amount: Math.round(amount / 100),
-      metadata: { transferId: transfer.id, strikerTransferId: transfer.id, adminOverride: isAdmin },
+      metadata: { transferId: transfer.id, stripeTransferId: transfer.id, adminOverride: isAdmin },
     });
 
     return NextResponse.json({ success: true, transferId: transfer.id });

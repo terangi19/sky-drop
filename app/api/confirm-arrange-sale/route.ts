@@ -111,7 +111,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, purchaseId, status: "seller_confirming", existing: true });
     }
 
-    await incrementProfileSalesCount(sellerEmail);
+    try {
+      await incrementProfileSalesCount(sellerEmail);
+    } catch (salesErr) {
+      console.error("[confirm-arrange-sale] Failed to increment sales count, will retry on next confirmation:", salesErr);
+    }
 
     const purchaseSnap = await purchaseRef.get();
     const purchase = purchaseSnap.data()!;
