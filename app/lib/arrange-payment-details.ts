@@ -1,5 +1,7 @@
 /** Bank transfer details for Arrange Purchase (off-platform payment). */
 
+export const ARRANGE_KYC_SUPPORT_EMAIL = "support@skydrop.co.nz";
+
 import {
   arrangePurchaseBuyerReminder,
   arrangePurchaseChatFooter,

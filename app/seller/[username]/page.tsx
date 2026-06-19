@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
+import { AwhinaUnderHeader } from "../../components/AwhinaOnlineBadge";
 import ThemeToggle from "../../components/ThemeToggle";
 import {
   collection,
@@ -26,6 +27,7 @@ import { db } from "../../lib/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { useParams } from "next/navigation";
 import ReportModal from "../../components/ReportModal";
+import { REVIEW_STAR_CLASS, ReviewStars } from "../../components/SellerReviewStars";
 import { calculateTrustScore } from "../../lib/trustscore";
 import { isListingVisibleInMarketplace } from "../../lib/listing-availability";
 import { countSellerSales } from "../../lib/arrange-purchase-status";
@@ -35,6 +37,12 @@ import {
   stripAtPrefix,
 } from "../../lib/public-display";
 import { resolveSellerBySlug } from "../../lib/seller-profile-lookup";
+import {
+  isFullyVerifiedSeller,
+  profileEmailVerified,
+  profileKycApproved,
+  profilePhoneVerified,
+} from "../../lib/seller-verified";
 
 interface ProfileData {
   username?: string;
@@ -49,8 +57,10 @@ interface ProfileData {
   tiktok?: string;
   hideOnline?: boolean;
   phoneVerified?: boolean;
+  emailVerified?: boolean;
   memberSince?: Timestamp;
   verified?: boolean;
+  kycStatus?: string;
   trustedSeller?: boolean;
   fastReply?: boolean;
   topTrader?: boolean;
@@ -300,7 +310,7 @@ export default function SellerPage() {
   const trustScore = useMemo(() => {
     const memberDate = profile?.memberSince?.toDate ? profile.memberSince.toDate() : null;
     return calculateTrustScore({
-      emailVerified: true,
+      emailVerified: profileEmailVerified(profile),
       hasProfile: true,
       hasBio: !!profile?.bio,
       hasPhoto: !!profile?.photoURL,
@@ -310,7 +320,8 @@ export default function SellerPage() {
     });
   }, [profile, sellerReportsCount, completedSalesCount]);
 
-  const isNotVerified = !profile?.verified && !profile?.phoneVerified;
+  const isFullyVerified = isFullyVerifiedSeller(profile);
+  const isNotVerified = !isFullyVerified;
 
   // Rating distribution
   const ratingCounts = useMemo(() => {

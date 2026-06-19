@@ -8,9 +8,13 @@ import { collection, deleteDoc, doc, onSnapshot, query, where } from "firebase/f
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import BrowseAwhinaAssistantPanel from "../components/BrowseAwhinaAssistantPanel";
+import { useAwhinaInsightEffect } from "../contexts/AwhinaPageInsightContext";
+import { buildListListInsight } from "../lib/awhina-insights";
 import { showToast } from "../components/Toast";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
 import PromoteModal from "../components/PromoteModal";
+import { LISTING_GRID, PAGE_SHELL_CHAT } from "../lib/page-layout";
 
 interface Listing {
   id: string;
@@ -143,31 +147,39 @@ export default function ListListPage() {
   const activeCount = listings.filter((i) => isListingVisibleInMarketplace(i)).length;
   const soldCount = listings.filter((i) => !isListingVisibleInMarketplace(i)).length;
 
+  const awhinaInsight = useMemo(
+    () =>
+      buildListListInsight({
+        listings,
+        onBoost: (listing) => setPromoteItem(listing as Listing),
+      }),
+    [listings]
+  );
+  useAwhinaInsightEffect(awhinaInsight);
+
   return (
     <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <Background />
       <Navbar />
 
-      <div className="relative z-10 mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12">
+      <div className={`${PAGE_SHELL_CHAT} py-8 sm:py-12`}>
 
         {/* Header */}
-        <div className="mb-8 sm:mb-10">
+        <div className="mb-8 sm:mb-10 text-center">
           <Link href="/" className="inline-flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-[var(--foreground)] transition hover:border-zinc-700 hover:bg-zinc-800/60 mb-4 sm:mb-5">
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
             Back
           </Link>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="relative">
-              <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/5 via-violet-500/5 to-transparent blur-3xl pointer-events-none" />
-              <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
-                <span className="text-white drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">My Listings</span>
-              </h1>
-              <p className="relative mt-3 text-sm text-zinc-400 leading-relaxed max-w-xl">Your complete listing dashboard. View, manage, and track your listings while keeping full control over your selling activity across Sky Drop.</p>
-              <p className="relative mt-2 text-sm text-zinc-500">
-                {listings.length} total · {activeCount} active · {soldCount} sold
-              </p>
-            </div>
-            <Link href="/post/ai" className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.97] shrink-0">
+          <div className="relative flex flex-col items-center gap-4">
+            <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/5 via-sky-500/5 to-transparent blur-3xl pointer-events-none" />
+            <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
+              <span className="text-white drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">My Listings</span>
+            </h1>
+            <BrowseAwhinaAssistantPanel className="mt-4 mb-0 mx-auto w-full max-w-2xl text-left" />
+            <p className="relative text-sm text-zinc-500">
+              {listings.length} total · {activeCount} active · {soldCount} sold
+            </p>
+            <Link href="/post/ai" className="relative inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.97]">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
               New Listing
             </Link>
@@ -199,7 +211,7 @@ export default function ListListPage() {
 
         {/* Loading */}
         {loading && (
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className={LISTING_GRID}>
             {[1,2,3,4,5,6,7,8].map((i) => (
               <div key={i} className="rounded-2xl bg-white/[0.02] border border-white/[0.04] overflow-hidden animate-pulse">
                 <div className="aspect-[4/3] bg-white/[0.03]" />
@@ -231,7 +243,7 @@ export default function ListListPage() {
         )}
 
         {/* Listings grid */}
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className={LISTING_GRID}>
           {filteredListings.map((item) => {
             const isOwner = user && item.sellerEmail === user.email;
             const imgSrc = item.images?.[0] || item.imageUrl || item.image || "";
@@ -239,17 +251,17 @@ export default function ListListPage() {
             const isSold = !isListingVisibleInMarketplace(item);
             return (
               <div key={item.id}
-                className={`group relative overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.02] transition-all duration-300 hover:-translate-y-1 hover:bg-white/[0.04] hover:border-sky-500/30 hover:shadow-[0_10px_40px_-10px_rgba(14,165,233,0.12)] cursor-pointer ${isSold || isExpired ? "opacity-60" : ""}`}
+                className={`group relative flex h-full flex-col overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.02] transition-all duration-300 hover:-translate-y-1 hover:bg-white/[0.04] hover:border-sky-500/30 hover:shadow-[0_10px_40px_-10px_rgba(14,165,233,0.12)] cursor-pointer ${isSold || isExpired ? "opacity-60" : ""}`}
                 onClick={() => router.push(item.type === "service" ? "/services" : item.type === "event" ? "/events" : item.type === "vehicle" ? "/vehicles" : item.type === "job" ? "/jobs" : item.type === "property" ? "/property" : item.type === "digital" ? "/digital" : item.type === "rental" ? "/rentals" : `/post/listing/${item.id}`)}
               >
                 {/* Image */}
-                <div className="relative overflow-hidden">
+                <div className="relative shrink-0 overflow-hidden">
                   {imgSrc ? (
                     <img src={imgSrc} alt={item.title} loading="lazy"
                       onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                       className="aspect-[4/3] w-full object-cover transition-all duration-500 group-hover:scale-105" />
                   ) : (
-                    <div className="aspect-[4/3] flex items-center justify-center bg-gradient-to-br from-sky-500/5 via-violet-500/5 to-purple-600/5">
+                    <div className="aspect-[4/3] flex items-center justify-center bg-gradient-to-br from-sky-500/5 via-sky-500/5 to-sky-600/5">
                       <div className="text-center">
                         <div className="text-3xl font-black tracking-tighter text-zinc-600">SD</div>
                         <div className="text-[10px] uppercase tracking-widest text-zinc-700">Sky Drop</div>
@@ -261,7 +273,7 @@ export default function ListListPage() {
                   {/* Badges */}
                   <div className="absolute top-3 left-3 flex flex-col gap-1.5">
                     {item.promotedUntil?.toMillis?.() > Date.now() && (
-                      <span className="rounded-full bg-amber-500/90 backdrop-blur-sm px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg">📈 Promoted</span>
+                      <span className="rounded-full bg-sky-500/90 backdrop-blur-sm px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg">📈 Promoted</span>
                     )}
                     {isSold && (
                       <span className="rounded-full bg-red-500/90 backdrop-blur-sm px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg">Sold</span>
@@ -273,7 +285,7 @@ export default function ListListPage() {
                 </div>
 
                 {/* Content */}
-                <div className="p-4 sm:p-5">
+                <div className="flex flex-1 flex-col p-4 sm:p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <span className="inline-block rounded-md bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-400 border border-sky-500/10">
@@ -309,10 +321,10 @@ export default function ListListPage() {
 
                   {/* Actions */}
                   {isOwner && (
-                    <div className="mt-4 flex gap-2 border-t border-white/[0.06] pt-3">
+                    <div className="mt-auto flex min-h-10 gap-2 border-t border-white/[0.06] pt-3">
                       {(item as any)._collection !== "tradePosts" && (
                         <button onClick={(e) => { e.stopPropagation(); setPromoteItem(item); }}
-                          className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-amber-500/10 px-2 py-2.5 text-[11px] font-bold text-amber-400 transition hover:bg-amber-500/20 active:scale-[0.97]">
+                          className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-sky-500/10 px-2 py-2.5 text-[11px] font-bold text-sky-400 transition hover:bg-sky-500/20 active:scale-[0.97]">
                           📈 Boost
                         </button>
                       )}

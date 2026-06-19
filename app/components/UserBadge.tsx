@@ -19,19 +19,19 @@ export default function UserBadge({
         </div>
       )}
       {!verified && trusted && (
-        <div className="flex items-center gap-1 rounded-md bg-emerald-500/[0.08] px-2 py-1">
-          <div className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-          <span className="text-[10px] font-medium text-emerald-300">Trusted</span>
+        <div className="flex items-center gap-1 rounded-md bg-sky-500/[0.08] px-2 py-1">
+          <div className="h-1.5 w-1.5 rounded-full bg-sky-400" />
+          <span className="text-[10px] font-medium text-sky-300">Trusted</span>
         </div>
       )}
       {profileBadge === "epic" && (
-        <div className="flex items-center gap-1 rounded-md bg-violet-500/[0.08] px-2 py-1">
-          <span className="text-[10px] font-medium text-violet-300">💎 Epic</span>
+        <div className="flex items-center gap-1 rounded-md bg-sky-500/[0.08] px-2 py-1">
+          <span className="text-[10px] font-medium text-sky-300">💎 Epic</span>
         </div>
       )}
       {profileBadge === "legendary" && (
-        <div className="flex items-center gap-1 rounded-md bg-amber-500/[0.08] px-2 py-1">
-          <span className="text-[10px] font-medium text-amber-300 animate-pulse">👑 The Five</span>
+        <div className="flex items-center gap-1 rounded-md bg-sky-500/[0.08] px-2 py-1">
+          <span className="text-[10px] font-medium text-sky-300 animate-pulse">👑 The Five</span>
         </div>
       )}
     </div>

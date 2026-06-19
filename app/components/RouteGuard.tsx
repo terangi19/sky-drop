@@ -1,28 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { auth, onAuthStateChanged } from "../lib/firebase";
-
-const PUBLIC_ROUTES = [
-  "/",
-  "/about",
-  "/blocked",
-  "/faqs",
-  "/login",
-  "/register",
-  "/reset-password",
-  "/terms",
-  "/privacy",
-  "/forgot-password",
-  "/seller-guidelines",
-  "/escrow",
-  "/buyer-protection",
-];
 
 export function RouteGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
@@ -30,24 +13,9 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
       setChecking(false);
       return;
     }
-    let timer = setTimeout(() => {
-      const isPublic = PUBLIC_ROUTES.some((route) =>
-        pathname.startsWith(route)
-      );
-      if (!isPublic) {
-        router.replace("/login?redirect=" + encodeURIComponent(pathname));
-      } else {
-        setChecking(false);
-      }
-    }, 1500);
-    const unsub = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        clearTimeout(timer);
-        setChecking(false);
-      }
-    });
-    return () => { unsub(); clearTimeout(timer); };
-  }, [pathname, router]);
+    const unsub = onAuthStateChanged(auth, () => setChecking(false));
+    return () => unsub();
+  }, [pathname]);
 
   if (checking) return null;
 

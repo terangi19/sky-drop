@@ -67,8 +67,8 @@ export default function JobApplicationModal({ listingId, listingTitle, employerE
       <div className="mx-4 w-full max-w-lg rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         {step === "success" ? (
           <div className="text-center py-6">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/20">
-              <svg className="h-8 w-8 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-sky-500/20">
+              <svg className="h-8 w-8 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
@@ -99,20 +99,20 @@ export default function JobApplicationModal({ listingId, listingTitle, employerE
               <div>
                 <label className="mb-1 block text-[11px] font-medium text-[var(--muted)]">Name *</label>
                 <input type="text" value={name} onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-cyan-500" />
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
               </div>
 
               <div>
                 <label className="mb-1 block text-[11px] font-medium text-[var(--muted)]">Phone</label>
                 <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-cyan-500" />
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
               </div>
 
               <div>
                 <label className="mb-1 block text-[11px] font-medium text-[var(--muted)]">Cover Letter *</label>
                 <textarea value={coverLetter} onChange={(e) => setCoverLetter(e.target.value)} rows={5}
                   placeholder="Tell the employer why you're a good fit for this role..."
-                  className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-cyan-500 resize-none" />
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500 resize-none" />
               </div>
 
               <div>
@@ -126,7 +126,7 @@ export default function JobApplicationModal({ listingId, listingTitle, employerE
             </div>
 
             <button onClick={handleSubmit} disabled={uploading}
-              className="mt-5 w-full rounded-xl bg-gradient-to-r from-cyan-500 to-teal-500 py-3 text-sm font-bold text-white shadow-lg shadow-cyan-500/20 transition hover:shadow-xl disabled:opacity-50">
+              className="mt-5 w-full rounded-xl bg-gradient-to-r from-sky-500 to-sky-500 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl disabled:opacity-50">
               {uploading ? "Submitting..." : "Submit Application"}
             </button>
           </>

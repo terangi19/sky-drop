@@ -1,73 +1,102 @@
-import { getAdminDb } from "./firebase-admin";
-
-function getAdminAlertEmail(): string {
-  if (process.env.NOTIFICATION_EMAIL) return process.env.NOTIFICATION_EMAIL;
+export async function getAdminAlertRecipient(): Promise<string> {
+  try {
+    const { getAdminDb } = await import("./firebase-admin");
+    const snap = await getAdminDb().collection("config").doc("adminRoles").get();
+    if (snap.exists) {
+      const admins = snap.data()?.admins as Array<{ email: string }> | undefined;
+      if (admins && admins.length > 0) return admins[0].email;
+    }
+  } catch {}
   if (typeof process !== "undefined" && process.env?.ADMIN_EMAILS) {
     return process.env.ADMIN_EMAILS.split(",")[0].trim();
   }
-  return "rangitr16@gmail.com";
+  return "admin@skydrop.nz";
 }
 
-interface AdminAlertInput {
-  type: "webhook_failure" | "payment_release_failure" | "dispute_opened" | "dispute_resolved" | "stripe_error" | "payment_failed" | "dispute_created" | "dispute_closed";
+export async function getAdminEmails(): Promise<string[]> {
+  try {
+    const { getAdminDb } = await import("./firebase-admin");
+    const snap = await getAdminDb().collection("config").doc("adminRoles").get();
+    if (snap.exists) {
+      const admins = snap.data()?.admins as Array<{ email: string }> | undefined;
+      if (admins && admins.length > 0) return admins.map(a => a.email);
+    }
+  } catch {}
+  if (typeof process !== "undefined" && process.env?.ADMIN_EMAILS) {
+    return process.env.ADMIN_EMAILS.split(",").map(e => e.trim()).filter(Boolean);
+  }
+  return ["admin@skydrop.nz"];
+}
+
+export async function notifyKycSubmittedToAdmins(opts: {
+  uid: string;
+  email: string;
+  username?: string;
+}): Promise<void> {
+  try {
+    const { getAdminDb } = await import("./firebase-admin");
+    const db = getAdminDb();
+    const now = new Date();
+    const email = opts.email || "Unknown";
+    const username = opts.username || "—";
+
+    await db.collection("adminNotifications").add({
+      type: "kyc_submitted",
+      title: "New KYC Submission",
+      message: `${email} (@${username}) submitted ID documents for verification.`,
+      metadata: { uid: opts.uid, email: opts.email, username: opts.username },
+      read: false,
+      createdAt: now,
+    });
+
+    const adminEmails = await getAdminEmails();
+    for (const adminEmail of adminEmails) {
+      await db.collection("notifications").add({
+        type: "kyc_submitted",
+        targetEmail: adminEmail,
+        fromEmail: "system",
+        title: "New KYC Submission",
+        message: `${email} submitted ID documents.`,
+        metadata: { uid: opts.uid, email: opts.email, username: opts.username },
+        read: false,
+        createdAt: now,
+      });
+    }
+  } catch (e) {
+    console.error("[admin-alerts] Failed to notify KYC submission:", e);
+  }
+}
+
+export async function notifyAdmin(opts: {
+  type: string;
   title: string;
   message: string;
   metadata?: Record<string, unknown>;
-}
-
-export async function notifyAdmin(input: AdminAlertInput): Promise<void> {
+}): Promise<void> {
   try {
+    const { getAdminDb } = await import("./firebase-admin");
     const db = getAdminDb();
-    const timestamp = new Date();
-
-    // Write to adminNotifications collection
+    const now = new Date();
     await db.collection("adminNotifications").add({
-      type: input.type,
-      title: input.title,
-      message: input.message,
-      metadata: input.metadata || {},
+      type: opts.type,
+      title: opts.title,
+      message: opts.message,
+      metadata: opts.metadata || {},
       read: false,
-      createdAt: timestamp,
+      createdAt: now,
     });
-
-    // Also write to the notifications collection for in-app display
-    await db.collection("notifications").add({
-      type: input.type,
-      targetEmail: getAdminAlertEmail(),
-      fromEmail: "system",
-      title: input.title,
-      message: input.message,
-      read: false,
-      createdAt: timestamp,
-    });
-
-    // Send email
-    try {
-      const nodemailer = await import("nodemailer");
-      const transport = {
-        host: process.env.SMTP_HOST || "",
-        port: Number(process.env.SMTP_PORT) || 587,
-        auth: {
-          user: process.env.SMTP_USER || "",
-          pass: process.env.SMTP_PASS || "",
-        },
-      };
-      if (transport.host && transport.auth.user) {
-        const transporter = nodemailer.default.createTransport(transport);
-        await transporter.sendMail({
-          from: process.env.SMTP_FROM || "noreply@skydrop.nz",
-          to: getAdminAlertEmail(),
-          subject: `[Sky Drop] ${input.title}`,
-          html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;">
-            <h2 style="color:#ef4444;">${input.title}</h2>
-            <p style="color:#374151;">${input.message}</p>
-            ${input.metadata ? `<pre style="background:#f3f4f6;padding:12px;border-radius:8px;font-size:12px;overflow-x:auto;">${JSON.stringify(input.metadata, null, 2)}</pre>` : ""}
-            <p style="color:#9ca3af;font-size:12px;margin-top:24px;">Sky Drop Monitoring · ${timestamp.toISOString()}</p>
-          </div>`,
-        });
-      }
-    } catch (emailErr) {
-      console.error("[admin-alerts] Email send failed:", emailErr);
+    const adminEmails = await getAdminEmails();
+    for (const adminEmail of adminEmails) {
+      await db.collection("notifications").add({
+        type: opts.type,
+        targetEmail: adminEmail,
+        fromEmail: "system@skydrop.nz",
+        title: opts.title,
+        message: opts.message,
+        metadata: opts.metadata || {},
+        read: false,
+        createdAt: now,
+      });
     }
   } catch (e) {
     console.error("[admin-alerts] Failed to notify admin:", e);
@@ -76,6 +105,7 @@ export async function notifyAdmin(input: AdminAlertInput): Promise<void> {
 
 export async function writeFailureRecord(collection: string, data: Record<string, unknown>): Promise<void> {
   try {
+    const { getAdminDb } = await import("./firebase-admin");
     await getAdminDb().collection(collection).add({
       ...data,
       timestamp: new Date(),

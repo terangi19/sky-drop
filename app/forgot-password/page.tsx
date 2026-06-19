@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import { showToast } from "../components/Toast";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "../lib/firebase";
@@ -46,12 +47,13 @@ export default function ForgotPasswordPage() {
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-8">
           {sent ? (
             <div className="text-center">
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/10">
-                <svg className="h-7 w-7 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-sky-500/10">
+                <svg className="h-7 w-7 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               </div>
               <h1 className="text-xl font-black text-[var(--foreground)]">Check Your Email</h1>
+              <AwhinaUnderHeader centered className="mt-3" />
               <p className="mt-3 text-sm text-[var(--muted)] leading-relaxed">
                 If an account exists for <strong className="text-[var(--foreground)]">{email}</strong>, we&apos;ve sent a password reset link. It will arrive within a few minutes.
               </p>
@@ -68,6 +70,7 @@ export default function ForgotPasswordPage() {
           ) : (
             <>
               <h1 className="text-2xl font-black text-[var(--foreground)]">Reset Your Password</h1>
+              <AwhinaUnderHeader className="mt-2" />
               <p className="mt-2 text-sm text-[var(--muted)]">Enter your email address and we&apos;ll send you a reset link.</p>
 
               <form onSubmit={handleSubmit} className="mt-6 space-y-4">

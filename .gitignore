@@ -17,3 +17,13 @@ next-env.d.ts
 .vercel
 
 .env.vercel
+
+# Build artifacts
+build-log.txt
+build-out.txt
+shutdown.cmd
+shutdown_log.txt
+.tmp-crops/
+
+# TypeScript
+tsconfig.tsbuildinfo

@@ -1,5 +1,4 @@
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { db, auth } from "./firebase";
+import { auth } from "./firebase";
 import { buildEmailHtml, notificationToEmail } from "./email";
 
 interface NotificationInput {
@@ -11,6 +10,7 @@ interface NotificationInput {
   listingId?: string;
   listingTitle?: string;
   listingImage?: string;
+  purchaseId?: string;
   total?: number;
   buyerName?: string;
   sellerName?: string;
@@ -29,29 +29,47 @@ function truncateOrderId(id?: string): string {
 
 export async function createNotification(input: NotificationInput) {
   try {
-    await addDoc(collection(db, "notifications"), {
-      type: input.type,
-      targetEmail: input.targetEmail,
-      fromEmail: input.fromEmail,
-      title: input.title,
-      message: input.message,
-      listingId: input.listingId || null,
-      listingTitle: input.listingTitle || null,
-      listingImage: input.listingImage || null,
-      total: input.total || null,
-      read: false,
-      createdAt: serverTimestamp(),
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) {
+      console.error("Failed to create notification: not signed in");
+      return;
+    }
+    const res = await fetch("/api/create-notification", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        type: input.type,
+        targetEmail: input.targetEmail,
+        fromEmail: input.fromEmail,
+        title: input.title,
+        message: input.message,
+        listingId: input.listingId || null,
+        listingTitle: input.listingTitle || null,
+        listingImage: input.listingImage || null,
+        purchaseId: input.purchaseId || null,
+        total: input.total || null,
+      }),
     });
+    if (!res.ok) {
+      console.error("Failed to create notification:", res.status, await res.text().catch(() => ""));
+    }
   } catch (e) {
     console.error("Failed to create notification:", e);
   }
 
   // Push notification
   try {
+    const pushToken = await auth.currentUser?.getIdToken();
     const url = input.listingId ? `/post/listing/${input.listingId}` : "/messages";
     const res = await fetch("/api/send-push", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(pushToken ? { Authorization: `Bearer ${pushToken}` } : {}),
+      },
       body: JSON.stringify({
         targetEmail: input.targetEmail,
         title: input.title,

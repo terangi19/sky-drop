@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import ThemeToggle from "../components/ThemeToggle";
+import { PAGE_SHELL_CHAT } from "../lib/page-layout";
 import {
   addDoc,
   collection,
@@ -41,8 +42,18 @@ import {
   sanitizePublicText,
   sellerProfileSlug,
 } from "../lib/public-display";
+import { resolveSellerBySlug } from "../lib/seller-profile-lookup";
+import { getTurnstileSiteKey } from "../lib/turnstile";
 import { canSellerConfirmArrangeSale, countSellerSales } from "../lib/arrange-purchase-status";
 import { getFreshIdToken } from "../lib/api-auth";
+import TurnstileWidget from "../components/TurnstileWidget";
+import {
+  blockedEmailsFromDocs,
+  conversationKey,
+  isUnreadMessageForUser,
+  messageInActiveConversation,
+  messageInInboxList,
+} from "../lib/messages-unread";
 // Feature 8: Expanded risky keywords
 const RISKY_KEYWORDS = [
   "pay outside", "bank transfer only", "crypto", "gift card",
@@ -73,7 +84,6 @@ export default function MessagesPageWrapper() {
     <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
       <Background />
       <Navbar />
-      <ThemeToggle />
       <Suspense fallback={<div className="flex h-full items-center justify-center p-12"><span className="text-[var(--muted)]">Loading...</span></div>}>
         <MessagesPage />
       </Suspense>
@@ -100,6 +110,7 @@ function MessagesPage() {
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
   // Typing
   const [otherTyping, setOtherTyping] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
@@ -139,7 +150,6 @@ function MessagesPage() {
   const messageInputRef = useRef<HTMLInputElement>(null);
   const [showSafetyWarning, setShowSafetyWarning] = useState(false);
   const [riskyKeyword, setRiskyKeyword] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState("");
   const [showClearAll, setShowClearAll] = useState(false);
   const typingDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const lastMessageTime = useRef(0);
@@ -163,20 +173,17 @@ function MessagesPage() {
   // Sync blocked users from Firestore when authenticated
   useEffect(() => {
     if (!user?.uid) return;
-    const fetchBlocked = async () => {
-      try {
-        const q = query(collection(db, "users", user.uid, "blocked"), where("blocked", "==", true));
-        const snap = await getDocs(q);
-        const emails = snap.docs.map((d) => d.id);
-        if (emails.length > 0) {
-          setBlockedUsers(emails);
-          localStorage.setItem("blockedUsers", JSON.stringify(emails));
-        }
-      } catch (e) {
-        console.error("Failed to fetch blocked users:", e);
-      }
-    };
-    fetchBlocked();
+    const blockedQ = collection(db, "users", user.uid, "blocked");
+    const unsub = onSnapshot(
+      blockedQ,
+      (snap) => {
+        const emails = blockedEmailsFromDocs(snap.docs);
+        setBlockedUsers(emails);
+        localStorage.setItem("blockedUsers", JSON.stringify(emails));
+      },
+      (e) => console.error("Failed to fetch blocked users:", e)
+    );
+    return () => unsub();
   }, [user?.uid]);
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -201,7 +208,14 @@ function MessagesPage() {
     }
     const param = getSearchParam("user");
     if (param) {
-      setChatUser(param);
+      if (isEmailLike(param)) {
+        setChatUser(param);
+      } else {
+        resolveSellerBySlug(param).then((resolved) => {
+          const profileEmail = (resolved?.data as any)?.email || param;
+          setChatUser(profileEmail);
+        }).catch(() => setChatUser(param));
+      }
       setChatListingId(getSearchParam("listing") || null);
       if (isMobile) setMobileView("chat");
     }
@@ -247,7 +261,26 @@ function MessagesPage() {
           const trust = calculateTrustScore(data as any);
           setSellerTrust({ score: trust.score, level: trust.score >= 80 ? "Trusted" : trust.score >= 50 ? "Established" : "New" });
         } else if (!cancelled) {
-          setSellerProfile(null);
+          const resolved = await resolveSellerBySlug(chatUser);
+          if (resolved && !cancelled) {
+            const data = resolved.data as any;
+            const profileEmail = data.email || chatUser;
+            const purchaseSnap = await getDocs(
+              query(collection(db, "purchases"), where("sellerEmail", "==", profileEmail))
+            );
+            const salesTotal = countSellerSales(
+              purchaseSnap.docs.map((d) => d.data() as { status?: string; paymentType?: string })
+            );
+            setSellerProfile({
+              id: resolved.uid,
+              ...data,
+              sales: salesTotal,
+            });
+            const trust = calculateTrustScore(data as any);
+            setSellerTrust({ score: trust.score, level: trust.score >= 80 ? "Trusted" : trust.score >= 50 ? "Established" : "New" });
+          } else {
+            setSellerProfile(null);
+          }
         }
       } catch (e) { console.error("Failed to fetch seller profile:", e); }
     })();
@@ -310,36 +343,72 @@ function MessagesPage() {
   useEffect(() => {
     if (!chatUser || !user?.email) return;
     let cancelled = false;
-    const relevant = messages.filter((m: any) => {
-      if (!m.participants?.includes(chatUser)) return false;
-      if (chatListingId) return m.listingId === chatListingId;
-      return !m.listingId;
-    });
+    const relevant = messages.filter((m: any) =>
+      messageInActiveConversation(m, user.email!, chatUser, chatListingId)
+    );
     const unreadMsgs = relevant.filter((m: any) => m.sender !== user.email && !m.read && !seenBatchRef.current.has(m.id));
     for (const msg of unreadMsgs) {
       seenBatchRef.current.add(msg.id);
-      updateDoc(doc(db, "messages", msg.id), { read: true, readAt: serverTimestamp() }).catch((e) => console.error("Failed to mark message read:", e));
     }
 
-    // Also mark corresponding notification documents as read
-    if (unreadMsgs.length > 0 || chatListingId) {
-      getDocs(query(collection(db, "notifications"), where("listingId", "==", chatListingId || ""), where("read", "==", false))).then((snap) => {
+    if (unreadMsgs.length > 0) {
+      const messageIds = unreadMsgs.map((m: any) => m.id);
+      const tokenP = user.getIdToken();
+      tokenP.then((token) => {
         if (cancelled) return;
-        snap.docs.forEach((d) => updateDoc(doc(db, "notifications", d.id), { read: true }).catch((e) => console.error("Failed to mark notification read:", e)));
+        fetch("/api/mark-messages-read", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ messageIds }),
+        }).catch((e) => console.error("Failed to batch mark messages read:", e));
+      }).catch((e) => console.error("Failed to get token for mark-read:", e));
+
+      // Also mark corresponding notification documents as read
+      getDocs(
+        query(
+          collection(db, "notifications"),
+          where("targetEmail", "==", user.email),
+          orderBy("createdAt", "desc"),
+          limit(30)
+        )
+      ).then((snap) => {
+        if (cancelled) return;
+        snap.docs.forEach((d) => {
+          const data = d.data();
+          if (data.read !== false) return;
+          if ((data.listingId || "") !== (chatListingId || "")) return;
+          const fromEmail = data.fromEmail as string | undefined;
+          if (fromEmail && fromEmail !== chatUser) return;
+          updateDoc(doc(db, "notifications", d.id), { read: true }).catch((e) =>
+            console.error("Failed to mark notification read:", e)
+          );
+        });
       }).catch((e) => console.error("Failed to fetch notifications to mark read:", e));
     }
 
     return () => { cancelled = true; };
   }, [chatUser, user, messages, chatListingId]);
   // Fetch usernames
-  async function fetchUsername(email: string) {
-    if (!email || email === "system" || usernames[email]) return;
+  async function fetchUsername(identifier: string) {
+    if (!identifier || identifier === "system" || usernames[identifier]) return;
     try {
-      const snap = await getDocs(query(collection(db, "profiles"), where("email", "==", email)));
-      const handle = snap.empty
-        ? "User"
-        : publicHandleFromProfile(snap.docs[0].data() as { username?: string }, "User");
-      setUsernames((prev) => ({ ...prev, [email]: handle }));
+      const snap = await getDocs(query(collection(db, "profiles"), where("email", "==", identifier)));
+      let handle = "User";
+      if (!snap.empty) {
+        handle = publicHandleFromProfile(snap.docs[0].data() as { username?: string }, "User");
+      } else {
+        const resolved = await resolveSellerBySlug(identifier);
+        if (resolved) {
+          const profileEmail = (resolved.data as any)?.email || identifier;
+          if (usernames[profileEmail]) {
+            handle = usernames[profileEmail];
+          } else {
+            handle = publicHandleFromProfile(resolved.data as { username?: string }, "User");
+            setUsernames((prev) => ({ ...prev, [profileEmail]: handle }));
+          }
+        }
+      }
+      setUsernames((prev) => ({ ...prev, [identifier]: handle }));
     } catch (e) {
       console.error("Failed to fetch username:", e);
     }
@@ -352,14 +421,18 @@ function MessagesPage() {
       return;
     }
     let mounted = true;
-    const msgQuery = query(collection(db, "messages"), where("participants", "array-contains", user.email), limit(100));
+    const msgQuery = query(
+      collection(db, "messages"),
+      where("participants", "array-contains", user.email),
+      orderBy("createdAt", "desc"),
+      limit(100)
+    );
 
     const unsub = onSnapshot(msgQuery, (snap) => {
       if (!mounted) return;
-      const items = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((msg: any) => {
-        const other = msg.participants?.find((p: string) => p !== user.email);
-        return other && !blockedUsers.includes(other);
-      });
+      const items = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((msg: any) => messageInInboxList(msg, user.email!, blockedUsers));
       items.sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
       setMessages(items);
       setLoading(false);
@@ -370,36 +443,36 @@ function MessagesPage() {
         msg.participants?.forEach((p: string) => fetchUsername(p));
         extractEmailsFromText(msg.text || "").forEach((e) => fetchUsername(e));
       });
-    }, (err) => { setDebugInfo(`Error: ${err.message}`); if (mounted) setLoading(false); });
+    }, (err) => { console.error("Messages snapshot error:", err); if (mounted) setLoading(false); });
 
     return () => { mounted = false; unsub(); };
   }, [user?.email, blockedUsers]);
-    // Unread map
-    useEffect(() => {
-      const map: Record<string, number> = {};
-      const raw: Record<string, boolean> = {};
-      messages.forEach((msg: any) => {
-        if (msg.receiver && msg.receiver !== user?.email) return;
-        if (msg.sender !== user?.email && !msg.read) {
-          const other = msg.participants?.find((p: string) => p !== user?.email);
-          const key = `${other}||${msg.listingId || ""}`;
-          map[key] = (map[key] || 0) + 1;
-          raw[msg.id] = true;
-        }
-      });
-      setConversationUnread(map);
-      setUnreadMap(raw);
-    }, [messages, user?.email]);
-    // Compute filteredMessages for chat view
-    const filteredMessages = useMemo(() => messages
-      .filter((msg: any) => {
-        if (!user?.email || !msg.participants?.includes(user.email)) return false;
-        if (msg.receiver && msg.receiver !== user.email) return false;
-        if (!msg.participants?.includes(chatUser)) return false;
-        if (chatListingId) return msg.listingId === chatListingId;
-        return !msg.listingId;
-      })
-      .reverse(), [messages, chatUser, chatListingId, user?.email]);
+  // Unread map
+  useEffect(() => {
+    const map: Record<string, number> = {};
+    const raw: Record<string, boolean> = {};
+    messages.forEach((msg: any) => {
+      if (!isUnreadMessageForUser(msg, user?.email)) return;
+      const other = msg.participants?.find((p: string) => p !== user?.email);
+      if (!other) return;
+      const key = conversationKey(other, msg.listingId);
+      map[key] = (map[key] || 0) + 1;
+      raw[msg.id] = true;
+    });
+    setConversationUnread(map);
+    setUnreadMap(raw);
+  }, [messages, user?.email, blockedUsers]);
+
+  // Compute filteredMessages for chat view
+  const filteredMessages = useMemo(
+    () =>
+      messages
+        .filter((msg: any) =>
+          messageInActiveConversation(msg, user?.email || "", chatUser, chatListingId)
+        )
+        .reverse(),
+    [messages, chatUser, chatListingId, user?.email]
+  );
     // Auto-scroll
     useEffect(() => {
       if (chatEndRef.current && filteredMessages.length > 0) {
@@ -454,15 +527,13 @@ function MessagesPage() {
       const storageRef = ref(storage, `chat_images/${user.uid}/${Date.now()}.jpg`);
       const snap = await uploadBytes(storageRef, blob);
       const imageUrl = await getDownloadURL(snap.ref);
-      await addDoc(collection(db, "messages"), {
-        type: "image",
-        imageUrl,
-        text: "",
-        sender: user.email,
-        receiver: chatUser,
-        participants: [user.email, chatUser],
-        ...(chatListingId ? { listingId: chatListingId, listingTitle: activeListingTitle || null } : {}),
-        createdAt: serverTimestamp(),
+      const token = await user.getIdToken();
+      await fetch("/api/send-message", {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          type: "image", imageUrl, text: "", receiver: chatUser,
+          listingId: chatListingId || undefined, listingTitle: activeListingTitle || undefined,
+        }),
       });
       createNotification({
         targetEmail: chatUser,
@@ -500,17 +571,14 @@ function MessagesPage() {
       const storageRef = ref(storage, `chat_files/${user.uid}/${Date.now()}_${fileAttachment.name}`);
       const snap = await uploadBytes(storageRef, blob);
       const fileUrl = await getDownloadURL(snap.ref);
-      await addDoc(collection(db, "messages"), {
-        type: "file",
-        fileUrl,
-        fileName: fileAttachment.name,
-        fileSize: fileAttachment.size,
-        text: "",
-        sender: user.email,
-        receiver: chatUser,
-        participants: [user.email, chatUser],
-        ...(chatListingId ? { listingId: chatListingId, listingTitle: activeListingTitle || null } : {}),
-        createdAt: serverTimestamp(),
+      const token = await user.getIdToken();
+      await fetch("/api/send-message", {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          type: "file", fileUrl, fileName: fileAttachment.name, fileSize: fileAttachment.size,
+          text: "", receiver: chatUser,
+          listingId: chatListingId || undefined, listingTitle: activeListingTitle || undefined,
+        }),
       });
       createNotification({
         targetEmail: chatUser,
@@ -532,17 +600,12 @@ function MessagesPage() {
     if (!user?.email) { showToast("Please log in first", "info"); return; }
     if (!chatUser.trim()) { showToast("Select a conversation", "info"); return; }
     if (blockedUsers.includes(chatUser)) { showToast("This user is blocked", "error"); return; }
-    if (Date.now() - lastMessageTime.current < 2000) {
-      showToast("Please wait before sending another message", "info");
-      return;
-    }
-    lastMessageTime.current = Date.now();
 
     // Anti-spam: track recipients per hour
     try {
       const msgTracker = JSON.parse(localStorage.getItem("msgTracker") || "{}");
       const now = Date.now();
-      if (msgTracker[chatUser] && now - msgTracker[chatUser] < 60000) {
+      if (msgTracker[chatUser] && now - msgTracker[chatUser] < 5000) {
         showToast("Please wait before messaging this user again", "info");
         return;
       }
@@ -553,26 +616,17 @@ function MessagesPage() {
       localStorage.setItem("msgTracker", JSON.stringify(msgTracker));
     } catch (e) { console.error("Msg tracker error:", e); }
 
-    // Anti-spam: detect duplicate messages (same text sent recently)
-    if (!skipSafety) {
-      try {
-        const recentMessages: string[] = JSON.parse(localStorage.getItem("recentMessages") || "[]");
-        if (recentMessages.includes(message.trim().toLowerCase())) {
-          showToast("You already sent this message recently", "info");
-          return;
-        }
-        recentMessages.push(message.trim().toLowerCase());
-        if (recentMessages.length > 20) recentMessages.shift();
-        localStorage.setItem("recentMessages", JSON.stringify(recentMessages));
-      } catch (e) { console.error("Recent messages tracker error:", e); }
-    }
-
     if (!skipSafety) {
       const result = detectScam(message);
       if (result.isScam && !pendingMessage) { setPendingMessage(message); setScamWarning(true); return; }
       const kw = containsRiskyKeywords(message);
       if (kw) { setRiskyKeyword(kw); setShowSafetyWarning(true); return; }
     }
+    if (getTurnstileSiteKey() && !turnstileToken) {
+      showToast("Complete the security check to send messages.", "error");
+      return;
+    }
+
     const activeListingTitle = listingCard?.title || null;
     const activeListingImage = listingCard?.images?.[0] || listingCard?.image || listingCard?.imageUrl || null;
     const activeListingPrice = listingCard?.price || null;
@@ -593,13 +647,14 @@ function MessagesPage() {
       // Auto-scroll after optimistic update
       setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
 
-      await addDoc(collection(db, "messages"), {
-        text: message,
-        sender: user.email,
-        receiver: chatUser,
-        participants: [user.email, chatUser],
-        ...(chatListingId ? { listingId: chatListingId, listingTitle: activeListingTitle, listingImage: activeListingImage, listingPrice: activeListingPrice } : {}),
-        createdAt: serverTimestamp(),
+      const sendToken = await user.getIdToken();
+      await fetch("/api/send-message", {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${sendToken}` },
+        body: JSON.stringify({
+          text: message, receiver: chatUser,
+          listingId: chatListingId || undefined, listingTitle: activeListingTitle || undefined,
+          listingImage: activeListingImage || undefined, listingPrice: activeListingPrice || undefined,
+        }),
       });
       createNotification({
         targetEmail: chatUser,
@@ -619,7 +674,11 @@ function MessagesPage() {
     setScamWarning(false);
     setMessage("");
     try {
-      await addDoc(collection(db, "messages"), { text: pendingMessage, sender: user.email, receiver: chatUser, participants: [user.email, chatUser], createdAt: serverTimestamp() });
+      const sendToken = await user.getIdToken();
+      await fetch("/api/send-message", {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${sendToken}` },
+        body: JSON.stringify({ text: pendingMessage, receiver: chatUser }),
+      });
       createNotification({
         targetEmail: chatUser,
         fromEmail: user.email,
@@ -630,11 +689,28 @@ function MessagesPage() {
     } catch (e) { console.error(e); }
     setPendingMessage("");
   }
-  function blockUser(email: string) {
+  async function blockUser(email: string) {
+    if (!user?.uid || blockedUsers.includes(email)) {
+      setShowMenu(false);
+      return;
+    }
     const updated = [...blockedUsers, email];
     setBlockedUsers(updated);
     localStorage.setItem("blockedUsers", JSON.stringify(updated));
+    window.dispatchEvent(new Event("blocked-users-changed"));
     setShowMenu(false);
+    try {
+      let uid = email;
+      const profileSnap = await getDocs(query(collection(db, "profiles"), where("email", "==", email)));
+      if (!profileSnap.empty) uid = profileSnap.docs[0].id;
+      await setDoc(doc(db, "users", user.uid, "blocked", uid), {
+        blockedUid: uid,
+        blockedEmail: email,
+        createdAt: serverTimestamp(),
+      });
+    } catch (e) {
+      console.error("Failed to persist block:", e);
+    }
   }
   async function reportUser(email: string) {
     if (!user?.email) return;
@@ -642,29 +718,19 @@ function MessagesPage() {
     const last = localStorage.getItem(cooldownKey);
     if (last && Date.now() - Number(last) < 86400000) { showToast("Already reported", "info"); setShowMenu(false); return; }
     try {
-      // Server-side cooldown: check for recent report from this user for this target
-      const cooldownQuery = query(
-        collection(db, "reports"),
-        where("reporterUserEmail", "==", user.email),
-        where("reportedUserEmail", "==", email),
-        orderBy("createdAt", "desc"),
-        limit(1)
-      );
-      const recentSnap = await getDocs(cooldownQuery);
-      if (!recentSnap.empty) {
-        const lastReport = recentSnap.docs[0].data();
-        const lastTime = lastReport.createdAt?.toMillis?.();
-        if (lastTime && Date.now() - lastTime < 10 * 60 * 1000) {
-          showToast("Already reported", "info");
-          setShowMenu(false);
-          return;
-        }
-      }
-
-      await addDoc(collection(db, "reports"), { reportedUserEmail: email, reporterUserEmail: user.email, type: "user", status: "pending", createdAt: serverTimestamp(), description: "Reported from messages" });
+      const { submitReportRequest } = await import("../lib/submit-report.client");
+      await submitReportRequest({
+        type: "user",
+        reportedUserEmail: email,
+        reason: "Harassment/abuse",
+        details: "Reported from messages",
+      });
       localStorage.setItem(cooldownKey, String(Date.now()));
       showToast("User reported", "success");
-    } catch (e) { console.error(e); showToast("Failed to report user", "error"); }
+    } catch (e) {
+      console.error(e);
+      showToast(e instanceof Error ? e.message : "Failed to report user", "error");
+    }
     setShowMenu(false);
   }
   async function clearConversation() {
@@ -675,14 +741,21 @@ function MessagesPage() {
         archived.push(chatUser);
         localStorage.setItem("archivedConversations", JSON.stringify(archived));
       }
-      // Mark messages as read for Navbar badge
       const dismissed = JSON.parse(localStorage.getItem("dismissedNotifications") || "[]");
-      const relevant = messages.filter((m: any) => { const other = m.participants?.find((p: string) => p !== user.email); return other === chatUser; });
+      const relevant = messages.filter((m: any) =>
+        messageInActiveConversation(m, user.email, chatUser, chatListingId)
+      );
       for (const msg of relevant) {
         if (!dismissed.includes(msg.id)) dismissed.push(msg.id);
-        updateDoc(doc(db, "messages", msg.id), { read: true }).catch((e) => console.error("Failed to mark message read:", e));
       }
       localStorage.setItem("dismissedNotifications", JSON.stringify(dismissed));
+      const messageIds = relevant.map((m: any) => m.id);
+      const token = await user.getIdToken();
+      fetch("/api/mark-messages-read", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ messageIds }),
+      }).catch((e) => console.error("Failed to mark archived messages read:", e));
     } catch {}
     setShowMenu(false); setChatUser(""); setChatListingId(null);
   }
@@ -690,8 +763,15 @@ function MessagesPage() {
     if (!user?.email) return;
     setClearAllConfirm(false);
     const ids = [...new Set(messages.map((m: any) => m.id))];
-    const results = await Promise.allSettled(ids.map((id) => deleteDoc(doc(db, "messages", id))));
-    const failed = results.filter((r) => r.status === "rejected").length;
+    const token = await user.getIdToken();
+    const res = await fetch("/api/delete-messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ messageIds: ids }),
+    });
+    const data = await res.json().catch(() => ({}));
+    const marked = data.marked || 0;
+    const failed = data.failed || 0;
     setChatUser("");
     setChatListingId(null);
     if (failed === 0) showToast("All messages cleared", "info");
@@ -702,19 +782,20 @@ function MessagesPage() {
     if (!user?.email || !chatUser || sendingOffer) return;
     setSendingOffer(true);
     try {
-      const msgRef = await addDoc(collection(db, "messages"), {
-        type: "offer",
-        offerType: type,
-        offerAmount: amount || null,
-        offerStatus: type === "make" ? "pending" : type === "accept" ? "accepted" : type === "decline" ? "declined" : "countered",
-        text: type === "make" ? `Offer: $${amount || "?"}` : type === "accept" ? "Offer accepted" : type === "decline" ? "Offer declined" : "Counter offer",
-        sender: user.email,
-        receiver: chatUser,
-        participants: [user.email, chatUser],
-        listingId: chatListingId,
-        listingTitle: listingCard?.title || null,
-        createdAt: serverTimestamp(),
+      const sendToken = await user.getIdToken();
+      const msgRes = await fetch("/api/send-message", {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${sendToken}` },
+        body: JSON.stringify({
+          type: "offer", receiver: chatUser,
+          offerType: type,
+          offerAmount: amount || null,
+          offerStatus: type === "make" ? "pending" : type === "accept" ? "accepted" : type === "decline" ? "declined" : "countered",
+          text: type === "make" ? `Offer: $${amount || "?"}` : type === "accept" ? "Offer accepted" : type === "decline" ? "Offer declined" : "Counter offer",
+          listingId: chatListingId,
+          listingTitle: listingCard?.title || null,
+        }),
       });
+      const msgData = await msgRes.json().catch(() => ({}));
       // When offer is accepted, create purchase via API (server-side atomic transaction)
       if (type === "accept" && chatListingId && amount && user.email) {
         try {
@@ -726,7 +807,7 @@ function MessagesPage() {
               listingId: chatListingId,
               buyerEmail: chatUser,
               amount: Number(amount),
-              offerMessageId: msgRef.id,
+              offerMessageId: msgData.messageId,
               listingTitle: listingCard?.title || "",
               listingPrice: listingCard?.price || "",
               listingImage: listingCard?.images?.[0] || listingCard?.image || listingCard?.imageUrl || "",
@@ -764,24 +845,23 @@ function MessagesPage() {
   // â€”â€” Computed values â€”â€”
   const conversationMap = new Map<string, any>();
   messages.forEach((msg: any) => {
-    if (msg.receiver && msg.receiver !== user?.email) return;
+    if (!messageInInboxList(msg, user?.email || "", blockedUsers)) return;
     const otherUser = msg.participants?.find((p: string) => p !== user?.email);
-    if (otherUser) {
-      const key = `${otherUser}||${msg.listingId || ""}`;
-      const msgTime = msg.createdAt?.toMillis?.() || msg.createdAt?.seconds * 1000 || 0;
-      const existing = conversationMap.get(key);
-      const existingTime =
-        existing?.msg?.createdAt?.toMillis?.() ||
-        existing?.msg?.createdAt?.seconds * 1000 ||
-        0;
-      if (!existing || msgTime >= existingTime) {
-        conversationMap.set(key, {
-          participant: otherUser,
-          listingId: msg.listingId || null,
-          listingTitle: msg.listingTitle || null,
-          msg,
-        });
-      }
+    if (!otherUser) return;
+    const key = conversationKey(otherUser, msg.listingId);
+    const msgTime = msg.createdAt?.toMillis?.() || msg.createdAt?.seconds * 1000 || 0;
+    const existing = conversationMap.get(key);
+    const existingTime =
+      existing?.msg?.createdAt?.toMillis?.() ||
+      existing?.msg?.createdAt?.seconds * 1000 ||
+      0;
+    if (!existing || msgTime >= existingTime) {
+      conversationMap.set(key, {
+        participant: otherUser,
+        listingId: msg.listingId || null,
+        listingTitle: msg.listingTitle || null,
+        msg,
+      });
     }
   });
   let conversations = Array.from(conversationMap.entries());
@@ -915,7 +995,7 @@ function MessagesPage() {
             </p>
             <div className="mt-4 flex gap-3">
               <button onClick={() => { setScamWarning(false); setPendingMessage(""); }} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700">Edit Message</button>
-              <button onClick={sendPendingMessage} className="flex flex-1 items-center justify-center rounded-xl bg-amber-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-amber-400">Send Anyway</button>
+              <button onClick={sendPendingMessage} className="flex flex-1 items-center justify-center rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-sky-400">Send Anyway</button>
             </div>
           </div>
         </div>
@@ -923,9 +1003,9 @@ function MessagesPage() {
       {/* Risky keyword warning */}
       {showSafetyWarning && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setShowSafetyWarning(false)}>
-          <div className="mx-4 w-full max-w-md rounded-2xl border border-amber-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="mx-4 w-full max-w-md rounded-2xl border border-sky-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-black text-amber-400">&#9888;&#65039; Payment Safety</h3>
+              <h3 className="text-lg font-black text-sky-400">&#9888;&#65039; Payment Safety</h3>
               <button onClick={() => setShowSafetyWarning(false)} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
             </div>
             <p className="mt-2 text-sm text-[var(--foreground)]">
@@ -933,20 +1013,29 @@ function MessagesPage() {
             </p>
             <div className="mt-4 flex gap-3">
               <button onClick={() => setShowSafetyWarning(false)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700">Edit Message</button>
-              <button onClick={() => { setShowSafetyWarning(false); sendMessage(true); }} className="flex flex-1 items-center justify-center rounded-xl bg-amber-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-amber-400">Send Anyway</button>
+              <button onClick={() => { setShowSafetyWarning(false); sendMessage(true); }} className="flex flex-1 items-center justify-center rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-sky-400">Send Anyway</button>
             </div>
           </div>
         </div>
       )}
-      <section className="relative z-10 mx-auto flex max-w-7xl px-6 py-12">
-        <div className="flex h-[calc(100dvh-12rem)] w-full overflow-hidden rounded-[40px] border border-[var(--card-border)] bg-[var(--card)] shadow-2xl backdrop-blur-xl">
+      <section className={`${PAGE_SHELL_CHAT} py-6 sm:py-8`}>
+        <div
+          className={`flex w-full overflow-hidden rounded-[40px] border border-[var(--card-border)] bg-[var(--card)] shadow-2xl backdrop-blur-xl ${
+            !isMobile || mobileView === "list"
+              ? "h-[calc(100dvh-17rem)] sm:h-[calc(100dvh-18rem)]"
+              : "h-[calc(100dvh-10rem)]"
+          }`}
+        >
           {/* SIDEBAR */}
           <div className={`flex w-[340px] flex-col border-r border-[var(--card-border)] ${isMobile && mobileView === "chat" ? "hidden" : "flex"} ${isMobile ? "w-full" : ""}`}>
             <div className="border-b border-[var(--card-border)] p-5">
-              <div className="flex items-center justify-between">
+              <div className="flex items-start justify-between gap-3">
                 <h1 className="text-2xl font-black text-sky-400">Inbox</h1>
                 {messages.length > 0 && (
-                  <button onClick={() => setClearAllConfirm(true)} className="text-[10px] text-red-400 underline decoration-red-400/30 underline-offset-2 transition hover:text-red-300 hover:decoration-red-400/60">
+                  <button
+                    onClick={() => setClearAllConfirm(true)}
+                    className="text-[10px] text-red-400 underline decoration-red-400/30 underline-offset-2 transition hover:text-red-300 hover:decoration-red-400/60"
+                  >
                     Clear all
                   </button>
                 )}
@@ -970,7 +1059,6 @@ function MessagesPage() {
                   </svg>
                 </button>
               </div>
-
             </div>
             <div className="flex-1 overflow-y-auto scrollbar-thin">
               {loading ? (
@@ -1044,6 +1132,36 @@ function MessagesPage() {
                 })
               )}
             </div>
+            {/* Collapsible Awhina assistant */}
+            <details className="border-t border-[var(--card-border)] group">
+              <summary className="flex cursor-pointer items-center gap-2 px-4 py-3 text-[11px] font-semibold text-[var(--muted)] transition hover:text-sky-400 hover:bg-sky-500/5">
+                <svg className={`h-3.5 w-3.5 transition-transform group-open:rotate-90`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+                <span className="flex items-center gap-1.5">
+                  ✨ Āwhina Assistant
+                </span>
+              </summary>
+              <div className="border-t border-[var(--card-border)] bg-[var(--soft-card)]">
+                <div className="px-3 py-3">
+                  <p className="text-[10px] leading-relaxed text-[var(--muted)]">
+                    Ask me about selling, pricing, or creating listings.
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {["Price my item", "Create listing", "Safety tips"].map((label) => (
+                      <button key={label}
+                        className="rounded-full border border-sky-500/20 bg-sky-500/10 px-2 py-1 text-[9px] font-semibold text-sky-400 transition hover:bg-sky-500/20">
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="mt-2 flex gap-2">
+                    <input type="text" placeholder="Ask Āwhina..." className="min-w-0 flex-1 rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-2.5 py-1.5 text-[11px] text-[var(--foreground)] outline-none placeholder:text-[var(--muted)] focus:border-sky-500/50" />
+                    <button className="shrink-0 rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white">Send</button>
+                  </div>
+                </div>
+              </div>
+            </details>
           </div>
           {/* CHAT AREA */}
           <div className={`flex flex-1 flex-col ${isMobile && mobileView === "list" ? "hidden" : "flex"}`}>
@@ -1078,9 +1196,9 @@ function MessagesPage() {
                               <>
                                 <p className="mt-0.5 text-[10px] text-[var(--muted)]">
                                   {sellerProfile.verified && <span className="text-sky-400">Verified &#10003;</span>}
-                                  {sellerProfile.trustedSeller && <span className="ml-1 text-emerald-400">Trusted</span>}
-                                  {sellerProfile.profileBadge === "epic" && <span className="ml-1 text-violet-400 font-bold">💎 Epic</span>}
-                                  {sellerProfile.profileBadge === "legendary" && <span className="ml-1 text-amber-400 font-bold animate-pulse">👑 The Five</span>}
+                                  {sellerProfile.trustedSeller && <span className="ml-1 text-sky-400">Trusted</span>}
+                                  {sellerProfile.profileBadge === "epic" && <span className="ml-1 text-sky-400 font-bold">💎 Epic</span>}
+                                  {sellerProfile.profileBadge === "legendary" && <span className="ml-1 text-sky-400 font-bold animate-pulse">👑 The Five</span>}
                                 </p>
                                 <p className="mt-1 text-[11px] text-[var(--muted)]">{sellerProfile.sales || 0} sales</p>
                                 {sellerProfile.memberSince && (
@@ -1110,8 +1228,8 @@ function MessagesPage() {
                       {sellerTrust && (
                         <p className="text-[10px] text-[var(--muted)]">
                           {sellerProfile?.verified && <span className="text-sky-400">Verified &#10003;</span>}
-                          {sellerProfile?.profileBadge === "epic" && <span className="ml-1 text-violet-400 font-bold">💎 Epic</span>}
-                          {sellerProfile?.profileBadge === "legendary" && <span className="ml-1 text-amber-400 font-bold animate-pulse">👑 The Five</span>}
+                          {sellerProfile?.profileBadge === "epic" && <span className="ml-1 text-sky-400 font-bold">💎 Epic</span>}
+                          {sellerProfile?.profileBadge === "legendary" && <span className="ml-1 text-sky-400 font-bold animate-pulse">👑 The Five</span>}
                           {sellerTrust && <> &#8226; {sellerTrust.score}% Trust</>}
                           {listingCard?.replyTime && <> &#8226; Replies in {listingCard.replyTime}m</>}
                         </p>
@@ -1167,14 +1285,16 @@ function MessagesPage() {
             </div>
             {/* Empty state */}
             {!chatUser ? (
-              <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-                <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-sky-500/10">
-                  <svg className="h-7 w-7 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                  </svg>
+              <div className="flex flex-1 flex-col items-center justify-center px-6 py-8">
+                <div className="w-full max-w-md text-center">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-500/10">
+                    <svg className="h-6 w-6 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                  </div>
+                  <h3 className="mt-4 text-lg font-bold text-[var(--foreground)]">Select a conversation</h3>
+                  <p className="mt-1 text-[12px] text-[var(--muted)]">Pick a thread from the left to start messaging.</p>
                 </div>
-                <h3 className="mt-5 text-xl font-bold text-[var(--foreground)]">Select a conversation</h3>
-                <p className="mt-2 max-w-xs text-[13px] text-[var(--muted)]">Choose a conversation from the left to start trading. All your marketplace messages live here.</p>
               </div>
             ) : (
               <>
@@ -1204,11 +1324,11 @@ function MessagesPage() {
                           )}
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className={`text-[10px] ${
-                              purchaseData?.status === "delivered" || purchaseData?.status === "completed" ? "text-emerald-400" :
+                              purchaseData?.status === "delivered" || purchaseData?.status === "completed" ? "text-sky-400" :
                               purchaseData?.status === "shipped" ? "text-sky-400" :
-                              purchaseData?.status === "seller_confirming" ? "text-indigo-400" :
+                              purchaseData?.status === "seller_confirming" ? "text-sky-400" :
                               purchaseData?.status === "cancelled" ? "text-red-400" :
-                              "text-amber-400"
+                              "text-sky-400"
                             }`}>
                               {purchaseData?.status === "arrange_requested"
                                 ? purchaseData?.sellerEmail === user?.email
@@ -1239,7 +1359,7 @@ function MessagesPage() {
                               type="button"
                               onClick={confirmArrangeSaleInChat}
                               disabled={confirmingArrangeSale}
-                              className="shrink-0 rounded-lg bg-emerald-500 px-3 py-1.5 text-[10px] font-bold text-white transition hover:bg-emerald-400 disabled:opacity-60"
+                              className="shrink-0 rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white transition hover:bg-sky-400 disabled:opacity-60"
                             >
                               {confirmingArrangeSale ? "Updating…" : "Mark sold"}
                             </button>
@@ -1261,13 +1381,13 @@ function MessagesPage() {
                   {/* Listing context card — auction ended */}
                   {listingCard && !hasPurchaseInChat && auctionEnded && (
                     <div className={`mb-3 overflow-hidden rounded-2xl border ${
-                      isAuctionWinner ? "border-emerald-500/30 bg-emerald-500/5" : "border-amber-500/10 bg-zinc-900/60"
+                      isAuctionWinner ? "border-sky-500/30 bg-sky-500/5" : "border-sky-500/10 bg-zinc-900/60"
                     }`}>
                       {/* Winner banner */}
                       {isAuctionWinner && (
-                        <div className="flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600/20 via-emerald-500/30 to-emerald-600/20 px-4 py-3">
+                        <div className="flex items-center justify-center gap-2 bg-gradient-to-r from-sky-600/20 via-sky-500/30 to-sky-600/20 px-4 py-3">
                           <span className="text-lg">🎉</span>
-                          <span className="text-sm font-black tracking-wide text-emerald-300">CONGRATULATIONS! YOU WON</span>
+                          <span className="text-sm font-black tracking-wide text-sky-300">CONGRATULATIONS! YOU WON</span>
                           <span className="text-lg">🎉</span>
                         </div>
                       )}
@@ -1280,9 +1400,9 @@ function MessagesPage() {
                         )}
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[13px] font-bold text-[var(--foreground)]">{listingCard.title || "Listing"}</p>
-                          <p className="text-[15px] font-black text-emerald-400">${listingCard.currentBid || listingCard.price}</p>
+                          <p className="text-[15px] font-black text-sky-400">${listingCard.currentBid || listingCard.price}</p>
                           <span className={`text-[11px] font-medium ${
-                            isAuctionWinner ? "text-emerald-400" : "text-amber-400"
+                            isAuctionWinner ? "text-sky-400" : "text-sky-400"
                           }`}>
                             {isAuctionWinner ? "This listing is yours! Arrange pickup or payment below." : isAuctionSeller ? (listingCard.highestBidder ? `${listingCard.highestBidder} won` : "No bids received") : "Auction ended"}
                           </span>
@@ -1290,9 +1410,9 @@ function MessagesPage() {
                         <Link href={listingCard?.type === "service" ? "/services" : `/post/listing/${listingCard.id}`}
                           className={`shrink-0 rounded-xl px-4 py-2.5 text-[11px] font-bold shadow-lg transition hover:opacity-80 ${
                             isAuctionWinner
-                              ? "bg-gradient-to-r from-emerald-500 to-emerald-400 text-black"
+                              ? "bg-gradient-to-r from-sky-500 to-sky-400 text-black"
                               : isAuctionSeller
-                                ? listingCard.highestBidder ? "bg-amber-500 text-black" : "bg-zinc-700 text-[var(--foreground)]"
+                                ? listingCard.highestBidder ? "bg-sky-500 text-black" : "bg-zinc-700 text-[var(--foreground)]"
                                 : "bg-zinc-700 text-[var(--foreground)]"
                           }`}>
                           {isAuctionWinner ? (listingCard.saleType === "auction_buy_now" ? "Proceed to Payment" : "Arrange Pickup")
@@ -1325,7 +1445,7 @@ function MessagesPage() {
                   )}
                   {/* Listing context card — active auction */}
                   {listingCard && !hasPurchaseInChat && !auctionEnded && isAuction && listingCard?.saleType !== "buy_now" && (
-                    <div className="mb-3 overflow-hidden rounded-2xl border border-amber-500/10 bg-zinc-900/60">
+                    <div className="mb-3 overflow-hidden rounded-2xl border border-sky-500/10 bg-zinc-900/60">
                       <div className="flex items-center gap-3 p-3">
                         {listingCard.image && (
                           <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl bg-zinc-800 shadow-md">
@@ -1335,8 +1455,8 @@ function MessagesPage() {
                         )}
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[13px] font-bold text-[var(--foreground)]">{listingCard.title || "Listing"}</p>
-                          <p className="text-[15px] font-black text-amber-400">${listingCard.currentBid || listingCard.price}</p>
-                          <span className="text-[11px] font-medium text-amber-400/80">Active auction</span>
+                          <p className="text-[15px] font-black text-sky-400">${listingCard.currentBid || listingCard.price}</p>
+                          <span className="text-[11px] font-medium text-sky-400/80">Active auction</span>
                         </div>
                         <Link href={listingCard?.type === "service" ? "/services" : `/post/listing/${listingCard.id}`}
                           className="shrink-0 rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white transition hover:bg-sky-400">
@@ -1401,8 +1521,8 @@ function MessagesPage() {
                         // Offer card
                         if (msg.type === "offer") {
                           const statusColors: Record<string, string> = {
-                            pending: "text-amber-400 border-amber-500/20 bg-amber-500/10",
-                            accepted: "text-emerald-400 border-emerald-500/20 bg-emerald-500/10",
+                            pending: "text-sky-400 border-sky-500/20 bg-sky-500/10",
+                            accepted: "text-sky-400 border-sky-500/20 bg-sky-500/10",
                             declined: "text-red-400 border-red-500/20 bg-red-500/10",
                             countered: "text-sky-400 border-sky-500/20 bg-sky-500/10",
                           };
@@ -1418,10 +1538,10 @@ function MessagesPage() {
                                     </div>
                                     {/* Status badge */}
                                     <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
-                                      msg.offerStatus === "accepted" ? "bg-emerald-500/20 text-emerald-400" :
+                                      msg.offerStatus === "accepted" ? "bg-sky-500/20 text-sky-400" :
                                       msg.offerStatus === "declined" ? "bg-red-500/20 text-red-400" :
                                       msg.offerStatus === "countered" ? "bg-sky-500/20 text-sky-400" :
-                                      "bg-amber-500/20 text-amber-400"
+                                      "bg-sky-500/20 text-sky-400"
                                     }`}>
                                       {msg.offerStatus || "pending"}
                                     </span>
@@ -1436,9 +1556,9 @@ function MessagesPage() {
                                   {/* Action buttons â€” only on received pending offers */}
                                   {!isOwn && msg.offerStatus === "pending" && (
                                     <div className="mt-3 flex gap-1.5">
-                                      <button disabled={sendingOffer} onClick={() => sendOffer("accept", msg.offerAmount)} className="flex-1 rounded-lg bg-emerald-500 py-2.5 text-[10px] font-bold text-white transition hover:bg-emerald-400 disabled:opacity-50">Accept</button>
+                                      <button disabled={sendingOffer} onClick={() => sendOffer("accept", msg.offerAmount)} className="flex-1 rounded-lg bg-sky-500 py-2.5 text-[10px] font-bold text-white transition hover:bg-sky-400 disabled:opacity-50">Accept</button>
                                       <button disabled={sendingOffer} onClick={() => sendOffer("decline")} className="flex-1 rounded-lg bg-zinc-700 py-2.5 text-[10px] font-bold text-[var(--foreground)] transition hover:bg-zinc-600 disabled:opacity-50">Decline</button>
-                                      <button disabled={sendingOffer} onClick={() => sendOffer("counter", msg.offerAmount)} className="flex-1 rounded-lg bg-amber-500 py-2.5 text-[10px] font-bold text-white transition hover:bg-amber-400 disabled:opacity-50">Counter</button>
+                                      <button disabled={sendingOffer} onClick={() => sendOffer("counter", msg.offerAmount)} className="flex-1 rounded-lg bg-sky-500 py-2.5 text-[10px] font-bold text-white transition hover:bg-sky-400 disabled:opacity-50">Counter</button>
                                     </div>
                                   )}
                                   {/* Pay Now for accepted offers */}
@@ -1466,12 +1586,12 @@ function MessagesPage() {
                         // Order/confirmation card
                         if (msg.type === "order") {
                           const orderStatusBadge: Record<string, { label: string; color: string }> = {
-                            paid: { label: "Payment Confirmed", color: "text-emerald-400 border-emerald-500/20 bg-emerald-500/10" },
-                            awaiting_seller: { label: "Awaiting Seller", color: "text-amber-400 border-amber-500/20 bg-amber-500/10" },
+                            paid: { label: "Payment Confirmed", color: "text-sky-400 border-sky-500/20 bg-sky-500/10" },
+                            awaiting_seller: { label: "Awaiting Seller", color: "text-sky-400 border-sky-500/20 bg-sky-500/10" },
                             pickup_arranged: { label: "Pickup Arranged", color: "text-sky-400 border-sky-500/20 bg-sky-500/10" },
-                            shipped: { label: "Shipped", color: "text-violet-400 border-violet-500/20 bg-violet-500/10" },
-                            delivered: { label: "Delivered", color: "text-emerald-400 border-emerald-500/20 bg-emerald-500/10" },
-                            completed: { label: "Completed", color: "text-green-400 border-green-500/20 bg-green-500/10" },
+                            shipped: { label: "Shipped", color: "text-sky-400 border-sky-500/20 bg-sky-500/10" },
+                            delivered: { label: "Delivered", color: "text-sky-400 border-sky-500/20 bg-sky-500/10" },
+                            completed: { label: "Completed", color: "text-sky-400 border-sky-500/20 bg-sky-500/10" },
                             disputed: { label: "Disputed", color: "text-red-400 border-red-500/20 bg-red-500/10" },
                           };
                           const badge = orderStatusBadge[msg.orderStatus || "paid"] || orderStatusBadge.paid;
@@ -1482,8 +1602,8 @@ function MessagesPage() {
                                   <div className="p-4">
                                     <div className="flex items-center justify-between mb-3">
                                       <div className="flex items-center gap-2">
-                                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/20">
-                                          <svg className="h-3.5 w-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-sky-500/20">
+                                          <svg className="h-3.5 w-3.5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                           </svg>
                                         </div>
@@ -1500,7 +1620,7 @@ function MessagesPage() {
                                       </div>
                                       <div className="flex items-center justify-between">
                                         <span className="text-[11px] text-[var(--muted)]">Amount</span>
-                                        <span className="text-[15px] font-black text-emerald-400">${msg.listingPrice || "â€”"}</span>
+                                        <span className="text-[15px] font-black text-sky-400">${msg.listingPrice || "â€”"}</span>
                                       </div>
                                       <div className="flex items-center justify-between">
                                         <span className="text-[11px] text-[var(--muted)]">Status</span>
@@ -1524,15 +1644,15 @@ function MessagesPage() {
                         // Image message
                         if (msg.type === "image") {
                           return (
-                            <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
+                            <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
                               <div className="max-w-[75%]">
-                                <div className={`overflow-hidden rounded-2xl ${isOwn ? "rounded-br-md" : "rounded-bl-md"} shadow-lg`}>
+                                <div className={`overflow-hidden rounded-2xl shadow-xl transition-all duration-200 hover:shadow-2xl ${isOwn ? "rounded-br-md border border-sky-500/20" : "rounded-bl-md border border-zinc-700/30"}`}>
                                   {(msg.imageUrl || msg.imageData) && (
-                                    <img src={msg.imageUrl || msg.imageData} alt="Shared image" className="max-h-64 w-full object-cover"
+                                    <img src={msg.imageUrl || msg.imageData} alt="Shared image" className="max-h-80 w-full object-cover"
                                       onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                                   )}
-                                  {msg.text && <p className="px-4 py-2 text-[13px]">{msg.text}</p>}
-                                  <div className={`flex items-center justify-end gap-1 px-4 pb-2 ${isOwn ? "" : ""}`}>
+                                  {msg.text && <div className={`px-4 py-3 text-[14px] ${isOwn ? "bg-gradient-to-br from-sky-500/20 to-sky-600/15" : "bg-gradient-to-br from-zinc-800/80 to-zinc-900/60"}`}><p>{msg.text}</p></div>}
+                                  <div className={`flex items-center justify-end gap-1 px-4 pb-3 ${isOwn ? "bg-gradient-to-br from-sky-500/20 to-sky-600/15" : "bg-gradient-to-br from-zinc-800/80 to-zinc-900/60"}`}>
                                     <span className={`text-[9px] ${isOwn ? "text-white/60" : "text-[var(--muted)]"}`}>{formatFullTime(msg.createdAt) || formatTime(msg.createdAt)}</span>
                                   </div>
                                 </div>
@@ -1607,7 +1727,7 @@ function MessagesPage() {
                         if (msg.type === "system" && msg.sender === "system") {
                           return (
                             <div key={msg.id} className="flex justify-center">
-                              <div className="max-w-[90%] rounded-xl border border-emerald-500/15 bg-emerald-500/5 px-4 py-3 text-left">
+                              <div className="max-w-[90%] rounded-xl border border-sky-500/15 bg-sky-500/5 px-4 py-3 text-left">
                                 <p className="whitespace-pre-line text-[13px] leading-relaxed text-[var(--foreground)]">
                                   {formatMessageText(msg.text)}
                                 </p>
@@ -1621,25 +1741,25 @@ function MessagesPage() {
                         }
                         // Text message
                         return (
-                          <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
+                          <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
                             <div className="max-w-[75%]">
-                              <div className={`rounded-2xl px-4 py-2.5 text-[14px] ${isOwn ? "rounded-br-md bg-sky-500/15 text-[var(--foreground)]" : "rounded-bl-md bg-zinc-800/60 text-[var(--foreground)]"}`}>
+                              <div className={`rounded-2xl px-4 py-3 text-[14px] shadow-lg transition-all duration-200 hover:shadow-xl ${isOwn ? "rounded-br-md bg-gradient-to-br from-sky-500/20 to-sky-600/15 text-[var(--foreground)] border border-sky-500/20" : "rounded-bl-md bg-gradient-to-br from-zinc-800/80 to-zinc-900/60 text-[var(--foreground)] border border-zinc-700/30"}`}>
                                 {!isOwn && (() => { const check = detectScam(msg.text || ""); return check.isScam ? (
-                                  <span className="mb-1.5 inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[9px] font-bold text-red-400" title={`Flagged: ${check.keywords.join(", ")}`}>&#9888;&#65039; Caution</span>
+                                  <span className="mb-2 inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2.5 py-1 text-[9px] font-bold text-red-400 border border-red-500/20" title={`Flagged: ${check.keywords.join(", ")}`}>&#9888;&#65039; Caution</span>
                                 ) : null; })()}
                                 {!isOwn && containsRiskyKeywords(msg.text || "") && (
-                                  <span className="mb-1.5 inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[9px] font-bold text-amber-400">&#9888;&#65039; Off-platform mention</span>
+                                  <span className="mb-2 inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2.5 py-1 text-[9px] font-bold text-sky-400 border border-sky-500/20">&#9888;&#65039; Off-platform mention</span>
                                 )}
                                 <p className="break-words whitespace-pre-line text-[14px] leading-relaxed">{formatMessageText(msg.text)}</p>
                                 {/* Status + timestamp */}
-                                <div className="mt-1.5 flex items-center justify-end gap-1">
+                                <div className="mt-2 flex items-center justify-end gap-1">
                                   <span className={`text-[9px] ${isOwn ? "text-white/60" : "text-[var(--muted)]"}`}>{formatTime(msg.createdAt)}</span>
                                   {isOwn && (
                                     <span className="text-[10px]">
                                       {msg.read ? (
-                                        <svg className="h-3 w-3 text-white/70" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 7.5l-12 12L5 13l1.5-1.5 5 5 10.5-10.5L23.5 7.5zM17.5 7.5l-6 6-1.5-1.5 6-6 1.5 1.5z" /></svg>
+                                        <svg className="h-3.5 w-3.5 text-sky-400" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 7.5l-12 12L5 13l1.5-1.5 5 5 10.5-10.5L23.5 7.5zM17.5 7.5l-6 6-1.5-1.5 6-6 1.5 1.5z" /></svg>
                                       ) : (
-                                        <svg className="h-3 w-3 text-white/50" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" /></svg>
+                                        <svg className="h-3.5 w-3.5 text-white/50" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" /></svg>
                                       )}
                                     </span>
                                   )}
@@ -1685,10 +1805,15 @@ function MessagesPage() {
                     <div className="mb-2 flex items-center gap-2">
                       <input type="number" placeholder="Offer amount..." value={offerAmount} onChange={(e) => setOfferAmount(e.target.value)}
                         className="flex-1 rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] px-4 py-2 text-[13px] text-[var(--foreground)] outline-none transition focus:border-sky-400" />
-                      <button onClick={() => { sendOffer("make", offerAmount); setShowOfferInput(false); setOfferAmount(""); }} className="rounded-xl bg-emerald-500 px-4 py-2 text-[11px] font-bold text-white hover:bg-emerald-400">Send Offer</button>
+                      <button onClick={() => { sendOffer("make", offerAmount); setShowOfferInput(false); setOfferAmount(""); }} className="rounded-xl bg-sky-500 px-4 py-2 text-[11px] font-bold text-white hover:bg-sky-400">Send Offer</button>
                       <button onClick={() => setShowOfferInput(false)} className="rounded-xl bg-zinc-700 px-4 py-2 text-[11px] font-bold text-[var(--foreground)] hover:bg-zinc-600">Cancel</button>
                     </div>
                   )}
+                  <TurnstileWidget
+                    onToken={(token) => setTurnstileToken(token)}
+                    onExpire={() => setTurnstileToken("")}
+                    className="mb-2 scale-[0.7] origin-left"
+                  />
                   <div className="flex gap-2.5">
                     {/* Image attach button */}
                     <button onClick={() => fileInputRef.current?.click()}
@@ -1699,7 +1824,7 @@ function MessagesPage() {
                     </button>
                     {/* File attach button */}
                     <button onClick={() => fileAttachInputRef.current?.click()}
-                      className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--muted)] transition hover:border-amber-400 hover:text-amber-400">
+                      className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--muted)] transition hover:border-sky-400 hover:text-sky-400">
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                       </svg>
@@ -1709,8 +1834,8 @@ function MessagesPage() {
                       <button onClick={() => setShowOfferInput((prev) => !prev)}
                         className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border transition ${
                           showOfferInput
-                            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
-                            : "border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--muted)] hover:border-emerald-400 hover:text-emerald-400"
+                            ? "border-sky-500/40 bg-sky-500/10 text-sky-400"
+                            : "border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--muted)] hover:border-sky-400 hover:text-sky-400"
                         }`}>
                         <span className="text-lg font-black">$</span>
                       </button>

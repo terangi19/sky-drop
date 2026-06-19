@@ -36,23 +36,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const transport = {
-      host: process.env.SMTP_HOST || "",
-      port: Number(process.env.SMTP_PORT) || 587,
-      auth: {
-        user: process.env.SMTP_USER || "",
-        pass: process.env.SMTP_PASS || "",
-      },
-    };
-
-    if (transport.host && transport.auth.user) {
-      const nodemailer = await import("nodemailer");
-      const transporter = nodemailer.default.createTransport(transport);
-      await transporter.sendMail({
-        from: { name: "Sky Drop", address: process.env.SMTP_FROM || process.env.SMTP_USER || "noreply@skydrop.nz" },
-        to, subject, html,
-      });
-    }
+    const { sendEmail } = await import("../../lib/email-transport");
+    await sendEmail({ to, subject, html });
 
     return NextResponse.json({ success: true });
   } catch (e: any) {

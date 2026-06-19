@@ -1,10 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import stripePromise from "../lib/stripe-client";
-import { collection, addDoc, doc, getDoc, serverTimestamp, Timestamp, updateDoc } from "firebase/firestore";
-import { auth, db } from "../lib/firebase";
+import { auth } from "../lib/firebase";
 import { showToast } from "./Toast";
 
 interface SponsorDropModalProps {
@@ -26,7 +25,7 @@ function PaymentForm({ listingId, listingTitle, sellerEmail, userId, targetPage,
     if (!stripe || !elements) return;
     setError("");
 
-    const { error: submitError } = await stripe.confirmPayment({
+    const { error: submitError, paymentIntent } = await stripe.confirmPayment({
       elements,
       confirmParams: { return_url: `${window.location.origin}/dashboard` },
       redirect: "if_required",
@@ -34,40 +33,33 @@ function PaymentForm({ listingId, listingTitle, sellerEmail, userId, targetPage,
 
     if (submitError) {
       setError("Payment failed. Try again.");
-    } else {
-      try {
-        await addDoc(collection(db, "sponsoredDrops"), {
-          listingId,
-          listingTitle,
-          sellerEmail,
-          sellerUid: userId,
-          targetPage,
-          status: "pending",
-          paid: true,
-          createdAt: serverTimestamp(),
-        });
-        for (let i = 0; i < 2; i++) {
-          await addDoc(collection(db, "dropTokens"), {
-            ownerId: userId,
-            ownerEmail: sellerEmail,
-            originDropId: "sponsor_reward",
-            status: "available",
-            createdAt: serverTimestamp(),
-          });
-        }
+      return;
+    }
 
-        const listingRef = doc(db, "listings", listingId);
-        const listingSnap = await getDoc(listingRef);
-        const currentPromoted = listingSnap.data()?.promotedUntil?.toMillis?.() || 0;
-        const baseTime = Math.max(Date.now(), currentPromoted);
-        await updateDoc(listingRef, {
-          promotedUntil: Timestamp.fromMillis(baseTime + 3 * 86400000),
-        });
+    const paymentIntentId = paymentIntent?.id;
+    if (!paymentIntentId) {
+      setError("Payment incomplete. Try again.");
+      return;
+    }
 
-        onSuccess();
-      } catch {
-        setError("Failed to activate sponsorship.");
+    try {
+      const token = await auth.currentUser?.getIdToken(true);
+      const res = await fetch("/api/confirm-sponsor-drop", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ paymentIntentId, targetPage }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(typeof data.error === "string" ? data.error : "Failed to activate sponsorship.");
+        return;
       }
+      onSuccess();
+    } catch {
+      setError("Failed to activate sponsorship.");
     }
   }
 
@@ -76,7 +68,7 @@ function PaymentForm({ listingId, listingTitle, sellerEmail, userId, targetPage,
       <PaymentElement />
       {error && <p className="text-xs text-red-400">{error}</p>}
       <button type="submit" disabled={!stripe}
-        className="w-full rounded-xl bg-amber-500 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-amber-400 disabled:opacity-50">
+        className="w-full rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-sky-400 disabled:opacity-50">
         Pay $5.00 — Sponsor Drop
       </button>
     </form>
@@ -88,6 +80,11 @@ function PaymentForm({ listingId, listingTitle, sellerEmail, userId, targetPage,
 export default function SponsorDropModal({ listing, sellerEmail, userId, onClose }: SponsorDropModalProps) {
   const [step, setStep] = useState<"confirm" | "card" | "success">("confirm");
   const [clientSecret, setClientSecret] = useState("");
+
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
 
   const imageSrc = listing.images?.[0] || listing.imageUrl || listing.image || "";
   const targetPage = `/post/listing/${listing.id}`;
@@ -108,16 +105,16 @@ export default function SponsorDropModal({ listing, sellerEmail, userId, onClose
   }
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4" onClick={onClose}>
-      <div className="w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in-backdrop" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl overflow-hidden animate-fade-in-up" onClick={(e) => e.stopPropagation()}>
         {step === "success" ? (
           <div className="flex flex-col items-center px-6 py-10 text-center animate-fade-in-up">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/20 text-2xl">🎁</div>
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-sky-500/20 text-2xl">🎁</div>
             <h2 className="mt-4 text-lg font-black text-[var(--foreground)]">Drop Sponsored!</h2>
             <p className="mt-2 text-sm text-[var(--muted)]">
-              Your listing is now <strong className="text-orange-400">promoted with an orange glow</strong> for 3 days and will appear as the next drop target.
+              Your listing is now <strong className="text-sky-400">promoted with an orange glow</strong> for 3 days and will appear as the next drop target.
             </p>
-            <button onClick={onClose} className="mt-6 w-full rounded-xl bg-amber-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-amber-400">Done</button>
+            <button onClick={onClose} className="mt-6 w-full rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-sky-400">Done</button>
           </div>
         ) : step === "card" && clientSecret ? (
           <div className="p-5 space-y-4">
@@ -139,11 +136,11 @@ export default function SponsorDropModal({ listing, sellerEmail, userId, onClose
               {imageSrc && <div className="h-10 w-10 shrink-0 rounded-lg bg-zinc-800 overflow-hidden"><img src={imageSrc} className="h-full w-full object-cover" /></div>}
               <div className="min-w-0 flex-1"><p className="truncate font-bold">{listing.title}</p>{listing.price && <p className="text-[var(--muted)]">${listing.price}</p>}</div>
             </div>
-            <div className="rounded-lg bg-amber-500/5 border border-amber-500/20 px-4 py-3 text-xs space-y-1">
-              <p className="font-bold text-amber-400">🎁 $5 for one drop placement</p>
+            <div className="rounded-lg bg-sky-500/5 border border-sky-500/20 px-4 py-3 text-xs space-y-1">
+              <p className="font-bold text-sky-400">🎁 $5 for one drop placement</p>
               <p className="text-[var(--muted)]">Your listing becomes the next drop target. Users hunting for the 🎁 will be sent directly to your page.</p>
             </div>
-            <button onClick={handleStart} className="w-full rounded-xl bg-amber-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-amber-400">
+            <button onClick={handleStart} className="w-full rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-sky-400">
               Sponsor Now — $5
             </button>
           </div>

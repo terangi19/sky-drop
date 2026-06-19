@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken, getServerDb } from "../../lib/firebase-admin";
+import { verifyIdToken, getServerDb, getAdminDb, isAdminInitialized } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import { sanitizeListingContent } from "../../lib/sanitize";
 
@@ -52,6 +52,19 @@ export async function PUT(req: NextRequest) {
     // Sanitize and validate allowed fields
     const { title, description, price, category, location, condition, images } = body;
 
+    // KYC check for price cap on update
+    if (price !== undefined && isAdminInitialized()) {
+      const numericPrice = Number(price) || 0;
+      const profileSnap = await getAdminDb().collection("profiles").doc(token.uid).get();
+      const profile = profileSnap.data();
+      const kycApproved = profile?.kycStatus === "approved";
+      if (numericPrice > 0 && !kycApproved && numericPrice > 600) {
+        return NextResponse.json({
+          error: "The maximum price for non-KYC sellers is $600. Verify your ID (KYC) to unlock unlimited pricing.",
+        }, { status: 400 });
+      }
+    }
+
     const sanitizedTitle = title !== undefined ? sanitizeListingContent(String(title)) : undefined;
     const sanitizedDesc = description !== undefined ? sanitizeListingContent(String(description)) : undefined;
 
@@ -65,6 +78,7 @@ export async function PUT(req: NextRequest) {
       "shippingFee", "freeShipping", "shipsWithinDays", "stockQuantity",
       "saleType", "startingBid", "reservePrice", "expiresInDays",
       "paymentType",
+      "pricingType",
     ];
     const updateData: Record<string, unknown> = {};
 

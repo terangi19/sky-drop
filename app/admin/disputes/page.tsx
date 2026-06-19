@@ -3,21 +3,15 @@
 import { useEffect, useState } from "react";
 import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
+import { AwhinaUnderHeader } from "../../components/AwhinaOnlineBadge";
 import ThemeToggle from "../../components/ThemeToggle";
 import { showToast } from "../../components/Toast";
+import { adminFetch } from "../../lib/admin-fetch.client";
 import {
-  addDoc,
   collection,
-  deleteDoc,
-  doc,
-  getDoc,
-  getDocs,
   onSnapshot,
   orderBy,
   query,
-  Timestamp,
-  updateDoc,
-  where,
 } from "firebase/firestore";
 import {
   User,
@@ -42,10 +36,10 @@ const DISPUTE_REASON_LABELS: Record<string, string> = {
 
 const STATUS_STYLES: Record<string, string> = {
   open: "bg-red-500/10 text-red-400 border-red-500/20",
-  under_review: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-  resolved_buyer: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  under_review: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+  resolved_buyer: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   resolved_seller: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20",
-  refunded: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  refunded: "bg-sky-500/10 text-sky-400 border-sky-500/20",
 };
 
 export default function AdminDisputesPage() {
@@ -78,73 +72,66 @@ export default function AdminDisputesPage() {
   async function handleReview(disputeId: string) {
     setActionLoading(disputeId);
     try {
-      await updateDoc(doc(db, "disputes", disputeId), {
-        status: "under_review",
-        updatedAt: Timestamp.now(),
+      await adminFetch("/api/admin/disputes-manage", {
+        method: "POST",
+        body: JSON.stringify({
+          disputeId,
+          action: "review",
+          adminNotes: adminNotes[disputeId] || "",
+        }),
       });
-      await updateDoc(doc(db, "purchases", disputes.find(d => d.id === disputeId)?.purchaseId), {
-        disputeStatus: "under_review",
-      });
-    } catch (e) { console.error(e); }
+      setAdminNotes((prev) => { const n = { ...prev }; delete n[disputeId]; return n; });
+      showToast("Marked as under review.", "success");
+    } catch (e) {
+      console.error(e);
+      showToast(e instanceof Error ? e.message : "Action failed", "error");
+    }
     setActionLoading(null);
   }
 
-  async function handleResolveSeller(disputeId: string, purchaseId: string) {
+  async function handleResolveSeller(disputeId: string) {
     setActionLoading(disputeId);
     try {
-      await updateDoc(doc(db, "disputes", disputeId), {
-        status: "resolved_seller",
-        adminNotes: adminNotes[disputeId] || "Resolved in seller's favor",
-        resolvedAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-      });
-      await updateDoc(doc(db, "purchases", purchaseId), {
-        disputeStatus: "resolved_seller",
+      await adminFetch("/api/admin/disputes-manage", {
+        method: "POST",
+        body: JSON.stringify({
+          disputeId,
+          action: "resolve_seller",
+          adminNotes: adminNotes[disputeId] || "Resolved in seller's favor",
+        }),
       });
       setAdminNotes((prev) => { const n = { ...prev }; delete n[disputeId]; return n; });
-    } catch (e) { console.error(e); }
+      showToast("Resolved in seller's favor.", "success");
+    } catch (e) {
+      console.error(e);
+      showToast(e instanceof Error ? e.message : "Action failed", "error");
+    }
     setActionLoading(null);
   }
 
   async function handleRefund(dispute: any) {
     setActionLoading(dispute.id);
     try {
-      const token = await auth.currentUser?.getIdToken();
-      const res = await fetch("/api/disputes", {
+      const data = await adminFetch("/api/admin/disputes-manage", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
         body: JSON.stringify({
+          disputeId: dispute.id,
           action: "refund",
-          purchaseId: dispute.purchaseId,
+          adminNotes: adminNotes[dispute.id] || "Refund issued to buyer",
           stripePaymentIntentId: dispute.stripePaymentIntentId,
           amount: Number(dispute.listingPrice),
-          reason: `Dispute: ${dispute.reason}`,
         }),
       });
-      const data = await res.json();
-      if (!data.success) {
-        showToast("Refund failed: " + (data.error || "Unknown error"), "error");
-        setActionLoading(null);
-        return;
+      if (data.refundId) {
+        showToast(`Refund processed (${data.refundId}).`, "success");
+      } else {
+        showToast("Refund recorded.", "success");
       }
-
-      await updateDoc(doc(db, "disputes", dispute.id), {
-        status: "refunded",
-        refundAmount: Number(dispute.listingPrice),
-        stripeRefundId: data.refundId,
-        adminNotes: adminNotes[dispute.id] || "Refund issued to buyer",
-        resolvedAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-      });
-      await updateDoc(doc(db, "purchases", dispute.purchaseId), {
-        disputeStatus: "refunded",
-        status: "cancelled",
-      });
       setRefundModal(null);
       setAdminNotes((prev) => { const n = { ...prev }; delete n[dispute.id]; return n; });
     } catch (e) {
       console.error(e);
-      showToast("Refund processing failed.", "error");
+      showToast(e instanceof Error ? e.message : "Refund processing failed.", "error");
     }
     setActionLoading(null);
   }
@@ -157,6 +144,7 @@ export default function AdminDisputesPage() {
           <div className="max-w-xl rounded-[40px] border border-red-500/20 bg-[var(--card)] p-12 text-center shadow-2xl backdrop-blur-xl">
             <div className="mb-6 text-7xl">🔒</div>
             <h1 className="text-5xl font-black text-red-500">Access Denied</h1>
+            <AwhinaUnderHeader centered className="mt-4" />
             <p className="mt-6 text-lg leading-8 text-[var(--muted)]">You do not have permission to access this page.</p>
           </div>
         </section>
@@ -174,6 +162,7 @@ export default function AdminDisputesPage() {
       <section className="relative z-10 mx-auto max-w-5xl px-6 py-12">
         <div className="mb-8">
           <h1 className="text-4xl font-black text-red-500">Dispute Management</h1>
+          <AwhinaUnderHeader className="mt-2" />
           <p className="mt-2 text-[var(--muted)]">Review and resolve buyer disputes. Refunds are processed via Stripe.</p>
         </div>
 
@@ -183,13 +172,13 @@ export default function AdminDisputesPage() {
             <p className="text-sm text-[var(--muted)]">Open</p>
             <p className="mt-1 text-3xl font-black text-red-400">{disputes.filter(d => d.status === "open").length}</p>
           </div>
-          <div className="rounded-2xl border border-amber-500/20 bg-[var(--card)] p-5 shadow-xl">
+          <div className="rounded-2xl border border-sky-500/20 bg-[var(--card)] p-5 shadow-xl">
             <p className="text-sm text-[var(--muted)]">Under Review</p>
-            <p className="mt-1 text-3xl font-black text-amber-400">{disputes.filter(d => d.status === "under_review").length}</p>
+            <p className="mt-1 text-3xl font-black text-sky-400">{disputes.filter(d => d.status === "under_review").length}</p>
           </div>
-          <div className="rounded-2xl border border-emerald-500/20 bg-[var(--card)] p-5 shadow-xl">
+          <div className="rounded-2xl border border-sky-500/20 bg-[var(--card)] p-5 shadow-xl">
             <p className="text-sm text-[var(--muted)]">Refunded</p>
-            <p className="mt-1 text-3xl font-black text-emerald-400">{disputes.filter(d => d.status === "refunded").length}</p>
+            <p className="mt-1 text-3xl font-black text-sky-400">{disputes.filter(d => d.status === "refunded").length}</p>
           </div>
           <div className="rounded-2xl border border-zinc-500/20 bg-[var(--card)] p-5 shadow-xl">
             <p className="text-sm text-[var(--muted)]">Total</p>
@@ -225,7 +214,7 @@ export default function AdminDisputesPage() {
                           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-[var(--muted)]">
                             <span>Buyer: <span className="font-bold text-[var(--foreground)]">{d.buyerEmail}</span></span>
                             <span>Seller: <span className="font-bold text-[var(--foreground)]">{d.sellerEmail}</span></span>
-                            <span>Amount: <span className="font-bold text-emerald-400">${Number(d.listingPrice).toFixed(2)}</span></span>
+                            <span>Amount: <span className="font-bold text-sky-400">${Number(d.listingPrice).toFixed(2)}</span></span>
                             <span>Reason: <span className="font-bold text-red-400">{DISPUTE_REASON_LABELS[d.reason] || d.reason}</span></span>
                             {d.createdAt?.toDate && (
                               <span>{d.createdAt.toDate().toLocaleDateString()}</span>
@@ -237,16 +226,16 @@ export default function AdminDisputesPage() {
                       <div className="mt-4 flex flex-wrap gap-2">
                         {d.status === "open" && (
                           <button onClick={() => handleReview(d.id)} disabled={actionLoading === d.id}
-                            className="rounded-xl bg-amber-500/15 px-4 py-2 text-xs font-bold text-amber-400 transition hover:bg-amber-500/25 disabled:opacity-50">
+                            className="rounded-xl bg-sky-500/15 px-4 py-2 text-xs font-bold text-sky-400 transition hover:bg-sky-500/25 disabled:opacity-50">
                             {actionLoading === d.id ? "..." : "Mark Under Review"}
                           </button>
                         )}
-                        <button onClick={() => handleResolveSeller(d.id, d.purchaseId)} disabled={actionLoading === d.id}
+                        <button onClick={() => handleResolveSeller(d.id)} disabled={actionLoading === d.id}
                           className="rounded-xl bg-zinc-700/50 px-4 py-2 text-xs font-bold text-[var(--foreground)] transition hover:bg-zinc-600/50 disabled:opacity-50">
                           Resolve in Seller's Favor
                         </button>
                         <button onClick={() => { setRefundModal(d); }}
-                          className="rounded-xl bg-emerald-500/15 px-4 py-2 text-xs font-bold text-emerald-400 transition hover:bg-emerald-500/25">
+                          className="rounded-xl bg-sky-500/15 px-4 py-2 text-xs font-bold text-sky-400 transition hover:bg-sky-500/25">
                           Issue Refund
                         </button>
                       </div>
@@ -295,7 +284,7 @@ export default function AdminDisputesPage() {
             <div className="mt-4 flex gap-3">
               <button onClick={() => setRefundModal(null)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700 active:scale-[0.97] transition-all">Cancel</button>
               <button onClick={() => handleRefund(refundModal)} disabled={actionLoading === refundModal.id}
-                className="flex-1 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:shadow-xl active:scale-[0.97] disabled:opacity-50">
+                className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 to-sky-500 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97] disabled:opacity-50">
                 {actionLoading === refundModal.id ? "Processing..." : `Refund $${Number(refundModal.listingPrice).toFixed(2)}`}
               </button>
             </div>
