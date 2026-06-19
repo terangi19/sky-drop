@@ -230,11 +230,11 @@ export function getValidationStatus(pending: PendingXP | null): {
     return { label: "Not available", color: "text-zinc-600", icon: "⛔", progress: 0 };
   }
   if (pending.awarded) {
-    return { label: "Awarded", color: "text-emerald-400", icon: "✅", progress: 100 };
+    return { label: "Awarded", color: "text-sky-400", icon: "✅", progress: 100 };
   }
 
   const createdAt = pending.createdAt?.toMillis?.();
-  if (!createdAt) return { label: "Pending...", color: "text-amber-400", icon: "⏳", progress: 10 };
+  if (!createdAt) return { label: "Pending...", color: "text-sky-400", icon: "⏳", progress: 10 };
 
   const ageHours = (Date.now() - createdAt) / 3600000;
   const timeProgress = Math.min((ageHours / VALIDATION_HOURS) * 100, 100);

@@ -21,8 +21,8 @@ interface RewardDef {
 const RARITY_COLORS: Record<Rarity, string> = {
   common: "border-2 border-zinc-600",
   rare: "border-2 border-sky-400/70",
-  epic: "border-2 border-violet-400/70",
-  legendary: "border-[3px] border-amber-400/70",
+  epic: "border-2 border-sky-400/70",
+  legendary: "border-[3px] border-sky-400/70",
 };
 
 const RARITY_STARS: Record<Rarity, string> = {
@@ -35,8 +35,8 @@ const RARITY_STARS: Record<Rarity, string> = {
 const RARITY_BG: Record<Rarity, string> = {
   common: "from-zinc-800 to-zinc-900",
   rare: "from-sky-950 to-zinc-950",
-  epic: "from-violet-950 to-zinc-950",
-  legendary: "from-amber-950 to-zinc-950",
+  epic: "from-sky-950 to-zinc-950",
+  legendary: "from-sky-950 to-zinc-950",
 };
 
 const PARTICLE_COLORS: Record<Rarity, string[]> = {
@@ -282,20 +282,20 @@ export default function LootCrateModal({ userId, userEmail, onClose, inline }: {
         <div ref={flashRef} className="pointer-events-none fixed inset-0 z-[10000] bg-white opacity-0 transition-opacity duration-[120ms]" />
 
         {phase === "idle" && (
-          <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-5">
+          <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 p-5">
             <div className="flex items-center justify-between">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <h2 className="text-sm font-bold text-[var(--foreground)]">🎰 Sky Crate</h2>
                   <button onClick={() => setTesting(!testing)}
-                    className={`rounded px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider transition ${testing ? "bg-amber-500/20 text-amber-400" : "bg-zinc-800/50 text-zinc-600 hover:text-zinc-500"}`}
+                    className={`rounded px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider transition ${testing ? "bg-sky-500/20 text-sky-400" : "bg-zinc-800/50 text-zinc-600 hover:text-zinc-500"}`}
                     title={testing ? "Test mode active — next pull forces legendary without spending tokens" : "Enable test mode"}>
                     {testing ? "TESTING" : "DEV"}
                   </button>
                 </div>
                 <p className="mt-1 text-xs text-[var(--muted)]">Only {MAX_LEGENDARY_BADGES} copies of 👑 The Five exist. Will you unlock one?</p>
                 {badgesRemaining > 0 ? (
-                  <p className="mt-1 text-[10px] text-amber-400/80 font-semibold tracking-wide">
+                  <p className="mt-1 text-[10px] text-sky-400/80 font-semibold tracking-wide">
                     {badgesAwarded} awarded — {badgesRemaining} remaining
                   </p>
                 ) : (
@@ -309,15 +309,15 @@ export default function LootCrateModal({ userId, userEmail, onClose, inline }: {
                 </div>
                 {badgesRemaining > 0 ? (
                   <p className="mt-2 text-[10px] text-[var(--muted)] leading-snug">
-                    <span className="text-amber-300 font-semibold drop-shadow-[0_0_6px_rgba(251,191,36,0.5)] animate-[crown-shimmer_4s_ease-in-out_infinite]" title="The rarest collectible on Sky Drop">👑 The Five</span> holders unlock permanent 0% selling fees. Only 5 will ever exist.
+                    <span className="text-sky-300 font-semibold drop-shadow-[0_0_6px_rgba(251,191,36,0.5)] animate-[crown-shimmer_4s_ease-in-out_infinite]" title="The rarest collectible on Sky Drop">👑 The Five</span> holders unlock permanent 0% selling fees. Only 5 will ever exist.
                   </p>
                 ) : (
-                  <p className="mt-2 text-[10px] text-amber-300/60 font-semibold leading-snug">👑 All copies of The Five have been claimed</p>
+                  <p className="mt-2 text-[10px] text-sky-300/60 font-semibold leading-snug">👑 All copies of The Five have been claimed</p>
                 )}
               </div>
               <div className="flex flex-col items-end gap-2">
                 <button onClick={handleOpen} disabled={tokenCount === 0 || claiming}
-                  className="shrink-0 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 px-4 py-2.5 text-xs font-bold text-[var(--foreground)] hover:from-amber-400 hover:to-orange-400 transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">
+                  className="shrink-0 rounded-lg bg-gradient-to-br from-sky-500 to-sky-500 px-4 py-2.5 text-xs font-bold text-[var(--foreground)] hover:from-sky-400 hover:to-sky-400 transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">
                   🎰 Open — 1 🎁
                 </button>
                 <span className="text-xs text-[var(--muted)]">🎁 {tokenCount} available</span>
@@ -327,9 +327,9 @@ export default function LootCrateModal({ userId, userEmail, onClose, inline }: {
         )}
 
         {phase === "rumbling" && (
-          <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-5">
+          <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 p-5">
             <div className="flex flex-col items-center py-8">
-              <div className="absolute w-40 h-40 rounded-full bg-amber-500/20 blur-3xl animate-[glow-pulse_0.6s_ease-in-out_infinite_alternate]" />
+              <div className="absolute w-40 h-40 rounded-full bg-sky-500/20 blur-3xl animate-[glow-pulse_0.6s_ease-in-out_infinite_alternate]" />
               {rarityRef.current === "legendary" && (
                 <div className="absolute w-60 h-60 rounded-full bg-sky-500/10 blur-3xl animate-[legendary-suspense_2.8s_ease-in-out_infinite]" />
               )}
@@ -345,32 +345,32 @@ export default function LootCrateModal({ userId, userEmail, onClose, inline }: {
               <div className={`text-6xl select-none drop-shadow-[0_0_30px_rgba(251,191,36,0.5)] ${rarityRef.current === "legendary" ? "animate-legendary-suspense-icon" : "animate-[crate-rumble_0.5s_ease-in-out_infinite]"}`}>📦</div>
               <div className="mt-2 flex gap-2">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-1.5 rounded-full bg-amber-400 animate-[crack-grow_0.3s_ease-out_infinite_alternate]"
+                  <div key={i} className="h-1.5 rounded-full bg-sky-400 animate-[crack-grow_0.3s_ease-out_infinite_alternate]"
                     style={{ width: 20 + i * 12, animationDelay: `${i * 0.1}s`, opacity: 0.7 - i * 0.15 }}
                   />
                 ))}
               </div>
-              <p className="mt-3 text-xs text-amber-400 font-bold tracking-widest uppercase animate-pulse">Charging...</p>
+              <p className="mt-3 text-xs text-sky-400 font-bold tracking-widest uppercase animate-pulse">Charging...</p>
             </div>
           </div>
         )}
 
         {phase === "explosion" && (
-          <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-5">
+          <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 p-5">
             <div className="relative flex flex-col items-center py-8">
               {rarityRef.current === "legendary" && (
                 <>
                   <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                    <div className="absolute top-0 left-1/4 w-0.5 h-full bg-gradient-to-b from-transparent via-amber-300/60 to-transparent animate-[gold-lightning_1.2s_ease-out_forwards]" />
-                    <div className="absolute top-0 right-1/3 w-0.5 h-full bg-gradient-to-b from-transparent via-amber-200/40 to-transparent animate-[gold-lightning_1.2s_ease-out_0.2s_forwards]" />
-                    <div className="absolute bottom-0 left-1/2 w-0.5 h-full bg-gradient-to-t from-transparent via-amber-300/50 to-transparent animate-[gold-lightning_1.2s_ease-out_0.4s_forwards]" />
+                    <div className="absolute top-0 left-1/4 w-0.5 h-full bg-gradient-to-b from-transparent via-sky-300/60 to-transparent animate-[gold-lightning_1.2s_ease-out_forwards]" />
+                    <div className="absolute top-0 right-1/3 w-0.5 h-full bg-gradient-to-b from-transparent via-sky-200/40 to-transparent animate-[gold-lightning_1.2s_ease-out_0.2s_forwards]" />
+                    <div className="absolute bottom-0 left-1/2 w-0.5 h-full bg-gradient-to-t from-transparent via-sky-300/50 to-transparent animate-[gold-lightning_1.2s_ease-out_0.4s_forwards]" />
                   </div>
-                  <div className="absolute w-40 h-40 rounded-full bg-amber-400/10 blur-3xl animate-ping" />
+                  <div className="absolute w-40 h-40 rounded-full bg-sky-400/10 blur-3xl animate-ping" />
                 </>
               )}
-              <div className="animate-[blast-wave_0.7s_ease-out_forwards] absolute w-20 h-20 rounded-full border-4 border-amber-300/60" />
+              <div className="animate-[blast-wave_0.7s_ease-out_forwards] absolute w-20 h-20 rounded-full border-4 border-sky-300/60" />
               <div className="text-6xl animate-[crate-boom_0.5s_ease-out_forwards] select-none">💥</div>
-              <p className="mt-3 text-xs text-amber-200 font-bold tracking-widest uppercase">It's happening!</p>
+              <p className="mt-3 text-xs text-sky-200 font-bold tracking-widest uppercase">It's happening!</p>
             </div>
           </div>
         )}
@@ -381,15 +381,15 @@ export default function LootCrateModal({ userId, userEmail, onClose, inline }: {
           >
             {reward.rarity === "legendary" ? (
               <div className="flex flex-col items-center py-2 text-center">
-                <p className="text-[10px] text-amber-400/80 uppercase tracking-[0.25em] font-bold animate-pulse">⚡ Sky Legend ⚡</p>
+                <p className="text-[10px] text-sky-400/80 uppercase tracking-[0.25em] font-bold animate-pulse">⚡ Sky Legend ⚡</p>
                 <p className="mt-1 text-3xl select-none animate-[legendary-glow_1.5s_ease-in-out_infinite]">👑</p>
-                <p className="mt-1 text-xl font-black text-amber-300 animate-legendary-shine" style={{ backgroundImage: "linear-gradient(90deg, transparent 0%, #fff 25%, transparent 50%, #fbbf24 75%, transparent 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>The Five</p>
-                <p className="mt-1 text-[10px] text-amber-400/60 font-bold">{badgesAwarded} / {MAX_LEGENDARY_BADGES} Claimed</p>
-                <p className="mt-1 text-[9px] text-amber-400/40">Only {badgesRemaining} remain on Sky Drop</p>
+                <p className="mt-1 text-xl font-black text-sky-300 animate-legendary-shine" style={{ backgroundImage: "linear-gradient(90deg, transparent 0%, #fff 25%, transparent 50%, #fbbf24 75%, transparent 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>The Five</p>
+                <p className="mt-1 text-[10px] text-sky-400/60 font-bold">{badgesAwarded} / {MAX_LEGENDARY_BADGES} Claimed</p>
+                <p className="mt-1 text-[9px] text-sky-400/40">Only {badgesRemaining} remain on Sky Drop</p>
                 <div className="mt-3 flex gap-2">
                   <button onClick={resetCrate} className="rounded-lg border border-zinc-700 px-4 py-2 text-[11px] font-bold text-[var(--muted)] hover:text-[var(--foreground)] transition cursor-pointer">Done</button>
                   {tokenCount > 0 && (
-                    <button onClick={handleOpen} disabled={claiming} className="rounded-lg bg-amber-500 px-4 py-2 text-[11px] font-bold text-[var(--foreground)] hover:bg-amber-400 transition cursor-pointer disabled:opacity-40">Open Another</button>
+                    <button onClick={handleOpen} disabled={claiming} className="rounded-lg bg-sky-500 px-4 py-2 text-[11px] font-bold text-[var(--foreground)] hover:bg-sky-400 transition cursor-pointer disabled:opacity-40">Open Another</button>
                   )}
                 </div>
               </div>
@@ -399,7 +399,7 @@ export default function LootCrateModal({ userId, userEmail, onClose, inline }: {
                   {reward.rarity !== "common" && (
                     <p className={`text-xs tracking-widest mb-0.5 ${
                       reward.rarity === "rare" ? "text-sky-400" :
-                      reward.rarity === "epic" ? "text-violet-400" : ""
+                      reward.rarity === "epic" ? "text-sky-400" : ""
                     }`}>{RARITY_STARS[reward.rarity]}</p>
                   )}
                   <div className="text-2xl mb-1 select-none">
@@ -408,14 +408,14 @@ export default function LootCrateModal({ userId, userEmail, onClose, inline }: {
                   <h3 className={`text-sm font-black ${
                     reward.rarity === "common" ? "text-[var(--foreground)]" :
                     reward.rarity === "rare" ? "text-sky-300" :
-                    reward.rarity === "epic" ? "text-violet-300" : ""
+                    reward.rarity === "epic" ? "text-sky-300" : ""
                   }`}>{reward.label}</h3>
                   <p className="mt-0.5 text-[11px] text-[var(--muted)]">{reward.description}</p>
                 </div>
                 <div className="flex flex-col gap-2">
                   <button onClick={resetCrate} className="rounded-lg border border-zinc-700 px-4 py-2 text-[11px] font-bold text-[var(--muted)] hover:text-[var(--foreground)] transition cursor-pointer">Done</button>
                   {tokenCount > 0 && (
-                    <button onClick={handleOpen} disabled={claiming} className="rounded-lg bg-amber-500 px-4 py-2 text-[11px] font-bold text-[var(--foreground)] hover:bg-amber-400 transition cursor-pointer disabled:opacity-40">Open Another</button>
+                    <button onClick={handleOpen} disabled={claiming} className="rounded-lg bg-sky-500 px-4 py-2 text-[11px] font-bold text-[var(--foreground)] hover:bg-sky-400 transition cursor-pointer disabled:opacity-40">Open Another</button>
                   )}
                 </div>
               </div>
@@ -445,7 +445,7 @@ export default function LootCrateModal({ userId, userEmail, onClose, inline }: {
           <h2 className="text-xl font-black text-[var(--foreground)]">🎰 Sky Crate</h2>
           <p className="mt-2 text-sm text-[var(--muted)]">Spend 1 Drop Token for a chance to win!</p>
           {badgesRemaining > 0 && (
-            <p className="mt-2 text-xs text-amber-400 font-bold">👑 The Five — Only {MAX_LEGENDARY_BADGES} exist. [{badgesAwarded} awarded, {badgesRemaining} remaining]</p>
+            <p className="mt-2 text-xs text-sky-400 font-bold">👑 The Five — Only {MAX_LEGENDARY_BADGES} exist. [{badgesAwarded} awarded, {badgesRemaining} remaining]</p>
           )}
           {badgesRemaining <= 0 && (
             <p className="mt-2 text-xs text-[var(--muted)] font-bold">👑 All copies of The Five have been claimed.</p>
@@ -455,7 +455,7 @@ export default function LootCrateModal({ userId, userEmail, onClose, inline }: {
             <span className="text-sm font-bold text-[var(--foreground)]">{tokenCount} available</span>
           </div>
           <button onClick={handleOpen} disabled={tokenCount === 0 || claiming}
-            className="mt-4 w-full rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 py-3.5 text-sm font-bold text-[var(--foreground)] transition hover:from-amber-400 hover:to-orange-400 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">
+            className="mt-4 w-full rounded-xl bg-gradient-to-br from-sky-500 to-sky-500 py-3.5 text-sm font-bold text-[var(--foreground)] transition hover:from-sky-400 hover:to-sky-400 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">
             {tokenCount === 0 ? "No Tokens Available" : "🎰 Open Crate — 1 🎁"}
           </button>
           <div className="mt-4 flex items-center justify-center gap-3 text-[10px] text-[var(--muted)]">
@@ -466,17 +466,17 @@ export default function LootCrateModal({ userId, userEmail, onClose, inline }: {
           </div>
           {badgesRemaining > 0 ? (
             <p className="mt-3 text-[10px] text-[var(--muted)] leading-snug text-center">
-              <span className="text-amber-300 font-semibold drop-shadow-[0_0_6px_rgba(251,191,36,0.5)] animate-[crown-shimmer_4s_ease-in-out_infinite]" title="The rarest collectible on Sky Drop">👑 The Five</span> holders unlock permanent 0% selling fees. Only 5 will ever exist.
+              <span className="text-sky-300 font-semibold drop-shadow-[0_0_6px_rgba(251,191,36,0.5)] animate-[crown-shimmer_4s_ease-in-out_infinite]" title="The rarest collectible on Sky Drop">👑 The Five</span> holders unlock permanent 0% selling fees. Only 5 will ever exist.
             </p>
           ) : (
-            <p className="mt-3 text-[10px] text-amber-300/60 font-semibold leading-snug text-center">👑 All copies of The Five have been claimed</p>
+            <p className="mt-3 text-[10px] text-sky-300/60 font-semibold leading-snug text-center">👑 All copies of The Five have been claimed</p>
           )}
         </div>
       )}
 
       {phase === "rumbling" && (
         <div className="relative z-10 mx-auto flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
-          <div className="absolute w-40 h-40 rounded-full bg-amber-500/20 blur-3xl animate-[glow-pulse_0.6s_ease-in-out_infinite_alternate]" />
+          <div className="absolute w-40 h-40 rounded-full bg-sky-500/20 blur-3xl animate-[glow-pulse_0.6s_ease-in-out_infinite_alternate]" />
           {rarityRef.current === "legendary" && (
             <div className="absolute w-80 h-80 rounded-full bg-sky-500/10 blur-3xl animate-[legendary-suspense_2.8s_ease-in-out_infinite]" />
           )}
@@ -492,12 +492,12 @@ export default function LootCrateModal({ userId, userEmail, onClose, inline }: {
           <div className={`text-8xl select-none drop-shadow-[0_0_30px_rgba(251,191,36,0.5)] ${rarityRef.current === "legendary" ? "animate-legendary-suspense-icon" : "animate-[crate-rumble_0.5s_ease-in-out_infinite]"}`}>📦</div>
           <div className="mt-2 flex gap-2">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-1.5 rounded-full bg-amber-400 animate-[crack-grow_0.3s_ease-out_infinite_alternate]"
+              <div key={i} className="h-1.5 rounded-full bg-sky-400 animate-[crack-grow_0.3s_ease-out_infinite_alternate]"
                 style={{ width: 20 + i * 12, animationDelay: `${i * 0.1}s`, opacity: 0.7 - i * 0.15 }}
               />
             ))}
           </div>
-          <p className="mt-4 text-sm text-amber-400 font-bold tracking-widest uppercase animate-pulse">Charging...</p>
+          <p className="mt-4 text-sm text-sky-400 font-bold tracking-widest uppercase animate-pulse">Charging...</p>
         </div>
       )}
 
@@ -506,15 +506,15 @@ export default function LootCrateModal({ userId, userEmail, onClose, inline }: {
           {rarityRef.current === "legendary" && (
             <>
               <div className="absolute inset-0 overflow-hidden pointer-events-none rounded-2xl">
-                <div className="absolute top-0 left-1/4 w-0.5 h-full bg-gradient-to-b from-transparent via-amber-300/60 to-transparent animate-[gold-lightning_1.4s_ease-out_forwards]" />
-                <div className="absolute top-0 right-1/3 w-0.5 h-full bg-gradient-to-b from-transparent via-amber-200/40 to-transparent animate-[gold-lightning_1.4s_ease-out_0.25s_forwards]" />
-                <div className="absolute bottom-0 left-1/2 w-0.5 h-full bg-gradient-to-t from-transparent via-amber-300/50 to-transparent animate-[gold-lightning_1.4s_ease-out_0.5s_forwards]" />
-                <div className="absolute top-1/3 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-amber-300/40 to-transparent animate-[gold-lightning_1.4s_ease-out_0.15s_forwards]" />
+                <div className="absolute top-0 left-1/4 w-0.5 h-full bg-gradient-to-b from-transparent via-sky-300/60 to-transparent animate-[gold-lightning_1.4s_ease-out_forwards]" />
+                <div className="absolute top-0 right-1/3 w-0.5 h-full bg-gradient-to-b from-transparent via-sky-200/40 to-transparent animate-[gold-lightning_1.4s_ease-out_0.25s_forwards]" />
+                <div className="absolute bottom-0 left-1/2 w-0.5 h-full bg-gradient-to-t from-transparent via-sky-300/50 to-transparent animate-[gold-lightning_1.4s_ease-out_0.5s_forwards]" />
+                <div className="absolute top-1/3 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-sky-300/40 to-transparent animate-[gold-lightning_1.4s_ease-out_0.15s_forwards]" />
               </div>
-              <div className="absolute w-60 h-60 rounded-full bg-amber-400/10 blur-3xl animate-ping" />
+              <div className="absolute w-60 h-60 rounded-full bg-sky-400/10 blur-3xl animate-ping" />
             </>
           )}
-          <div className="animate-[blast-wave_0.7s_ease-out_forwards] absolute w-20 h-20 rounded-full border-4 border-amber-300/60" />
+          <div className="animate-[blast-wave_0.7s_ease-out_forwards] absolute w-20 h-20 rounded-full border-4 border-sky-300/60" />
           {Array.from({ length: rarityRef.current === "legendary" ? 40 : 24 }).map((_, i) => {
             const angle = (i / (rarityRef.current === "legendary" ? 40 : 24)) * 360;
             const dist = rarityRef.current === "legendary" ? 80 + Math.random() * 160 : 60 + Math.random() * 120;
@@ -534,7 +534,7 @@ export default function LootCrateModal({ userId, userEmail, onClose, inline }: {
             );
           })}
           <div className="text-8xl animate-[crate-boom_0.5s_ease-out_forwards] select-none">💥</div>
-          <p className="mt-4 text-sm text-amber-200 font-bold tracking-widest uppercase">It's happening!</p>
+          <p className="mt-4 text-sm text-sky-200 font-bold tracking-widest uppercase">It's happening!</p>
         </div>
       )}
 
@@ -555,14 +555,14 @@ export default function LootCrateModal({ userId, userEmail, onClose, inline }: {
           >
             {reward.rarity === "legendary" ? (
               <div className="flex flex-col items-center">
-                <p className="text-xs text-amber-400/80 uppercase tracking-[0.3em] font-bold animate-pulse">⚡ Sky Legend ⚡</p>
+                <p className="text-xs text-sky-400/80 uppercase tracking-[0.3em] font-bold animate-pulse">⚡ Sky Legend ⚡</p>
                 <div className="mt-2 text-7xl select-none animate-[legendary-glow_1.5s_ease-in-out_infinite]">👑</div>
-                <p className="mt-2 text-3xl font-black text-amber-300 animate-legendary-shine" style={{ backgroundImage: "linear-gradient(90deg, transparent 0%, #fff 25%, transparent 50%, #fbbf24 75%, transparent 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>The Five</p>
-                <p className="mt-2 text-sm text-amber-400/60 font-bold">{badgesAwarded} / {MAX_LEGENDARY_BADGES} Claimed</p>
-                <p className="mt-1 text-xs text-amber-400/40">Only {badgesRemaining} remain on Sky Drop</p>
+                <p className="mt-2 text-3xl font-black text-sky-300 animate-legendary-shine" style={{ backgroundImage: "linear-gradient(90deg, transparent 0%, #fff 25%, transparent 50%, #fbbf24 75%, transparent 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>The Five</p>
+                <p className="mt-2 text-sm text-sky-400/60 font-bold">{badgesAwarded} / {MAX_LEGENDARY_BADGES} Claimed</p>
+                <p className="mt-1 text-xs text-sky-400/40">Only {badgesRemaining} remain on Sky Drop</p>
                 <div className="mt-6 flex gap-3">
                   <button onClick={onClose} className="flex-1 rounded-xl border border-zinc-700 py-2.5 text-xs font-bold text-[var(--muted)] hover:text-[var(--foreground)] transition cursor-pointer">Done</button>
-                  <button onClick={() => { setPhase("idle"); setReward(null); }} className="flex-1 rounded-xl bg-amber-500 py-2.5 text-xs font-bold text-[var(--foreground)] hover:bg-amber-400 transition cursor-pointer">Open Another</button>
+                  <button onClick={() => { setPhase("idle"); setReward(null); }} className="flex-1 rounded-xl bg-sky-500 py-2.5 text-xs font-bold text-[var(--foreground)] hover:bg-sky-400 transition cursor-pointer">Open Another</button>
                 </div>
               </div>
             ) : (
@@ -570,7 +570,7 @@ export default function LootCrateModal({ userId, userEmail, onClose, inline }: {
                 {reward.rarity !== "common" && (
                   <p className={`text-sm tracking-widest mb-1 ${
                     reward.rarity === "rare" ? "text-sky-400" :
-                    reward.rarity === "epic" ? "text-violet-400" : ""
+                    reward.rarity === "epic" ? "text-sky-400" : ""
                   }`}>{RARITY_STARS[reward.rarity]}</p>
                 )}
                 <div className="text-6xl mb-3 select-none">
@@ -579,12 +579,12 @@ export default function LootCrateModal({ userId, userEmail, onClose, inline }: {
                 <h3 className={`text-lg font-black ${
                   reward.rarity === "common" ? "text-[var(--foreground)]" :
                   reward.rarity === "rare" ? "text-sky-300" :
-                  reward.rarity === "epic" ? "text-violet-300" : ""
+                  reward.rarity === "epic" ? "text-sky-300" : ""
                 }`}>{reward.label}</h3>
                 <p className="mt-2 text-sm text-[var(--muted)]">{reward.description}</p>
                 <div className="mt-6 flex gap-3">
                   <button onClick={onClose} className="flex-1 rounded-xl border border-zinc-700 py-2.5 text-xs font-bold text-[var(--muted)] hover:text-[var(--foreground)] transition cursor-pointer">Done</button>
-                  <button onClick={() => { setPhase("idle"); setReward(null); }} className="flex-1 rounded-xl bg-amber-500 py-2.5 text-xs font-bold text-[var(--foreground)] hover:bg-amber-400 transition cursor-pointer">Open Another</button>
+                  <button onClick={() => { setPhase("idle"); setReward(null); }} className="flex-1 rounded-xl bg-sky-500 py-2.5 text-xs font-bold text-[var(--foreground)] hover:bg-sky-400 transition cursor-pointer">Open Another</button>
                 </div>
               </>
             )}

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken, isAdminInitialized, getAdminDb } from "../../lib/firebase-admin";
+import { verifyIdToken, isAdminInitialized } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import { acceptOfferWithAdmin, acceptOfferWithRest } from "../../lib/purchase-service";
 import type { AcceptOfferInput } from "../../lib/purchase-service";
@@ -36,16 +36,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Could not determine seller email" }, { status: 400 });
     }
 
-    // Verify the caller is the actual listing seller
+    // Verify buyerEmail matches the offer message's sender
     if (isAdminInitialized()) {
-      const col = collectionName || "listings";
-      const listingSnap = await getAdminDb().collection(col).doc(listingId).get();
-      if (!listingSnap.exists) {
-        return NextResponse.json({ error: "Listing not found" }, { status: 404 });
+      const { getAdminDb } = await import("../../lib/firebase-admin");
+      const offerMsgSnap = await getAdminDb().collection("messages").doc(offerMessageId).get();
+      if (!offerMsgSnap.exists) {
+        return NextResponse.json({ error: "Offer message not found" }, { status: 404 });
       }
-      const listingData = listingSnap.data()!;
-      if (String(listingData.sellerEmail || "") !== sellerEmail) {
-        return NextResponse.json({ error: "Only the listing seller can accept offers" }, { status: 403 });
+      const offerMsgData = offerMsgSnap.data()!;
+      if (offerMsgData.type !== "offer") {
+        return NextResponse.json({ error: "Message is not an offer" }, { status: 400 });
+      }
+      if (offerMsgData.sender !== buyerEmail) {
+        return NextResponse.json({ error: "Buyer email does not match offer sender" }, { status: 403 });
       }
     }
 

@@ -6,6 +6,7 @@ import { sellerPayoutCents } from "../../lib/purchase-service";
 import { isAdminEmail } from "../../lib/admin-check";
 import { writeAuditLog } from "../../lib/admin-utils";
 import { notifyAdmin, writeFailureRecord } from "../../lib/admin-alerts";
+import { logSecurityCritical } from "../../lib/security-log";
 import * as Sentry from "@sentry/nextjs";
 
 function isDisputeActive(disputeStatus?: string): boolean {
@@ -253,6 +254,10 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    await logSecurityCritical("payment_release_failed", `Escrow release failed for purchase ${purchaseId}`, {
+      actorEmail: decodedToken?.email,
+      metadata: { purchaseId, error: e.message, sellerEmail: purchase?.sellerEmail, buyerEmail: purchase?.buyerEmail },
+    });
     return NextResponse.json({ error: e.message || "Failed to release funds" }, { status: 500 });
   }
 }

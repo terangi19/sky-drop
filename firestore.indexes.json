@@ -34,6 +34,22 @@
       ]
     },
     {
+      "collectionGroup": "reports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "reporterUserId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "reports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "reportedUserEmail", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "purchases",
       "queryScope": "COLLECTION",
       "fields": [
@@ -96,39 +112,6 @@
       "fields": [
         { "fieldPath": "participants", "arrayConfig": "CONTAINS" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "pendingXp",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "listingId", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "pendingXp",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "awarded", "order": "ASCENDING" },
-        { "fieldPath": "cancelled", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "pendingXp",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "listingId", "order": "ASCENDING" },
-        { "fieldPath": "awarded", "order": "ASCENDING" },
-        { "fieldPath": "cancelled", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "pendingXp",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "validated", "order": "ASCENDING" },
-        { "fieldPath": "awarded", "order": "ASCENDING" },
-        { "fieldPath": "cancelled", "order": "ASCENDING" }
       ]
     },
     {

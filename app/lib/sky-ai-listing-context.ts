@@ -1,3 +1,4 @@
+import { hasActiveListingDraft } from "./sky-ai-draft-merge";
 import type { SkyAiListingContext } from "./sky-ai-types";
 
 const STORAGE_KEY = "skyAiListingDraft";
@@ -5,7 +6,7 @@ const STORAGE_KEY = "skyAiListingDraft";
 export function syncListingDraftToSkyAi(draft: SkyAiListingContext) {
   if (typeof window === "undefined") return;
   try {
-    const hasData = !!(draft.title || draft.description || draft.price);
+    const hasData = hasActiveListingDraft(draft);
     if (!hasData) {
       sessionStorage.removeItem(STORAGE_KEY);
       return;

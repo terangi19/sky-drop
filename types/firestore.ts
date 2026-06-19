@@ -30,6 +30,7 @@ export interface Listing {
   bidCount?: number;
   status?: string;
   type?: string;
+  pricingType?: string;
   [key: string]: unknown;
 }
 

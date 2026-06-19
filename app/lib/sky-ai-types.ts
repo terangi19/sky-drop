@@ -6,6 +6,8 @@ export type SkyAiListingContext = {
   price?: string;
   listingType?: string;
   location?: string;
+  paymentType?: string;
+  pricingType?: string;
   vehicleMake?: string;
   vehicleModel?: string;
   vehicleYear?: string;
@@ -14,6 +16,22 @@ export type SkyAiListingContext = {
   vehicleBodyType?: string;
   vehicleFuelType?: string;
   vehicleTransmission?: string;
+  rentalSubType?: string;
+  rentalPropertyType?: string;
+  rentalPriceWeekly?: string;
+  rentalPriceMonthly?: string;
+  rentalDeposit?: string;
+  rentalBedrooms?: string;
+  rentalBathrooms?: string;
+  rentalParkingSpaces?: string;
+  rentalFurnishedStatus?: string;
+  rentalPetsPolicy?: string;
+  rentalMinTenancy?: string;
+  rentalAvailableDate?: string;
+  stockQuantity?: string;
+  serviceDuration?: string;
+  /** Incremental add-ons (servicing, tyres, receipts, included items) */
+  extras?: string[];
 };
 
 export type SkyAiHistoryItem = {

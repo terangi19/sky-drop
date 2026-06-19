@@ -267,7 +267,7 @@ export default function OfferPaymentModal({ amount, listingTitle, listingId, sel
         style={{ animation: "slideUp 0.25s ease-out" }}>
         {step === "success" ? (
           <div className="flex flex-col px-6 py-8 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/20">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-sky-500/20">
               <AnimatedCheckmark />
             </div>
             <h2 className="mt-4 text-lg font-black text-white">Payment Successful</h2>
@@ -278,10 +278,10 @@ export default function OfferPaymentModal({ amount, listingTitle, listingId, sel
               <div className="mt-2 flex items-center justify-between border-t border-zinc-800 pt-2 text-sm font-bold text-white"><span>Total</span><span>${total.toFixed(2)}</span></div>
             </div>
             <div className="mt-3 flex items-center justify-center gap-1 text-xs text-zinc-400">
-              <span className="text-emerald-400">✓</span>
+              <span className="text-sky-400">✓</span>
               <span>Seller has been notified</span>
             </div>
-            <div className="mt-2 rounded-lg border border-emerald-500/15 bg-emerald-500/[0.04] px-3 py-2 text-left text-[10px] leading-relaxed text-emerald-400/80">
+            <div className="mt-2 rounded-lg border border-sky-500/15 bg-sky-500/[0.04] px-3 py-2 text-left text-[10px] leading-relaxed text-sky-400/80">
               💳 Secured by Stripe
             </div>
             <p className="mt-2 text-[10px] text-zinc-500">You have 7 days to report an issue after the seller marks this as delivered.</p>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken } from "../../../lib/firebase-admin";
-import { isAdminEmail } from "../../../lib/admin-check";
+import { isAdminUser } from "../../../lib/admin-check.server";
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     const idToken = authHeader.slice(7);
     const decoded = await verifyIdToken(idToken);
 
-    if (!decoded.email || !isAdminEmail(decoded.email)) {
+    if (!decoded.email || !(await isAdminUser(decoded.email, decoded.uid))) {
       return NextResponse.json({ isAdmin: false, error: "Not authorized" }, { status: 403 });
     }
 

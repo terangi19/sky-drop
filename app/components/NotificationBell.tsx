@@ -24,14 +24,14 @@ export default function NotificationBell({
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className={`h-4 w-4 ${hasNotifications ? "text-[var(--foreground)]" : "text-zinc-400"}`}
+        className="h-4 w-4 text-white"
       >
         <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
         <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
       </svg>
 
       {hasNotifications && (
-        <span className="absolute -right-1.5 -top-1.5 flex min-w-[18px] h-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-[var(--foreground)] ring-2 ring-zinc-900">
+        <span className="absolute -right-1.5 -top-1.5 flex min-w-[18px] h-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white ring-2 ring-zinc-900">
           {count > 9 ? "9+" : count}
         </span>
       )}

@@ -477,11 +477,16 @@ async function testAdminFlow() {
     assert(fs.existsSync(fullPath), `7. ${ap} exists`);
   }
 
-  // Verify admin-utils.ts exists with isAdminEmail
+  // Verify admin-check.ts exists with isAdminEmail
+  const adminCheck = path.resolve(__dirname, "..", "app", "lib", "admin-check.ts");
+  assert(fs.existsSync(adminCheck), "7. admin-check.ts exists");
+  const adminCheckContent = fs.readFileSync(adminCheck, "utf8");
+  assert(adminCheckContent.includes("isAdminEmail"), "7. isAdminEmail() exported");
+
+  // Verify admin-utils.ts exists with writeAuditLog
   const adminUtils = path.resolve(__dirname, "..", "app", "lib", "admin-utils.ts");
   assert(fs.existsSync(adminUtils), "7. admin-utils.ts exists");
   const adminUtilsContent = fs.readFileSync(adminUtils, "utf8");
-  assert(adminUtilsContent.includes("isAdminEmail"), "7. isAdminEmail() exported");
   assert(adminUtilsContent.includes("writeAuditLog"), "7. writeAuditLog() exported");
 
   // Verify API routes use isAdminEmail (not hardcoded ADMIN_EMAILS)

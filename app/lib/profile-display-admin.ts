@@ -8,7 +8,7 @@ import {
 
 export async function adminGetProfileByEmail(
   email: string
-): Promise<PublicProfileFields | null> {
+): Promise<(PublicProfileFields & { uid?: string }) | null> {
   if (!email) return null;
   const snap = await getAdminDb()
     .collection("profiles")
@@ -16,7 +16,9 @@ export async function adminGetProfileByEmail(
     .limit(1)
     .get();
   if (snap.empty) return null;
-  return snap.docs[0].data() as PublicProfileFields;
+  const data = snap.docs[0].data() as PublicProfileFields;
+  // Attach the document ID (UID) so callers can access subcollections like bankDetails
+  return { ...data, uid: snap.docs[0].id };
 }
 
 export async function adminGetPublicHandle(
