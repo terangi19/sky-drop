@@ -28,7 +28,7 @@ export default function BuyerProtectionPage() {
           <FeatureCard icon="💳" title="Payments through Stripe" description="Stripe Checkout purchases are processed by Stripe — a global payment provider. Stripe handles the processing, fraud detection, and security infrastructure. Your payment details are never stored by Sky Drop. For Arrange Purchase listings, payment methods (bank transfer, cash, etc.) are agreed directly in Messages." />
           <TrustCard />
           <FeatureCard icon="⚖️" title="Dispute resolution (Stripe Checkout)" description="If something goes wrong with a Stripe Checkout purchase, open a dispute within 7 days of delivery. An admin reviews evidence from both sides — messages, photos, tracking info. If the seller is at fault, a full refund is issued through Stripe. Arrange Purchase transactions are handled directly between the buyer and seller." />
-          <FeatureCard icon="📋" title="Verified seller profiles" description="Sellers are required to verify their identity through KYC or wait a minimum period before listing. New sellers have listing limits until they build a sales history. Suspicious or unverified accounts are restricted." />
+          <FeatureCard icon="📋" title="Verified seller profiles" description="Sellers are required to verify their identity before listing. New sellers have listing limits until they build a sales history. Suspicious or unverified accounts are restricted." />
           <FeatureCard icon="🤖" title="Content monitoring" description="Listings may be reviewed for prohibited items, suspicious activity, and marketplace policy violations. Attempting to list prohibited or fraudulent items may result in account removal." />
           <FeatureCard icon="💬" title="Safe messaging" description="Our messaging system warns you if someone tries to take the conversation off-platform. Keeping all communication on Sky Drop helps maintain a clear record if a dispute occurs." />
           <FeatureCard icon="👮" title="Fraud reporting" description="Fraudulent activity is not tolerated on Sky Drop. Accounts involved in scams, deception, chargeback abuse, impersonation, or other dishonest behaviour may be permanently removed from the platform, have listings removed, and may be referred to law enforcement agencies or other appropriate authorities where legally required." />
@@ -49,7 +49,7 @@ export default function BuyerProtectionPage() {
           <FeatureCard icon="💾" title="Digital products" description="Digital downloads are delivered instantly after payment via Stripe Checkout. If the file is faulty or doesn't match the description, open a dispute within 7 days. For custom digital work with Quote Required pricing, discuss scope in Messages before purchasing." />
           <FeatureCard icon="🛠️" title="Services" description="For local services, discuss the scope in Messages first. Complete payment through Stripe Checkout or Arrange Purchase. If the work isn't completed as agreed, open a dispute within 7 days." />
           <FeatureCard icon="🔑" title="Rentals" description="Rental listings include daily, weekly, or monthly rates. Rental agreements and deposits are managed between the renter and owner through Messages." />
-          <FeatureCard icon="🚗" title="Vehicles" description="Vehicle purchases typically use Arrange Purchase (bank transfer). We recommend inspecting the vehicle in person before completing payment. All seller identity is verified through KYC." />
+          <FeatureCard icon="🚗" title="Vehicles" description="Vehicle purchases typically use Arrange Purchase (bank transfer). We recommend inspecting the vehicle in person before completing payment. All sellers are identity verified." />
         </div>
 
         <div className="mt-12 rounded-2xl border border-sky-500/15 bg-sky-500/[0.04] p-6">
@@ -105,7 +105,6 @@ function TrustCard() {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-bold text-[var(--foreground)]">Identity Verification</h3>
-            <span className="rounded-full border border-sky-500/25 bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold text-sky-400">KYC</span>
           </div>
           <p className="mt-1.5 text-sm leading-relaxed text-[var(--muted)]">
             Sellers can complete identity verification to unlock immediate selling access. Accounts that do not complete verification may be subject to seller restrictions and waiting periods. Verification helps ensure users are dealing with real, accountable people and creates a safer marketplace for everyone.

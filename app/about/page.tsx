@@ -67,7 +67,7 @@ export default function AboutPage() {
               {[
                 { icon: "🇳🇿", title: "New Zealand Owned", desc: "Built for Kiwis, by Kiwis. All prices in NZD." },
                 { icon: "🤖", title: "AI-Powered Listing", desc: "Āwhina helps you create professional listings in seconds. Describe what you're selling and she fills in the details." },
-                { icon: "🪪", title: "Verified Sellers", desc: "Sellers can complete identity verification (KYC) to unlock immediate selling. Non-KYC sellers have waiting periods — this helps prevent fraud." },
+                { icon: "🪪", title: "Verified Sellers", desc: "Sellers complete identity verification before listing. This helps prevent fraud and ensures buyers are dealing with real, accountable people." },
                 { icon: "🔒", title: "Flexible Payments", desc: "Stripe Checkout on-platform with dispute protection, or Arrange Purchase when you prefer bank transfer or cash." },
                 { icon: "💬", title: "Built-in Messaging", desc: "Chat with buyers and sellers without leaving the platform. All communication stays on Sky Drop for your protection." },
                 { icon: "💰", title: "Transparent Pricing", desc: "Free to list today. Buyer and platform fees (when they apply) are shown clearly at checkout." },
@@ -96,8 +96,8 @@ export default function AboutPage() {
               </div>
 
               <div className="rounded-lg bg-zinc-900/40 px-4 py-3">
-                <p className="text-sm font-bold text-sky-400">🪪 Identity Verification (KYC)</p>
-                <p className="mt-1 text-xs text-[var(--muted)]">Sellers can complete KYC verification to unlock immediate selling access. Non-KYC sellers may be subject to waiting periods. This helps prevent fraud and ensures buyers are dealing with real, accountable people. Identity documents are stored securely and never shared publicly.</p>
+                <p className="text-sm font-bold text-sky-400">🪪 Identity Verification</p>
+                <p className="mt-1 text-xs text-[var(--muted)]">Sellers complete identity verification before listing. This helps prevent fraud and ensures buyers are dealing with real, accountable people. Identity documents are stored securely and never shared publicly.</p>
               </div>
 
               <div className="rounded-lg bg-zinc-900/40 px-4 py-3">
@@ -117,7 +117,7 @@ export default function AboutPage() {
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
               <Link href="/buyer-protection" className="rounded-lg border border-sky-500/20 bg-sky-500/10 px-3 py-1.5 text-[11px] font-bold text-sky-400 transition hover:bg-sky-500/20">Buyer Protection →</Link>
-              <Link href="/escrow" className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-[11px] font-bold text-[var(--muted)] transition hover:text-[var(--foreground)]">Payment Details →</Link>
+              <Link href="/payments" className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-[11px] font-bold text-[var(--muted)] transition hover:text-[var(--foreground)]">Payment Details →</Link>
               <Link href="/faqs" className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-[11px] font-bold text-[var(--muted)] transition hover:text-[var(--foreground)]">FAQs →</Link>
               <Link href="/terms" className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-[11px] font-bold text-[var(--muted)] transition hover:text-[var(--foreground)]">Terms →</Link>
               <Link href="/privacy" className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-[11px] font-bold text-[var(--muted)] transition hover:text-[var(--foreground)]">Privacy →</Link>
