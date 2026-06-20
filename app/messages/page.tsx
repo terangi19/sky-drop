@@ -34,6 +34,7 @@ import { createNotification } from "../lib/notifications";
 import OfferPaymentModal from "../components/OfferPaymentModal";
 import ArrangePaymentCopyBar from "../components/ArrangePaymentCopyBar";
 import StayOnSkyDropNotice from "../components/StayOnSkyDropNotice";
+import BraveWarning from "../components/BraveWarning";
 import { STAY_ON_SKY_DROP_HEADLINE } from "../lib/conversation-safety";
 import {
   extractEmailsFromText,
@@ -82,6 +83,7 @@ function formatFullTime(timestamp: any) {
 export default function MessagesPageWrapper() {
   return (
     <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
+      <BraveWarning />
       <Background />
       <Navbar />
       <Suspense fallback={<div className="flex h-full items-center justify-center p-12"><span className="text-[var(--muted)]">Loading...</span></div>}>
@@ -1640,7 +1642,7 @@ function MessagesPage() {
                         }
                         // Order/confirmation card
                         if (msg.type === "order") {
-                          const isWantedListing = msg.listingType === "wanted";
+                          const isWantedListing = listingCard?.type === "wanted" || msg.listingType === "wanted";
                           const getStatusConfig = (status?: string) => {
                             const configs: Record<string, { icon: string; label: string; color: string; bg: string; border: string }> = {
                               paid: { icon: "💳", label: "Payment Confirmed", color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/20" },

@@ -327,7 +327,23 @@ export default function PurchasesPage() {
   }
 
   // Simple Status Component
-  function PurchaseTimeline({ purchase, isService, isRental, isArrange }: { purchase: Purchase; isService?: boolean; isRental?: boolean; isArrange?: boolean }) {
+  function PurchaseTimeline({ purchase, isService, isRental, isArrange, isWanted }: { purchase: Purchase; isService?: boolean; isRental?: boolean; isArrange?: boolean; isWanted?: boolean }) {
+    if (isWanted) {
+      return (
+        <div className="mt-3 rounded-lg border border-sky-500/20 bg-sky-500/5 p-3">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500/20">
+              <span className="text-lg">📋</span>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-sky-400">Wanted Listing</p>
+              <p className="text-[10px] text-sky-400/80">Sellers can message you about this request</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     const isCompleted = purchase.status === "delivered";
     const isDisputed = !!purchase.disputeStatus;
     
@@ -472,6 +488,8 @@ export default function PurchasesPage() {
               const isService = p.deliveryMethod === "service";
               const isRental = p.deliveryMethod === "rental";
               const isArrange = p.paymentType === "contact";
+              const isWanted = p.type === "wanted";
+              const displayStatus = isWanted ? { label: "Wanted", style: "bg-sky-500/10 text-sky-400 border-sky-500/20" } : { label: STATUS_LABELS[p.status] || p.status, style: STATUS_STYLES[p.status] || "bg-zinc-800/50 text-zinc-500 border-zinc-700/50" };
               return (
                 <div key={p.id} className="group relative overflow-hidden rounded-2xl border border-white/[0.06] bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-4 sm:p-5 transition-all duration-200 hover:bg-white/[0.06] hover:border-white/[0.10] hover:shadow-lg hover:shadow-black/20">
                   <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -497,8 +515,8 @@ export default function PurchasesPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-1.5 flex-wrap shrink-0">
-                          <span className={`shrink-0 rounded-full border px-3 py-0.5 text-[10px] font-bold ${STATUS_STYLES[p.status] || "bg-zinc-800/50 text-zinc-500 border-zinc-700/50"}`}>
-                            {STATUS_LABELS[p.status] || p.status}
+                          <span className={`shrink-0 rounded-full border px-3 py-0.5 text-[10px] font-bold ${displayStatus.style}`}>
+                            {displayStatus.label}
                           </span>
                                                     {(p as any).destinationCharge && !p.fundsReleased && p.status !== "completed" && (
                             <span className="shrink-0 rounded-full border border-sky-500/15 bg-sky-500/[0.04] px-2.5 py-0.5 text-[9px] font-medium text-sky-400/70">
@@ -509,12 +527,13 @@ export default function PurchasesPage() {
                       </div>
 
                       {/* TradeMe-style Timeline */}
-                      <PurchaseTimeline purchase={p} isService={isService} isRental={isRental} isArrange={isArrange} />
+                      <PurchaseTimeline purchase={p} isService={isService} isRental={isRental} isArrange={isArrange} isWanted={isWanted} />
 
                       <div className="mt-2 flex items-center gap-2 text-[11px] text-zinc-500">
                         <span>{dl.icon} {dl.text}</span>
                       </div>
                       {(p.tracking || p.trackingNumber) &&
+                        !isWanted &&
                         ["shipped", "delivered"].includes(p.status) && (
                         <p className="mt-1.5 rounded-lg border border-sky-500/15 bg-sky-500/5 px-2.5 py-1.5 text-[11px] text-sky-300/90">
                           <span className="font-bold text-sky-400">Tracking: </span>
