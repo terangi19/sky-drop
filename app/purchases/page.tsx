@@ -226,7 +226,10 @@ export default function PurchasesPage() {
     }
 
     showToast(
-      status === "delivered" ? "Receipt confirmed. Thanks!" : "Order updated.",
+      status === "delivered" ? "🎉 Order complete! Seller has been notified." : 
+      status === "shipped" ? "📦 Order status updated to shipped" :
+      status === "in_progress" ? "⚙️ Service marked as in progress" :
+      "Order status updated successfully",
       "success"
     );
 

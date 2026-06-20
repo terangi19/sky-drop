@@ -30,6 +30,7 @@ export type MarketplaceListingCardProps = {
   accent?: "sky" | "sky" | "sky";
   /** Homepage-style neon blue card glow */
   neonGlow?: boolean;
+  loading?: boolean;
 };
 
 const CREAM_CARD =
@@ -93,6 +94,7 @@ export default function MarketplaceListingCard({
   onDelete,
   accent = "sky",
   neonGlow = true,
+  loading = false,
 }: MarketplaceListingCardProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const themed = accent === "sky" || accent === "sky";
@@ -364,9 +366,17 @@ export default function MarketplaceListingCard({
                       e.stopPropagation();
                       onMakeOffer(item);
                     }}
-                    className={`flex-1 rounded-md border py-2.5 text-[12px] font-semibold transition-all duration-150 active:scale-95 ${CREAM_BTN}`}
+                    disabled={loading}
+                    className={`flex-1 rounded-md border py-2.5 text-[12px] font-semibold transition-all duration-150 active:scale-95 ${CREAM_BTN} ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
                   >
-                    Make Offer
+                    {loading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <div className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" />
+                        Processing...
+                      </span>
+                    ) : (
+                      "Make Offer"
+                    )}
                   </button>
                   {(item.saleType === "auction" || item.saleType === "auction_buy_now") && (
                     <Link
@@ -396,9 +406,17 @@ export default function MarketplaceListingCard({
                       e.stopPropagation();
                       onBuyNow(item);
                     }}
-                    className={`flex-1 rounded-md border py-2.5 text-[12px] font-semibold transition-all duration-150 active:scale-95 ${CREAM_BTN}`}
+                    disabled={loading}
+                    className={`flex-1 rounded-md border py-2.5 text-[12px] font-semibold transition-all duration-150 active:scale-95 ${CREAM_BTN} ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
                   >
-                    {item.paymentType === "contact" ? "Purchase" : "Buy Now"}
+                    {loading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <div className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" />
+                        Processing...
+                      </span>
+                    ) : (
+                      item.paymentType === "contact" ? "Purchase" : "Buy Now"
+                    )}
                   </button>
                   {(item.saleType === "auction" || item.saleType === "auction_buy_now") && (
                     <Link

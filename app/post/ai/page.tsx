@@ -196,6 +196,10 @@ export default function AIPostPage() {
     return "";
   };
 
+  const isFieldValid = (value: string, validator: (v: string) => string) => {
+    return value.trim() && validator(value) === "";
+  };
+
   const validateEmail = (value: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!value.trim()) return "Email is required";
@@ -1244,18 +1248,36 @@ export default function AIPostPage() {
           </div>
 
           <div className="space-y-1.5 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
-            <label className="text-sm font-bold text-white tracking-wide">Title</label>
-            <input id="listing-title" type="text" value={title} onChange={(e) => handleTitleChange(e.target.value)} className={`w-full rounded-xl border px-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:bg-white/[0.05] focus:ring-2 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:border-white/[0.12] placeholder="What are you selling?" ${validationErrors.title ? 'border-red-500/50 focus:border-red-500/60 focus:ring-red-500/20' : 'border-white/[0.06] focus:border-sky-500/60 focus:ring-sky-500/20'}`} placeholder="What are you selling?" />
+            <label htmlFor="listing-title" className="text-sm font-bold text-white tracking-wide">Title</label>
+            <div className="relative">
+              <input id="listing-title" type="text" value={title} onChange={(e) => handleTitleChange(e.target.value)} aria-label="Listing title" aria-describedby={validationErrors.title ? "title-error" : undefined} className={`w-full rounded-xl border px-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:bg-white/[0.05] focus:ring-2 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:border-white/[0.12] placeholder="What are you selling?" ${validationErrors.title ? 'border-red-500/50 focus:border-red-500/60 focus:ring-red-500/20' : 'border-white/[0.06] focus:border-sky-500/60 focus:ring-sky-500/20'}`} placeholder="What are you selling?" />
+              {isFieldValid(title, validateTitle) && (
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400" aria-hidden="true">
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              )}
+            </div>
             {validationErrors.title && (
-              <p className="mt-1 text-[10px] text-red-400 animate-in fade-in slide-in-from-top-2">{validationErrors.title}</p>
+              <p id="title-error" className="mt-1 text-[10px] text-red-400 animate-in fade-in slide-in-from-top-2" role="alert">{validationErrors.title}</p>
             )}
           </div>
 
           <div className="space-y-1.5 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150">
-            <label className="text-sm font-bold text-white tracking-wide">Description</label>
-            <textarea value={description} onChange={(e) => handleDescriptionChange(e.target.value)} rows={4} className={`w-full rounded-xl border px-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:bg-white/[0.05] focus:ring-2 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:border-white/[0.12] resize-none placeholder="Describe your item in detail..." ${validationErrors.description ? 'border-red-500/50 focus:border-red-500/60 focus:ring-red-500/20' : 'border-white/[0.06] focus:border-sky-500/60 focus:ring-sky-500/20'}`} placeholder="Describe your item in detail..." />
+            <label htmlFor="listing-description" className="text-sm font-bold text-white tracking-wide">Description</label>
+            <div className="relative">
+              <textarea id="listing-description" value={description} onChange={(e) => handleDescriptionChange(e.target.value)} rows={4} aria-label="Listing description" aria-describedby={validationErrors.description ? "description-error" : undefined} className={`w-full rounded-xl border px-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:bg-white/[0.05] focus:ring-2 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:border-white/[0.12] resize-none placeholder="Describe your item in detail..." ${validationErrors.description ? 'border-red-500/50 focus:border-red-500/60 focus:ring-red-500/20' : 'border-white/[0.06] focus:border-sky-500/60 focus:ring-sky-500/20'}`} placeholder="Describe your item in detail..." />
+              {isFieldValid(description, validateDescription) && (
+                <div className="absolute right-4 top-4 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400" aria-hidden="true">
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              )}
+            </div>
             {validationErrors.description && (
-              <p className="mt-1 text-[10px] text-red-400 animate-in fade-in slide-in-from-top-2">{validationErrors.description}</p>
+              <p id="description-error" className="mt-1 text-[10px] text-red-400 animate-in fade-in slide-in-from-top-2" role="alert">{validationErrors.description}</p>
             )}
           </div>
 
