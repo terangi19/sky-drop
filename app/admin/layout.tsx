@@ -7,7 +7,6 @@ import { auth, onAuthStateChanged } from "../lib/firebase";
 import Background from "../components/Background";
 import Navbar from "../components/Navbar";
 import ThemeToggle from "../components/ThemeToggle";
-import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 
 async function setAdminSession(token: string) {
   try {
@@ -120,7 +119,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="max-w-xl rounded-[40px] border border-red-500/20 bg-[var(--card)] p-12 text-center shadow-2xl backdrop-blur-xl">
             <div className="mb-6 text-7xl">🔒</div>
             <h1 className="text-5xl font-black text-red-500">Access Denied</h1>
-            <AwhinaUnderHeader centered className="mt-4" />
             <p className="mt-6 text-lg leading-8 text-[var(--muted)]">
               {!user ? (
                 <>Please <Link href="/login?redirect=/admin" className="text-sky-400 hover:underline">sign in</Link> with an admin account.</>
