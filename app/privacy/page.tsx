@@ -10,13 +10,7 @@ const sections = [
     id: "collect",
     title: "Information We Collect",
     content:
-      "We collect information you give us, like your name, email address, phone number, profile details, and proof of address documents when you create an account, list an item, or complete KYC verification. We also collect data automatically, including your IP address, browser type, device info, and how you use the site. If you chat with other users, those messages are stored so we can facilitate communication and resolve disputes.",
-  },
-  {
-    id: "kyc",
-    title: "Why We Ask for Verification (KYC)",
-    content:
-      "Sky Drop requires identity verification (Know Your Customer / KYC) for sellers to help prevent fraud, scams, and illegal activity. We collect proof of address and verify your identity so buyers can trust who they're dealing with. This information is never shared publicly — it is stored securely and used only for verification, dispute resolution, and law enforcement cooperation if required. We do this to keep honest users safe and to make it clear that scammers, fraudsters, and bad actors are not welcome on Sky Drop.",
+      "We collect information you give us, like your name, email address, phone number, and profile details when you create an account or list an item. We also collect data automatically, including your IP address, browser type, device info, and how you use the site. If you chat with other users, those messages are stored so we can facilitate communication and resolve disputes.",
   },
   {
     id: "use",
@@ -34,7 +28,7 @@ const sections = [
     id: "sharing",
     title: "Data Sharing",
     content:
-      "We share your information with other Sky Drop users only as needed for transactions — for example, your username and contact details are visible to someone you're buying from or selling to. KYC documents and proof of address are never shared with other users. We may share data with trusted service providers who help us run the platform (payment processors like Stripe, hosting, fraud detection services), and with law enforcement or government agencies when required by New Zealand law or when investigating fraud.",
+      "We share your information with other Sky Drop users only as needed for transactions — for example, your username and contact details are visible to someone you're buying from or selling to. We may share data with trusted service providers who help us run the platform (payment processors like Stripe, hosting, fraud detection services), and with law enforcement or government agencies when required by New Zealand law or when investigating fraud.",
   },
   {
     id: "cookies",
@@ -52,7 +46,7 @@ const sections = [
     id: "contact",
     title: "Contact",
     content:
-      "If you have questions about this policy, KYC verification, or your privacy, reach out to us at support@skydrop.co.nz. We're based in New Zealand and all data is stored and processed in accordance with New Zealand privacy law.",
+      "If you have questions about this policy or your privacy, reach out to us at support@skydrop.co.nz. We're based in New Zealand and all data is stored and processed in accordance with New Zealand privacy law.",
   },
 ];
 

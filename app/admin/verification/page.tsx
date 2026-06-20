@@ -24,11 +24,11 @@ import {
 } from "../../lib/firebase";
 import { isAdminEmail } from "../../lib/admin-check";
 
-type Tab = "address" | "digital" | "listings";
+type Tab = "listings" | "digital";
 
 export default function AdminVerificationPage() {
   const [user, setUser] = useState<User | null>(null);
-  const [tab, setTab] = useState<Tab>("address");
+  const [tab, setTab] = useState<Tab>("listings");
   const [profiles, setProfiles] = useState<any[]>([]);
   const [digitalListings, setDigitalListings] = useState<any[]>([]);
   const [pendingListings, setPendingListings] = useState<any[]>([]);
@@ -41,21 +41,7 @@ export default function AdminVerificationPage() {
   }, []);
 
   useEffect(() => {
-    if (tab === "address") {
-      setLoading(true);
-      // Use server-side API route to fetch KYC submissions securely
-      adminFetch("/api/admin/kyc-list")
-        .then((res) => res.json())
-        .then((data) => {
-          setProfiles(data.submissions || []);
-          setLoading(false);
-        })
-        .catch((err) => {
-          console.error("Failed to load pending verifications:", err);
-          showToast("Failed to load KYC submissions", "error");
-          setLoading(false);
-        });
-    } else if (tab === "digital") {
+    if (tab === "digital") {
       setLoading(true);
       const q = query(collection(db, "tradePosts"), where("type", "==", "digital"));
       const unsub = onSnapshot(q, (snap) => {
@@ -189,7 +175,6 @@ export default function AdminVerificationPage() {
   }
 
   const tabs: { key: Tab; label: string }[] = [
-    { key: "address", label: "Proof of Address" },
     { key: "listings", label: `Listings (${pendingListings.length || "—"})` },
     { key: "digital", label: "Digital Listings" },
   ];
@@ -272,7 +257,7 @@ export default function AdminVerificationPage() {
               </div>
             )}
           </>
-        ) : tab === "digital" ? (
+        ) : (
           <>
             {loading ? (
               <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-8 text-center">Loading...</div>
@@ -308,80 +293,6 @@ export default function AdminVerificationPage() {
                         placeholder="Rejection reason..."
                         className="flex-1 min-w-[180px] rounded-xl border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-xs text-[var(--foreground)] outline-none focus:border-red-500/40 placeholder:text-zinc-600" />
                       <button onClick={() => handleRejectDigital(listing.id)} disabled={!rejectInputs[`dig_${listing.id}`]?.trim()}
-                        className="rounded-xl bg-red-500/15 px-5 py-2.5 text-xs font-bold text-red-400 transition hover:bg-red-500/25 disabled:opacity-40">
-                        ❌ Reject
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        ) : (
-          <>
-            <div className="mb-8 grid gap-4 sm:grid-cols-2">
-              <div className="rounded-2xl border border-sky-500/20 bg-[var(--card)] p-5 shadow-xl">
-                <p className="text-sm text-[var(--muted)]">Pending Reviews</p>
-                <p className="mt-1 text-3xl font-black text-sky-400">{profiles.length}</p>
-              </div>
-            </div>
-
-            {loading ? (
-              <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-8 text-center">Loading...</div>
-            ) : profiles.length === 0 ? (
-              <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-10 text-center">
-                <p className="text-3xl mb-3">✅</p>
-                <p className="text-lg font-bold">All caught up</p>
-                <p className="text-sm text-[var(--muted)] mt-1">No pending submissions.</p>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {profiles.map((profile) => (
-                  <div key={profile.id} className="rounded-2xl border border-sky-500/20 bg-[var(--card)] p-6 shadow-xl">
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg font-bold text-[var(--foreground)]">{profile.email || "No email"}</span>
-                          {profile.phoneVerified && <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold text-sky-400">Phone ✓</span>}
-                        </div>
-                        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-[var(--muted)]">
-                          <span>Username: {profile.username || "—"}</span>
-                          <span>Phone: {profile.phone || "—"}</span>
-                          {profile.referredBy && <span>Referred by: <span className="font-bold text-sky-400">{profile.referredBy}</span></span>}
-                          {profile.submittedAt?.toDate ? <span>Submitted: {profile.submittedAt.toDate().toLocaleDateString()}</span> : null}
-                          {profile.proofOfAddress?.submittedAt?.toDate && <span>Submitted: {profile.proofOfAddress.submittedAt.toDate().toLocaleDateString()}</span>}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Document preview — supports both legacy proofOfAddress and new kycSubmissions */}
-                    {(profile.proofOfAddress?.documentURL || profile.idImageUrl) && (
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {profile.idImageUrl && (
-                          <a href={profile.idImageUrl} target="_blank" rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 rounded-xl bg-zinc-800/50 px-4 py-2 text-xs font-bold text-sky-400 hover:bg-zinc-700/50 transition">
-                            📷 View ID Image →
-                          </a>
-                        )}
-                        {profile.proofOfAddress?.documentURL && (
-                          <a href={profile.proofOfAddress.documentURL} target="_blank" rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 rounded-xl bg-zinc-800/50 px-4 py-2 text-xs font-bold text-sky-400 hover:bg-zinc-700/50 transition">
-                            📄 View Document →
-                          </a>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Approve / Reject */}
-                    <div className="mt-4 flex flex-wrap gap-3">
-                      <button onClick={() => handleApprove(profile.id)}
-                        className="rounded-xl bg-sky-500/15 px-5 py-2.5 text-xs font-bold text-sky-400 transition hover:bg-sky-500/25">
-                        ✅ Approve
-                      </button>
-                      <input type="text" value={rejectInputs[profile.id] || ""} onChange={(e) => setRejectInputs((prev) => ({ ...prev, [profile.id]: e.target.value }))}
-                        placeholder="Rejection reason..."
-                        className="flex-1 min-w-[180px] rounded-xl border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-xs text-[var(--foreground)] outline-none focus:border-red-500/40 placeholder:text-zinc-600" />
-                      <button onClick={() => handleReject(profile.id)} disabled={!rejectInputs[profile.id]?.trim()}
                         className="rounded-xl bg-red-500/15 px-5 py-2.5 text-xs font-bold text-red-400 transition hover:bg-red-500/25 disabled:opacity-40">
                         ❌ Reject
                       </button>

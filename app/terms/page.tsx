@@ -13,10 +13,10 @@ const sections = [
       "Sky Drop is a New Zealand online marketplace that connects buyers and sellers. By using this platform, you agree to these terms. If you don't agree, please don't use the site. We may update these terms from time to time, and continued use means you accept any changes.",
   },
   {
-    id: "kyc",
-    title: "Accounts & Verification (KYC)",
+    id: "accounts",
+    title: "Accounts",
     content:
-      "You're responsible for keeping your account secure. Don't share your password or let anyone else use your account. You must be at least 18 years old to use Sky Drop. Sellers are required to complete identity verification (KYC) before listing items. This includes providing proof of address and confirming your identity. KYC helps prevent fraud, protects buyers, and ensures that scammers and bad actors can be identified and reported to authorities. We reserve the right to suspend or close accounts that violate these terms, fail verification, or engage in suspicious or fraudulent activity.",
+      "You're responsible for keeping your account secure. Don't share your password or let anyone else use your account. You must be at least 18 years old to use Sky Drop. We reserve the right to suspend or close accounts that violate these terms or engage in suspicious or fraudulent activity.",
   },
   {
     id: "fraud",
@@ -28,7 +28,7 @@ const sections = [
     id: "listings",
     title: "Listings & Sales",
     content:
-      "Listings must be accurate and describe the item honestly. Include clear photos, a fair price, and the correct condition. You may not list items you don't own or have permission to sell. All sales are between the buyer and seller — Sky Drop facilitates the connection but is not a party to the transaction. Sellers must complete KYC verification before listing. Attempting to list without completing verification, or providing false KYC documents, is a violation of these terms and will result in an immediate ban.",
+      "Listings must be accurate and describe the item honestly. Include clear photos, a fair price, and the correct condition. You may not list items you don't own or have permission to sell. All sales are between the buyer and seller — Sky Drop facilitates the connection but is not a party to the transaction.",
   },
   {
     id: "payments",

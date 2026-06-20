@@ -31,28 +31,22 @@ export default function SignupVerificationModal({ onClose, onVerify }: Props) {
           <div className="rounded-lg border border-white/5 bg-white/[0.02] p-4">
             <h3 className="mb-2 font-semibold text-sky-400">Browse & Purchase</h3>
             <p className="text-sm text-[var(--muted)]">
-              You can browse all listings and make purchases immediately — no verification required.
+              You can browse all listings and make purchases immediately.
             </p>
           </div>
 
           <div className="rounded-lg border border-white/5 bg-white/[0.02] p-4">
             <h3 className="mb-2 font-semibold text-sky-400">Sell Items</h3>
             <p className="text-sm text-[var(--muted)]">
-              To list items for sale, complete ID verification first. This helps keep Sky Drop safe for everyone.
+              List items for sale and connect with buyers across New Zealand.
             </p>
           </div>
         </div>
 
         <div className="space-y-3">
           <button
-            onClick={onVerify}
-            className="w-full rounded-lg bg-sky-500 py-3 font-bold text-[var(--foreground)] transition hover:bg-sky-400"
-          >
-            Verify Now to Start Selling
-          </button>
-          <button
             onClick={handleBrowse}
-            className="w-full rounded-lg border border-white/10 bg-transparent py-3 font-medium transition hover:bg-white/[0.05]"
+            className="w-full rounded-lg bg-sky-500 py-3 font-bold text-[var(--foreground)] transition hover:bg-sky-400"
           >
             Browse Listings
           </button>
