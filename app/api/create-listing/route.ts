@@ -204,18 +204,6 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      const recentDupes = await getAdminDb().collection("listings")
-        .where("sellerEmail", "==", token.email)
-        .where("title", "==", sanitizedTitle)
-        .limit(1).get();
-
-      if (!recentDupes.empty) {
-        const existing = recentDupes.docs[0].data();
-        if (existing.status !== "sold") {
-          return NextResponse.json({ error: "You already have an active listing with this title." }, { status: 400 });
-        }
-      }
-
       const activeListings = await getAdminDb().collection("listings")
         .where("sellerEmail", "==", token.email)
         .where("status", "==", "live")
