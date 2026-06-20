@@ -690,31 +690,32 @@ export default function Home() {
 
       {/* OFFER MODAL */}
       {showOfferModal && offerListing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="mx-4 w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl">
-            <h3 className="text-xl font-black text-[var(--foreground)]">Make an Offer</h3>
-            <p className="mt-2 text-[var(--muted)]">Make an offer for "{offerListing.title}"</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in-backdrop">
+          <div className="relative mx-4 w-full max-w-md overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-zinc-950/95 to-zinc-900/90 p-6 shadow-2xl shadow-black/40 backdrop-blur-xl animate-fade-in-scale">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
+            <h3 className="text-xl font-black text-white">Make an Offer</h3>
+            <p className="mt-2 text-sm text-zinc-400">Make an offer for "{offerListing.title}"</p>
             <div className="mt-6">
-              <label className="block text-sm font-bold text-[var(--muted)]">Your Offer ($)</label>
+              <label className="block text-sm font-bold text-zinc-400">Your Offer ($)</label>
               <input
                 type="number"
                 value={offerAmount}
                 onChange={(e) => setOfferAmount(e.target.value)}
                 min={1}
                 placeholder={`e.g. ${Math.floor(Number(offerListing.price) * 0.8)}`}
-                className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)] outline-none focus:border-sky-500"
+                className="mt-2 w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-[var(--foreground)] outline-none transition focus:border-sky-500/50 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10"
               />
             </div>
             <div className="mt-6 flex gap-3">
               <button
                 onClick={() => { setShowOfferModal(false); setOfferListing(null); setOfferAmount(""); }}
-                className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 font-bold text-[var(--foreground)] hover:bg-zinc-700"
+                className="flex-1 rounded-xl border border-white/[0.08] bg-white/[0.03] py-3 font-bold text-[var(--foreground)] transition hover:bg-white/[0.06] hover:border-white/[0.12]"
               >
                 Cancel
               </button>
               <button
                 onClick={submitOffer}
-                className="flex-1 rounded-xl bg-sky-500 py-3 font-bold text-[var(--foreground)] hover:bg-sky-400"
+                className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:brightness-110 active:scale-[0.98]"
               >
                 Send Offer
               </button>
@@ -745,8 +746,11 @@ export default function Home() {
 
           <div className="relative z-10 px-5 py-8 sm:px-8 sm:py-10">
             <div className="mx-auto max-w-2xl text-center">
-              <div className={`${t.badge} text-white/90 mb-3`}>NZ Marketplace</div>
-              <h1 className="text-xl font-semibold tracking-tight text-white sm:text-3xl lg:text-4xl">
+              <div className={`${t.badge} text-white/90 mb-3 inline-flex items-center gap-2 rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider`}>
+                <span className="h-1.5 w-1.5 rounded-full bg-sky-400 animate-pulse" />
+                NZ Marketplace
+              </div>
+              <h1 className="text-2xl font-black tracking-tight text-white sm:text-4xl lg:text-5xl">
                 <span className={`bg-gradient-to-r ${t.titleGradient} bg-clip-text text-transparent ${t.titleDropShadow}`}>
                   Welcome to Sky Drop
                 </span>
@@ -762,7 +766,7 @@ export default function Home() {
                 <div className="mt-6 flex justify-center">
                   <Link
                     href="/post/ai"
-                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-300 hover:shadow-xl hover:shadow-sky-500/30 hover:-translate-y-0.5 active:scale-[0.98]"
+                    className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-400 px-6 py-3.5 text-sm font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-300 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0"
                   >
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -869,12 +873,12 @@ export default function Home() {
             { label: "NZ community", sub: "Built for Aotearoa", icon: <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /> },
           ].map((item) => (
             <div key={item.label} className="flex items-center gap-2.5">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.03]">
-                <svg className="h-3.5 w-3.5 text-sky-400/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>{item.icon}</svg>
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-500/10 ring-1 ring-sky-500/20">
+                <svg className="h-4 w-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>{item.icon}</svg>
               </div>
               <div className="space-y-0.5">
-                <p className="text-[11px] font-medium text-white">{item.label}</p>
-                <p className="text-[10px] text-white/70">{item.sub}</p>
+                <p className="text-[11px] font-bold text-white">{item.label}</p>
+                <p className="text-[10px] text-zinc-400">{item.sub}</p>
               </div>
             </div>
           ))}

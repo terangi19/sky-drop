@@ -1081,9 +1081,9 @@ body {
 
 /* ── LOGIN PAGE (light + dark) ── */
 .login-page-card {
-  background: rgba(9, 9, 11, 0.82);
+  background: linear-gradient(135deg, rgba(20, 20, 25, 0.92) 0%, rgba(12, 12, 16, 0.88) 100%);
   border-color: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
   color: #f4f4f5;
 }
 :root.light .login-page-card {
@@ -1129,18 +1129,22 @@ body {
 }
 
 .login-page-input {
-  background: #18181b;
-  border: 1px solid #3f3f46;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: #f4f4f5;
   outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 .login-page-input::placeholder {
   color: #71717a;
 }
+.login-page-input:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
 .login-page-input:focus {
-  border-color: #0ea5e9;
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(14, 165, 233, 0.5);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
 }
 :root.light .login-page-input {
   background: #ffffff;
@@ -1158,9 +1162,16 @@ body {
 .login-page-btn-primary {
   background: linear-gradient(to right, #0ea5e9, #38bdf8);
   color: #ffffff !important;
+  box-shadow: 0 10px 30px -8px rgba(14, 165, 233, 0.4);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
 }
 .login-page-btn-primary:hover:not(:disabled) {
-  filter: brightness(1.06);
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+  box-shadow: 0 14px 40px -8px rgba(14, 165, 233, 0.55);
+}
+.login-page-btn-primary:active:not(:disabled) {
+  transform: translateY(0);
 }
 .login-page-btn-primary:disabled {
   opacity: 0.5;
@@ -1168,11 +1179,13 @@ body {
 
 .login-page-btn-secondary {
   border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
   color: #d4d4d8;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 .login-page-btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
   color: #ffffff;
 }
 :root.light .login-page-btn-secondary {
@@ -1182,6 +1195,12 @@ body {
 :root.light .login-page-btn-secondary:hover {
   background: #f0f9ff;
   color: #111827;
+}
+
+.login-page-modal {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: linear-gradient(135deg, rgba(18, 18, 23, 0.95) 0%, rgba(10, 10, 14, 0.92) 100%);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
 }
 
 .login-kyc-callout {

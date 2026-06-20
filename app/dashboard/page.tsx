@@ -341,7 +341,7 @@ export default function DashboardPage() {
           {statCards.map((card) => (
             <div
               key={card.label}
-              className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-4 sm:p-5 transition-all duration-300 hover:border-white/[0.12] hover:shadow-lg hover:shadow-black/20"
+              className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.06] to-white/[0.01] p-4 sm:p-5 transition-all duration-300 hover:border-white/[0.14] hover:shadow-lg hover:shadow-black/20 hover:-translate-y-0.5"
             >
               <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${card.accent}`} />
               <div className="flex items-start justify-between">
@@ -360,10 +360,11 @@ export default function DashboardPage() {
         </div>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
-          <div className="rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-5 sm:p-6 transition-all duration-300 hover:border-white/[0.12]">
+          <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-5 sm:p-6 transition-all duration-300 hover:border-white/[0.12]">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent" />
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/10 text-lg">📋</div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-500/10 text-lg ring-1 ring-sky-500/20">📋</div>
                 <div>
                   <h2 className="text-base font-black text-white">Recent orders</h2>
                   <p className="text-[11px] text-zinc-500">Your latest sales activity</p>
@@ -391,8 +392,8 @@ export default function DashboardPage() {
             ) : (
               <div className="mt-5 divide-y divide-white/[0.05]">
                 {sales.slice(0, 6).map((s) => (
-                  <div key={s.id} className="flex items-center gap-4 py-4 first:pt-0 last:pb-0 transition-all duration-200 hover:bg-white/[0.02] rounded-xl px-2 -mx-2">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/10 text-lg">🛒</div>
+                  <div key={s.id} className="flex items-center gap-4 py-4 first:pt-0 last:pb-0 transition-all duration-200 hover:bg-white/[0.03] rounded-xl px-3 -mx-2 border border-transparent hover:border-white/[0.05]">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-500/10 text-lg ring-1 ring-sky-500/20">🛒</div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-bold text-white">{s.listingTitle}</p>
                       <p className="mt-0.5 text-xs text-zinc-500">
@@ -419,9 +420,10 @@ export default function DashboardPage() {
           </div>
 
           <aside className="space-y-4">
-            <div className="rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-5 transition-all duration-300 hover:border-white/[0.12]">
+            <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-5 transition-all duration-300 hover:border-white/[0.12]">
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/10 to-transparent" />
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-lg">💰</div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-500/10 text-lg ring-1 ring-emerald-500/20">💰</div>
                 <h3 className="text-sm font-black text-white">Payouts</h3>
               </div>
               <p className="mt-3 text-2xl font-black text-emerald-400">${stats.stripeEarnings.toFixed(2)}</p>
@@ -430,15 +432,16 @@ export default function DashboardPage() {
               </p>
               <Link
                 href="/profile"
-                className="mt-4 inline-flex w-full items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-xs font-bold text-zinc-200 transition hover:border-sky-500/25 hover:bg-white/[0.06] hover:text-white"
+                className="mt-4 inline-flex w-full items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-xs font-bold text-zinc-200 transition hover:border-emerald-500/25 hover:bg-white/[0.06] hover:text-white"
               >
                 Payout settings
               </Link>
             </div>
 
-            <div className="rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-5 transition-all duration-300 hover:border-white/[0.12]">
+            <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-5 transition-all duration-300 hover:border-white/[0.12]">
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-400/10 to-transparent" />
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10 text-lg">⚡</div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500/20 to-violet-500/10 text-lg ring-1 ring-violet-500/20">⚡</div>
                 <h3 className="text-sm font-black text-white">Shortcuts</h3>
               </div>
               <div className="mt-3 space-y-2">

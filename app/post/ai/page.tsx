@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import Link from "next/link";
 import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
@@ -143,6 +143,29 @@ export default function AIPostPage() {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   const isDigital = listingType === "digital";
+
+  // Form completion progress (honest, field-based — not a fake stepper)
+  const formProgress = useMemo(() => {
+    let total = 0;
+    let filled = 0;
+    const add = (required: boolean, value: string | boolean | number | string[] | null) => {
+      if (required) {
+        total += 1;
+        if (Array.isArray(value) ? value.length > 0 : typeof value === "boolean" ? value : String(value || "").trim()) {
+          filled += 1;
+        }
+      }
+    };
+    add(true, title);
+    add(true, description);
+    add(true, category);
+    add(listingType === "physical" || listingType === "vehicle" || listingType === "property", condition);
+    add(listingType !== "rental", saleType === "buy_now" ? price : startingBid);
+    add(listingType === "physical" || listingType === "vehicle" || listingType === "property" || listingType === "wanted", location);
+    add(listingType === "digital" || listingType === "service", digitalFileURL);
+    add(true, imageFiles.length > 0 || imagePreviews.length > 0 || existingImages.length > 0);
+    return total === 0 ? 0 : Math.round((filled / total) * 100);
+  }, [title, description, category, condition, listingType, saleType, price, startingBid, location, digitalFileURL, imageFiles.length, imagePreviews.length, existingImages.length]);
   const classifierRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -1185,28 +1208,21 @@ export default function AIPostPage() {
         )}
 
         <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-500">
-          {/* Progress Indicator */}
-          <div className="relative rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
-            <div className="absolute inset-x-0 top-1/2 mx-12 h-0.5 -translate-y-1/2 bg-zinc-700/50" />
-            <div className="relative grid grid-cols-4 gap-2">
-              {[
-                { step: 1, label: "Details" },
-                { step: 2, label: "Pricing" },
-                { step: 3, label: "Delivery" },
-                { step: 4, label: "Review" },
-              ].map(({ step, label }) => {
-                const active = formStep >= step;
-                const current = formStep === step;
-                return (
-                  <div key={step} className="flex flex-col items-center gap-2">
-                    <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all duration-300 ${active ? "bg-gradient-to-br from-sky-500 to-sky-400 text-white shadow-lg shadow-sky-500/20" : current ? "border-2 border-sky-500 bg-zinc-900 text-sky-400" : "border border-zinc-700 bg-zinc-800 text-zinc-500"}`}>
-                      {step}
-                    </div>
-                    <span className={`text-[11px] font-medium ${active ? "text-sky-400" : "text-zinc-500"}`}>{label}</span>
-                  </div>
-                );
-              })}
+          {/* Honest form progress indicator */}
+          <div className="sticky top-0 z-20 -mx-6 mb-2 border-b border-white/[0.08] bg-zinc-950/90 px-6 py-3 backdrop-blur-xl sm:-mx-8 sm:px-8">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[11px] font-bold text-zinc-400">Form progress</span>
+              <span className={`text-[11px] font-bold ${formProgress === 100 ? "text-emerald-400" : "text-sky-400"}`}>{formProgress}%</span>
             </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${formProgress === 100 ? "bg-gradient-to-r from-emerald-500 to-emerald-400" : "bg-gradient-to-r from-sky-500 to-sky-400"}`}
+                style={{ width: `${formProgress}%` }}
+              />
+            </div>
+            <p className="mt-1.5 text-[10px] text-zinc-500">
+              {formProgress === 100 ? "Ready to submit" : "Fill the highlighted fields to complete your listing"}
+            </p>
           </div>
 
           <div className="space-y-1.5 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">

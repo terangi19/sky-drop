@@ -443,9 +443,9 @@ export default function SellerPage() {
                     { icon: "📦", label: "Listings", value: String(activeListings.length) },
                     { icon: "👥", label: "Followers", value: String(followerCount) },
                   ].map((s) => (
-                    <div key={s.label} className="rounded-xl border border-white/[0.04] bg-white/[0.02] px-3 py-2.5 text-center transition-all duration-200 hover:bg-white/[0.04]">
-                      <p className="text-sm font-black text-[var(--foreground)]">{s.value}</p>
-                      <p className="text-[9px] font-medium text-[var(--muted)] uppercase tracking-wider">
+                    <div key={s.label} className="rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] px-3 py-2.5 text-center transition-all duration-200 hover:bg-white/[0.07] hover:border-white/[0.12]">
+                      <p className="text-sm font-black text-white">{s.value}</p>
+                      <p className="text-[9px] font-medium text-zinc-500 uppercase tracking-wider">
                         {s.icon === "rating" ? <span className={REVIEW_STAR_CLASS}>★</span> : s.icon} {s.label}
                       </p>
                     </div>
@@ -457,36 +457,36 @@ export default function SellerPage() {
                   <button onClick={toggleFollow} disabled={followLoading}
                     className={`mt-3 rounded-xl px-5 py-2.5 text-xs font-bold transition-all duration-200 ${
                       following
-                        ? "border border-zinc-700 bg-zinc-800/60 text-[var(--foreground)] hover:bg-zinc-700/60"
-                        : "bg-sky-500 text-[var(--foreground)] hover:bg-sky-400"
+                        ? "border border-white/[0.08] bg-white/[0.03] text-[var(--foreground)] hover:bg-white/[0.06]"
+                        : "bg-gradient-to-r from-sky-500 to-sky-400 text-white shadow-lg shadow-sky-500/20 hover:brightness-110 hover:shadow-xl"
                     }`}>
                     {followLoading ? "..." : following ? "Following" : "Follow"}
                   </button>
                 ) : !isOwn && (
                   <a href="/login"
-                    className="mt-3 inline-block rounded-xl border border-zinc-700 bg-zinc-800/40 px-5 py-2.5 text-xs font-bold text-[var(--muted)] transition hover:border-zinc-500 hover:text-[var(--foreground)]">
+                    className="mt-3 inline-block rounded-xl border border-white/[0.08] bg-white/[0.03] px-5 py-2.5 text-xs font-bold text-zinc-400 transition hover:border-sky-500/30 hover:text-[var(--foreground)]">
                     Log in to follow
                   </a>
                 )}
 
                 {/* Trust Score */}
-                <div className="mt-4 flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/40 px-3.5 py-2.5">
+                <div className="mt-4 flex items-center gap-2 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] px-3.5 py-2.5">
                   <span className={`text-xs font-bold ${trustScore.color}`}>Trust Score: {trustScore.score}%</span>
-                  <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${trustScore.color} bg-current/10`}>{trustScore.label}</span>
+                  <span className={`rounded-full px-2.5 py-0.5 text-[9px] font-bold ${trustScore.color} bg-current/10 border border-current/20`}>{trustScore.label}</span>
                 </div>
 
                 {/* Report + Block */}
                 {!isOwn && currentUser && (
                   <div className="mt-3 flex items-center gap-3">
                     <button onClick={() => setShowReportModal(true)}
-                      className="flex items-center gap-1.5 text-xs text-[var(--muted)] transition hover:text-sky-400">
+                      className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-[var(--muted)] transition hover:bg-white/[0.03] hover:text-sky-400">
                       <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0l2.77-.693a9 9 0 016.208.682l.108.054a9 9 0 006.086.71l3.114-.732a48.524 48.524 0 01-.005-10.499l-3.11.732a9 9 0 01-6.085-.711l-.108-.054a9 9 0 00-6.208-.682L3 4.5M3 15V4.5" />
                       </svg>
                       Report
                     </button>
                     <button onClick={toggleBlock}
-                      className="flex items-center gap-1.5 text-xs text-[var(--muted)] transition hover:text-red-400">
+                      className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-[var(--muted)] transition hover:bg-red-500/10 hover:text-red-400">
                       <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                       </svg>
@@ -518,28 +518,30 @@ export default function SellerPage() {
 
               {/* Bio */}
               {profile.bio && (
-                <div className="rounded-xl border border-zinc-700/50 bg-zinc-900/80 p-5 shadow-[0_2px_12px_rgba(0,0,0,0.25)]">
-                  <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.15em] text-[var(--foreground)]">About</h2>
+                <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.25)]">
+                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent" />
+                  <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.15em] text-white">About</h2>
                   <p className="text-sm leading-relaxed text-[var(--foreground)]">{profile.bio}</p>
                 </div>
               )}
 
               {/* Pinned Listings */}
               {pinnedListings.length > 0 && (
-                <div className="rounded-xl border border-zinc-700/50 bg-zinc-900/80 p-5 shadow-[0_2px_12px_rgba(0,0,0,0.25)]">
-                  <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.15em] text-[var(--foreground)]">📌 Pinned</h2>
+                <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.25)]">
+                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent" />
+                  <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.15em] text-white">📌 Pinned</h2>
                   <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
                     {pinnedListings.map((item) => (
                       <div key={item.id} onClick={() => router.push(item.type === "service" ? "/services" : `/post/listing/${item.id}`)}
-                        className="group/card shrink-0 w-44 cursor-pointer overflow-hidden rounded-xl border border-zinc-700/40 bg-zinc-800/30 transition-all duration-300 hover:border-sky-500/40 hover:shadow-[0_0_20px_rgba(14,165,233,0.15)]">
+                        className="group/card shrink-0 w-44 cursor-pointer overflow-hidden rounded-xl border border-white/[0.06] bg-gradient-to-br from-white/[0.05] to-white/[0.01] transition-all duration-300 hover:border-sky-500/40 hover:shadow-[0_0_20px_rgba(14,165,233,0.15)] hover:-translate-y-1">
                         {item.images?.[0] || item.imageUrl || item.image ? (
                           <img src={item.images?.[0] || item.imageUrl || item.image || ""} alt="" className="h-28 w-full object-cover transition-transform duration-500 group-hover/card:scale-105" />
                         ) : (
-                          <div className="flex h-28 items-center justify-center bg-zinc-700/30 text-xs font-medium text-[var(--muted)]">No image</div>
+                          <div className="flex h-28 items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-900 text-xs font-medium text-[var(--muted)]">No image</div>
                         )}
                         <div className="p-3">
-                          <p className="truncate text-sm font-bold text-[var(--foreground)]">{item.title}</p>
-                          <p className="mt-0.5 text-sm font-bold text-sky-300">${item.price}</p>
+                          <p className="truncate text-sm font-bold text-[var(--foreground)] group-hover/card:text-sky-300 transition-colors">{item.title}</p>
+                          <p className="mt-0.5 text-sm font-bold text-sky-400">${item.price}</p>
                         </div>
                       </div>
                     ))}
@@ -548,7 +550,8 @@ export default function SellerPage() {
               )}
 
               {/* Active Listings */}
-              <div className="rounded-xl border border-zinc-700/50 bg-zinc-900/80 p-5 shadow-[0_2px_12px_rgba(0,0,0,0.25)]">
+              <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.25)]">
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent" />
                 <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.15em] text-[var(--foreground)]">
                   Listings ({activeListings.length})
                 </h2>
@@ -564,19 +567,19 @@ export default function SellerPage() {
                   <div className="grid gap-3 sm:grid-cols-2">
                     {activeListings.map((item) => (
                       <div key={item.id} onClick={() => router.push(item.type === "service" ? "/services" : `/post/listing/${item.id}`)}
-                        className="group/card cursor-pointer overflow-hidden rounded-xl border border-zinc-700/40 bg-zinc-800/30 transition-all duration-300 hover:border-sky-500/40 hover:shadow-[0_0_20px_rgba(14,165,233,0.15)]">
+                        className="group/card cursor-pointer overflow-hidden rounded-xl border border-white/[0.06] bg-gradient-to-br from-white/[0.05] to-white/[0.01] transition-all duration-300 hover:border-sky-500/40 hover:shadow-[0_0_20px_rgba(14,165,233,0.15)] hover:-translate-y-1">
                         {item.images?.[0] || item.imageUrl || item.image ? (
                           <img src={item.images?.[0] || item.imageUrl || item.image || ""} alt="" className="h-28 w-full object-cover transition-transform duration-500 group-hover/card:scale-105" />
                         ) : (
-                          <div className="flex h-28 items-center justify-center bg-zinc-700/30 text-xs font-medium text-[var(--muted)]">No image</div>
+                          <div className="flex h-28 items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-900 text-xs font-medium text-[var(--muted)]">No image</div>
                         )}
                         <div className="p-3">
                           <div className="flex items-center gap-1.5">
-                            {item.category && <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[9px] font-bold text-sky-400">{item.category}</span>}
-                            {item.condition && <span className="rounded-full bg-zinc-700/40 px-2 py-0.5 text-[9px] font-medium text-[var(--muted)]">{item.condition}</span>}
+                            {item.category && <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-2 py-0.5 text-[9px] font-bold text-sky-400">{item.category}</span>}
+                            {item.condition && <span className="rounded-full border border-white/[0.06] bg-zinc-800/80 px-2 py-0.5 text-[9px] font-medium text-[var(--muted)]">{item.condition}</span>}
                           </div>
-                          <p className="mt-1.5 truncate text-sm font-bold text-[var(--foreground)]">{item.title}</p>
-                          <p className="mt-0.5 text-sm font-bold text-sky-300">${item.price}</p>
+                          <p className="mt-1.5 truncate text-sm font-bold text-[var(--foreground)] group-hover/card:text-sky-300 transition-colors">{item.title}</p>
+                          <p className="mt-0.5 text-sm font-bold text-sky-400">${item.price}</p>
                           {item.location && <p className="text-[11px] font-medium text-[var(--muted)]">📍 {item.location}</p>}
                         </div>
                       </div>
@@ -587,20 +590,21 @@ export default function SellerPage() {
 
               {/* Sold Listings */}
               {soldListings.length > 0 && (
-                <div className="rounded-xl border border-zinc-700/50 bg-zinc-900/80 p-5 shadow-[0_2px_12px_rgba(0,0,0,0.25)]">
-                  <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.15em] text-[var(--foreground)]">
+                <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.25)]">
+                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent" />
+                  <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.15em] text-white">
                     Sold ({soldListings.length})
                   </h2>
                   <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
                     {soldListings.map((item) => (
-                      <div key={item.id} className="relative shrink-0 w-40 overflow-hidden rounded-xl border border-zinc-700/40 bg-zinc-800/30 opacity-75">
+                      <div key={item.id} className="relative shrink-0 w-40 overflow-hidden rounded-xl border border-white/[0.06] bg-gradient-to-br from-white/[0.05] to-white/[0.01] opacity-75 hover:opacity-100 transition-opacity">
                         {item.images?.[0] || item.imageUrl || item.image ? (
                           <img src={item.images?.[0] || item.imageUrl || item.image || ""} alt="" className="h-24 w-full object-cover" />
                         ) : (
-                          <div className="flex h-24 items-center justify-center bg-zinc-700/30 text-xs font-medium text-[var(--muted)]">No image</div>
+                          <div className="flex h-24 items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-900 text-xs font-medium text-[var(--muted)]">No image</div>
                         )}
                         <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                          <span className="rounded-full bg-sky-600/90 px-3 py-1 text-[10px] font-black text-[var(--foreground)]">Sold</span>
+                          <span className="rounded-full bg-sky-600/90 px-3 py-1 text-[10px] font-black text-white">Sold</span>
                         </div>
                         <div className="p-2.5">
                           <p className="truncate text-xs font-bold text-[var(--foreground)]">{item.title}</p>
@@ -617,12 +621,13 @@ export default function SellerPage() {
             <div className="space-y-6">
 
               {/* Trust Panel */}
-              <div className={`overflow-hidden rounded-xl border bg-zinc-900/80 p-5 shadow-[0_2px_12px_rgba(0,0,0,0.25)] ${isNotVerified ? 'border-red-500/30 animate-breathe-border' : 'border-zinc-700/50'}`}>
-                <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.15em] text-[var(--foreground)]">Trust &amp; Safety</h2>
+              <div className={`relative overflow-hidden rounded-xl border bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.25)] ${isNotVerified ? 'border-red-500/30 animate-breathe-border' : 'border-white/[0.08]'}`}>
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent" />
+                <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.15em] text-white">Trust &amp; Safety</h2>
                 <div className="space-y-3">
                   {isFullyVerified ? (
                     <div className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-500/20 text-[10px]">✓</span>
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-sky-500/30 to-sky-500/20 text-[10px] ring-1 ring-sky-500/30">✓</span>
                       <div>
                         <p className="text-xs font-bold text-sky-400">Verified Seller</p>
                         <p className="text-[10px] text-[var(--muted)]">Email, phone, and ID verified</p>
@@ -630,7 +635,7 @@ export default function SellerPage() {
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-red-500/20 text-[10px] animate-pulse-dot">!</span>
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-red-500/30 to-red-500/20 text-[10px] ring-1 ring-red-500/30 animate-pulse-dot">!</span>
                       <div>
                         <p className="text-xs font-bold text-red-400">Not Verified</p>
                         <p className="text-[10px] text-[var(--muted)]">Complete email, phone, and ID verification</p>
@@ -639,7 +644,7 @@ export default function SellerPage() {
                   )}
                   {profileEmailVerified(profile) ? (
                     <div className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-500/20 text-[10px]">✉</span>
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-sky-500/30 to-sky-500/20 text-[10px] ring-1 ring-sky-500/30">✉</span>
                       <div>
                         <p className="text-xs font-bold text-sky-400">Email Verified</p>
                         <p className="text-[10px] text-[var(--muted)]">Email address confirmed</p>
@@ -647,7 +652,7 @@ export default function SellerPage() {
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-700/40 text-[10px]">✉</span>
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-800/60 text-[10px] ring-1 ring-white/[0.06]">✉</span>
                       <div>
                         <p className="text-xs font-bold text-[var(--muted)]">Email Not Verified</p>
                         <p className="text-[10px] text-zinc-600">Email address not confirmed</p>
@@ -656,7 +661,7 @@ export default function SellerPage() {
                   )}
                   {profilePhoneVerified(profile) ? (
                     <div className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-500/20 text-[10px]">📱</span>
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-sky-500/30 to-sky-500/20 text-[10px] ring-1 ring-sky-500/30">📱</span>
                       <div>
                         <p className="text-xs font-bold text-sky-400">Phone Verified</p>
                         <p className="text-[10px] text-[var(--muted)]">Phone number confirmed</p>
@@ -664,7 +669,7 @@ export default function SellerPage() {
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-700/40 text-[10px]">📱</span>
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-800/60 text-[10px] ring-1 ring-white/[0.06]">📱</span>
                       <div>
                         <p className="text-xs font-bold text-[var(--muted)]">Phone Not Verified</p>
                         <p className="text-[10px] text-zinc-600">Phone number not confirmed</p>
@@ -673,7 +678,7 @@ export default function SellerPage() {
                   )}
                   {profileKycApproved(profile) ? (
                     <div className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-500/20 text-[10px]">🪪</span>
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-sky-500/30 to-sky-500/20 text-[10px] ring-1 ring-sky-500/30">🪪</span>
                       <div>
                         <p className="text-xs font-bold text-sky-400">ID Verified</p>
                         <p className="text-[10px] text-[var(--muted)]">Identity verification approved</p>
@@ -681,7 +686,7 @@ export default function SellerPage() {
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-700/40 text-[10px]">🪪</span>
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-800/60 text-[10px] ring-1 ring-white/[0.06]">🪪</span>
                       <div>
                         <p className="text-xs font-bold text-[var(--muted)]">ID Not Verified</p>
                         <p className="text-[10px] text-zinc-600">Identity verification not completed</p>
@@ -690,7 +695,7 @@ export default function SellerPage() {
                   )}
                   {profile.trustedSeller && (
                     <div className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-500/20 text-[10px]">★</span>
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-sky-500/30 to-sky-500/20 text-[10px] ring-1 ring-sky-500/30">★</span>
                       <div>
                         <p className="text-xs font-bold text-sky-400">Trusted Trader</p>
                         <p className="text-[10px] text-[var(--muted)]">Elite seller status</p>
@@ -699,7 +704,7 @@ export default function SellerPage() {
                   )}
                   {profile.profileBadge === "epic" && (
                     <div className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-500/20 text-[10px]">💎</span>
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-sky-500/30 to-sky-500/20 text-[10px] ring-1 ring-sky-500/30">💎</span>
                       <div>
                         <p className="text-xs font-bold text-sky-400">Epic Seller</p>
                         <p className="text-[10px] text-[var(--muted)]">Earned from Sky Crate</p>
@@ -708,7 +713,7 @@ export default function SellerPage() {
                   )}
                   {profile.profileBadge === "legendary" && (
                     <div className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-500/20 text-[10px] animate-breathe-sky">👑</span>
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-sky-500/30 to-sky-500/20 text-[10px] ring-1 ring-sky-500/30 animate-breathe-sky">👑</span>
                       <div>
                         <p className="text-xs font-bold text-sky-400">The Five</p>
                         <p className="text-[10px] text-[var(--muted)]">Ultimate Sky Crate reward</p>
@@ -720,8 +725,9 @@ export default function SellerPage() {
 
               {/* Social */}
               {(profile.discord || profile.instagram || profile.tiktok) && (
-                <div className="rounded-xl border border-zinc-700/50 bg-zinc-900/80 p-5 shadow-[0_2px_12px_rgba(0,0,0,0.25)]">
-                  <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.15em] text-[var(--foreground)]">Links</h2>
+                <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.25)]">
+                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent" />
+                  <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.15em] text-white">Links</h2>
                   <div className="space-y-2">
                     {profile.discord && <p className="text-sm font-medium text-[var(--foreground)]">💬 Discord: {profile.discord}</p>}
                     {profile.instagram && <p className="text-sm font-medium text-[var(--foreground)]">📸 Instagram: {profile.instagram}</p>}
@@ -731,7 +737,8 @@ export default function SellerPage() {
               )}
 
               {/* Reviews */}
-              <div className="rounded-xl border border-zinc-700/50 bg-zinc-900/80 p-5 shadow-[0_2px_12px_rgba(0,0,0,0.25)]">
+              <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.25)]">
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent" />
                 <div className="mb-4 flex items-center justify-between">
                   <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-[var(--foreground)]">
                     Reviews ({reviews.length})

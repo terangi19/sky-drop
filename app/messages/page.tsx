@@ -1132,36 +1132,6 @@ function MessagesPage() {
                 })
               )}
             </div>
-            {/* Collapsible Awhina assistant */}
-            <details className="border-t border-[var(--card-border)] group">
-              <summary className="flex cursor-pointer items-center gap-2 px-4 py-3 text-[11px] font-semibold text-[var(--muted)] transition hover:text-sky-400 hover:bg-sky-500/5">
-                <svg className={`h-3.5 w-3.5 transition-transform group-open:rotate-90`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
-                <span className="flex items-center gap-1.5">
-                  ✨ Āwhina Assistant
-                </span>
-              </summary>
-              <div className="border-t border-[var(--card-border)] bg-[var(--soft-card)]">
-                <div className="px-3 py-3">
-                  <p className="text-[10px] leading-relaxed text-[var(--muted)]">
-                    Ask me about selling, pricing, or creating listings.
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {["Price my item", "Create listing", "Safety tips"].map((label) => (
-                      <button key={label}
-                        className="rounded-full border border-sky-500/20 bg-sky-500/10 px-2 py-1 text-[9px] font-semibold text-sky-400 transition hover:bg-sky-500/20">
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="mt-2 flex gap-2">
-                    <input type="text" placeholder="Ask Āwhina..." className="min-w-0 flex-1 rounded-lg border border-[var(--card-border)] bg-[var(--background)] px-2.5 py-1.5 text-[11px] text-[var(--foreground)] outline-none placeholder:text-[var(--muted)] focus:border-sky-500/50" />
-                    <button className="shrink-0 rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white">Send</button>
-                  </div>
-                </div>
-              </div>
-            </details>
           </div>
           {/* CHAT AREA */}
           <div className={`flex flex-1 flex-col ${isMobile && mobileView === "list" ? "hidden" : "flex"}`}>

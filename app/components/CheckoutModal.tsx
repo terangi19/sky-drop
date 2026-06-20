@@ -142,8 +142,8 @@ function PaymentForm({ total, listingId, title, price, buyerEmail, paymentIntent
       <div className="relative">
         <PaymentElement onReady={() => setElementReady(true)} />
         {!elementReady && (
-          <div className="absolute inset-0 flex items-center justify-center bg-zinc-950/50 rounded-xl animate-pulse">
-            <div className="flex items-center gap-2 text-[var(--muted)]">
+          <div className="absolute inset-0 flex items-center justify-center bg-zinc-950/60 rounded-xl animate-pulse">
+            <div className="flex items-center gap-2 text-zinc-500">
               <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
@@ -152,8 +152,8 @@ function PaymentForm({ total, listingId, title, price, buyerEmail, paymentIntent
           </div>
         )}
       </div>
-      <div className="flex items-center justify-center gap-1.5 text-[11px] text-[var(--muted)]">
-        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <div className="flex items-center justify-center gap-1.5 text-[11px] text-zinc-500">
+        <svg className="h-3.5 w-3.5 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
           <path d="M7 11V7a5 5 0 0 1 10 0v4" />
         </svg>
@@ -186,7 +186,7 @@ function PaymentForm({ total, listingId, title, price, buyerEmail, paymentIntent
       <button
         type="button"
         onClick={onBack}
-        className="w-full rounded-xl border border-zinc-700 py-3 text-sm font-bold text-[var(--muted)] transition-all duration-200 hover:border-zinc-600 hover:text-[var(--foreground)] hover:bg-white/[0.02] active:scale-[0.97]"
+        className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] py-3 text-sm font-bold text-[var(--muted)] transition-all duration-200 hover:border-white/[0.12] hover:bg-white/[0.06] hover:text-[var(--foreground)] active:scale-[0.97]"
       >
         Cancel
       </button>
@@ -668,28 +668,29 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-6"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-3 sm:p-6 animate-fade-in-backdrop"
       onClick={safeClose}
     >
       <div
       ref={modalRef}
-      className={`w-full max-w-lg rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl max-h-[92vh] overflow-y-auto my-4 sm:my-0 mx-auto ${
+      className={`relative w-full max-w-lg overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-zinc-950/95 to-zinc-900/90 shadow-2xl shadow-black/40 backdrop-blur-xl max-h-[92vh] overflow-y-auto my-4 sm:my-0 mx-auto animate-fade-in-scale ${
         step === "success" || step === "share_address" || step === "error" ? "max-w-sm" : ""
       }`}
       onClick={(e) => e.stopPropagation()}
     >
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
         {step === "share_address" ? (
-          <div className="flex flex-col px-6 py-8 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-sky-500/20">
+          <div className="relative flex flex-col px-6 py-8 text-center">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-sky-500/30 to-sky-500/20 ring-1 ring-sky-500/30">
               <svg className="h-7 w-7 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 2H4a2 2 0 00-2 2v4m0 0v8a2 2 0 002 2h4m0 0h4m0 0h4a2 2 0 002-2V10m0 0V4a2 2 0 00-2-2h-4m-4 0v4m0 0h4" />
               </svg>
             </div>
-            <h2 className="mt-4 text-lg font-black text-[var(--foreground)]">Payment Successful</h2>
-            {orderId && <p className="mt-1 text-xs text-[var(--muted)]">Order #{orderId.slice(-6).toUpperCase()}</p>}
+            <h2 className="mt-4 text-lg font-black text-white">Payment Successful</h2>
+            {orderId && <p className="mt-1 text-xs text-zinc-500">Order #{orderId.slice(-6).toUpperCase()}</p>}
 
             <div className="mt-4 text-left">
-              <p className="mb-2 text-xs text-[var(--muted)]">
+              <p className="mb-2 text-xs text-zinc-400">
                 {isBadge
                   ? "Badge transferred to your account automatically!"
                   : isDigital
@@ -702,14 +703,14 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                     ? "Share your shipping address with the seller?"
                     : "Let the seller know you'd like to arrange pickup?"}
               </p>
-              <div className="rounded-lg bg-zinc-900/60 px-4 py-3 text-xs space-y-1">
+              <div className="rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] px-4 py-3 text-xs space-y-1">
                 <p className="font-bold text-[var(--foreground)]">{name.trim()}</p>
-                {phone.trim() && <p className="text-[var(--muted)]">📞 {phone.trim()}</p>}
+                {phone.trim() && <p className="text-zinc-500">📞 {phone.trim()}</p>}
                 {!isBadge && deliveryMethod === "shipping" && formatShippingAddress() && (
-                  <p className="text-[var(--muted)]">📍 {formatShippingAddress()}</p>
+                  <p className="text-zinc-500">📍 {formatShippingAddress()}</p>
                 )}
                 {!isBadge && deliveryMethod === "shipping" && (
-                  <p className="pt-1 text-[10px] text-[var(--muted)]">Only shared if you send below.</p>
+                  <p className="pt-1 text-[10px] text-zinc-500">Only shared if you send below.</p>
                 )}
               </div>
             </div>
@@ -717,14 +718,14 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
             <div className="mt-5 flex gap-2">
               <button
                 onClick={() => setStep("success")}
-                className="flex-1 rounded-xl border border-zinc-700 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-zinc-800"
+                className="flex-1 rounded-xl border border-white/[0.08] bg-white/[0.03] py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-white/[0.06] hover:border-white/[0.12]"
               >
                 {isBadge ? "Done" : "Skip"}
               </button>
               {!isBadge && (
                 <button
                   onClick={handleSendAddress}
-                  className="flex-1 rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-sky-400"
+                  className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:brightness-110 active:scale-[0.98]"
                 >
                   {deliveryMethod === "shipping" ? "Send Address" : "Send Message"}
                 </button>
@@ -732,36 +733,36 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
             </div>
           </div>
         ) : step === "error" ? (
-          <div className="flex flex-col px-6 py-8 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-sky-500/20">
+          <div className="relative flex flex-col px-6 py-8 text-center">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-sky-500/30 to-sky-500/20 ring-1 ring-sky-500/30">
               <svg className="h-7 w-7 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
               </svg>
             </div>
-            <h2 className="mt-4 text-lg font-black text-[var(--foreground)]">Payment Received</h2>
-            <p className="mt-1 text-xs text-[var(--muted)]">Your card was charged ${total.toFixed(2)}</p>
-            <div className="mt-4 rounded-lg border border-sky-500/20 bg-sky-500/[0.04] px-4 py-3 text-left text-xs text-sky-400/90">
-              <p className="font-semibold">Purchase setup failed</p>
-              <p className="mt-1 text-[var(--muted)]">{purchaseError}</p>
-              <p className="mt-2 text-[var(--muted)]">Your payment was successful, but we couldn&apos;t complete the purchase. Please try again — you won&apos;t be charged twice.</p>
+            <h2 className="mt-4 text-lg font-black text-white">Payment Received</h2>
+            <p className="mt-1 text-xs text-zinc-500">Your card was charged ${total.toFixed(2)}</p>
+            <div className="mt-4 rounded-xl border border-sky-500/20 bg-gradient-to-br from-sky-500/[0.06] to-sky-500/[0.02] px-4 py-3 text-left text-xs text-sky-400/90">
+              <p className="font-semibold text-sky-300">Purchase setup failed</p>
+              <p className="mt-1 text-zinc-400">{purchaseError}</p>
+              <p className="mt-2 text-zinc-400">Your payment was successful, but we couldn&apos;t complete the purchase. Please try again — you won&apos;t be charged twice.</p>
             </div>
             <div className="mt-5 flex gap-2">
               <button
                 onClick={safeClose}
-                className="flex-1 rounded-xl border border-zinc-700 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-zinc-800"
+                className="flex-1 rounded-xl border border-white/[0.08] bg-white/[0.03] py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-white/[0.06] hover:border-white/[0.12]"
               >
                 Close
               </button>
               <button
                 onClick={handleRetryPurchase}
-                className="flex-1 rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-sky-400"
+                className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:brightness-110 active:scale-[0.98]"
               >
                 Retry
               </button>
             </div>
           </div>
         ) : step === "success" ? (
-          <div className="flex flex-col px-6 py-8 text-center relative overflow-hidden">
+          <div className="relative flex flex-col px-6 py-8 text-center overflow-hidden">
             {showConfetti && (
               <div className="absolute inset-0 z-50 pointer-events-none">
                 {Array.from({ length: 30 }).map((_, i) => (
@@ -777,34 +778,34 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                 ))}
               </div>
             )}
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-sky-500/20">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500/30 to-emerald-500/20 ring-1 ring-emerald-500/30">
               <AnimatedCheckmark />
             </div>
-            <h2 className="mt-4 text-lg font-black text-[var(--foreground)]">Payment Successful</h2>
-            {orderId && <p className="mt-1 text-xs text-[var(--muted)]">Order #{orderId.slice(-6).toUpperCase()}</p>}
-            
-            {/* TradeMe-style Order Receipt */}
-            <div className="mt-4 rounded-lg bg-zinc-900/40 px-4 py-3 text-left text-xs">
-              <div className="flex items-center justify-between text-[var(--muted)]">
+            <h2 className="mt-4 text-lg font-black text-white">Payment Successful</h2>
+            {orderId && <p className="mt-1 text-xs text-zinc-500">Order #{orderId.slice(-6).toUpperCase()}</p>}
+
+            {/* Order Receipt */}
+            <div className="mt-4 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] px-4 py-3 text-left text-xs">
+              <div className="flex items-center justify-between text-zinc-400">
                 <span>{isRental ? `Rental — $${listing.price}/day × ${listing.rentalDays || 1} day(s)` : "Item"}</span>
                 <span>${rentalItemTotal.toFixed(2)}</span>
               </div>
               {deliveryMethod === "shipping" && shippingAmount > 0 && (
-                <div className="mt-1 flex items-center justify-between text-[var(--muted)]"><span>Shipping</span><span>${shippingAmount.toFixed(2)}</span></div>
+                <div className="mt-1 flex items-center justify-between text-zinc-400"><span>Shipping</span><span>${shippingAmount.toFixed(2)}</span></div>
               )}
               {isRental && listing.rentalDeposit && (
-                <div className="mt-1 flex items-center justify-between text-sky-400">
-                  <span className="text-sky-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">🔒 Refundable Deposit</span>
+                <div className="mt-1 flex items-center justify-between text-amber-400">
+                  <span className="text-amber-400">🔒 Refundable Deposit</span>
                   <span>${Number(listing.rentalDeposit).toFixed(2)}</span>
                 </div>
               )}
-              <div className="mt-1 flex items-center justify-between text-[var(--muted)]"><span>Buyer Protection</span><span>$1.00</span></div>
-              <div className="mt-2 flex items-center justify-between border-t border-zinc-800 pt-2 text-sm font-bold text-[var(--foreground)]"><span>Total Due Today</span><span>${total.toFixed(2)}</span></div>
-              {isRental && listing.rentalDeposit && <p className="mt-1 text-[10px] text-sky-400/70">${Number(listing.rentalDeposit).toFixed(2)} refundable after safe return.</p>}
+              <div className="mt-1 flex items-center justify-between text-zinc-400"><span>Buyer Protection</span><span>$1.00</span></div>
+              <div className="mt-2 flex items-center justify-between border-t border-white/[0.08] pt-2 text-sm font-bold text-white"><span>Total Due Today</span><span>${total.toFixed(2)}</span></div>
+              {isRental && listing.rentalDeposit && <p className="mt-1 text-[10px] text-amber-400/70">${Number(listing.rentalDeposit).toFixed(2)} refundable after safe return.</p>}
             </div>
-            
-            {/* TradeMe-style Next Steps */}
-            <div className="mt-4 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-left">
+
+            {/* Next Steps */}
+            <div className="mt-4 rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.06] to-emerald-500/[0.02] px-4 py-3 text-left">
               <p className="text-[11px] font-bold text-emerald-400 mb-2">What happens next?</p>
               <div className="space-y-2">
                 <div className="flex items-start gap-2">
@@ -821,32 +822,32 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                 </div>
               </div>
             </div>
-            
-            <div className="mt-3 rounded-lg border border-sky-500/15 bg-sky-500/[0.04] px-3 py-2 text-left text-[10px] leading-relaxed text-sky-400/80">
+
+            <div className="mt-3 rounded-xl border border-sky-500/20 bg-gradient-to-br from-sky-500/[0.06] to-sky-500/[0.02] px-3 py-2 text-left text-[10px] leading-relaxed text-sky-400/80">
               💳 Secured by Stripe · 🛡️ Buyer Protection Active
             </div>
-            <div className="mt-2 flex items-center justify-center gap-1 text-xs text-[var(--muted)]">
-              <span className="text-sky-400">✓</span>
+            <div className="mt-2 flex items-center justify-center gap-1 text-xs text-zinc-500">
+              <span className="text-emerald-400">✓</span>
               <span>Seller has been notified</span>
             </div>
-            
-            {/* TradeMe-style Action Buttons */}
+
+            {/* Action Buttons */}
             <div className="mt-5 space-y-2">
               <button
                 onClick={() => router.push("/purchases")}
-                className="w-full rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-sky-400"
+                className="w-full rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:brightness-110 active:scale-[0.98]"
               >
                 View Order Details
               </button>
               <button
                 onClick={() => router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listing.id}&purchased=1`)}
-                className="w-full rounded-xl border border-zinc-700 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-zinc-800"
+                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-white/[0.06] hover:border-white/[0.12]"
               >
                 Message Seller
               </button>
               <button
                 onClick={safeClose}
-                className="w-full rounded-xl border border-zinc-800 py-2 text-xs font-bold text-[var(--muted)] transition hover:text-[var(--foreground)]"
+                className="w-full rounded-xl border border-transparent py-2 text-xs font-bold text-zinc-500 transition hover:text-[var(--foreground)]"
               >
                 Continue Browsing
               </button>
@@ -855,19 +856,19 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
         ) : (
           <>
             {/* Progress Stepper */}
-            <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
-              <h2 className="text-sm font-bold text-[var(--foreground)]">
+            <div className="flex items-center justify-between border-b border-white/[0.08] px-4 py-3">
+              <h2 className="text-sm font-black text-white">
                 {step === "card" ? "Enter Card Details" : "Complete Purchase"}
               </h2>
-              <button onClick={safeClose} className="p-2 text-[var(--muted)] transition hover:text-[var(--foreground)]">
+              <button onClick={safeClose} className="rounded-lg p-2 text-zinc-500 transition hover:bg-white/[0.05] hover:text-[var(--foreground)]">
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
-            
-            {/* TradeMe-style Progress Indicator */}
-            <div className="flex items-center justify-between border-b border-zinc-800/50 px-4 py-3 bg-zinc-900/30">
+
+            {/* Progress Indicator */}
+            <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3 bg-gradient-to-r from-white/[0.02] to-transparent">
               {CHECKOUT_STEPS.map((stepItem, index) => {
                 const currentIndex = getCurrentStepIndex();
                 const isCompleted = index < currentIndex;
@@ -875,18 +876,18 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                 return (
                   <div key={stepItem.key} className="flex items-center gap-2 flex-1">
                     <div className={`flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold transition-all ${
-                      isCompleted ? 'bg-sky-500 text-white' : isCurrent ? 'bg-sky-500/20 text-sky-400 ring-2 ring-sky-500/40' : 'bg-zinc-800 text-zinc-500'
+                      isCompleted ? 'bg-gradient-to-br from-sky-500 to-sky-400 text-white shadow-lg shadow-sky-500/20' : isCurrent ? 'bg-gradient-to-br from-sky-500/30 to-sky-500/20 text-sky-400 ring-1 ring-sky-500/40' : 'bg-white/[0.03] text-zinc-500 border border-white/[0.06]'
                     }`}>
                       {isCompleted ? '✓' : stepItem.icon}
                     </div>
                     <span className={`text-[10px] font-medium ${
-                      isCompleted ? 'text-sky-400' : isCurrent ? 'text-[var(--foreground)]' : 'text-zinc-500'
+                      isCompleted ? 'text-sky-400' : isCurrent ? 'text-white' : 'text-zinc-500'
                     }`}>
                       {stepItem.label}
                     </span>
                     {index < CHECKOUT_STEPS.length - 1 && (
                       <div className={`flex-1 h-px mx-2 ${
-                        isCompleted ? 'bg-sky-500' : 'bg-zinc-800'
+                        isCompleted ? 'bg-sky-500/50' : 'bg-white/[0.06]'
                       }`} />
                     )}
                   </div>
@@ -894,19 +895,19 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
               })}
             </div>
 
-            <div className="flex items-center gap-3 border-b border-zinc-800/50 px-4 py-3">
+            <div className="flex items-center gap-3 border-b border-white/[0.06] px-4 py-3">
               {imageSrc && (
-                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-zinc-800">
+                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-white/[0.06] bg-gradient-to-br from-white/[0.05] to-white/[0.01]">
                   <img src={imageSrc} alt="" className="h-full w-full object-cover" />
                 </div>
               )}
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold text-[var(--foreground)]">{listing.title}</p>
-                <p className="text-xs text-[var(--muted)]">${listing.price}</p>
+                <p className="text-xs text-zinc-500">${listing.price}</p>
               </div>
               {/* Seller Trust Badge */}
               {sellerRating && (
-                <div className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-1 border border-emerald-500/20">
+                <div className="flex items-center gap-1 rounded-full bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 px-2 py-1 border border-emerald-500/20">
                   <span className="text-[10px]">⭐</span>
                   <span className="text-[10px] font-bold text-emerald-400">{sellerRating.toFixed(1)}</span>
                 </div>
@@ -918,19 +919,19 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                 <>
                   {!isBadge && (listing.pickupAvailable && listing.shippingAvailable) && (
                     <div>
-                      <label className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-[var(--muted)]">Delivery</label>
+                      <label className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-zinc-400">Delivery</label>
                       <div className="space-y-1.5">
                         {listing.pickupAvailable && (
                           <button
                             onClick={() => setDeliveryMethod("pickup")}
-                            className={`flex w-full items-center gap-3 rounded-lg border px-3.5 py-3 text-left text-sm transition ${
+                            className={`flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left text-sm transition-all ${
                               deliveryMethod === "pickup"
-                                ? "border-sky-500/40 bg-sky-500/10 text-[var(--foreground)]"
-                                : "border-zinc-800 bg-zinc-900/60 text-[var(--muted)] hover:border-zinc-700"
+                                ? "border-sky-500/40 bg-sky-500/10 text-[var(--foreground)] shadow-[0_0_20px_rgba(14,165,233,0.1)]"
+                                : "border-white/[0.06] bg-white/[0.02] text-zinc-400 hover:border-white/[0.12] hover:bg-white/[0.04]"
                             }`}
                           >
-                            <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
-                              deliveryMethod === "pickup" ? "border-sky-500 bg-sky-500" : "border-zinc-600"
+                            <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-all ${
+                              deliveryMethod === "pickup" ? "border-sky-500 bg-sky-500" : "border-white/[0.15]"
                             }`}>
                               {deliveryMethod === "pickup" && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
                             </span>
@@ -940,14 +941,14 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                         {listing.shippingAvailable && (
                           <button
                             onClick={() => setDeliveryMethod("shipping")}
-                            className={`flex w-full items-center gap-3 rounded-lg border px-3.5 py-3 text-left text-sm transition ${
+                            className={`flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left text-sm transition-all ${
                               deliveryMethod === "shipping"
-                                ? "border-sky-500/40 bg-sky-500/10 text-[var(--foreground)]"
-                                : "border-zinc-800 bg-zinc-900/60 text-[var(--muted)] hover:border-zinc-700"
+                                ? "border-sky-500/40 bg-sky-500/10 text-[var(--foreground)] shadow-[0_0_20px_rgba(14,165,233,0.1)]"
+                                : "border-white/[0.06] bg-white/[0.02] text-zinc-400 hover:border-white/[0.12] hover:bg-white/[0.04]"
                             }`}
                           >
-                            <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
-                              deliveryMethod === "shipping" ? "border-sky-500 bg-sky-500" : "border-zinc-600"
+                            <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-all ${
+                              deliveryMethod === "shipping" ? "border-sky-500 bg-sky-500" : "border-white/[0.15]"
                             }`}>
                               {deliveryMethod === "shipping" && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
                             </span>
@@ -959,63 +960,63 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                   )}
 
                   <div>
-                    <label className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-[var(--muted)]">{isBadge ? "Your name" : "Your details"}</label>
+                    <label className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-zinc-400">{isBadge ? "Your name" : "Your details"}</label>
                     <div className="space-y-2">
                       <input type="text" placeholder={isBadge ? "Full name" : "Full name"} value={name} onChange={(e) => setName(e.target.value)}
-                        className="w-full rounded-lg border border-zinc-800 bg-zinc-900/60 px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-500/40" />
+                        className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-zinc-500 hover:bg-white/[0.05] focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
                       {!isBadge && (
                         <input type="tel" placeholder="Phone number" value={phone} onChange={(e) => setPhone(e.target.value)}
-                          className="w-full rounded-lg border border-zinc-800 bg-zinc-900/60 px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-500/40" />
+                          className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-zinc-500 hover:bg-white/[0.05] focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
                       )}
                       {deliveryMethod === "shipping" && (
-                        <div className="space-y-2 rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
+                        <div className="space-y-2 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-3">
                           <p className="text-[11px] font-medium text-zinc-400">Shipping address</p>
                           <input type="text" placeholder="Street address" value={address} onChange={(e) => setAddress(e.target.value)}
-                            className="w-full rounded-lg border border-zinc-800 bg-zinc-900/60 px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-500/40" />
+                            className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-zinc-500 hover:bg-white/[0.05] focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
                           <div className="grid grid-cols-2 gap-2">
                             <input type="text" placeholder="City" value={city} onChange={(e) => setCity(e.target.value)}
-                              className="w-full rounded-lg border border-zinc-800 bg-zinc-900/60 px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-500/40" />
+                              className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-zinc-500 hover:bg-white/[0.05] focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
                             <input type="text" placeholder="Postcode" value={postcode} onChange={(e) => setPostcode(e.target.value)}
-                              className="w-full rounded-lg border border-zinc-800 bg-zinc-900/60 px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-500/40" />
+                              className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-zinc-500 hover:bg-white/[0.05] focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
                           </div>
                           <input type="text" placeholder="Country" value={country} onChange={(e) => setCountry(e.target.value)}
-                            className="w-full rounded-lg border border-zinc-800 bg-zinc-900/60 px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-500/40" />
+                            className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-zinc-500 hover:bg-white/[0.05] focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
                         </div>
                       )}
                     </div>
                   </div>
 
-                  {/* TradeMe-style Order Summary with Protection */}
-                  <div className="rounded-lg bg-zinc-900/40 px-3.5 py-3 text-xs">
-                    <div className="flex items-center justify-between text-[var(--muted)]">
+                  {/* Order Summary with Protection */}
+                  <div className="rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] px-3.5 py-3 text-xs">
+                    <div className="flex items-center justify-between text-zinc-400">
                       <span>{isRental ? `Rental — $${listing.price}/day × ${listing.rentalDays || 1} day(s)` : "Item"}</span>
                       <span>${rentalItemTotal.toFixed(2)}</span>
                     </div>
                     {deliveryMethod === "shipping" && shippingAmount > 0 && (
-                      <div className="mt-1 flex items-center justify-between text-[var(--muted)]">
+                      <div className="mt-1 flex items-center justify-between text-zinc-400">
                         <span>Shipping</span>
                         <span>${shippingAmount.toFixed(2)}</span>
                       </div>
                     )}
                     {isRental && listing.rentalDeposit && (
-                      <div className="mt-1 flex items-center justify-between text-sky-400">
-                        <span className="text-sky-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">🔒 Refundable Deposit</span>
+                      <div className="mt-1 flex items-center justify-between text-amber-400">
+                        <span className="text-amber-400">🔒 Refundable Deposit</span>
                         <span>${Number(listing.rentalDeposit).toFixed(2)}</span>
                       </div>
                     )}
-                    <div className="mt-1 flex items-center justify-between text-[var(--muted)]">
+                    <div className="mt-1 flex items-center justify-between text-zinc-400">
                       <span>Buyer Protection</span>
                       <span>$1.00</span>
                     </div>
-                    <div className="mt-2 flex items-center justify-between border-t border-zinc-800 pt-2 text-sm font-bold text-[var(--foreground)]">
+                    <div className="mt-2 flex items-center justify-between border-t border-white/[0.08] pt-2 text-sm font-bold text-white">
                       <span>Total Due Today</span>
                       <span>${total.toFixed(2)}</span>
                     </div>
-                    {isRental && listing.rentalDeposit && <p className="mt-1 text-[10px] text-sky-400/70">${Number(listing.rentalDeposit).toFixed(2)} refundable after safe return.</p>}
+                    {isRental && listing.rentalDeposit && <p className="mt-1 text-[10px] text-amber-400/70">${Number(listing.rentalDeposit).toFixed(2)} refundable after safe return.</p>}
                   </div>
 
-                  {/* TradeMe-style Buyer Protection Banner */}
-                  <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3.5 py-3">
+                  {/* Buyer Protection Banner */}
+                  <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.06] to-emerald-500/[0.02] px-3.5 py-3">
                     <div className="flex items-start gap-2">
                       <span className="text-lg">🛡️</span>
                       <div>
@@ -1028,7 +1029,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                   </div>
 
                   {/* Estimated Delivery */}
-                  <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 px-3.5 py-3">
+                  <div className="rounded-xl border border-sky-500/20 bg-gradient-to-br from-sky-500/[0.06] to-sky-500/[0.02] px-3.5 py-3">
                     <div className="flex items-center gap-2">
                       <span className="text-lg">📦</span>
                       <div>
@@ -1041,7 +1042,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                   </div>
 
                   {intentError && (
-                    <div className="rounded-lg border border-red-800/40 bg-red-900/20 p-3 text-xs text-red-400">
+                    <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400">
                       {intentError}
                     </div>
                   )}
@@ -1050,32 +1051,32 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
 
               {step === "card" && clientSecret && (
                 <div>
-                  <div className="rounded-lg bg-zinc-900/40 px-3.5 py-3 mb-4 text-xs">
-                    <div className="flex items-center justify-between text-[var(--muted)]">
+                  <div className="rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] px-3.5 py-3 mb-4 text-xs">
+                    <div className="flex items-center justify-between text-zinc-400">
                       <span>{isRental ? `Rental — $${listing.price}/day × ${listing.rentalDays || 1} day(s)` : "Item"}</span>
                       <span>${rentalItemTotal.toFixed(2)}</span>
                     </div>
                     {deliveryMethod === "shipping" && shippingAmount > 0 && (
-                      <div className="mt-1 flex items-center justify-between text-[var(--muted)]">
+                      <div className="mt-1 flex items-center justify-between text-zinc-400">
                         <span>Shipping</span>
                         <span>${shippingAmount.toFixed(2)}</span>
                       </div>
                     )}
                     {isRental && listing.rentalDeposit && (
-                      <div className="mt-1 flex items-center justify-between text-sky-400">
-                        <span className="text-sky-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">🔒 Refundable Deposit</span>
+                      <div className="mt-1 flex items-center justify-between text-amber-400">
+                        <span className="text-amber-400">🔒 Refundable Deposit</span>
                         <span>${Number(listing.rentalDeposit).toFixed(2)}</span>
                       </div>
                     )}
-                    <div className="mt-1 flex items-center justify-between text-[var(--muted)]">
+                    <div className="mt-1 flex items-center justify-between text-zinc-400">
                       <span>Buyer Protection</span>
                       <span>$1.00</span>
                     </div>
-                    <div className="mt-2 flex items-center justify-between border-t border-zinc-800 pt-2 text-sm font-bold text-[var(--foreground)]">
+                    <div className="mt-2 flex items-center justify-between border-t border-white/[0.08] pt-2 text-sm font-bold text-white">
                       <span>Total Due Today</span>
                       <span>${total.toFixed(2)}</span>
                     </div>
-                    {isRental && listing.rentalDeposit && <p className="mt-1 text-[10px] text-sky-400/70">${Number(listing.rentalDeposit).toFixed(2)} refundable after safe return.</p>}
+                    {isRental && listing.rentalDeposit && <p className="mt-1 text-[10px] text-amber-400/70">${Number(listing.rentalDeposit).toFixed(2)} refundable after safe return.</p>}
                   </div>
                   <Elements stripe={stripePromise} options={{ clientSecret }}>
                     <PaymentForm total={total} listingId={listing.id} title={listing.title} price={String(total)} buyerEmail={buyerEmail} paymentIntentId={paymentIntentId} onSuccess={handlePaymentSuccess} onBack={resetToForm} badgeForSale={listing.badgeForSale} sellerEmail={listing.sellerEmail} collectionName={collectionName} type={listing.type} digitalFileURL={listing.digitalFileURL} digitalFileName={listing.digitalFileName} digitalStoragePath={listing.digitalStoragePath} />
@@ -1085,17 +1086,17 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
             </div>
 
             {step === "form" && (
-              <div className="sticky bottom-0 border-t border-zinc-800 bg-zinc-950 px-4 py-3 flex gap-2">
+              <div className="sticky bottom-0 border-t border-white/[0.08] bg-gradient-to-b from-zinc-900/80 to-zinc-950 px-4 py-3 flex gap-2">
                 <button
                   onClick={safeClose}
-                  className="rounded-xl border border-zinc-700 px-4 py-3 text-sm font-bold text-[var(--muted)] transition hover:border-zinc-600 hover:text-[var(--foreground)]"
+                  className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm font-bold text-[var(--muted)] transition hover:bg-white/[0.06] hover:border-white/[0.12] hover:text-[var(--foreground)]"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleContinue}
                   disabled={!isValid}
-                  className="flex-1 rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-sky-400 disabled:opacity-50"
+                  className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Continue — ${total.toFixed(2)}
                 </button>
@@ -1103,9 +1104,9 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
             )}
 
             {step === "processing" && (
-              <div className="sticky bottom-0 border-t border-zinc-800 bg-zinc-950 px-4 py-3">
-                <div className="flex items-center justify-center gap-2 py-3 text-sm text-[var(--muted)]">
-                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+              <div className="sticky bottom-0 border-t border-white/[0.08] bg-gradient-to-b from-zinc-900/80 to-zinc-950 px-4 py-3">
+                <div className="flex items-center justify-center gap-2 py-3 text-sm text-zinc-400">
+                  <svg className="h-4 w-4 animate-spin text-sky-400" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>

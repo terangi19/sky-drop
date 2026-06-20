@@ -335,7 +335,7 @@ export default function AuthPage() {
               router.push("/");
             }
           }}
-          className="login-page-muted mb-6 inline-flex items-center gap-2 text-sm transition-colors hover:text-sky-400"
+          className="login-page-muted mb-6 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-sm transition-all hover:border-sky-500/30 hover:bg-white/[0.06] hover:text-sky-400"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -343,11 +343,16 @@ export default function AuthPage() {
           {!user && !isLogin ? "Back to login" : "Back"}
         </button>
 
-        <div className="login-page-card rounded-2xl border p-8 backdrop-blur-sm">
-          <h1 className="login-page-title text-2xl font-black">{isLogin ? "Login" : "Create account"}</h1>
-          <p className="login-page-body mt-2 text-sm">
-            Browse and purchase freely. Seller verification is only required to list items.
-          </p>
+        <div className="login-page-card relative overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-zinc-950/90 to-zinc-900/80 p-8 shadow-2xl shadow-black/40 backdrop-blur-xl">
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
+          <div className="absolute -inset-20 -z-10 bg-gradient-to-br from-sky-500/10 via-sky-500/5 to-purple-500/10 blur-3xl opacity-50" />
+          <div className="relative">
+            <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/30 to-sky-500/20 text-lg ring-1 ring-sky-500/30">✦</div>
+            <h1 className="login-page-title text-2xl font-black text-white">{isLogin ? "Welcome back" : "Create account"}</h1>
+            <p className="login-page-body mt-2 text-sm text-zinc-400">
+              Browse and purchase freely. Seller verification is only required to list items.
+            </p>
+          </div>
 
           {!user ? (
             <form onSubmit={handleAuth} className="mt-6 space-y-4">
@@ -477,9 +482,10 @@ export default function AuthPage() {
           onClick={() => setShowBrowseModal(false)}
         >
           <div
-            className="login-page-modal mx-4 w-full max-w-md rounded-2xl border p-6 shadow-2xl animate-fade-in-scale"
+            className="login-page-modal relative mx-4 w-full max-w-md overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-zinc-950/95 to-zinc-900/90 p-6 shadow-2xl shadow-black/40 backdrop-blur-xl animate-fade-in-scale"
             onClick={(e) => e.stopPropagation()}
           >
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
             <h3 className="login-page-title text-lg font-bold">Continue without seller verification?</h3>
             <p className="login-page-body mt-3 text-sm leading-relaxed">
               You can browse and buy items without verification. However, you will not be able to list items for sale
