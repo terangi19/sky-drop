@@ -1,433 +1,852 @@
 rules_version = '2';
+
 service cloud.firestore {
+
   match /databases/{database}/documents {
 
+
+
     function isSeller() {
+
       return resource.data.sellerEmail == request.auth.token.email
+
         || resource.data.sellerId == request.auth.uid;
+
     }
+
     function isAuctionBidUpdate() {
+
       return request.auth != null
+
         // highestBidder must be the bidding user
+
         && request.resource.data.highestBidder == request.auth.token.email
+
         // currentBid must be increasing (or this is the first bid)
+
         && (!('currentBid' in resource.data)
+
           || request.resource.data.currentBid > resource.data.currentBid)
+
         // Only these fields allowed in an auction bid update
+
         && request.resource.data.diff(resource.data).affectedKeys()
+
           .hasOnly(['currentBid', 'currentMaxBid', 'secondMaxBid', 'highestBidder', 'bidCount', 'auctionEndsAt', 'auctionExtended', 'reservePrice'])
+
         // auctionEndsAt can only extend, never shorten
+
         && (!('auctionEndsAt' in request.resource.data)
+
           || !('auctionEndsAt' in resource.data)
+
           || request.resource.data.auctionEndsAt >= resource.data.auctionEndsAt)
+
         // Must not touch reservation fields (separate flow)
+
         && !('reservedAt' in request.resource.data)
+
         && !('reservedBy' in request.resource.data);
+
     }
+
     // Buyer checkout: hold listing for 15 minutes (see CheckoutModal / create-payment-intent)
+
     function isCheckoutReservationUpdate() {
+
       return request.auth != null
+
         && (!('status' in resource.data) || resource.data.status != 'sold')
+
         && request.resource.data.reservedBy == request.auth.uid
+
         && request.resource.data.diff(resource.data).affectedKeys()
+
           .hasOnly(['reservedAt', 'reservedBy']);
+
     }
+
     function isAdmin() {
+
       return request.auth.token.admin == true
+
         || (exists(/databases/$(database)/documents/config/adminEmails)
+
           && request.auth.token.email in get(/databases/$(database)/documents/config/adminEmails).data.emails);
+
     }
+
     function isEmailVerified() {
+
       return request.auth.token.email_verified == true;
+
     }
+
     function isDisputeActive() {
+
       return resource.data.disputeStatus == "open"
+
         || resource.data.disputeStatus == "pending"
+
         || resource.data.disputeStatus == "under_review";
+
     }
+
     // Owner may mark KYC as pending after submitting ID photos (not self-approve).
+
     function isKycPendingSelfSubmit() {
+
       return request.resource.data.kycStatus == 'pending'
+
         && request.resource.data.diff(resource.data).affectedKeys()
+
           .hasOnly(['kycStatus', 'kycSubmittedAt'])
+
         && (!('kycStatus' in resource.data)
+
           || resource.data.kycStatus == 'unsubmitted'
+
           || resource.data.kycStatus == 'rejected');
+
     }
+
+
 
     match /listings/{listingId} {
+
       allow read: if true;
+
       allow create: if request.auth != null
+
         && isEmailVerified()
+
         && request.resource.data.sellerEmail == request.auth.token.email;
+
       allow update: if request.auth != null
+
         && (isSeller()
+
           || (resource.data.saleType is string && resource.data.saleType.matches('auction.*') && isAuctionBidUpdate())
+
           || isCheckoutReservationUpdate()
+
           || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views', 'updatedAt'])
+
             && request.resource.data.views == resource.data.views + 1));
+
       allow delete: if request.auth != null && isSeller();
+
     }
+
+
 
     match /profiles/{profileId} {
+
       // Require authentication for all profile reads to prevent data scraping
+
       allow read: if request.auth != null;
+
       allow create: if request.auth != null
+
         && request.auth.uid == profileId
+
         && request.resource.data.email == request.auth.token.email;
+
       // Users can update their own profile, but CANNOT write server-managed fields:
+
       //   - email (set on create only — change would enable impersonation)
+
       //   - KYC verdict fields (admin review via API routes)
+
       //   - Trust/badge fields (server-assigned only)
+
       //   - riskFlag (abuse tracker writes via Admin SDK)
+
       // Exception: owner may set kycStatus to pending when submitting verification photos.
+
       allow update: if request.auth != null
+
         && request.auth.uid == profileId
+
         && !('email' in request.resource.data)
+
         && (!request.resource.data.diff(resource.data).affectedKeys()
+
           .hasAny(['kycStatus', 'kycReviewedAt', 'kycReviewedBy', 'kycBannedReason',
+
             'trustedSeller', 'verified', 'topTrader', 'profileBadge', 'fastReply', 'riskFlag'])
+
           || isKycPendingSelfSubmit());
 
+
+
       match /bankDetails/{docId} {
+
         allow read, write: if request.auth != null && request.auth.uid == profileId;
+
       }
+
     }
+
+
 
     // KYC submissions — ID photos and identity data.
+
     // NEVER readable by other users. Owner can create/read their own. Admin can read all. No client deletes.
+
     match /kycSubmissions/{uid} {
+
       allow read: if request.auth != null
+
         && (request.auth.uid == uid || isAdmin());
+
       allow create: if request.auth != null
+
         && request.auth.uid == uid
+
         && isEmailVerified()
+
         && request.resource.data.uid == request.auth.uid
+
         && request.resource.data.email == request.auth.token.email;
+
       // Owner may update only to resubmit (status reset to pending), not to approve themselves.
+
       allow update: if request.auth != null
+
         && request.auth.uid == uid
+
         && isEmailVerified()
+
         && request.resource.data.diff(resource.data).affectedKeys()
+
           .hasOnly(['idImageUrl', 'selfieImageUrl', 'submittedAt', 'status'])
+
         && request.resource.data.status == 'pending'
+
         && (!('status' in resource.data)
+
           || resource.data.status == 'rejected'
+
           || resource.data.status == 'pending');
+
       allow delete: if false; // no client deletes — admin only via server SDK
+
     }
+
+
 
     // Usernames reservation collection — used by runTransaction in saveProfile
+
     match /usernames/{username} {
+
       allow read: if true;
+
       allow create: if request.auth != null
+
         && request.resource.data.uid == request.auth.uid;
+
       allow update: if request.auth != null
+
         && resource.data.uid == request.auth.uid
+
         && request.resource.data.uid == request.auth.uid;
+
       allow delete: if request.auth != null
+
         && resource.data.uid == request.auth.uid;
+
     }
+
+
 
     match /messages/{messageId} {
+
       allow read: if request.auth != null
+
         && resource.data.participants != null
+
         && request.auth.token.email in resource.data.participants;
+
       // Sender MUST match the authenticated user. System messages are server-only (Admin SDK).
+
       allow create: if request.auth != null
+
         && request.resource.data.participants != null
+
         && request.auth.token.email in request.resource.data.participants
+
         && request.resource.data.sender == request.auth.token.email
+
         && request.resource.data.sender != "system";
+
       allow update: if request.auth != null
+
         && resource.data.participants != null
+
         && request.auth.token.email in resource.data.participants
+
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt']);
+
       allow delete: if request.auth != null
+
         && resource.data.participants != null
+
         && request.auth.token.email in resource.data.participants;
+
     }
+
+
 
     // Purchases: server-side writes via API routes + webhook.
+
     // Status transitions are server-only (Admin SDK); client may update tracking/shipping only.
+
     match /purchases/{purchaseId} {
+
       allow read: if request.auth != null
+
         && (resource.data.buyerEmail == request.auth.token.email
+
           || resource.data.sellerEmail == request.auth.token.email);
+
       allow create: if false; // server-only (Admin SDK / REST API in API routes)
+
       allow update: if request.auth != null
+
         && (resource.data.buyerEmail == request.auth.token.email
+
           || resource.data.sellerEmail == request.auth.token.email)
+
         // Client-safe fields only; status/deliveredAt are server-only via API
+
         && request.resource.data.diff(resource.data).affectedKeys()
+
           .hasOnly(['tracking', 'trackingNumber', 'updatedAt', 'reviewed', 'shippingAddress', 'disputeStatus'])
+
         // During active dispute, only disputeStatus field may change
+
         && (!isDisputeActive()
+
           || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['disputeStatus', 'updatedAt']));
+
     }
+
+
 
     // Notifications: server creates via API; clients read own and mark as read.
+
     match /notifications/{notificationId} {
+
       allow read: if request.auth != null
+
         && resource.data.targetEmail == request.auth.token.email;
+
       allow create: if false;
+
       allow update: if request.auth != null
+
         && resource.data.targetEmail == request.auth.token.email
+
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'updatedAt']);
+
     }
+
+
 
     // Reviews: only real buyers can review, one per purchase
+
     match /reviews/{reviewId} {
+
       allow read: if true;
+
       allow create: if false;
+
       allow update: if request.auth != null
+
         && resource.data.reviewerEmail == request.auth.token.email;
+
       allow delete: if request.auth != null
+
         && resource.data.reviewerEmail == request.auth.token.email;
+
     }
+
+
 
     match /reports/{reportId} {
+
       allow create: if false;
+
       allow read: if request.auth != null
+
         && (isAdmin() || resource.data.reporterUserId == request.auth.uid);
+
       allow update, delete: if request.auth != null && isAdmin();
+
     }
+
+
 
     match /tradePosts/{postId} {
+
       allow read: if true;
+
       allow create: if false;
+
       allow update: if request.auth != null
+
         && (resource.data.sellerEmail == request.auth.token.email
+
           || isCheckoutReservationUpdate()
+
           || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views']));
+
       allow delete: if request.auth != null
+
         && resource.data.sellerEmail == request.auth.token.email;
+
     }
+
+
 
     match /typing/{typingId} {
+
       allow read, write: if request.auth != null;
+
     }
+
+
 
     match /conversations/{conversationId} {
+
       allow read: if request.auth != null
+
         && resource.data.participants != null
+
         && request.auth.token.email in resource.data.participants;
+
       allow create: if request.auth != null
+
         && request.resource.data.participants != null
+
         && request.auth.token.email in request.resource.data.participants;
+
       allow update: if request.auth != null
+
         && resource.data.participants != null
+
         && request.auth.token.email in resource.data.participants;
+
       allow delete: if request.auth != null
+
         && resource.data.participants != null
+
         && request.auth.token.email in resource.data.participants;
+
     }
+
+
 
     match /users/{userId}/{document=**} {
+
       allow read, write: if request.auth != null && request.auth.uid == userId;
+
     }
+
+
 
     match /drops/{dropId} {
+
       allow read: if true;
+
       allow create: if request.auth != null
+
         && isEmailVerified()
+
         && request.resource.data.sellerEmail == request.auth.token.email;
+
       allow update: if request.auth != null
+
         && resource.data.sellerEmail == request.auth.token.email;
+
     }
+
+
 
     match /tradeShouts/{shoutId} {
+
       allow read: if true;
+
       allow create: if request.auth != null && isEmailVerified()
+
         && request.resource.data.by == request.auth.token.email;
+
       allow delete: if request.auth != null
+
         && resource.data.by == request.auth.token.email;
+
     }
+
+
 
     match /sponsoredDrops/{docId} {
+
       allow read: if true;
+
       allow create: if false;
+
       allow update: if false;
+
     }
+
+
 
     match /dropTokens/{tokenId} {
+
       allow read: if request.auth != null && resource.data.ownerId == request.auth.uid;
+
       allow create: if false;
+
       allow update: if request.auth != null && resource.data.ownerId == request.auth.uid;
+
     }
+
+
 
     match /followers/{docId} {
+
       allow read: if request.auth != null
+
         && (resource.data.followerId == request.auth.uid || resource.data.followingId == request.auth.uid);
+
       allow create: if request.auth != null
+
         && request.resource.data.followerId == request.auth.uid;
+
       allow delete: if request.auth != null
+
         && resource.data.followerId == request.auth.uid;
+
     }
+
+
 
     match /dailyChallenges/{userId} {
+
       allow read, write: if request.auth != null && request.auth.uid == userId;
+
     }
+
+
 
     match /fcmTokens/{userId} {
+
       allow read, write: if request.auth != null && request.auth.uid == userId;
+
     }
+
+
 
     match /config/{docId} {
+
       // Public UI: site-wide announcement banner + legendary claim toast
+
       allow get: if docId in ['announcement', 'platform'];
+
       allow read: if request.auth != null;
+
       allow write: if request.auth != null && isAdmin();
+
     }
+
+
 
     match /listingQuestions/{questionId} {
+
       allow read: if true;
+
       allow create: if false;
+
       allow update: if false;
+
     }
+
+
 
     match /commissions/{commissionId} {
+
       allow read: if request.auth != null
+
         && (resource.data.referrerEmail == request.auth.token.email
+
           || resource.data.referredEmail == request.auth.token.email);
+
       allow create: if request.auth != null
+
         && request.resource.data.referrerEmail == request.auth.token.email;
+
       allow update: if request.auth != null
+
         && resource.data.referrerEmail == request.auth.token.email;
+
     }
+
+
 
     match /referralEvents/{eventId} {
+
       allow read: if request.auth != null
+
         && resource.data.referrerEmail == request.auth.token.email;
+
       allow create: if request.auth != null
+
         && request.resource.data.referrerEmail == request.auth.token.email;
+
     }
+
+
 
     match /jobApplications/{applicationId} {
+
       allow read: if request.auth != null
+
         && (resource.data.employerEmail == request.auth.token.email
+
           || resource.data.applicantEmail == request.auth.token.email);
+
       allow create: if false;
+
       allow update: if false;
+
     }
+
+
 
     // Watchlist saves — indexed per user for price-drop alerts
+
     match /watchlist/{docId} {
+
       allow read: if request.auth != null
+
         && (resource.data.userId == request.auth.uid
+
           || resource.data.userEmail == request.auth.token.email);
+
       allow create: if request.auth != null
+
         && request.resource.data.userId == request.auth.uid
+
         && request.resource.data.userEmail == request.auth.token.email;
+
       allow update: if request.auth != null
+
         && (resource.data.userId == request.auth.uid
+
           || resource.data.userEmail == request.auth.token.email);
+
       allow delete: if request.auth != null
+
         && (resource.data.userId == request.auth.uid
+
           || resource.data.userEmail == request.auth.token.email);
+
     }
+
+
 
     // Saved searches — per user, notify on new matching listings
+
     match /savedSearches/{docId} {
+
       allow read: if request.auth != null
+
         && (resource.data.userId == request.auth.uid
+
           || resource.data.userEmail == request.auth.token.email);
+
       allow create: if request.auth != null
+
         && request.resource.data.userId == request.auth.uid
+
         && request.resource.data.userEmail == request.auth.token.email;
+
       allow update: if request.auth != null
+
         && (resource.data.userId == request.auth.uid
+
           || resource.data.userEmail == request.auth.token.email)
+
         && request.resource.data.diff(resource.data).affectedKeys()
+
           .hasOnly(['query', 'category', 'minPrice', 'maxPrice', 'updatedAt']);
+
       allow delete: if request.auth != null
+
         && (resource.data.userId == request.auth.uid
+
           || resource.data.userEmail == request.auth.token.email);
+
     }
+
+
 
     match /bidHistory/{bidId} {
+
       allow read: if request.auth != null
+
         && (resource.data.bidderEmail == request.auth.token.email
+
           || resource.data.sellerEmail == request.auth.token.email);
+
       allow create: if request.auth != null
+
         && request.resource.data.bidderEmail == request.auth.token.email
+
         && request.resource.data.listingId is string;
+
       allow update, delete: if false; // immutable once written
+
     }
+
+
 
     match /promotions/{promotionId} {
+
       allow read: if true;
+
       allow create: if request.auth != null
+
         && isEmailVerified()
+
         && request.resource.data.sellerEmail == request.auth.token.email;
+
       allow update: if request.auth != null
+
         && resource.data.sellerEmail == request.auth.token.email;
+
       allow delete: if request.auth != null
+
         && resource.data.sellerEmail == request.auth.token.email;
+
     }
+
+
 
     match /hustlerLinks/{linkId} {
+
       allow read: if true;
+
       allow create: if request.auth != null
+
         && request.resource.data.promoterId == request.auth.uid;
+
       allow update: if request.auth != null
+
         && resource.data.promoterId == request.auth.uid;
+
     }
+
+
 
     match /hustlerClicks/{clickId} {
+
       allow create: if request.auth != null;
+
       allow read: if request.auth != null;
+
     }
+
+
 
     match /hustlerCommissions/{commissionId} {
+
       allow read: if request.auth != null
+
         && (resource.data.promoterId == request.auth.uid
+
           || resource.data.sellerId == request.auth.uid);
+
       allow create: if request.auth != null
+
         && request.resource.data.promoterId == request.auth.uid;
+
       allow update: if request.auth != null
+
         && resource.data.promoterId == request.auth.uid;
+
     }
+
+
 
     match /hustlerEvents/{eventId} {
+
       allow read: if true;
+
       allow create: if request.auth != null
+
         && request.resource.data.creatorId == request.auth.uid;
+
     }
+
+
 
     match /disputes/{disputeId} {
+
       allow create: if false;
+
       allow read: if request.auth != null
+
         && (resource.data.buyerEmail == request.auth.token.email
+
           || resource.data.sellerEmail == request.auth.token.email
+
           || isAdmin());
+
       allow update: if request.auth != null && isAdmin();
+
     }
+
+
 
     match /adminAuditLog/{entryId} {
+
       allow create: if request.auth != null && isAdmin();
+
       allow read: if request.auth != null && isAdmin();
+
     }
 
-    match /messageFlags/{flagId} {
-      allow read: if request.auth != null && isAdmin();
-      allow create: if false; // server-only (Cloud Functions)
-      allow update: if request.auth != null && isAdmin();
-      allow delete: if request.auth != null && isAdmin();
-    }
+
 
     match /skyAiConversations/{conversationId} {
+
       allow read: if request.auth != null && resource.data.uid == request.auth.uid;
+
       allow write: if false;
+
       match /messages/{messageId} {
+
         allow read: if request.auth != null
+
           && get(/databases/$(database)/documents/skyAiConversations/$(conversationId)).data.uid == request.auth.uid;
+
         allow write: if false;
+
       }
+
     }
 
+
+
     match /{document=**} {
+
       allow read, write: if false;
+
     }
+
   }
+
 }
+

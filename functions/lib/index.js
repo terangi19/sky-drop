@@ -54,7 +54,7 @@ async function createNotification(input) {
     const doc = Object.assign(Object.assign({}, input), { read: false, createdAt: admin.firestore.FieldValue.serverTimestamp() });
     await db.collection("notifications").add(doc);
 }
-exports.onListingUpdated = (0, firestore_1.onDocumentUpdated)("listings/{listingId}", async (event) => {
+exports.onListingUpdated = (0, firestore_1.onDocumentUpdated)({ document: "listings/{listingId}", region: "asia-southeast1" }, async (event) => {
     var _a, _b, _c, _d, _e;
     const before = (_b = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before) === null || _b === void 0 ? void 0 : _b.data();
     const after = (_d = (_c = event.data) === null || _c === void 0 ? void 0 : _c.after) === null || _d === void 0 ? void 0 : _d.data();
@@ -88,7 +88,7 @@ exports.onListingUpdated = (0, firestore_1.onDocumentUpdated)("listings/{listing
         }
     }
 });
-exports.onListingCreated = (0, firestore_1.onDocumentCreated)("listings/{listingId}", async (event) => {
+exports.onListingCreated = (0, firestore_1.onDocumentCreated)({ document: "listings/{listingId}", region: "asia-southeast1" }, async (event) => {
     var _a, _b;
     const data = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
     const listingId = event.params.listingId;
@@ -130,7 +130,7 @@ exports.onListingCreated = (0, firestore_1.onDocumentCreated)("listings/{listing
         console.error("[onListingCreated] Saved-search notification failed:", e);
     }
 });
-exports.onMessageCreated = (0, firestore_1.onDocumentCreated)("messages/{messageId}", async (event) => {
+exports.onMessageCreated = (0, firestore_1.onDocumentCreated)({ document: "messages/{messageId}", region: "asia-southeast1" }, async (event) => {
     var _a;
     const data = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
     if (!data)
@@ -165,7 +165,7 @@ exports.onMessageCreated = (0, firestore_1.onDocumentCreated)("messages/{message
     }
 });
 // Auto-hide listings when they receive multiple verified reports
-exports.onReportCreated = (0, firestore_1.onDocumentCreated)("reports/{reportId}", async (event) => {
+exports.onReportCreated = (0, firestore_1.onDocumentCreated)({ document: "reports/{reportId}", region: "asia-southeast1" }, async (event) => {
     var _a;
     const data = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
     if (!data || data.status !== "pending")
@@ -207,7 +207,7 @@ exports.onReportCreated = (0, firestore_1.onDocumentCreated)("reports/{reportId}
     }
 });
 // Auto-release escrow 14 days after delivery if no dispute
-exports.autoReleaseEscrow = (0, scheduler_1.onSchedule)("every 24 hours", async () => {
+exports.autoReleaseEscrow = (0, scheduler_1.onSchedule)({ schedule: "every 24 hours", region: "asia-southeast1" }, async () => {
     const cutoff = admin.firestore.Timestamp.fromMillis(Date.now() - 14 * 24 * 60 * 60 * 1000);
     try {
         const snapshot = await db
