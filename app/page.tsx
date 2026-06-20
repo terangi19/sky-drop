@@ -764,20 +764,15 @@ export default function Home() {
 
       {/* HERO / SEARCH SECTION */}
       <section className={`${PAGE_SHELL_WIDE} pt-3 sm:pt-4`}>
-        <div className={`relative overflow-hidden rounded-[2rem] border border-white/[0.08] bg-gradient-to-br from-sky-500/[0.08] via-white/[0.02] to-purple-500/[0.06] backdrop-blur-sm ${t.heroShadow}`}>
-          <div className={`absolute inset-0 ${t.radial} pointer-events-none`} />
-          <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-
+        <div className="relative overflow-hidden rounded-[2rem] border border-[var(--border)] bg-[var(--card)]">
           <div className="relative z-10 px-5 py-8 sm:px-8 sm:py-10">
             <div className="mx-auto max-w-2xl text-center">
-              <div className={`${t.badge} text-white/90 mb-3 inline-flex items-center gap-2 rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider`}>
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white/90">
                 <span className="h-1.5 w-1.5 rounded-full bg-sky-400 animate-pulse" />
                 NZ Marketplace
               </div>
               <h1 className="text-2xl font-black tracking-tight text-white sm:text-4xl lg:text-5xl">
-                <span className={`bg-gradient-to-r ${t.titleGradient} bg-clip-text text-transparent ${t.titleDropShadow}`}>
-                  Welcome to Sky Drop
-                </span>
+                Welcome to Sky Drop
               </h1>
               <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-[var(--foreground)] sm:text-base">
                 {user ? (
@@ -790,7 +785,7 @@ export default function Home() {
                 <div className="mt-6 flex justify-center">
                   <Link
                     href="/post/ai"
-                    className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-400 px-6 py-3.5 text-sm font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-300 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0"
+                    className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-400 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.98]"
                   >
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -803,9 +798,8 @@ export default function Home() {
 
             {/* Search */}
             <div className="mx-auto mt-8 max-w-xl">
-              <div className="group relative">
-                <div className="absolute -inset-0.5 rounded-2xl bg-gradient-to-r from-sky-500/30 via-purple-500/30 to-sky-500/30 opacity-0 blur-lg transition duration-500 group-focus-within:opacity-70" />
-                <div className="relative flex items-center rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-lg backdrop-blur-md transition-all duration-300 group-focus-within:border-sky-500/50 group-focus-within:bg-[var(--card-hover)]">
+              <div className="relative">
+                <div className="relative flex items-center rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-md transition-all duration-300 focus-within:border-sky-500/50 focus-within:ring-2 focus-within:ring-sky-500/10">
                   <svg className="ml-4 h-4 w-4 shrink-0 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
@@ -889,7 +883,7 @@ export default function Home() {
 
       {/* Trust strip */}
       <section className={`${PAGE_SHELL_WIDE} py-3`}>
-        <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4 rounded-2xl border border-[var(--border)] bg-[var(--card)] px-6 py-4 sm:gap-x-14 lg:gap-x-20 backdrop-blur-sm">
+        <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4 rounded-2xl border border-[var(--border)] bg-[var(--card)] px-6 py-4 sm:gap-x-14 lg:gap-x-20">
           {[
             { label: "Flexible payments", sub: "Stripe or Arrange Purchase", icon: <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /> },
             { label: "Dispute protection", sub: "7-day window", icon: <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" /> },
@@ -897,7 +891,7 @@ export default function Home() {
             { label: "NZ community", sub: "Built for Aotearoa", icon: <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /> },
           ].map((item) => (
             <div key={item.label} className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-500/10 ring-1 ring-sky-500/20">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-sky-500/20 ring-1 ring-sky-500/20">
                 <svg className="h-4 w-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>{item.icon}</svg>
               </div>
               <div className="space-y-0.5">
@@ -981,17 +975,17 @@ export default function Home() {
             <div className={LISTING_GRID_MT}>
               {[1,2,3,4,5,6,7,8].map((_, i) => (
                 <div key={i} className="relative overflow-hidden rounded-2xl bg-[var(--card)] border border-[var(--border)]">
-                  <div className="aspect-[4/3] w-full bg-gradient-to-r from-[var(--card)] via-[var(--card-hover)] to-[var(--card)] bg-[length:200%_100%] animate-[shimmer_2s_ease-in-out_infinite]" />
+                  <div className="aspect-[4/3] w-full bg-[var(--card-hover)] animate-pulse" />
                   <div className="p-4 space-y-3">
                     <div className="flex gap-2">
-                      <div className="h-4 w-14 rounded-md bg-[var(--card-hover)]" />
-                      <div className="h-4 w-10 rounded-md bg-[var(--card-hover)]" />
+                      <div className="h-4 w-14 rounded-md bg-[var(--card-hover)] animate-pulse" />
+                      <div className="h-4 w-10 rounded-md bg-[var(--card-hover)] animate-pulse" />
                     </div>
-                    <div className="h-5 w-3/4 rounded bg-[var(--card-hover)]" />
-                    <div className="h-4 w-1/2 rounded bg-[var(--card)]" />
+                    <div className="h-5 w-3/4 rounded bg-[var(--card-hover)] animate-pulse" />
+                    <div className="h-4 w-1/2 rounded bg-[var(--card)] animate-pulse" />
                     <div className="flex gap-2">
-                      <div className="h-9 flex-1 rounded-lg bg-[var(--card-hover)]" />
-                      <div className="h-9 w-20 rounded-lg bg-[var(--card-hover)]" />
+                      <div className="h-9 flex-1 rounded-lg bg-[var(--card-hover)] animate-pulse" />
+                      <div className="h-9 w-20 rounded-lg bg-[var(--card-hover)] animate-pulse" />
                     </div>
                   </div>
                </div>
@@ -1003,7 +997,7 @@ export default function Home() {
           <div className="relative mx-auto max-w-md mt-16 text-center">
             {listings.length === 0 ? (
               <>
-                <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-sky-500/20 via-sky-500/10 to-transparent border border-sky-500/30 shadow-[0_0_30px_rgba(14,165,233,0.15)] animate-pulse-slow">
+                <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-3xl bg-sky-500/20 border border-sky-500/30">
                   <svg className="h-10 w-10 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                   </svg>
@@ -1024,7 +1018,7 @@ export default function Home() {
               </>
             ) : (
               <>
-                <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-white/[0.05] via-white/[0.02] to-transparent border border-white/[0.10] shadow-[0_0_30px_rgba(255,255,255,0.05)]">
+                <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-3xl bg-[var(--card)] border border-[var(--border)]">
                   <svg className="h-10 w-10 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
@@ -1148,7 +1142,7 @@ export default function Home() {
       {showScrollBtn && (
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          className="fixed bottom-24 right-4 z-40 flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] shadow-lg backdrop-blur-md transition hover:bg-[var(--card-hover)] active:scale-95 md:bottom-8"
+          className="fixed bottom-24 right-4 z-40 flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] shadow-md transition hover:bg-[var(--card-hover)] active:scale-95 md:bottom-8"
           aria-label="Scroll to top"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
