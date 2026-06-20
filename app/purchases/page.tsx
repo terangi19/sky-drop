@@ -106,6 +106,7 @@ const STATUS_STYLES: Record<string, string> = {
   cancelled: "bg-red-500/10 text-red-400 border-red-500/20",
   rented: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   returned: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+  arrange_requested: "bg-sky-500/10 text-sky-400",
 };
 
 const TIMELINE_STEPS = [
@@ -399,7 +400,7 @@ export default function PurchasesPage() {
       <Navbar />
 
       <div className="relative z-10 mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-12">
-        <Link href="/" className="inline-flex items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-sm text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-200 mb-5 sm:mb-6 group">
+        <Link href="/" className="inline-flex items-center gap-2 rounded-xl border border-zinc-800/30 bg-zinc-900/30 px-3 py-2 text-sm text-zinc-400 transition hover:bg-zinc-800/50 hover:text-zinc-200 mb-5 sm:mb-6 group">
           <svg className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
           Back
         </Link>
@@ -423,9 +424,9 @@ export default function PurchasesPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
             </svg>
             <input type="text" placeholder="Search purchases..." value={search} onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
+              className="w-full rounded-xl border border-zinc-800/30 bg-zinc-900/30 pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-zinc-800/50 focus:ring-2 focus:ring-sky-500/10" />
           </div>
-          <div className="flex items-center gap-1 rounded-xl border border-white/[0.08] bg-white/[0.02] p-1">
+          <div className="flex items-center gap-1 rounded-xl border border-zinc-800/30 bg-zinc-900/20 p-1">
             {SORT_OPTIONS.map((opt) => (
               <button key={opt.value} onClick={() => setSort(opt.value)}
                 className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
@@ -437,7 +438,7 @@ export default function PurchasesPage() {
           </div>
         </div>
 
-        <div className="flex gap-1 overflow-x-auto mb-6 rounded-xl border border-white/[0.08] bg-white/[0.02] p-1">
+        <div className="flex gap-1 overflow-x-auto mb-6 rounded-xl border border-zinc-800/30 bg-zinc-900/20 p-1">
           {FILTER_TABS.map((tab) => (
             <button key={tab.key} onClick={() => setFilter(tab.key)}
               className={`shrink-0 rounded-lg px-3.5 py-2 text-xs font-bold transition-all duration-200 ${
@@ -455,13 +456,13 @@ export default function PurchasesPage() {
         {loading ? (
           <div className="space-y-3">
             {[1,2,3].map((i) => (
-              <div key={i} className="rounded-2xl border border-white/[0.04] bg-white/[0.02] p-4 sm:p-5 animate-pulse">
+              <div key={i} className="rounded-2xl border border-zinc-800/20 bg-zinc-900/20 p-4 sm:p-5 animate-pulse">
                 <div className="flex items-center gap-4">
-                  <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-xl bg-white/[0.03]" />
+                  <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-xl bg-zinc-800/30" />
                   <div className="flex-1 space-y-2">
-                    <div className="h-4 w-40 rounded bg-white/[0.03]" />
-                    <div className="h-3 w-20 rounded bg-white/[0.03]" />
-                    <div className="h-3 w-32 rounded bg-white/[0.03]" />
+                    <div className="h-4 w-40 rounded bg-zinc-800/30" />
+                    <div className="h-3 w-20 rounded bg-zinc-800/30" />
+                    <div className="h-3 w-32 rounded bg-zinc-800/30" />
                   </div>
                 </div>
               </div>
@@ -469,7 +470,7 @@ export default function PurchasesPage() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="mx-auto max-w-md mt-16 text-center">
-            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl border border-white/[0.06] bg-white/[0.02]">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl border border-zinc-800/30 bg-zinc-900/30">
               <svg className="h-8 w-8 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
               </svg>
@@ -491,11 +492,11 @@ export default function PurchasesPage() {
               const isWanted = p.type === "wanted";
               const displayStatus = isWanted ? { label: "Wanted", style: "bg-sky-500/10 text-sky-400 border-sky-500/20" } : { label: STATUS_LABELS[p.status] || p.status, style: STATUS_STYLES[p.status] || "bg-zinc-800/50 text-zinc-500 border-zinc-700/50" };
               return (
-                <div key={p.id} className="group relative overflow-hidden rounded-2xl border border-white/[0.06] bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-4 sm:p-5 transition-all duration-200 hover:bg-white/[0.06] hover:border-white/[0.10] hover:shadow-lg hover:shadow-black/20">
+                <div key={p.id} className="group relative overflow-hidden rounded-2xl border border-zinc-800/30 bg-gradient-to-br from-zinc-900/30 to-zinc-900/20 p-4 sm:p-5 transition-all duration-200 hover:bg-zinc-800/40 hover:border-zinc-700/40 hover:shadow-lg hover:shadow-black/20">
                   <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                   <div className="flex items-start gap-3 sm:gap-4">
                     <Link href={`/post/listing/${p.listingId}`} className="shrink-0">
-                      <div className="h-16 w-16 sm:h-20 sm:w-20 overflow-hidden rounded-xl bg-gradient-to-br from-zinc-800 to-zinc-900 ring-2 ring-white/[0.06] transition-transform duration-300 group-hover:scale-[1.03]">
+                      <div className="h-16 w-16 sm:h-20 sm:w-20 overflow-hidden rounded-xl bg-gradient-to-br from-zinc-800 to-zinc-900 ring-2 ring-zinc-700/30 transition-transform duration-300 group-hover:scale-[1.03]">
                         {p.listingImage ? (
                           <img src={p.listingImage} alt="" className="h-full w-full object-cover" />
                         ) : (
@@ -551,7 +552,7 @@ export default function PurchasesPage() {
 
                       <div className="mt-3 flex items-center gap-2 flex-wrap">
                         <Link href={`/messages?user=${encodeURIComponent(p.sellerUsername || p.sellerEmail || "")}&listing=${p.listingId}`}
-                          className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-[11px] font-bold text-zinc-400 transition hover:bg-white/[0.05] hover:text-zinc-200 active:scale-[0.97]">
+                          className="rounded-lg border border-zinc-700/30 bg-zinc-800/30 px-3 py-1.5 text-[11px] font-bold text-zinc-400 transition hover:bg-zinc-700/50 hover:text-zinc-200 active:scale-[0.97]">
                           Message
                         </Link>
                         {p.deliveryMethod === "digital" && p.digitalFileURL && p.status === "delivered" && (
@@ -568,7 +569,7 @@ export default function PurchasesPage() {
                         )}
                         {p.deliveryMethod === "shipping" && !["delivered", "cancelled"].includes(p.status) && (
                           <button onClick={() => { setEditAddress(p); setNewAddress(p.shippingAddress || ""); }}
-                            className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-[11px] font-bold text-zinc-400 transition hover:bg-white/[0.05] active:scale-[0.97]">
+                            className="rounded-lg border border-zinc-700/30 bg-zinc-800/30 px-3 py-1.5 text-[11px] font-bold text-zinc-400 transition hover:bg-zinc-700/50 active:scale-[0.97]">
                             Edit Address
                           </button>
                         )}
@@ -594,7 +595,7 @@ export default function PurchasesPage() {
             {visibleCount < filtered.length && (
               <div className="flex justify-center pt-2">
                 <button onClick={() => setVisibleCount(prev => prev + 10)}
-                  className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-5 py-2.5 text-xs font-bold text-zinc-400 transition hover:bg-white/[0.04] hover:text-zinc-200 active:scale-[0.97]">
+                  className="rounded-xl border border-zinc-800/30 bg-zinc-900/20 px-5 py-2.5 text-xs font-bold text-zinc-400 transition hover:bg-zinc-800/40 hover:text-zinc-200 active:scale-[0.97]">
                   Load More ({filtered.length - visibleCount})
                 </button>
               </div>
