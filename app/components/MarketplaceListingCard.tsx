@@ -1,6 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import type { User } from "firebase/auth";
 import { cdnUrl } from "../lib/cdn";
@@ -93,6 +94,7 @@ export default function MarketplaceListingCard({
   accent = "sky",
   neonGlow = true,
 }: MarketplaceListingCardProps) {
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const themed = accent === "sky" || accent === "sky";
   const isVisible = isListingVisibleInMarketplace(item);
   const saves = themed ? listingWatchlistCount(item) : 0;
@@ -455,7 +457,7 @@ export default function MarketplaceListingCard({
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onDelete(item);
+                  setShowDeleteConfirm(true);
                 }}
                 className="rounded-md bg-zinc-800/60 px-4 py-2.5 text-[12px] font-semibold text-[var(--cream)] transition-all duration-150 hover:bg-zinc-700 active:scale-95"
               >
@@ -523,6 +525,34 @@ export default function MarketplaceListingCard({
         </div>
       </div>
     </div>
+    
+    {showDeleteConfirm && (
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setShowDeleteConfirm(false)}>
+        <div className="mx-4 max-w-sm rounded-2xl border border-zinc-700/50 bg-zinc-900/95 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <h3 className="text-xl font-bold text-white">Delete Listing?</h3>
+          <p className="mt-2 text-sm text-zinc-400">Are you sure you want to delete "{item.title}"? This action cannot be undone.</p>
+          <div className="mt-6 flex gap-3">
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(false)}
+              className="flex-1 rounded-xl border border-zinc-700 px-4 py-2.5 text-sm font-semibold text-zinc-300 transition-all hover:bg-zinc-800"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowDeleteConfirm(false);
+                onDelete(item);
+              }}
+              className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-red-700"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </div>
   );
 }

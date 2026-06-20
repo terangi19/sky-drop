@@ -1173,7 +1173,7 @@ export default function AIPostPage() {
         {/* Form Card */}
         <div className="relative">
           <div className="absolute -inset-1 rounded-3xl bg-gradient-to-b from-sky-500/15 via-sky-500/5 to-purple-500/10 blur-xl pointer-events-none" />
-          <div className="relative overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-2xl backdrop-blur-xl sm:p-8">
+          <div className="relative overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--card)] p-4 sm:p-6 md:p-8 shadow-2xl backdrop-blur-xl">
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
 
         {/* SCAM ALERT MODAL */}
