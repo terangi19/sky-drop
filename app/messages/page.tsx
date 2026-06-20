@@ -1729,7 +1729,7 @@ function MessagesPage() {
                                     </div>
                                   ) : (
                                     // Simple Status for in-progress orders
-                                    <div className="px-4 py-3 bg-white/[0.02] border-b border-white/[0.04]">
+                                    <div className="px-4 py-3 bg-[var(--card)] border-b border-[var(--border)]">
                                       <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                           <div className={`flex h-8 w-8 items-center justify-center rounded-full ${statusConfig.bg}`}>
@@ -1755,7 +1755,7 @@ function MessagesPage() {
                                     </button>
                                     <button
                                       onClick={() => router.push(`/post/listing/${chatListingId}`)}
-                                      className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-[11px] font-bold text-[var(--foreground)] transition hover:border-sky-500/20 hover:bg-white/[0.06]"
+                                      className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[11px] font-bold text-[var(--foreground)] transition hover:border-sky-500/20 hover:bg-[var(--card-hover)]"
                                     >
                                       <span>🔗</span>
                                       <span>View Listing</span>

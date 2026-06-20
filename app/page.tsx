@@ -715,25 +715,25 @@ export default function Home() {
       {/* OFFER MODAL */}
       {showOfferModal && offerListing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in-backdrop">
-          <div className="relative mx-4 w-full max-w-md overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-zinc-950/95 to-zinc-900/90 p-6 shadow-2xl shadow-black/40 backdrop-blur-xl animate-fade-in-scale">
+          <div className="relative mx-4 w-full max-w-md overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-2xl shadow-black/40 backdrop-blur-xl animate-fade-in-scale">
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
             <h3 className="text-xl font-black text-white">Make an Offer</h3>
-            <p className="mt-2 text-sm text-zinc-400">Make an offer for "{offerListing.title}"</p>
+            <p className="mt-2 text-sm text-[var(--muted)]">Make an offer for "{offerListing.title}"</p>
             <div className="mt-6">
-              <label className="block text-sm font-bold text-zinc-400">Your Offer ($)</label>
+              <label className="block text-sm font-bold text-[var(--muted)]">Your Offer ($)</label>
               <input
                 type="number"
                 value={offerAmount}
                 onChange={(e) => setOfferAmount(e.target.value)}
                 min={1}
                 placeholder={`e.g. ${Math.floor(Number(offerListing.price) * 0.8)}`}
-                className="mt-2 w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-[var(--foreground)] outline-none transition focus:border-sky-500/50 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10"
+                className="mt-2 w-full rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-[var(--foreground)] outline-none transition focus:border-sky-500/50 focus:bg-[var(--card-hover)] focus:ring-2 focus:ring-sky-500/10"
               />
             </div>
             <div className="mt-6 flex gap-3">
               <button
                 onClick={() => { setShowOfferModal(false); setOfferListing(null); setOfferAmount(""); }}
-                className="flex-1 rounded-xl border border-white/[0.08] bg-white/[0.03] py-3 font-bold text-[var(--foreground)] transition hover:bg-white/[0.06] hover:border-white/[0.12]"
+                className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--card)] py-3 font-bold text-[var(--foreground)] transition hover:bg-[var(--card-hover)] hover:border-[var(--border-hover)]"
               >
                 Cancel
               </button>
@@ -779,7 +779,7 @@ export default function Home() {
                   Welcome to Sky Drop
                 </span>
               </h1>
-              <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-zinc-300 sm:text-base">
+              <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-[var(--foreground)] sm:text-base">
                 {user ? (
                   "List your items, message buyers directly, and sell nationwide with Āwhina AI assistance."
                 ) : (
@@ -805,7 +805,7 @@ export default function Home() {
             <div className="mx-auto mt-8 max-w-xl">
               <div className="group relative">
                 <div className="absolute -inset-0.5 rounded-2xl bg-gradient-to-r from-sky-500/30 via-purple-500/30 to-sky-500/30 opacity-0 blur-lg transition duration-500 group-focus-within:opacity-70" />
-                <div className="relative flex items-center rounded-xl border border-white/[0.10] bg-black/30 shadow-lg backdrop-blur-md transition-all duration-300 group-focus-within:border-sky-500/50 group-focus-within:bg-black/40">
+                <div className="relative flex items-center rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-lg backdrop-blur-md transition-all duration-300 group-focus-within:border-sky-500/50 group-focus-within:bg-[var(--card-hover)]">
                   <svg className="ml-4 h-4 w-4 shrink-0 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
@@ -815,11 +815,11 @@ export default function Home() {
                     value={search}
                     ref={searchRef}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="flex-1 bg-transparent px-3 py-3 text-[15px] text-white outline-none placeholder:text-zinc-500 transition-colors"
+                    className="flex-1 bg-transparent px-3 py-3 text-[15px] text-[var(--foreground)] outline-none placeholder:text-[var(--muted)] transition-colors"
                   />
                   <div className="mr-2 flex items-center gap-2">
                     {search && (
-                      <button onClick={() => setSearch("")} className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-all duration-200 hover:bg-white/[0.10] hover:text-white hover:scale-110 active:scale-95" aria-label="Clear search">
+                      <button onClick={() => setSearch("")} className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--muted)] transition-all duration-200 hover:bg-[var(--card-hover)] hover:text-[var(--foreground)] hover:scale-110 active:scale-95" aria-label="Clear search">
                         <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                       </button>
                     )}
@@ -843,7 +843,7 @@ export default function Home() {
                   className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-medium transition-all duration-200 active:scale-95 ${
                     selectedCategory === "All"
                       ? "border-sky-400/30 bg-sky-500/10 text-white shadow-[0_0_24px_rgba(14,165,233,0.1)] hover:shadow-[0_0_32px_rgba(14,165,233,0.15)]"
-                      : "border-white/[0.06] bg-white/[0.02] text-white/70 hover:border-white/10 hover:text-white hover:bg-white/[0.04]"
+                      : "border-[var(--border)] bg-[var(--card)] text-[var(--muted)] hover:border-[var(--border-hover)] hover:text-[var(--foreground)] hover:bg-[var(--card-hover)]"
                   }`}
                 >
                   <span className="text-sm leading-none transition-transform duration-200 group-hover:scale-110">✨</span>
@@ -856,7 +856,7 @@ export default function Home() {
                     className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-medium transition-all duration-200 active:scale-95 ${
                       selectedCategory === cat.name
                         ? "border-sky-400/30 bg-sky-500/10 text-white shadow-[0_0_24px_rgba(14,165,233,0.1)] hover:shadow-[0_0_32px_rgba(14,165,233,0.15)]"
-                        : "border-white/[0.06] bg-white/[0.02] text-zinc-400 hover:border-white/10 hover:text-zinc-200 hover:bg-white/[0.04]"
+                        : "border-[var(--border)] bg-[var(--card)] text-[var(--muted)] hover:border-[var(--border-hover)] hover:text-[var(--foreground)] hover:bg-[var(--card-hover)]"
                     }`}
                   >
                     <span className="text-sm leading-none transition-transform duration-200 hover:scale-110">{cat.emoji}</span>
@@ -889,7 +889,7 @@ export default function Home() {
 
       {/* Trust strip */}
       <section className={`${PAGE_SHELL_WIDE} py-3`}>
-        <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4 rounded-2xl border border-white/[0.04] bg-white/[0.015] px-6 py-4 sm:gap-x-14 lg:gap-x-20 backdrop-blur-sm">
+        <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4 rounded-2xl border border-[var(--border)] bg-[var(--card)] px-6 py-4 sm:gap-x-14 lg:gap-x-20 backdrop-blur-sm">
           {[
             { label: "Flexible payments", sub: "Stripe or Arrange Purchase", icon: <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /> },
             { label: "Dispute protection", sub: "7-day window", icon: <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" /> },
@@ -902,7 +902,7 @@ export default function Home() {
               </div>
               <div className="space-y-0.5">
                 <p className="text-[11px] font-bold text-white">{item.label}</p>
-                <p className="text-[10px] text-zinc-400">{item.sub}</p>
+                <p className="text-[10px] text-[var(--muted)]">{item.sub}</p>
               </div>
             </div>
           ))}
@@ -939,38 +939,38 @@ export default function Home() {
           <div className="flex flex-wrap items-center gap-1.5">
             <div className="relative">
               <select value={selectedCondition} onChange={(e) => setSelectedCondition(e.target.value)}
-                className="appearance-none rounded-full border border-white/[0.06] bg-white/[0.03] px-3.5 py-1.5 pr-7 text-[11px] text-zinc-300 outline-none transition hover:border-white/10 focus:border-sky-500/30 cursor-pointer">
-                <option value="All" className="bg-zinc-900">Condition</option>
+                className="appearance-none rounded-full border border-[var(--border)] bg-[var(--card)] px-3.5 py-1.5 pr-7 text-[11px] text-[var(--foreground)] outline-none transition hover:border-[var(--border-hover)] focus:border-sky-500/30 cursor-pointer">
+                <option value="All" className="bg-[var(--card)]">Condition</option>
                 {["New", "Used - Like New", "Used - Good", "Used - Fair"].map((c) => (
-                  <option key={c} value={c} className="bg-zinc-900">{c}</option>
+                  <option key={c} value={c} className="bg-[var(--card)]">{c}</option>
                 ))}
               </select>
               <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
             </div>
             <div className="relative">
               <select value={selectedRegion} onChange={(e) => setSelectedRegion(e.target.value)}
-                className="appearance-none rounded-full border border-white/[0.06] bg-white/[0.03] px-3.5 py-1.5 pr-7 text-[11px] text-zinc-300 outline-none transition hover:border-white/10 focus:border-sky-500/30 cursor-pointer">
-                <option value="All" className="bg-zinc-900">Region</option>
+                className="appearance-none rounded-full border border-[var(--border)] bg-[var(--card)] px-3.5 py-1.5 pr-7 text-[11px] text-[var(--foreground)] outline-none transition hover:border-[var(--border-hover)] focus:border-sky-500/30 cursor-pointer">
+                <option value="All" className="bg-[var(--card)]">Region</option>
                 {["Northland","Auckland","Waikato","Bay of Plenty","Gisborne","Hawke's Bay","Taranaki","Manawatu","Wellington","Nelson","Marlborough","West Coast","Canterbury","Otago","Southland"].map((r) => (
-                  <option key={r} value={r} className="bg-zinc-900">{r}</option>
+                  <option key={r} value={r} className="bg-[var(--card)]">{r}</option>
                 ))}
               </select>
               <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
             </div>
             <div className="relative">
               <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
-                className="appearance-none rounded-full border border-white/[0.06] bg-white/[0.03] px-3.5 py-1.5 pr-7 text-[11px] text-zinc-300 outline-none transition hover:border-white/10 focus:border-sky-500/30 cursor-pointer">
-                <option value="newest" className="bg-zinc-900">Newest</option>
-                <option value="oldest" className="bg-zinc-900">Oldest</option>
-                <option value="low-high" className="bg-zinc-900">Price Low → High</option>
-                <option value="high-low" className="bg-zinc-900">Price High → Low</option>
-                <option value="trending" className="bg-zinc-900">🔥 Trending</option>
+                className="appearance-none rounded-full border border-[var(--border)] bg-[var(--card)] px-3.5 py-1.5 pr-7 text-[11px] text-[var(--foreground)] outline-none transition hover:border-[var(--border-hover)] focus:border-sky-500/30 cursor-pointer">
+                <option value="newest" className="bg-[var(--card)]">Newest</option>
+                <option value="oldest" className="bg-[var(--card)]">Oldest</option>
+                <option value="low-high" className="bg-[var(--card)]">Price Low → High</option>
+                <option value="high-low" className="bg-[var(--card)]">Price High → Low</option>
+                <option value="trending" className="bg-[var(--card)]">🔥 Trending</option>
               </select>
               <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
             </div>
             {(selectedCategory !== "All" || selectedCondition !== "All" || selectedRegion !== "All" || search) && (
               <button onClick={() => { setSelectedCategory("All"); setSelectedCondition("All"); setSelectedRegion("All"); setSearch(""); setSortBy("newest"); }}
-                className="rounded-full border border-white/[0.06] px-3.5 py-1.5 text-[11px] font-medium text-white transition hover:border-white/10 hover:text-zinc-300">
+                className="rounded-full border border-[var(--border)] px-3.5 py-1.5 text-[11px] font-medium text-[var(--foreground)] transition hover:border-[var(--border-hover)] hover:text-[var(--muted)]">
                 Clear
               </button>
             )}
@@ -980,18 +980,18 @@ export default function Home() {
           {loading && (
             <div className={LISTING_GRID_MT}>
               {[1,2,3,4,5,6,7,8].map((_, i) => (
-                <div key={i} className="relative overflow-hidden rounded-2xl bg-white/[0.02] border border-white/[0.04]">
-                  <div className="aspect-[4/3] w-full bg-gradient-to-r from-white/[0.02] via-white/[0.04] to-white/[0.02] bg-[length:200%_100%] animate-[shimmer_2s_ease-in-out_infinite]" />
+                <div key={i} className="relative overflow-hidden rounded-2xl bg-[var(--card)] border border-[var(--border)]">
+                  <div className="aspect-[4/3] w-full bg-gradient-to-r from-[var(--card)] via-[var(--card-hover)] to-[var(--card)] bg-[length:200%_100%] animate-[shimmer_2s_ease-in-out_infinite]" />
                   <div className="p-4 space-y-3">
                     <div className="flex gap-2">
-                      <div className="h-4 w-14 rounded-md bg-white/[0.04]" />
-                      <div className="h-4 w-10 rounded-md bg-white/[0.04]" />
+                      <div className="h-4 w-14 rounded-md bg-[var(--card-hover)]" />
+                      <div className="h-4 w-10 rounded-md bg-[var(--card-hover)]" />
                     </div>
-                    <div className="h-5 w-3/4 rounded bg-white/[0.04]" />
-                    <div className="h-4 w-1/2 rounded bg-white/[0.02]" />
+                    <div className="h-5 w-3/4 rounded bg-[var(--card-hover)]" />
+                    <div className="h-4 w-1/2 rounded bg-[var(--card)]" />
                     <div className="flex gap-2">
-                      <div className="h-9 flex-1 rounded-lg bg-white/[0.04]" />
-                      <div className="h-9 w-20 rounded-lg bg-white/[0.04]" />
+                      <div className="h-9 flex-1 rounded-lg bg-[var(--card-hover)]" />
+                      <div className="h-9 w-20 rounded-lg bg-[var(--card-hover)]" />
                     </div>
                   </div>
                </div>
@@ -1009,7 +1009,7 @@ export default function Home() {
                   </svg>
                 </div>
                 <h2 className="text-2xl font-black tracking-tight text-white mb-2">Welcome to Sky Drop</h2>
-                <p className="text-sm text-zinc-400 mb-6">No listings yet — be the first to list something and start selling!</p>
+                <p className="text-sm text-[var(--muted)] mb-6">No listings yet — be the first to list something and start selling!</p>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
                   <Link href="/post/ai"
                     className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.97]">
@@ -1017,7 +1017,7 @@ export default function Home() {
                     Create a Listing
                   </Link>
                   <Link href="/about"
-                    className="inline-flex items-center gap-2 rounded-xl border border-white/[0.10] bg-white/[0.02] px-6 py-3.5 text-sm font-bold text-zinc-300 transition-all duration-200 hover:bg-white/[0.05] hover:border-white/[0.15] hover:text-white active:scale-[0.97]">
+                    className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-6 py-3.5 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:bg-[var(--card-hover)] hover:border-[var(--border-hover)] active:scale-[0.97]">
                     Learn More
                   </Link>
                 </div>
@@ -1025,12 +1025,12 @@ export default function Home() {
             ) : (
               <>
                 <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-white/[0.05] via-white/[0.02] to-transparent border border-white/[0.10] shadow-[0_0_30px_rgba(255,255,255,0.05)]">
-                  <svg className="h-10 w-10 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <svg className="h-10 w-10 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
                 <h2 className="text-2xl font-black tracking-tight text-white mb-2">No listings found</h2>
-                <p className="text-sm text-zinc-400 mb-6">Try adjusting your filters or search terms to find what you're looking for.</p>
+                <p className="text-sm text-[var(--muted)] mb-6">Try adjusting your filters or search terms to find what you're looking for.</p>
                 <button onClick={() => { setSelectedCategory("All"); setSelectedCondition("All"); setSelectedRegion("All"); setSearch(""); }}
                   className="rounded-xl border border-sky-500/30 bg-sky-500/10 px-6 py-3.5 text-sm font-bold text-sky-400 shadow-lg shadow-sky-500/10 transition-all duration-200 hover:bg-sky-500/15 hover:border-sky-500/40 hover:shadow-xl hover:shadow-sky-500/15 active:scale-[0.97]">
                   Clear all filters
@@ -1082,11 +1082,11 @@ export default function Home() {
 
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setDeleteConfirm(null)}>
-          <div className="mx-4 w-full max-w-sm rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="mx-4 w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-black text-[var(--foreground)]">Delete listing?</h3>
             <p className="mt-2 text-sm text-[var(--muted)]">This cannot be undone.</p>
             <div className="mt-5 flex gap-3">
-              <button onClick={() => setDeleteConfirm(null)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700">Cancel</button>
+              <button onClick={() => setDeleteConfirm(null)} className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--card)] py-3 text-sm font-bold text-[var(--foreground)] hover:bg-[var(--card-hover)]">Cancel</button>
               <button onClick={async () => { await deleteListing(deleteConfirm.id); setDeleteConfirm(null); }} className="flex-1 rounded-xl bg-red-500 py-3 text-sm font-bold text-white hover:bg-red-400">Delete</button>
             </div>
           </div>
@@ -1109,12 +1109,12 @@ export default function Home() {
               <div
                 key={item.id}
                 onClick={() => router.push(`/post/listing/${item.id}`)}
-                className="group shrink-0 w-48 cursor-pointer rounded-xl border border-white/[0.06] bg-white/[0.02] p-2.5 transition hover:border-white/10 hover:bg-white/[0.04]"
+                className="group shrink-0 w-48 cursor-pointer rounded-xl border border-[var(--border)] bg-[var(--card)] p-2.5 transition hover:border-[var(--border-hover)] hover:bg-[var(--card-hover)]"
               >
                 {item.images?.[0] || item.imageUrl || item.image ? (
                   <img src={cdnUrl(item.images?.[0] || item.imageUrl || item.image || "")} alt={item.title} loading="lazy" onError={(e) => { (e.target as HTMLImageElement).src = ""; (e.target as HTMLImageElement).classList.add("hidden"); }} className="h-20 w-full rounded-lg object-cover" />
                 ) : (
-                  <div className="flex h-20 w-full items-center justify-center rounded-lg bg-white/[0.03] text-[10px] text-zinc-600">No image</div>
+                  <div className="flex h-20 w-full items-center justify-center rounded-lg bg-[var(--card)] text-[10px] text-[var(--muted)]">No image</div>
                 )}
                 <p className="mt-2 truncate text-xs font-medium text-always-white">{item.title}</p>
                 <p className="text-sm font-semibold tabular-nums text-sky-300">${item.price}</p>
@@ -1130,13 +1130,13 @@ export default function Home() {
           <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.12em] text-white">Recently sold</p>
           <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
             {listings.filter((l) => !isListingVisibleInMarketplace(l)).slice(0, 6).map((item) => (
-              <div key={item.id} className="relative shrink-0 w-40 rounded-xl border border-white/[0.05] bg-white/[0.015] p-2.5 opacity-75">
+              <div key={item.id} className="relative shrink-0 w-40 rounded-xl border border-[var(--border)] bg-[var(--card)] p-2.5 opacity-75">
                 {item.images?.[0] || item.imageUrl || item.image ? (
                   <img src={cdnUrl(item.images?.[0] || item.imageUrl || item.image || "")} alt={item.title} loading="lazy" className="h-16 w-full rounded-lg object-cover grayscale-[30%]" />
                 ) : (
-                  <div className="flex h-16 w-full items-center justify-center rounded-lg bg-white/[0.03] text-[10px] text-zinc-600">No image</div>
+                  <div className="flex h-16 w-full items-center justify-center rounded-lg bg-[var(--card)] text-[10px] text-[var(--muted)]">No image</div>
                 )}
-                <p className="mt-2 truncate text-[11px] text-zinc-400">{item.title}</p>
+                <p className="mt-2 truncate text-[11px] text-[var(--muted)]">{item.title}</p>
                 <p className="text-[11px] font-medium text-white">Sold · ${item.price}</p>
               </div>
             ))}
@@ -1148,7 +1148,7 @@ export default function Home() {
       {showScrollBtn && (
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          className="fixed bottom-24 right-4 z-40 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-black/60 text-white shadow-lg backdrop-blur-md transition hover:bg-black/80 active:scale-95 md:bottom-8"
+          className="fixed bottom-24 right-4 z-40 flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] shadow-lg backdrop-blur-md transition hover:bg-[var(--card-hover)] active:scale-95 md:bottom-8"
           aria-label="Scroll to top"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>

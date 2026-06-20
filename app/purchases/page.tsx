@@ -326,49 +326,53 @@ export default function PurchasesPage() {
     return { icon: "📦", text: p.shippingFee ? `Shipping — $${p.shippingFee}` : "Shipping", badge: "Shipping" };
   }
 
-  // TradeMe-style Timeline Component
+  // Simple Status Component
   function PurchaseTimeline({ purchase, isService, isRental, isArrange }: { purchase: Purchase; isService?: boolean; isRental?: boolean; isArrange?: boolean }) {
-    const steps = timelineSteps(isService, isRental, isArrange);
-    const currentIndex = statusIndex(purchase.status, isService, isRental, isArrange);
+    const isCompleted = purchase.status === "delivered";
+    const isDisputed = !!purchase.disputeStatus;
     
-    if (currentIndex < 0) return null;
+    if (isCompleted) {
+      return (
+        <div className="mt-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/20">
+              <svg className="h-4 w-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-emerald-400">Order Completed</p>
+              <p className="text-[10px] text-emerald-400/80">Your purchase has been successfully delivered.</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    if (isDisputed) {
+      return (
+        <div className="mt-3 rounded-lg border border-red-500/20 bg-red-500/5 p-3">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">⚠️</span>
+            <p className="text-xs font-medium text-red-400">{DISPUTE_LABELS[purchase.disputeStatus!] || "Dispute"}</p>
+          </div>
+        </div>
+      );
+    }
     
     return (
-      <div className="mt-3 rounded-lg border border-zinc-800/50 bg-zinc-900/30 p-3">
-        <div className="flex items-center justify-between">
-          {steps.map((step, index) => {
-            const isCompleted = index < currentIndex;
-            const isCurrent = index === currentIndex;
-            const isPending = index > currentIndex;
-            
-            return (
-              <div key={step.key} className="flex items-center gap-1.5 flex-1">
-                <div className={`flex items-center justify-center w-5 h-5 rounded-full text-[9px] transition-all ${
-                  isCompleted ? 'bg-emerald-500 text-white' : isCurrent ? 'bg-sky-500 text-white ring-2 ring-sky-500/40' : 'bg-zinc-800 text-zinc-500'
-                }`}>
-                  {isCompleted ? '✓' : step.icon}
-                </div>
-                <div className="flex-1">
-                  <p className={`text-[9px] font-medium truncate ${
-                    isCompleted ? 'text-emerald-400' : isCurrent ? 'text-sky-400' : 'text-zinc-500'
-                  }`}>
-                    {step.label}
-                  </p>
-                </div>
-                {index < steps.length - 1 && (
-                  <div className={`w-4 h-px ${
-                    isCompleted ? 'bg-emerald-500' : 'bg-zinc-800'
-                  }`} />
-                )}
-              </div>
-            );
-          })}
+      <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--card)] p-3">
+        <div className="flex items-center gap-2">
+          <div className={`flex h-8 w-8 items-center justify-center rounded-full ${STATUS_STYLES[purchase.status]}`}>
+            <span className="text-lg">{STATUS_LABELS[purchase.status]?.charAt(0) || "•"}</span>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-[var(--foreground)]">{STATUS_LABELS[purchase.status] || purchase.status}</p>
+            {STATUS_DESCRIPTIONS[purchase.status] && (
+              <p className="text-[10px] text-[var(--muted)]">{STATUS_DESCRIPTIONS[purchase.status]}</p>
+            )}
+          </div>
         </div>
-        {STATUS_DESCRIPTIONS[purchase.status] && (
-          <p className="mt-2 text-[10px] text-zinc-400 text-center">
-            {STATUS_DESCRIPTIONS[purchase.status]}
-          </p>
-        )}
       </div>
     );
   }
