@@ -146,7 +146,7 @@ export function sellUnlockDaysLeft(memberSince: Date | null | undefined): number
 
 export function kycRequiredBlockMessage(): string {
 
-  return "Verify your ID (KYC) in Profile → Verification to start selling.";
+  return "Complete verification in Profile → Verification to start selling.";
 
 }
 

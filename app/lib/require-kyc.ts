@@ -5,7 +5,7 @@ export async function requireKycApproved(uid: string): Promise<{ ok: true } | { 
   if (!profile.exists || profile.data()?.kycStatus !== "approved") {
     return {
       ok: false,
-      error: "Verify your ID (KYC) in Profile → Verification to start selling.",
+      error: "Complete verification in Profile → Verification to start selling.",
     };
   }
   return { ok: true };
@@ -21,7 +21,7 @@ export async function requireKycOrNoSales(uid: string): Promise<{ ok: true } | {
   if (salesCount > 0) {
     return {
       ok: false,
-      error: "Verify your ID (KYC) in Profile → Verification to continue selling after your first sale.",
+      error: "Complete verification in Profile → Verification to continue selling after your first sale.",
     };
   }
   return { ok: true };

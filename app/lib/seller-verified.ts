@@ -23,7 +23,7 @@ export function profileKycApproved(
   return profile?.kycStatus === "approved";
 }
 
-/** Public "Verified" badge — requires email, phone, and KYC approval. */
+/** Public "Verified" badge — requires email, phone, and ID approval. */
 export function isFullyVerifiedSeller(
   profile: SellerVerificationProfile | null | undefined
 ): boolean {

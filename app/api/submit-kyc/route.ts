@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "Verify your email before submitting ID verification. Check your inbox and spam folder, then tap Refresh status on Profile.",
+            "Verify your email before submitting verification. Check your inbox and spam folder, then tap Refresh status on Profile.",
           code: "email_not_verified",
         },
         { status: 403 }

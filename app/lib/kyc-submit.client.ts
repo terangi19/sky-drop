@@ -123,7 +123,7 @@ async function submitKycDirect(user: User, photoFile: File): Promise<void> {
   const verified = await refreshEmailVerificationClaim(user);
   if (!verified) {
     throw new KycSubmitError(
-      "Verify your email before submitting ID verification. Check your inbox and spam folder, then tap Refresh status on Profile.",
+      "Verify your email before submitting verification. Check your inbox and spam folder, then tap Refresh status on Profile.",
       "verify"
     );
   }
@@ -131,7 +131,7 @@ async function submitKycDirect(user: User, photoFile: File): Promise<void> {
   const tokenResult = await user.getIdTokenResult();
   if (!tokenResult.claims.email_verified) {
     throw new KycSubmitError(
-      "Verify your email before submitting ID verification. Check your inbox and spam folder, then tap Refresh status on Profile.",
+      "Verify your email before submitting verification. Check your inbox and spam folder, then tap Refresh status on Profile.",
       "verify"
     );
   }
