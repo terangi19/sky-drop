@@ -25,3 +25,11 @@ export default function AwhinaOnlineBadge({ centered = false, className = "" }: 
     </div>
   );
 }
+
+/** Optional slot under page headers — kept for imports; renders nothing */
+export function AwhinaUnderHeader(_props?: {
+  centered?: boolean;
+  className?: string;
+}) {
+  return null;
+}

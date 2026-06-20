@@ -1166,12 +1166,12 @@ function MessagesPage() {
                       }}
                       className={`flex w-full items-start gap-3 border-b border-[var(--card-border)] px-4 py-3.5 text-left transition-all duration-200 hover:bg-sky-500/5 ${chatUser === convo.participant && chatListingId === convo.listingId ? "bg-sky-500/10 shadow-[0_0_20px_rgba(56,189,248,0.15)]" : "hover:shadow-[0_0_15px_rgba(56,189,248,0.1)]"}`}>
                       {/* Thumbnail */}
-                      <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-zinc-800 to-zinc-900 ring-2 ring-white/[0.04]">
+                      <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-600/10 ring-2 ring-white/[0.04]">
                         {convo.msg.listingImage ? (
                           <img src={convo.msg.listingImage} alt="" className="h-full w-full object-cover" />
                         ) : (
-                          <div className="flex h-full items-center justify-center text-sm font-bold text-sky-400">
-                            {getDisplayName(convo.participant)?.[0]?.toUpperCase?.() || "?"}
+                          <div className="flex h-full items-center justify-center text-sm font-black text-sky-400">
+                            SD
                           </div>
                         )}
                       </div>
@@ -1364,10 +1364,14 @@ function MessagesPage() {
                   {listingCard && hasPurchaseInChat && (
                     <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-zinc-900/60 shadow-[0_0_20px_rgba(56,189,248,0.15)]">
                       <div className="flex items-center gap-3 p-3">
-                        {listingCard.image && (
+                        {listingCard.image ? (
                           <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-zinc-800">
                             <img src={listingCard.image} alt="" className="h-full w-full object-cover"
                               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                          </div>
+                        ) : (
+                          <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-sky-500/20 to-sky-600/10 flex items-center justify-center">
+                            <span className="text-sm font-black text-sky-400">SD</span>
                           </div>
                         )}
                         <div className="min-w-0 flex-1">
@@ -1449,10 +1453,14 @@ function MessagesPage() {
                         </div>
                       )}
                       <div className="flex items-center gap-3 p-3">
-                        {listingCard.image && (
+                        {listingCard.image ? (
                           <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl bg-zinc-800 shadow-md">
                             <img src={listingCard.image} alt={listingCard.title || ""} className="h-full w-full object-cover"
                               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                          </div>
+                        ) : (
+                          <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-600/10 shadow-md flex items-center justify-center">
+                            <span className="text-lg font-black text-sky-400">SD</span>
                           </div>
                         )}
                         <div className="min-w-0 flex-1">
@@ -1483,10 +1491,14 @@ function MessagesPage() {
                   {listingCard && !hasPurchaseInChat && !auctionEnded && listingCard?.saleType === "buy_now" && (
                     <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-[var(--soft-card)]/80 shadow-[0_0_20px_rgba(56,189,248,0.15)]">
                       <div className="flex items-center gap-3 p-3">
-                        {listingCard.image && (
+                        {listingCard.image ? (
                           <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-zinc-800">
                             <img src={listingCard.image} alt={listingCard.title || ""} className="h-full w-full object-cover"
                               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                          </div>
+                        ) : (
+                          <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-sky-500/20 to-sky-600/10 flex items-center justify-center">
+                            <span className="text-sm font-black text-sky-400">SD</span>
                           </div>
                         )}
                         <div className="min-w-0 flex-1">
