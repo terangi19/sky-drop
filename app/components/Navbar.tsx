@@ -535,7 +535,7 @@ export default function Navbar() {
                     </Link>
                   )}
                   <div className="my-1.5 border-t border-white/[0.04]" />
-                  <button onClick={handleLogout} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-red-400 hover:bg-red-500/10 transition-colors w-full text-left">
+                  <button onClick={handleLogout} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-red-500 dark:text-red-400 hover:bg-red-500/10 transition-colors w-full text-left">
                     <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10 text-sm">🚪</span>
                     Logout
                   </button>
