@@ -32,6 +32,7 @@ Keep GitHub up to date when shipping changes:
 
 - **Agents:** After completing substantive work, commit and push to `main` without waiting for the user to ask (see `.cursor/rules/auto-git-sync.mdc`).
 - **Manual:** Run `npm run git:sync` from the repo root to commit and push all local changes.
+- **Auto every 3 min:** Run `npm run git:watch` in a terminal (keeps running; syncs only when files changed).
 - **Never commit:** `.env`, secrets, or `tsconfig.tsbuildinfo`.
 
 ---
