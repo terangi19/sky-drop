@@ -6,7 +6,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-INTERVAL_MIN="${GIT_SYNC_INTERVAL_MIN:-3}"
+INTERVAL_MIN="${GIT_SYNC_INTERVAL_MIN:-30}"
 INTERVAL_SEC=$((INTERVAL_MIN * 60))
 
 echo "Git watch started — checking every ${INTERVAL_MIN} minute(s). Ctrl+C to stop."

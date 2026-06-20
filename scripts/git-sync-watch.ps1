@@ -3,7 +3,7 @@
 # Stop with Ctrl+C
 
 param(
-    [int]$IntervalMinutes = 3
+    [int]$IntervalMinutes = 30
 )
 
 $ErrorActionPreference = "Stop"

@@ -36,6 +36,6 @@ Skip auto-sync when:
 
 User can run `npm run git:sync` from the repo root anytime.
 
-## Background watch (every 3 minutes)
+## Background watch (every 30 minutes)
 
-User can run `npm run git:watch` to auto-commit and push whenever the working tree has changes (checks every 3 min). Only one instance should run at a time.
+User can run `npm run git:watch` to auto-commit and push when the working tree has changes (checks every 30 min). Only one instance should run at a time — shorter intervals queue Vercel production deploys.
