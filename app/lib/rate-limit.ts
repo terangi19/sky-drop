@@ -99,23 +99,25 @@ export async function rateLimit(
     }
   } catch {}
 
-  // Layer 4: Production fail-closed when distributed limiting unavailable
-  const isProd = process.env.NODE_ENV === "production" || !!process.env.VERCEL;
-  if (isProd) {
-    logSecurityWarning("rate_limit_fail_closed", `Rate limit unavailable for ${key}`, {
-      metadata: { key, maxRequests, windowMs },
-    });
-    return { allowed: false, remaining: 0, limit: maxRequests };
-  }
-
-  // Dev: in-memory only
-  if (!memEntry || now > memEntry.resetAt) {
+  // Layer 4: In-memory fallback (used when Upstash + Firestore both unavailable)
+  const freshEntry = store.get(key);
+  if (!freshEntry || now > freshEntry.resetAt) {
     store.set(key, { count: 1, resetAt: now + windowMs });
     return { allowed: true, remaining: maxRequests - 1, limit: maxRequests };
   }
 
-  memEntry.count++;
-  return { allowed: true, remaining: maxRequests - memEntry.count, limit: maxRequests };
+  freshEntry.count++;
+  if (freshEntry.count > maxRequests) {
+    const lastLogged = BLOCKED_KEY_CACHE.get(key) || 0;
+    if (now - lastLogged > 60_000) {
+      BLOCKED_KEY_CACHE.set(key, now);
+      logSecurityWarning("rate_limit_exceeded", `Rate limit hit for ${key} (in-memory fallback)`, {
+        metadata: { key, maxRequests, windowMs },
+      });
+    }
+    return { allowed: false, remaining: 0, limit: maxRequests };
+  }
+  return { allowed: true, remaining: maxRequests - freshEntry.count, limit: maxRequests };
 }
 
 /**
