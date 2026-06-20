@@ -6,10 +6,18 @@ import {
 } from "../../lib/abuse-decision-engine";
 import { submitReportAdmin } from "../../lib/submit-report.server";
 import { verifyTurnstileToken, isTurnstileConfigured } from "../../lib/turnstile";
+import { parseIpFromRequest } from "../../lib/geo-check";
+import { rateLimit } from "../../lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+    const ip = parseIpFromRequest(req.headers);
+    
+    // Rate limit: 5 reports per hour per IP
+    const { allowed } = await rateLimit(`submit-report:${ip}`, 5, 3600_000);
+    if (!allowed) {
+      return NextResponse.json({ error: "Too many reports. Please try again later." }, { status: 429 });
+    }
 
     const authHeader = req.headers.get("authorization");
     if (!authHeader?.startsWith("Bearer ")) {

@@ -12,10 +12,18 @@ import { verifyTurnstileToken, isTurnstileConfigured } from "../../lib/turnstile
 import { registerAction } from "../../lib/account-graph";
 import { detectScam } from "../../lib/scamdetection";
 import { requireVerifiedEmail } from "../../lib/require-verified";
+import { parseIpFromRequest } from "../../lib/geo-check";
+import { rateLimit } from "../../lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "unknown";
+    const ip = parseIpFromRequest(req.headers);
+    
+    // Rate limit: 30 messages per minute per user
+    const { allowed } = await rateLimit(`send-message:${ip}`, 30, 60_000);
+    if (!allowed) {
+      return NextResponse.json({ error: "Too many messages. Please slow down." }, { status: 429 });
+    }
 
     const authHeader = req.headers.get("authorization");
     if (!authHeader?.startsWith("Bearer ")) {
