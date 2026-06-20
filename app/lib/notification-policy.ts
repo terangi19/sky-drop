@@ -41,6 +41,22 @@ export async function assertNotificationAllowed(
     return { ok: false, reason: "Forbidden" };
   }
 
+  // Throttle outbid notifications: max 1 per hour per listing per user
+  if (type === "outbid" && input.listingId) {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const recentOutbidSnap = await db
+      .collection("notifications")
+      .where("type", "==", "outbid")
+      .where("targetEmail", "==", target)
+      .where("listingId", "==", input.listingId)
+      .where("createdAt", ">=", oneHourAgo)
+      .limit(1)
+      .get();
+    if (!recentOutbidSnap.empty) {
+      return { ok: false, reason: "Outbid notification throttled (max 1 per hour per listing)" };
+    }
+  }
+
   const listingId =
     typeof input.listingId === "string" && input.listingId.trim()
       ? input.listingId.trim()

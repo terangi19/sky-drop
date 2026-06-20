@@ -11,7 +11,7 @@ import { isAdminEmail } from "../../lib/admin-check";
 
 const ALL_TYPES = [
   "purchase_confirmation", "offer_accepted", "offer_declined",
-  "order_confirmed", "item_shipped", "delivered",
+  "item_shipped", "delivered",
   "message", "bid", "outbid", "auction_won",
 ] as const;
 
@@ -23,7 +23,6 @@ function typeLabel(t: string): string {
     purchase_confirmation: "🛒 Purchase confirmed (buyer)",
     offer_accepted: "✅ Offer accepted (buyer)",
     offer_declined: "❌ Offer declined (buyer)",
-    order_confirmed: "📦 Order confirmed (buyer)",
     item_shipped: "🚚 Item shipped (buyer)",
     delivered: "✅ Delivered (buyer)",
     message: "💬 New message",
