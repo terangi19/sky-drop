@@ -466,7 +466,7 @@ interface EmailContent {
 
 const STATUS_BADGES: Record<string, StatusBadge> = {
   purchase:            { text: "Payment Received", color: "sky" },
-  purchase_confirmation: { text: "Payment Held in Escrow", color: "sky" },
+  purchase_confirmation: { text: "Payment Confirmed", color: "sky" },
   order_confirmed:     { text: "Seller Confirmed ✓", color: "sky" },
   item_shipped:        { text: "In Transit", color: "sky" },
   delivered:           { text: "Awaiting Confirmation", color: "sky" },

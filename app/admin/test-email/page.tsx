@@ -10,13 +10,9 @@ import Background from "../../components/Background";
 import { isAdminEmail } from "../../lib/admin-check";
 
 const ALL_TYPES = [
-  "purchase", "bid", "outbid", "question", "offer",
-  "purchase_confirmation", "bid_confirmation",
-  "auction_won", "auction_lost", "offer_accepted", "offer_declined",
-  "order_confirmed", "item_shipped", "delivered", "service_completed",
-  "item_returned", "payment_released",
-  "message", "referral", "listing_rejected", "dispute_opened",
-  "job_application", "verification", "referral_reward",
+  "purchase_confirmation", "offer_accepted", "offer_declined",
+  "order_confirmed", "item_shipped", "delivered",
+  "message", "bid", "outbid", "auction_won",
 ] as const;
 
 const SAMPLE_LISTING = "PlayStation 5 — Like New";
@@ -24,30 +20,16 @@ const SAMPLE_TOTAL = 549;
 
 function typeLabel(t: string): string {
   const map: Record<string, string> = {
-    purchase: "🛒 Purchase (seller)",
-    bid: "🔨 Bid received (seller)",
-    outbid: "💸 Outbid (buyer)",
-    question: "❓ Question (seller)",
-    offer: "💬 Offer received (seller)",
     purchase_confirmation: "🛒 Purchase confirmed (buyer)",
-    bid_confirmation: "🔨 Bid placed (bidder)",
-    auction_won: "🎉 Auction won (winner)",
-    auction_lost: "😔 Auction lost (loser)",
     offer_accepted: "✅ Offer accepted (buyer)",
     offer_declined: "❌ Offer declined (buyer)",
     order_confirmed: "📦 Order confirmed (buyer)",
     item_shipped: "🚚 Item shipped (buyer)",
     delivered: "✅ Delivered (buyer)",
-    service_completed: "✅ Service completed (buyer)",
-    item_returned: "🔄 Item returned (buyer)",
-    payment_released: "💰 Payment released (seller)",
     message: "💬 New message",
-    referral: "🎁 Referral reward",
-    listing_rejected: "❌ Listing rejected (seller)",
-    dispute_opened: "⚖️ Dispute opened (admin)",
-    job_application: "💼 Job application (employer)",
-    verification: "🔐 Verification update",
-    referral_reward: "🎁 Referral reward earned",
+    bid: "🔨 Bid received (seller)",
+    outbid: "� Outbid (buyer)",
+    auction_won: "🎉 Auction won (winner)",
   };
   return map[t] || t;
 }
