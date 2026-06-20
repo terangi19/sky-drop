@@ -375,9 +375,18 @@ function MessagesPage() {
         if (cancelled) return;
         snap.docs.forEach((d) => {
           const data = d.data();
-          if (data.read !== false) return;
-          if ((data.listingId || "") !== (chatListingId || "")) return;
+          if (data.read === true) return;
           const fromEmail = data.fromEmail as string | undefined;
+          const type = data.type as string | undefined;
+          // Mark message-type notifications read if from the same user, regardless of listingId
+          if (type === "message" && fromEmail === chatUser) {
+            updateDoc(doc(db, "notifications", d.id), { read: true }).catch((e) =>
+              console.error("Failed to mark notification read:", e)
+            );
+            return;
+          }
+          // For other notification types, require listingId match
+          if ((data.listingId || "") !== (chatListingId || "")) return;
           if (fromEmail && fromEmail !== chatUser) return;
           updateDoc(doc(db, "notifications", d.id), { read: true }).catch((e) =>
             console.error("Failed to mark notification read:", e)
