@@ -1640,6 +1640,7 @@ function MessagesPage() {
                         }
                         // Order/confirmation card
                         if (msg.type === "order") {
+                          const isWantedListing = msg.listingType === "wanted";
                           const getStatusConfig = (status?: string) => {
                             const configs: Record<string, { icon: string; label: string; color: string; bg: string; border: string }> = {
                               paid: { icon: "💳", label: "Payment Confirmed", color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/20" },
@@ -1652,9 +1653,9 @@ function MessagesPage() {
                             };
                             return configs[status || "paid"] || configs.paid;
                           };
-                          const statusConfig = getStatusConfig(msg.orderStatus);
-                          const isCompleted = msg.orderStatus === "completed" || msg.orderStatus === "delivered";
-                          const isDisputed = msg.orderStatus === "disputed";
+                          const statusConfig = isWantedListing ? { icon: "📋", label: "Wanted", color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/20" } : getStatusConfig(msg.orderStatus);
+                          const isCompleted = !isWantedListing && (msg.orderStatus === "completed" || msg.orderStatus === "delivered");
+                          const isDisputed = !isWantedListing && msg.orderStatus === "disputed";
 
                           return (
                             <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
@@ -1700,7 +1701,19 @@ function MessagesPage() {
                                   </div>
 
                                   {/* Content: Progress Tracker OR Success State */}
-                                  {isCompleted ? (
+                                  {isWantedListing ? (
+                                    <div className="px-4 py-3 bg-[var(--card)] border-b border-[var(--border)]">
+                                      <div className="flex items-center gap-2">
+                                        <div className={`flex h-8 w-8 items-center justify-center rounded-full ${statusConfig.bg}`}>
+                                          <span className="text-lg">{statusConfig.icon}</span>
+                                        </div>
+                                        <div>
+                                          <p className="text-sm font-medium text-[var(--foreground)]">Wanted Listing</p>
+                                          <p className="text-[10px] text-[var(--muted)]">Sellers can message you about this request</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ) : isCompleted ? (
                                     // Success State for completed orders
                                     <div className="px-4 py-4 bg-emerald-500/5 border-b border-emerald-500/10">
                                       <div className="flex items-center gap-3">
