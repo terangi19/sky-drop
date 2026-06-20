@@ -53,7 +53,9 @@ export default function TurnstileWidget({ onToken, onExpire, className }: Turnst
         callback: onToken,
         "expired-callback": onExpire,
         theme: "dark",
-      });
+        size: "invisible",
+        appearance: "interaction-only",
+      } as any);
     }
 
     return () => {
@@ -65,5 +67,5 @@ export default function TurnstileWidget({ onToken, onExpire, className }: Turnst
 
   if (!getTurnstileSiteKey()) return null;
 
-  return <div ref={containerRef} className={className} />;
+  return <div ref={containerRef} className={className} style={{ position: "absolute", width: 0, height: 0, overflow: "hidden" }} />;
 }
