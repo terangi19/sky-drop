@@ -342,11 +342,20 @@ function MessagesPage() {
   // Mark as read
   useEffect(() => {
     if (!chatUser || !user?.email) return;
+    
+    console.log("[messages] Conversation opened", { chatUser, chatListingId });
+    
+    // Clear seen batch when conversation changes to allow re-marking
+    seenBatchRef.current.clear();
+    
     let cancelled = false;
     const relevant = messages.filter((m: any) =>
       messageInActiveConversation(m, user.email!, chatUser, chatListingId)
     );
-    const unreadMsgs = relevant.filter((m: any) => m.sender !== user.email && !m.read && !seenBatchRef.current.has(m.id));
+    const unreadMsgs = relevant.filter((m: any) => m.sender !== user.email && !m.read);
+    
+    console.log("[messages] Unread messages to mark", unreadMsgs.length);
+    
     for (const msg of unreadMsgs) {
       seenBatchRef.current.add(msg.id);
     }
@@ -360,6 +369,14 @@ function MessagesPage() {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({ messageIds }),
+        }).then((res) => {
+          if (res.ok) {
+            console.log("[messages] Marked messages read successfully", messageIds.length);
+            // Force unread map recalculation by triggering a state update
+            setUnreadMap(prev => ({ ...prev }));
+          } else {
+            console.error("[messages] Failed to mark messages read");
+          }
         }).catch((e) => console.error("Failed to batch mark messages read:", e));
       }).catch((e) => console.error("Failed to get token for mark-read:", e));
 
@@ -468,6 +485,7 @@ function MessagesPage() {
       map[key] = (map[key] || 0) + 1;
       raw[msg.id] = true;
     });
+    console.log("[messages] Unread map calculated", { totalUnread: Object.values(map).reduce((a, b) => a + b, 0), conversations: Object.keys(map).length });
     setConversationUnread(map);
     setUnreadMap(raw);
   }, [messages, user?.email, blockedUsers]);
@@ -1133,7 +1151,12 @@ function MessagesPage() {
                   const hasOffer = messages.some((m: any) => { const other = m.participants?.find((p: string) => p !== user?.email); return other === convo.participant && m.type === "offer"; });
                   return (
                     <button key={key}
-                      onClick={() => { setChatUser(convo.participant); setChatListingId(convo.listingId); if (isMobile) setMobileView("chat"); }}
+                      onClick={() => { 
+                        console.log("[messages] Conversation clicked", { participant: convo.participant, listingId: convo.listingId });
+                        setChatUser(convo.participant); 
+                        setChatListingId(convo.listingId); 
+                        if (isMobile) setMobileView("chat"); 
+                      }}
                       className={`flex w-full items-start gap-3 border-b border-[var(--card-border)] px-4 py-3.5 text-left transition-all duration-200 hover:bg-sky-500/5 ${chatUser === convo.participant && chatListingId === convo.listingId ? "bg-sky-500/10" : ""}`}>
                       {/* Thumbnail */}
                       <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-zinc-800 to-zinc-900 ring-2 ring-white/[0.04]">
