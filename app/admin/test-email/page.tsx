@@ -6,7 +6,6 @@ import { auth, onAuthStateChanged } from "../../lib/firebase";
 import { buildEmailHtml, notificationToEmail } from "../../lib/email";
 import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
-import { AwhinaUnderHeader } from "../../components/AwhinaOnlineBadge";
 
 import { isAdminEmail } from "../../lib/admin-check";
 
@@ -144,7 +143,6 @@ export default function TestEmailPage() {
       <Background /><Navbar />
       <section className="relative z-10 mx-auto max-w-6xl px-4 py-12">
         <h1 className="text-3xl font-black mb-2">📧 Email Template Preview</h1>
-        <AwhinaUnderHeader className="mt-2 mb-2" />
         <p className="text-sm text-zinc-500 mb-8">Preview and send test emails for all notification types.</p>
 
         <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8">

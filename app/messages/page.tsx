@@ -1640,56 +1640,134 @@ function MessagesPage() {
                         }
                         // Order/confirmation card
                         if (msg.type === "order") {
-                          const orderStatusBadge: Record<string, { label: string; color: string }> = {
-                            paid: { label: "Payment Confirmed", color: "text-sky-400 border-sky-500/20 bg-sky-500/10" },
-                            awaiting_seller: { label: "Awaiting Seller", color: "text-sky-400 border-sky-500/20 bg-sky-500/10" },
-                            pickup_arranged: { label: "Pickup Arranged", color: "text-sky-400 border-sky-500/20 bg-sky-500/10" },
-                            shipped: { label: "Shipped", color: "text-sky-400 border-sky-500/20 bg-sky-500/10" },
-                            delivered: { label: "Delivered", color: "text-sky-400 border-sky-500/20 bg-sky-500/10" },
-                            completed: { label: "Completed", color: "text-sky-400 border-sky-500/20 bg-sky-500/10" },
-                            disputed: { label: "Disputed", color: "text-red-400 border-red-500/20 bg-red-500/10" },
+                          const getStatusConfig = (status?: string) => {
+                            const configs: Record<string, { icon: string; label: string; color: string; bg: string; border: string }> = {
+                              paid: { icon: "💳", label: "Payment Confirmed", color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/20" },
+                              awaiting_seller: { icon: "⏳", label: "Awaiting Seller", color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/20" },
+                              pickup_arranged: { icon: "📍", label: "Pickup Arranged", color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/20" },
+                              shipped: { icon: "🚚", label: "Shipped", color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/20" },
+                              delivered: { icon: "✅", label: "Delivered", color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
+                              completed: { icon: "✨", label: "Completed", color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
+                              disputed: { icon: "⚠️", label: "Disputed", color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20" },
+                            };
+                            return configs[status || "paid"] || configs.paid;
                           };
-                          const badge = orderStatusBadge[msg.orderStatus || "paid"] || orderStatusBadge.paid;
+                          const statusConfig = getStatusConfig(msg.orderStatus);
+                          const progressSteps = [
+                            { key: "requested", label: "Requested" },
+                            { key: "paid", label: "Confirmed" },
+                            { key: "shipped", label: "Delivered" },
+                            { key: "completed", label: "Complete" },
+                          ];
+                          const currentStepIndex = progressSteps.findIndex(s => s.key === msg.orderStatus) || 0;
+
                           return (
                             <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
-                              <div className="w-[320px]">
-                                <div className={`rounded-2xl border ${badge.color}`}>
-                                  <div className="p-4">
-                                    <div className="flex items-center justify-between mb-3">
-                                      <div className="flex items-center gap-2">
-                                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-sky-500/20">
-                                          <svg className="h-3.5 w-3.5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              <div className="w-full max-w-md">
+                                <div className={`overflow-hidden rounded-2xl border ${statusConfig.border} bg-[var(--card)] shadow-lg hover:shadow-xl transition-shadow duration-200`}>
+                                  {/* Header */}
+                                  <div className="flex items-start gap-3 p-4 border-b border-white/[0.04]">
+                                    {/* Thumbnail */}
+                                    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-zinc-800/50 border border-white/[0.06]">
+                                      {msg.listingImage ? (
+                                        <img src={msg.listingImage} alt="" className="h-full w-full object-cover" />
+                                      ) : (
+                                        <div className="flex h-full w-full items-center justify-center text-zinc-600">
+                                          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                           </svg>
                                         </div>
-                                        <span className="text-[13px] font-bold text-[var(--foreground)]">Payment Confirmed</span>
-                                      </div>
-                                      <span className={`rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${badge.color}`}>
-                                        {badge.label}
-                                      </span>
+                                      )}
                                     </div>
-                                    <div className="rounded-xl bg-white/[0.04] p-3 space-y-2">
-                                      <div className="flex items-center justify-between">
-                                        <span className="text-[11px] text-[var(--muted)]">Item</span>
-                                        <span className="text-[12px] font-medium text-[var(--foreground)] truncate ml-2">{msg.listingTitle || "Listing"}</span>
+                                    {/* Title, Price, Seller */}
+                                    <div className="min-w-0 flex-1">
+                                      <h3 className="truncate text-sm font-bold text-[var(--foreground)]">{msg.listingTitle || "Listing"}</h3>
+                                      <div className="mt-1 flex items-center gap-2">
+                                        <span className="text-lg font-black text-sky-400">${msg.listingPrice || "—"}</span>
+                                        <span className="text-xs text-[var(--muted)]">·</span>
+                                        <span className="text-xs text-[var(--muted)]">{chatUser}</span>
                                       </div>
-                                      <div className="flex items-center justify-between">
-                                        <span className="text-[11px] text-[var(--muted)]">Amount</span>
-                                        <span className="text-[15px] font-black text-sky-400">${msg.listingPrice || "â€”"}</span>
+                                      <div className="mt-1 flex items-center gap-2 text-[10px] text-[var(--muted)]">
+                                        <span>ID: {(msg.purchaseId || msg.id).slice(-8).toUpperCase()}</span>
+                                        <span>·</span>
+                                        <span>{formatTime(msg.createdAt)}</span>
                                       </div>
-                                      <div className="flex items-center justify-between">
-                                        <span className="text-[11px] text-[var(--muted)]">Status</span>
-                                        <span className={`text-[11px] font-semibold ${badge.color.split(" ")[0]}`}>
-                                          {msg.orderStatus === "paid" ? "Awaiting seller response" : badge.label}
+                                    </div>
+                                    {/* Status Pill */}
+                                    <div className={`shrink-0 rounded-full border ${statusConfig.border} ${statusConfig.bg} px-3 py-1.5`}>
+                                      <div className="flex items-center gap-1.5">
+                                        <span>{statusConfig.icon}</span>
+                                        <span className={`text-[11px] font-bold uppercase tracking-wide ${statusConfig.color}`}>
+                                          {statusConfig.label}
                                         </span>
                                       </div>
                                     </div>
-                                    <div className="mt-3 flex items-center justify-between">
-                                      <span className="text-[9px] text-[var(--muted)]">{formatFullTime(msg.createdAt) || formatTime(msg.createdAt)}</span>
-                                      {msg.sender === "system" && (
-                                        <span className="text-[8px] uppercase tracking-wider text-[var(--muted)]">Auto-confirmed</span>
-                                      )}
+                                  </div>
+
+                                  {/* Compact Progress Tracker */}
+                                  <div className="px-4 py-3 bg-white/[0.02]">
+                                    <div className="flex items-center justify-between">
+                                      {progressSteps.map((step, index) => {
+                                        const isCompleted = index < currentStepIndex;
+                                        const isCurrent = index === currentStepIndex;
+                                        return (
+                                          <div key={step.key} className="flex items-center gap-1.5 flex-1">
+                                            <div className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold transition-all ${
+                                              isCompleted ? 'bg-emerald-500 text-white' :
+                                              isCurrent ? 'bg-sky-500 text-white ring-2 ring-sky-500/30' :
+                                              'bg-zinc-800 text-zinc-500'
+                                            }`}>
+                                              {isCompleted ? '✓' : index + 1}
+                                            </div>
+                                            <span className={`text-[10px] font-medium ${
+                                              isCompleted ? 'text-emerald-400' :
+                                              isCurrent ? 'text-sky-400' :
+                                              'text-zinc-600'
+                                            }`}>
+                                              {step.label}
+                                            </span>
+                                            {index < progressSteps.length - 1 && (
+                                              <div className={`flex-1 h-px mx-1.5 ${
+                                                isCompleted ? 'bg-emerald-500' : 'bg-zinc-800'
+                                              }`} />
+                                            )}
+                                          </div>
+                                        );
+                                      })}
                                     </div>
+                                  </div>
+
+                                  {/* Actions */}
+                                  <div className="flex items-center gap-2 p-3 border-t border-white/[0.04]">
+                                    <button
+                                      onClick={() => router.push(`/messages?user=${encodeURIComponent(chatUser)}&listing=${chatListingId}`)}
+                                      className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 py-2 text-[11px] font-bold text-sky-400 transition hover:bg-sky-500/20"
+                                    >
+                                      <span>💬</span>
+                                      <span>Message Seller</span>
+                                    </button>
+                                    <button
+                                      onClick={() => router.push(`/post/listing/${chatListingId}`)}
+                                      className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-[11px] font-bold text-[var(--foreground)] transition hover:border-sky-500/20 hover:bg-white/[0.06]"
+                                    >
+                                      <span>🔗</span>
+                                      <span>View Listing</span>
+                                    </button>
+                                    {msg.orderStatus === "delivered" || msg.orderStatus === "completed" ? (
+                                      <button
+                                        className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[11px] font-bold text-amber-400 transition hover:bg-amber-500/20"
+                                      >
+                                        <span>⭐</span>
+                                        <span>Review</span>
+                                      </button>
+                                    ) : (
+                                      <button
+                                        className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-[11px] font-bold text-red-400 transition hover:bg-red-500/20"
+                                      >
+                                        <span>⚠️</span>
+                                        <span>Dispute</span>
+                                      </button>
+                                    )}
                                   </div>
                                 </div>
                               </div>

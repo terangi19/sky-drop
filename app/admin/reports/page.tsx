@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
-import { AwhinaUnderHeader } from "../../components/AwhinaOnlineBadge";
 import ThemeToggle from "../../components/ThemeToggle";
 import ReportModerationCard, { type ModerationReport } from "../../components/ReportModerationCard";
 import AdminNav from "../../components/AdminNav";
@@ -54,8 +53,7 @@ function AdminReportsContent() {
     <section className="relative z-10 mx-auto max-w-4xl px-6 py-12">
       <div className="mb-8">
         <h1 className="text-4xl font-black text-white">Report Moderation</h1>
-        <AwhinaUnderHeader className="mt-2" />
-        <p className="mt-2 text-[var(--muted)]">
+        <p className="mt-4 text-[var(--muted)]">
           Review reports with full context — usernames, evidence links, and audited actions.
         </p>
       </div>

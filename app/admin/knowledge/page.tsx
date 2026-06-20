@@ -6,7 +6,6 @@ import { KNOWLEDGE_CATEGORIES, type KnowledgeDoc } from "../../lib/knowledge-bas
 import { User } from "firebase/auth";
 import { auth, onAuthStateChanged } from "../../lib/firebase";
 import { getFreshIdToken } from "../../lib/api-auth";
-import { AwhinaUnderHeader } from "../../components/AwhinaOnlineBadge";
 
 export default function AdminKnowledgePage() {
   const [user, setUser] = useState<User | null>(null);
@@ -75,7 +74,6 @@ export default function AdminKnowledgePage() {
 
       <section className="relative z-10 mx-auto max-w-5xl px-4 py-8 sm:px-6">
         <h1 className="text-3xl font-black tracking-tight mb-1 text-center">Knowledge Base</h1>
-        <AwhinaUnderHeader centered className="mt-2 mb-1" />
         <p className="text-sm text-[var(--muted)] mb-6 text-center">Manage what Āwhina knows about Sky Drop.</p>
 
         <div className="flex flex-wrap items-center gap-3 mb-6">
