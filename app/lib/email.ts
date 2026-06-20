@@ -73,7 +73,7 @@ function productCard(image?: string, title?: string, seller?: string): string {
   if (!image && !title) return "";
   return `
     <tr><td style="padding:0 0 24px;">
-      <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg, #1a1a1a, #141414);border-radius:16px;border:1px solid #2a2a2a;box-shadow:0 4px 20px rgba(0,0,0,0.4);">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg, rgba(56,189,248,0.05), rgba(129,140,248,0.03));border-radius:16px;border:1px solid rgba(56,189,248,0.15);box-shadow:0 4px 20px rgba(56,189,248,0.08);">
         <tr>
           ${image ? `
           <td width="90" style="padding:0;">
@@ -83,7 +83,7 @@ function productCard(image?: string, title?: string, seller?: string): string {
           </td>
           ` : ""}
           <td style="padding:18px 20px;vertical-align:middle;">
-            ${title ? `<span style="font-size:16px;font-weight:700;color:#f5f5f5;line-height:1.4;letter-spacing:-0.2px;">${title}</span>` : ""}
+            ${title ? `<span style="font-size:16px;font-weight:700;color:#f0f0f0;line-height:1.4;letter-spacing:-0.2px;">${title}</span>` : ""}
             ${seller ? `<br><span style="font-size:13px;color:#888;font-weight:500;margin-top:6px;display:inline-block;">Seller: ${seller}</span>` : ""}
           </td>
         </tr>
@@ -141,7 +141,7 @@ function summaryBlock(rows?: SummaryRow[], orderId?: string, date?: string): str
       <td style="padding:12px 0;font-size:14px;font-weight:${r.highlight ? "800" : "600"};color:${r.highlight ? "#38bdf8" : "#f0f0f0"};text-align:right;">${r.value}</td>
     </tr>
   `).join(`
-    <tr><td colspan="2" style="border-bottom:1px solid #252525;"></td></tr>
+    <tr><td colspan="2" style="border-bottom:1px solid rgba(56,189,248,0.1);"></td></tr>
   `) : "";
 
   const hasBoth = headerRows && rows;
@@ -151,12 +151,12 @@ function summaryBlock(rows?: SummaryRow[], orderId?: string, date?: string): str
       <table width="100%" cellpadding="0" cellspacing="0">
         <tr><td style="padding:0 0 14px;font-size:10px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:2px;">Order Details</td></tr>
       </table>
-      <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg, #1a1a1a, #141414);border-radius:16px;border:1px solid #2a2a2a;box-shadow:0 4px 20px rgba(0,0,0,0.4);">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg, rgba(56,189,248,0.05), rgba(129,140,248,0.03));border-radius:16px;border:1px solid rgba(56,189,248,0.15);box-shadow:0 4px 20px rgba(56,189,248,0.08);">
         <tr>
           <td style="padding:6px 24px;">
             <table width="100%" cellpadding="0" cellspacing="0">
               ${headerRows}
-              ${hasBoth ? `<tr><td colspan="2" style="border-bottom:1px solid #252525;padding:0;"></td></tr>` : ""}
+              ${hasBoth ? `<tr><td colspan="2" style="border-bottom:1px solid rgba(56,189,248,0.1);padding:0;"></td></tr>` : ""}
               ${rowHtml}
             </table>
           </td>
@@ -173,7 +173,7 @@ function whatHappensNextBlock(steps?: string[]): string {
       <td width="28" style="padding:8px 0;vertical-align:top;">
         <table cellpadding="0" cellspacing="0">
           <tr>
-            <td style="width:24px;height:24px;border-radius:12px;background:#1a3a4a;text-align:center;vertical-align:middle;">
+            <td style="width:24px;height:24px;border-radius:12px;background:linear-gradient(135deg, rgba(56,189,248,0.2), rgba(129,140,248,0.15));text-align:center;vertical-align:middle;border:1px solid rgba(56,189,248,0.2);">
               <span style="font-size:11px;font-weight:800;color:#38bdf8;">${i + 1}</span>
             </td>
           </tr>
@@ -187,7 +187,7 @@ function whatHappensNextBlock(steps?: string[]): string {
       <table width="100%" cellpadding="0" cellspacing="0">
         <tr><td style="padding:0 0 10px;font-size:10px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:1.5px;">What Happens Next</td></tr>
       </table>
-      <table width="100%" cellpadding="0" cellspacing="0" style="background:#111;border-radius:12px;border:1px solid #222;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg, rgba(56,189,248,0.03), rgba(129,140,248,0.02));border-radius:12px;border:1px solid rgba(56,189,248,0.1);">
         <tr><td style="padding:6px 18px;">
           <table width="100%" cellpadding="0" cellspacing="0">${items}</table>
         </td></tr>
@@ -219,8 +219,8 @@ function ctaBlock(ctas?: { label: string; url: string; primary?: boolean }[], la
         <td style="padding:4px;${large ? "display:block;width:100%;" : ""}">
           <table cellpadding="0" cellspacing="0" style="margin:0 auto;${large ? "width:100%;" : ""}">
             <tr>
-              <td style="border-radius:12px;background:linear-gradient(135deg, #38bdf8, #0ea5e9);box-shadow:0 4px 15px rgba(56,189,248,0.3);">
-                <a href="${cta.url}" style="display:inline-block;background:linear-gradient(135deg, #38bdf8, #0ea5e9);color:#0a0a0a;font-weight:800;font-size:${large ? "16" : "15"}px;padding:${large ? "18px 40px" : "16px 36px"};border-radius:12px;text-decoration:none;letter-spacing:0.3px;">${cta.label}</a>
+              <td style="border-radius:12px;background:linear-gradient(135deg, #38bdf8, #818cf8);box-shadow:0 4px 15px rgba(56,189,248,0.3);">
+                <a href="${cta.url}" style="display:inline-block;background:linear-gradient(135deg, #38bdf8, #818cf8);color:#0a0a0a;font-weight:800;font-size:${large ? "16" : "15"}px;padding:${large ? "18px 40px" : "16px 36px"};border-radius:12px;text-decoration:none;letter-spacing:0.3px;">${cta.label}</a>
               </td>
             </tr>
           </table>
@@ -230,7 +230,7 @@ function ctaBlock(ctas?: { label: string; url: string; primary?: boolean }[], la
       <td style="padding:4px;">
         <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
           <tr>
-            <td style="border-radius:12px;border:1px solid #3a3a3a;background:linear-gradient(135deg, #1a1a1a, #141414);">
+            <td style="border-radius:12px;border:1px solid rgba(56,189,248,0.2);background:linear-gradient(135deg, rgba(56,189,248,0.05), rgba(129,140,248,0.03));">
               <a href="${cta.url}" style="display:inline-block;color:#ccc;font-weight:600;font-size:14px;padding:16px 32px;border-radius:12px;text-decoration:none;">${cta.label}</a>
             </td>
           </tr>
@@ -253,15 +253,13 @@ function ctaBlock(ctas?: { label: string; url: string; primary?: boolean }[], la
 function trustSection(): string {
   return `
     <tr><td style="padding:0 0 8px;">
-      <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(239,68,68,0.04);border:1px solid rgba(239,68,68,0.1);border-radius:12px;padding:14px 18px;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(56,189,248,0.04);border:1px solid rgba(56,189,248,0.1);border-radius:12px;padding:14px 18px;">
         <tr>
-          <td style="font-size:11px;font-weight:700;color:#ef4444;letter-spacing:0.5px;">⚠️ Keep Your Purchase Protected</td>
+          <td style="font-size:11px;font-weight:700;color:#38bdf8;letter-spacing:0.5px;">🛡️ Keep Your Purchase Protected</td>
         </tr>
         <tr>
           <td style="padding:6px 0 0;font-size:12px;color:#888;line-height:1.6;">
-            You're free to communicate however you like — WhatsApp, text, email, in person. And you can pay however you choose — bank transfer, cash, crypto, whatever works for you.
-            <strong style="color:#bbb;">But if you do, Sky Drop cannot protect you.</strong> If you take communication or payment outside our platform, you lose all buyer protection and <strong style="color:#ef4444;">you will not be eligible for a refund or dispute resolution.</strong>
-            <br><br>All of this is at your own risk. <strong style="color:#ef4444;">You have been warned.</strong>
+            For the best protection, keep communication and payment on Sky Drop. If you take things elsewhere, Sky Drop will do its best to help with refunds, but our ability to assist is limited.
           </td>
         </tr>
       </table>
@@ -272,7 +270,7 @@ function trustSection(): string {
 function heroBlock(title: string, subtitle: string): string {
   return `
     <tr><td style="padding:0 0 18px;">
-      <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg, #0c1e2f, #0f2a40, #0a0a0a);border-radius:18px;border:1px solid #1a3a5a;box-shadow:0 8px 32px rgba(56,189,248,0.15),inset 0 1px 0 rgba(56,189,248,0.1);">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg, rgba(56,189,248,0.15), rgba(129,140,248,0.1));border-radius:18px;border:1px solid rgba(56,189,248,0.2);box-shadow:0 8px 32px rgba(56,189,248,0.15),inset 0 1px 0 rgba(255,255,255,0.05);">
         <tr>
           <td align="center" style="padding:28px 24px 24px;">
             <span style="font-size:28px;font-weight:900;color:#ffffff;line-height:1.2;letter-spacing:-0.5px;text-shadow:0 2px 4px rgba(0,0,0,0.3);">${title}</span>
@@ -289,7 +287,7 @@ function featureCardsBlock(): string {
   const cards = WELCOME_FEATURE_CARDS.map((c) => `
     <tr>
       <td style="padding:0 0 10px;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg, #141414, #0f0f0f);border-radius:12px;border:1px solid #2a2a2a;box-shadow:0 2px 8px rgba(0,0,0,0.3);">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg, rgba(56,189,248,0.05), rgba(129,140,248,0.03));border-radius:12px;border:1px solid rgba(56,189,248,0.15);box-shadow:0 2px 8px rgba(56,189,248,0.05);">
           <tr>
             <td width="40" align="center" style="padding:12px 0 12px 14px;font-size:20px;vertical-align:middle;">${c.icon}</td>
             <td style="padding:12px 14px 12px 10px;vertical-align:middle;">
@@ -332,8 +330,8 @@ function emailShell(baseUrl: string, body: string, compact = false): string {
   }
 </style>
 </head>
-<body style="margin:0;padding:0;background:#050505;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(180deg,#050505,#080808,#050505);">
+<body style="margin:0;padding:0;background:linear-gradient(135deg,#0a0a0a,#0f0f0f);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(180deg,#0a0a0a,#0f0f0f);">
     <tr>
       <td align="center" style="padding:${compact ? "24" : "32"}px 16px;">
         <table width="540" cellpadding="0" cellspacing="0" class="email-inner" style="max-width:540px;width:100%;position:relative;">
@@ -341,9 +339,42 @@ function emailShell(baseUrl: string, body: string, compact = false): string {
             <td align="center" style="padding:0 0 ${compact ? "12" : "18"}px;">
               <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
                 <tr>
-                  <td style="text-align:center;padding:${compact ? "10" : "12"}px 24px;border-radius:14px;background:linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.06);box-shadow:0 4px 20px rgba(0,0,0,0.3);">
-                    <span style="font-size:${compact ? "20" : "22"}px;font-weight:900;color:#e0e0e0;letter-spacing:2.5px;">SKY</span>
-                    <span style="font-size:${compact ? "20" : "22"}px;font-weight:900;color:#38bdf8;letter-spacing:2.5px;text-shadow:0 0 25px rgba(56,189,248,0.25);">DROP</span>
+                  <td style="text-align:center;padding:${compact ? "10" : "12"}px 24px;border-radius:14px;background:linear-gradient(135deg, rgba(56,189,248,0.08), rgba(129,140,248,0.05));border:1px solid rgba(56,189,248,0.15);box-shadow:0 4px 20px rgba(56,189,248,0.1),inset 0 1px 0 rgba(255,255,255,0.05);">
+                    <span style="font-size:${compact ? "18" : "20"}px;font-weight:700;color:#e0e0e0;letter-spacing:1px;">SKY</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" style="display:inline-block;margin:0 ${compact ? "4" : "5"}px;width:24px;height:24px;vertical-align:middle;">
+                      <defs>
+                        <linearGradient id="canopy" x1="24" y1="5" x2="24" y2="19" gradientUnits="userSpaceOnUse">
+                          <stop stop-color="#7dd3fc" stop-opacity="0.5"/>
+                          <stop offset="1" stop-color="#38bdf8" stop-opacity="0.2"/>
+                        </linearGradient>
+                        <linearGradient id="brand" x1="10" y1="6" x2="38" y2="40" gradientUnits="userSpaceOnUse">
+                          <stop stop-color="#38bdf8"/>
+                          <stop offset="1" stop-color="#818cf8"/>
+                        </linearGradient>
+                        <linearGradient id="box" x1="17" y1="28" x2="31" y2="38" gradientUnits="userSpaceOnUse">
+                          <stop stop-color="#38bdf8"/>
+                          <stop offset="1" stop-color="#6366f1"/>
+                        </linearGradient>
+                      </defs>
+                      <path d="M8 17.5 C8 8.5 15.5 4.5 24 4.5 C32.5 4.5 40 8.5 40 17.5" fill="url(#canopy)" stroke="url(#brand)" stroke-width="2" stroke-linecap="round"/>
+                      <circle cx="24" cy="7.5" r="1.6" fill="none" stroke="#7dd3fc" stroke-width="0.9" opacity="0.9"/>
+                      <path d="M24 8.5 L11 17" stroke="#7dd3fc" stroke-width="0.7" stroke-linecap="round" opacity="0.45"/>
+                      <path d="M24 8.5 L17 11.5" stroke="#7dd3fc" stroke-width="0.7" stroke-linecap="round" opacity="0.35"/>
+                      <path d="M24 8.5 L24 17" stroke="#7dd3fc" stroke-width="0.7" stroke-linecap="round" opacity="0.4"/>
+                      <path d="M24 8.5 L31 11.5" stroke="#7dd3fc" stroke-width="0.7" stroke-linecap="round" opacity="0.35"/>
+                      <path d="M24 8.5 L37 17" stroke="#7dd3fc" stroke-width="0.7" stroke-linecap="round" opacity="0.45"/>
+                      <line x1="11" y1="17.2" x2="18.5" y2="27.5" stroke="url(#brand)" stroke-width="1" stroke-linecap="round" opacity="0.75"/>
+                      <line x1="17" y1="17.2" x2="18.5" y2="27.5" stroke="url(#brand)" stroke-width="1" stroke-linecap="round" opacity="0.8"/>
+                      <line x1="24" y1="17.2" x2="24" y2="27.5" stroke="url(#brand)" stroke-width="1" stroke-linecap="round" opacity="0.85"/>
+                      <line x1="31" y1="17.2" x2="29.5" y2="27.5" stroke="url(#brand)" stroke-width="1" stroke-linecap="round" opacity="0.8"/>
+                      <line x1="37" y1="17.2" x2="29.5" y2="27.5" stroke="url(#brand)" stroke-width="1" stroke-linecap="round" opacity="0.75"/>
+                      <rect x="17" y="27.5" width="14" height="10" rx="1.8" fill="url(#box)"/>
+                      <path d="M17 30 H31" stroke="white" stroke-opacity="0.35" stroke-width="1" stroke-linecap="round"/>
+                      <path d="M26.5 31.5 L29 31.5 L29 29.5" stroke="white" stroke-opacity="0.5" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+                      <circle cx="24" cy="40" r="1.1" fill="#38bdf8" opacity="0.55"/>
+                      <circle cx="24" cy="42.2" r="0.75" fill="#a78bfa" opacity="0.4"/>
+                    </svg>
+                    <span style="font-size:${compact ? "18" : "20"}px;font-weight:700;color:#38bdf8;letter-spacing:1px;text-shadow:0 0 20px rgba(56,189,248,0.3);">DROP</span>
                   </td>
                 </tr>
               </table>
