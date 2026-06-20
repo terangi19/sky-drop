@@ -428,7 +428,26 @@ body {
   border-bottom-color: rgba(14, 165, 233, 0.2) !important;
   background: rgba(10, 22, 40, 0.97) !important;
 }
-:root.light header [class*="drop-shadow-"] { color: #ffffff !important; }
+:root.light header *,
+:root.light header * *,
+:root.light header button,
+:root.light header button *,
+:root.light header a,
+:root.light header a *,
+:root.light header span,
+:root.light header div,
+:root.light header svg {
+  color: #ffffff !important;
+}
+:root.light header input,
+:root.light header textarea {
+  color: #ffffff !important;
+}
+/* Logout button stays red */
+:root.light header button.text-red-400,
+:root.light header button.text-red-400 * {
+  color: #f87171 !important;
+}
 :root.light .from-white { --tw-gradient-from: #000000 !important; }
 :root.light .via-sky-200 { --tw-gradient-via: #000000 !important; }
 :root.light .to-white { --tw-gradient-to: #000000 !important; }
@@ -1408,4 +1427,22 @@ body {
 .awhina-life-pulse {
   background: radial-gradient(ellipse at center, rgba(56, 189, 248, 0.18), transparent 72%);
   animation: awhina-life-pulse 7s ease-in-out infinite;
+}
+
+/* FORCE ALL NAVBAR TEXT WHITE IN LIGHT MODE */
+:root.light header *,
+:root.light header button,
+:root.light header a,
+:root.light header span,
+:root.light header div,
+:root.light header svg,
+:root.light header p {
+  color: #ffffff !important;
+}
+/* Logout button exception - keep red */
+:root.light header button.text-red-400,
+:root.light header button.text-red-400 *,
+:root.light header .text-red-400,
+:root.light header .text-red-400 * {
+  color: #f87171 !important;
 }
