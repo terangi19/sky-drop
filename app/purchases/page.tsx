@@ -500,12 +500,7 @@ export default function PurchasesPage() {
                           <span className={`shrink-0 rounded-full border px-3 py-0.5 text-[10px] font-bold ${STATUS_STYLES[p.status] || "bg-zinc-800/50 text-zinc-500 border-zinc-700/50"}`}>
                             {STATUS_LABELS[p.status] || p.status}
                           </span>
-                          {!p.fundsReleased && p.status !== "cancelled" && p.status !== "refunded" && p.status !== "failed" && !(p as any).destinationCharge && (
-                            <span className="shrink-0 rounded-full border border-sky-500/15 bg-sky-500/[0.04] px-2.5 py-0.5 text-[9px] font-medium text-sky-400/70">
-                              🔒 Escrow
-                            </span>
-                          )}
-                          {(p as any).destinationCharge && !p.fundsReleased && p.status !== "completed" && (
+                                                    {(p as any).destinationCharge && !p.fundsReleased && p.status !== "completed" && (
                             <span className="shrink-0 rounded-full border border-sky-500/15 bg-sky-500/[0.04] px-2.5 py-0.5 text-[9px] font-medium text-sky-400/70">
                               💳 Paid to Seller
                             </span>

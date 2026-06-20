@@ -89,7 +89,6 @@ interface ProfileData {
   notifReports?: boolean;
   notifAccountReview?: boolean;
   notifPurchases?: boolean;
-  notifEscrow?: boolean;
   notifRefunds?: boolean;
   notifSecurity?: boolean;
   notifPlatform?: boolean;
@@ -190,7 +189,6 @@ export default function ProfilePage() {
   const [notifReports, setNotifReports] = useState(true);
   const [notifAccountReview, setNotifAccountReview] = useState(true);
   const [notifPurchases, setNotifPurchases] = useState(true);
-  const [notifEscrow, setNotifEscrow] = useState(true);
   const [notifRefunds, setNotifRefunds] = useState(true);
   const [notifSecurity, setNotifSecurity] = useState(true);
   const [notifPlatform, setNotifPlatform] = useState(true);
@@ -289,7 +287,6 @@ const tabs = [
     setNotifReports(data.notifReports !== false);
     setNotifAccountReview(data.notifAccountReview !== false);
     setNotifPurchases(data.notifPurchases !== false);
-    setNotifEscrow(data.notifEscrow !== false);
     setNotifRefunds(data.notifRefunds !== false);
     setNotifSecurity(data.notifSecurity !== false);
     setNotifPlatform(data.notifPlatform !== false);
