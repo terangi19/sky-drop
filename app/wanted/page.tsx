@@ -13,7 +13,9 @@ import {
   deleteDoc,
   doc,
   getDoc,
-  onSnapshot,
+  getDocs,
+  limit,
+  orderBy,
   query,
   setDoc,
   where,
@@ -92,15 +94,13 @@ export default function WantedPage() {
   }, []);
 
   useEffect(() => {
-    const q = query(collection(db, "listings"), where("type", "==", "wanted"));
-    const unsub = onSnapshot(q, (snap) => {
+    const q = query(collection(db, "listings"), where("type", "==", "wanted"), orderBy("createdAt", "desc"), limit(60));
+    getDocs(q).then((snap) => {
       const items: any[] = snap.docs
         .map((d) => ({ id: d.id, ...d.data() } as any))
         .filter((i: any) => isListingVisibleInMarketplace(i));
-      items.sort((a: any, b: any) => ((b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0)));
       setListings(items);
-    }, (err) => { console.error("Failed to load wanted listings:", err); });
-    return () => unsub();
+    }).catch((err) => { console.error("Failed to load wanted listings:", err); });
   }, []);
 
   function handleBuyNow(item: any) {

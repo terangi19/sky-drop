@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, onSnapshot, orderBy, query, where } from "firebase/firestore";
+import { collection, limit, onSnapshot, orderBy, query, where } from "firebase/firestore";
 import { db } from "./lib/firebase";
 import { Listing } from "../types/firestore";
 
@@ -15,6 +15,7 @@ export function useListings(sellerEmail?: string) {
       constraints.push(where("sellerEmail", "==", sellerEmail));
     }
     constraints.push(orderBy("createdAt", "desc"));
+    constraints.push(limit(sellerEmail ? 100 : 50));
 
     const listingsQuery = query(collection(db, "listings"), ...constraints);
 

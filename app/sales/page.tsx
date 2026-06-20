@@ -6,7 +6,7 @@ import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import BrowseAwhinaAssistantPanel from "../components/BrowseAwhinaAssistantPanel";
 import { User } from "firebase/auth";
-import { collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, where } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import { getFreshIdToken } from "../lib/api-auth";
 import { canSellerConfirmArrangeSale } from "../lib/arrange-purchase-status";
@@ -124,7 +124,7 @@ export default function SalesPage() {
 
   useEffect(() => {
     if (!user?.email) return;
-    const q = query(collection(db, "purchases"), where("sellerEmail", "==", user.email));
+    const q = query(collection(db, "purchases"), where("sellerEmail", "==", user.email), orderBy("createdAt", "desc"), limit(100));
     const unsub = onSnapshot(q, (snap) => {
       const items = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Purchase));
       items.sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));

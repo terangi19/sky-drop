@@ -13,7 +13,9 @@ import {
   deleteDoc,
   doc,
   getDoc,
-  onSnapshot,
+  getDocs,
+  limit,
+  orderBy,
   query,
   setDoc,
   where,
@@ -88,24 +90,13 @@ export default function ServicesPage() {
   }, []);
 
   useEffect(() => {
-    const q = query(collection(db, "listings"), where("type", "==", "service"));
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        const items: any[] = snap.docs
-          .map((d) => ({ id: d.id, ...d.data() } as any))
-          .filter((i: any) => isListingVisibleInMarketplace(i));
-        items.sort(
-          (a: any, b: any) =>
-            (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0)
-        );
-        setListings(items);
-      },
-      (err) => {
-        console.error("Failed to load service listings:", err);
-      }
-    );
-    return () => unsub();
+    const q = query(collection(db, "listings"), where("type", "==", "service"), orderBy("createdAt", "desc"), limit(60));
+    getDocs(q).then((snap) => {
+      const items: any[] = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() } as any))
+        .filter((i: any) => isListingVisibleInMarketplace(i));
+      setListings(items);
+    }).catch((err) => { console.error("Failed to load service listings:", err); });
   }, []);
 
   function handleBuyNow(item: any) {

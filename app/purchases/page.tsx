@@ -8,7 +8,7 @@ import BrowseAwhinaAssistantPanel from "../components/BrowseAwhinaAssistantPanel
 import { useAwhinaInsightEffect } from "../contexts/AwhinaPageInsightContext";
 import { buildPurchasesInsight } from "../lib/awhina-insights";
 import { User } from "firebase/auth";
-import { collection, doc, onSnapshot, orderBy, query, updateDoc, where } from "firebase/firestore";
+import { collection, doc, limit, onSnapshot, orderBy, query, updateDoc, where } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import { getFreshIdToken } from "../lib/api-auth";
 import { openDisputeRequest } from "../lib/open-dispute.client";
@@ -190,7 +190,7 @@ export default function PurchasesPage() {
 
   useEffect(() => {
     if (!user?.email) return;
-    const q = query(collection(db, "purchases"), where("buyerEmail", "==", user.email));
+    const q = query(collection(db, "purchases"), where("buyerEmail", "==", user.email), orderBy("createdAt", "desc"), limit(100));
     const unsub = onSnapshot(q, (snap) => {
       const items = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Purchase));
       items.sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));

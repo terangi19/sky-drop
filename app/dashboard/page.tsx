@@ -89,7 +89,7 @@ export default function DashboardPage() {
       (err) => { console.error("Dashboard listings error:", err); }
     );
     const unsub3 = onSnapshot(
-      query(collection(db, "reviews"), where("sellerEmail", "==", user.email)),
+      query(collection(db, "reviews"), where("sellerEmail", "==", user.email), limit(50)),
       (snap) => {
         const items = snap.docs.map((d) => ({ id: d.id, ...d.data() } as any));
         items.sort((a: any, b: any) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
