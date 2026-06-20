@@ -303,6 +303,19 @@ export default function ListingPage() {
       const data: any = { id: snap.id, ...snap.data() };
       setListing(data);
       setLoading(false);
+      // Update document meta for SEO/social sharing
+      try {
+        document.title = `${data.title} — $${data.price} on Sky Drop`;
+        const metaDesc = document.querySelector('meta[name="description"]') as HTMLMetaElement | null;
+        if (metaDesc) metaDesc.content = `${data.title} — ${data.description || "Buy and sell on Sky Drop"}`.slice(0, 160);
+        const ogTitle = document.querySelector('meta[property="og:title"]') as HTMLMetaElement | null;
+        if (ogTitle) ogTitle.content = `${data.title} — $${data.price} on Sky Drop`;
+        const ogDesc = document.querySelector('meta[property="og:description"]') as HTMLMetaElement | null;
+        if (ogDesc) ogDesc.content = data.description || "New Zealand's community marketplace";
+        const ogImage = document.querySelector('meta[property="og:image"]') as HTMLMetaElement | null;
+        const image = data.images?.[0] || data.imageUrl || data.image || "";
+        if (ogImage && image) ogImage.content = image;
+      } catch {}
     }, (parsed) => { console.error("[ListingPage] onSnapshot:", parsed); if (mounted) setLoading(false); });
 
     safeGetDoc(docRef).then((snap) => {
@@ -2096,6 +2109,19 @@ Service Status: 🟢 Inquiry Active`;
             </div>
           </div>
         </div>
+      )}
+
+      {showReportModal && listing && (
+        <ReportModal
+          isOpen={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          type="listing"
+          targetId={listingId}
+          targetUserId={listing.sellerId || ""}
+          targetUserEmail={listing.sellerEmail || ""}
+          reporterUserId={user?.uid || ""}
+          reporterUserEmail={user?.email || ""}
+        />
       )}
       </>
       )}

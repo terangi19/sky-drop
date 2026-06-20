@@ -3,6 +3,8 @@ import { verifyIdToken, isAdminInitialized } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import { acceptOfferWithAdmin, acceptOfferWithRest } from "../../lib/purchase-service";
 import type { AcceptOfferInput } from "../../lib/purchase-service";
+import { requireVerifiedEmail } from "../../lib/require-verified";
+import { requireKycApproved } from "../../lib/require-kyc";
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,6 +24,16 @@ export async function POST(req: NextRequest) {
       decodedToken = await verifyIdToken(idToken);
     } catch {
       return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
+    }
+
+    const verified = requireVerifiedEmail(decodedToken, "accepting offers");
+    if (verified.ok === false) {
+      return NextResponse.json({ error: verified.error }, { status: 403 });
+    }
+
+    const kyc = await requireKycApproved(decodedToken.uid);
+    if (kyc.ok === false) {
+      return NextResponse.json({ error: kyc.error }, { status: 403 });
     }
 
     const body = await req.json();

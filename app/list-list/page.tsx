@@ -147,6 +147,25 @@ export default function ListListPage() {
   const activeCount = listings.filter((i) => isListingVisibleInMarketplace(i)).length;
   const soldCount = listings.filter((i) => !isListingVisibleInMarketplace(i)).length;
 
+  const analytics = useMemo(() => {
+    const active = listings.filter((i) => isListingVisibleInMarketplace(i));
+    const totalViews = listings.reduce((sum, i) => sum + (Number(i.views) || 0), 0);
+    const totalBids = listings.reduce((sum, i) => sum + (Number(i.bidCount) || 0), 0);
+    const totalWatchlist = listings.reduce((sum, i) => sum + (Number(i.watchlistCount) || 0), 0);
+    const activeListings = active.length || 1;
+    const topListing = listings.length > 0
+      ? listings.reduce((best, i) => ((Number(i.views) || 0) > (Number(best.views) || 0) ? i : best), listings[0])
+      : null;
+    return {
+      totalViews,
+      totalBids,
+      totalWatchlist,
+      avgViews: Math.round(totalViews / activeListings),
+      engagementRate: active.length > 0 ? Math.round((totalWatchlist / active.length) * 100) : 0,
+      topListing,
+    };
+  }, [listings]);
+
   const awhinaInsight = useMemo(
     () =>
       buildListListInsight({
@@ -193,7 +212,40 @@ export default function ListListPage() {
                 <p className="text-lg font-black text-emerald-400">{soldCount}</p>
                 <p className="text-[10px] font-medium text-zinc-500">Sold</p>
               </div>
+              <div className="rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] px-4 py-2 text-center">
+                <p className="text-lg font-black text-violet-400">{analytics.totalViews}</p>
+                <p className="text-[10px] font-medium text-zinc-500">Views</p>
+              </div>
+              <div className="rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] px-4 py-2 text-center">
+                <p className="text-lg font-black text-amber-400">{analytics.totalWatchlist}</p>
+                <p className="text-[10px] font-medium text-zinc-500">Saves</p>
+              </div>
             </div>
+
+            {/* Analytics summary */}
+            {listings.length > 0 && (
+              <div className="w-full max-w-2xl rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-4 text-left">
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-xs font-black uppercase tracking-wider text-zinc-400">Performance snapshot</h3>
+                  <span className="text-[10px] text-zinc-500">{analytics.avgViews} avg views per active listing</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                    <p className="text-lg font-black text-white">{analytics.totalBids}</p>
+                    <p className="text-[10px] text-zinc-500">Bids / offers</p>
+                  </div>
+                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                    <p className="text-lg font-black text-white">{analytics.engagementRate}%</p>
+                    <p className="text-[10px] text-zinc-500">Save rate</p>
+                  </div>
+                  <div className="col-span-2 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                    <p className="text-[10px] text-zinc-500">Top listing</p>
+                    <p className="truncate text-sm font-bold text-white">{analytics.topListing?.title || "—"}</p>
+                    <p className="text-[10px] text-zinc-500">{analytics.topListing ? `${analytics.topListing.views || 0} views` : ""}</p>
+                  </div>
+                </div>
+              </div>
+            )}
             <Link href="/post/ai" className="relative inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2.5 text-sm font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-200 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:-translate-y-0.5 active:scale-[0.97] active:translate-y-0">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
               New Listing

@@ -74,6 +74,16 @@ const TYPE_META: Record<
     color: "bg-emerald-500/20 border-emerald-500/30",
     priority: "high",
   },
+  price_drop: {
+    icon: "\uD83D\uDCC9",
+    color: "bg-sky-500/20 border-sky-500/30",
+    priority: "high",
+  },
+  saved_search_match: {
+    icon: "\uD83D\uDD0D",
+    color: "bg-violet-500/20 border-violet-500/30",
+    priority: "medium",
+  },
 };
 
 export default function NotificationDropdown({

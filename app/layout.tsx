@@ -47,11 +47,18 @@ export const metadata: Metadata = {
     siteName: "Sky Drop",
     title: "Sky Drop — NZ Marketplace",
     description: "New Zealand's community marketplace. Buy and sell cars, tech, gaming, fashion and more.",
+    images: [{
+      url: "/og-image.svg",
+      width: 1200,
+      height: 630,
+      alt: "Sky Drop — NZ Marketplace",
+    }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Sky Drop — NZ Marketplace",
     description: "New Zealand's community marketplace.",
+    images: ["/og-image.svg"],
   },
   icons: [
     {

@@ -308,20 +308,35 @@ export default function Home() {
     return () => obs.disconnect();
   }, []);
 
-  function saveSearch() {
+  async function saveSearch() {
     if (!search && selectedCategory === "All") return;
     const label = search || selectedCategory;
     const newSearch = { query: search, category: selectedCategory, label };
     const updated = [newSearch, ...savedSearches.filter(s => s.label !== label)].slice(0, 6);
     setSavedSearches(updated);
     localStorage.setItem("savedSearches", JSON.stringify(updated));
+    if (user?.uid && user.email) {
+      try {
+        await setDoc(doc(db, "savedSearches", `${user.uid}_${label}`), {
+          ...newSearch,
+          userId: user.uid,
+          userEmail: user.email,
+          createdAt: new Date().toISOString(),
+        });
+      } catch (e) { console.error("Failed to save search to Firestore:", e); }
+    }
     showToast("Search saved!");
   }
 
-  function removeSavedSearch(label: string) {
+  async function removeSavedSearch(label: string) {
     const updated = savedSearches.filter(s => s.label !== label);
     setSavedSearches(updated);
     localStorage.setItem("savedSearches", JSON.stringify(updated));
+    if (user?.uid) {
+      try {
+        await deleteDoc(doc(db, "savedSearches", `${user.uid}_${label}`));
+      } catch (e) { console.error("Failed to remove saved search:", e); }
+    }
   }
 
   function applySavedSearch(saved: { query: string; category: string }) {
@@ -462,12 +477,14 @@ export default function Home() {
    }
 
   async function toggleWatchlist(item: any) {
+    const now = new Date().toISOString();
     if (user?.uid) {
       try {
         const snap = await getDoc(doc(db, "users", user.uid, "watchlist", item.id));
         if (snap.exists()) {
           const { deleteDoc } = await import("firebase/firestore");
           await deleteDoc(doc(db, "users", user.uid, "watchlist", item.id));
+          await deleteDoc(doc(db, "watchlist", `${user.uid}_${item.id}`));
         }
         } catch (e) { console.error(e); }
     }
@@ -483,11 +500,18 @@ export default function Home() {
       existing.unshift(item);
       localStorage.setItem("watchlist", JSON.stringify(existing));
       if (user?.uid) {
-        setDoc(doc(db, "users", user.uid, "watchlist", item.id), {
+        const watchData = {
           id: item.id, title: item.title, price: item.price, imageUrl: item.imageUrl || item.image || "",
           savedPrice: item.price,
-          savedAt: new Date().toISOString(),
-        }).catch((e) => { console.error("Watchlist save failed:", e); showToast("Failed to save to watchlist", "error"); });
+          savedAt: now,
+        };
+        setDoc(doc(db, "users", user.uid, "watchlist", item.id), watchData).catch((e) => { console.error("Watchlist save failed:", e); showToast("Failed to save to watchlist", "error"); });
+        setDoc(doc(db, "watchlist", `${user.uid}_${item.id}`), {
+          ...watchData,
+          userId: user.uid,
+          userEmail: user.email,
+          listingId: item.id,
+        }).catch((e) => { console.error("Watchlist index save failed:", e); });
       }
       showToast("Added to watchlist!");
     }

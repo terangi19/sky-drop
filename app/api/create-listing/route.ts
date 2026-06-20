@@ -11,6 +11,7 @@ import { sanitizeListingContent } from "../../lib/sanitize";
 import { kycRequiredBlockMessage } from "../../lib/seller-eligibility";
 import { verifyTurnstileToken, isTurnstileConfigured } from "../../lib/turnstile";
 import { trackAndCheckAbuse } from "../../lib/abuse-tracker";
+import { createSystemNotification } from "../../lib/system-notifications";
 
 const SCAM_KEYWORDS = [
   "bank transfer only", "crypto only", "pay outside", "whatsapp",
@@ -314,6 +315,38 @@ export async function POST(req: NextRequest) {
     const db = isAdminInitialized() ? getAdminDb() : getServerDb(idToken);
     const ref = await db.collection("listings").add(finalData);
     const listingId = ref.id;
+
+    // Saved-search alerts: notify users whose saved search matches this new listing
+    if (isAdminInitialized()) {
+      try {
+        const searches = await getAdminDb().collection("savedSearches").get();
+        const titleLower = sanitizedTitle.toLowerCase();
+        const categoryLower = String(category || "Other").toLowerCase();
+        for (const doc of searches.docs) {
+          const s = doc.data();
+          const userEmail = s.userEmail;
+          if (!userEmail || typeof userEmail !== "string") continue;
+          const q = String(s.query || "").toLowerCase();
+          const cat = String(s.category || "All").toLowerCase();
+          const matchesQuery = !q || titleLower.includes(q);
+          const matchesCategory = cat === "all" || categoryLower === cat;
+          if (matchesQuery && matchesCategory) {
+            await createSystemNotification({
+              targetEmail: userEmail,
+              fromEmail: token.email || "system@skydrop.nz",
+              type: "saved_search_match",
+              title: "New listing matches your search",
+              message: `New ${String(category || "listing")}: "${sanitizedTitle}"`,
+              listingId,
+              listingTitle: sanitizedTitle,
+              listingImage: String((finalData.images as string[])?.[0] || ""),
+            });
+          }
+        }
+      } catch (e) {
+        console.error("[create-listing] Saved-search notification failed:", e);
+      }
+    }
 
     return NextResponse.json({
       success: true,

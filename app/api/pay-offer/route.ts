@@ -4,6 +4,7 @@ import { getStripe } from "../../lib/stripe-server";
 import { rateLimit } from "../../lib/rate-limit";
 import { payOfferWithAdmin, payOfferWithRest } from "../../lib/purchase-service";
 import type { PayOfferInput } from "../../lib/purchase-service";
+import { requireVerifiedEmail } from "../../lib/require-verified";
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,6 +24,11 @@ export async function POST(req: NextRequest) {
       decodedToken = await verifyIdToken(idToken);
     } catch {
       return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
+    }
+
+    const verified = requireVerifiedEmail(decodedToken, "paying for an offer");
+    if (verified.ok === false) {
+      return NextResponse.json({ error: verified.error }, { status: 403 });
     }
 
     const body = await req.json();

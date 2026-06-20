@@ -64,7 +64,8 @@ service cloud.firestore {
         && (isSeller()
           || (resource.data.saleType is string && resource.data.saleType.matches('auction.*') && isAuctionBidUpdate())
           || isCheckoutReservationUpdate()
-          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views']));
+          || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views', 'updatedAt'])
+            && request.resource.data.views == resource.data.views + 1));
       allow delete: if request.auth != null && isSeller();
     }
 
@@ -310,7 +311,40 @@ service cloud.firestore {
       allow update: if false;
     }
 
-    // Bid history — immutable audit trail of every bid placed
+    // Watchlist saves — indexed per user for price-drop alerts
+    match /watchlist/{docId} {
+      allow read: if request.auth != null
+        && (resource.data.userId == request.auth.uid
+          || resource.data.userEmail == request.auth.token.email);
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.userEmail == request.auth.token.email;
+      allow update: if request.auth != null
+        && (resource.data.userId == request.auth.uid
+          || resource.data.userEmail == request.auth.token.email);
+      allow delete: if request.auth != null
+        && (resource.data.userId == request.auth.uid
+          || resource.data.userEmail == request.auth.token.email);
+    }
+
+    // Saved searches — per user, notify on new matching listings
+    match /savedSearches/{docId} {
+      allow read: if request.auth != null
+        && (resource.data.userId == request.auth.uid
+          || resource.data.userEmail == request.auth.token.email);
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.userEmail == request.auth.token.email;
+      allow update: if request.auth != null
+        && (resource.data.userId == request.auth.uid
+          || resource.data.userEmail == request.auth.token.email)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['query', 'category', 'minPrice', 'maxPrice', 'updatedAt']);
+      allow delete: if request.auth != null
+        && (resource.data.userId == request.auth.uid
+          || resource.data.userEmail == request.auth.token.email);
+    }
+
     match /bidHistory/{bidId} {
       allow read: if request.auth != null
         && (resource.data.bidderEmail == request.auth.token.email
@@ -373,6 +407,13 @@ service cloud.firestore {
     match /adminAuditLog/{entryId} {
       allow create: if request.auth != null && isAdmin();
       allow read: if request.auth != null && isAdmin();
+    }
+
+    match /messageFlags/{flagId} {
+      allow read: if request.auth != null && isAdmin();
+      allow create: if false; // server-only (Cloud Functions)
+      allow update: if request.auth != null && isAdmin();
+      allow delete: if request.auth != null && isAdmin();
     }
 
     match /skyAiConversations/{conversationId} {

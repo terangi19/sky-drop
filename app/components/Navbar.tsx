@@ -264,15 +264,18 @@ export default function Navbar() {
         const createdAt = n.createdAt as { toDate?: () => Date } | undefined;
 
         const title = (n.title as string) || "Purchase update";
+        const href = (nType === "price_drop" || nType === "saved_search_match")
+          ? `/post/listing/${encodeURIComponent(listingId || "")}`
+          : `/messages?user=${encodeURIComponent(fromEmail || "")}&listing=${encodeURIComponent(listingId || "")}`;
         purchaseItems.push({
           id: n.id as string,
           sender: title,
           senderEmail: fromEmail || "",
           listingTitle: (n.listingTitle as string) || "",
           listingId: listingId || "",
-          type: (n.type as string) || "purchase",
+          type: nType,
           time: createdAt?.toDate ? createdAt.toDate().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Now",
-          href: `/messages?user=${encodeURIComponent(fromEmail || "")}&listing=${encodeURIComponent(listingId || "")}`,
+          href,
           unread: true,
         });
       }

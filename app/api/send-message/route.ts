@@ -11,6 +11,7 @@ import {
 import { verifyTurnstileToken, isTurnstileConfigured } from "../../lib/turnstile";
 import { registerAction } from "../../lib/account-graph";
 import { detectScam } from "../../lib/scamdetection";
+import { requireVerifiedEmail } from "../../lib/require-verified";
 
 export async function POST(req: NextRequest) {
   try {
@@ -26,6 +27,11 @@ export async function POST(req: NextRequest) {
       decoded = await verifyIdToken(authHeader.slice(7));
     } catch {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+    }
+
+    const verified = requireVerifiedEmail(decoded, "sending messages");
+    if (verified.ok === false) {
+      return NextResponse.json({ error: verified.error }, { status: 403 });
     }
 
     const body = await req.json().catch(() => ({}));

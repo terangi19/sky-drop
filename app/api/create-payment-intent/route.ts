@@ -4,6 +4,7 @@ import { verifyIdToken } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import { validateSellerForCheckout } from "../../lib/seller-payments";
 import { isListingAvailableForPurchase } from "../../lib/listing-availability";
+import { requireVerifiedEmail } from "../../lib/require-verified";
 import {
   adminGetListing,
   adminGetSellerProfileByEmail,
@@ -85,6 +86,11 @@ export async function POST(req: NextRequest) {
       const message =
         authErr instanceof Error ? authErr.message : "Invalid or expired token";
       return NextResponse.json({ error: message }, { status: 401 });
+    }
+
+    const verified = requireVerifiedEmail(decodedToken, "making a purchase");
+    if (verified.ok === false) {
+      return NextResponse.json({ error: verified.error }, { status: 403 });
     }
 
     const body = await req.json();

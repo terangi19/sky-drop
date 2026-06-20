@@ -113,6 +113,7 @@ export default function WatchlistPage() {
     if (user?.uid) {
       try {
         await deleteDoc(doc(db, "users", user.uid, "watchlist", id));
+        await deleteDoc(doc(db, "watchlist", `${user.uid}_${id}`));
       } catch (err) {
         console.error("Failed to remove from Firestore:", err);
       }
@@ -123,6 +124,7 @@ export default function WatchlistPage() {
     for (const item of watchlist) {
       if (user?.uid) {
         try { await deleteDoc(doc(db, "users", user.uid, "watchlist", item.id)); } catch {}
+        try { await deleteDoc(doc(db, "watchlist", `${user.uid}_${item.id}`)); } catch {}
       }
     }
     setWatchlist([]);

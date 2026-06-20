@@ -7,6 +7,7 @@ import Background from "../../components/Background";
 import { AwhinaUnderHeader } from "../../components/AwhinaOnlineBadge";
 import ThemeToggle from "../../components/ThemeToggle";
 import ReportModerationCard, { type ModerationReport } from "../../components/ReportModerationCard";
+import AdminNav from "../../components/AdminNav";
 import { showToast } from "../../components/Toast";
 import { auth } from "../../lib/firebase";
 
@@ -58,6 +59,8 @@ function AdminReportsContent() {
           Review reports with full context — usernames, evidence links, and audited actions.
         </p>
       </div>
+
+      <AdminNav />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-amber-500/20 bg-[var(--card)] p-5 shadow-xl">

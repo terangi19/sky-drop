@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken, getServerDb, getAdminDb, isAdminInitialized } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import { sanitizeListingContent } from "../../lib/sanitize";
+import { createSystemNotification } from "../../lib/system-notifications";
 
 export async function PUT(req: NextRequest) {
   try {
@@ -104,6 +105,34 @@ export async function PUT(req: NextRequest) {
     updateData.imageUrl = (updateData.images as string[])?.[0] || (existingData.imageUrl as string) || "";
 
     await db.collection("listings").doc(listingId).update(updateData);
+
+    // Price-drop alert: notify watchers when price is lowered
+    if (isAdminInitialized() && price !== undefined && existingData.price !== String(price)) {
+      const oldPrice = Number(existingData.price) || 0;
+      const newPrice = Number(price) || 0;
+      if (newPrice > 0 && newPrice < oldPrice) {
+        try {
+          const watchers = await getAdminDb().collection("watchlist").where("listingId", "==", listingId).get();
+          for (const doc of watchers.docs) {
+            const data = doc.data();
+            const watcherEmail = data.userEmail;
+            if (!watcherEmail || typeof watcherEmail !== "string") continue;
+            await createSystemNotification({
+              targetEmail: watcherEmail,
+              fromEmail: token.email || existingData.sellerEmail as string || "system@skydrop.nz",
+              type: "price_drop",
+              title: "Price dropped",
+              message: `"${String(existingData.title || "A listing")}" dropped from $${oldPrice.toFixed(2)} to $${newPrice.toFixed(2)}`,
+              listingId,
+              listingTitle: String(existingData.title || ""),
+              listingImage: String((existingData.images as string[])?.[0] || existingData.imageUrl || ""),
+            });
+          }
+        } catch (e) {
+          console.error("[update-listing] Price-drop notification failed:", e);
+        }
+      }
+    }
 
     return NextResponse.json({ success: true, listingId });
   } catch (e: any) {

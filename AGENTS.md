@@ -26,6 +26,16 @@ These files contain intentional logic, carefully structured prompts, and extract
 
 ---
 
+## Git — Auto Sync
+
+Keep GitHub up to date when shipping changes:
+
+- **Agents:** After completing substantive work, commit and push to `main` without waiting for the user to ask (see `.cursor/rules/auto-git-sync.mdc`).
+- **Manual:** Run `npm run git:sync` from the repo root to commit and push all local changes.
+- **Never commit:** `.env`, secrets, or `tsconfig.tsbuildinfo`.
+
+---
+
 # SKY DROP – DO NOT BREAK AWHINA CHECKLIST
 
 ## Current Status

@@ -26,6 +26,7 @@ import {
   assertListingAvailableForPurchase,
   isListingAvailableForPurchase,
 } from "../../lib/listing-stock";
+import { requireVerifiedEmail } from "../../lib/require-verified";
 
 function makeConversationId(listingId: string, buyerEmail: string): string {
   return `conv_${listingId}_${buyerEmail.replace(/[@.]/g, "_")}`;
@@ -52,6 +53,11 @@ export async function POST(req: NextRequest) {
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Invalid or expired token";
       return NextResponse.json({ error: message }, { status: 401 });
+    }
+
+    const verified = requireVerifiedEmail(decoded, "arranging a purchase");
+    if (verified.ok === false) {
+      return NextResponse.json({ error: verified.error }, { status: 403 });
     }
 
     const buyerEmail = decoded.email || "";

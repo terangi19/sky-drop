@@ -1,0 +1,37 @@
+---
+description: Auto commit and push to GitHub after agent makes code changes
+alwaysApply: true
+---
+
+# Auto Git Sync
+
+The user wants GitHub kept up to date whenever there are meaningful changes.
+
+## When to commit and push
+
+After completing a task that modified tracked project files, **commit and push to `main`** without waiting for the user to ask — unless they said "don't push", "no commit", or the work is explicitly WIP/experimental.
+
+Skip auto-sync when:
+- Only `.cursorrules`, local editor settings, or `tsconfig.tsbuildinfo` changed
+- Changes likely contain secrets (`.env`, keys, credentials)
+- Build or tests failed and the fix is not done yet
+- User is on a feature branch and asked to keep work local
+
+## How to sync
+
+1. `git status` and `git diff --stat` — review what will ship
+2. Stage all relevant files; exclude `tsconfig.tsbuildinfo`, `.env*`, and accidental secrets
+3. Write a concise commit message (why, not a file list)
+4. `git commit` then `git push origin main` (or current branch with upstream)
+5. Tell the user the commit hash and one-line summary
+
+## Safety
+
+- Never force-push `main`
+- Never skip hooks unless the user explicitly requests it
+- Never amend unless user rules allow it
+- Warn if pushing files that look like secrets
+
+## Manual sync
+
+User can run `npm run git:sync` from the repo root anytime.

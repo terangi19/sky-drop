@@ -15,7 +15,8 @@
     "check:drift:win": "if (Get-ChildItem -Recurse -Filter \"*.tsx\",\"*.ts\" app/ | Select-String -Pattern \"addDoc\\(collection\\(db,\" -SimpleMatch -Quiet) { Write-Error \"FAIL: Client Firestore writes found (addDoc)\"; exit 1 }",
     "test": "playwright test",
     "test:ui": "playwright test --ui",
-    "test:headed": "playwright test --headed"
+    "test:headed": "playwright test --headed",
+    "git:sync": "powershell -ExecutionPolicy Bypass -File scripts/git-sync.ps1"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.55.0",

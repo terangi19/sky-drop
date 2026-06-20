@@ -191,6 +191,50 @@ describe("Firestore Security Rules", () => {
     });
   });
 
+  describe("Watchlist", () => {
+    it("user can create own watchlist entry", async () => {
+      const db = testEnv
+        .authenticatedContext("user1", { email: "user1@test.com" })
+        .firestore();
+      const ref = db.collection("watchlist").doc("save1");
+      await assertSucceeds(
+        ref.set({ userId: "user1", userEmail: "user1@test.com", listingId: "listing1", createdAt: new Date() })
+      );
+    });
+
+    it("cannot create watchlist entry for another user", async () => {
+      const db = testEnv
+        .authenticatedContext("user1", { email: "user1@test.com" })
+        .firestore();
+      const ref = db.collection("watchlist").doc("save2");
+      await assertFails(
+        ref.set({ userId: "user2", userEmail: "user2@test.com", listingId: "listing1", createdAt: new Date() })
+      );
+    });
+  });
+
+  describe("SavedSearches", () => {
+    it("user can create own saved search", async () => {
+      const db = testEnv
+        .authenticatedContext("user1", { email: "user1@test.com" })
+        .firestore();
+      const ref = db.collection("savedSearches").doc("search1");
+      await assertSucceeds(
+        ref.set({ userId: "user1", userEmail: "user1@test.com", query: "ps5", createdAt: new Date() })
+      );
+    });
+
+    it("cannot create saved search for another user", async () => {
+      const db = testEnv
+        .authenticatedContext("user1", { email: "user1@test.com" })
+        .firestore();
+      const ref = db.collection("savedSearches").doc("search2");
+      await assertFails(
+        ref.set({ userId: "user2", userEmail: "user2@test.com", query: "ps5", createdAt: new Date() })
+      );
+    });
+  });
+
   describe("Reviews", () => {
     it("only buyer of completed purchase can review", async () => {
       const admin = testEnv.unauthenticatedContext().firestore();
