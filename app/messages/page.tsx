@@ -1516,10 +1516,14 @@ function MessagesPage() {
                   {listingCard && !hasPurchaseInChat && !auctionEnded && isAuction && listingCard?.saleType !== "buy_now" && (
                     <div className="mb-3 overflow-hidden rounded-2xl border border-sky-500/10 bg-zinc-900/60 shadow-[0_0_20px_rgba(56,189,248,0.15)]">
                       <div className="flex items-center gap-3 p-3">
-                        {listingCard.image && (
+                        {listingCard.image ? (
                           <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl bg-zinc-800 shadow-md">
                             <img src={listingCard.image} alt={listingCard.title || ""} className="h-full w-full object-cover"
                               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                          </div>
+                        ) : (
+                          <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-600/10 shadow-md flex items-center justify-center">
+                            <span className="text-lg font-black text-sky-400">SD</span>
                           </div>
                         )}
                         <div className="min-w-0 flex-1">
@@ -1538,10 +1542,14 @@ function MessagesPage() {
                   {listingCard && !hasPurchaseInChat && !auctionEnded && listingCard?.saleType && listingCard?.saleType !== "buy_now" && !isAuction && (
                     <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-[var(--soft-card)]/80 shadow-[0_0_20px_rgba(56,189,248,0.15)]">
                       <div className="flex items-center gap-3 p-3">
-                        {listingCard.image && (
+                        {listingCard.image ? (
                           <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-zinc-800">
                             <img src={listingCard.image} alt={listingCard.title || ""} className="h-full w-full object-cover"
                               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                          </div>
+                        ) : (
+                          <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-sky-500/20 to-sky-600/10 flex items-center justify-center">
+                            <span className="text-sm font-black text-sky-400">SD</span>
                           </div>
                         )}
                         <div className="min-w-0 flex-1">
@@ -1559,10 +1567,14 @@ function MessagesPage() {
                   {listingCard && !hasPurchaseInChat && !auctionEnded && !listingCard?.saleType && !isAuction && (
                     <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-[var(--soft-card)]/80 shadow-[0_0_20px_rgba(56,189,248,0.15)]">
                       <div className="flex items-center gap-3 p-3">
-                        {listingCard.image && (
+                        {listingCard.image ? (
                           <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-zinc-800">
                             <img src={listingCard.image} alt={listingCard.title || ""} className="h-full w-full object-cover"
                               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                          </div>
+                        ) : (
+                          <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-sky-500/20 to-sky-600/10 flex items-center justify-center">
+                            <span className="text-sm font-black text-sky-400">SD</span>
                           </div>
                         )}
                         <div className="min-w-0 flex-1">
