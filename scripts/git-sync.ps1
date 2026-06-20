@@ -11,7 +11,7 @@ Set-Location $PSScriptRoot\..
 
 $status = git status --porcelain
 if (-not $status) {
-    Write-Host "Nothing to commit — working tree clean."
+    Write-Host "Nothing to commit - working tree clean."
     exit 0
 }
 

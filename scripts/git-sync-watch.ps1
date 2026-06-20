@@ -10,7 +10,7 @@ $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot\..
 
 $intervalSec = $IntervalMinutes * 60
-Write-Host "Git watch started — checking every ${IntervalMinutes} minute(s). Ctrl+C to stop."
+Write-Host "Git watch started - checking every ${IntervalMinutes} minute(s). Ctrl+C to stop."
 Write-Host "Repo: $(Get-Location)"
 Write-Host ""
 
@@ -19,14 +19,14 @@ while ($true) {
     $dirty = git status --porcelain
 
     if ($dirty) {
-        Write-Host "[$stamp] Changes detected — syncing..."
+        Write-Host "[$stamp] Changes detected - syncing..."
         try {
             & "$PSScriptRoot\git-sync.ps1"
         } catch {
             Write-Host "[$stamp] Sync failed: $_"
         }
     } else {
-        Write-Host "[$stamp] No changes — skipping."
+        Write-Host "[$stamp] No changes - skipping."
     }
 
     Start-Sleep -Seconds $intervalSec
