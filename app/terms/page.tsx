@@ -22,7 +22,7 @@ const sections = [
     id: "fraud",
     title: "Fraud & Illegal Activity",
     content:
-      "Sky Drop has a zero-tolerance policy for scams, fraud, and illegal activity. Any user found attempting to defraud, deceive, or harm other users — including chargeback fraud, fake listings, non-delivery after payment, or any other dishonest behaviour — will have their account permanently removed from the platform. Such accounts may also be referred to law enforcement agencies or other appropriate authorities where legally required. By using Sky Drop, you consent to your identity, transaction records, messages, and account information being shared in connection with investigations into fraudulent or illegal activity.",
+      "Sky Drop has a zero-tolerance policy for scams, fraud, and illegal activity. Any user found attempting to defraud, deceive, or harm other users — including chargeback fraud, fake listings, non-delivery after payment, or any other dishonest behaviour — will have their account permanently removed from the platform. Such accounts may also be referred to law enforcement agencies or other appropriate authorities where legally required. By using Sky Drop, you consent to your transaction records, messages, and account information being shared in connection with investigations into fraudulent or illegal activity.",
   },
   {
     id: "listings",

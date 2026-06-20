@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AWHINA_NAME } from "../lib/awhina-brand";
 import type { AwhinaInsight, AwhinaInsightAction } from "../lib/awhina-insights";
+import AwhinaAvatar from "./AwhinaAvatar";
 
 type Props = {
   intro: string[];
@@ -20,28 +21,6 @@ function lineClass(variant: TypedLine["variant"]): string {
   if (variant === "intro-primary") return "text-sm font-medium text-always-white";
   if (variant === "intro-secondary") return "text-[13px] text-always-white/90";
   return "text-[13px] text-always-white/90";
-}
-
-function AwhinaAvatar({ speaking }: { speaking: boolean }) {
-  return (
-    <div className="relative shrink-0">
-      <div
-        className={`absolute -inset-2 rounded-2xl bg-sky-400/15 blur-lg transition-opacity duration-500 ${
-          speaking ? "opacity-100" : "opacity-40"
-        }`}
-      />
-      <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl border border-sky-400/25 bg-gradient-to-b from-zinc-900 to-zinc-950 shadow-[0_0_24px_rgba(56,189,248,0.18)]">
-        <svg viewBox="0 0 64 64" className="h-7 w-7" aria-hidden>
-          <rect x="14" y="18" width="36" height="30" rx="8" fill="#0f172a" stroke="#38bdf8" strokeWidth="2" />
-          <line x1="32" y1="10" x2="32" y2="18" stroke="#38bdf8" strokeWidth="2" />
-          <circle cx="32" cy="8" r="3" fill="#38bdf8" className={speaking ? "animate-pulse" : ""} />
-          <circle cx="24" cy="30" r="4" fill="#0ea5e9" className={speaking ? "animate-pulse" : ""} />
-          <circle cx="40" cy="30" r="4" fill="#0ea5e9" className={speaking ? "animate-pulse" : ""} />
-          <rect x="22" y="40" width="20" height="4" rx="2" fill="#38bdf8" opacity="0.85" />
-        </svg>
-      </div>
-    </div>
-  );
 }
 
 function InsightAction({ action }: { action: AwhinaInsightAction }) {

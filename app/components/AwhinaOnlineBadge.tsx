@@ -25,11 +25,3 @@ export default function AwhinaOnlineBadge({ centered = false, className = "" }: 
     </div>
   );
 }
-
-/** Drop directly under a page h1 */
-export function AwhinaUnderHeader(_props?: {
-  centered?: boolean;
-  className?: string;
-}) {
-  return null;
-}
