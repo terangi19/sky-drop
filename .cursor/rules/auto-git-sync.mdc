@@ -36,6 +36,6 @@ Skip auto-sync when:
 
 User can run `npm run git:sync` from the repo root anytime.
 
-## Background watch (every 5 minutes)
+## Do not use background git watch
 
-User can run `npm run git:watch` to auto-commit and push when the working tree has changes (checks every 5 min). Only one instance should run at a time.
+The user disabled automatic timed push/deploy. **Never start `git:watch` or `git-sync-watch` scripts** unless they explicitly ask again.

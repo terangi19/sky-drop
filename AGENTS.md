@@ -31,8 +31,8 @@ These files contain intentional logic, carefully structured prompts, and extract
 Keep GitHub up to date when shipping changes:
 
 - **Agents:** After completing substantive work, commit and push to `main` without waiting for the user to ask (see `.cursor/rules/auto-git-sync.mdc`).
-- **Manual:** Run `npm run git:sync` from the repo root to commit and push all local changes.
-- **Auto every 5 min:** Run `npm run git:watch` in a terminal (syncs only when files changed).
+- **Manual:** Run `npm run git:sync` when you want to commit and push.
+- **Do not** run background auto-push watchers — they flood Vercel deploys.
 - **Never commit:** `.env`, secrets, or `tsconfig.tsbuildinfo`.
 
 ---
