@@ -6,6 +6,8 @@ type MessageUnreadFields = {
   listingId?: string | null;
   type?: string;
   createdAt?: { toMillis?: () => number; seconds?: number };
+  conversationId?: string;
+  lastReadBy?: Record<string, any>;
 };
 
 function normalizeListingId(id?: string | null): string | null {
@@ -33,10 +35,18 @@ export function messageInActiveConversation(
 /** Matches Navbar logic: incoming unread for the signed-in user. */
 export function isUnreadMessageForUser(
   msg: MessageUnreadFields,
-  userEmail: string | null | undefined
+  userEmail: string | null | undefined,
+  conversationReadAt?: number
 ): boolean {
   if (!userEmail || msg.read) return false;
   if (msg.sender === userEmail) return false;
+  
+  // If conversation-level read timestamp exists and is after message creation, mark as read
+  if (conversationReadAt) {
+    const msgTime = msg.createdAt?.toMillis?.() || (msg.createdAt?.seconds ?? 0) * 1000 || 0;
+    if (conversationReadAt > msgTime) return false;
+  }
+  
   const receiver = msg.receiver;
   if (receiver) return receiver === userEmail;
   return !!msg.sender && msg.sender !== userEmail;
@@ -56,15 +66,17 @@ export type UnreadConversationTarget = {
 export function listUnreadConversations(
   messages: MessageUnreadFields[],
   userEmail: string,
-  blockedUsers: string[] = []
+  blockedUsers: string[] = [],
+  conversationReadTimes: Record<string, number> = {}
 ): UnreadConversationTarget[] {
   const byKey = new Map<string, UnreadConversationTarget>();
 
   for (const msg of messages) {
-    if (!isUnreadMessageForUser(msg, userEmail)) continue;
     const other = msg.participants?.find((p) => p !== userEmail);
     if (!other || blockedUsers.includes(other)) continue;
     const key = conversationKey(other, msg.listingId);
+    const convReadAt = conversationReadTimes[key];
+    if (!isUnreadMessageForUser(msg, userEmail, convReadAt)) continue;
     const time = msg.createdAt?.toMillis?.() || (msg.createdAt?.seconds ?? 0) * 1000 || 0;
     const existing = byKey.get(key);
     if (!existing) {
@@ -86,9 +98,10 @@ export function listUnreadConversations(
 export function findLatestUnreadConversation(
   messages: MessageUnreadFields[],
   userEmail: string,
-  blockedUsers: string[] = []
+  blockedUsers: string[] = [],
+  conversationReadTimes: Record<string, number> = {}
 ): { participant: string; listingId: string | null } | null {
-  const first = listUnreadConversations(messages, userEmail, blockedUsers)[0];
+  const first = listUnreadConversations(messages, userEmail, blockedUsers, conversationReadTimes)[0];
   return first ? { participant: first.participant, listingId: first.listingId } : null;
 }
 
@@ -121,11 +134,12 @@ export function countInboxUnreadMessages(
   messages: Array<MessageUnreadFields & { id?: string }>,
   userEmail: string,
   blockedUsers: string[] = [],
-  dismissedIds: Iterable<string> = []
+  dismissedIds: Iterable<string> = [],
+  conversationReadTimes: Record<string, number> = {}
 ): number {
   const dismissed = new Set(dismissedIds);
   const eligible = messages.filter((m) => !m.id || !dismissed.has(m.id));
-  return listUnreadConversations(eligible, userEmail, blockedUsers).reduce(
+  return listUnreadConversations(eligible, userEmail, blockedUsers, conversationReadTimes).reduce(
     (sum, c) => sum + c.unreadCount,
     0
   );

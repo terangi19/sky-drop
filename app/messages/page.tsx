@@ -116,6 +116,7 @@ function MessagesPage() {
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
   const [unreadMap, setUnreadMap] = useState<Record<string, boolean>>({});
   const [conversationUnread, setConversationUnread] = useState<Record<string, number>>({});
+  const [conversationReadTimes, setConversationReadTimes] = useState<Record<string, number>>({});
   const [listingCard, setListingCard] = useState<any>(null);
   const seenBatchRef = useRef<Set<string>>(new Set());
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -369,11 +370,15 @@ function MessagesPage() {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({ messageIds }),
-        }).then((res) => {
+        }).then(async (res) => {
           if (res.ok) {
             console.log("[messages] Marked messages read successfully", messageIds.length);
-            // Force unread map recalculation by triggering a state update
-            setUnreadMap(prev => ({ ...prev }));
+            const result = await res.json();
+            console.log("[messages] Marked count:", result.marked);
+            // Immediately update local messages state for instant UI feedback
+            setMessages(prev => prev.map(m => 
+              messageIds.includes(m.id) ? { ...m, read: true } : m
+            ));
           } else {
             console.error("[messages] Failed to mark messages read");
           }

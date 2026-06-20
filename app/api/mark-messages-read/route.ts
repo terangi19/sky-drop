@@ -84,6 +84,19 @@ export async function POST(req: NextRequest) {
             readAt: FieldValue.serverTimestamp(),
           });
           marked += 1;
+          
+          // Update conversation-level read status
+          const conversationId = data.conversationId;
+          if (conversationId && typeof conversationId === "string") {
+            try {
+              const convRef = db.collection("conversations").doc(conversationId);
+              await convRef.set({
+                [`lastReadBy.${userEmail}`]: FieldValue.serverTimestamp(),
+              }, { merge: true });
+            } catch {
+              // Conversation update is best-effort
+            }
+          }
         } catch {
           failures.push(messageId);
         }
