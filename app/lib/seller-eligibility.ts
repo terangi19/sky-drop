@@ -209,11 +209,10 @@ export function getListingBlockReason(opts: {
 
   }
 
-  if (!opts.kycApproved) {
-
-    return kycRequiredBlockMessage();
-
-  }
+  // KYC requirement paused - users can post without verification
+  // if (!opts.kycApproved) {
+  //   return kycRequiredBlockMessage();
+  // }
 
   return null;
 

@@ -188,9 +188,10 @@ export async function POST(req: NextRequest) {
         if (sellerProfile.restricted) {
           return NextResponse.json({ error: "Your account is restricted. Contact support." }, { status: 403 });
         }
-        if (!kycApproved) {
-          return NextResponse.json({ error: kycRequiredBlockMessage() }, { status: 403 });
-        }
+        // KYC requirement paused - users can post without verification
+        // if (!kycApproved) {
+        //   return NextResponse.json({ error: kycRequiredBlockMessage() }, { status: 403 });
+        // }
       } else {
         return NextResponse.json({ error: "Please complete your profile before creating a listing." }, { status: 403 });
       }
@@ -209,21 +210,20 @@ export async function POST(req: NextRequest) {
         .where("status", "==", "live")
         .get();
 
-      const maxListings = kycApproved ? 9999 : 5;
+      // KYC requirement paused - unlimited listings for all users
+      const maxListings = 9999;
       if (activeListings.size >= maxListings) {
         return NextResponse.json({
-          error: kycApproved
-            ? `You can only have ${maxListings} active listings.`
-            : `You can only have ${maxListings} active listings. Complete KYC to unlock unlimited listings.`,
+          error: `You can only have ${maxListings} active listings.`,
         }, { status: 400 });
       }
 
-      // Price cap check
-      if (numericPrice > 0 && !kycApproved && numericPrice > 600) {
-        return NextResponse.json({
-          error: "The maximum price for non-KYC sellers is $600. Verify your ID (KYC) to unlock unlimited pricing.",
-        }, { status: 400 });
-      }
+      // KYC requirement paused - no price cap
+      // if (numericPrice > 0 && !kycApproved && numericPrice > 600) {
+      //   return NextResponse.json({
+      //     error: "The maximum price for non-KYC sellers is $600. Verify your ID (KYC) to unlock unlimited pricing.",
+      //   }, { status: 400 });
+      // }
     }
 
     let status: string;
