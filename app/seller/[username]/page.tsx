@@ -190,18 +190,16 @@ export default function SellerPage() {
   // Follower count from profile
   useEffect(() => {
     if (!sellerUid) { setFollowerCount(0); return; }
-    const unsub = onSnapshot(doc(db, "profiles", sellerUid), (d) => {
-      if (d.exists()) setFollowerCount(d.data().followers ?? 0);
+    getDoc(doc(db, "profiles", sellerUid)).then((d) => {
+      if (d.exists()) setFollowerCount(d.data()?.followers ?? 0);
     });
-    return () => unsub();
   }, [sellerUid]);
 
   // Count reports for this seller
   useEffect(() => {
     if (!profile?.email) return;
-    const q = query(collection(db, "reports"), where("reportedUserEmail", "==", profile.email), where("status", "==", "pending"));
-    const unsub = onSnapshot(q, (snap) => setSellerReportsCount(snap.size));
-    return () => unsub();
+    const q = query(collection(db, "reports"), where("reportedUserEmail", "==", profile.email), where("status", "==", "pending"), limit(50));
+    getDocs(q).then((snap) => setSellerReportsCount(snap.size));
   }, [profile?.email]);
 
   useEffect(() => {
@@ -211,26 +209,24 @@ export default function SellerPage() {
     }
     const q = query(
       collection(db, "purchases"),
-      where("sellerEmail", "==", profile.email)
+      where("sellerEmail", "==", profile.email),
+      limit(200)
     );
-    const unsub = onSnapshot(q, (snap) => {
+    getDocs(q).then((snap) => {
       setSellerPurchases(
         snap.docs.map((d) => d.data() as { status?: string; paymentType?: string })
       );
     });
-    return () => unsub();
   }, [profile?.email]);
 
   // Reviews
   useEffect(() => {
     if (!profile?.email) return;
-    const q = query(collection(db, "reviews"), where("sellerEmail", "==", profile.email));
-    const unsub = onSnapshot(q, (snap) => {
+    const q = query(collection(db, "reviews"), where("sellerEmail", "==", profile.email), orderBy("createdAt", "desc"), limit(50));
+    getDocs(q).then((snap) => {
       const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Review);
-      items.sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
       setReviews(items);
     });
-    return () => unsub();
   }, [profile?.email]);
 
   // Follow/unfollow
