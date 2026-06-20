@@ -909,6 +909,23 @@ export default function AIPostPage() {
         }),
       };
 
+      // Check Stripe Connect BEFORE creating listing
+      if (paymentType === "stripe") {
+        try {
+          const profileSnap = await getDoc(doc(db, "profiles", user.uid));
+          if (profileSnap.exists()) {
+            const profileData = profileSnap.data();
+            if (!profileData.stripeAccountId) {
+              showToast("⚠️ Connect Stripe to receive payouts before creating listings", "error");
+              setTimeout(() => { window.location.href = "/profile?tab=payouts"; }, 1500);
+              setLoading(false);
+              setConfirmedSubmit(false);
+              return;
+            }
+          }
+        } catch (e) { console.error("Stripe check error:", e); }
+      }
+
       let newId = editId;
       if (editId) {
         const token = await auth.currentUser?.getIdToken();
@@ -951,32 +968,17 @@ export default function AIPostPage() {
           trackListingCreated(user.uid, title);
         }
         showToast("Listing created!", "success");
-        // Check Stripe Connect — prompt if not set up
-        if (paymentType === "stripe") {
-          try {
-            const profileSnap = await getDoc(doc(db, "profiles", user.uid));
-            if (profileSnap.exists()) {
-              const profileData = profileSnap.data();
-              if (!profileData.stripeAccountId) {
-                showToast("⚠️ Connect Stripe to receive payouts — go to Profile", "info");
-                setTimeout(() => { window.location.href = "/profile?tab=payouts"; }, 1500);
-                setLoading(false);
-                setConfirmedSubmit(false);
-                return;
-              }
-            }
-          } catch (e) { console.error("Stripe check error:", e); }
-        }
       }
       setImagePreviews([]); setImageFiles([]); setExistingImages([]);
-      setTitle(""); setDescription(""); setPrice("");
-      setLocation(""); setCategory("Other"); setDetected("");
-      setPickupAvailable(false); setShippingAvailable(false);
-      setPickupArea(""); setShippingFee(""); setFreeShipping(false);
-      setStockQuantity("");
-      setSaleType("buy_now"); setBuyNowPrice(""); setStartingBid(""); setReservePrice(""); setAuctionDuration("3"); setExpiresIn("14");
-      setPaymentType("contact");
-      setListingType("physical"); setDigitalFileURL(""); setDigitalFileName(""); setDigitalStoragePath(""); setServiceDuration(""); setRentalSubType("equipment"); setRentalPriceWeekly(""); setRentalPriceMonthly(""); setRentalDeposit(""); setRentalBedrooms(""); setRentalBathrooms(""); setRentalParkingSpaces(""); setRentalFurnishedStatus("Unfurnished"); setRentalPetsPolicy("No Pets"); setRentalAvailableDate(""); setRentalMinTenancy("Flexible"); setRentalFeatures([]); setEventDate(""); setEventTime(""); setVenue(""); setTicketQuantity(""); setTicketType("General Admission"); setVehicleMake(""); setVehicleModel(""); setVehicleYear(""); setVehicleOdometer(""); setVehicleBodyType("SUV"); setVehicleFuelType("Petrol"); setVehicleTransmission("Automatic"); setVehicleColour(""); setJobCompany(""); setJobEmploymentType("Full-time"); setSalaryMin(""); setSalaryMax(""); setPropertyType("House"); setBedrooms(""); setBathrooms(""); setLandArea(""); setFloorArea(""); setParking(""); setAcceptOffers(false); setCondition("New");
+      // Preserve form state for easier duplicate listings
+      // setTitle(""); setDescription(""); setPrice("");
+      // setLocation(""); setCategory("Other"); setDetected("");
+      // setPickupAvailable(false); setShippingAvailable(false);
+      // setPickupArea(""); setShippingFee(""); setFreeShipping(false);
+      // setStockQuantity("");
+      // setSaleType("buy_now"); setBuyNowPrice(""); setStartingBid(""); setReservePrice(""); setAuctionDuration("3"); setExpiresIn("14");
+      // setPaymentType("contact");
+      // setListingType("physical"); setDigitalFileURL(""); setDigitalFileName(""); setDigitalStoragePath(""); setServiceDuration(""); setRentalSubType("equipment"); setRentalPriceWeekly(""); setRentalPriceMonthly(""); setRentalDeposit(""); setRentalBedrooms(""); setRentalBathrooms(""); setRentalParkingSpaces(""); setRentalFurnishedStatus("Unfurnished"); setRentalPetsPolicy("No Pets"); setRentalAvailableDate(""); setRentalMinTenancy("Flexible"); setRentalFeatures([]); setEventDate(""); setEventTime(""); setVenue(""); setTicketQuantity(""); setTicketType("General Admission"); setVehicleMake(""); setVehicleModel(""); setVehicleYear(""); setVehicleOdometer(""); setVehicleBodyType("SUV"); setVehicleFuelType("Petrol"); setVehicleTransmission("Automatic"); setVehicleColour(""); setJobCompany(""); setJobEmploymentType("Full-time"); setSalaryMin(""); setSalaryMax(""); setPropertyType("House"); setBedrooms(""); setBathrooms(""); setLandArea(""); setFloorArea(""); setParking(""); setAcceptOffers(false); setCondition("New");
       setEditId(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
       if (listingType === "service") window.location.href = "/services";
@@ -990,7 +992,20 @@ export default function AIPostPage() {
       else window.location.href = `/post/listing/${newId}`;
     } catch (err) {
       console.error("Listing upload error:", err);
-      showToast("Failed to create listing — check console for details", "error");
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
+      
+      // Provide specific error messages based on common issues
+      if (errorMessage.includes("network") || errorMessage.includes("fetch")) {
+        showToast("Network error - please check your connection and try again", "error");
+      } else if (errorMessage.includes("permission") || errorMessage.includes("unauthorized")) {
+        showToast("You don't have permission to create this listing", "error");
+      } else if (errorMessage.includes("storage") || errorMessage.includes("upload")) {
+        showToast("Failed to upload images - please try again", "error");
+      } else if (errorMessage.includes("validation") || errorMessage.includes("required")) {
+        showToast("Please fill in all required fields", "error");
+      } else {
+        showToast(`Failed to create listing: ${errorMessage}`, "error");
+      }
     }
     setLoading(false);
     setConfirmedSubmit(false);

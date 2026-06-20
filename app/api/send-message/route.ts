@@ -179,8 +179,9 @@ export async function POST(req: NextRequest) {
           updatedAt: FieldValue.serverTimestamp(),
           lastMessage: text.slice(0, 100),
         });
-      } catch {
-        console.warn("[send-message] conversation update failed (conversationId may not exist):", conversationId);
+      } catch (convError) {
+        console.error("[send-message] conversation update failed:", convError);
+        // Continue anyway - message was saved successfully
       }
     }
 

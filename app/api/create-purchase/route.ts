@@ -185,7 +185,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "Purchase could not be recorded. FIREBASE_SERVICE_ACCOUNT must be set on the server.",
+            "Purchase could not be recorded. Server configuration issue - please contact support.",
         },
         { status: 503 }
       );
@@ -201,12 +201,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "This item was just marked sold. If you were charged, check Purchases or Messages — your order may already exist.",
+            "This item was just sold. If you were charged, check Purchases - your order may already exist.",
         },
         { status: 409 }
       );
     }
 
-    return NextResponse.json({ error: msg }, { status: 500 });
+    if (msg.includes("no longer available") || msg.includes("sold")) {
+      return NextResponse.json(
+        { error: "This item is no longer available for purchase" },
+        { status: 400 }
+      );
+    }
+
+    if (msg.includes("seller") || msg.includes("Stripe")) {
+      return NextResponse.json(
+        { error: "Seller payment setup issue - please contact the seller or try again later" },
+        { status: 400 }
+      );
+    }
+
+    if (msg.includes("permission") || msg.includes("unauthorized")) {
+      return NextResponse.json(
+        { error: "You don't have permission to complete this purchase" },
+        { status: 403 }
+      );
+    }
+
+    return NextResponse.json({ error: `Purchase failed: ${msg}` }, { status: 500 });
   }
 }

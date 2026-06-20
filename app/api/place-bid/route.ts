@@ -176,7 +176,7 @@ export async function POST(req: NextRequest) {
 
       return {
         currentBid: changes.currentBid !== undefined ? changes.currentBid : currentBid,
-        outbidUser: changes.highestBidder === decoded.email && highestBidder && highestBidder !== decoded.email ? highestBidder : null,
+        outbidUser: changes.highestBidder === decoded.email && highestBidder && highestBidder !== decoded.email ? null : (changes.highestBidder !== decoded.email && highestBidder === decoded.email ? highestBidder : null),
         newMaxBid: changes.currentMaxBid !== undefined ? changes.currentMaxBid : undefined,
       };
     });
