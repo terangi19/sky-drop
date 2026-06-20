@@ -295,7 +295,23 @@ export async function POST(req: NextRequest) {
     delete finalData.expiresInDays;
     delete finalData.listingType;
 
-    const db = getServerDb(idToken);
+    // Strip undefined — Firestore rejects undefined field values
+    for (const key of Object.keys(finalData)) {
+      if (finalData[key] === undefined) delete finalData[key];
+    }
+
+    if (!isAdminInitialized()) {
+      const isProd = process.env.NODE_ENV === "production" || !!process.env.VERCEL;
+      if (isProd) {
+        console.error("[create-listing] FIREBASE_SERVICE_ACCOUNT missing in production");
+        return NextResponse.json(
+          { error: "Listing service is temporarily unavailable. Please try again shortly." },
+          { status: 503 }
+        );
+      }
+    }
+
+    const db = isAdminInitialized() ? getAdminDb() : getServerDb(idToken);
     const ref = await db.collection("listings").add(finalData);
     const listingId = ref.id;
 

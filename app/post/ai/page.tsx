@@ -612,11 +612,25 @@ export default function AIPostPage() {
     }
   };
 
+  const MAX_IMAGE_SIZE_MB = 10;
+  const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
+  const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []).slice(0, 8);
     if (files.length === 0) return;
 
     for (const file of files) {
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        showToast(`"${file.name}" is not a supported image. Use JPG, PNG, WebP, or GIF.`, "error");
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+      if (file.size > MAX_IMAGE_SIZE_BYTES) {
+        showToast(`"${file.name}" is too large. Max image size is ${MAX_IMAGE_SIZE_MB}MB.`, "error");
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
       const nsfwResult = await checkImage(file);
       if (!nsfwResult.safe) {
         showToast(`"${file.name}" flagged: ${nsfwResult.reason}. Remove it and try again.`, "error");

@@ -486,10 +486,27 @@ function MessagesPage() {
         await setDoc(doc(db, "typing", `${user.email}_${chatUser}_${chatListingId || "general"}`), { typing, user: user.email, at: serverTimestamp() });
       } catch (e) { console.error("Failed to emit typing:", e); }
     }
+  const MAX_CHAT_IMAGE_SIZE_MB = 10;
+  const MAX_CHAT_IMAGE_SIZE_BYTES = MAX_CHAT_IMAGE_SIZE_MB * 1024 * 1024;
+  const ALLOWED_CHAT_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+  const MAX_CHAT_FILE_SIZE_MB = 25;
+  const MAX_CHAT_FILE_SIZE_BYTES = MAX_CHAT_FILE_SIZE_MB * 1024 * 1024;
+  const ALLOWED_CHAT_FILE_TYPES = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain", "image/jpeg", "image/png", "image/webp", "image/gif"];
+
   // Feature 7: Image sending
   function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!ALLOWED_CHAT_IMAGE_TYPES.includes(file.type)) {
+      showToast("Only JPG, PNG, WebP, and GIF images are allowed.", "error");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+    if (file.size > MAX_CHAT_IMAGE_SIZE_BYTES) {
+      showToast(`Image too large. Max ${MAX_CHAT_IMAGE_SIZE_MB}MB.`, "error");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (ev) => { setImagePreview(ev.target?.result as string); };
     reader.readAsDataURL(file);
@@ -507,8 +524,26 @@ function MessagesPage() {
     } catch { return null; }
   }
 
+  function checkMessageRateLimit(): boolean {
+    try {
+      const msgTracker = JSON.parse(localStorage.getItem("msgTracker") || "{}");
+      const now = Date.now();
+      if (msgTracker[chatUser] && now - msgTracker[chatUser] < 5000) {
+        showToast("Please wait before messaging this user again", "info");
+        return false;
+      }
+      msgTracker[chatUser] = now;
+      for (const key of Object.keys(msgTracker)) {
+        if (now - msgTracker[key] > 3600000) delete msgTracker[key];
+      }
+      localStorage.setItem("msgTracker", JSON.stringify(msgTracker));
+    } catch (e) { console.error("Msg tracker error:", e); }
+    return true;
+  }
+
   async function sendImageMessage() {
     if (!imagePreview || !user?.email || !chatUser || sendingAttachment) return;
+    if (!checkMessageRateLimit()) return;
     const activeListingTitle = chatListingId ? messages.find((m: any) => m.listingId === chatListingId && m.listingTitle)?.listingTitle : null;
     setSendingAttachment(true);
     try {
@@ -553,6 +588,16 @@ function MessagesPage() {
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!ALLOWED_CHAT_FILE_TYPES.includes(file.type)) {
+      showToast("Unsupported file type. Use PDF, Word, TXT, or images.", "error");
+      if (fileAttachInputRef.current) fileAttachInputRef.current.value = "";
+      return;
+    }
+    if (file.size > MAX_CHAT_FILE_SIZE_BYTES) {
+      showToast(`File too large. Max ${MAX_CHAT_FILE_SIZE_MB}MB.`, "error");
+      if (fileAttachInputRef.current) fileAttachInputRef.current.value = "";
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (ev) => {
       setFileAttachment({ name: file.name, size: file.size, data: ev.target?.result as string });
@@ -562,6 +607,7 @@ function MessagesPage() {
 
   async function sendFileMessage() {
     if (!fileAttachment || !user?.email || !chatUser || sendingAttachment) return;
+    if (!checkMessageRateLimit()) return;
     const activeListingTitle = chatListingId ? messages.find((m: any) => m.listingId === chatListingId && m.listingTitle)?.listingTitle : null;
     setSendingAttachment(true);
     try {
@@ -594,27 +640,20 @@ function MessagesPage() {
     } catch (e) { console.error(e); showToast("Failed to send file", "error"); }
     setSendingAttachment(false);
   }
+  const MAX_MESSAGE_LENGTH = 2000;
+
   // Send text message
   async function sendMessage(skipSafety = false) {
     if (!message.trim()) return;
     if (!user?.email) { showToast("Please log in first", "info"); return; }
     if (!chatUser.trim()) { showToast("Select a conversation", "info"); return; }
     if (blockedUsers.includes(chatUser)) { showToast("This user is blocked", "error"); return; }
+    if (message.length > MAX_MESSAGE_LENGTH) {
+      showToast(`Message is too long. Max ${MAX_MESSAGE_LENGTH} characters.`, "error");
+      return;
+    }
 
-    // Anti-spam: track recipients per hour
-    try {
-      const msgTracker = JSON.parse(localStorage.getItem("msgTracker") || "{}");
-      const now = Date.now();
-      if (msgTracker[chatUser] && now - msgTracker[chatUser] < 5000) {
-        showToast("Please wait before messaging this user again", "info");
-        return;
-      }
-      msgTracker[chatUser] = now;
-      for (const key of Object.keys(msgTracker)) {
-        if (now - msgTracker[key] > 3600000) delete msgTracker[key];
-      }
-      localStorage.setItem("msgTracker", JSON.stringify(msgTracker));
-    } catch (e) { console.error("Msg tracker error:", e); }
+    if (!checkMessageRateLimit()) return;
 
     if (!skipSafety) {
       const result = detectScam(message);
@@ -667,10 +706,13 @@ function MessagesPage() {
         listingImage: activeListingImage || undefined,
       });
       await emitTyping(false);
+      // Reset turnstile token after each send to prevent replay
+      setTurnstileToken("");
     } catch (e) { console.error(e); showToast("Failed to send", "error"); }
   }
   async function sendPendingMessage() {
     if (!pendingMessage || !user?.email || !chatUser) return;
+    if (!checkMessageRateLimit()) return;
     setScamWarning(false);
     setMessage("");
     try {
