@@ -1653,13 +1653,8 @@ function MessagesPage() {
                             return configs[status || "paid"] || configs.paid;
                           };
                           const statusConfig = getStatusConfig(msg.orderStatus);
-                          const progressSteps = [
-                            { key: "requested", label: "Requested" },
-                            { key: "paid", label: "Confirmed" },
-                            { key: "shipped", label: "Delivered" },
-                            { key: "completed", label: "Complete" },
-                          ];
-                          const currentStepIndex = progressSteps.findIndex(s => s.key === msg.orderStatus) || 0;
+                          const isCompleted = msg.orderStatus === "completed" || msg.orderStatus === "delivered";
+                          const isDisputed = msg.orderStatus === "disputed";
 
                           return (
                             <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
@@ -1704,41 +1699,53 @@ function MessagesPage() {
                                     </div>
                                   </div>
 
-                                  {/* Compact Progress Tracker */}
-                                  <div className="px-4 py-3 bg-white/[0.02]">
-                                    <div className="flex items-center justify-between">
-                                      {progressSteps.map((step, index) => {
-                                        const isCompleted = index < currentStepIndex;
-                                        const isCurrent = index === currentStepIndex;
-                                        return (
-                                          <div key={step.key} className="flex items-center gap-1.5 flex-1">
-                                            <div className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold transition-all ${
-                                              isCompleted ? 'bg-emerald-500 text-white' :
-                                              isCurrent ? 'bg-sky-500 text-white ring-2 ring-sky-500/30' :
-                                              'bg-zinc-800 text-zinc-500'
-                                            }`}>
-                                              {isCompleted ? '✓' : index + 1}
-                                            </div>
-                                            <span className={`text-[10px] font-medium ${
-                                              isCompleted ? 'text-emerald-400' :
-                                              isCurrent ? 'text-sky-400' :
-                                              'text-zinc-600'
-                                            }`}>
-                                              {step.label}
-                                            </span>
-                                            {index < progressSteps.length - 1 && (
-                                              <div className={`flex-1 h-px mx-1.5 ${
-                                                isCompleted ? 'bg-emerald-500' : 'bg-zinc-800'
-                                              }`} />
-                                            )}
-                                          </div>
-                                        );
-                                      })}
+                                  {/* Content: Progress Tracker OR Success State */}
+                                  {isCompleted ? (
+                                    // Success State for completed orders
+                                    <div className="px-4 py-4 bg-emerald-500/5 border-b border-emerald-500/10">
+                                      <div className="flex items-center gap-3">
+                                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/20">
+                                          <svg className="h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                          </svg>
+                                        </div>
+                                        <div>
+                                          <p className="text-sm font-bold text-emerald-400">Order Completed</p>
+                                          <p className="text-[11px] text-emerald-400/80">Your purchase has been successfully delivered.</p>
+                                        </div>
+                                      </div>
+                                      <div className="mt-3 flex items-center gap-4 text-[10px] text-[var(--muted)]">
+                                        <span>Delivered: {formatTime(msg.createdAt)}</span>
+                                        <span>Seller: {chatUser}</span>
+                                      </div>
                                     </div>
-                                  </div>
+                                  ) : isDisputed ? (
+                                    // Dispute State
+                                    <div className="px-4 py-3 bg-red-500/5 border-b border-red-500/10">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-lg">⚠️</span>
+                                        <p className="text-xs font-medium text-red-400">This order is under dispute review</p>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    // Simple Status for in-progress orders
+                                    <div className="px-4 py-3 bg-white/[0.02] border-b border-white/[0.04]">
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                          <div className={`flex h-8 w-8 items-center justify-center rounded-full ${statusConfig.bg}`}>
+                                            <span className="text-lg">{statusConfig.icon}</span>
+                                          </div>
+                                          <div>
+                                            <p className="text-sm font-medium text-[var(--foreground)]">{statusConfig.label}</p>
+                                            <p className="text-[10px] text-[var(--muted)]">Updated {formatTime(msg.createdAt)}</p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
 
                                   {/* Actions */}
-                                  <div className="flex items-center gap-2 p-3 border-t border-white/[0.04]">
+                                  <div className="flex items-center gap-2 p-3">
                                     <button
                                       onClick={() => router.push(`/messages?user=${encodeURIComponent(chatUser)}&listing=${chatListingId}`)}
                                       className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 py-2 text-[11px] font-bold text-sky-400 transition hover:bg-sky-500/20"
@@ -1753,7 +1760,7 @@ function MessagesPage() {
                                       <span>🔗</span>
                                       <span>View Listing</span>
                                     </button>
-                                    {msg.orderStatus === "delivered" || msg.orderStatus === "completed" ? (
+                                    {isCompleted ? (
                                       <button
                                         className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[11px] font-bold text-amber-400 transition hover:bg-amber-500/20"
                                       >
