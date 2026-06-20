@@ -1164,7 +1164,7 @@ function MessagesPage() {
                         setChatListingId(convo.listingId); 
                         if (isMobile) setMobileView("chat"); 
                       }}
-                      className={`flex w-full items-start gap-3 border-b border-[var(--card-border)] px-4 py-3.5 text-left transition-all duration-200 hover:bg-sky-500/5 ${chatUser === convo.participant && chatListingId === convo.listingId ? "bg-sky-500/10" : ""}`}>
+                      className={`flex w-full items-start gap-3 border-b border-[var(--card-border)] px-4 py-3.5 text-left transition-all duration-200 hover:bg-sky-500/5 ${chatUser === convo.participant && chatListingId === convo.listingId ? "bg-sky-500/10 shadow-[0_0_20px_rgba(56,189,248,0.15)]" : "hover:shadow-[0_0_15px_rgba(56,189,248,0.1)]"}`}>
                       {/* Thumbnail */}
                       <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-zinc-800 to-zinc-900 ring-2 ring-white/[0.04]">
                         {convo.msg.listingImage ? (
@@ -1362,7 +1362,7 @@ function MessagesPage() {
                     <StayOnSkyDropNotice paymentType={purchaseData?.paymentType} />
                   )}
                   {listingCard && hasPurchaseInChat && (
-                    <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-zinc-900/60">
+                    <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-zinc-900/60 shadow-[0_0_20px_rgba(56,189,248,0.15)]">
                       <div className="flex items-center gap-3 p-3">
                         {listingCard.image && (
                           <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-zinc-800">
@@ -1439,7 +1439,7 @@ function MessagesPage() {
                   {listingCard && !hasPurchaseInChat && auctionEnded && (
                     <div className={`mb-3 overflow-hidden rounded-2xl border ${
                       isAuctionWinner ? "border-sky-500/30 bg-sky-500/5" : "border-sky-500/10 bg-zinc-900/60"
-                    }`}>
+                    } shadow-[0_0_20px_rgba(56,189,248,0.15)]`}>
                       {/* Winner banner */}
                       {isAuctionWinner && (
                         <div className="flex items-center justify-center gap-2 bg-gradient-to-r from-sky-600/20 via-sky-500/30 to-sky-600/20 px-4 py-3">
@@ -1481,7 +1481,7 @@ function MessagesPage() {
                   )}
                   {/* Listing context card — buy now */}
                   {listingCard && !hasPurchaseInChat && !auctionEnded && listingCard?.saleType === "buy_now" && (
-                    <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-[var(--soft-card)]/80">
+                    <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-[var(--soft-card)]/80 shadow-[0_0_20px_rgba(56,189,248,0.15)]">
                       <div className="flex items-center gap-3 p-3">
                         {listingCard.image && (
                           <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-zinc-800">
@@ -1502,7 +1502,7 @@ function MessagesPage() {
                   )}
                   {/* Listing context card — active auction */}
                   {listingCard && !hasPurchaseInChat && !auctionEnded && isAuction && listingCard?.saleType !== "buy_now" && (
-                    <div className="mb-3 overflow-hidden rounded-2xl border border-sky-500/10 bg-zinc-900/60">
+                    <div className="mb-3 overflow-hidden rounded-2xl border border-sky-500/10 bg-zinc-900/60 shadow-[0_0_20px_rgba(56,189,248,0.15)]">
                       <div className="flex items-center gap-3 p-3">
                         {listingCard.image && (
                           <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl bg-zinc-800 shadow-md">
@@ -1524,7 +1524,7 @@ function MessagesPage() {
                   )}
                   {/* Listing context card — other listing type */}
                   {listingCard && !hasPurchaseInChat && !auctionEnded && listingCard?.saleType && listingCard?.saleType !== "buy_now" && !isAuction && (
-                    <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-[var(--soft-card)]/80">
+                    <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-[var(--soft-card)]/80 shadow-[0_0_20px_rgba(56,189,248,0.15)]">
                       <div className="flex items-center gap-3 p-3">
                         {listingCard.image && (
                           <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-zinc-800">
@@ -1545,7 +1545,7 @@ function MessagesPage() {
                   )}
                   {/* Listing context card — fallback */}
                   {listingCard && !hasPurchaseInChat && !auctionEnded && !listingCard?.saleType && !isAuction && (
-                    <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-[var(--soft-card)]/80">
+                    <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-[var(--soft-card)]/80 shadow-[0_0_20px_rgba(56,189,248,0.15)]">
                       <div className="flex items-center gap-3 p-3">
                         {listingCard.image && (
                           <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-zinc-800">
@@ -1801,13 +1801,13 @@ function MessagesPage() {
                           return (
                             <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
                               <div className="max-w-[75%]">
-                                <div className={`overflow-hidden rounded-2xl shadow-xl transition-all duration-200 hover:shadow-2xl ${isOwn ? "rounded-br-md border border-sky-500/20" : "rounded-bl-md border border-zinc-700/30"}`}>
+                                <div className={`overflow-hidden rounded-2xl shadow-xl transition-all duration-200 hover:shadow-2xl ${isOwn ? "rounded-br-md border border-sky-500/30 bg-gradient-to-br from-sky-500 to-sky-600" : "rounded-bl-md border border-[var(--border)] bg-[var(--card)]"}`}>
                                   {(msg.imageUrl || msg.imageData) && (
                                     <img src={msg.imageUrl || msg.imageData} alt="Shared image" className="max-h-80 w-full object-cover"
                                       onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                                   )}
-                                  {msg.text && <div className={`px-4 py-3 text-[14px] ${isOwn ? "bg-gradient-to-br from-sky-500/20 to-sky-600/15" : "bg-gradient-to-br from-zinc-800/80 to-zinc-900/60"}`}><p>{msg.text}</p></div>}
-                                  <div className={`flex items-center justify-end gap-1 px-4 pb-3 ${isOwn ? "bg-gradient-to-br from-sky-500/20 to-sky-600/15" : "bg-gradient-to-br from-zinc-800/80 to-zinc-900/60"}`}>
+                                  {msg.text && <div className={`px-4 py-3 text-[14px] ${isOwn ? "text-white" : "text-[var(--foreground)]"}`}><p>{msg.text}</p></div>}
+                                  <div className={`flex items-center justify-end gap-1 px-4 pb-3 ${isOwn ? "" : ""}`}>
                                     <span className={`text-[9px] ${isOwn ? "text-white/60" : "text-[var(--muted)]"}`}>{formatFullTime(msg.createdAt) || formatTime(msg.createdAt)}</span>
                                   </div>
                                 </div>
@@ -1823,7 +1823,7 @@ function MessagesPage() {
                               <div className="max-w-[75%]">
                                 <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer"
                                   className={`flex items-center gap-3 rounded-2xl px-4 py-3 shadow-lg transition hover:opacity-80 ${
-                                    isOwn ? "rounded-br-md bg-sky-500/15" : "rounded-bl-md bg-zinc-800/60"
+                                    isOwn ? "rounded-br-md bg-gradient-to-br from-sky-500 to-sky-600 text-white border border-sky-500/30" : "rounded-bl-md bg-[var(--card)] text-[var(--foreground)] border border-[var(--border)]"
                                   }`}>
                                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-800 text-lg">
                                     {isPdf ? "📄" : "📎"}
@@ -1898,7 +1898,7 @@ function MessagesPage() {
                         return (
                           <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
                             <div className="max-w-[75%]">
-                              <div className={`rounded-2xl px-4 py-3 text-[14px] shadow-lg transition-all duration-200 hover:shadow-xl ${isOwn ? "rounded-br-md bg-gradient-to-br from-sky-500/20 to-sky-600/15 text-[var(--foreground)] border border-sky-500/20" : "rounded-bl-md bg-gradient-to-br from-zinc-800/80 to-zinc-900/60 text-[var(--foreground)] border border-zinc-700/30"}`}>
+                              <div className={`rounded-2xl px-4 py-3 text-[14px] shadow-lg transition-all duration-200 hover:shadow-xl ${isOwn ? "rounded-br-md bg-gradient-to-br from-sky-500 to-sky-600 text-white border border-sky-500/30" : "rounded-bl-md bg-[var(--card)] text-[var(--foreground)] border border-[var(--border)]"}`}>
                                 {!isOwn && (() => { const check = detectScam(msg.text || ""); return check.isScam ? (
                                   <span className="mb-2 inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2.5 py-1 text-[9px] font-bold text-red-400 border border-red-500/20" title={`Flagged: ${check.keywords.join(", ")}`}>&#9888;&#65039; Caution</span>
                                 ) : null; })()}
