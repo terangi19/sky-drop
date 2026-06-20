@@ -128,7 +128,7 @@ export default function PrivacyPage() {
         </div>
 
         <p className="mt-10 text-center text-xs text-[var(--muted)]">
-          Last updated: May 2026
+          Last updated: June 2026
         </p>
       </section>
 

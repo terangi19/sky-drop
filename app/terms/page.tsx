@@ -34,7 +34,7 @@ const sections = [
     id: "payments",
     title: "Payments",
     content:
-      "Payments are processed through Stripe and sent directly to the seller's Stripe account. Sky Drop only receives a platform fee per transaction. Optional upgrades (like promoted listings) may incur a fee, which is clearly shown before purchase. Refunds and disputes are handled between buyer and seller in good faith. Any attempt to manipulate payments, commit chargeback fraud, or bypass the platform's payment system is strictly prohibited and will be reported to law enforcement.",
+      "Payments are processed through Stripe and sent directly to the seller's Stripe account. Sky Drop only receives a platform fee per transaction. Optional upgrades (like promoted listings) may incur a fee, which is clearly shown before purchase. All payment disputes and refunds are handled directly with Stripe according to their policies. Any attempt to manipulate payments, commit chargeback fraud, or bypass the platform's payment system is strictly prohibited and will be reported to law enforcement.",
   },
   {
     id: "prohibited",
@@ -128,7 +128,7 @@ export default function TermsPage() {
         </div>
 
         <p className="mt-10 text-center text-xs text-[var(--muted)]">
-          Last updated: May 2026
+          Last updated: June 2026
         </p>
       </section>
 
