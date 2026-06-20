@@ -764,7 +764,12 @@ export default function Home() {
 
       {/* HERO / SEARCH SECTION */}
       <section className={`${PAGE_SHELL_WIDE} pt-3 sm:pt-4`}>
-        <div className="relative overflow-hidden rounded-[2rem] border border-[var(--border)] bg-[var(--card)]">
+        <div className="relative overflow-hidden rounded-[2rem] border border-white/[0.08] bg-[var(--card)]">
+          <div className="absolute inset-0 bg-gradient-to-br from-sky-500/[0.08] via-sky-500/[0.02] to-transparent opacity-60" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[var(--background)] via-transparent to-transparent" />
+          <div className="absolute inset-0 backdrop-blur-[2px]" />
+          <div className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-sky-500/[0.15] blur-3xl" />
+          <div className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-sky-500/[0.1] blur-3xl" />
           <div className="relative z-10 px-5 py-8 sm:px-8 sm:py-10">
             <div className="mx-auto max-w-2xl text-center">
               <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white/90">
@@ -799,7 +804,7 @@ export default function Home() {
             {/* Search */}
             <div className="mx-auto mt-8 max-w-xl">
               <div className="relative">
-                <div className="relative flex items-center rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-md transition-all duration-300 focus-within:border-sky-500/50 focus-within:ring-2 focus-within:ring-sky-500/10">
+                <div className="relative flex items-center rounded-xl border border-white/[0.08] bg-[var(--card)] shadow-lg backdrop-blur-md transition-all duration-300 group-focus-within:border-sky-500/50 group-focus-within:bg-[var(--card-hover)]">
                   <svg className="ml-4 h-4 w-4 shrink-0 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
@@ -809,6 +814,11 @@ export default function Home() {
                     value={search}
                     ref={searchRef}
                     onChange={(e) => setSearch(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && search.trim()) {
+                        router.push(`/search?q=${encodeURIComponent(search.trim())}`);
+                      }
+                    }}
                     className="flex-1 bg-transparent px-3 py-3 text-[15px] text-[var(--foreground)] outline-none placeholder:text-[var(--muted)] transition-colors"
                   />
                   <div className="mr-2 flex items-center gap-2">
@@ -817,6 +827,21 @@ export default function Home() {
                         <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                       </button>
                     )}
+                    <button
+                      onClick={() => {
+                        if (search.trim()) {
+                          router.push(`/search?q=${encodeURIComponent(search.trim())}`);
+                        }
+                      }}
+                      disabled={!search.trim()}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-sky-400 transition-all duration-200 hover:bg-sky-500/20 hover:text-sky-300 hover:scale-110 active:scale-95 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-sky-400 disabled:hover:scale-100"
+                      title="Search"
+                      aria-label="Search"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    </button>
                     {(search || selectedCategory !== "All") && (
                       <button onClick={saveSearch} className="flex h-8 w-8 items-center justify-center rounded-lg text-sky-400 transition-all duration-200 hover:bg-sky-500/20 hover:text-sky-300 hover:scale-110 active:scale-95" title="Save search" aria-label="Save search">
                         <svg className="h-3.5 w-3.5 transition-transform duration-200 group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -883,7 +908,9 @@ export default function Home() {
 
       {/* Trust strip */}
       <section className={`${PAGE_SHELL_WIDE} py-3`}>
-        <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4 rounded-2xl border border-[var(--border)] bg-[var(--card)] px-6 py-4 sm:gap-x-14 lg:gap-x-20">
+        <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4 rounded-2xl border border-white/[0.04] bg-gradient-to-br from-sky-500/[0.03] via-sky-500/[0.01] to-transparent px-6 py-4 sm:gap-x-14 lg:gap-x-20 backdrop-blur-md relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-sky-400/[0.02] to-transparent" />
+          <div className="absolute inset-0 backdrop-blur-sm" />
           {[
             { label: "Flexible payments", sub: "Stripe or Arrange Purchase", icon: <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /> },
             { label: "Dispute protection", sub: "7-day window", icon: <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" /> },
@@ -964,7 +991,7 @@ export default function Home() {
             </div>
             {(selectedCategory !== "All" || selectedCondition !== "All" || selectedRegion !== "All" || search) && (
               <button onClick={() => { setSelectedCategory("All"); setSelectedCondition("All"); setSelectedRegion("All"); setSearch(""); setSortBy("newest"); }}
-                className="rounded-full border border-[var(--border)] px-3.5 py-1.5 text-[11px] font-medium text-[var(--foreground)] transition hover:border-[var(--border-hover)] hover:text-[var(--muted)]">
+                className="rounded-full border border-sky-500/30 bg-sky-500/10 px-3.5 py-1.5 text-[11px] font-medium text-sky-400 transition hover:border-sky-500/40 hover:text-sky-300">
                 Clear
               </button>
             )}
@@ -974,18 +1001,18 @@ export default function Home() {
           {loading && (
             <div className={LISTING_GRID_MT}>
               {[1,2,3,4,5,6,7,8].map((_, i) => (
-                <div key={i} className="relative overflow-hidden rounded-2xl bg-[var(--card)] border border-[var(--border)]">
-                  <div className="aspect-[4/3] w-full bg-[var(--card-hover)] animate-pulse" />
+                <div key={i} className="relative overflow-hidden rounded-2xl bg-[var(--card)] border border-white/[0.04]">
+                  <div className="aspect-[4/3] w-full bg-gradient-to-br from-sky-500/[0.05] via-sky-500/[0.02] to-transparent animate-shimmer" />
                   <div className="p-4 space-y-3">
                     <div className="flex gap-2">
-                      <div className="h-4 w-14 rounded-md bg-[var(--card-hover)] animate-pulse" />
-                      <div className="h-4 w-10 rounded-md bg-[var(--card-hover)] animate-pulse" />
+                      <div className="h-4 w-14 rounded-md bg-gradient-to-r from-sky-500/[0.1] to-sky-500/[0.05] animate-shimmer" />
+                      <div className="h-4 w-10 rounded-md bg-gradient-to-r from-sky-500/[0.1] to-sky-500/[0.05] animate-shimmer" />
                     </div>
-                    <div className="h-5 w-3/4 rounded bg-[var(--card-hover)] animate-pulse" />
-                    <div className="h-4 w-1/2 rounded bg-[var(--card)] animate-pulse" />
+                    <div className="h-5 w-3/4 rounded bg-gradient-to-r from-sky-500/[0.1] to-sky-500/[0.05] animate-shimmer" />
+                    <div className="h-4 w-1/2 rounded bg-[var(--card)] animate-shimmer" />
                     <div className="flex gap-2">
-                      <div className="h-9 flex-1 rounded-lg bg-[var(--card-hover)] animate-pulse" />
-                      <div className="h-9 w-20 rounded-lg bg-[var(--card-hover)] animate-pulse" />
+                      <div className="h-9 flex-1 rounded-lg bg-gradient-to-r from-sky-500/[0.1] to-sky-500/[0.05] animate-shimmer" />
+                      <div className="h-9 w-20 rounded-lg bg-gradient-to-r from-sky-500/[0.1] to-sky-500/[0.05] animate-shimmer" />
                     </div>
                   </div>
                </div>
@@ -1011,15 +1038,15 @@ export default function Home() {
                     Create a Listing
                   </Link>
                   <Link href="/about"
-                    className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-6 py-3.5 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:bg-[var(--card-hover)] hover:border-[var(--border-hover)] active:scale-[0.97]">
+                    className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-[var(--card)] px-6 py-3.5 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:bg-[var(--card-hover)] hover:border-white/[0.15] active:scale-[0.97]">
                     Learn More
                   </Link>
                 </div>
               </>
             ) : (
               <>
-                <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-3xl bg-[var(--card)] border border-[var(--border)]">
-                  <svg className="h-10 w-10 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-sky-500/[0.15] to-sky-500/[0.05] border border-sky-500/30 shadow-[0_0_30px_rgba(14,165,233,0.15)]">
+                  <svg className="h-10 w-10 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
@@ -1076,11 +1103,11 @@ export default function Home() {
 
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setDeleteConfirm(null)}>
-          <div className="mx-4 w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="mx-4 w-full max-w-sm rounded-2xl border border-white/[0.08] bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-black text-[var(--foreground)]">Delete listing?</h3>
             <p className="mt-2 text-sm text-[var(--muted)]">This cannot be undone.</p>
             <div className="mt-5 flex gap-3">
-              <button onClick={() => setDeleteConfirm(null)} className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--card)] py-3 text-sm font-bold text-[var(--foreground)] hover:bg-[var(--card-hover)]">Cancel</button>
+              <button onClick={() => setDeleteConfirm(null)} className="flex-1 rounded-xl border border-white/[0.08] bg-[var(--card)] py-3 text-sm font-bold text-[var(--foreground)] hover:bg-[var(--card-hover)]">Cancel</button>
               <button onClick={async () => { await deleteListing(deleteConfirm.id); setDeleteConfirm(null); }} className="flex-1 rounded-xl bg-red-500 py-3 text-sm font-bold text-white hover:bg-red-400">Delete</button>
             </div>
           </div>
@@ -1103,7 +1130,7 @@ export default function Home() {
               <div
                 key={item.id}
                 onClick={() => router.push(`/post/listing/${item.id}`)}
-                className="group shrink-0 w-48 cursor-pointer rounded-xl border border-[var(--border)] bg-[var(--card)] p-2.5 transition hover:border-[var(--border-hover)] hover:bg-[var(--card-hover)]"
+                className="group shrink-0 w-48 cursor-pointer rounded-xl border border-white/[0.04] bg-[var(--card)] p-2.5 transition hover:border-white/[0.10] hover:bg-[var(--card-hover)]"
               >
                 {item.images?.[0] || item.imageUrl || item.image ? (
                   <img src={cdnUrl(item.images?.[0] || item.imageUrl || item.image || "")} alt={item.title} loading="lazy" onError={(e) => { (e.target as HTMLImageElement).src = ""; (e.target as HTMLImageElement).classList.add("hidden"); }} className="h-20 w-full rounded-lg object-cover" />
@@ -1124,7 +1151,7 @@ export default function Home() {
           <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.12em] text-white">Recently sold</p>
           <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
             {listings.filter((l) => !isListingVisibleInMarketplace(l)).slice(0, 6).map((item) => (
-              <div key={item.id} className="relative shrink-0 w-40 rounded-xl border border-[var(--border)] bg-[var(--card)] p-2.5 opacity-75">
+              <div key={item.id} className="relative shrink-0 w-40 rounded-xl border border-white/[0.04] bg-[var(--card)] p-2.5 opacity-75">
                 {item.images?.[0] || item.imageUrl || item.image ? (
                   <img src={cdnUrl(item.images?.[0] || item.imageUrl || item.image || "")} alt={item.title} loading="lazy" className="h-16 w-full rounded-lg object-cover grayscale-[30%]" />
                 ) : (
@@ -1142,7 +1169,7 @@ export default function Home() {
       {showScrollBtn && (
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          className="fixed bottom-24 right-4 z-40 flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] shadow-md transition hover:bg-[var(--card-hover)] active:scale-95 md:bottom-8"
+          className="fixed bottom-24 right-4 z-40 flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.08] bg-[var(--card)] text-[var(--foreground)] shadow-[0_0_20px_rgba(14,165,233,0.2)] backdrop-blur-md transition hover:bg-[var(--card-hover)] hover:shadow-[0_0_25px_rgba(14,165,233,0.3)] active:scale-95 md:bottom-8"
           aria-label="Scroll to top"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>

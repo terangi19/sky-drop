@@ -749,7 +749,6 @@ const tabs = [
         notifReports,
         notifAccountReview,
         notifPurchases,
-        notifEscrow,
         notifRefunds,
         notifSecurity,
         notifPlatform,
