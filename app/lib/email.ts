@@ -36,12 +36,12 @@ const WELCOME_FEATURE_CARDS = [
 ] as const;
 
 const BADGE_COLORS: Record<string, { bg: string; text: string; border: string; glow: string }> = {
-  sky:      { bg: "linear-gradient(135deg, #0a1e30, #0d2a40)", text: "#60a5fa", border: "rgba(96,165,250,0.25)", glow: "rgba(96,165,250,0.12)" },
-  green:    { bg: "linear-gradient(135deg, #0a1f12, #0d2a18)", text: "#10b981", border: "rgba(16,185,129,0.25)", glow: "rgba(16,185,129,0.12)" },
-  emerald:  { bg: "linear-gradient(135deg, #0a1f12, #0d2a18)", text: "#34d399", border: "rgba(52,211,153,0.25)", glow: "rgba(52,211,153,0.12)" },
-  amber:    { bg: "linear-gradient(135deg, #1e1500, #2a1d00)", text: "#f59e0b", border: "rgba(245,158,11,0.25)", glow: "rgba(245,158,11,0.12)" },
-  red:      { bg: "linear-gradient(135deg, #1e0808, #2a0a0a)", text: "#ef4444", border: "rgba(239,68,68,0.25)", glow: "rgba(239,68,68,0.12)" },
-  purple:   { bg: "linear-gradient(135deg, #140a1e, #1a0d2a)", text: "#a78bfa", border: "rgba(167,139,250,0.25)", glow: "rgba(167,139,250,0.12)" },
+  sky:      { bg: "linear-gradient(135deg, #0c2a42, #0f344e)", text: "#60a5fa", border: "rgba(96,165,250,0.3)", glow: "rgba(96,165,250,0.15)" },
+  green:    { bg: "linear-gradient(135deg, #0c2e1a, #0f3d26)", text: "#10b981", border: "rgba(16,185,129,0.3)", glow: "rgba(16,185,129,0.15)" },
+  emerald:  { bg: "linear-gradient(135deg, #0c2e1a, #0f3d26)", text: "#34d399", border: "rgba(52,211,153,0.3)", glow: "rgba(52,211,153,0.15)" },
+  amber:    { bg: "linear-gradient(135deg, #2a1a00, #3d2a00)", text: "#f59e0b", border: "rgba(245,158,11,0.3)", glow: "rgba(245,158,11,0.15)" },
+  red:      { bg: "linear-gradient(135deg, #2a0c0c, #3d0f0f)", text: "#ef4444", border: "rgba(239,68,68,0.3)", glow: "rgba(239,68,68,0.15)" },
+  purple:   { bg: "linear-gradient(135deg, #1f0c2a, #2a0f3d)", text: "#a78bfa", border: "rgba(167,139,250,0.3)", glow: "rgba(167,139,250,0.15)" },
 };
 
 const BADGE_ICONS: Record<string, string> = {
@@ -72,17 +72,19 @@ function badgeBlock(badge?: StatusBadge): string {
 function productCard(image?: string, title?: string, seller?: string): string {
   if (!image && !title) return "";
   return `
-    <tr><td style="padding:0 0 20px;">
-      <table width="100%" cellpadding="0" cellspacing="0" style="background:#1a1a1a;border-radius:12px;border:1px solid #2a2a2a;">
+    <tr><td style="padding:0 0 24px;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg, #1a1a1a, #141414);border-radius:16px;border:1px solid #2a2a2a;box-shadow:0 4px 20px rgba(0,0,0,0.4);">
         <tr>
           ${image ? `
-          <td width="80" style="padding:0;">
-            <img src="${image}" alt="" width="80" height="80" style="display:block;width:80px;height:80px;" />
+          <td width="90" style="padding:0;">
+            <div style="width:90px;height:90px;overflow:hidden;border-radius:16px 0 0 16px;">
+              <img src="${image}" alt="" width="90" height="90" style="display:block;width:90px;height:90px;object-fit:cover;" />
+            </div>
           </td>
           ` : ""}
-          <td style="padding:14px 16px;vertical-align:middle;">
-            ${title ? `<span style="font-size:15px;font-weight:700;color:#f0f0f0;line-height:1.3;">${title}</span>` : ""}
-            ${seller ? `<br><span style="font-size:12px;color:#888;">Seller: ${seller}</span>` : ""}
+          <td style="padding:18px 20px;vertical-align:middle;">
+            ${title ? `<span style="font-size:16px;font-weight:700;color:#f5f5f5;line-height:1.4;letter-spacing:-0.2px;">${title}</span>` : ""}
+            ${seller ? `<br><span style="font-size:13px;color:#888;font-weight:500;margin-top:6px;display:inline-block;">Seller: ${seller}</span>` : ""}
           </td>
         </tr>
       </table>
@@ -121,40 +123,40 @@ function summaryBlock(rows?: SummaryRow[], orderId?: string, date?: string): str
   if (orderId) {
     headerRows += `
       <tr>
-        <td style="padding:8px 0 4px;font-size:12px;color:#777;">Order ID</td>
-        <td style="padding:8px 0 4px;font-size:12px;color:#ccc;text-align:right;font-family:monospace;letter-spacing:0.5px;">#${orderId}</td>
+        <td style="padding:10px 0 6px;font-size:12px;color:#777;font-weight:500;">Order ID</td>
+        <td style="padding:10px 0 6px;font-size:12px;color:#ccc;text-align:right;font-family:monospace;letter-spacing:0.5px;font-weight:600;">#${orderId}</td>
       </tr>`;
   }
   if (date) {
     headerRows += `
       <tr>
-        <td style="padding:4px 0 8px;font-size:12px;color:#777;">Date</td>
-        <td style="padding:4px 0 8px;font-size:12px;color:#ccc;text-align:right;">${date}</td>
+        <td style="padding:6px 0 10px;font-size:12px;color:#777;font-weight:500;">Date</td>
+        <td style="padding:6px 0 10px;font-size:12px;color:#ccc;text-align:right;font-weight:500;">${date}</td>
       </tr>`;
   }
 
   const rowHtml = rows ? rows.map((r) => `
     <tr>
-      <td style="padding:10px 0;font-size:13px;color:#999;">${r.label}</td>
-      <td style="padding:10px 0;font-size:13px;font-weight:${r.highlight ? "800" : "600"};color:${r.highlight ? "#38bdf8" : "#f0f0f0"};text-align:right;">${r.value}</td>
+      <td style="padding:12px 0;font-size:13px;color:#999;font-weight:500;">${r.label}</td>
+      <td style="padding:12px 0;font-size:14px;font-weight:${r.highlight ? "800" : "600"};color:${r.highlight ? "#38bdf8" : "#f0f0f0"};text-align:right;">${r.value}</td>
     </tr>
   `).join(`
-    <tr><td colspan="2" style="border-bottom:1px solid #222;"></td></tr>
+    <tr><td colspan="2" style="border-bottom:1px solid #252525;"></td></tr>
   `) : "";
 
   const hasBoth = headerRows && rows;
 
   return `
-    <tr><td style="padding:0 0 20px;">
+    <tr><td style="padding:0 0 24px;">
       <table width="100%" cellpadding="0" cellspacing="0">
-        <tr><td style="padding:0 0 12px;font-size:10px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:1.5px;">Order Details</td></tr>
+        <tr><td style="padding:0 0 14px;font-size:10px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:2px;">Order Details</td></tr>
       </table>
-      <table width="100%" cellpadding="0" cellspacing="0" style="background:#1a1a1a;border-radius:12px;border:1px solid #2a2a2a;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg, #1a1a1a, #141414);border-radius:16px;border:1px solid #2a2a2a;box-shadow:0 4px 20px rgba(0,0,0,0.4);">
         <tr>
-          <td style="padding:4px 18px;">
+          <td style="padding:6px 24px;">
             <table width="100%" cellpadding="0" cellspacing="0">
               ${headerRows}
-              ${hasBoth ? `<tr><td colspan="2" style="border-bottom:1px solid #222;padding:0;"></td></tr>` : ""}
+              ${hasBoth ? `<tr><td colspan="2" style="border-bottom:1px solid #252525;padding:0;"></td></tr>` : ""}
               ${rowHtml}
             </table>
           </td>
@@ -217,8 +219,8 @@ function ctaBlock(ctas?: { label: string; url: string; primary?: boolean }[], la
         <td style="padding:4px;${large ? "display:block;width:100%;" : ""}">
           <table cellpadding="0" cellspacing="0" style="margin:0 auto;${large ? "width:100%;" : ""}">
             <tr>
-              <td style="border-radius:10px;background:#38bdf8;">
-                <a href="${cta.url}" style="display:inline-block;background:#38bdf8;color:#0a0a0a;font-weight:800;font-size:${large ? "15" : "14"}px;padding:${large ? "16px 36px" : "14px 32px"};border-radius:10px;text-decoration:none;letter-spacing:0.2px;">${cta.label}</a>
+              <td style="border-radius:12px;background:linear-gradient(135deg, #38bdf8, #0ea5e9);box-shadow:0 4px 15px rgba(56,189,248,0.3);">
+                <a href="${cta.url}" style="display:inline-block;background:linear-gradient(135deg, #38bdf8, #0ea5e9);color:#0a0a0a;font-weight:800;font-size:${large ? "16" : "15"}px;padding:${large ? "18px 40px" : "16px 36px"};border-radius:12px;text-decoration:none;letter-spacing:0.3px;">${cta.label}</a>
               </td>
             </tr>
           </table>
@@ -228,15 +230,15 @@ function ctaBlock(ctas?: { label: string; url: string; primary?: boolean }[], la
       <td style="padding:4px;">
         <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
           <tr>
-            <td style="border-radius:10px;border:1px solid #333;">
-              <a href="${cta.url}" style="display:inline-block;color:#ccc;font-weight:600;font-size:13px;padding:14px 28px;border-radius:10px;text-decoration:none;">${cta.label}</a>
+            <td style="border-radius:12px;border:1px solid #3a3a3a;background:linear-gradient(135deg, #1a1a1a, #141414);">
+              <a href="${cta.url}" style="display:inline-block;color:#ccc;font-weight:600;font-size:14px;padding:16px 32px;border-radius:12px;text-decoration:none;">${cta.label}</a>
             </td>
           </tr>
         </table>
       </td>`;
   }).join("");
   return `
-    <tr><td style="padding:0 0 20px;">
+    <tr><td style="padding:0 0 24px;">
       <table width="100%" cellpadding="0" cellspacing="0">
         <tr><td align="center" style="padding:0;">
           <table cellpadding="0" cellspacing="0" style="margin:0 auto;${large ? "width:100%;" : ""}">
@@ -269,13 +271,13 @@ function trustSection(): string {
 
 function heroBlock(title: string, subtitle: string): string {
   return `
-    <tr><td style="padding:0 0 14px;">
-      <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(180deg,#0c1929 0%,#0d1117 55%,#0a0a0a 100%);border-radius:14px;border:1px solid #1a3a5a;box-shadow:0 0 36px rgba(56,189,248,0.14),inset 0 1px 0 rgba(56,189,248,0.08);">
+    <tr><td style="padding:0 0 18px;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg, #0c1e2f, #0f2a40, #0a0a0a);border-radius:18px;border:1px solid #1a3a5a;box-shadow:0 8px 32px rgba(56,189,248,0.15),inset 0 1px 0 rgba(56,189,248,0.1);">
         <tr>
-          <td align="center" style="padding:22px 20px 18px;">
-            <span style="font-size:24px;font-weight:900;color:#ffffff;line-height:1.25;letter-spacing:-0.3px;">${title}</span>
+          <td align="center" style="padding:28px 24px 24px;">
+            <span style="font-size:28px;font-weight:900;color:#ffffff;line-height:1.2;letter-spacing:-0.5px;text-shadow:0 2px 4px rgba(0,0,0,0.3);">${title}</span>
             <br>
-            <span style="display:inline-block;margin-top:6px;font-size:12px;color:#94a3b8;line-height:1.4;letter-spacing:0.3px;">${subtitle}</span>
+            <span style="display:inline-block;margin-top:8px;font-size:13px;color:#94a3b8;line-height:1.5;letter-spacing:0.4px;">${subtitle}</span>
           </td>
         </tr>
       </table>
@@ -286,13 +288,13 @@ function heroBlock(title: string, subtitle: string): string {
 function featureCardsBlock(): string {
   const cards = WELCOME_FEATURE_CARDS.map((c) => `
     <tr>
-      <td style="padding:0 0 8px;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background:#141414;border-radius:10px;border:1px solid #242424;">
+      <td style="padding:0 0 10px;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg, #141414, #0f0f0f);border-radius:12px;border:1px solid #2a2a2a;box-shadow:0 2px 8px rgba(0,0,0,0.3);">
           <tr>
-            <td width="36" align="center" style="padding:10px 0 10px 12px;font-size:18px;vertical-align:middle;">${c.icon}</td>
-            <td style="padding:10px 12px 10px 8px;vertical-align:middle;">
-              <div style="font-size:13px;font-weight:800;color:#ececec;line-height:1.3;">${c.title}</div>
-              <div style="font-size:11px;color:#777;line-height:1.4;margin-top:1px;">${c.desc}</div>
+            <td width="40" align="center" style="padding:12px 0 12px 14px;font-size:20px;vertical-align:middle;">${c.icon}</td>
+            <td style="padding:12px 14px 12px 10px;vertical-align:middle;">
+              <div style="font-size:14px;font-weight:800;color:#ececec;line-height:1.4;letter-spacing:-0.2px;">${c.title}</div>
+              <div style="font-size:12px;color:#777;line-height:1.5;margin-top:2px;">${c.desc}</div>
             </td>
           </tr>
         </table>
@@ -300,7 +302,7 @@ function featureCardsBlock(): string {
     </tr>
   `).join("");
   return `
-    <tr><td style="padding:0 0 10px;">
+    <tr><td style="padding:0 0 12px;">
       <table width="100%" cellpadding="0" cellspacing="0">${cards}</table>
     </td></tr>
   `;
@@ -324,24 +326,24 @@ function emailShell(baseUrl: string, body: string, compact = false): string {
   @@media only screen and (max-width:480px) {
     .prod-img { width:60px !important; height:60px !important; }
     .cta-stack { display:block !important; }
-    .cta-stack td { display:block !important; padding:4px 0 !important; }
-    .email-container { padding:12px !important; }
+    .cta-stack td { display:block !important; padding:6px 0 !important; }
+    .email-container { padding:16px !important; }
     .email-inner { width:100% !important; }
   }
 </style>
 </head>
-<body style="margin:0;padding:0;background:#080808;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(180deg,#080808,#0a0a0a,#080808);">
+<body style="margin:0;padding:0;background:#050505;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(180deg,#050505,#080808,#050505);">
     <tr>
-      <td align="center" style="padding:${compact ? "20" : "28"}px 14px;">
-        <table width="520" cellpadding="0" cellspacing="0" class="email-inner" style="max-width:520px;width:100%;position:relative;">
+      <td align="center" style="padding:${compact ? "24" : "32"}px 16px;">
+        <table width="540" cellpadding="0" cellspacing="0" class="email-inner" style="max-width:540px;width:100%;position:relative;">
           <tr>
-            <td align="center" style="padding:0 0 ${compact ? "10" : "14"}px;">
+            <td align="center" style="padding:0 0 ${compact ? "12" : "18"}px;">
               <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
                 <tr>
-                  <td style="text-align:center;padding:${compact ? "8" : "10"}px 20px;border-radius:12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04);">
-                    <span style="font-size:${compact ? "18" : "20"}px;font-weight:900;color:#e0e0e0;letter-spacing:2px;">SKY</span>
-                    <span style="font-size:${compact ? "18" : "20"}px;font-weight:900;color:#38bdf8;letter-spacing:2px;text-shadow:0 0 20px rgba(56,189,248,0.2);">DROP</span>
+                  <td style="text-align:center;padding:${compact ? "10" : "12"}px 24px;border-radius:14px;background:linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.06);box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+                    <span style="font-size:${compact ? "20" : "22"}px;font-weight:900;color:#e0e0e0;letter-spacing:2.5px;">SKY</span>
+                    <span style="font-size:${compact ? "20" : "22"}px;font-weight:900;color:#38bdf8;letter-spacing:2.5px;text-shadow:0 0 25px rgba(56,189,248,0.25);">DROP</span>
                   </td>
                 </tr>
               </table>
