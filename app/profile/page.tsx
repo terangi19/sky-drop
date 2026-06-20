@@ -1695,9 +1695,9 @@ const tabs = [
               <h2 className="mb-4 text-base font-bold text-white">Verification</h2>
 
               <div className="mb-5 rounded-xl border border-sky-500/20 bg-sky-500/5 px-4 py-3.5">
-                <p className="text-sm font-semibold text-sky-400">Why verify?</p>
+                <p className="text-sm font-semibold text-sky-400">Verification Status</p>
                 <p className="mt-1.5 text-sm text-zinc-300 leading-relaxed">
-                  ID verification is required to sell items on Sky Drop. It helps prevent fraud, builds trust with buyers, and enables you to list all types of items. Verification typically takes 1-2 business days.
+                  Phone verification is recommended for account security. Email verification is required to use the platform.
                 </p>
               </div>
 
