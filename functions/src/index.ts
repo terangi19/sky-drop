@@ -212,15 +212,53 @@ export const autoReleaseEscrow = onSchedule("every 24 hours", async () => {
         autoReleased: true,
       });
 
-      await createNotification({
-        targetEmail: purchase.sellerEmail || "",
-        fromEmail: "system@skydrop.nz",
-        type: "system",
-        title: "Escrow funds released",
-        message: `Funds for "${purchase.listingTitle || "your sale"}" have been automatically released after the buyer did not dispute within 14 days.`,
-      });
+      console.log("[autoReleaseEscrow] Released funds for purchase:", doc.id);
     }
   } catch (e) {
     console.error("[autoReleaseEscrow] Failed:", e);
+  }
+});
+
+// Automatic cleanup of old notifications and logs (30 days)
+export const cleanupOldData = onSchedule("every 24 hours", async () => {
+  const cutoff = admin.firestore.Timestamp.fromMillis(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  try {
+    // Clean up old notifications
+    const notificationsSnap = await db
+      .collection("notifications")
+      .where("createdAt", "<", cutoff)
+      .limit(1000)
+      .get();
+    
+    const batch = db.batch();
+    notificationsSnap.docs.forEach(doc => batch.delete(doc.ref));
+    await batch.commit();
+    console.log("[cleanupOldData] Deleted old notifications:", notificationsSnap.size);
+
+    // Clean up old security events
+    const securitySnap = await db
+      .collection("securityEvents")
+      .where("timestamp", "<", cutoff)
+      .limit(1000)
+      .get();
+    
+    const batch2 = db.batch();
+    securitySnap.docs.forEach(doc => batch2.delete(doc.ref));
+    await batch2.commit();
+    console.log("[cleanupOldData] Deleted old security events:", securitySnap.size);
+
+    // Clean up old admin notifications
+    const adminNotifSnap = await db
+      .collection("adminNotifications")
+      .where("createdAt", "<", cutoff)
+      .limit(500)
+      .get();
+    
+    const batch3 = db.batch();
+    adminNotifSnap.docs.forEach(doc => batch3.delete(doc.ref));
+    await batch3.commit();
+    console.log("[cleanupOldData] Deleted old admin notifications:", adminNotifSnap.size);
+  } catch (e) {
+    console.error("[cleanupOldData] Failed:", e);
   }
 });

@@ -23,6 +23,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [authReady, setAuthReady] = useState(false);
   const [verified, setVerified] = useState<boolean | null>(null);
   const verifyGen = useRef(0);
+  const activityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const ADMIN_SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -59,6 +61,44 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       }
     })();
   }, [user, authReady]);
+
+  // Admin session timeout - sign out after 30 minutes of inactivity
+  useEffect(() => {
+    if (!verified) {
+      if (activityTimeoutRef.current) {
+        clearTimeout(activityTimeoutRef.current);
+        activityTimeoutRef.current = null;
+      }
+      return;
+    }
+
+    const resetTimeout = () => {
+      if (activityTimeoutRef.current) {
+        clearTimeout(activityTimeoutRef.current);
+      }
+      activityTimeoutRef.current = setTimeout(() => {
+        auth.signOut();
+        window.location.href = "/admin";
+      }, ADMIN_SESSION_TIMEOUT_MS);
+    };
+
+    // Track user activity
+    const events = ["mousedown", "keydown", "scroll", "touchstart"];
+    events.forEach(event => {
+      window.addEventListener(event, resetTimeout);
+    });
+
+    resetTimeout(); // Start timer on mount
+
+    return () => {
+      if (activityTimeoutRef.current) {
+        clearTimeout(activityTimeoutRef.current);
+      }
+      events.forEach(event => {
+        window.removeEventListener(event, resetTimeout);
+      });
+    };
+  }, [verified]);
 
   const checking = !authReady || (user !== null && verified === null);
 
