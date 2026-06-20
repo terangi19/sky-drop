@@ -288,6 +288,15 @@ export default function DashboardPage() {
                   {levelInfo.level >= 10 && <span className="ml-1">👑</span>}
                 </span>
               </div>
+              {isAdminEmail(user.email) && (
+                <Link
+                  href="/admin"
+                  className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-400 transition hover:bg-red-500/20"
+                >
+                  <span>🛡️</span>
+                  Admin
+                </Link>
+              )}
               <div className="flex-1">
                 <div className="flex items-center justify-between text-[10px] text-zinc-500 mb-1">
                   <span>{xp} XP</span>
