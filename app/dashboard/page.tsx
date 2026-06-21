@@ -6,7 +6,7 @@ import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import { User } from "firebase/auth";
-import { collection, doc, limit, onSnapshot, query, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, limit, onSnapshot, query, where } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import { getLevelInfo, setUserLevel } from "../lib/xp";
 import { trackChallenge } from "../lib/challenges";
@@ -37,15 +37,31 @@ export default function DashboardPage() {
     return () => unsub();
   }, []);
 
+  // Fetch profile with getDoc + polling (60 seconds) instead of real-time for cost optimization
   useEffect(() => {
     if (!user?.uid) return;
-    const unsub = onSnapshot(doc(db, "profiles", user.uid), (snap) => {
-      if (snap.exists()) {
-        setXp(snap.data().xp || 0);
-        setSellerProfile(snap.data());
+    let mounted = true;
+
+    async function fetchProfile() {
+      if (!mounted) return;
+      try {
+        const snap = await getDoc(doc(db, "profiles", user.uid));
+        if (snap.exists() && mounted) {
+          setXp(snap.data().xp || 0);
+          setSellerProfile(snap.data());
+        }
+      } catch (error) {
+        console.error("Failed to fetch profile:", error);
       }
-    });
-    return () => unsub();
+    }
+
+    fetchProfile();
+    const interval = setInterval(fetchProfile, 60000); // Refresh every 60 seconds
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
   }, [user?.uid]);
 
   useEffect(() => {
@@ -68,35 +84,47 @@ export default function DashboardPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [user?.uid, user?.email]);
 
+  // Fetch dashboard data with getDocs + polling (60 seconds) instead of real-time for cost optimization
   useEffect(() => {
     if (!user?.email) return;
-    const unsub1 = onSnapshot(
-      query(collection(db, "purchases"), where("sellerEmail", "==", user.email), limit(50)),
-      (snap) => {
-        const items = snap.docs.map((d) => ({ id: d.id, ...d.data() } as any));
-        items.sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
-        setSales(items); setLoading(false);
-      },
-      () => setLoading(false)
-    );
-    const unsub2 = onSnapshot(
-      query(collection(db, "listings"), where("sellerEmail", "==", user.email), limit(50)),
-      (snap) => {
-        const items = snap.docs.map((d) => ({ id: d.id, ...d.data() } as any));
-        items.sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
-        setListings(items);
-      },
-      (err) => { console.error("Dashboard listings error:", err); }
-    );
-    const unsub3 = onSnapshot(
-      query(collection(db, "reviews"), where("sellerEmail", "==", user.email), limit(50)),
-      (snap) => {
-        const items = snap.docs.map((d) => ({ id: d.id, ...d.data() } as any));
-        items.sort((a: any, b: any) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
-        setReviews(items);
+    let mounted = true;
+
+    async function fetchDashboardData() {
+      if (!mounted) return;
+      try {
+        const [purchasesSnap, listingsSnap, reviewsSnap] = await Promise.all([
+          getDocs(query(collection(db, "purchases"), where("sellerEmail", "==", user.email), limit(50))),
+          getDocs(query(collection(db, "listings"), where("sellerEmail", "==", user.email), limit(50))),
+          getDocs(query(collection(db, "reviews"), where("sellerEmail", "==", user.email), limit(50)))
+        ]);
+
+        if (!mounted) return;
+
+        const sales = purchasesSnap.docs.map((d) => ({ id: d.id, ...d.data() } as any));
+        sales.sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
+        setSales(sales);
+        setLoading(false);
+
+        const listings = listingsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as any));
+        listings.sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
+        setListings(listings);
+
+        const reviews = reviewsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as any));
+        reviews.sort((a: any, b: any) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+        setReviews(reviews);
+      } catch (error) {
+        console.error("Failed to fetch dashboard data:", error);
+        if (mounted) setLoading(false);
       }
-    );
-    return () => { unsub1(); unsub2(); unsub3(); };
+    }
+
+    fetchDashboardData();
+    const interval = setInterval(fetchDashboardData, 60000); // Refresh every 60 seconds
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
   }, [user?.email]);
 
   const statCardsScrollAnimation = useScrollAnimation(0.1);

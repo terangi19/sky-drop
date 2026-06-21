@@ -13,6 +13,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -240,14 +241,19 @@ const [authRefreshing, setAuthRefreshing] = useState(false);
 const [activeTab, setActiveTab] = useState("profile");
 
 const tabs = [
-  { id: "profile", label: "Profile" },
-  { id: "listings", label: "Listings" },
-  { id: "reviews", label: "Reviews" },
-  { id: "verification", label: "Verification" },
-  { id: "payments", label: "Payments" },
-  { id: "notifications", label: "Notifications" },
-  { id: "settings", label: "Settings" },
-  { id: "danger", label: "Delete" },
+  { id: "profile", label: "Profile", group: "account" },
+  { id: "listings", label: "Listings", group: "selling" },
+  { id: "reviews", label: "Reviews", group: "selling" },
+  { id: "verification", label: "Verification", group: "account" },
+  { id: "payments", label: "Payments", group: "account" },
+  { id: "notifications", label: "Notifications", group: "account" },
+  { id: "settings", label: "Settings", group: "account" },
+  { id: "danger", label: "Delete", group: "account" },
+] as const;
+
+const tabGroups = [
+  { id: "account", label: "Account" },
+  { id: "selling", label: "Selling" },
 ] as const;
 
   const bannerRef = useRef<HTMLInputElement>(null);
@@ -375,14 +381,16 @@ const tabs = [
     return () => unsub();
   }, []);
 
-  // Live profile sync (keeps username after save + refresh)
+  // Fetch profile with getDoc + polling (60 seconds) instead of real-time for cost optimization
   useEffect(() => {
     if (!user?.uid) return;
+    let mounted = true;
 
-    const unsub = onSnapshot(
-      doc(db, "profiles", user.uid),
-      async (snap) => {
-        if (snap.exists()) {
+    async function fetchProfile() {
+      if (!mounted) return;
+      try {
+        const snap = await getDoc(doc(db, "profiles", user.uid));
+        if (snap.exists() && mounted) {
           const data = snap.data() as ProfileData;
           applyProfileData(data);
 
@@ -398,14 +406,19 @@ const tabs = [
           }
         }
         setLoading(false);
-      },
-      (err) => {
-        console.error("Profile snapshot error:", err);
-        setLoading(false);
+      } catch (error) {
+        console.error("Profile fetch error:", error);
+        if (mounted) setLoading(false);
       }
-    );
+    }
 
-    return () => unsub();
+    fetchProfile();
+    const interval = setInterval(fetchProfile, 60000); // Refresh every 60 seconds
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
   }, [user?.uid, applyProfileData]);
 
   // Update lastActive on mount
@@ -415,19 +428,28 @@ const tabs = [
     setDoc(ref, { lastActive: Timestamp.now() }, { merge: true }).catch((e) => console.error("Failed to update lastActive:", e));
   }, [user?.uid]);
 
-  // Read bank details from the secure subcollection (not the main profile doc)
+  // Read bank details with getDoc + on-demand (not real-time) for cost optimization
   useEffect(() => {
     if (!user?.uid) return;
-    const bankRef = doc(db, "profiles", user.uid, "bankDetails", "private");
-    const unsub = onSnapshot(bankRef, (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        setBankAccountName(data.bankAccountName || "");
-        setBankAccountNumber(data.bankAccountNumber || "");
-        setBankReference(data.bankReference || "");
+    let mounted = true;
+
+    async function fetchBankDetails() {
+      if (!mounted) return;
+      try {
+        const bankRef = doc(db, "profiles", user.uid, "bankDetails", "private");
+        const snap = await getDoc(bankRef);
+        if (snap.exists() && mounted) {
+          const data = snap.data();
+          setBankAccountName(data.bankAccountName || "");
+          setBankAccountNumber(data.bankAccountNumber || "");
+          setBankReference(data.bankReference || "");
+        }
+      } catch (error) {
+        console.error("Failed to fetch bank details:", error);
       }
-    });
-    return () => unsub();
+    }
+
+    fetchBankDetails();
   }, [user?.uid]);
 
   useEffect(() => {
@@ -473,38 +495,76 @@ const tabs = [
     };
   }, [user?.uid]);
 
-  // Fetch following list
+  // Fetch following list with getDocs + polling (60 seconds) instead of real-time for cost optimization
   useEffect(() => {
     if (!user?.uid) return;
-    const q = query(collection(db, "followers"), where("followerId", "==", user.uid));
-    const unsub = onSnapshot(q, (snap) => {
-      setFollowingList(snap.docs.map((d) => d.data() as any));
-    });
-    return () => unsub();
+    let mounted = true;
+
+    async function fetchFollowing() {
+      if (!mounted) return;
+      try {
+        const q = query(collection(db, "followers"), where("followerId", "==", user.uid), limit(100));
+        const snap = await getDocs(q);
+        if (mounted) {
+          setFollowingList(snap.docs.map((d) => d.data() as any));
+        }
+      } catch (error) {
+        console.error("Failed to fetch following:", error);
+      }
+    }
+
+    fetchFollowing();
+    const interval = setInterval(fetchFollowing, 60000); // Refresh every 60 seconds
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
   }, [user?.uid]);
 
-  // Fetch follower count
+  // Fetch follower count with getDocs + polling (60 seconds) instead of real-time for cost optimization
   useEffect(() => {
     if (!user?.uid) return;
-    const q = query(collection(db, "followers"), where("sellerId", "==", user.uid));
-    const unsub = onSnapshot(q, (snap) => {
-      setFollowerCount(snap.size);
-    });
-    return () => unsub();
+    let mounted = true;
+
+    async function fetchFollowerCount() {
+      if (!mounted) return;
+      try {
+        const q = query(collection(db, "followers"), where("sellerId", "==", user.uid), limit(100));
+        const snap = await getDocs(q);
+        if (mounted) {
+          setFollowerCount(snap.size);
+        }
+      } catch (error) {
+        console.error("Failed to fetch follower count:", error);
+      }
+    }
+
+    fetchFollowerCount();
+    const interval = setInterval(fetchFollowerCount, 60000); // Refresh every 60 seconds
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
   }, [user?.uid]);
 
-  // Listings (no composite index needed — sorted client-side)
+  // Fetch listings with getDocs + polling (60 seconds) instead of real-time for cost optimization
   useEffect(() => {
     if (!user?.email) return;
     let mounted = true;
-    const q = query(
-      collection(db, "listings"),
-      where("sellerEmail", "==", user.email)
-    );
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
+
+    async function fetchListings() {
+      if (!mounted) return;
+      try {
+        const q = query(
+          collection(db, "listings"),
+          where("sellerEmail", "==", user.email),
+          limit(100)
+        );
+        const snap = await getDocs(q);
         if (!mounted) return;
+
         const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Listing);
         items.sort((a, b) => {
           const ta = a.createdAt?.toMillis?.() || 0;
@@ -513,28 +573,53 @@ const tabs = [
         });
         setListings(items);
         setListingsLoading(false);
-      },
-      (err) => {
-        console.error("Listings query error:", err);
-        setListingsLoading(false);
+      } catch (error) {
+        console.error("Failed to fetch listings:", error);
+        if (mounted) setListingsLoading(false);
       }
-    );
-    return () => { mounted = false; unsub(); };
+    }
+
+    fetchListings();
+    const interval = setInterval(fetchListings, 60000); // Refresh every 60 seconds
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
   }, [user?.email]);
 
+  // Fetch purchases with getDocs + polling (60 seconds) instead of real-time for cost optimization
   useEffect(() => {
     if (!user?.email) {
       setSellerPurchases([]);
       return;
     }
-    const q = query(
-      collection(db, "purchases"),
-      where("sellerEmail", "==", user.email)
-    );
-    const unsub = onSnapshot(q, (snap) => {
-      setSellerPurchases(snap.docs.map((d) => d.data() as { status?: string; paymentType?: string }));
-    });
-    return () => unsub();
+    let mounted = true;
+
+    async function fetchPurchases() {
+      if (!mounted) return;
+      try {
+        const q = query(
+          collection(db, "purchases"),
+          where("sellerEmail", "==", user.email),
+          limit(100)
+        );
+        const snap = await getDocs(q);
+        if (mounted) {
+          setSellerPurchases(snap.docs.map((d) => d.data() as { status?: string; paymentType?: string }));
+        }
+      } catch (error) {
+        console.error("Failed to fetch purchases:", error);
+      }
+    }
+
+    fetchPurchases();
+    const interval = setInterval(fetchPurchases, 60000); // Refresh every 60 seconds
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
   }, [user?.email]);
 
   // Computed
@@ -1329,30 +1414,39 @@ const tabs = [
           </div>
 
           <div className="grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
-          {/* Tabs */}
+          {/* Tabs - Grouped */}
           <nav
             className="flex gap-1 overflow-x-auto rounded-2xl border border-white/[0.06] bg-white/[0.015] p-1.5 scrollbar-none lg:sticky lg:top-24 lg:flex-col lg:overflow-visible"
             role="tablist"
             aria-label="Profile sections"
           >
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                role="tab"
-                aria-selected={activeTab === tab.id}
-                className={`shrink-0 rounded-xl px-3.5 py-2.5 text-left text-xs font-semibold transition-all duration-200 sm:text-sm lg:w-full ${
-                  activeTab === tab.id
-                    ? tab.id === "danger"
-                      ? "bg-red-500/15 text-red-300 border border-red-500/20"
-                      : "bg-sky-500/15 text-sky-300 border border-sky-500/20"
-                    : tab.id === "danger"
-                      ? "text-red-400/60 hover:bg-red-500/10 hover:text-red-300"
-                      : "text-zinc-500 hover:bg-white/[0.04] hover:text-white"
-                }`}
-              >
-                {tab.label}
-              </button>
+            {tabGroups.map((group) => (
+              <div key={group.id} className="lg:w-full">
+                <div className="hidden lg:block px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                  {group.label}
+                </div>
+                <div className="flex gap-1 lg:flex-col">
+                  {tabs.filter(t => t.group === group.id).map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      role="tab"
+                      aria-selected={activeTab === tab.id}
+                      className={`shrink-0 rounded-xl px-3.5 py-2.5 text-left text-xs font-semibold transition-all duration-200 sm:text-sm lg:w-full ${
+                        activeTab === tab.id
+                          ? tab.id === "danger"
+                            ? "bg-red-500/15 text-red-300 border border-red-500/20"
+                            : "bg-sky-500/15 text-sky-300 border border-sky-500/20"
+                          : tab.id === "danger"
+                            ? "text-red-400/60 hover:bg-red-500/10 hover:text-red-300"
+                            : "text-zinc-500 hover:bg-white/[0.04] hover:text-white"
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
           </nav>
 

@@ -7,6 +7,7 @@ import {
   useState,
   lazy,
   Suspense,
+  useCallback,
 } from "react";
 
 import Link from "next/link";
@@ -254,42 +255,44 @@ export default function Home() {
     };
   }, []);
 
+  // Fetch listings with getDocs + polling (60 seconds) instead of real-time for cost optimization
   useEffect(() => {
     if (!authReady) return;
     let mounted = true;
-    let listingItems: any[] = [];
-    let tradeItems: any[] = [];
 
-    function merge() {
+    async function fetchListings() {
       if (!mounted) return;
-      const combined = [...listingItems, ...tradeItems];
-      const filtered = combined.filter((i: any) => i.status !== "flagged" && i.status !== "pending_review");
-      filtered.sort((a, b) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
-      setListings(filtered.slice(0, 100));
-      setLoading(false);
+      try {
+        const listingsSnap = await getDocs(
+          query(collection(db, "listings"), orderBy("createdAt", "desc"), limit(100))
+        );
+        const tradePostsSnap = await getDocs(
+          query(collection(db, "tradePosts"), orderBy("createdAt", "desc"), limit(50))
+        );
+
+        if (!mounted) return;
+
+        const listingItems = listingsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as any));
+        const tradeItems = tradePostsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as any));
+
+        const combined = [...listingItems, ...tradeItems];
+        const filtered = combined.filter((i: any) => i.status !== "flagged" && i.status !== "pending_review");
+        filtered.sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
+        setListings(filtered.slice(0, 100));
+        setLoading(false);
+      } catch (error) {
+        console.error("Failed to fetch listings:", error);
+        if (mounted) setLoading(false);
+      }
     }
 
-    const unsub1 = onSnapshot(
-      query(collection(db, "listings"), orderBy("createdAt", "desc"), limit(100)),
-      (snap) => {
-        if (!mounted) return;
-        listingItems = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        merge();
-      },
-      () => { merge(); }
-    );
+    fetchListings();
+    const interval = setInterval(fetchListings, 60000); // Refresh every 60 seconds
 
-    const unsub2 = onSnapshot(
-      query(collection(db, "tradePosts"), orderBy("createdAt", "desc"), limit(50)),
-      (snap) => {
-        if (!mounted) return;
-        tradeItems = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        merge();
-      },
-      () => { merge(); }
-    );
-
-    return () => { mounted = false; unsub1(); unsub2(); };
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
   }, [user, authReady]);
 
   // Scroll-to-top visibility
@@ -341,10 +344,10 @@ export default function Home() {
     }
   }
 
-  function applySavedSearch(saved: { query: string; category: string }) {
+  const applySavedSearch = useCallback((saved: { query: string; category: string }) => {
     setSearch(saved.query);
     setSelectedCategory(saved.category);
-  }
+  }, []);
 
   async function deleteListing(id: string) {
 
@@ -390,93 +393,90 @@ export default function Home() {
      }
    }
 
-    async function handleBuyNow(item: Listing) {
-        if (!isListingVisibleInMarketplace(item)) return;
-        
-        // Check if seller has Stripe configured for Pay Now
-        if (item.paymentType === "contact") {
-          setArrangeListing(item);
-          setShowArrangeModal(true);
-          return;
-        }
-        
-        // For Stripe payments, check if seller has Stripe configured
-        if (item.sellerEmail) {
-          try {
-            const sellerSnap = await getDoc(doc(db, "profiles", item.sellerEmail.split("@")[0]));
-            if (sellerSnap.exists()) {
-              const sellerData = sellerSnap.data();
-              if (!sellerHasStripeConfigured(sellerData)) {
-                // Seller doesn't have Stripe, default to Arrange Purchase
-                setArrangeListing(item);
-                setShowArrangeModal(true);
-                return;
-              }
-            }
-          } catch (e) {
-            console.error("Failed to check seller Stripe status:", e);
-            // On error, try Stripe checkout
+    const handleBuyNow = useCallback(async (item: Listing) => {
+    if (!isListingVisibleInMarketplace(item)) return;
+    
+    // Check if seller has Stripe configured for Pay Now
+    if (item.paymentType === "contact") {
+      setArrangeListing(item);
+      setShowArrangeModal(true);
+      return;
+    }
+    
+    // For Stripe payments, check if seller has Stripe configured
+    if (item.sellerEmail) {
+      try {
+        const sellerSnap = await getDoc(doc(db, "profiles", item.sellerEmail.split("@")[0]));
+        if (sellerSnap.exists()) {
+          const sellerData = sellerSnap.data();
+          if (!sellerHasStripeConfigured(sellerData)) {
+            // Seller doesn't have Stripe, default to Arrange Purchase
+            setArrangeListing(item);
+            setShowArrangeModal(true);
+            return;
           }
         }
-        
-        router.push(`/post/listing/${item.id}?buy=1`);
+      } catch (e) {
+        console.error("Failed to check seller Stripe status:", e);
+        // On error, try Stripe checkout
       }
+    }
+    
+    router.push(`/post/listing/${item.id}?buy=1`);
+  }, [router]);
 
-    async function saveToWatchlist(
-     item: any
-   ) {
-     // Check Firestore for duplicate (in case user is on a different device)
-     if (user?.uid) {
-       try {
-         const snap = await getDoc(doc(db, "users", user.uid, "watchlist", item.id));
-         if (snap.exists()) {
-           showToast("Already in watchlist", "info");
-           return;
-         }
-        } catch (e) { console.error(e); }
-      }
+    const saveToWatchlist = useCallback(async (item: any) => {
+    // Check Firestore for duplicate (in case user is on a different device)
+    if (user?.uid) {
+      try {
+        const snap = await getDoc(doc(db, "users", user.uid, "watchlist", item.id));
+        if (snap.exists()) {
+          showToast("Already in watchlist", "info");
+          return;
+        }
+       } catch (e) { console.error(e); }
+    }
 
-      const existingWatchlist =
-       JSON.parse(
-         localStorage.getItem(
-           "watchlist"
-         ) || "[]"
-       );
-
-     const alreadySaved =
-       existingWatchlist.find(
-         (fav: any) =>
-           fav.id === item.id
-       );
-
-     if (alreadySaved) {
-       showToast("Already in watchlist", "info");
-       return;
-     }
-
-     const updatedWatchlist =
-       [
-         ...existingWatchlist,
-         item,
-       ];
-
-     localStorage.setItem(
-       "watchlist",
-       JSON.stringify(
-         updatedWatchlist
-       )
+    const existingWatchlist =
+     JSON.parse(
+       localStorage.getItem(
+         "watchlist"
+       ) || "[]"
      );
 
-     if (user?.uid) {
-       setDoc(doc(db, "users", user.uid, "watchlist", item.id), {
-         id: item.id, title: item.title, price: item.price, imageUrl: item.imageUrl || item.image || "",
-         savedAt: new Date().toISOString(),
+   const alreadySaved =
+     existingWatchlist.find(
+       (fav: any) =>
+         fav.id === item.id
+     );
+
+   if (alreadySaved) {
+     showToast("Already in watchlist", "info");
+     return;
+   }
+
+   const updatedWatchlist =
+     [
+       ...existingWatchlist,
+       item,
+     ];
+
+   localStorage.setItem(
+     "watchlist",
+     JSON.stringify(
+       updatedWatchlist
+     )
+   );
+
+   if (user?.uid) {
+     setDoc(doc(db, "users", user.uid, "watchlist", item.id), {
+       id: item.id, title: item.title, price: item.price, imageUrl: item.imageUrl || item.image || "",
+       savedAt: new Date().toISOString(),
        }).catch((e) => { console.error("Watchlist save failed:", e); showToast("Failed to save to watchlist", "error"); });
      }
 
      showToast("Added to watchlist!");
-
-   }
+  }, [user]);
 
   async function toggleWatchlist(item: any) {
     const now = new Date().toISOString();

@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useState } from "react";
+import { useState, memo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import type { User } from "firebase/auth";
@@ -79,7 +79,7 @@ function watchlistBadgeStyle(saveGlow: number): CSSProperties {
   };
 }
 
-export default function MarketplaceListingCard({
+export default memo(function MarketplaceListingCard({
   item,
   cardIndex = 0,
   user,
@@ -103,7 +103,7 @@ export default function MarketplaceListingCard({
   const saves = themed ? listingWatchlistCount(item) : 0;
   const saveGlow = listingWatchlistGlowIntensity(saves);
   const isPopular = isVisible && (item.views || 0) > 3;
-  const imageSrc = item.images?.[0] || item.imageUrl || item.image;
+  const imageSrc = item.thumbnails?.[0] || item.images?.[0]?.thumbnail || item.images?.[0] || item.imageUrl || item.image;
 
   const cardGlowStyle = listingCardGlowStyle(saveGlow, isPopular, isVisible, neonGlow);
   const categoryLabel =
@@ -575,4 +575,4 @@ export default function MarketplaceListingCard({
     )}
     </div>
   );
-}
+});
