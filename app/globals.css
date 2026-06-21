@@ -910,6 +910,32 @@ body {
   100% { transform: scale(1) rotateY(0deg); opacity: 1; }
 }
 
+/* ── AWHINA ASSISTANT ANIMATIONS ── */
+@keyframes awhina-cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes awhina-speaking-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+.awhina-cursor-blink {
+  animation: awhina-cursor-blink 0.8s ease-in-out infinite;
+}
+
+.awhina-speaking-pulse {
+  animation: awhina-speaking-pulse 1.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .awhina-cursor-blink,
+  .awhina-speaking-pulse {
+    animation: none !important;
+  }
+}
+
 .animate-legendary-suspense {
   animation: legendary-suspense 2.8s ease-in-out infinite;
 }

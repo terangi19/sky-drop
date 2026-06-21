@@ -1,7 +1,9 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -73,6 +75,20 @@ export default function Navbar() {
   const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const hamburgerRef = useRef<HTMLButtonElement>(null);
+  const toggleLockRef = useRef(false);
+
+  const toggleMobileMenu = useCallback(() => {
+    if (toggleLockRef.current) return;
+    toggleLockRef.current = true;
+    setMobileMenuOpen(prev => !prev);
+    setTimeout(() => { toggleLockRef.current = false; }, 300);
+  }, []);
+
+  const closeMobileMenu = useCallback(() => {
+    setMobileMenuOpen(false);
+  }, []);
 
   const isAdmin = user ? isAdminEmail(user.email) : false;
 
@@ -296,6 +312,33 @@ export default function Navbar() {
     return () => { unsub1(); unsub2(); };
   }, [user?.email, user?.uid, blockedUsers]);
 
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node;
+      const isInsideMenu = mobileMenuRef.current?.contains(target);
+      const isInsideToggle = hamburgerRef.current?.contains(target);
+      if (!isInsideMenu && !isInsideToggle) {
+        closeMobileMenu();
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [mobileMenuOpen, closeMobileMenu]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === 'Escape') closeMobileMenu();
+    }
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [mobileMenuOpen, closeMobileMenu]);
+
+  useEffect(() => {
+    closeMobileMenu();
+  }, [pathname, closeMobileMenu]);
+
   const msgCount = Math.max(0, inboxUnreadCount);
   const activityCount = Math.max(0, activityUnreadCount);
 
@@ -371,21 +414,38 @@ export default function Navbar() {
 
           {/* HAMBURGER BUTTON */}
             <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              aria-label="Toggle menu"
+              ref={hamburgerRef}
+              onClick={toggleMobileMenu}
+              aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
               className="md:hidden relative flex h-9 w-9 items-center justify-center rounded-lg text-[var(--nav-ice)] active:scale-90 transition-all duration-200 hover:bg-white/[0.06] light:text-gray-700 light:hover:bg-black/[0.06]"
             >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                {mobileMenuOpen ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                ) : (
+              <div className="relative h-5 w-5">
+                <svg
+                  className={`absolute inset-0 h-5 w-5 transition-all duration-200 ${
+                    mobileMenuOpen ? 'opacity-0 rotate-90 scale-75' : 'opacity-100 rotate-0 scale-100'
+                  }`}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"
+                >
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-                )}
-              </svg>
+                </svg>
+                <svg
+                  className={`absolute inset-0 h-5 w-5 transition-all duration-200 ${
+                    mobileMenuOpen ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-90 scale-75'
+                  }`}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </div>
             </button>
           {/* MOBILE DROPDOWN */}
-          {mobileMenuOpen && (
-            <div className="absolute top-full left-0 right-0 z-50 border-b border-white/[0.06] bg-zinc-950/98 backdrop-blur-2xl md:hidden animate-fade-in-up shadow-2xl shadow-black/40 light:border-black/[0.12] light:bg-white/98 light:shadow-black/20">
+            <div
+              ref={mobileMenuRef}
+              className={`absolute top-full left-0 right-0 z-50 border-b border-white/[0.06] bg-zinc-950/98 backdrop-blur-2xl md:hidden shadow-2xl shadow-black/40 light:border-black/[0.12] light:bg-white/98 light:shadow-black/20 transition-all duration-200 ease-out ${
+                mobileMenuOpen
+                  ? 'opacity-100 translate-y-0 visible pointer-events-auto'
+                  : 'opacity-0 -translate-y-1.5 invisible pointer-events-none'
+              }`}>
               <div className="flex flex-col gap-1 p-3 max-h-[80vh] overflow-y-auto">
                 <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400 light:text-gray-500">Actions</div>
                 <Link href="/post/ai" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/post/ai") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>
@@ -449,7 +509,6 @@ export default function Navbar() {
                 )}
               </div>
             </div>
-          )}
 
           {/* RIGHT ICONS */}
           <div className="flex items-center gap-1">
@@ -597,7 +656,7 @@ export default function Navbar() {
               </svg>
               <span className="text-[9px] font-semibold tracking-wide">Sell</span>
             </Link>
-            <button onClick={() => setMobileMenuOpen(true)}
+            <button onClick={toggleMobileMenu}
               className="relative flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all duration-200 active:scale-90 text-[var(--nav-ice-faint)] hover:text-[var(--nav-ice-muted)]">
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />

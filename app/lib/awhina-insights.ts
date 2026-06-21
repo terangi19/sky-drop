@@ -8,12 +8,21 @@ import {
 import { dispatchSkyAiOpen } from "./sky-ai-events";
 import { isListingVisibleInMarketplace } from "./listing-availability";
 
-export type AwhinaInsightAction = {
+export type AwhinaInsightActionLink = {
+  type: "link";
   label: string;
-  href?: string;
-  onClick?: () => void;
+  href: string;
   primary?: boolean;
 };
+
+export type AwhinaInsightActionButton = {
+  type: "button";
+  label: string;
+  onClick: () => void;
+  primary?: boolean;
+};
+
+export type AwhinaInsightAction = AwhinaInsightActionLink | AwhinaInsightActionButton;
 
 export type AwhinaInsight = {
   icon: string;
@@ -251,7 +260,7 @@ export function buildWatchlistInsight(
       message: trending.title
         ? `"${trending.title}" is trending right now.`
         : "One of your saved listings is currently trending.",
-      actions: [{ label: "View Listing", href: `/post/listing/${trending.id}`, primary: true }],
+      actions: [{ type: "link" as const, label: "View Listing", href: `/post/listing/${trending.id}`, primary: true }],
     };
   }
 
@@ -261,8 +270,9 @@ export function buildWatchlistInsight(
       label: AWHINA_NAME,
       message: `You have ${watchlist.length} saved listings.`,
       actions: [
-        { label: "Browse Similar", href: "/" },
+        { type: "link" as const, label: "Browse Similar", href: "/" },
         {
+          type: "button" as const,
           label: `Ask ${AWHINA_NAME}`,
           onClick: () => dispatchSkyAiOpen("Help me find listings similar to my watchlist"),
         },
@@ -274,7 +284,7 @@ export function buildWatchlistInsight(
     icon: "💡",
     label: "Tip",
     message: "Add more listings to your watchlist to track prices and compare options.",
-    actions: [{ label: "Browse Listings", href: "/", primary: true }],
+    actions: [{ type: "link" as const, label: "Browse Listings", href: "/", primary: true }],
   };
 }
 
@@ -304,7 +314,7 @@ export function buildListListInsight({ listings, onBoost }: ListListInsightInput
       icon: "✨",
       label: AWHINA_NAME,
       message: "All your listings have sold or expired — ready to list again?",
-      actions: [{ label: "New Listing", href: "/post/ai", primary: true }],
+      actions: [{ type: "link" as const, label: "New Listing", href: "/post/ai", primary: true }],
     };
   }
 
@@ -318,7 +328,7 @@ export function buildListListInsight({ listings, onBoost }: ListListInsightInput
       message: unboosted.title
         ? `Boost "${unboosted.title}" to reach more buyers.`
         : "Boost a listing to reach more buyers.",
-      actions: [{ label: "Boost Listing", onClick: () => onBoost(unboosted), primary: true }],
+      actions: [{ type: "button" as const, label: "Boost Listing", onClick: () => onBoost(unboosted), primary: true }],
     };
   }
 
@@ -331,7 +341,7 @@ export function buildListListInsight({ listings, onBoost }: ListListInsightInput
       icon: "🔥",
       label: "Hot Listing",
       message: `"${topViews.title}" has ${topViews.views} views — keep the momentum going.`,
-      actions: [{ label: "View Listing", href: `/post/listing/${topViews.id}`, primary: true }],
+      actions: [{ type: "link" as const, label: "View Listing", href: `/post/listing/${topViews.id}`, primary: true }],
     };
   }
 
@@ -342,6 +352,7 @@ export function buildListListInsight({ listings, onBoost }: ListListInsightInput
       message: `You have ${active.length} active listings live on the marketplace.`,
       actions: [
         {
+          type: "button" as const,
           label: `Ask ${AWHINA_NAME}`,
           onClick: () => dispatchSkyAiOpen("How can I improve my listings?"),
           primary: true,
@@ -384,7 +395,7 @@ export function buildPurchasesInsight(
         needsConfirm.length === 1
           ? `"${p.listingTitle}" is ready to confirm received.`
           : `${needsConfirm.length} orders are ready to confirm received.`,
-      actions: [{ label: "View Orders", onClick: onFocusActive, primary: true }],
+      actions: [{ type: "button" as const, label: "View Orders", onClick: onFocusActive, primary: true }],
     };
   }
 
@@ -394,7 +405,7 @@ export function buildPurchasesInsight(
       icon: "💡",
       label: "Tip",
       message: `Dispute in progress on "${openDispute.listingTitle}".`,
-      actions: [{ label: "View Orders", onClick: onFocusActive, primary: true }],
+      actions: [{ type: "button" as const, label: "View Orders", onClick: onFocusActive, primary: true }],
     };
   }
 
@@ -430,6 +441,7 @@ export function buildSalesInsight(
           : `${needsUpdate.length} orders need updating — confirm, ship, or mark complete.`,
       actions: [
         {
+          type: "button" as const,
           label: `View ${needsUpdate.length} Active`,
           onClick: onFocusActive,
           primary: true,

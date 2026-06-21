@@ -1,11 +1,12 @@
 type Props = {
   speaking?: boolean;
-  size?: "sm" | "md";
+  size?: "sm" | "md" | "lg";
 };
 
 const sizes = {
-  sm: { box: "h-9 w-9", svg: "h-5 w-5", glow: "-inset-1.5 rounded-xl" },
-  md: { box: "h-12 w-12", svg: "h-7 w-7", glow: "-inset-2 rounded-2xl" },
+  sm: { box: "h-8 w-8 sm:h-9 sm:w-9", svg: "h-4 w-4 sm:h-5 sm:w-5", glow: "-inset-1 sm:-inset-1.5 rounded-xl" },
+  md: { box: "h-10 w-10 sm:h-12 sm:w-12", svg: "h-6 w-6 sm:h-7 sm:w-7", glow: "-inset-1.5 sm:-inset-2 rounded-2xl" },
+  lg: { box: "h-14 w-14 sm:h-16 sm:w-16", svg: "h-8 w-8 sm:h-9 sm:w-9", glow: "-inset-2 sm:-inset-2.5 rounded-2xl" },
 };
 
 export default function AwhinaAvatar({ speaking = false, size = "md" }: Props) {
@@ -19,11 +20,11 @@ export default function AwhinaAvatar({ speaking = false, size = "md" }: Props) {
         }`}
       />
       <div
-        className={`relative flex ${s.box} items-center justify-center rounded-2xl border border-sky-400/25 bg-gradient-to-b from-zinc-900 to-zinc-950 shadow-[0_0_24px_rgba(56,189,248,0.18)]`}
+        className={`relative flex ${s.box} items-center justify-center rounded-2xl border border-sky-400/25 bg-gradient-to-b from-zinc-900 to-zinc-950 shadow-[0_0_24px_rgba(56,189,248,0.18)] light:border-sky-600/25 light:from-gray-100 light:to-gray-200 light:shadow-[0_0_24px_rgba(14,165,233,0.15)]`}
       >
         <svg viewBox="0 0 64 64" className={s.svg} aria-hidden>
-          <rect x="14" y="18" width="36" height="30" rx="8" fill="#0f172a" stroke="#38bdf8" strokeWidth="2" />
-          <line x1="32" y1="10" x2="32" y2="18" stroke="#38bdf8" strokeWidth="2" />
+          <rect x="14" y="18" width="36" height="30" rx="8" fill="#0f172a" stroke="#38bdf8" strokeWidth="2" className="light:fill-white light:stroke-sky-600" />
+          <line x1="32" y1="10" x2="32" y2="18" stroke="#38bdf8" strokeWidth="2" className="light:stroke-sky-600" />
           <circle cx="32" cy="8" r="3" fill="#38bdf8" className={speaking ? "animate-pulse" : ""} />
           <circle cx="24" cy="30" r="4" fill="#0ea5e9" className={speaking ? "animate-pulse" : ""} />
           <circle cx="40" cy="30" r="4" fill="#0ea5e9" className={speaking ? "animate-pulse" : ""} />

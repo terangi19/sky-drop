@@ -198,7 +198,13 @@ export default function PurchasesPage() {
       setLoading(false);
     }, (err) => {
       console.error("Failed to load purchases:", err);
-      setError("Could not load purchases. Check your connection.");
+      if (err.code === "permission-denied") {
+        setError("You don't have permission to view purchases. Please sign in again.");
+      } else if (err.code === "unavailable") {
+        setError("Service temporarily unavailable. Please try again.");
+      } else {
+        setError(`Could not load purchases: ${err.message || "Check your connection."}`);
+      }
       setLoading(false);
     });
     return () => unsub();

@@ -132,7 +132,13 @@ export default function SalesPage() {
       setLoading(false);
     }, (err) => {
       console.error("Failed to load sales:", err);
-      setError("Could not load sales. Check your connection.");
+      if (err.code === "permission-denied") {
+        setError("You don't have permission to view sales. Please sign in again.");
+      } else if (err.code === "unavailable") {
+        setError("Service temporarily unavailable. Please try again.");
+      } else {
+        setError(`Could not load sales: ${err.message || "Check your connection."}`);
+      }
       setLoading(false);
     });
     return () => unsub();
