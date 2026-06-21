@@ -30,6 +30,7 @@ import { buildEmailHtml } from "../lib/email";
 import { formatNZPhone } from "../lib/phone-auth";
 import TurnstileWidget from "../components/TurnstileWidget";
 import { getTurnstileSiteKey } from "../lib/turnstile";
+import { getPasswordRequirements, validatePasswordStrength } from "../lib/password-strength";
 
 const INPUT_CLASS =
   "login-page-input w-full rounded-xl px-4 py-3 text-sm";
@@ -66,25 +67,6 @@ async function createProfileWithReservedUsername(
   });
 }
 
-function validatePasswordStrength(password: string): { valid: boolean; error?: string } {
-  if (password.length < 8) {
-    return { valid: false, error: "Password must be at least 8 characters" };
-  }
-  if (!/[A-Z]/.test(password)) {
-    return { valid: false, error: "Password must contain at least one uppercase letter" };
-  }
-  if (!/[a-z]/.test(password)) {
-    return { valid: false, error: "Password must contain at least one lowercase letter" };
-  }
-  if (!/[0-9]/.test(password)) {
-    return { valid: false, error: "Password must contain at least one number" };
-  }
-  if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
-    return { valid: false, error: "Password must contain at least one special character" };
-  }
-  return { valid: true };
-}
-
 function friendlyAuthError(error: unknown): string {
   const code =
     error && typeof error === "object" && "code" in error
@@ -96,7 +78,7 @@ function friendlyAuthError(error: unknown): string {
     case "auth/invalid-email":
       return "Enter a valid email address.";
     case "auth/weak-password":
-      return "Password is too weak. Use at least 8 characters with uppercase, lowercase, number, and special character.";
+      return "Password is too weak. Use at least 8 characters and 3 of: uppercase, lowercase, number, or special character.";
     case "auth/wrong-password":
     case "auth/invalid-credential":
       return "Incorrect email or password.";
@@ -370,6 +352,21 @@ export default function AuthPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 className={INPUT_CLASS}
               />
+              {!isLogin && password && (
+                <div className="mt-2 space-y-1 text-xs">
+                  <p className="text-[var(--muted)]">Password must contain:</p>
+                  {getPasswordRequirements(password).map((req, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <span className={req.met ? "text-green-500" : "text-zinc-500"}>
+                        {req.met ? "✓" : "○"}
+                      </span>
+                      <span className={req.met ? "text-green-500" : "text-zinc-400"}>
+                        {req.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
               {!isLogin && (
                 <input
                   type="tel"
@@ -380,24 +377,33 @@ export default function AuthPage() {
                 />
               )}
               {!isLogin && (
-                <label className="login-page-body flex cursor-pointer items-start gap-2.5 text-xs leading-relaxed">
-                  <input
-                    type="checkbox"
-                    checked={acceptedTerms}
-                    onChange={(e) => setAcceptedTerms(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-zinc-600"
-                  />
-                  <span>
-                    I agree to the{" "}
-                    <Link href="/terms" className="login-page-link font-medium underline">
-                      Terms of Service
-                    </Link>{" "}
-                    and{" "}
-                    <Link href="/privacy" className="login-page-link font-medium underline">
-                      Privacy Policy
-                    </Link>
-                  </span>
-                </label>
+                <div className="space-y-3">
+                  <label className="login-page-body flex cursor-pointer items-start gap-3 text-xs leading-relaxed">
+                    <input
+                      type="checkbox"
+                      checked={acceptedTerms}
+                      onChange={(e) => setAcceptedTerms(e.target.checked)}
+                      className="mt-0.5 h-5 w-5 shrink-0 rounded border-zinc-600"
+                    />
+                    <span>
+                      I agree to the{" "}
+                      <Link href="/terms" className="login-page-link font-medium underline">
+                        Terms of Service
+                      </Link>{" "}
+                      and{" "}
+                      <Link href="/privacy" className="login-page-link font-medium underline">
+                        Privacy Policy
+                      </Link>
+                    </span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setAcceptedTerms(true)}
+                    className="w-full rounded-lg border border-sky-500/30 bg-sky-500/5 px-3 py-2 text-xs font-semibold text-sky-400 transition hover:bg-sky-500/10 hover:text-sky-300"
+                  >
+                    I Agree to Terms & Policy
+                  </button>
+                </div>
               )}
               <TurnstileWidget
                 onToken={(token) => setTurnstileToken(token)}

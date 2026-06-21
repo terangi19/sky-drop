@@ -43,6 +43,7 @@ export default function WatchlistPage() {
   const [sortBy, setSortBy] = useState("newest");
   const [clearConfirm, setClearConfirm] = useState(false);
   const [currentTime, setCurrentTime] = useState(() => Date.now());
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(Date.now()), 60000);
@@ -130,6 +131,37 @@ export default function WatchlistPage() {
     setWatchlist([]);
     try { localStorage.setItem("watchlist", "[]"); } catch (e) { console.error("Failed to clear watchlist:", e); }
     setClearConfirm(false);
+  };
+
+  const toggleSelection = (id: string) => {
+    setSelectedItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedItems.size === filteredWatchlist.length) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(filteredWatchlist.map((item) => item.id)));
+    }
+  };
+
+  const removeSelected = async () => {
+    if (!user?.uid || selectedItems.size === 0) return;
+    for (const id of selectedItems) {
+      try { await deleteDoc(doc(db, "users", user.uid, "watchlist", id)); } catch {}
+      try { await deleteDoc(doc(db, "watchlist", `${user.uid}_${id}`)); } catch {}
+    }
+    setWatchlist((prev) => prev.filter((i) => !selectedItems.has(i.id)));
+    try { localStorage.setItem("watchlist", JSON.stringify(watchlist.filter((i) => !selectedItems.has(i.id)))); } catch (e) { console.error("Failed to save watchlist:", e); }
+    setSelectedItems(new Set());
   };
 
   const filteredWatchlist = useMemo(() => {
@@ -243,7 +275,26 @@ export default function WatchlistPage() {
             </div>
             <h2 className="text-2xl font-black tracking-tight text-white">Nothing saved yet</h2>
             <p className="mt-2 text-sm text-zinc-500">Tap the ♡ icon on any listing to save it here.</p>
-            <Link href="/" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 active:scale-[0.97]">
+            
+            <div className="mt-6 rounded-2xl border border-white/[0.04] bg-white/[0.02] p-4 text-left">
+              <h3 className="mb-3 text-xs font-bold text-sky-400">💡 Watchlist Tips</h3>
+              <ul className="space-y-2 text-[11px] text-zinc-400">
+                <li className="flex items-start gap-2">
+                  <span className="text-zinc-500">•</span>
+                  <span>Get notified when prices drop on saved items</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-zinc-500">•</span>
+                  <span>Track items you're interested in buying</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-zinc-500">•</span>
+                  <span>Quickly access your favorite listings</span>
+                </li>
+              </ul>
+            </div>
+            
+            <Link href="/" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 active:scale-[0.97]">
               Browse Listings
             </Link>
           </div>
@@ -277,14 +328,35 @@ export default function WatchlistPage() {
                   </button>
                 ))}
               </div>
-              {filteredWatchlist.length > 0 && (
-                <button
-                  onClick={() => setClearConfirm(true)}
-                  className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2.5 text-xs font-bold text-red-400 transition hover:bg-red-500/15 active:scale-[0.97] shrink-0"
-                >
-                  Clear all
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {filteredWatchlist.length > 0 && (
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedItems.size === filteredWatchlist.length && filteredWatchlist.length > 0}
+                      onChange={toggleSelectAll}
+                      className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-sky-500 focus:ring-sky-500/30"
+                    />
+                    <span className="text-xs text-zinc-400">Select all</span>
+                  </label>
+                )}
+                {selectedItems.size > 0 && (
+                  <button
+                    onClick={removeSelected}
+                    className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2.5 text-xs font-bold text-red-400 transition hover:bg-red-500/15 active:scale-[0.97] shrink-0"
+                  >
+                    Remove selected ({selectedItems.size})
+                  </button>
+                )}
+                {filteredWatchlist.length > 0 && selectedItems.size === 0 && (
+                  <button
+                    onClick={() => setClearConfirm(true)}
+                    className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2.5 text-xs font-bold text-red-400 transition hover:bg-red-500/15 active:scale-[0.97] shrink-0"
+                  >
+                    Clear all
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="grid gap-4 sm:gap-5 grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
@@ -294,12 +366,32 @@ export default function WatchlistPage() {
                 const isHot = popularIds.has(item.id);
                 const priceDrop = item.savedPrice && item.price && Number(item.savedPrice) > Number(item.price);
                 return (
-                  <Link key={item.id} href={`/post/listing/${item.id}`}
-                    className={`group relative block overflow-hidden rounded-2xl transition-all duration-300 hover:-translate-y-1 ${
+                  <div key={item.id} className="group relative">
+                    <div className={`relative block overflow-hidden rounded-2xl transition-all duration-300 hover:-translate-y-1 ${
                       isHot
                         ? "border border-sky-500/20 bg-gradient-to-b from-sky-500/[0.04] to-transparent shadow-[0_0_25px_rgba(14,165,233,0.08)] hover:border-sky-500/40 hover:shadow-[0_0_35px_rgba(14,165,233,0.15)]"
                         : "border border-white/[0.04] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.08] hover:shadow-[0_10px_40px_-10px_rgba(0,0,0,0.3)]"
-                    }`}>
+                    } ${selectedItems.has(item.id) ? "ring-2 ring-sky-500/50" : ""}`}>
+                      <label className="absolute top-2.5 left-2.5 z-20 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedItems.has(item.id)}
+                          onChange={() => toggleSelection(item.id)}
+                          className="sr-only"
+                        />
+                        <div className={`h-5 w-5 rounded border-2 flex items-center justify-center transition-all ${
+                          selectedItems.has(item.id)
+                            ? "bg-sky-500 border-sky-500"
+                            : "bg-black/60 backdrop-blur-sm border-white/30 hover:bg-black/80"
+                        }`}>
+                          {selectedItems.has(item.id) && (
+                            <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </div>
+                      </label>
+                      <Link href={`/post/listing/${item.id}`} className="block">
                     <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-sky-500/5 via-sky-500/5 to-sky-600/5">
                       {imgSrc ? (
                         <img src={imgSrc} alt={item.title} loading="lazy"
@@ -323,7 +415,7 @@ export default function WatchlistPage() {
                         </svg>
                       </button>
 
-                      <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5">
+                      <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5 ml-8">
                         {isHot && (
                           <span className="rounded-full bg-gradient-to-r from-sky-500 to-sky-400 backdrop-blur-sm px-2.5 py-0.5 text-[9px] font-bold text-white shadow-lg shadow-sky-500/30">
                             🔥 Hot
@@ -365,6 +457,8 @@ export default function WatchlistPage() {
                       </div>
                     </div>
                   </Link>
+                </div>
+              </div>
                 );
               })}
             </div>

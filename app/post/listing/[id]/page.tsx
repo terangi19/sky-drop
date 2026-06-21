@@ -1511,6 +1511,19 @@ Property Status: 🟢 Inquiry Active`;
                       Make Offer
                     </button>
                   )}
+                  <button
+                    onClick={() => router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`)}
+                    style={{
+                      width: "100%",
+                      minHeight: "44px",
+                    }}
+                    className="flex items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-5 py-3 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06] hover:-translate-y-0.5 active:translate-y-0 whitespace-nowrap"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    Message Seller
+                  </button>
                 </>
               ) : user?.email === listing.sellerEmail ? (
                 <div className="flex gap-2 w-full">
@@ -1771,12 +1784,12 @@ Service Status: 🟢 Inquiry Active`;
             {/* Payment & Contact Info */}
             {user && user.email !== listing.sellerEmail && listing.pricingType !== "quote" && (
               (listing as any).paymentType === "contact" ? (
-                <a href="/escrow#arrange" target="_blank" rel="noopener noreferrer" className="rounded-lg border border-sky-500/10 bg-sky-500/[0.03] px-3.5 py-2.5 block transition hover:bg-sky-500/[0.06]">
+                <a href="/payments#arrange" target="_blank" rel="noopener noreferrer" className="rounded-lg border border-sky-500/10 bg-sky-500/[0.03] px-3.5 py-2.5 block transition hover:bg-sky-500/[0.06]">
                   <p className="text-xs font-bold text-sky-400">🤝 Arrange Purchase — ${(listing as any).price}</p>
                   <p className="mt-0.5 text-[10px] leading-relaxed text-zinc-500">Tap Purchase to chat and agree payment with the seller. Keep communication on Sky Drop so we can review evidence if something goes wrong. <span className="text-sky-400/70 underline">How it works →</span></p>
                 </a>
               ) : (
-                <a href="/escrow#stripe" target="_blank" rel="noopener noreferrer" className="rounded-lg border border-sky-500/10 bg-sky-500/[0.03] px-3.5 py-2.5 block transition hover:bg-sky-500/[0.06]">
+                <a href="/payments#card-checkout" target="_blank" rel="noopener noreferrer" className="rounded-lg border border-sky-500/10 bg-sky-500/[0.03] px-3.5 py-2.5 block transition hover:bg-sky-500/[0.06]">
                   <div className="flex items-center gap-1.5 mb-1">
                     <svg viewBox="0 0 24 24" className="h-4 w-4 text-sky-400 shrink-0" fill="currentColor">
                       <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.866 6.001 1.632V2.94c-1.608-.732-3.965-1.413-6.076-1.413-3.659 0-6.328 1.803-6.328 4.866 0 3.354 2.547 4.545 5.644 5.604 2.162.795 3.251 1.499 3.251 2.476 0 .968-.747 1.49-2.153 1.49-2.49 0-5.206-1.156-6.748-2.041v4.133c1.682.827 4.127 1.435 6.824 1.435 3.943 0 6.827-1.835 6.827-5.017.001-3.452-2.587-4.596-5.617-5.608z"/>

@@ -240,14 +240,19 @@ const [authRefreshing, setAuthRefreshing] = useState(false);
 const [activeTab, setActiveTab] = useState("profile");
 
 const tabs = [
-  { id: "profile", label: "Profile" },
-  { id: "listings", label: "Listings" },
-  { id: "reviews", label: "Reviews" },
-  { id: "verification", label: "Verification" },
-  { id: "payments", label: "Payments" },
-  { id: "notifications", label: "Notifications" },
-  { id: "settings", label: "Settings" },
-  { id: "danger", label: "Delete" },
+  { id: "profile", label: "Profile", group: "account" },
+  { id: "listings", label: "Listings", group: "selling" },
+  { id: "reviews", label: "Reviews", group: "selling" },
+  { id: "verification", label: "Verification", group: "account" },
+  { id: "payments", label: "Payments", group: "account" },
+  { id: "notifications", label: "Notifications", group: "account" },
+  { id: "settings", label: "Settings", group: "account" },
+  { id: "danger", label: "Delete", group: "account" },
+] as const;
+
+const tabGroups = [
+  { id: "account", label: "Account" },
+  { id: "selling", label: "Selling" },
 ] as const;
 
   const bannerRef = useRef<HTMLInputElement>(null);
@@ -1329,30 +1334,39 @@ const tabs = [
           </div>
 
           <div className="grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
-          {/* Tabs */}
+          {/* Tabs - Grouped */}
           <nav
             className="flex gap-1 overflow-x-auto rounded-2xl border border-white/[0.06] bg-white/[0.015] p-1.5 scrollbar-none lg:sticky lg:top-24 lg:flex-col lg:overflow-visible"
             role="tablist"
             aria-label="Profile sections"
           >
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                role="tab"
-                aria-selected={activeTab === tab.id}
-                className={`shrink-0 rounded-xl px-3.5 py-2.5 text-left text-xs font-semibold transition-all duration-200 sm:text-sm lg:w-full ${
-                  activeTab === tab.id
-                    ? tab.id === "danger"
-                      ? "bg-red-500/15 text-red-300 border border-red-500/20"
-                      : "bg-sky-500/15 text-sky-300 border border-sky-500/20"
-                    : tab.id === "danger"
-                      ? "text-red-400/60 hover:bg-red-500/10 hover:text-red-300"
-                      : "text-zinc-500 hover:bg-white/[0.04] hover:text-white"
-                }`}
-              >
-                {tab.label}
-              </button>
+            {tabGroups.map((group) => (
+              <div key={group.id} className="lg:w-full">
+                <div className="hidden lg:block px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                  {group.label}
+                </div>
+                <div className="flex gap-1 lg:flex-col">
+                  {tabs.filter(t => t.group === group.id).map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      role="tab"
+                      aria-selected={activeTab === tab.id}
+                      className={`shrink-0 rounded-xl px-3.5 py-2.5 text-left text-xs font-semibold transition-all duration-200 sm:text-sm lg:w-full ${
+                        activeTab === tab.id
+                          ? tab.id === "danger"
+                            ? "bg-red-500/15 text-red-300 border border-red-500/20"
+                            : "bg-sky-500/15 text-sky-300 border border-sky-500/20"
+                          : tab.id === "danger"
+                            ? "text-red-400/60 hover:bg-red-500/10 hover:text-red-300"
+                            : "text-zinc-500 hover:bg-white/[0.04] hover:text-white"
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
           </nav>
 

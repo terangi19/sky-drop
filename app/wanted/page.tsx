@@ -261,6 +261,28 @@ export default function WantedPage() {
           </div>
         </BrowseMarketplaceHero>
 
+        {/* Explanation section */}
+        <div className="mx-auto mt-6 max-w-2xl rounded-2xl border border-sky-500/20 bg-sky-500/5 p-6 text-center">
+          <h3 className="text-lg font-bold text-sky-300">What are Wanted posts?</h3>
+          <p className="mt-2 text-sm text-zinc-300">
+            Post what you're looking for and let sellers come to you. Instead of searching through listings, describe what you need and sellers with matching items will reach out to you.
+          </p>
+          <div className="mt-4 flex flex-wrap justify-center gap-3">
+            <div className="flex items-center gap-2 rounded-lg bg-white/[0.05] px-3 py-2">
+              <span className="text-lg">📦</span>
+              <span className="text-xs text-zinc-400">Looking for items</span>
+            </div>
+            <div className="flex items-center gap-2 rounded-lg bg-white/[0.05] px-3 py-2">
+              <span className="text-lg">🛠️</span>
+              <span className="text-xs text-zinc-400">Need services</span>
+            </div>
+            <div className="flex items-center gap-2 rounded-lg bg-white/[0.05] px-3 py-2">
+              <span className="text-lg">🔑</span>
+              <span className="text-xs text-zinc-400">Want to rent</span>
+            </div>
+          </div>
+        </div>
+
         {listings.length > 0 && (
           <div className="mb-5">
             <div className="flex flex-wrap items-center gap-3">

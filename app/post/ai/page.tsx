@@ -138,6 +138,13 @@ export default function AIPostPage() {
   const [draftExtras, setDraftExtras] = useState<string[]>([]);
   const [formStep, setFormStep] = useState(1);
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  const [showEventDetails, setShowEventDetails] = useState(false);
+  const [showJobDetails, setShowJobDetails] = useState(false);
+  const [showAcceptOffers, setShowAcceptOffers] = useState(false);
+  const [showDigitalPricing, setShowDigitalPricing] = useState(false);
+  const [showServiceDetails, setShowServiceDetails] = useState(false);
+  const [showRentalDetails, setShowRentalDetails] = useState(false);
+  const [showStockSettings, setShowStockSettings] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   const isDigital = listingType === "digital";
@@ -1180,55 +1187,6 @@ export default function AIPostPage() {
           <div className="relative overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--card)] p-4 sm:p-6 md:p-8 shadow-2xl backdrop-blur-xl">
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
 
-        {/* SCAM ALERT MODAL */}
-        {scamAlert && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setScamAlert(null)}>
-            <div className="mx-4 w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-black text-sky-400">⚠️ {scamAlert.title}</h3>
-                <button onClick={() => setScamAlert(null)} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
-              </div>
-              <p className="mt-2 text-sm text-[var(--foreground)]">{scamAlert.message}</p>
-              {scamAlert.found.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {scamAlert.found.map((kw) => (
-                    <span key={kw} className="rounded-full bg-red-500/10 px-2.5 py-1 text-[11px] font-medium text-red-400">"{kw}"</span>
-                  ))}
-                </div>
-              )}
-              <div className="mt-5 flex gap-3">
-                <button onClick={() => setScamAlert(null)} className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--card)] py-3 text-sm font-bold text-[var(--foreground)] hover:bg-[var(--card-hover)] active:scale-[0.98]">
-                  Edit Listing
-                </button>
-                <button onClick={bypassScamAlert} className="flex-1 rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-sky-400 active:scale-[0.98]">
-                  Submit Anyway
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* PRICE ALERT MODAL */}
-        {priceAlert && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setPriceAlert(false)}>
-            <div className="mx-4 w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-black text-sky-400">⚠️ Unusually Low Price</h3>
-                <button onClick={() => setPriceAlert(false)} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
-              </div>
-              <p className="mt-2 text-sm text-[var(--foreground)]">Your listing price (${price}) seems unusually low for the "{category}" category. This may attract scam filters or suspicious buyers.</p>
-              <div className="mt-5 flex gap-3">
-                <button onClick={() => setPriceAlert(false)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-[var(--card-hover)] active:scale-[0.98]">
-                  Set Higher Price
-                </button>
-                <button onClick={bypassPriceAlert} className="flex-1 rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-sky-400 active:scale-[0.98]">
-                  Submit Anyway
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-500">
           {/* Honest form progress indicator */}
           <div className="sticky top-0 z-20 -mx-6 mb-2 border-b border-white/[0.08] bg-[var(--card)] px-6 py-3 backdrop-blur-xl sm:-mx-8 sm:px-8">
@@ -1247,7 +1205,61 @@ export default function AIPostPage() {
             </p>
           </div>
 
-          <div className="space-y-1.5 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
+          {/* Listing Type - Moved to top for better UX */}
+          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-base font-bold text-white">What are you selling?</label>
+                <p className="mt-1 text-xs text-[var(--muted)]">Choose the option that best matches what you're offering.</p>
+              </div>
+              <button type="button" onClick={() => setShowTypeGuideModal(true)} className="text-xs text-sky-400 hover:text-sky-300 underline">
+                Not sure?
+              </button>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+              {[
+                { key: "physical", icon: "📦", label: "Physical", desc: "Real items including vehicles that can be picked up or shipped.", examples: "Phones, furniture, tools, clothing, cars, collectibles.", action: () => setAcceptOffers(false) },
+                { key: "digital", icon: "💾", label: "Digital", desc: "Digital products and online services delivered remotely.", examples: "Software, templates, e-books, web design, graphic design, SEO, digital marketing.", action: () => { setCategory("Other Digital Services"); setPricingType("fixed"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); } },
+                { key: "service", icon: "🛠️", label: "Service", desc: "Local services performed in person.", examples: "Lawn mowing, cleaning, tutoring, photography, trades, handyman work, personal training.", action: () => { setCategory("Other Services"); setServicePricingType("fixed"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(true); setSaleType("buy_now"); } },
+                { key: "rental", icon: "🔑", label: "Rental", desc: "Something people can hire or rent temporarily.", examples: "Equipment, vehicles, party gear.", action: () => { setCategory("Other"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); setLocation(""); setCondition("New"); } },
+                { key: "wanted", icon: "📋", label: "Wanted", desc: "Post what you're looking for and let sellers come to you.", examples: "Looking for a car, need a service, want to rent something.", action: () => { setCategory("Items"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); } },
+              ].map((t) => (
+                <button key={t.key} type="button" onClick={() => handleTypeChange(t.key, t.action)}
+                  className={`group relative rounded-2xl border p-4 text-left transition-all duration-200 active:scale-[0.97] ${
+                    listingType === t.key
+                      ? "border-sky-400/40 bg-gradient-to-b from-sky-500/[0.08] to-sky-500/[0.03] shadow-[0_0_30px_rgba(14,165,233,0.1)] ring-1 ring-sky-400/20"
+                      : "border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.12]"
+                  }`}>
+                  <div className="flex items-start gap-3 sm:flex-col sm:gap-0">
+                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg transition-all duration-200 sm:h-12 sm:w-12 sm:text-2xl ${
+                      listingType === t.key
+                        ? "bg-sky-500/20 shadow-[0_0_15px_rgba(14,165,233,0.15)]"
+                        : "bg-white/[0.04] group-hover:bg-white/[0.06]"
+                    }`}>{t.icon}</span>
+                    <div className="min-w-0 flex-1 sm:mt-2">
+                      <div className="flex items-center gap-2">
+                        <p className={`text-sm font-bold transition-colors ${listingType === t.key ? "text-sky-400" : "text-white"}`}>{t.label}</p>
+                        {listingType === t.key && (
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-sky-500/20">
+                            <svg className="h-3 w-3 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1 text-[11px] leading-snug text-white">{t.desc}</p>
+                      <p className="mt-1 text-[10px] leading-snug text-[var(--muted)]"><span className="font-medium text-zinc-300">Best for: </span>{t.examples}</p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <div className="rounded-2xl border border-white/[0.04] bg-white/[0.015] px-4 py-3">
+              <p className="text-[11px] leading-relaxed text-[var(--muted)]">
+                <span className="font-semibold text-[var(--muted)]">Not sure which option to choose?</span> Pick the option that best describes what you're offering. Āwhina will automatically adjust the listing form based on your selection.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-1.5 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150">
             <label htmlFor="listing-title" className="text-sm font-bold text-white tracking-wide">Title</label>
             <div className="relative">
               <input id="listing-title" type="text" value={title} onChange={(e) => handleTitleChange(e.target.value)} aria-label="Listing title" aria-describedby={validationErrors.title ? "title-error" : undefined} className={`w-full rounded-xl border px-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:bg-white/[0.05] focus:ring-2 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:border-white/[0.12] placeholder="What are you selling?" ${validationErrors.title ? 'border-red-500/50 focus:border-red-500/60 focus:ring-red-500/20' : 'border-white/[0.06] focus:border-sky-500/60 focus:ring-sky-500/20'}`} placeholder="What are you selling?" />
@@ -1367,22 +1379,42 @@ export default function AIPostPage() {
           )}
 
           {listingType === "physical" && saleType === "auction" && (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Reserve Price <span className="text-[var(--muted)] font-normal">(optional)</span></label>
-                <input type="number" value={reservePrice} onChange={(e) => setReservePrice(e.target.value)} placeholder="$"
-                  className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]" />
-              </div>
-              <div>
-                <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Auction Duration</label>
-                <select value={auctionDuration} onChange={(e) => setAuctionDuration(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm text-[var(--foreground)] outline-none focus:border-sky-500">
-                  <option value="1">24 hours</option>
-                  <option value="3">3 days</option>
-                  <option value="7">7 days</option>
-                  <option value="14">14 days</option>
-                </select>
-              </div>
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+              <button
+                type="button"
+                onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
+                className="flex w-full items-center justify-between text-sm font-bold text-[var(--foreground)]"
+              >
+                <span>Auction Settings</span>
+                <svg
+                  className={`h-4 w-4 transition-transform ${showAdvancedOptions ? "rotate-180" : ""}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {showAdvancedOptions && (
+                <div className="mt-4 grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Reserve Price <span className="text-[var(--muted)] font-normal">(optional)</span></label>
+                    <input type="number" value={reservePrice} onChange={(e) => setReservePrice(e.target.value)} placeholder="$"
+                      className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]" />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Auction Duration</label>
+                    <select value={auctionDuration} onChange={(e) => setAuctionDuration(e.target.value)}
+                      className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm text-[var(--foreground)] outline-none focus:border-sky-500">
+                      <option value="1">24 hours</option>
+                      <option value="3">3 days</option>
+                      <option value="7">7 days</option>
+                      <option value="14">14 days</option>
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1406,247 +1438,283 @@ export default function AIPostPage() {
           )}
 
           {(listingType !== "wanted" && listingType !== "job" && listingType !== "property") && (
-          <div className="space-y-3">
-            <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Payment Type</label>
-            <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 px-4 py-3">
-              <p className="text-xs text-sky-300 leading-relaxed">
-                <span className="font-bold">Choose your payment method:</span><br />
-                <span className="text-[var(--muted)]">🤝 Arrange Purchase</span> — No platform fees, arrange payment directly with seller in Messages. Use for trusted transactions.<br />
-                <span className="text-[var(--muted)]">💳 Stripe Checkout</span> — Card payment with buyer protection. Requires Stripe Connect setup.
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setPaymentType("contact")}
-                className={`rounded-xl border px-4 py-3 text-xs font-bold text-left transition-all duration-200 active:scale-[0.97] ${
-                  paymentType === "contact" ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.06)]" : "border-white/[0.06] bg-white/[0.02] text-[var(--muted)] hover:bg-white/[0.04] hover:border-white/[0.12]"
-                }`}>
-                <span className="flex items-center gap-1.5">🤝 Arrange Purchase</span>
-                <span className="ml-1 rounded bg-sky-500/20 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-sky-300">Default</span>
-                <p className="mt-1 text-[9px] font-normal text-[var(--muted)]">Bank transfer, cash, or pickup — agree payment in Messages</p>
-              </button>
-              <button type="button" onClick={() => setPaymentType("stripe")}
-                className={`rounded-xl border px-4 py-3 text-xs font-bold text-left transition-all duration-200 active:scale-[0.97] ${
-                  paymentType === "stripe" ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.06)]" : "border-white/[0.06] bg-white/[0.02] text-[var(--muted)] hover:bg-white/[0.04] hover:border-white/[0.12]"
-                }`}>
-                <span className="flex items-center gap-1.5">
-                  <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0" fill="currentColor">
-                    <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.866 6.001 1.632V2.94c-1.608-.732-3.965-1.413-6.076-1.413-3.659 0-6.328 1.803-6.328 4.866 0 3.354 2.547 4.545 5.644 5.604 2.162.795 3.251 1.499 3.251 2.476 0 .968-.747 1.49-2.153 1.49-2.49 0-5.206-1.156-6.748-2.041v4.133c1.682.827 4.127 1.435 6.824 1.435 3.943 0 6.827-1.835 6.827-5.017.001-3.452-2.587-4.596-5.617-5.608z"/>
-                  </svg>
-                  <span className="font-bold tracking-tight">Stripe</span>
-                  <span className="text-[10px] font-normal text-[var(--muted)]">Checkout</span>
-                </span>
-                <p className="mt-1 text-[9px] font-normal text-[var(--muted)]">Card payment — requires Stripe Connect on your profile</p>
-              </button>
-            </div>
-            {paymentType === "contact" && (
-              <p className="mt-2 text-[10px] text-sky-400/90 leading-relaxed">
-                Sellers: add bank details in{" "}
-                <Link href="/profile#payment-settings" className="underline hover:text-sky-300">
-                  Profile → Payment settings
-                </Link>{" "}
-                so buyers see how to pay in Messages.{" "}
-                <Link href="/seller-guidelines#arrange-payment" className="text-sky-400 underline hover:text-sky-300">
-                  Setup guide
-                </Link>
-              </p>
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+            <button
+              type="button"
+              onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
+              className="flex w-full items-center justify-between text-sm font-bold text-[var(--foreground)]"
+            >
+              <span>Payment & Shipping Options</span>
+              <svg
+                className={`h-4 w-4 transition-transform ${showAdvancedOptions ? "rotate-180" : ""}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {showAdvancedOptions && (
+              <div className="mt-4 space-y-4">
+                <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 px-4 py-3">
+                  <p className="text-xs text-sky-300 leading-relaxed">
+                    <span className="font-bold">Choose your payment method:</span><br />
+                    <span className="text-[var(--muted)]">🤝 Arrange Purchase</span> — No platform fees, arrange payment directly with seller in Messages. Use for trusted transactions.<br />
+                    <span className="text-[var(--muted)]">💳 Stripe Checkout</span> — Card payment with buyer protection. Requires Stripe Connect setup.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" onClick={() => setPaymentType("contact")}
+                    className={`rounded-xl border px-4 py-3 text-xs font-bold text-left transition-all duration-200 active:scale-[0.97] ${
+                      paymentType === "contact" ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.06)]" : "border-white/[0.06] bg-white/[0.02] text-[var(--muted)] hover:bg-white/[0.04] hover:border-white/[0.12]"
+                    }`}>
+                    <span className="flex items-center gap-1.5">🤝 Arrange Purchase</span>
+                    <span className="ml-1 rounded bg-sky-500/20 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-sky-300">Default</span>
+                    <p className="mt-1 text-[9px] font-normal text-[var(--muted)]">Bank transfer, cash, or pickup — agree payment in Messages</p>
+                  </button>
+                  <button type="button" onClick={() => setPaymentType("stripe")}
+                    className={`rounded-xl border px-4 py-3 text-xs font-bold text-left transition-all duration-200 active:scale-[0.97] ${
+                      paymentType === "stripe" ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.06)]" : "border-white/[0.06] bg-white/[0.02] text-[var(--muted)] hover:bg-white/[0.04] hover:border-white/[0.12]"
+                    }`}>
+                    <span className="flex items-center gap-1.5">
+                      <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0" fill="currentColor">
+                        <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.866 6.001 1.632V2.94c-1.608-.732-3.965-1.413-6.076-1.413-3.659 0-6.328 1.803-6.328 4.866 0 3.354 2.547 4.545 5.644 5.604 2.162.795 3.251 1.499 3.251 2.476 0 .968-.747 1.49-2.153 1.49-2.49 0-5.206-1.156-6.748-2.041v4.133c1.682.827 4.127 1.435 6.824 1.435 3.943 0 6.827-1.835 6.827-5.017.001-3.452-2.587-4.596-5.617-5.608z"/>
+                      </svg>
+                      <span className="font-bold tracking-tight">Stripe</span>
+                      <span className="text-[10px] font-normal text-[var(--muted)]">Checkout</span>
+                    </span>
+                    <p className="mt-1 text-[9px] font-normal text-[var(--muted)]">Card payment — requires Stripe Connect on your profile</p>
+                  </button>
+                </div>
+                {paymentType === "contact" && (
+                  <p className="text-[10px] text-sky-400/90 leading-relaxed">
+                    Sellers: add bank details in{" "}
+                    <Link href="/profile#payment-settings" className="underline hover:text-sky-300">
+                      Profile → Payment settings
+                    </Link>{" "}
+                    so buyers see how to pay in Messages.{" "}
+                    <Link href="/seller-guidelines#arrange-payment" className="text-sky-400 underline hover:text-sky-300">
+                      Setup guide
+                    </Link>
+                  </p>
+                )}
+              </div>
             )}
           </div>
           )}
 
-          {/* Listing Type */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="text-base font-bold text-white">What are you selling?</label>
-                <p className="mt-1 text-xs text-[var(--muted)]">Choose the option that best matches what you're offering.</p>
-              </div>
-              <button type="button" onClick={() => setShowTypeGuideModal(true)} className="text-xs text-sky-400 hover:text-sky-300 underline">
-                Not sure?
-              </button>
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-              {[
-                { key: "physical", icon: "📦", label: "Physical", desc: "Real items including vehicles that can be picked up or shipped.", examples: "Phones, furniture, tools, clothing, cars, collectibles.", action: () => setAcceptOffers(false) },
-                { key: "digital", icon: "💾", label: "Digital", desc: "Digital products and online services delivered remotely.", examples: "Software, templates, e-books, web design, graphic design, SEO, digital marketing.", action: () => { setCategory("Other Digital Services"); setPricingType("fixed"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); } },
-                { key: "service", icon: "🛠️", label: "Service", desc: "Local services performed in person.", examples: "Lawn mowing, cleaning, tutoring, photography, trades, handyman work, personal training.", action: () => { setCategory("Other Services"); setServicePricingType("fixed"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(true); setSaleType("buy_now"); } },
-                { key: "rental", icon: "🔑", label: "Rental", desc: "Something people can hire or rent temporarily.", examples: "Equipment, vehicles, party gear.", action: () => { setCategory("Other"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); setLocation(""); setCondition("New"); } },
-                { key: "wanted", icon: "📋", label: "Wanted", desc: "Post what you're looking for and let sellers come to you.", examples: "Looking for a car, need a service, want to rent something.", action: () => { setCategory("Items"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); } },
-              ].map((t) => (
-                <button key={t.key} type="button" onClick={() => handleTypeChange(t.key, t.action)}
-                  className={`group relative rounded-2xl border p-4 text-left transition-all duration-200 active:scale-[0.97] ${
-                    listingType === t.key
-                      ? "border-sky-400/40 bg-gradient-to-b from-sky-500/[0.08] to-sky-500/[0.03] shadow-[0_0_30px_rgba(14,165,233,0.1)] ring-1 ring-sky-400/20"
-                      : "border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.12]"
-                  }`}>
-                  <div className="flex items-start gap-3 sm:flex-col sm:gap-0">
-                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg transition-all duration-200 sm:h-12 sm:w-12 sm:text-2xl ${
-                      listingType === t.key
-                        ? "bg-sky-500/20 shadow-[0_0_15px_rgba(14,165,233,0.15)]"
-                        : "bg-white/[0.04] group-hover:bg-white/[0.06]"
-                    }`}>{t.icon}</span>
-                    <div className="min-w-0 flex-1 sm:mt-2">
-                      <div className="flex items-center gap-2">
-                        <p className={`text-sm font-bold transition-colors ${listingType === t.key ? "text-sky-400" : "text-white"}`}>{t.label}</p>
-                        {listingType === t.key && (
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-sky-500/20">
-                            <svg className="h-3 w-3 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                          </span>
-                        )}
-                      </div>
-                      <p className="mt-1 text-[11px] leading-snug text-white">{t.desc}</p>
-                      <p className="mt-1 text-[10px] leading-snug text-[var(--muted)]"><span className="font-medium text-zinc-300">Best for: </span>{t.examples}</p>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-            <div className="rounded-2xl border border-white/[0.04] bg-white/[0.015] px-4 py-3">
-              <p className="text-[11px] leading-relaxed text-[var(--muted)]">
-                <span className="font-semibold text-[var(--muted)]">Not sure which option to choose?</span> Pick the option that best describes what you're offering. Āwhina will automatically adjust the listing form based on your selection.
-              </p>
-            </div>
-          </div>
-
           {/* Event Details */}
           {listingType === "event" && (
             <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
-              <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Event Details</label>
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setShowEventDetails(!showEventDetails)}
+                className="flex w-full items-center justify-between text-sm font-bold text-[var(--foreground)]"
+              >
+                <span>Event Details</span>
+                <svg
+                  className={`h-4 w-4 transition-transform ${showEventDetails ? "rotate-180" : ""}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {showEventDetails && (
+                <div className="mt-4 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Event date *</label>
+                      <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)}
+                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Event time</label>
+                      <input type="time" value={eventTime} onChange={(e) => setEventTime(e.target.value)}
+                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                    </div>
+                  </div>
                   <div>
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Event date *</label>
-                    <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)}
+                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Venue *</label>
+                    <input type="text" value={venue} onChange={(e) => setVenue(e.target.value)} placeholder="e.g. Spark Arena, Auckland"
                       className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
                   </div>
-                  <div>
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Event time</label>
-                    <input type="time" value={eventTime} onChange={(e) => setEventTime(e.target.value)}
-                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Ticket quantity</label>
+                      <input type="number" value={ticketQuantity} onChange={(e) => setTicketQuantity(e.target.value)} placeholder="e.g. 100"
+                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Ticket type</label>
+                      <select value={ticketType} onChange={(e) => setTicketType(e.target.value)}
+                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                        <option>General Admission</option>
+                        <option>VIP</option>
+                        <option>Early Bird</option>
+                        <option>Student</option>
+                        <option>Family Pass</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Venue *</label>
-                  <input type="text" value={venue} onChange={(e) => setVenue(e.target.value)} placeholder="e.g. Spark Arena, Auckland"
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Ticket quantity</label>
-                    <input type="number" value={ticketQuantity} onChange={(e) => setTicketQuantity(e.target.value)} placeholder="e.g. 100"
-                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Ticket type</label>
-                    <select value={ticketType} onChange={(e) => setTicketType(e.target.value)}
-                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
-                      <option>General Admission</option>
-                      <option>VIP</option>
-                      <option>Early Bird</option>
-                      <option>Student</option>
-                      <option>Family Pass</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
           )}
 
           {/* Job Details */}
           {listingType === "job" && (
             <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
-              <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Job Details</label>
-              <div className="space-y-3">
-                <div>
-                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Company *</label>
-                  <input type="text" value={jobCompany} onChange={(e) => setJobCompany(e.target.value)} placeholder="e.g. Sky Drop Ltd"
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setShowJobDetails(!showJobDetails)}
+                className="flex w-full items-center justify-between text-sm font-bold text-[var(--foreground)]"
+              >
+                <span>Job Details</span>
+                <svg
+                  className={`h-4 w-4 transition-transform ${showJobDetails ? "rotate-180" : ""}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {showJobDetails && (
+                <div className="mt-4 space-y-3">
                   <div>
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Employment type</label>
-                    <select value={jobEmploymentType} onChange={(e) => setJobEmploymentType(e.target.value)}
-                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
-                      <option>Full-time</option><option>Part-time</option><option>Contract</option><option>Casual</option><option>Fixed-term</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Location</label>
-                    <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Auckland"
+                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Company *</label>
+                    <input type="text" value={jobCompany} onChange={(e) => setJobCompany(e.target.value)} placeholder="e.g. Sky Drop Ltd"
                       className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Salary min</label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                      <input type="number" value={salaryMin} onChange={(e) => setSalaryMin(e.target.value)} placeholder="70000"
-                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Employment type</label>
+                      <select value={jobEmploymentType} onChange={(e) => setJobEmploymentType(e.target.value)}
+                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                        <option>Full-time</option><option>Part-time</option><option>Contract</option><option>Casual</option><option>Fixed-term</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Location</label>
+                      <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Auckland"
+                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
                     </div>
                   </div>
-                  <div>
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Salary max</label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                      <input type="number" value={salaryMax} onChange={(e) => setSalaryMax(e.target.value)} placeholder="90000"
-                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Salary min</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                        <input type="number" value={salaryMin} onChange={(e) => setSalaryMin(e.target.value)} placeholder="70000"
+                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Salary max</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                        <input type="number" value={salaryMax} onChange={(e) => setSalaryMax(e.target.value)} placeholder="90000"
+                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
 
           {/* Accept Offers — physical, service only */}
           {listingType !== "digital" && listingType !== "event" && listingType !== "job" && listingType !== "wanted" && !(listingType === "service" && offersDisabledForService(servicePricingType)) && (
             <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
-              <div className="flex items-start">
-                <div className="flex h-5 items-center">
-                  <input id="acceptOffers" type="checkbox" checked={acceptOffers}
-                    onChange={(e) => setAcceptOffers(e.target.checked)}
-                    className="h-4 w-4 rounded border-[var(--border)] bg-[var(--card)] text-sky-500 focus:ring-sky-500/30" />
+              <button
+                type="button"
+                onClick={() => setShowAcceptOffers(!showAcceptOffers)}
+                className="flex w-full items-center justify-between text-sm font-bold text-[var(--foreground)]"
+              >
+                <span>Accept Offers</span>
+                <svg
+                  className={`h-4 w-4 transition-transform ${showAcceptOffers ? "rotate-180" : ""}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {showAcceptOffers && (
+                <div className="mt-4 flex items-start">
+                  <div className="flex h-5 items-center">
+                    <input id="acceptOffers" type="checkbox" checked={acceptOffers}
+                      onChange={(e) => setAcceptOffers(e.target.checked)}
+                      className="h-4 w-4 rounded border-[var(--border)] bg-[var(--card)] text-sky-500 focus:ring-sky-500/30" />
+                  </div>
+                  <div className="ml-3">
+                    <label htmlFor="acceptOffers" className="text-sm font-bold text-[var(--foreground)]">Allow buyers to make offers</label>
+                    <p className="text-[10px] text-[var(--muted)]">Buyers can send offers below your asking price</p>
+                  </div>
                 </div>
-                <div className="ml-3">
-                  <label htmlFor="acceptOffers" className="text-sm font-bold text-[var(--foreground)]">Accept offers</label>
-                  <p className="text-[10px] text-[var(--muted)]">Allow buyers to make offers below your asking price</p>
-                </div>
-              </div>
+              )}
             </div>
           )}
 
           {/* Digital Pricing Type */}
           {listingType === "digital" && (
             <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
-              <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Pricing Type</label>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPricingType("fixed")}
-                  className={`flex-1 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
-                    pricingType === "fixed"
-                      ? "border-sky-500 bg-sky-500/10 text-sky-400"
-                      : "border-[var(--border)] bg-[var(--card)] text-[var(--muted)] hover:border-[var(--border-hover)]"
-                  }`}
+              <button
+                type="button"
+                onClick={() => setShowDigitalPricing(!showDigitalPricing)}
+                className="flex w-full items-center justify-between text-sm font-bold text-[var(--foreground)]"
+              >
+                <span>Pricing Type</span>
+                <svg
+                  className={`h-4 w-4 transition-transform ${showDigitalPricing ? "rotate-180" : ""}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
                 >
-                  Fixed Price
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPricingType("quote")}
-                  className={`flex-1 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
-                    pricingType === "quote"
-                      ? "border-sky-500 bg-sky-500/10 text-sky-400"
-                      : "border-[var(--border)] bg-[var(--card)] text-[var(--muted)] hover:border-[var(--border-hover)]"
-                  }`}
-                >
-                  Quote Required
-                </button>
-              </div>
-              <p className="mt-2 text-[10px] text-[var(--muted)]">
-                {pricingType === "fixed"
-                  ? "Buyers see the exact price and can purchase immediately."
-                  : "Buyers contact you to request a custom quote."}
-              </p>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {showDigitalPricing && (
+                <div className="mt-4 space-y-3">
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPricingType("fixed")}
+                      className={`flex-1 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                        pricingType === "fixed"
+                          ? "border-sky-500 bg-sky-500/10 text-sky-400"
+                          : "border-[var(--border)] bg-[var(--card)] text-[var(--muted)] hover:border-[var(--border-hover)]"
+                      }`}
+                    >
+                      Fixed Price
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPricingType("quote")}
+                      className={`flex-1 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                        pricingType === "quote"
+                          ? "border-sky-500 bg-sky-500/10 text-sky-400"
+                          : "border-[var(--border)] bg-[var(--card)] text-[var(--muted)] hover:border-[var(--border-hover)]"
+                      }`}
+                    >
+                      Quote Required
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-[var(--muted)]">
+                    {pricingType === "fixed"
+                      ? "Buyers see the exact price and can purchase immediately."
+                      : "Buyers contact you to request a custom quote."}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
@@ -1669,250 +1737,290 @@ export default function AIPostPage() {
           {/* Service Details */}
           {listingType === "service" && (
             <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 space-y-4">
-              <div>
-                <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Pricing Type</label>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {[
-                    { value: "fixed", label: "Fixed Price", hint: "Set a fixed price for your service" },
-                    { value: "request_quote", label: "Quote Required", hint: "Buyers contact you for a custom quote" },
-                  ].map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => {
-                        setServicePricingType(opt.value as "fixed" | "request_quote");
-                        if (opt.value === "request_quote") {
-                          setPrice("");
-                          setAcceptOffers(false);
-                        }
-                      }}
-                      className={`rounded-lg border px-3 py-2.5 text-left text-sm font-semibold transition ${
-                        servicePricingType === opt.value
-                          ? "border-sky-500 bg-sky-500/10 text-sky-400"
-                          : "border-[var(--border)] bg-[var(--card)] text-[var(--muted)] hover:border-[var(--border-hover)]"
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
+              <button
+                type="button"
+                onClick={() => setShowServiceDetails(!showServiceDetails)}
+                className="flex w-full items-center justify-between text-sm font-bold text-[var(--foreground)]"
+              >
+                <span>Service Details</span>
+                <svg
+                  className={`h-4 w-4 transition-transform ${showServiceDetails ? "rotate-180" : ""}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {showServiceDetails && (
+                <div className="mt-4 space-y-4">
+                  <div>
+                    <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Pricing Type</label>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {[
+                        { value: "fixed", label: "Fixed Price", hint: "Set a fixed price for your service" },
+                        { value: "request_quote", label: "Quote Required", hint: "Buyers contact you for a custom quote" },
+                      ].map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => {
+                            setServicePricingType(opt.value as "fixed" | "request_quote");
+                            if (opt.value === "request_quote") {
+                              setPrice("");
+                              setAcceptOffers(false);
+                            }
+                          }}
+                          className={`rounded-lg border px-3 py-2.5 text-left text-sm font-semibold transition ${
+                            servicePricingType === opt.value
+                              ? "border-sky-500 bg-sky-500/10 text-sky-400"
+                              : "border-[var(--border)] bg-[var(--card)] text-[var(--muted)] hover:border-[var(--border-hover)]"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-[10px] text-[var(--muted)]">
+                      {servicePricingType === "fixed" ? "Set a fixed price for your service" : "Buyers contact you for a custom quote"}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Estimated turnaround</label>
+                    <input
+                      type="text"
+                      value={serviceDuration}
+                      onChange={(e) => setServiceDuration(e.target.value)}
+                      placeholder="e.g. 1 hour, same day, 3-5 days"
+                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500"
+                    />
+                    <p className="mt-2 text-[10px] text-[var(--muted)]">
+                      Local, in-person services — buyers message you to agree scope and timing.
+                    </p>
+                  </div>
                 </div>
-                <p className="mt-2 text-[10px] text-[var(--muted)]">
-                  {servicePricingType === "fixed" ? "Set a fixed price for your service" : "Buyers contact you for a custom quote"}
-                </p>
-              </div>
-              <div>
-                <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Estimated turnaround</label>
-                <input
-                  type="text"
-                  value={serviceDuration}
-                  onChange={(e) => setServiceDuration(e.target.value)}
-                  placeholder="e.g. 1 hour, same day, 3-5 days"
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500"
-                />
-                <p className="mt-2 text-[10px] text-[var(--muted)]">
-                  Local, in-person services — buyers message you to agree scope and timing.
-                </p>
-              </div>
+              )}
             </div>
           )}
 
           {/* Rental Details */}
           {listingType === "rental" && (
-            <div className="space-y-4">
-              {/* Rental Sub-Type Selector */}
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
-                <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Rental Type</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {([
-                    { id: "equipment", icon: "🔧", label: "Equipment" },
-                    { id: "vehicle", icon: "🚗", label: "Vehicle" },
-                  ] as const).map((opt) => (
-                    <button key={opt.id} type="button"
-                      onClick={() => setRentalSubType(opt.id)}
-                      className={`flex flex-col items-center gap-1.5 rounded-xl border px-3 py-3 text-center transition-all active:scale-[0.97] ${
-                        rentalSubType === opt.id
-                          ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.06)]"
-                          : "border-white/[0.06] bg-white/[0.02] text-[var(--muted)] hover:bg-white/[0.04] hover:border-white/[0.12]"
-                      }`}>
-                      <span className="text-xl">{opt.icon}</span>
-                      <span className="text-xs font-bold">{opt.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Location */}
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
-                <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Pickup location *</label>
-                <input type="text" value={location} onChange={(e) => setLocation(e.target.value)}
-                  placeholder="City or suburb"
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-              </div>
-
-              {/* EQUIPMENT RENTAL */}
-              {rentalSubType === "equipment" && (
-                <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 space-y-4">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--muted)]">Equipment Rental</p>
-
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Daily Rate *</label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                        <input type="number" value={price} onChange={(e) => {
-                          const v = e.target.value; setPrice(v);
-                          const d = Number(v);
-                          if (d > 0) {
-                            if (!manualEdit.current.has("weekly")) setRentalPriceWeekly(String(Math.round(d * 7)));
-                            const w = manualEdit.current.has("weekly") ? Number(rentalPriceWeekly) : Math.round(d * 7);
-                            if (!manualEdit.current.has("monthly") && w > 0) setRentalPriceMonthly(String(Math.round(w * 4)));
-                          }
-                        }}
-                          placeholder="Day"
-                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Weekly</label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                        <input type="number" value={rentalPriceWeekly} onChange={(e) => { setRentalPriceWeekly(e.target.value); manualEdit.current.add("weekly"); }}
-                          placeholder="Week"
-                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Monthly</label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                        <input type="number" value={rentalPriceMonthly} onChange={(e) => { setRentalPriceMonthly(e.target.value); manualEdit.current.add("monthly"); }}
-                          placeholder="Month"
-                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                      </div>
-                    </div>
-                  </div>
-                  <p className="text-[10px] text-[var(--muted)]">Weekly and monthly auto-calculated — edit manually to override.</p>
-
-                  <div className="grid grid-cols-1 gap-3">
-                    <div>
-                      <label className="mb-1 block text-[10px] font-medium text-sky-400">Refundable Deposit</label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                        <input type="number" value={rentalDeposit} onChange={(e) => setRentalDeposit(e.target.value)}
-                          placeholder="e.g. 200"
-                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                      </div>
-                    </div>
-                  </div>
-
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+              <button
+                type="button"
+                onClick={() => setShowRentalDetails(!showRentalDetails)}
+                className="flex w-full items-center justify-between text-sm font-bold text-[var(--foreground)]"
+              >
+                <span>Rental Details</span>
+                <svg
+                  className={`h-4 w-4 transition-transform ${showRentalDetails ? "rotate-180" : ""}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {showRentalDetails && (
+                <div className="mt-4 space-y-4">
+                  {/* Rental Sub-Type Selector */}
                   <div>
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Condition</label>
-                    <select value={condition} onChange={(e) => setCondition(e.target.value)}
-                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
-                      <option>New</option><option>Used - Like New</option><option>Used - Good</option><option>Used - Fair</option>
-                    </select>
-                  </div>
-                </div>
-              )}
-
-              {/* VEHICLE RENTAL */}
-              {rentalSubType === "vehicle" && (
-                <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 space-y-4">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--muted)]">Vehicle Rental</p>
-
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Daily Rate *</label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                        <input type="number" value={price} onChange={(e) => {
-                          const v = e.target.value; setPrice(v);
-                          const d = Number(v);
-                          if (d > 0) {
-                            if (!manualEdit.current.has("weekly")) setRentalPriceWeekly(String(Math.round(d * 7)));
-                            const w = manualEdit.current.has("weekly") ? Number(rentalPriceWeekly) : Math.round(d * 7);
-                            if (!manualEdit.current.has("monthly") && w > 0) setRentalPriceMonthly(String(Math.round(w * 4)));
-                          }
-                        }}
-                          placeholder="Day"
-                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Weekly</label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                        <input type="number" value={rentalPriceWeekly} onChange={(e) => { setRentalPriceWeekly(e.target.value); manualEdit.current.add("weekly"); }}
-                          placeholder="Week"
-                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Monthly</label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                        <input type="number" value={rentalPriceMonthly} onChange={(e) => { setRentalPriceMonthly(e.target.value); manualEdit.current.add("monthly"); }}
-                          placeholder="Month"
-                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                      </div>
+                    <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Rental Type</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {([
+                        { id: "equipment", icon: "🔧", label: "Equipment" },
+                        { id: "vehicle", icon: "🚗", label: "Vehicle" },
+                      ] as const).map((opt) => (
+                        <button key={opt.id} type="button"
+                          onClick={() => setRentalSubType(opt.id)}
+                          className={`flex flex-col items-center gap-1.5 rounded-xl border px-3 py-3 text-center transition-all active:scale-[0.97] ${
+                            rentalSubType === opt.id
+                              ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.06)]"
+                              : "border-white/[0.06] bg-white/[0.02] text-[var(--muted)] hover:bg-white/[0.04] hover:border-white/[0.12]"
+                        }`}>
+                          <span className="text-xl">{opt.icon}</span>
+                          <span className="text-xs font-bold">{opt.label}</span>
+                        </button>
+                      ))}
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="mb-1 block text-[10px] font-medium text-sky-400">Refundable Deposit</label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                        <input type="number" value={rentalDeposit} onChange={(e) => setRentalDeposit(e.target.value)}
-                          placeholder="e.g. 500"
-                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Condition</label>
-                      <select value={condition} onChange={(e) => setCondition(e.target.value)}
-                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
-                        <option>New</option><option>Used - Like New</option><option>Used - Good</option><option>Used - Fair</option>
-                      </select>
-                    </div>
+                  {/* Location */}
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Pickup location *</label>
+                    <input type="text" value={location} onChange={(e) => setLocation(e.target.value)}
+                      placeholder="City or suburb"
+                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
                   </div>
 
-                  {/* Vehicle details */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Make</label>
-                      <input type="text" value={vehicleMake} onChange={(e) => setVehicleMake(e.target.value)}
-                        placeholder="e.g. Toyota"
-                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                  {/* EQUIPMENT RENTAL */}
+                  {rentalSubType === "equipment" && (
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 space-y-4">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--muted)]">Equipment Rental</p>
+
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Daily Rate *</label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                            <input type="number" value={price} onChange={(e) => {
+                              const v = e.target.value; setPrice(v);
+                              const d = Number(v);
+                              if (d > 0) {
+                                if (!manualEdit.current.has("weekly")) setRentalPriceWeekly(String(Math.round(d * 7)));
+                                const w = manualEdit.current.has("weekly") ? Number(rentalPriceWeekly) : Math.round(d * 7);
+                                if (!manualEdit.current.has("monthly") && w > 0) setRentalPriceMonthly(String(Math.round(w * 4)));
+                              }
+                            }}
+                              placeholder="Day"
+                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Weekly</label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                            <input type="number" value={rentalPriceWeekly} onChange={(e) => { setRentalPriceWeekly(e.target.value); manualEdit.current.add("weekly"); }}
+                              placeholder="Week"
+                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Monthly</label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                            <input type="number" value={rentalPriceMonthly} onChange={(e) => { setRentalPriceMonthly(e.target.value); manualEdit.current.add("monthly"); }}
+                              placeholder="Month"
+                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-[var(--muted)]">Weekly and monthly auto-calculated — edit manually to override.</p>
+
+                      <div className="grid grid-cols-1 gap-3">
+                        <div>
+                          <label className="mb-1 block text-[10px] font-medium text-sky-400">Refundable Deposit</label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                            <input type="number" value={rentalDeposit} onChange={(e) => setRentalDeposit(e.target.value)}
+                              placeholder="e.g. 200"
+                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Condition</label>
+                        <select value={condition} onChange={(e) => setCondition(e.target.value)}
+                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                          <option>New</option><option>Used - Like New</option><option>Used - Good</option><option>Used - Fair</option>
+                        </select>
+                      </div>
                     </div>
-                    <div>
-                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Model</label>
-                      <input type="text" value={vehicleModel} onChange={(e) => setVehicleModel(e.target.value)}
-                        placeholder="e.g. HiAce"
-                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                  )}
+
+                  {/* VEHICLE RENTAL */}
+                  {rentalSubType === "vehicle" && (
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 space-y-4">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--muted)]">Vehicle Rental</p>
+
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Daily Rate *</label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                            <input type="number" value={price} onChange={(e) => {
+                              const v = e.target.value; setPrice(v);
+                              const d = Number(v);
+                              if (d > 0) {
+                                if (!manualEdit.current.has("weekly")) setRentalPriceWeekly(String(Math.round(d * 7)));
+                                const w = manualEdit.current.has("weekly") ? Number(rentalPriceWeekly) : Math.round(d * 7);
+                                if (!manualEdit.current.has("monthly") && w > 0) setRentalPriceMonthly(String(Math.round(w * 4)));
+                              }
+                            }}
+                              placeholder="Day"
+                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Weekly</label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                            <input type="number" value={rentalPriceWeekly} onChange={(e) => { setRentalPriceWeekly(e.target.value); manualEdit.current.add("weekly"); }}
+                              placeholder="Week"
+                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Monthly</label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                            <input type="number" value={rentalPriceMonthly} onChange={(e) => { setRentalPriceMonthly(e.target.value); manualEdit.current.add("monthly"); }}
+                              placeholder="Month"
+                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="mb-1 block text-[10px] font-medium text-sky-400">Refundable Deposit</label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                            <input type="number" value={rentalDeposit} onChange={(e) => setRentalDeposit(e.target.value)}
+                              placeholder="e.g. 500"
+                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Condition</label>
+                          <select value={condition} onChange={(e) => setCondition(e.target.value)}
+                            className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                            <option>New</option><option>Used - Like New</option><option>Used - Good</option><option>Used - Fair</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Vehicle details */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Make</label>
+                          <input type="text" value={vehicleMake} onChange={(e) => setVehicleMake(e.target.value)}
+                            placeholder="e.g. Toyota"
+                            className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Model</label>
+                          <input type="text" value={vehicleModel} onChange={(e) => setVehicleModel(e.target.value)}
+                            placeholder="e.g. HiAce"
+                            className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Year</label>
+                          <input type="number" value={vehicleYear} onChange={(e) => setVehicleYear(e.target.value)}
+                            placeholder="e.g. 2018"
+                            className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Transmission</label>
+                          <select value={vehicleTransmission} onChange={(e) => setVehicleTransmission(e.target.value)}
+                            className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                            <option>Automatic</option><option>Manual</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Seats</label>
+                          <input type="number" value={stockQuantity} onChange={(e) => setStockQuantity(e.target.value)}
+                            placeholder="e.g. 5"
+                            className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Year</label>
-                      <input type="number" value={vehicleYear} onChange={(e) => setVehicleYear(e.target.value)}
-                        placeholder="e.g. 2018"
-                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Transmission</label>
-                      <select value={vehicleTransmission} onChange={(e) => setVehicleTransmission(e.target.value)}
-                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
-                        <option>Automatic</option><option>Manual</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Seats</label>
-                      <input type="number" value={stockQuantity} onChange={(e) => setStockQuantity(e.target.value)}
-                        placeholder="e.g. 5"
-                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                    </div>
-                  </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1993,19 +2101,7 @@ export default function AIPostPage() {
           <button
             id="listing-submit-btn"
             onClick={createListing}
-            disabled={
-              loading ||
-              editLoading ||
-              ((saleType === "auction" || saleType === "auction_buy_now")
-                ? !startingBid
-                : listingType === "service"
-                  ? servicePriceRequired(servicePricingType) && !price
-                  : listingType === "digital" && pricingType === "quote"
-                    ? false
-                    : listingType === "rental"
-                      ? !price
-                      : !price)
-            }
+            disabled={loading || editLoading}
             className="w-full rounded-2xl bg-gradient-to-r from-sky-500 to-sky-400 py-4 text-lg font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-200 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:brightness-110 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 disabled:opacity-40 disabled:shadow-none disabled:hover:brightness-100 disabled:hover:translate-y-0">
             {loading ? (
               <span className="flex items-center justify-center gap-2">
@@ -2021,6 +2117,55 @@ export default function AIPostPage() {
           </div>
         </div>
       </div>
+
+      {/* SCAM ALERT MODAL - INSIDE MAIN CONTAINER */}
+      {scamAlert && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setScamAlert(null)}>
+          <div className="mx-4 w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-black text-sky-400">⚠️ {scamAlert.title}</h3>
+              <button onClick={() => setScamAlert(null)} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
+            </div>
+            <p className="mt-2 text-sm text-[var(--foreground)]">{scamAlert.message}</p>
+            {scamAlert.found.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {scamAlert.found.map((kw) => (
+                  <span key={kw} className="rounded-full bg-red-500/10 px-2.5 py-1 text-[11px] font-medium text-red-400">"{kw}"</span>
+                ))}
+              </div>
+            )}
+            <div className="mt-5 flex gap-3">
+              <button onClick={() => setScamAlert(null)} className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--card)] py-3 text-sm font-bold text-[var(--foreground)] hover:bg-[var(--card-hover)] active:scale-[0.98]">
+                Edit Listing
+              </button>
+              <button onClick={bypassScamAlert} className="flex-1 rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-sky-400 active:scale-[0.98]">
+                Submit Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PRICE ALERT MODAL */}
+      {priceAlert && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setPriceAlert(false)}>
+          <div className="mx-4 w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-black text-sky-400">⚠️ Unusually Low Price</h3>
+              <button onClick={() => setPriceAlert(false)} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
+            </div>
+            <p className="mt-2 text-sm text-[var(--foreground)]">Your listing price (${price}) seems unusually low for the "{category}" category. This may attract scam filters or suspicious buyers.</p>
+            <div className="mt-5 flex gap-3">
+              <button onClick={() => setPriceAlert(false)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-[var(--card-hover)] active:scale-[0.98]">
+                Set Higher Price
+              </button>
+              <button onClick={bypassPriceAlert} className="flex-1 rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-sky-400 active:scale-[0.98]">
+                Submit Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* KYC Verification Required Modal */}
       {showKycModal && (

@@ -7,6 +7,7 @@ import {
   useState,
   lazy,
   Suspense,
+  useCallback,
 } from "react";
 
 import Link from "next/link";
@@ -341,10 +342,10 @@ export default function Home() {
     }
   }
 
-  function applySavedSearch(saved: { query: string; category: string }) {
+  const applySavedSearch = useCallback((saved: { query: string; category: string }) => {
     setSearch(saved.query);
     setSelectedCategory(saved.category);
-  }
+  }, []);
 
   async function deleteListing(id: string) {
 
@@ -390,93 +391,90 @@ export default function Home() {
      }
    }
 
-    async function handleBuyNow(item: Listing) {
-        if (!isListingVisibleInMarketplace(item)) return;
-        
-        // Check if seller has Stripe configured for Pay Now
-        if (item.paymentType === "contact") {
-          setArrangeListing(item);
-          setShowArrangeModal(true);
-          return;
-        }
-        
-        // For Stripe payments, check if seller has Stripe configured
-        if (item.sellerEmail) {
-          try {
-            const sellerSnap = await getDoc(doc(db, "profiles", item.sellerEmail.split("@")[0]));
-            if (sellerSnap.exists()) {
-              const sellerData = sellerSnap.data();
-              if (!sellerHasStripeConfigured(sellerData)) {
-                // Seller doesn't have Stripe, default to Arrange Purchase
-                setArrangeListing(item);
-                setShowArrangeModal(true);
-                return;
-              }
-            }
-          } catch (e) {
-            console.error("Failed to check seller Stripe status:", e);
-            // On error, try Stripe checkout
+    const handleBuyNow = useCallback(async (item: Listing) => {
+    if (!isListingVisibleInMarketplace(item)) return;
+    
+    // Check if seller has Stripe configured for Pay Now
+    if (item.paymentType === "contact") {
+      setArrangeListing(item);
+      setShowArrangeModal(true);
+      return;
+    }
+    
+    // For Stripe payments, check if seller has Stripe configured
+    if (item.sellerEmail) {
+      try {
+        const sellerSnap = await getDoc(doc(db, "profiles", item.sellerEmail.split("@")[0]));
+        if (sellerSnap.exists()) {
+          const sellerData = sellerSnap.data();
+          if (!sellerHasStripeConfigured(sellerData)) {
+            // Seller doesn't have Stripe, default to Arrange Purchase
+            setArrangeListing(item);
+            setShowArrangeModal(true);
+            return;
           }
         }
-        
-        router.push(`/post/listing/${item.id}?buy=1`);
+      } catch (e) {
+        console.error("Failed to check seller Stripe status:", e);
+        // On error, try Stripe checkout
       }
+    }
+    
+    router.push(`/post/listing/${item.id}?buy=1`);
+  }, [router]);
 
-    async function saveToWatchlist(
-     item: any
-   ) {
-     // Check Firestore for duplicate (in case user is on a different device)
-     if (user?.uid) {
-       try {
-         const snap = await getDoc(doc(db, "users", user.uid, "watchlist", item.id));
-         if (snap.exists()) {
-           showToast("Already in watchlist", "info");
-           return;
-         }
-        } catch (e) { console.error(e); }
-      }
+    const saveToWatchlist = useCallback(async (item: any) => {
+    // Check Firestore for duplicate (in case user is on a different device)
+    if (user?.uid) {
+      try {
+        const snap = await getDoc(doc(db, "users", user.uid, "watchlist", item.id));
+        if (snap.exists()) {
+          showToast("Already in watchlist", "info");
+          return;
+        }
+       } catch (e) { console.error(e); }
+    }
 
-      const existingWatchlist =
-       JSON.parse(
-         localStorage.getItem(
-           "watchlist"
-         ) || "[]"
-       );
-
-     const alreadySaved =
-       existingWatchlist.find(
-         (fav: any) =>
-           fav.id === item.id
-       );
-
-     if (alreadySaved) {
-       showToast("Already in watchlist", "info");
-       return;
-     }
-
-     const updatedWatchlist =
-       [
-         ...existingWatchlist,
-         item,
-       ];
-
-     localStorage.setItem(
-       "watchlist",
-       JSON.stringify(
-         updatedWatchlist
-       )
+    const existingWatchlist =
+     JSON.parse(
+       localStorage.getItem(
+         "watchlist"
+       ) || "[]"
      );
 
-     if (user?.uid) {
-       setDoc(doc(db, "users", user.uid, "watchlist", item.id), {
-         id: item.id, title: item.title, price: item.price, imageUrl: item.imageUrl || item.image || "",
-         savedAt: new Date().toISOString(),
+   const alreadySaved =
+     existingWatchlist.find(
+       (fav: any) =>
+         fav.id === item.id
+     );
+
+   if (alreadySaved) {
+     showToast("Already in watchlist", "info");
+     return;
+   }
+
+   const updatedWatchlist =
+     [
+       ...existingWatchlist,
+       item,
+     ];
+
+   localStorage.setItem(
+     "watchlist",
+     JSON.stringify(
+       updatedWatchlist
+     )
+   );
+
+   if (user?.uid) {
+     setDoc(doc(db, "users", user.uid, "watchlist", item.id), {
+       id: item.id, title: item.title, price: item.price, imageUrl: item.imageUrl || item.image || "",
+       savedAt: new Date().toISOString(),
        }).catch((e) => { console.error("Watchlist save failed:", e); showToast("Failed to save to watchlist", "error"); });
      }
 
      showToast("Added to watchlist!");
-
-   }
+  }, [user]);
 
   async function toggleWatchlist(item: any) {
     const now = new Date().toISOString();
@@ -790,7 +788,7 @@ export default function Home() {
                   "Free listings, secure checkout, and a marketplace built for New Zealand."
                 )}
               </p>
-              {user && (
+              {user ? (
                 <div className="mt-6 flex justify-center">
                   <Link
                     href="/post/ai"
@@ -800,6 +798,21 @@ export default function Home() {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                     </svg>
                     Create a Listing
+                  </Link>
+                </div>
+              ) : (
+                <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+                  <Link
+                    href="/signup"
+                    className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-400 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.98]"
+                  >
+                    Create Free Account
+                  </Link>
+                  <Link
+                    href="/digital"
+                    className="inline-flex items-center gap-2 rounded-2xl border border-white/[0.12] bg-white/[0.04] px-6 py-3.5 text-sm font-bold text-white transition-all duration-300 hover:border-sky-500/30 hover:bg-white/[0.06]"
+                  >
+                    Browse Listings
                   </Link>
                 </div>
               )}

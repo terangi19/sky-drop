@@ -36,8 +36,12 @@ export default function SellPhotoUpload({ imagePreviews, fileInputRef, onUpload,
             </div>
             <span className="mt-4 text-base font-bold text-[#111827] dark:text-white">Add Photos</span>
             <span className="mt-1.5 max-w-sm text-sm text-[#6B7280] dark:text-zinc-400">
-              Upload up to 8 photos to attract more buyers
+              Upload up to 8 photos — first photo is your cover image
             </span>
+            <ul className="mt-3 max-w-sm space-y-1 text-left text-[11px] text-[#6B7280] dark:text-zinc-500">
+              <li>• Use bright, clear photos from multiple angles</li>
+              <li>• Show any damage or wear honestly</li>
+            </ul>
           </div>
         ) : (
           <div>

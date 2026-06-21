@@ -39,6 +39,7 @@ interface Purchase {
   disputeStatus?: string;
   tracking?: string;
   trackingNumber?: string;
+  paymentType?: string;
 }
 
 const statusStyles: Record<string, string> = {
@@ -361,7 +362,7 @@ export default function SalesPage() {
           ))}
         </div>
 
-        {!sellerStripeId && (
+        {!sellerStripeId && sales.some(s => s.paymentType !== "contact") && (
           <div className="mb-6 rounded-xl border border-sky-500/20 bg-sky-500/[0.04] p-4 text-sm">
             <p className="font-bold text-sky-400">⚠️ Stripe Not Connected</p>
             <p className="mt-1 text-sky-400/70">Connect Stripe to receive payouts from your sales. <Link href="/profile?tab=payouts" className="text-sky-400 underline hover:text-sky-300">Go to Profile →</Link></p>

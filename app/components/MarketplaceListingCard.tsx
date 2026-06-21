@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useState } from "react";
+import { useState, memo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import type { User } from "firebase/auth";
@@ -79,7 +79,7 @@ function watchlistBadgeStyle(saveGlow: number): CSSProperties {
   };
 }
 
-export default function MarketplaceListingCard({
+export default memo(function MarketplaceListingCard({
   item,
   cardIndex = 0,
   user,
@@ -575,4 +575,4 @@ export default function MarketplaceListingCard({
     )}
     </div>
   );
-}
+});

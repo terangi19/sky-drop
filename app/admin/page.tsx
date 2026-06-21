@@ -55,12 +55,24 @@ export default function AdminDashboard() {
     (async () => {
       try {
         const token = await auth.currentUser?.getIdToken();
-        if (!token) { setError("Not authenticated"); setLoading(false); return; }
+        if (!token) { 
+          setError("You need to be logged in to access the admin dashboard. Please log in and try again."); 
+          setLoading(false); 
+          return; 
+        }
         const res = await fetch("/api/admin/dashboard", { headers: { Authorization: `Bearer ${token}` } });
-        if (!res.ok) { setError("Failed to load"); setLoading(false); return; }
+        if (!res.ok) { 
+          if (res.status === 403) {
+            setError("You don't have permission to access the admin dashboard. This area is restricted to administrators.");
+          } else {
+            setError("Failed to load dashboard data. Please try again later.");
+          }
+          setLoading(false); 
+          return; 
+        }
         setStats(await res.json());
       } catch {
-        setError("Failed to load dashboard");
+        setError("An error occurred while loading the dashboard. Please check your connection and try again.");
       }
       setLoading(false);
     })();
@@ -85,7 +97,31 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {error && <p className="text-red-400 text-sm">{error}</p>}
+        {error && (
+          <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-6">
+            <div className="flex items-start gap-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-500/10">
+                <svg className="h-5 w-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="font-bold text-red-400">Access Denied</h3>
+                <p className="mt-1 text-sm text-red-300/80">{error}</p>
+                <div className="mt-3 flex gap-3">
+                  <Link href="/" className="inline-flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 transition hover:bg-red-500/20">
+                    Return Home
+                  </Link>
+                  {error.includes("logged in") && (
+                    <Link href="/login" className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10">
+                      Log In
+                    </Link>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {stats && (
           <div className="space-y-8">
