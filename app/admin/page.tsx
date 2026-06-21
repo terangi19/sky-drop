@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
-import Navbar from "../components/Navbar";
-import Background from "../components/Background";
-import ThemeToggle from "../components/ThemeToggle";
-import AdminNav from "../components/AdminNav";
+import dynamic from "next/dynamic";
 import { auth } from "../lib/firebase";
+
+// Code split heavy components
+const Navbar = dynamic(() => import("../components/Navbar"), { loading: () => <div className="h-16" /> });
+const Background = dynamic(() => import("../components/Background"), { ssr: false });
+const ThemeToggle = dynamic(() => import("../components/ThemeToggle"));
+const AdminNav = dynamic(() => import("../components/AdminNav"), { loading: () => <div className="h-12" /> });
 
 type DashStats = {
   pendingReports: number;
@@ -99,61 +102,40 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            {/* Today */}
+            {/* Platform Overview */}
             <div>
-              <h2 className="text-xs font-bold text-[var(--muted)] uppercase tracking-widest mb-3">Today</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <StatCard label="Users Online" value={stats.usersOnline} sub="active today" />
-                <StatCard label="New Users" value={stats.newUsersToday} />
-                <StatCard label="New Listings" value={stats.listingsToday} />
-                <StatCard label="Messages Sent" value={stats.messagesToday} />
-              </div>
-            </div>
-
-            {/* Platform Totals */}
-            <div>
-              <h2 className="text-xs font-bold text-[var(--muted)] uppercase tracking-widest mb-3">Platform</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <h2 className="text-xs font-bold text-sky-400 uppercase tracking-widest mb-3">📊 Platform Overview</h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 <StatCard label="Total Users" value={stats.totalUsers} sub={`+${stats.newUsersWeek} this week`} />
                 <StatCard label="Active Listings" value={stats.activeListings} />
                 <StatCard label="Total Sales" value={stats.totalSales} />
-                <StatCard label="Total Messages" value={(stats as any).totalMessages ?? "—"} />
+                <StatCard label="Users Online" value={stats.usersOnline} sub="Now" />
               </div>
             </div>
 
-            {/* Quick Links */}
+            {/* Today's Activity */}
             <div>
-              <h2 className="text-xs font-bold text-[var(--muted)] uppercase tracking-widest mb-3">Quick Access</h2>
+              <h2 className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-3">📈 Today's Activity</h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {[
-                  { href: "/admin/reports", label: "📋 Reports", desc: "User & listing reports" },
-                  { href: "/admin/disputes", label: "⚖️ Disputes", desc: "Open buyer/seller disputes" },
-                  { href: "/admin/message-flags", label: "🚩 Message Flags", desc: "Scam detection flags" },
-                  { href: "/admin/verification", label: "🪪 KYC Review", desc: "Identity verification queue" },
-                  { href: "/admin/security-dashboard", label: "🛡️ Security", desc: "Abuse & rate limit logs" },
-                  { href: "/manage", label: "🏠 Manage", desc: "Listings & content" },
-                ].map((item) => (
-                  <Link key={item.href} href={item.href} className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 hover:bg-white/[0.06] transition">
-                    <p className="font-bold text-sm">{item.label}</p>
-                    <p className="text-xs text-[var(--muted)] mt-0.5">{item.desc}</p>
-                  </Link>
-                ))}
+                <StatCard label="New Users" value={stats.newUsersToday} />
+                <StatCard label="New Listings" value={stats.listingsToday} />
+                <StatCard label="Messages" value={stats.messagesToday} />
               </div>
             </div>
 
             {/* Activity Feed */}
             {stats.activityFeed?.length > 0 && (
               <div>
-                <h2 className="text-xs font-bold text-[var(--muted)] uppercase tracking-widest mb-3">Recent Activity</h2>
-                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] divide-y divide-white/[0.04]">
-                  {stats.activityFeed.slice(0, 15).map((item) => (
-                    <div key={item.id} className="flex items-start gap-3 px-4 py-3">
-                      <span className="text-lg mt-0.5">{item.icon}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{item.label}</p>
-                        <p className="text-xs text-[var(--muted)] truncate">{item.detail}</p>
+                <h2 className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-3">🔔 Recent Activity</h2>
+                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 space-y-3">
+                  {stats.activityFeed.slice(0, 10).map((item) => (
+                    <div key={item.id} className="flex items-center gap-3 text-sm">
+                      <span className="text-lg">{item.icon}</span>
+                      <div className="flex-1">
+                        <p className="font-medium text-[var(--foreground)]">{item.label}</p>
+                        <p className="text-xs text-[var(--muted)]">{item.detail}</p>
                       </div>
-                      <span className="text-xs text-[var(--muted)] whitespace-nowrap">{item.ts ? timeAgo(item.ts) : ""}</span>
+                      <span className="text-xs text-[var(--muted)]">{timeAgo(item.ts)}</span>
                     </div>
                   ))}
                 </div>

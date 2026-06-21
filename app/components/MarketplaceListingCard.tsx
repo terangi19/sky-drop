@@ -3,6 +3,7 @@
 import type { CSSProperties } from "react";
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import type { User } from "firebase/auth";
 import { cdnUrl } from "../lib/cdn";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
@@ -130,18 +131,19 @@ export default function MarketplaceListingCard({
 
       {imageSrc ? (
         <>
-          <div className="relative shrink-0 overflow-hidden">
-            <img
+          <div className="relative shrink-0 overflow-hidden aspect-[4/3]">
+            <Image
               src={cdnUrl(imageSrc)}
               alt={item.title}
-              loading="lazy"
+              fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              className="object-cover transition-all duration-500 group-hover:scale-105 opacity-0"
               onLoad={(e) => {
                 (e.target as HTMLImageElement).style.opacity = "1";
               }}
               onError={(e) => {
                 (e.target as HTMLImageElement).style.display = "none";
               }}
-              className="aspect-[4/3] w-full object-cover transition-all duration-500 group-hover:scale-105 opacity-0"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             {!isVisible && (

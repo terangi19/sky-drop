@@ -112,7 +112,7 @@ export async function PUT(req: NextRequest) {
       const newPrice = Number(price) || 0;
       if (newPrice > 0 && newPrice < oldPrice) {
         try {
-          const watchers = await getAdminDb().collection("watchlist").where("listingId", "==", listingId).get();
+          const watchers = await getAdminDb().collection("watchlist").where("listingId", "==", listingId).limit(100).get();
           for (const doc of watchers.docs) {
             const data = doc.data();
             const watcherEmail = data.userEmail;

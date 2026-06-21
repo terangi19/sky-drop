@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { CSSProperties } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import type { User } from "firebase/auth";
 import { cdnUrl } from "../lib/cdn";
 import { ARRANGE_PURCHASE_CARD_LABEL } from "../lib/arrange-purchase-copy";
@@ -80,18 +81,19 @@ export default function ListingCard({
         >
           {/* Image section */}
           {imageSrc ? (
-            <div className="relative shrink-0 overflow-hidden bg-zinc-900">
-              <img
+            <div className="relative shrink-0 overflow-hidden bg-zinc-900 aspect-[4/3]">
+              <Image
                 src={cdnUrl(imageSrc)}
                 alt={item.title}
-                loading="lazy"
+                fill
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                className="object-cover opacity-0 transition-all duration-700 ease-out group-hover:scale-110 group-hover:rotate-2"
                 onLoad={(e) => {
                   (e.target as HTMLImageElement).style.opacity = "1";
                 }}
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.display = "none";
                 }}
-                className="aspect-[4/3] w-full object-cover opacity-0 transition-all duration-700 ease-out group-hover:scale-110 group-hover:rotate-2"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />

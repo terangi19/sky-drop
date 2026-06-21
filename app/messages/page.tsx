@@ -251,7 +251,7 @@ function MessagesPage() {
         if (!snap.empty && !cancelled) {
           const data = snap.docs[0].data();
           const purchaseSnap = await getDocs(
-            query(collection(db, "purchases"), where("sellerEmail", "==", chatUser))
+            query(collection(db, "purchases"), where("sellerEmail", "==", chatUser), limit(100))
           );
           const salesTotal = countSellerSales(
             purchaseSnap.docs.map((d) => d.data() as { status?: string; paymentType?: string })
@@ -269,7 +269,7 @@ function MessagesPage() {
             const data = resolved.data as any;
             const profileEmail = data.email || chatUser;
             const purchaseSnap = await getDocs(
-              query(collection(db, "purchases"), where("sellerEmail", "==", profileEmail))
+              query(collection(db, "purchases"), where("sellerEmail", "==", profileEmail), limit(100))
             );
             const salesTotal = countSellerSales(
               purchaseSnap.docs.map((d) => d.data() as { status?: string; paymentType?: string })
@@ -300,17 +300,20 @@ function MessagesPage() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [showProfilePreview]);
-  // Real-time listing data listener
+  // Fetch listing data (one-time read - doesn't need real-time updates)
   useEffect(() => {
     if (!chatListingId) {
       setListingCard(null);
       return;
     }
-    const unsub = onSnapshot(doc(db, "listings", chatListingId), (snap) => {
+    let cancelled = false;
+    getDoc(doc(db, "listings", chatListingId)).then((snap) => {
+      if (cancelled) return;
       if (snap.exists()) {
         setListingCard({ id: snap.id, ...snap.data() });
       }
-    }, (err) => {
+    }).catch((err) => {
+      if (cancelled) return;
       console.error("Failed to fetch listing data:", err);
       const msgWithListing = messages.find((m: any) => m.listingId === chatListingId && m.listingImage);
       if (msgWithListing) {
@@ -322,7 +325,7 @@ function MessagesPage() {
         });
       }
     });
-    return () => unsub();
+    return () => { cancelled = true; };
   }, [chatListingId, messages]);
   // Typing listener
   useEffect(() => {
@@ -425,7 +428,7 @@ function MessagesPage() {
   async function fetchUsername(identifier: string) {
     if (!identifier || identifier === "system" || usernames[identifier]) return;
     try {
-      const snap = await getDocs(query(collection(db, "profiles"), where("email", "==", identifier)));
+      const snap = await getDocs(query(collection(db, "profiles"), where("email", "==", identifier), limit(1)));
       let handle = "User";
       if (!snap.empty) {
         handle = publicHandleFromProfile(snap.docs[0].data() as { username?: string }, "User");

@@ -192,7 +192,7 @@ export default function TradeFeedPage() {
       const stats: Record<string, { avg: number; count: number }> = {};
       for (const email of uniqueEmails) {
         try {
-          const snap = await getDocs(query(collection(db, "reviews"), where("sellerEmail", "==", email)));
+          const snap = await getDocs(query(collection(db, "reviews"), where("sellerEmail", "==", email), limit(50)));
           const ratings: number[] = [];
           snap.docs.forEach((d) => { const r = d.data().rating; if (r) ratings.push(Number(r)); });
           if (ratings.length > 0) stats[email] = { avg: ratings.reduce((a, b) => a + b, 0) / ratings.length, count: ratings.length };

@@ -109,6 +109,7 @@ export async function POST(req: NextRequest) {
         .collection("purchases")
         .where("listingId", "==", listingId)
         .where("buyerEmail", "==", buyerEmail)
+        .limit(10)
         .get();
       const hasPrior = priorSnap.docs.some((d) => {
         const s = String(d.data().status || "").toLowerCase();

@@ -3,6 +3,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
   query,
   where,
 } from "firebase/firestore";
@@ -45,7 +46,7 @@ export async function fetchSellerProfilesByListing(
     const chunk = emails.slice(i, i + 10);
     try {
       const snap = await getDocs(
-        query(collection(db, "profiles"), where("email", "in", chunk))
+        query(collection(db, "profiles"), where("email", "in", chunk), limit(10))
       );
       snap.docs.forEach((d) => {
         const data = d.data();

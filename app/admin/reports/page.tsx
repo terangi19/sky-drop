@@ -17,6 +17,8 @@ function AdminReportsContent() {
   const [reports, setReports] = useState<ModerationReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "pending" | "reviewed">("pending");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
 
   const loadReports = useCallback(async () => {
     const token = await auth.currentUser?.getIdToken();
@@ -49,6 +51,71 @@ function AdminReportsContent() {
   const visible =
     filter === "pending" ? pendingReports : filter === "reviewed" ? reviewedReports : reports;
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === visible.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(visible.map((r) => r.id)));
+    }
+  };
+
+  const bulkDismiss = async () => {
+    if (selectedIds.size === 0) return;
+    setBulkActionLoading(true);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) return;
+      const res = await fetch("/api/admin/report-action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: "dismiss", reportIds: Array.from(selectedIds) }),
+      });
+      if (res.ok) {
+        showToast(`Dismissed ${selectedIds.size} reports`, "success");
+        setSelectedIds(new Set());
+        loadReports();
+      } else {
+        showToast("Failed to dismiss reports", "error");
+      }
+    } catch {
+      showToast("Failed to dismiss reports", "error");
+    }
+    setBulkActionLoading(false);
+  };
+
+  const bulkReview = async () => {
+    if (selectedIds.size === 0) return;
+    setBulkActionLoading(true);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) return;
+      const res = await fetch("/api/admin/report-action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: "review", reportIds: Array.from(selectedIds) }),
+      });
+      if (res.ok) {
+        showToast(`Marked ${selectedIds.size} reports as reviewed`, "success");
+        setSelectedIds(new Set());
+        loadReports();
+      } else {
+        showToast("Failed to mark reports as reviewed", "error");
+      }
+    } catch {
+      showToast("Failed to mark reports as reviewed", "error");
+    }
+    setBulkActionLoading(false);
+  };
+
   return (
     <section className="relative z-10 mx-auto max-w-4xl px-6 py-12">
       <div className="mb-8">
@@ -75,7 +142,7 @@ function AdminReportsContent() {
         </div>
       </div>
 
-      <div className="mb-5 flex gap-2">
+      <div className="mb-5 flex flex-wrap items-center gap-2">
         {(["pending", "all", "reviewed"] as const).map((key) => (
           <button
             key={key}
@@ -89,6 +156,31 @@ function AdminReportsContent() {
             {key}
           </button>
         ))}
+        {selectedIds.size > 0 && (
+          <>
+            <div className="h-6 w-px bg-white/[0.1]" />
+            <button
+              onClick={toggleSelectAll}
+              className="rounded-lg px-3 py-1.5 text-[11px] font-bold border border-[var(--card-border)] text-[var(--muted)] hover:bg-white/[0.05] transition"
+            >
+              {selectedIds.size === visible.length ? "Deselect All" : "Select All"}
+            </button>
+            <button
+              onClick={bulkDismiss}
+              disabled={bulkActionLoading}
+              className="rounded-lg px-3 py-1.5 text-[11px] font-bold border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 transition disabled:opacity-50"
+            >
+              Dismiss ({selectedIds.size})
+            </button>
+            <button
+              onClick={bulkReview}
+              disabled={bulkActionLoading}
+              className="rounded-lg px-3 py-1.5 text-[11px] font-bold border border-sky-500/30 text-sky-400 hover:bg-sky-500/10 transition disabled:opacity-50"
+            >
+              Mark Reviewed ({selectedIds.size})
+            </button>
+          </>
+        )}
       </div>
 
       {loading ? (
@@ -102,7 +194,13 @@ function AdminReportsContent() {
       ) : (
         <div className="space-y-4">
           {visible.map((report) => (
-            <ReportModerationCard key={report.id} report={report} onActionComplete={loadReports} />
+            <ReportModerationCard
+              key={report.id}
+              report={report}
+              onActionComplete={loadReports}
+              isSelected={selectedIds.has(report.id)}
+              onToggleSelect={() => toggleSelect(report.id)}
+            />
           ))}
         </div>
       )}

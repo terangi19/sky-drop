@@ -14,7 +14,8 @@ import { ReviewStars } from "../components/SellerReviewStars";
 
 import {
   collection,
-  onSnapshot,
+  getDocs,
+  limit,
   orderBy,
   query,
 } from "firebase/firestore";
@@ -62,26 +63,23 @@ export default function ReviewsPage() {
   useEffect(() => {
     const reviewsQuery = query(
       collection(db, "reviews"),
-      orderBy("createdAt", "desc")
+      orderBy("createdAt", "desc"),
+      limit(100)
     );
 
-    const unsubscribe =
-      onSnapshot(
-        reviewsQuery,
-        (snapshot) => {
-          const items =
-            snapshot.docs.map(
-              (doc) => ({
-                id: doc.id,
-                ...doc.data(),
-              } as any)
-            );
+    getDocs(reviewsQuery).then((snapshot) => {
+      const items =
+        snapshot.docs.map(
+          (doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          } as any)
+        );
 
-          setReviews(items as any);
-        }
-      );
-
-    return () => unsubscribe();
+      setReviews(items as any);
+    }).catch((err) => {
+      console.error("Failed to fetch reviews:", err);
+    });
   }, []);
 
   return (

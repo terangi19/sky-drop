@@ -10,7 +10,7 @@ export function useListings(sellerEmail?: string) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const constraints: any[] = [];
+    const constraints: Array<ReturnType<typeof where> | ReturnType<typeof orderBy> | ReturnType<typeof limit>> = [];
     if (sellerEmail) {
       constraints.push(where("sellerEmail", "==", sellerEmail));
     }

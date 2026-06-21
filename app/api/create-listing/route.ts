@@ -307,7 +307,7 @@ export async function POST(req: NextRequest) {
     // Saved-search alerts: notify users whose saved search matches this new listing
     if (isAdminInitialized()) {
       try {
-        const searches = await getAdminDb().collection("savedSearches").get();
+        const searches = await getAdminDb().collection("savedSearches").limit(500).get();
         const titleLower = sanitizedTitle.toLowerCase();
         const categoryLower = String(category || "Other").toLowerCase();
         for (const doc of searches.docs) {

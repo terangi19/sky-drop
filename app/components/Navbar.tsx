@@ -125,7 +125,7 @@ export default function Navbar() {
 
   useEffect(() => {
     if (!user?.uid) return;
-    const blockedQ = collection(db, "users", user.uid, "blocked");
+    const blockedQ = query(collection(db, "users", user.uid, "blocked"), limit(100));
     const unsub = onSnapshot(
       blockedQ,
       (snap) => {
@@ -304,8 +304,8 @@ export default function Navbar() {
   }
 
   return (
-    <header className="relative sticky top-0 z-[9999] border-b border-white/[0.04] backdrop-blur-xl" style={{ backgroundColor: "var(--nav-bg)" }}>
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/30 to-transparent" />
+    <header className="relative sticky top-0 z-[9999] border-b border-white/[0.04] backdrop-blur-xl light:border-black/[0.08]" style={{ backgroundColor: "var(--nav-bg)" }}>
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/30 to-transparent light:via-sky-600/20" />
       <div className="mx-auto flex h-16 items-center justify-between px-4 md:px-6 lg:max-w-7xl">
 
         {/* LEFT */}
@@ -317,52 +317,52 @@ export default function Navbar() {
           {/* NAV */}
           {user && (
             <nav className="hidden lg:flex items-center gap-1 text-sm font-medium">
-              <Link href="/post/ai" className={`relative px-3 py-2 rounded-lg transition-all duration-200 ${isActive("/post/ai") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)]" : "text-gray-200 hover:text-white hover:bg-white/[0.04]"}`}>
+              <Link href="/post/ai" className={`relative px-3 py-2 rounded-lg transition-all duration-200 ${isActive("/post/ai") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
                 Sell
                 {isActive("/post/ai") && <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-gradient-to-r from-sky-400 to-sky-300 shadow-[0_0_6px_rgba(56,189,248,0.4)]" />}
               </Link>
               <div className="relative group px-1">
-                <button className={`flex items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer ${isActive("/digital") || isActive("/services") || isActive("/rentals") || isActive("/wanted") || pathname === "/" ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)]" : "text-gray-200 hover:text-white hover:bg-white/[0.04]"}`}>
+                <button className={`flex items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer ${isActive("/digital") || isActive("/services") || isActive("/rentals") || isActive("/wanted") || pathname === "/" ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
                   <span>Browse</span>
                   <svg className="h-3 w-3 transition-transform duration-300 group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
                 </button>
-                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-56 rounded-2xl border border-white/[0.08] bg-zinc-950/95 backdrop-blur-xl p-2 shadow-2xl shadow-black/40 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 translate-y-2 group-hover:translate-y-0 z-50">
-                  <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 h-3 w-3 rotate-45 border-t border-l border-white/[0.08] bg-zinc-950/95" />
-                  <Link href="/" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-gray-200 hover:text-white hover:bg-white/[0.06] transition-all duration-200 group/dd">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-xs group-hover/dd:bg-white/[0.08] transition-colors">📦</span>
-                    <div><div className="text-sm font-medium">Physical Goods</div><div className="text-[10px] text-gray-400">Electronics, fashion, home</div></div>
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-56 rounded-2xl border border-white/[0.08] bg-zinc-950/95 backdrop-blur-xl p-2 shadow-2xl shadow-black/40 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 translate-y-2 group-hover:translate-y-0 z-50 light:border-black/[0.12] light:bg-white/95 light:shadow-black/20">
+                  <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 h-3 w-3 rotate-45 border-t border-l border-white/[0.08] bg-zinc-950/95 light:border-black/[0.12] light:bg-white/95" />
+                  <Link href="/" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-gray-200 hover:text-white hover:bg-white/[0.06] transition-all duration-200 group/dd light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-xs group-hover/dd:bg-white/[0.08] transition-colors light:bg-black/[0.04] light:group-hover/dd:bg-black/[0.08]">📦</span>
+                    <div><div className="text-sm font-medium">Physical Goods</div><div className="text-[10px] text-gray-400 light:text-gray-500">Electronics, fashion, home</div></div>
                   </Link>
-                  <Link href="/digital" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-gray-200 hover:text-white hover:bg-white/[0.06] transition-all duration-200 group/dd">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-xs group-hover/dd:bg-white/[0.08] transition-colors">📥</span>
-                    <div><div className="text-sm font-medium">Digital Store</div><div className="text-[10px] text-gray-400">E-books, software, assets</div></div>
+                  <Link href="/digital" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-gray-200 hover:text-white hover:bg-white/[0.06] transition-all duration-200 group/dd light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-xs group-hover/dd:bg-white/[0.08] transition-colors light:bg-black/[0.04] light:group-hover/dd:bg-black/[0.08]">📥</span>
+                    <div><div className="text-sm font-medium">Digital Store</div><div className="text-[10px] text-gray-400 light:text-gray-500">E-books, software, assets</div></div>
                   </Link>
-                  <Link href="/services" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-gray-200 hover:text-white hover:bg-white/[0.06] transition-all duration-200 group/dd">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-xs group-hover/dd:bg-white/[0.08] transition-colors">🤝</span>
-                    <div><div className="text-sm font-medium">Services</div><div className="text-[10px] text-gray-400">Freelance, consulting, gigs</div></div>
+                  <Link href="/services" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-gray-200 hover:text-white hover:bg-white/[0.06] transition-all duration-200 group/dd light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-xs group-hover/dd:bg-white/[0.08] transition-colors light:bg-black/[0.04] light:group-hover/dd:bg-black/[0.08]">🤝</span>
+                    <div><div className="text-sm font-medium">Services</div><div className="text-[10px] text-gray-400 light:text-gray-500">Freelance, consulting, gigs</div></div>
                   </Link>
-                  <Link href="/rentals" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-gray-200 hover:text-white hover:bg-white/[0.06] transition-all duration-200 group/dd">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-xs group-hover/dd:bg-white/[0.08] transition-colors">🔑</span>
-                    <div><div className="text-sm font-medium">Rentals</div><div className="text-[10px] text-gray-400">Tools, equipment, cameras</div></div>
+                  <Link href="/rentals" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-gray-200 hover:text-white hover:bg-white/[0.06] transition-all duration-200 group/dd light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-xs group-hover/dd:bg-white/[0.08] transition-colors light:bg-black/[0.04] light:group-hover/dd:bg-black/[0.08]">🔑</span>
+                    <div><div className="text-sm font-medium">Rentals</div><div className="text-[10px] text-gray-400 light:text-gray-500">Tools, equipment, cameras</div></div>
                   </Link>
-                  <Link href="/wanted" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-gray-200 hover:text-white hover:bg-white/[0.06] transition-all duration-200 group/dd">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-xs group-hover/dd:bg-white/[0.08] transition-colors">📋</span>
-                    <div><div className="text-sm font-medium">Wanted</div><div className="text-[10px] text-gray-400">People looking to buy, hire, rent</div></div>
+                  <Link href="/wanted" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-gray-200 hover:text-white hover:bg-white/[0.06] transition-all duration-200 group/dd light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-xs group-hover/dd:bg-white/[0.08] transition-colors light:bg-black/[0.04] light:group-hover/dd:bg-black/[0.08]">📋</span>
+                    <div><div className="text-sm font-medium">Wanted</div><div className="text-[10px] text-gray-400 light:text-gray-500">People looking to buy, hire, rent</div></div>
                   </Link>
                 </div>
               </div>
-              <Link href="/list-list" className={`relative px-3 py-2 rounded-lg transition-all duration-200 ${isActive("/list-list") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)]" : "text-gray-200 hover:text-white hover:bg-white/[0.04]"}`}>
+              <Link href="/list-list" className={`relative px-3 py-2 rounded-lg transition-all duration-200 ${isActive("/list-list") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
                 My Listings
                 {isActive("/list-list") && <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-gradient-to-r from-sky-400 to-sky-300 shadow-[0_0_6px_rgba(56,189,248,0.4)]" />}
               </Link>
-              <Link href="/watchlist" className={`relative px-3 py-2 rounded-lg transition-all duration-200 ${isActive("/watchlist") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)]" : "text-gray-200 hover:text-white hover:bg-white/[0.04]"}`}>
+              <Link href="/watchlist" className={`relative px-3 py-2 rounded-lg transition-all duration-200 ${isActive("/watchlist") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
                 Watchlist
                 {isActive("/watchlist") && <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-gradient-to-r from-sky-400 to-sky-300 shadow-[0_0_6px_rgba(56,189,248,0.4)]" />}
               </Link>
-              <Link href="/purchases" className={`relative px-3 py-2 rounded-lg transition-all duration-200 ${isActive("/purchases") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)]" : "text-gray-200 hover:text-white hover:bg-white/[0.04]"}`}>
+              <Link href="/purchases" className={`relative px-3 py-2 rounded-lg transition-all duration-200 ${isActive("/purchases") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
                 Purchases
                 {isActive("/purchases") && <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-gradient-to-r from-sky-400 to-sky-300 shadow-[0_0_6px_rgba(56,189,248,0.4)]" />}
               </Link>
-              <Link href="/sales" className={`relative px-3 py-2 rounded-lg transition-all duration-200 ${isActive("/sales") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)]" : "text-gray-200 hover:text-white hover:bg-white/[0.04]"}`}>
+              <Link href="/sales" className={`relative px-3 py-2 rounded-lg transition-all duration-200 ${isActive("/sales") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
                 Sales
                 {isActive("/sales") && <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-gradient-to-r from-sky-400 to-sky-300 shadow-[0_0_6px_rgba(56,189,248,0.4)]" />}
               </Link>
@@ -373,7 +373,7 @@ export default function Navbar() {
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               aria-label="Toggle menu"
-              className="md:hidden relative flex h-9 w-9 items-center justify-center rounded-lg text-[var(--nav-ice)] active:scale-90 transition-all duration-200 hover:bg-white/[0.06]"
+              className="md:hidden relative flex h-9 w-9 items-center justify-center rounded-lg text-[var(--nav-ice)] active:scale-90 transition-all duration-200 hover:bg-white/[0.06] light:text-gray-700 light:hover:bg-black/[0.06]"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                 {mobileMenuOpen ? (
@@ -385,63 +385,63 @@ export default function Navbar() {
             </button>
           {/* MOBILE DROPDOWN */}
           {mobileMenuOpen && (
-            <div className="absolute top-full left-0 right-0 z-50 border-b border-white/[0.06] bg-zinc-950/98 backdrop-blur-2xl md:hidden animate-fade-in-up shadow-2xl shadow-black/40">
+            <div className="absolute top-full left-0 right-0 z-50 border-b border-white/[0.06] bg-zinc-950/98 backdrop-blur-2xl md:hidden animate-fade-in-up shadow-2xl shadow-black/40 light:border-black/[0.12] light:bg-white/98 light:shadow-black/20">
               <div className="flex flex-col gap-1 p-3 max-h-[80vh] overflow-y-auto">
-                <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400">Actions</div>
-                <Link href="/post/ai" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/post/ai") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)]" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm">💰</span>
+                <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400 light:text-gray-500">Actions</div>
+                <Link href="/post/ai" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/post/ai") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm light:bg-sky-500/10">💰</span>
                   Sell
                 </Link>
 
-                <div className="my-1.5 mx-3 border-t border-white/[0.04]" />
-                <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400">Browse</div>
-                <Link href="/" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors ${isActive("/") && pathname === "/" ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)]" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-sm">📦</span><div><div className="font-bold">Physical Goods</div><div className="text-[10px] text-gray-400">Electronics, fashion, home</div></div></Link>
-                <Link href="/digital" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors ${isActive("/digital") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)]" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-sm">📥</span><div><div className="font-bold">Digital Store</div><div className="text-[10px] text-gray-400">E-books, software, assets</div></div></Link>
-                <Link href="/services" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors ${isActive("/services") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)]" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-sm">🤝</span><div><div className="font-bold">Services</div><div className="text-[10px] text-gray-400">Freelance, consulting, gigs</div></div></Link>
-                <Link href="/rentals" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors ${isActive("/rentals") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)]" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-sm">🔑</span><div><div className="font-bold">Rentals</div><div className="text-[10px] text-gray-400">Tools, equipment, cameras</div></div></Link>
-                <Link href="/wanted" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors ${isActive("/wanted") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)]" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-sm">📋</span><div><div className="font-bold">Wanted</div><div className="text-[10px] text-gray-400">People looking to buy, hire, rent</div></div></Link>
+                <div className="my-1.5 mx-3 border-t border-white/[0.04] light:border-black/[0.08]" />
+                <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400 light:text-gray-500">Browse</div>
+                <Link href="/" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors ${isActive("/") && pathname === "/" ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-sm light:bg-black/[0.04]">📦</span><div><div className="font-bold">Physical Goods</div><div className="text-[10px] text-gray-400 light:text-gray-500">Electronics, fashion, home</div></div></Link>
+                <Link href="/digital" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors ${isActive("/digital") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-sm light:bg-black/[0.04]">📥</span><div><div className="font-bold">Digital Store</div><div className="text-[10px] text-gray-400 light:text-gray-500">E-books, software, assets</div></div></Link>
+                <Link href="/services" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors ${isActive("/services") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-sm light:bg-black/[0.04]">🤝</span><div><div className="font-bold">Services</div><div className="text-[10px] text-gray-400 light:text-gray-500">Freelance, consulting, gigs</div></div></Link>
+                <Link href="/rentals" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors ${isActive("/rentals") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-sm light:bg-black/[0.04]">🔑</span><div><div className="font-bold">Rentals</div><div className="text-[10px] text-gray-400 light:text-gray-500">Tools, equipment, cameras</div></div></Link>
+                <Link href="/wanted" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors ${isActive("/wanted") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-sm light:bg-black/[0.04]">📋</span><div><div className="font-bold">Wanted</div><div className="text-[10px] text-gray-400 light:text-gray-500">People looking to buy, hire, rent</div></div></Link>
 
-                <div className="my-1.5 mx-3 border-t border-white/[0.04]" />
-                <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400">Your Stuff</div>
-                <Link href="/list-list" className={`rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/list-list") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)]" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>My Listings</Link>
-                <Link href="/watchlist" className={`rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/watchlist") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)]" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>Watchlist</Link>
-                <Link href="/purchases" className={`rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/purchases") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)]" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>Purchases</Link>
-                <Link href="/sales" className={`rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/sales") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)]" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>Sales</Link>
+                <div className="my-1.5 mx-3 border-t border-white/[0.04] light:border-black/[0.08]" />
+                <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400 light:text-gray-500">Your Stuff</div>
+                <Link href="/list-list" className={`rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/list-list") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>My Listings</Link>
+                <Link href="/watchlist" className={`rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/watchlist") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>Watchlist</Link>
+                <Link href="/purchases" className={`rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/purchases") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>Purchases</Link>
+                <Link href="/sales" className={`rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/sales") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>Sales</Link>
 
-                <div className="my-1.5 mx-3 border-t border-white/[0.04]" />
+                <div className="my-1.5 mx-3 border-t border-white/[0.04] light:border-black/[0.08]" />
                 {user ? (
                   <>
-                    <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400">Account</div>
-                    <Link href="/dashboard" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/dashboard") ? "text-sky-300 bg-sky-500/10" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm">📊</span>
+                    <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400 light:text-gray-500">Account</div>
+                    <Link href="/dashboard" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/dashboard") ? "text-sky-300 bg-sky-500/10 light:text-sky-600 light:bg-sky-500/10" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm light:bg-sky-500/10">📊</span>
                       Dashboard
                     </Link>
                     {isAdmin && (
-                      <Link href="/manage" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/manage") ? "text-red-400 bg-red-500/10" : "text-red-400/60 hover:bg-red-500/10 active:bg-red-500/15"}`} onClick={() => setMobileMenuOpen(false)}>
-                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10 text-sm">🛡️</span>
+                      <Link href="/manage" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/manage") ? "text-red-400 bg-red-500/10 light:text-red-600 light:bg-red-500/10" : "text-red-400/60 hover:bg-red-500/10 active:bg-red-500/15 light:text-red-600/60 light:hover:bg-red-500/10 light:active:bg-red-500/15"}`} onClick={() => setMobileMenuOpen(false)}>
+                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10 text-sm light:bg-red-500/10">🛡️</span>
                         Manage
                       </Link>
                     )}
-                    <Link href="/messages" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/messages") ? "text-sky-300 bg-sky-500/10" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm">💬</span>
+                    <Link href="/messages" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/messages") ? "text-sky-300 bg-sky-500/10 light:text-sky-600 light:bg-sky-500/10" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm light:bg-sky-500/10">💬</span>
                       Messages
                     </Link>
-                    <Link href="/profile" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/profile") ? "text-sky-300 bg-sky-500/10" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm">👤</span>
+                    <Link href="/profile" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/profile") ? "text-sky-300 bg-sky-500/10 light:text-sky-600 light:bg-sky-500/10" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm light:bg-sky-500/10">👤</span>
                       Profile
                     </Link>
-                    <button onClick={() => { handleLogout(); setMobileMenuOpen(false); }} className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold text-red-400 hover:bg-red-500/10 active:bg-red-500/15 transition-colors w-full text-left">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10 text-sm">🚪</span>
+                    <button onClick={() => { handleLogout(); setMobileMenuOpen(false); }} className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold text-red-400 hover:bg-red-500/10 active:bg-red-500/15 transition-colors w-full text-left light:text-red-600 light:hover:bg-red-500/10 light:active:bg-red-500/15">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10 text-sm light:bg-red-500/10">🚪</span>
                       Logout
                     </button>
                   </>
                 ) : (
                   <>
-                    <Link href="/login" className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] transition-colors" onClick={() => setMobileMenuOpen(false)}>
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm">🔐</span>
+                    <Link href="/login" className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] transition-colors light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]" onClick={() => setMobileMenuOpen(false)}>
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm light:bg-sky-500/10">🔐</span>
                       Login
                     </Link>
-                    <Link href="/login?signup=1" className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold text-sky-400 hover:text-sky-300 hover:bg-white/[0.06] active:bg-white/[0.08] transition-colors" onClick={() => setMobileMenuOpen(false)}>
+                    <Link href="/login?signup=1" className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold text-sky-400 hover:text-sky-300 hover:bg-white/[0.06] active:bg-white/[0.08] transition-colors light:text-sky-600 light:hover:text-sky-700 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]" onClick={() => setMobileMenuOpen(false)}>
                       <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm">✨</span>
                       Create Account
                     </Link>

@@ -20,6 +20,7 @@ export async function detachPurchasesForDeletedListing(
     .collection("purchases")
     .where("listingId", "==", listingId)
     .where("sellerEmail", "==", sellerEmail)
+    .limit(100)
     .get();
 
   if (snap.empty) return 0;

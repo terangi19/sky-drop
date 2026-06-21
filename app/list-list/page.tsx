@@ -15,6 +15,7 @@ import { showToast } from "../components/Toast";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
 import PromoteModal from "../components/PromoteModal";
 import { LISTING_GRID, PAGE_SHELL_CHAT } from "../lib/page-layout";
+import { timeAgo } from "../lib/listing-utils";
 
 interface Listing {
   id: string;
@@ -33,15 +34,6 @@ interface Listing {
   createdAt?: any;
   promotedUntil?: any;
   [key: string]: unknown;
-}
-
-function timeAgo(date: Date): string {
-  const diff = Date.now() - date.getTime();
-  if (diff < 60000) return "Just now";
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-  if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`;
-  return `${Math.floor(diff / 604800000)}w ago`;
 }
 
 export default function ListListPage() {

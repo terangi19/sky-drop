@@ -13,7 +13,8 @@ import { showToast } from "../components/Toast";
 
 import {
   collection,
-  onSnapshot,
+  getDocs,
+  limit,
   orderBy,
   query,
   where,
@@ -64,23 +65,18 @@ export default function ReportsPage() {
     const reportsQuery = query(
       collection(db, "reports"),
       where("reporterUserId", "==", user.uid),
-      orderBy("createdAt", "desc")
+      orderBy("createdAt", "desc"),
+      limit(50)
     );
 
-    const unsubscribe = onSnapshot(
-      reportsQuery,
-      (snapshot) => {
-        setReports(
-          snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }))
-        );
-      },
-      (err) => console.error("Failed to load reports:", err)
-    );
-
-    return () => unsubscribe();
+    getDocs(reportsQuery).then((snapshot) => {
+      setReports(
+        snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }))
+      );
+    }).catch((err) => console.error("Failed to load reports:", err));
   }, [user?.uid]);
 
   async function submitReport() {

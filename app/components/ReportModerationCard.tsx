@@ -61,9 +61,11 @@ interface Props {
   report: ModerationReport;
   onActionComplete?: () => void;
   compact?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
 }
 
-export default function ReportModerationCard({ report, onActionComplete, compact }: Props) {
+export default function ReportModerationCard({ report, onActionComplete, compact, isSelected, onToggleSelect }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
 
   const reportedHandle = fmtUser(report.reportedUsername, report.reportedUserEmail);
@@ -117,9 +119,23 @@ export default function ReportModerationCard({ report, onActionComplete, compact
         !report.status || report.status === "pending"
           ? "border-amber-500/15"
           : "border-white/[0.06]"
-      } ${compact ? "p-4" : "p-5"}`}
+      } ${compact ? "p-4" : "p-5"} ${isSelected ? "ring-2 ring-sky-500/50" : ""}`}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
+        {onToggleSelect && (
+          <button
+            onClick={onToggleSelect}
+            className={`h-5 w-5 rounded border flex items-center justify-center transition ${
+              isSelected
+                ? "bg-sky-500 border-sky-500 text-white"
+                : "border-white/20 hover:border-sky-500/50"
+            }`}
+          >
+            {isSelected && <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>}
+          </button>
+        )}
         <div className="min-w-0 flex-1 space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white/50">
