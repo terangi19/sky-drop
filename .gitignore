@@ -27,3 +27,4 @@ shutdown_log.txt
 
 # TypeScript
 tsconfig.tsbuildinfo
+.env*

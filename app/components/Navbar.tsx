@@ -8,7 +8,7 @@ import {
 } from "react";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 import {
   signOut,
@@ -47,14 +47,23 @@ import {
 
 const MOBILE_NAV_ITEMS = [
   { href: "/", label: "Browse", icon: "🏠" },
-  { href: "/messages", label: "Messages", icon: "💬" },
+  { href: "/purchases", label: "Purchases", icon: "🛒" },
   { href: "/post/ai", label: "Sell", icon: "➕" },
-  { href: "/profile", label: "Profile", icon: "👤" },
+  { href: "/messages", label: "Messages", icon: "💬" },
 ];
+
+const BROWSE_LINKS = [
+  { href: "/", label: "Physical Goods", desc: "Electronics, fashion, home", icon: "📦" },
+  { href: "/digital", label: "Digital Store", desc: "E-books, software, assets", icon: "📥" },
+  { href: "/services", label: "Services", desc: "Freelance, consulting, gigs", icon: "🤝" },
+  { href: "/rentals", label: "Rentals", desc: "Tools, equipment, cameras", icon: "🔑" },
+  { href: "/wanted", label: "Wanted", desc: "People looking to buy, hire, rent", icon: "📋" },
+] as const;
 
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { username } = useProfile();
   const [user, setUser] =
     useState<User | null>(
@@ -82,6 +91,7 @@ export default function Navbar() {
   const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const hamburgerRef = useRef<HTMLButtonElement>(null);
   const toggleLockRef = useRef(false);
@@ -353,6 +363,21 @@ export default function Navbar() {
     await signOut(auth);
   }
 
+  function submitSearch(e?: React.FormEvent) {
+    e?.preventDefault();
+    const q = searchQuery.trim();
+    if (!q) return;
+    router.push(`/search?q=${encodeURIComponent(q)}`);
+    closeMobileMenu();
+  }
+
+  const browseActive =
+    isActive("/digital") ||
+    isActive("/services") ||
+    isActive("/rentals") ||
+    isActive("/wanted") ||
+    pathname === "/";
+
   return (
     <header className="relative sticky top-0 z-[9999] border-b border-white/[0.04] backdrop-blur-xl light:border-black/[0.08]" style={{ backgroundColor: "var(--nav-bg)" }}>
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/30 to-transparent light:via-sky-600/20" />
@@ -365,66 +390,73 @@ export default function Navbar() {
         <div className="flex items-center gap-4">
 
           {/* NAV */}
-          {user && (
-            <nav className="hidden lg:flex items-center gap-1 text-sm font-medium">
+          <nav className="hidden lg:flex items-center gap-1 text-sm font-medium">
+            {user && (
               <Link href="/post/ai" className={`relative px-3 py-2 rounded-lg transition-all duration-200 ${isActive("/post/ai") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
                 Sell
                 {isActive("/post/ai") && <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-gradient-to-r from-sky-400 to-sky-300 shadow-[0_0_6px_rgba(56,189,248,0.4)]" />}
               </Link>
-              <div className="relative group px-1">
-                <button className={`flex items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer ${isActive("/digital") || isActive("/services") || isActive("/rentals") || isActive("/wanted") || pathname === "/" ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
-                  <span>Browse</span>
-                  <svg className="h-3 w-3 transition-transform duration-300 group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-                </button>
-                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-56 rounded-2xl border border-white/[0.08] bg-zinc-950/95 backdrop-blur-xl p-2 shadow-2xl shadow-black/40 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 translate-y-2 group-hover:translate-y-0 z-50 light:border-black/[0.12] light:bg-white/95 light:shadow-black/20">
-                  <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 h-3 w-3 rotate-45 border-t border-l border-white/[0.08] bg-zinc-950/95 light:border-black/[0.12] light:bg-white/95" />
-                  <Link href="/" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-gray-200 hover:text-white hover:bg-white/[0.06] transition-all duration-200 group/dd light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-xs group-hover/dd:bg-white/[0.08] transition-colors light:bg-black/[0.04] light:group-hover/dd:bg-black/[0.08]">📦</span>
-                    <div><div className="text-sm font-medium">Physical Goods</div><div className="text-[10px] text-gray-400 light:text-gray-500">Electronics, fashion, home</div></div>
+            )}
+            <div className="relative group px-1">
+              <button className={`flex items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer ${browseActive ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
+                <span>Browse</span>
+                <svg className="h-3 w-3 transition-transform duration-300 group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+              </button>
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-56 rounded-2xl border border-white/[0.08] bg-zinc-950/95 backdrop-blur-xl p-2 shadow-2xl shadow-black/40 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 translate-y-2 group-hover:translate-y-0 z-50 light:border-black/[0.12] light:bg-white/95 light:shadow-black/20">
+                <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 h-3 w-3 rotate-45 border-t border-l border-white/[0.08] bg-zinc-950/95 light:border-black/[0.12] light:bg-white/95" />
+                {BROWSE_LINKS.map((item) => (
+                  <Link key={item.href} href={item.href} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-gray-200 hover:text-white hover:bg-white/[0.06] transition-all duration-200 group/dd light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-xs group-hover/dd:bg-white/[0.08] transition-colors light:bg-black/[0.04] light:group-hover/dd:bg-black/[0.08]">{item.icon}</span>
+                    <div><div className="text-sm font-medium">{item.label}</div><div className="text-[10px] text-gray-400 light:text-gray-500">{item.desc}</div></div>
                   </Link>
-                  <Link href="/digital" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-gray-200 hover:text-white hover:bg-white/[0.06] transition-all duration-200 group/dd light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-xs group-hover/dd:bg-white/[0.08] transition-colors light:bg-black/[0.04] light:group-hover/dd:bg-black/[0.08]">📥</span>
-                    <div><div className="text-sm font-medium">Digital Store</div><div className="text-[10px] text-gray-400 light:text-gray-500">E-books, software, assets</div></div>
-                  </Link>
-                  <Link href="/services" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-gray-200 hover:text-white hover:bg-white/[0.06] transition-all duration-200 group/dd light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-xs group-hover/dd:bg-white/[0.08] transition-colors light:bg-black/[0.04] light:group-hover/dd:bg-black/[0.08]">🤝</span>
-                    <div><div className="text-sm font-medium">Services</div><div className="text-[10px] text-gray-400 light:text-gray-500">Freelance, consulting, gigs</div></div>
-                  </Link>
-                  <Link href="/rentals" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-gray-200 hover:text-white hover:bg-white/[0.06] transition-all duration-200 group/dd light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-xs group-hover/dd:bg-white/[0.08] transition-colors light:bg-black/[0.04] light:group-hover/dd:bg-black/[0.08]">🔑</span>
-                    <div><div className="text-sm font-medium">Rentals</div><div className="text-[10px] text-gray-400 light:text-gray-500">Tools, equipment, cameras</div></div>
-                  </Link>
-                  <Link href="/wanted" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-gray-200 hover:text-white hover:bg-white/[0.06] transition-all duration-200 group/dd light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-xs group-hover/dd:bg-white/[0.08] transition-colors light:bg-black/[0.04] light:group-hover/dd:bg-black/[0.08]">📋</span>
-                    <div><div className="text-sm font-medium">Wanted</div><div className="text-[10px] text-gray-400 light:text-gray-500">People looking to buy, hire, rent</div></div>
-                  </Link>
-                </div>
+                ))}
               </div>
-              <Link href="/list-list" className={`relative px-3 py-2 rounded-lg transition-all duration-200 ${isActive("/list-list") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
-                My Listings
-                {isActive("/list-list") && <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-gradient-to-r from-sky-400 to-sky-300 shadow-[0_0_6px_rgba(56,189,248,0.4)]" />}
-              </Link>
-              <Link href="/watchlist" className={`relative px-3 py-2 rounded-lg transition-all duration-200 ${isActive("/watchlist") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
-                Watchlist
-                {isActive("/watchlist") && <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-gradient-to-r from-sky-400 to-sky-300 shadow-[0_0_6px_rgba(56,189,248,0.4)]" />}
-              </Link>
-              <Link href="/purchases" className={`relative px-3 py-2 rounded-lg transition-all duration-200 ${isActive("/purchases") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
-                Purchases
-                {isActive("/purchases") && <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-gradient-to-r from-sky-400 to-sky-300 shadow-[0_0_6px_rgba(56,189,248,0.4)]" />}
-              </Link>
-              <Link href="/sales" className={`relative px-3 py-2 rounded-lg transition-all duration-200 ${isActive("/sales") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
-                Sales
-                {isActive("/sales") && <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-gradient-to-r from-sky-400 to-sky-300 shadow-[0_0_6px_rgba(56,189,248,0.4)]" />}
-              </Link>
-            </nav>
-          )}
+            </div>
+            {user && (
+              <>
+                <Link href="/list-list" className={`relative px-3 py-2 rounded-lg transition-all duration-200 ${isActive("/list-list") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
+                  My Listings
+                  {isActive("/list-list") && <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-gradient-to-r from-sky-400 to-sky-300 shadow-[0_0_6px_rgba(56,189,248,0.4)]" />}
+                </Link>
+                <Link href="/watchlist" className={`relative px-3 py-2 rounded-lg transition-all duration-200 ${isActive("/watchlist") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
+                  Watchlist
+                  {isActive("/watchlist") && <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-gradient-to-r from-sky-400 to-sky-300 shadow-[0_0_6px_rgba(56,189,248,0.4)]" />}
+                </Link>
+                <Link href="/purchases" className={`relative px-3 py-2 rounded-lg transition-all duration-200 ${isActive("/purchases") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
+                  Purchases
+                  {isActive("/purchases") && <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-gradient-to-r from-sky-400 to-sky-300 shadow-[0_0_6px_rgba(56,189,248,0.4)]" />}
+                </Link>
+                <Link href="/sales" className={`relative px-3 py-2 rounded-lg transition-all duration-200 ${isActive("/sales") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
+                  Sales
+                  {isActive("/sales") && <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-gradient-to-r from-sky-400 to-sky-300 shadow-[0_0_6px_rgba(56,189,248,0.4)]" />}
+                </Link>
+              </>
+            )}
+          </nav>
+
+          <form onSubmit={submitSearch} className="hidden md:flex items-center max-w-[11rem] lg:max-w-[14rem]">
+            <label htmlFor="navbar-search" className="sr-only">Search listings</label>
+            <div className="flex w-full items-center rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 py-1.5 transition focus-within:border-sky-500/40 light:border-black/[0.08] light:bg-black/[0.03]">
+              <svg className="h-3.5 w-3.5 shrink-0 text-[var(--nav-ice-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                id="navbar-search"
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search..."
+                className="ml-2 w-full bg-transparent text-xs text-[var(--nav-ice)] outline-none placeholder:text-[var(--nav-ice-faint)] light:text-gray-800 light:placeholder:text-gray-400"
+              />
+            </div>
+          </form>
 
           {/* HAMBURGER BUTTON */}
             <button
               ref={hamburgerRef}
               onClick={toggleMobileMenu}
               aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-              className="md:hidden relative flex h-9 w-9 items-center justify-center rounded-lg text-[var(--nav-ice)] active:scale-90 transition-all duration-200 hover:bg-white/[0.06] light:text-gray-700 light:hover:bg-black/[0.06]"
+              className="lg:hidden relative flex h-9 w-9 items-center justify-center rounded-lg text-[var(--nav-ice)] active:scale-90 transition-all duration-200 hover:bg-white/[0.06] light:text-gray-700 light:hover:bg-black/[0.06]"
             >
               <div className="relative h-5 w-5">
                 <svg
@@ -448,14 +480,28 @@ export default function Navbar() {
           {/* MOBILE DROPDOWN */}
             <div
               ref={mobileMenuRef}
-              className={`absolute top-full left-0 right-0 z-50 border-b border-white/[0.06] bg-zinc-950/98 backdrop-blur-2xl md:hidden shadow-2xl shadow-black/40 light:border-black/[0.12] light:bg-white/98 light:shadow-black/20 transition-all duration-200 ease-out ${
+              className={`absolute top-full left-0 right-0 z-50 border-b border-white/[0.06] bg-zinc-950/98 backdrop-blur-2xl lg:hidden shadow-2xl shadow-black/40 light:border-black/[0.12] light:bg-white/98 light:shadow-black/20 transition-all duration-200 ease-out ${
                 mobileMenuOpen
                   ? 'opacity-100 translate-y-0 visible pointer-events-auto'
                   : 'opacity-0 -translate-y-1.5 invisible pointer-events-none'
               }`}>
               <div className="flex flex-col gap-1 p-3 max-h-[80vh] overflow-y-auto">
+                <form onSubmit={submitSearch} className="mb-2 px-1 lg:hidden">
+                  <div className="flex items-center rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 light:border-black/[0.08] light:bg-black/[0.03]">
+                    <svg className="h-4 w-4 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <input
+                      type="search"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search listings..."
+                      className="ml-2 w-full bg-transparent text-sm text-gray-200 outline-none placeholder:text-gray-500 light:text-gray-800 light:placeholder:text-gray-400"
+                    />
+                  </div>
+                </form>
                 <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400 light:text-gray-500">Actions</div>
-                <Link href="/post/ai" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/post/ai") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>
+                <Link href={user ? "/post/ai" : "/signup?redirect=/post/ai"} className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/post/ai") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>
                   <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm light:bg-sky-500/10">💰</span>
                   Sell
                 </Link>
@@ -508,7 +554,7 @@ export default function Navbar() {
                       <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm light:bg-sky-500/10">🔐</span>
                       Login
                     </Link>
-                    <Link href="/login?signup=1" className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold text-sky-400 hover:text-sky-300 hover:bg-white/[0.06] active:bg-white/[0.08] transition-colors light:text-sky-600 light:hover:text-sky-700 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]" onClick={() => setMobileMenuOpen(false)}>
+                    <Link href="/signup" className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold text-sky-400 hover:text-sky-300 hover:bg-white/[0.06] active:bg-white/[0.08] transition-colors light:text-sky-600 light:hover:text-sky-700 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]" onClick={() => setMobileMenuOpen(false)}>
                       <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm">✨</span>
                       Create Account
                     </Link>
@@ -608,25 +654,33 @@ export default function Navbar() {
                 </div>
               </div>
             ) : (
-              <Link
-                href="/login"
-                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/25 hover:brightness-110 active:scale-[0.97]"
-              >
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                </svg>
-                Login
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/signup"
+                  className="inline-flex items-center gap-2 rounded-xl border border-sky-500/30 bg-sky-500/10 px-4 py-2 text-sm font-bold text-sky-300 transition-all duration-200 hover:bg-sky-500/20 hover:text-white active:scale-[0.97] light:text-sky-600 light:hover:text-sky-700"
+                >
+                  Sign up
+                </Link>
+                <Link
+                  href="/login"
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/25 hover:brightness-110 active:scale-[0.97]"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                  </svg>
+                  Login
+                </Link>
+              </div>
             )}
           </div>
         </div>
       </div>
       {/* Mobile bottom bar */}
       {user && (
-        <nav className="fixed bottom-0 left-0 right-0 z-[9999] border-t border-white/[0.04] bg-zinc-950/90 backdrop-blur-xl md:hidden" style={{ backgroundColor: "var(--nav-bg)" }}>
+        <nav className="fixed bottom-0 left-0 right-0 z-[9999] border-t border-white/[0.04] bg-zinc-950/90 backdrop-blur-xl lg:hidden" style={{ backgroundColor: "var(--nav-bg)" }}>
           <div className="flex items-center justify-around py-1.5" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 4px) + 4px)" }}>
             {MOBILE_NAV_ITEMS.map((item) => {
-              const active = pathname === item.href;
+              const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
               return (
                 <Link key={item.href} href={item.href}
                   className={`relative flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all duration-200 active:scale-90 ${active ? "text-sky-300 bg-white/[0.06]" : "text-[var(--nav-ice-faint)] hover:text-[var(--nav-ice-muted)]"}`}>
@@ -639,7 +693,7 @@ export default function Navbar() {
           </div>
         </nav>
       )}
-      <style jsx global>{`main { padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px)); } @media (min-width: 768px) { main { padding-bottom: 0; } }`}</style>
+      <style jsx global>{`main { padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px)); } @media (min-width: 1024px) { main { padding-bottom: 0; } }`}</style>
 
     </header>
   );

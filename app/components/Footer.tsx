@@ -5,7 +5,7 @@ export default function Footer() {
     <footer className="border-t border-zinc-800/50 py-8 mt-auto">
       <div className="flex flex-col items-center justify-center gap-4 text-xs text-[var(--muted)]">
         <p>© 2026 Sky Drop. Operated in New Zealand. All payments handled by Stripe.</p>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
           <Link href="/about" className="transition hover:text-[var(--foreground)]">About</Link>
           <Link href="/faqs" className="transition hover:text-[var(--foreground)]">FAQs</Link>
           <Link href="/buyer-protection" className="transition hover:text-[var(--foreground)]">Buyer Protection</Link>

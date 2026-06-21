@@ -790,7 +790,7 @@ export default function Home() {
                   "Free listings, secure checkout, and a marketplace built for New Zealand."
                 )}
               </p>
-              {user && (
+              {user ? (
                 <div className="mt-6 flex justify-center">
                   <Link
                     href="/post/ai"
@@ -800,6 +800,21 @@ export default function Home() {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                     </svg>
                     Create a Listing
+                  </Link>
+                </div>
+              ) : (
+                <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+                  <Link
+                    href="/signup"
+                    className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-400 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.98]"
+                  >
+                    Create Free Account
+                  </Link>
+                  <Link
+                    href="/digital"
+                    className="inline-flex items-center gap-2 rounded-2xl border border-white/[0.12] bg-white/[0.04] px-6 py-3.5 text-sm font-bold text-white transition-all duration-300 hover:border-sky-500/30 hover:bg-white/[0.06]"
+                  >
+                    Browse Listings
                   </Link>
                 </div>
               )}

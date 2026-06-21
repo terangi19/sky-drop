@@ -137,6 +137,20 @@ function formatDate(ts: any): string {
   return new Date(ts).toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" });
 }
 
+function getDisputeDeadlineCountdown(deadline: any): { days: number; text: string; urgent: boolean } | null {
+  if (!deadline) return null;
+  const deadlineDate = deadline.seconds ? new Date(deadline.seconds * 1000) : new Date(deadline);
+  const now = new Date();
+  const diffMs = deadlineDate.getTime() - now.getTime();
+  if (diffMs <= 0) return null;
+  const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  return {
+    days,
+    text: `${days} day${days !== 1 ? "s" : ""} remaining`,
+    urgent: days <= 2
+  };
+}
+
 function statusIndex(s: string, isService?: boolean, isRental?: boolean, isArrange?: boolean): number {
   const steps = isArrange ? ARRANGE_TIMELINE_STEPS : isRental ? RENTAL_TIMELINE_STEPS : isService ? SERVICE_TIMELINE_STEPS : TIMELINE_STEPS;
   // For Stripe payments (Pay Now), status starts at "confirmed" which is index 0
@@ -558,6 +572,15 @@ export default function PurchasesPage() {
                           </span>
                         </div>
                       )}
+                      {p.status === "delivered" && !p.disputeStatus && !p.fundsReleased && (() => {
+                        const countdown = getDisputeDeadlineCountdown(p.disputeDeadline);
+                        if (!countdown) return null;
+                        return (
+                          <div className={`mt-2 rounded-lg border px-2.5 py-1.5 text-[10px] font-medium ${countdown.urgent ? "border-red-500/20 bg-red-500/5 text-red-400" : "border-sky-500/15 bg-sky-500/5 text-sky-300/90"}`}>
+                            ⏰ Dispute deadline: {countdown.text}
+                          </div>
+                        );
+                      })()}
 
                       <div className="mt-3 flex items-center gap-2 flex-wrap">
                         <Link href={`/messages?user=${encodeURIComponent(p.sellerUsername || p.sellerEmail || "")}&listing=${p.listingId}`}

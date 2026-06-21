@@ -67,6 +67,13 @@ function containsRiskyKeywords(text: string): string | null {
   }
   return null;
 }
+
+const QUICK_REPLIES = [
+  "Is this still available?",
+  "Can you ship to my area?",
+  "When can I pick up?",
+  "Would you accept a lower offer?",
+];
 function formatTime(timestamp: any) {
   if (!timestamp?.seconds) return "";
   const date = new Date(timestamp.seconds * 1000);
@@ -2042,6 +2049,20 @@ function MessagesPage() {
                     onExpire={() => setTurnstileToken("")}
                     className="mb-2 scale-[0.7] origin-left"
                   />
+                  {!message.trim() && (
+                    <div className="mb-2 flex flex-wrap gap-1.5">
+                      {QUICK_REPLIES.map((reply) => (
+                        <button
+                          key={reply}
+                          type="button"
+                          onClick={() => setMessage(reply)}
+                          className="rounded-full border border-[var(--card-border)] bg-[var(--soft-card)] px-2.5 py-1 text-[10px] font-medium text-[var(--muted)] transition hover:border-sky-500/30 hover:text-sky-400"
+                        >
+                          {reply}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <div className="flex gap-2.5">
                     {/* Image attach button */}
                     <button onClick={() => fileInputRef.current?.click()}

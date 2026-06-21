@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
@@ -22,6 +22,11 @@ export default function SearchPage() {
   const { listings, loading } = useListings();
 
   const [watchlist, setWatchlist] = useState<string[]>([]);
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [condition, setCondition] = useState("all");
+  const [location, setLocation] = useState("all");
+  const [sortBy, setSortBy] = useState("newest");
 
   useEffect(() => {
     if (!user) {
@@ -66,15 +71,40 @@ export default function SearchPage() {
     // TODO: Implement delete
   };
 
-  const filteredListings = listings.filter((listing) => {
-    if (!query) return true;
+  const filteredListings = useMemo(() => {
+    const filtered = listings.filter((listing) => {
     const searchLower = query.toLowerCase();
-    return (
+    const matchesSearch =
+      !query ||
       listing.title?.toLowerCase().includes(searchLower) ||
       listing.description?.toLowerCase().includes(searchLower) ||
-      listing.category?.toLowerCase().includes(searchLower)
-    );
+      listing.category?.toLowerCase().includes(searchLower);
+
+    const price = Number(listing.price) || 0;
+    const matchesMinPrice = !minPrice || price >= Number(minPrice);
+    const matchesMaxPrice = !maxPrice || price <= Number(maxPrice);
+    const matchesCondition = condition === "all" || listing.condition === condition;
+    const matchesLocation = location === "all" || listing.location?.toLowerCase().includes(location.toLowerCase());
+
+    return matchesSearch && matchesMinPrice && matchesMaxPrice && matchesCondition && matchesLocation;
   });
+
+    const sorted = [...filtered];
+    if (sortBy === "price-low") {
+      sorted.sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
+    } else if (sortBy === "price-high") {
+      sorted.sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0));
+    } else if (sortBy === "popular") {
+      sorted.sort((a, b) => (Number(b.views) || 0) - (Number(a.views) || 0));
+    } else {
+      sorted.sort((a, b) => {
+        const ta = (a.createdAt as { seconds?: number })?.seconds || 0;
+        const tb = (b.createdAt as { seconds?: number })?.seconds || 0;
+        return tb - ta;
+      });
+    }
+    return sorted;
+  }, [listings, query, minPrice, maxPrice, condition, location, sortBy]);
 
   const sellerReviewStats: Record<string, { avg: number; count: number }> = {};
   const sellerBadges: Record<string, string> = {};
@@ -93,6 +123,87 @@ export default function SearchPage() {
           <p className="mt-2 text-sm text-[var(--muted)]">
             {loading ? "Loading..." : `${filteredListings.length} listing${filteredListings.length !== 1 ? "s" : ""} found`}
           </p>
+        </div>
+
+        {/* Filter Controls */}
+        <div className="mb-6 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+          <div className="flex flex-wrap gap-4">
+            {/* Price Range */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Price Range</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  placeholder="Min"
+                  value={minPrice}
+                  onChange={(e) => setMinPrice(e.target.value)}
+                  className="w-24 rounded-lg border border-white/[0.06] bg-[var(--card)] px-3 py-2 text-sm text-white outline-none focus:border-sky-500/40"
+                />
+                <span className="text-[var(--muted)]">-</span>
+                <input
+                  type="number"
+                  placeholder="Max"
+                  value={maxPrice}
+                  onChange={(e) => setMaxPrice(e.target.value)}
+                  className="w-24 rounded-lg border border-white/[0.06] bg-[var(--card)] px-3 py-2 text-sm text-white outline-none focus:border-sky-500/40"
+                />
+              </div>
+            </div>
+
+            {/* Condition */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Condition</label>
+              <select
+                value={condition}
+                onChange={(e) => setCondition(e.target.value)}
+                className="w-32 rounded-lg border border-white/[0.06] bg-[var(--card)] px-3 py-2 text-sm text-white outline-none focus:border-sky-500/40"
+              >
+                <option value="all">All</option>
+                <option value="New">New</option>
+                <option value="Used">Used</option>
+                <option value="Refurbished">Refurbished</option>
+                <option value="For parts">For parts</option>
+              </select>
+            </div>
+
+            {/* Location */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Location</label>
+              <input
+                type="text"
+                placeholder="City or region"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className="w-40 rounded-lg border border-white/[0.06] bg-[var(--card)] px-3 py-2 text-sm text-white outline-none focus:border-sky-500/40"
+              />
+            </div>
+
+            {/* Sort */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Sort By</label>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="w-36 rounded-lg border border-white/[0.06] bg-[var(--card)] px-3 py-2 text-sm text-white outline-none focus:border-sky-500/40"
+              >
+                <option value="newest">Newest</option>
+                <option value="price-low">Price: Low to High</option>
+                <option value="price-high">Price: High to Low</option>
+                <option value="popular">Most Popular</option>
+              </select>
+            </div>
+
+            {/* Clear Filters */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-transparent">Clear</label>
+              <button
+                onClick={() => { setMinPrice(""); setMaxPrice(""); setCondition("all"); setLocation("all"); }}
+                className="h-9 rounded-lg border border-red-500/20 bg-red-500/5 px-4 text-sm font-semibold text-red-400 transition hover:bg-red-500/10"
+              >
+                Clear Filters
+              </button>
+            </div>
+          </div>
         </div>
 
         {loading ? (

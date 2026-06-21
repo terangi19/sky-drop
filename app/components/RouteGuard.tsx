@@ -17,7 +17,13 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
     return () => unsub();
   }, [pathname]);
 
-  if (checking) return null;
+  if (checking) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-sky-500/30 border-t-sky-400" />
+      </div>
+    );
+  }
 
   return <div key={pathname}>{children}</div>;
 }
