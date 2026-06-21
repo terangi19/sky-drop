@@ -5,6 +5,8 @@ import {
   useMemo,
   useRef,
   useState,
+  lazy,
+  Suspense,
 } from "react";
 
 import Link from "next/link";
@@ -23,10 +25,10 @@ import {
 } from "firebase/auth";
 
 
-import PromoteModal from "./components/PromoteModal";
-import MarketplaceListingCard from "./components/MarketplaceListingCard";
-import ArrangePurchaseModal from "./components/ArrangePurchaseModal";
-import HotThisWeek from "./components/HotThisWeek";
+const PromoteModal = lazy(() => import("./components/PromoteModal"));
+const MarketplaceListingCard = lazy(() => import("./components/MarketplaceListingCard"));
+const ArrangePurchaseModal = lazy(() => import("./components/ArrangePurchaseModal"));
+const HotThisWeek = lazy(() => import("./components/HotThisWeek"));
 import { LISTING_GRID, LISTING_GRID_MT, PAGE_SHELL_MARKETPLACE, PAGE_SHELL_WIDE } from "./lib/page-layout";
 import { sellerHasStripeConfigured } from "./lib/seller-payments";
 import {
@@ -750,16 +752,18 @@ export default function Home() {
 
       {/* ARRANGE PURCHASE MODAL */}
       {showArrangeModal && arrangeListing && user?.email && (
-        <ArrangePurchaseModal
-          listing={arrangeListing}
-          buyerEmail={user.email}
-          onClose={() => { setShowArrangeModal(false); setArrangeListing(null); }}
-          onSuccess={(conversationId) => {
-            setShowArrangeModal(false);
-            setArrangeListing(null);
-            router.push(`/messages?user=${encodeURIComponent(arrangeListing.sellerUsername || arrangeListing.sellerEmail || "")}&listing=${arrangeListing.id}`);
-          }}
-        />
+        <Suspense fallback={null}>
+          <ArrangePurchaseModal
+            listing={arrangeListing}
+            buyerEmail={user.email}
+            onClose={() => { setShowArrangeModal(false); setArrangeListing(null); }}
+            onSuccess={(conversationId) => {
+              setShowArrangeModal(false);
+              setArrangeListing(null);
+              router.push(`/messages?user=${encodeURIComponent(arrangeListing.sellerUsername || arrangeListing.sellerEmail || "")}&listing=${arrangeListing.id}`);
+            }}
+          />
+        </Suspense>
       )}
 
       {/* HERO / SEARCH SECTION */}
@@ -930,16 +934,26 @@ export default function Home() {
         </div>
       </section>
 
-      <HotThisWeek
-        items={hotItems}
-        timeAgo={timeAgo}
-        saveRecentlyViewed={saveRecentlyViewed}
-        cdnUrl={cdnUrl}
-        user={user}
-        sellerReviewStats={sellerReviewStats}
-        sellerBadges={sellerBadges}
-        sellerFullyVerified={sellerFullyVerified}
-      />
+      <Suspense fallback={
+        <div className={`${PAGE_SHELL_WIDE} py-8`}>
+          <div className="flex gap-4 overflow-x-auto pb-2">
+            {[1,2,3].map((i) => (
+              <div key={i} className="shrink-0 w-72 h-40 rounded-2xl bg-white/[0.03] border border-white/[0.06] animate-pulse" />
+            ))}
+          </div>
+        </div>
+      }>
+        <HotThisWeek
+          items={hotItems}
+          timeAgo={timeAgo}
+          saveRecentlyViewed={saveRecentlyViewed}
+          cdnUrl={cdnUrl}
+          user={user}
+          sellerReviewStats={sellerReviewStats}
+          sellerBadges={sellerBadges}
+          sellerFullyVerified={sellerFullyVerified}
+        />
+      </Suspense>
 
       {/* LISTINGS */}
       <section className={`${PAGE_SHELL_MARKETPLACE} pb-10`}>
@@ -1064,31 +1078,44 @@ export default function Home() {
         {!loading && filteredListings.length > 0 && (
         <div key={watchlistTick} className={LISTING_GRID}>
           {filteredListings.slice(0, visibleCount).map((item: any, cardIndex: number) => (
-            <MarketplaceListingCard
-              key={item.id}
-              item={item}
-              cardIndex={cardIndex}
-              user={user}
-              isInWatchlist={(id) => {
-                void watchlistTick;
-                return isInWatchlist(id);
-              }}
-              onToggleWatchlist={toggleWatchlist}
-              onCardClick={() => {
-                saveRecentlyViewed(item);
-                router.push(`/post/listing/${item.id}`);
-              }}
-              onBuyNow={handleBuyNow}
-              onMakeOffer={(listing) => {
-                setOfferListing(listing as Listing);
-                setShowOfferModal(true);
-              }}
-              sellerReviewStats={sellerReviewStats}
-              sellerBadges={sellerBadges}
-              sellerFullyVerified={sellerFullyVerified}
-              onPromote={(listing) => setPromoteItem(listing)}
-              onDelete={(listing) => setDeleteConfirm(listing as Listing)}
-            />
+            <Suspense key={item.id} fallback={
+              <div className="relative overflow-hidden rounded-2xl bg-[var(--card)] border border-white/[0.04]">
+                <div className="aspect-[4/3] w-full bg-gradient-to-br from-sky-500/[0.05] via-sky-500/[0.02] to-transparent animate-shimmer" />
+                <div className="p-4 space-y-3">
+                  <div className="h-5 w-3/4 rounded bg-gradient-to-r from-sky-500/[0.1] to-sky-500/[0.05] animate-shimmer" />
+                  <div className="h-4 w-1/2 rounded bg-[var(--card)] animate-shimmer" />
+                  <div className="flex gap-2">
+                    <div className="h-9 flex-1 rounded-lg bg-gradient-to-r from-sky-500/[0.1] to-sky-500/[0.05] animate-shimmer" />
+                    <div className="h-9 w-20 rounded-lg bg-gradient-to-r from-sky-500/[0.1] to-sky-500/[0.05] animate-shimmer" />
+                  </div>
+                </div>
+              </div>
+            }>
+              <MarketplaceListingCard
+                item={item}
+                cardIndex={cardIndex}
+                user={user}
+                isInWatchlist={(id) => {
+                  void watchlistTick;
+                  return isInWatchlist(id);
+                }}
+                onToggleWatchlist={toggleWatchlist}
+                onCardClick={() => {
+                  saveRecentlyViewed(item);
+                  router.push(`/post/listing/${item.id}`);
+                }}
+                onBuyNow={handleBuyNow}
+                onMakeOffer={(listing) => {
+                  setOfferListing(listing as Listing);
+                  setShowOfferModal(true);
+                }}
+                sellerReviewStats={sellerReviewStats}
+                sellerBadges={sellerBadges}
+                sellerFullyVerified={sellerFullyVerified}
+                onPromote={(listing) => setPromoteItem(listing)}
+                onDelete={(listing) => setDeleteConfirm(listing as Listing)}
+              />
+            </Suspense>
           ))}
         </div>
         )}

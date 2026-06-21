@@ -214,16 +214,27 @@ const PREFIX_INTROS: { prefix: string; lines: string[] }[] = [
   },
 ];
 
+const pageIntroCache = new Map<string, string[] | null>();
+
 function lookupAwhinaPageIntro(pathname: string): string[] | null {
   const path = normalizeAwhinaGuidePath(pathname);
 
   if (path === "/checkout" || path === "/post") return null;
 
-  for (const { prefix, lines } of PREFIX_INTROS) {
-    if (path.startsWith(prefix) && path.length > prefix.length) return lines;
+  if (pageIntroCache.has(path)) {
+    return pageIntroCache.get(path) ?? null;
   }
 
-  return PAGE_INTROS[path] ?? null;
+  for (const { prefix, lines } of PREFIX_INTROS) {
+    if (path.startsWith(prefix) && path.length > prefix.length) {
+      pageIntroCache.set(path, lines);
+      return lines;
+    }
+  }
+
+  const result = PAGE_INTROS[path] ?? null;
+  pageIntroCache.set(path, result);
+  return result;
 }
 
 /** Portal guide — skips home, browse marketplace, and other excluded routes. */
@@ -250,42 +261,47 @@ export function buildWatchlistInsight(
   watchlist: WatchlistItem[],
   popularIds: Set<string>
 ): AwhinaInsight | null {
-  if (watchlist.length === 0) return null;
+  try {
+    if (watchlist.length === 0) return null;
 
-  const trending = watchlist.find((item) => popularIds.has(item.id));
-  if (trending) {
+    const trending = watchlist.find((item) => popularIds.has(item.id));
+    if (trending) {
+      return {
+        icon: "🔥",
+        label: "Hot Listing",
+        message: trending.title
+          ? `"${trending.title}" is trending right now.`
+          : "One of your saved listings is currently trending.",
+        actions: [{ type: "link" as const, label: "View Listing", href: `/post/listing/${trending.id}`, primary: true }],
+      };
+    }
+
+    if (watchlist.length >= 2) {
+      return {
+        icon: "✨",
+        label: AWHINA_NAME,
+        message: `You have ${watchlist.length} saved listings.`,
+        actions: [
+          { type: "link" as const, label: "Browse Similar", href: "/" },
+          {
+            type: "button" as const,
+            label: `Ask ${AWHINA_NAME}`,
+            onClick: () => dispatchSkyAiOpen("Help me find listings similar to my watchlist"),
+          },
+        ],
+      };
+    }
+
     return {
-      icon: "🔥",
-      label: "Hot Listing",
-      message: trending.title
-        ? `"${trending.title}" is trending right now.`
-        : "One of your saved listings is currently trending.",
-      actions: [{ type: "link" as const, label: "View Listing", href: `/post/listing/${trending.id}`, primary: true }],
+      icon: "💡",
+      label: "Tip",
+      message: "Add more listings to your watchlist to track prices and compare options.",
+      actions: [{ type: "link" as const, label: "Browse Listings", href: "/", primary: true }],
     };
+  } catch (err) {
+    console.error("Error building watchlist insight:", err);
+    return null;
   }
-
-  if (watchlist.length >= 2) {
-    return {
-      icon: "✨",
-      label: AWHINA_NAME,
-      message: `You have ${watchlist.length} saved listings.`,
-      actions: [
-        { type: "link" as const, label: "Browse Similar", href: "/" },
-        {
-          type: "button" as const,
-          label: `Ask ${AWHINA_NAME}`,
-          onClick: () => dispatchSkyAiOpen("Help me find listings similar to my watchlist"),
-        },
-      ],
-    };
-  }
-
-  return {
-    icon: "💡",
-    label: "Tip",
-    message: "Add more listings to your watchlist to track prices and compare options.",
-    actions: [{ type: "link" as const, label: "Browse Listings", href: "/", primary: true }],
-  };
 }
 
 type SellerListing = {
@@ -304,64 +320,69 @@ type ListListInsightInput = {
 };
 
 export function buildListListInsight({ listings, onBoost }: ListListInsightInput): AwhinaInsight | null {
-  if (listings.length === 0) return null;
+  try {
+    if (listings.length === 0) return null;
 
-  const now = Date.now();
-  const active = listings.filter((l) => isListingVisibleInMarketplace(l));
+    const now = Date.now();
+    const active = listings.filter((l) => isListingVisibleInMarketplace(l));
 
-  if (active.length === 0) {
-    return {
-      icon: "✨",
-      label: AWHINA_NAME,
-      message: "All your listings have sold or expired — ready to list again?",
-      actions: [{ type: "link" as const, label: "New Listing", href: "/post/ai", primary: true }],
-    };
+    if (active.length === 0) {
+      return {
+        icon: "✨",
+        label: AWHINA_NAME,
+        message: "All your listings have sold or expired — ready to list again?",
+        actions: [{ type: "link" as const, label: "New Listing", href: "/post/ai", primary: true }],
+      };
+    }
+
+    const unboosted = active.find(
+      (l) => !l.promotedUntil?.toMillis?.() || l.promotedUntil.toMillis() <= now
+    );
+    if (unboosted && onBoost) {
+      return {
+        icon: "💡",
+        label: "Tip",
+        message: unboosted.title
+          ? `Boost "${unboosted.title}" to reach more buyers.`
+          : "Boost a listing to reach more buyers.",
+        actions: [{ type: "button" as const, label: "Boost Listing", onClick: () => onBoost(unboosted), primary: true }],
+      };
+    }
+
+    const topViews = active.reduce<SellerListing | null>(
+      (best, l) => ((l.views || 0) > (best?.views || 0) ? l : best),
+      null
+    );
+    if (topViews && (topViews.views || 0) >= 5) {
+      return {
+        icon: "🔥",
+        label: "Hot Listing",
+        message: `"${topViews.title}" has ${topViews.views} views — keep the momentum going.`,
+        actions: [{ type: "link" as const, label: "View Listing", href: `/post/listing/${topViews.id}`, primary: true }],
+      };
+    }
+
+    if (active.length >= 2) {
+      return {
+        icon: "✨",
+        label: AWHINA_NAME,
+        message: `You have ${active.length} active listings live on the marketplace.`,
+        actions: [
+          {
+            type: "button" as const,
+            label: `Ask ${AWHINA_NAME}`,
+            onClick: () => dispatchSkyAiOpen("How can I improve my listings?"),
+            primary: true,
+          },
+        ],
+      };
+    }
+
+    return null;
+  } catch (err) {
+    console.error("Error building list list insight:", err);
+    return null;
   }
-
-  const unboosted = active.find(
-    (l) => !l.promotedUntil?.toMillis?.() || l.promotedUntil.toMillis() <= now
-  );
-  if (unboosted && onBoost) {
-    return {
-      icon: "💡",
-      label: "Tip",
-      message: unboosted.title
-        ? `Boost "${unboosted.title}" to reach more buyers.`
-        : "Boost a listing to reach more buyers.",
-      actions: [{ type: "button" as const, label: "Boost Listing", onClick: () => onBoost(unboosted), primary: true }],
-    };
-  }
-
-  const topViews = active.reduce<SellerListing | null>(
-    (best, l) => ((l.views || 0) > (best?.views || 0) ? l : best),
-    null
-  );
-  if (topViews && (topViews.views || 0) >= 5) {
-    return {
-      icon: "🔥",
-      label: "Hot Listing",
-      message: `"${topViews.title}" has ${topViews.views} views — keep the momentum going.`,
-      actions: [{ type: "link" as const, label: "View Listing", href: `/post/listing/${topViews.id}`, primary: true }],
-    };
-  }
-
-  if (active.length >= 2) {
-    return {
-      icon: "✨",
-      label: AWHINA_NAME,
-      message: `You have ${active.length} active listings live on the marketplace.`,
-      actions: [
-        {
-          type: "button" as const,
-          label: `Ask ${AWHINA_NAME}`,
-          onClick: () => dispatchSkyAiOpen("How can I improve my listings?"),
-          primary: true,
-        },
-      ],
-    };
-  }
-
-  return null;
 }
 
 type PurchaseRow = {
@@ -377,84 +398,94 @@ export function buildPurchasesInsight(
   purchases: PurchaseRow[],
   onFocusActive?: () => void
 ): AwhinaInsight | null {
-  if (purchases.length === 0) return null;
+  try {
+    if (purchases.length === 0) return null;
 
-  const needsConfirm = purchases.filter(
-    (p) =>
-      p.status === "shipped" ||
-      (p.deliveryMethod === "pickup" && p.status === "seller_confirming") ||
-      (p.deliveryMethod === "service" && p.status === "completed")
-  );
+    const needsConfirm = purchases.filter(
+      (p) =>
+        p.status === "shipped" ||
+        (p.deliveryMethod === "pickup" && p.status === "seller_confirming") ||
+        (p.deliveryMethod === "service" && p.status === "completed")
+    );
 
-  if (needsConfirm.length > 0) {
-    const p = needsConfirm[0];
-    return {
-      icon: "✨",
-      label: AWHINA_NAME,
-      message:
-        needsConfirm.length === 1
-          ? `"${p.listingTitle}" is ready to confirm received.`
-          : `${needsConfirm.length} orders are ready to confirm received.`,
-      actions: [{ type: "button" as const, label: "View Orders", onClick: onFocusActive, primary: true }],
-    };
+    if (needsConfirm.length > 0) {
+      const p = needsConfirm[0];
+      return {
+        icon: "✨",
+        label: AWHINA_NAME,
+        message:
+          needsConfirm.length === 1
+            ? `"${p.listingTitle}" is ready to confirm received.`
+            : `${needsConfirm.length} orders are ready to confirm received.`,
+        actions: [{ type: "button" as const, label: "View Orders", onClick: onFocusActive, primary: true }],
+      };
+    }
+
+    const openDispute = purchases.find((p) => p.disputeStatus === "open" || p.disputeStatus === "under_review");
+    if (openDispute) {
+      return {
+        icon: "💡",
+        label: "Tip",
+        message: `Dispute in progress on "${openDispute.listingTitle}".`,
+        actions: [{ type: "button" as const, label: "View Orders", onClick: onFocusActive, primary: true }],
+      };
+    }
+
+    const active = purchases.filter((p) => !["delivered", "cancelled"].includes(p.status));
+    if (active.length >= 2) {
+      return {
+        icon: "✨",
+        label: AWHINA_NAME,
+        message: `You have ${active.length} active orders in progress.`,
+      };
+    }
+
+    return null;
+  } catch (err) {
+    console.error("Error building purchases insight:", err);
+    return null;
   }
-
-  const openDispute = purchases.find((p) => p.disputeStatus === "open" || p.disputeStatus === "under_review");
-  if (openDispute) {
-    return {
-      icon: "💡",
-      label: "Tip",
-      message: `Dispute in progress on "${openDispute.listingTitle}".`,
-      actions: [{ type: "button" as const, label: "View Orders", onClick: onFocusActive, primary: true }],
-    };
-  }
-
-  const active = purchases.filter((p) => !["delivered", "cancelled"].includes(p.status));
-  if (active.length >= 2) {
-    return {
-      icon: "✨",
-      label: AWHINA_NAME,
-      message: `You have ${active.length} active orders in progress.`,
-    };
-  }
-
-  return null;
 }
 
 export function buildSalesInsight(
   sales: { id: string; listingTitle: string; status: string }[],
   onFocusActive?: () => void
 ): AwhinaInsight | null {
-  if (sales.length === 0) return null;
+  try {
+    if (sales.length === 0) return null;
 
-  const needsUpdate = sales.filter(
-    (s) => !["completed", "cancelled", "delivered"].includes(s.status)
-  );
+    const needsUpdate = sales.filter(
+      (s) => !["completed", "cancelled", "delivered"].includes(s.status)
+    );
 
-  if (needsUpdate.length > 0) {
-    return {
-      icon: "📦",
-      label: AWHINA_NAME,
-      message:
-        needsUpdate.length === 1
-          ? `"${needsUpdate[0].listingTitle}" needs an update.`
-          : `${needsUpdate.length} orders need updating — confirm, ship, or mark complete.`,
-      actions: [
-        {
-          type: "button" as const,
-          label: `View ${needsUpdate.length} Active`,
-          onClick: onFocusActive,
-          primary: true,
-        },
-      ],
-    };
-  }
-
-  return sales.length > 0
-    ? {
-        icon: "✅",
+    if (needsUpdate.length > 0) {
+      return {
+        icon: "📦",
         label: AWHINA_NAME,
-        message: `All ${sales.length} orders are completed. Nice work!`,
-      }
-    : null;
+        message:
+          needsUpdate.length === 1
+            ? `"${needsUpdate[0].listingTitle}" needs an update.`
+            : `${needsUpdate.length} orders need updating — confirm, ship, or mark complete.`,
+        actions: [
+          {
+            type: "button" as const,
+            label: `View ${needsUpdate.length} Active`,
+            onClick: onFocusActive,
+            primary: true,
+          },
+        ],
+      };
+    }
+
+    return sales.length > 0
+      ? {
+          icon: "✅",
+          label: AWHINA_NAME,
+          message: `All ${sales.length} orders are completed. Nice work!`,
+        }
+      : null;
+  } catch (err) {
+    console.error("Error building sales insight:", err);
+    return null;
+  }
 }

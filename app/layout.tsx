@@ -35,6 +35,18 @@ export const viewport = {
   themeColor: "#0a0a0a",
 };
 
+export const links = () => [
+  {
+    rel: "preconnect",
+    href: "https://fonts.googleapis.com",
+  },
+  {
+    rel: "preconnect",
+    href: "https://fonts.gstatic.com",
+    crossOrigin: "anonymous" as const,
+  },
+];
+
 export const metadata: Metadata = {
   title: {
     default: "Sky Drop — NZ Marketplace",

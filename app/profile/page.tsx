@@ -50,6 +50,7 @@ import { sellerProfilePath } from "../lib/seller-profile-nav";
 import BrowseMarketplaceHero from "../components/BrowseMarketplaceHero";
 import { PAGE_SHELL_WIDE } from "../lib/page-layout";
 import AwhinaProfileAssistant from "../components/AwhinaProfileAssistant";
+import { AwhinaErrorBoundary } from "../components/AwhinaErrorBoundary";
 import {
   consumePendingProfileFill,
   mergeProfileFill,
@@ -1360,11 +1361,13 @@ const tabs = [
           {/* ===== TAB: PROFILE ===== */}
           {activeTab === "profile" && (
             <div className="space-y-5">
-              <AwhinaProfileAssistant
-                draft={profileDraft}
-                onApplyFill={applyProfileFill}
-                className="w-full"
-              />
+              <AwhinaErrorBoundary>
+                <AwhinaProfileAssistant
+                  draft={profileDraft}
+                  onApplyFill={applyProfileFill}
+                  className="w-full"
+                />
+              </AwhinaErrorBoundary>
             <div className={settingsSection}>
               <div className="mb-6 flex items-center justify-between gap-3">
                 <div>
