@@ -32,6 +32,11 @@ function stripBold(text: string): string {
 }
 
 function tryNavigationShortcut(message: string, pathname: string) {
+  // Disable navigation shortcuts on profile/listing pages to allow field updates
+  if (pathname === "/profile" || pathname === "/post/ai") {
+    return null;
+  }
+
   if (isSkyAiGeneralQuestion(message)) return null;
 
   const dest = findBestDestination(message);

@@ -2,8 +2,6 @@ export type SkyAiProfileFill = {
   username?: string;
   bio?: string;
   region?: string;
-  occupation?: string;
-  interests?: string[];
   discord?: string;
   instagram?: string;
   facebook?: string;
@@ -60,12 +58,6 @@ export function normalizeSkyAiProfileFill(raw: Record<string, unknown>): SkyAiPr
   if (raw.region) {
     const r = normalizeRegion(String(raw.region));
     if (r) out.region = r;
-  }
-  const occupation = pickString(raw.occupation, 100);
-  if (occupation) out.occupation = occupation;
-  if (Array.isArray(raw.interests)) {
-    const items = raw.interests.map((i: any) => String(i).trim()).filter(Boolean);
-    if (items.length > 0) out.interests = items.slice(0, 20);
   }
   const discord = pickString(raw.discord, 60);
   if (discord) out.discord = discord;
@@ -134,18 +126,13 @@ export type ProfileDraftChecklist = {
   region: boolean;
   bio: boolean;
   social: boolean;
-  occupation: boolean;
-  interests: boolean;
 };
 
 export function profileDraftChecklist(draft: SkyAiProfileFill): ProfileDraftChecklist {
-  const items = draft.interests || [];
   return {
     username: !!draft.username?.trim(),
     region: !!draft.region?.trim(),
     bio: !!draft.bio?.trim(),
-    occupation: !!draft.occupation?.trim(),
-    interests: items.length > 0,
     social: !!(
       draft.discord?.trim() ||
       draft.instagram?.trim() ||

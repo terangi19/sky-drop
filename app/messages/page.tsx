@@ -110,6 +110,7 @@ function MessagesPage() {
   const [pendingMessage, setPendingMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+  const [conversationFilter, setConversationFilter] = useState<"all" | "sellers" | "buyers">("all");
   // Typing
   const [otherTyping, setOtherTyping] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
@@ -791,6 +792,29 @@ function MessagesPage() {
       console.error("Failed to persist block:", e);
     }
   }
+  async function markAllAsRead() {
+    if (!user?.email) return;
+    try {
+      const unreadMessageIds = messages
+        .filter((m: any) => isUnreadMessageForUser(m, user.email))
+        .map((m: any) => m.id);
+      if (unreadMessageIds.length === 0) {
+        showToast("No unread messages", "info");
+        return;
+      }
+      const token = await user.getIdToken();
+      const res = await fetch("/api/mark-messages-read", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ messageIds: unreadMessageIds }),
+      });
+      if (!res.ok) throw new Error("Failed to mark messages as read");
+      showToast(`Marked ${unreadMessageIds.length} messages as read`, "success");
+    } catch (e) {
+      console.error("Failed to mark all as read:", e);
+      showToast("Failed to mark messages as read", "error");
+    }
+  }
   async function reportUser(email: string) {
     if (!user?.email) return;
     const cooldownKey = `report_cooldown_user_${email}`;
@@ -955,6 +979,12 @@ function MessagesPage() {
   }
   if (showUnreadOnly) {
     conversations = conversations.filter(([key]) => (conversationUnread[key] || 0) > 0);
+  }
+  if (conversationFilter === "sellers") {
+    conversations = conversations.filter(([_, c]) => c.listingId !== null);
+  }
+  if (conversationFilter === "buyers") {
+    conversations = conversations.filter(([_, c]) => c.listingId === null);
   }
   function getDisplayName(email: string) {
     if (!email || email === "system") return "System";
@@ -1127,6 +1157,15 @@ function MessagesPage() {
                   <input type="text" placeholder="Search conversations..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] py-2.5 pl-9 pr-4 text-[13px] text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-500" />
                 </div>
+                <select
+                  value={conversationFilter}
+                  onChange={(e) => setConversationFilter(e.target.value as "all" | "sellers" | "buyers")}
+                  className="h-[42px] shrink-0 rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] px-3 text-[12px] text-[var(--foreground)] outline-none transition focus:border-sky-500"
+                >
+                  <option value="all">All</option>
+                  <option value="sellers">Sellers</option>
+                  <option value="buyers">Buyers</option>
+                </select>
                 <button onClick={() => setShowUnreadOnly((prev) => !prev)}
                   className={`flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl border transition ${
                     showUnreadOnly
@@ -1135,6 +1174,13 @@ function MessagesPage() {
                   }`} title="Show unread only">
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                </button>
+                <button onClick={markAllAsRead}
+                  className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--muted)] transition hover:border-sky-400 hover:text-sky-400"
+                  title="Mark all as read">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                 </button>
               </div>

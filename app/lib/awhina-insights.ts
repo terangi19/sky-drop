@@ -96,13 +96,21 @@ const PAGE_INTROS: Record<string, string[]> = {
     "This is Messages — your inbox for buyer and seller conversations.",
     "Negotiate offers, arrange pickups, and keep every deal in one thread.",
   ],
+  "/disputes": [
+    "You're on Disputes — track and resolve issues with your orders.",
+    "Open a dispute within 7 days of delivery if something isn't right with your purchase.",
+  ],
+  "/notifications": [
+    "This is Notifications — updates about your activity on Sky Drop.",
+    "Stay on top of messages, sales, purchases, and platform announcements.",
+  ],
+  "/reviews": [
+    "You're on Reviews — feedback from buyers and sellers.",
+    "Build your reputation by leaving honest reviews after each transaction.",
+  ],
   "/profile": [
     "This is your Profile — how other users see you on Sky Drop.",
     "Update your photo, bio, username, and account settings here.",
-  ],
-  "/notifications": [
-    "This is Notifications — alerts for messages, offers, sales, and activity.",
-    "Open any notification to jump to the relevant listing or conversation.",
   ],
   "/post/ai": [
     "This is Sell with Āwhina — tell me what you're selling and I'll draft your listing.",
@@ -112,17 +120,9 @@ const PAGE_INTROS: Record<string, string[]> = {
     "This is Create Listing — the manual form to post something for sale.",
     "Add photos, price, and description, then publish to the marketplace.",
   ],
-  "/reviews": [
-    "This is Reviews — feedback left by buyers and sellers after a deal.",
-    "Leave honest reviews after a completed purchase or sale.",
-  ],
   "/reports": [
     "This is Reports — flag listings or users that break Sky Drop rules.",
     "Submit a report with details and our team will review it.",
-  ],
-  "/disputes": [
-    "This is Disputes — raise or track issues with a purchase.",
-    "Open a dispute if an item didn't arrive or wasn't as described.",
   ],
   "/blocked": [
     "This is Blocked Users — people you've chosen not to hear from.",
@@ -184,6 +184,34 @@ const PAGE_INTROS: Record<string, string[]> = {
     "This is Email Preview — test how Sky Drop notification emails render.",
     "Send test emails to verify templates before they go live.",
   ],
+  "/admin/knowledge": [
+    "This is Admin Knowledge — manage help articles and FAQ content.",
+    "Create, edit, or delete knowledge base articles for users.",
+  ],
+  "/admin/message-flags": [
+    "This is Admin Message Flags — review flagged conversations for moderation.",
+    "Check messages that were auto-flagged for policy violations.",
+  ],
+  "/admin/security-dashboard": [
+    "This is Security Dashboard — monitor platform security events and threats.",
+    "Track suspicious activity, failed logins, and security alerts.",
+  ],
+  "/admin/system-architecture": [
+    "This is System Architecture — overview of Sky Drop's technical infrastructure.",
+    "View system components, data flow, and architecture documentation.",
+  ],
+  "/profile/verification": [
+    "This is Verification — prove your identity to unlock seller features.",
+    "Complete phone and ID verification to list items and sell on Sky Drop.",
+  ],
+  "/profile/badges": [
+    "This is Badges — earn reputation badges for being a trusted seller.",
+    "Complete sales, get reviews, and maintain good standing to unlock badges.",
+  ],
+  "/profile/payments": [
+    "This is Payment Settings — how you receive money from sales.",
+    "Set up bank details for Arrange Purchase or connect Stripe for instant card checkout.",
+  ],
   "/checkout/success": [
     "Payment successful — your purchase is recorded on Sky Drop.",
     "Check Purchases for order details or open Messages to coordinate with the seller.",
@@ -210,6 +238,13 @@ const PREFIX_INTROS: { prefix: string; lines: string[] }[] = [
     lines: [
       "This is a seller profile — their listings, reviews, and public shop info.",
       "Browse what they have for sale and message them from any listing.",
+    ],
+  },
+  {
+    prefix: "/profile/",
+    lines: [
+      "This is your Profile — how other users see you on Sky Drop.",
+      "Update your photo, bio, username, and account settings here.",
     ],
   },
 ];

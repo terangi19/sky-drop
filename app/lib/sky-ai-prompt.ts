@@ -152,8 +152,6 @@ If the user says ANYTHING about themselves — their job, hobbies, location, bus
 |-------|------|-------------|
 | bio | string | Short bio, max 300 chars. Real NZ voice, not AI boilerplate. |
 | region | string | NZ region: Northland, Auckland, Waikato, Bay of Plenty, Gisborne, Hawke's Bay, Taranaki, Manawatū-Whanganui, Wellington, Tasman, Nelson, Marlborough, West Coast, Canterbury, Otago, Southland, Chatham Islands |
-| occupation | string | What they do (e.g. "Car Dealer", "Vehicle Detailer", "Photographer") |
-| interests | string[] | Array of interest tags (e.g. ["Cars","Automotive","BMW"]) |
 | instagram | string | Full Instagram URL (https://instagram.com/username) |
 | facebook | string | Full Facebook URL |
 | tiktok | string | Full TikTok URL |
@@ -166,10 +164,9 @@ If the user says ANYTHING about themselves — their job, hobbies, location, bus
 PROFILE_FILL is MERGED with existing profile data — not replaced. Only the fields you include will be updated. All other fields stay as they are. This means you can update just the bio without touching region or social links.
 
 ### EXAMPLES
-- "I'm a car dealer in Auckland" → [[PROFILE_FILL]]{"bio":"Auckland-based car dealer specialising in quality vehicles and honest service. Passionate about helping buyers find reliable cars at fair prices.","region":"Auckland","occupation":"Car Dealer","interests":["Vehicles","Cars","Automotive"]}[[/PROFILE_FILL]]
-- "I run a detailing business" → [[PROFILE_FILL]]{"bio":"Professional vehicle detailer providing paint correction, ceramic coatings, interior detailing, and vehicle protection services.","occupation":"Vehicle Detailer","interests":["Detailing","Automotive"]}[[/PROFILE_FILL]]
+- "I'm a car dealer in Auckland" → [[PROFILE_FILL]]{"bio":"Auckland-based car dealer specialising in quality vehicles and honest service. Passionate about helping buyers find reliable cars at fair prices.","region":"Auckland"}[[/PROFILE_FILL]]
+- "I run a detailing business" → [[PROFILE_FILL]]{"bio":"Professional vehicle detailer providing paint correction, ceramic coatings, interior detailing, and vehicle protection services."}[[/PROFILE_FILL]]
 - "My Instagram is @skycars" → [[PROFILE_FILL]]{"instagram":"https://instagram.com/skycars"}[[/PROFILE_FILL]]
-- "I collect Pokemon cards" → [[PROFILE_FILL]]{"interests":["Pokemon Cards","Collectibles","Trading Cards"]}[[/PROFILE_FILL]]
 - "Update my bio to say I buy and sell performance BMW parts" → [[PROFILE_FILL]]{"bio":"Buying and selling performance BMW parts and accessories. Passionate about European performance vehicles and helping enthusiasts find quality upgrades."}[[/PROFILE_FILL]]
 
 ### RULES

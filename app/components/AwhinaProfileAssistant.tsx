@@ -9,6 +9,7 @@ import {
 } from "../lib/sky-ai-prompts";
 import { readProfileDraftFromSkyAi, syncProfileDraftToSkyAi } from "../lib/sky-ai-profile-context";
 import {
+  extractProfileFill,
   hasProfileFillContent,
   mergeProfileFill,
   profileDraftChecklist,
@@ -35,6 +36,24 @@ type Props = {
 
 const WELCOME_ID = "welcome";
 
+function getUpdatedFields(
+  current: SkyAiProfileFill,
+  incoming: SkyAiProfileFill
+): string[] {
+  const updated: string[] = [];
+  if (incoming.bio && incoming.bio !== current.bio) updated.push("bio");
+  if (incoming.region && incoming.region !== current.region) updated.push("region");
+  if (incoming.username && incoming.username !== current.username) updated.push("username");
+  if (incoming.instagram && incoming.instagram !== current.instagram) updated.push("Instagram");
+  if (incoming.facebook && incoming.facebook !== current.facebook) updated.push("Facebook");
+  if (incoming.website && incoming.website !== current.website) updated.push("website");
+  if (incoming.discord && incoming.discord !== current.discord) updated.push("Discord");
+  if (incoming.tiktok && incoming.tiktok !== current.tiktok) updated.push("TikTok");
+  if (incoming.youtube && incoming.youtube !== current.youtube) updated.push("YouTube");
+  if (incoming.businessName && incoming.businessName !== current.businessName) updated.push("business name");
+  return updated;
+}
+
 function DraftCheckItem({ done, label }: { done: boolean; label: string }) {
   return (
     <span
@@ -57,6 +76,7 @@ export default function AwhinaProfileAssistant({ draft, onApplyFill, className =
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [conversationId, setConversationId] = useState("");
+  const [lastUpdatedFields, setLastUpdatedFields] = useState<string[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
@@ -113,7 +133,16 @@ export default function AwhinaProfileAssistant({ draft, onApplyFill, className =
           const data = await res.json().catch(() => ({}));
           replyText = data.reply || "I couldn't update your profile right now. Try again.";
           if (data.profileFill && hasProfileFillContent(data.profileFill)) {
+            const updated = getUpdatedFields(profileContext, data.profileFill);
+            setLastUpdatedFields(updated);
             onApplyFill(mergeProfileFill(profileContext, data.profileFill));
+          } else {
+            const extractedFill = extractProfileFill(replyText);
+            if (extractedFill && hasProfileFillContent(extractedFill)) {
+              const updated = getUpdatedFields(profileContext, extractedFill);
+              setLastUpdatedFields(updated);
+              onApplyFill(mergeProfileFill(profileContext, extractedFill));
+            }
           }
         } else if (res.body && (res.headers.get("content-type") || "").includes("text/event-stream")) {
           const reader = res.body.getReader();
@@ -152,7 +181,16 @@ export default function AwhinaProfileAssistant({ draft, onApplyFill, className =
                   replyText = evt.reply || stripSkyAiMachineTags(accumulated);
                   if (evt.conversationId) newConversationId = evt.conversationId;
                   if (evt.profileFill && hasProfileFillContent(evt.profileFill)) {
+                    const updated = getUpdatedFields(profileContext, evt.profileFill);
+                    setLastUpdatedFields(updated);
                     onApplyFill(mergeProfileFill(profileContext, evt.profileFill));
+                  } else {
+                    const extractedFill = extractProfileFill(replyText);
+                    if (extractedFill && hasProfileFillContent(extractedFill)) {
+                      const updated = getUpdatedFields(profileContext, extractedFill);
+                      setLastUpdatedFields(updated);
+                      onApplyFill(mergeProfileFill(profileContext, extractedFill));
+                    }
                   }
                 }
               } catch {
@@ -165,7 +203,16 @@ export default function AwhinaProfileAssistant({ draft, onApplyFill, className =
           replyText = data.reply || "";
           if (data.conversationId) newConversationId = data.conversationId;
           if (data.profileFill && hasProfileFillContent(data.profileFill)) {
+            const updated = getUpdatedFields(profileContext, data.profileFill);
+            setLastUpdatedFields(updated);
             onApplyFill(mergeProfileFill(profileContext, data.profileFill));
+          } else {
+            const extractedFill = extractProfileFill(replyText);
+            if (extractedFill && hasProfileFillContent(extractedFill)) {
+              const updated = getUpdatedFields(profileContext, extractedFill);
+              setLastUpdatedFields(updated);
+              onApplyFill(mergeProfileFill(profileContext, extractedFill));
+            }
           }
         }
 
@@ -258,24 +305,27 @@ export default function AwhinaProfileAssistant({ draft, onApplyFill, className =
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-500 light:text-gray-600">Profile Completion</p>
             <span className="text-[11px] font-bold text-sky-400 light:text-sky-600">
               {Math.round(
-                ([checklist.username, checklist.bio, checklist.region, checklist.occupation, checklist.interests, checklist.social].filter(Boolean).length / 6) * 100
+                ([checklist.username, checklist.bio, checklist.region, checklist.social].filter(Boolean).length / 4) * 100
               )}%
             </span>
           </div>
           <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/[0.06] light:bg-gray-300">
             <div
               className="h-full rounded-full bg-gradient-to-r from-sky-500 to-sky-400 transition-all duration-500"
-              style={{ width: `${([checklist.username, checklist.bio, checklist.region, checklist.occupation, checklist.interests, checklist.social].filter(Boolean).length / 6) * 100}%` }}
+              style={{ width: `${([checklist.username, checklist.bio, checklist.region, checklist.social].filter(Boolean).length / 4) * 100}%` }}
             />
           </div>
           <div className="mt-2 flex flex-wrap gap-2">
             <DraftCheckItem done={checklist.username} label="Username" />
             <DraftCheckItem done={checklist.bio} label="Bio" />
             <DraftCheckItem done={checklist.region} label="Region" />
-            <DraftCheckItem done={checklist.occupation} label="Occupation" />
-            <DraftCheckItem done={checklist.interests} label="Interests" />
             <DraftCheckItem done={checklist.social} label="Social links" />
           </div>
+          {lastUpdatedFields.length > 0 && (
+            <p className="mt-2 text-[10px] text-sky-400 light:text-sky-600">
+              Updated: {lastUpdatedFields.join(", ")}
+            </p>
+          )}
         </div>
 
         <div className="mt-3 flex flex-wrap gap-1.5">
