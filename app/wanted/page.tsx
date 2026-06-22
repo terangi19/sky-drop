@@ -459,7 +459,6 @@ export default function WantedPage() {
                   sellerReviewStats={sellerReviewStats}
                   sellerBadges={sellerBadges}
                   sellerFullyVerified={sellerFullyVerified}
-                  badge="WANTED"
                 />
               ))}
             </div>
