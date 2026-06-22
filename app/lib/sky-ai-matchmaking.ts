@@ -172,22 +172,30 @@ async function sendMatchNotification(input: {
   }
 }
 
-/** Log a match for debugging. */
+/** Log a match for the activity feed and admin dashboard. */
 async function logMatch(match: {
   sourceListingId: string;
+  sourceListingSellerEmail: string;
   sourceType: string;
   matchedListingId: string;
   matchedSellerEmail: string;
   keyword: string;
 }): Promise<void> {
+  const db = getAdminDb();
+  const payload = {
+    ...match,
+    timestamp: FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
+  };
   try {
-    const db = getAdminDb();
-    await db.collection("matchmakingLogs").add({
-      ...match,
-      createdAt: FieldValue.serverTimestamp(),
-    });
+    await db.collection("matches").add(payload);
   } catch (e) {
     console.error("[matchmaking] Failed to log match:", e);
+  }
+  try {
+    await db.collection("matchmakingLogs").add(payload);
+  } catch (e) {
+    console.error("[matchmaking] Failed to log matchmakingLogs:", e);
   }
 }
 
@@ -236,6 +244,7 @@ export async function runMatchmaking(listing: MatchmakingListing): Promise<void>
 
       await logMatch({
         sourceListingId: listing.id,
+        sourceListingSellerEmail: listing.sellerEmail,
         sourceType: "wanted",
         matchedListingId: match.id,
         matchedSellerEmail: match.sellerEmail || "",
@@ -263,6 +272,7 @@ export async function runMatchmaking(listing: MatchmakingListing): Promise<void>
 
       await logMatch({
         sourceListingId: listing.id,
+        sourceListingSellerEmail: listing.sellerEmail,
         sourceType: listing.type || "unknown",
         matchedListingId: match.id,
         matchedSellerEmail: match.sellerEmail || "",

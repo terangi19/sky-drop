@@ -142,8 +142,8 @@ function PaymentForm({ total, listingId, title, price, buyerEmail, paymentIntent
       <div className="relative">
         <PaymentElement onReady={() => setElementReady(true)} />
         {!elementReady && (
-          <div className="absolute inset-0 flex items-center justify-center bg-zinc-950/60 rounded-xl animate-pulse">
-            <div className="flex items-center gap-2 text-zinc-500">
+          <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-xl animate-pulse">
+            <div className="flex items-center gap-2 text-white">
               <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
@@ -152,7 +152,7 @@ function PaymentForm({ total, listingId, title, price, buyerEmail, paymentIntent
           </div>
         )}
       </div>
-      <div className="flex items-center justify-center gap-1.5 text-[11px] text-zinc-500">
+      <div className="flex items-center justify-center gap-1.5 text-[11px] text-white">
         <svg className="h-3.5 w-3.5 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
           <path d="M7 11V7a5 5 0 0 1 10 0v4" />
@@ -673,7 +673,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
     >
       <div
       ref={modalRef}
-      className={`relative w-full max-w-lg overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-zinc-950/95 to-zinc-900/90 shadow-2xl shadow-black/40 backdrop-blur-xl max-h-[92vh] overflow-y-auto my-4 sm:my-0 mx-auto animate-fade-in-scale ${
+      className={`relative w-full max-w-lg overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-black/95 to-black/90 shadow-2xl shadow-black/40 backdrop-blur-xl max-h-[92vh] overflow-y-auto my-4 sm:my-0 mx-auto animate-fade-in-scale ${
         step === "success" || step === "share_address" || step === "error" ? "max-w-sm" : ""
       }`}
       onClick={(e) => e.stopPropagation()}
@@ -687,10 +687,10 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
               </svg>
             </div>
             <h2 className="mt-4 text-lg font-black text-white">Payment Successful</h2>
-            {orderId && <p className="mt-1 text-xs text-zinc-500">Order #{orderId.slice(-6).toUpperCase()}</p>}
+            {orderId && <p className="mt-1 text-xs text-white">Order #{orderId.slice(-6).toUpperCase()}</p>}
 
             <div className="mt-4 text-left">
-              <p className="mb-2 text-xs text-zinc-400">
+              <p className="mb-2 text-xs text-white">
                 {isBadge
                   ? "Badge transferred to your account automatically!"
                   : isDigital
@@ -705,12 +705,12 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
               </p>
               <div className="rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] px-4 py-3 text-xs space-y-1">
                 <p className="font-bold text-[var(--foreground)]">{name.trim()}</p>
-                {phone.trim() && <p className="text-zinc-500">📞 {phone.trim()}</p>}
+                {phone.trim() && <p className="text-white">📞 {phone.trim()}</p>}
                 {!isBadge && deliveryMethod === "shipping" && formatShippingAddress() && (
-                  <p className="text-zinc-500">📍 {formatShippingAddress()}</p>
+                  <p className="text-white">📍 {formatShippingAddress()}</p>
                 )}
                 {!isBadge && deliveryMethod === "shipping" && (
-                  <p className="pt-1 text-[10px] text-zinc-500">Only shared if you send below.</p>
+                  <p className="pt-1 text-[10px] text-white">Only shared if you send below.</p>
                 )}
               </div>
             </div>
@@ -740,11 +740,11 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
               </svg>
             </div>
             <h2 className="mt-4 text-lg font-black text-white">Payment Received</h2>
-            <p className="mt-1 text-xs text-zinc-500">Your card was charged ${total.toFixed(2)}</p>
+            <p className="mt-1 text-xs text-white">Your card was charged ${total.toFixed(2)}</p>
             <div className="mt-4 rounded-xl border border-sky-500/20 bg-gradient-to-br from-sky-500/[0.06] to-sky-500/[0.02] px-4 py-3 text-left text-xs text-sky-400/90">
               <p className="font-semibold text-sky-300">Purchase setup failed</p>
-              <p className="mt-1 text-zinc-400">{purchaseError}</p>
-              <p className="mt-2 text-zinc-400">Your payment was successful, but we couldn&apos;t complete the purchase. Please try again — you won&apos;t be charged twice.</p>
+              <p className="mt-1 text-white">{purchaseError}</p>
+              <p className="mt-2 text-white">Your payment was successful, but we couldn&apos;t complete the purchase. Please try again — you won&apos;t be charged twice.</p>
             </div>
             <div className="mt-5 flex gap-2">
               <button
@@ -770,7 +770,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                     style={{
                       left: `${Math.random() * 100}%`,
                       top: `${Math.random() * 100}%`,
-                      background: ["#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ef4444", "#ec4899"][Math.floor(Math.random() * 6)],
+                      background: ["#0ea5e9", "#38bdf8", "#7dd3fc", "#ffffff", "#bae6fd", "#0284c7"][Math.floor(Math.random() * 6)],
                       animationDelay: `${Math.random() * 0.5}s`,
                       animationDuration: `${0.6 + Math.random() * 0.8}s`,
                     }}
@@ -782,16 +782,16 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
               <AnimatedCheckmark />
             </div>
             <h2 className="mt-4 text-lg font-black text-white">Payment Successful</h2>
-            {orderId && <p className="mt-1 text-xs text-zinc-500">Order #{orderId.slice(-6).toUpperCase()}</p>}
+            {orderId && <p className="mt-1 text-xs text-white">Order #{orderId.slice(-6).toUpperCase()}</p>}
 
             {/* Order Receipt */}
             <div className="mt-4 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] px-4 py-3 text-left text-xs">
-              <div className="flex items-center justify-between text-zinc-400">
+              <div className="flex items-center justify-between text-white">
                 <span>{isRental ? `Rental — $${listing.price}/day × ${listing.rentalDays || 1} day(s)` : "Item"}</span>
                 <span>${rentalItemTotal.toFixed(2)}</span>
               </div>
               {deliveryMethod === "shipping" && shippingAmount > 0 && (
-                <div className="mt-1 flex items-center justify-between text-zinc-400"><span>Shipping</span><span>${shippingAmount.toFixed(2)}</span></div>
+                <div className="mt-1 flex items-center justify-between text-white"><span>Shipping</span><span>${shippingAmount.toFixed(2)}</span></div>
               )}
               {isRental && listing.rentalDeposit && (
                 <div className="mt-1 flex items-center justify-between text-amber-400">
@@ -799,7 +799,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                   <span>${Number(listing.rentalDeposit).toFixed(2)}</span>
                 </div>
               )}
-              <div className="mt-1 flex items-center justify-between text-zinc-400"><span>Buyer Protection</span><span>$1.00</span></div>
+              <div className="mt-1 flex items-center justify-between text-white"><span>Buyer Protection</span><span>$1.00</span></div>
               <div className="mt-2 flex items-center justify-between border-t border-white/[0.08] pt-2 text-sm font-bold text-white"><span>Total Due Today</span><span>${total.toFixed(2)}</span></div>
               {isRental && listing.rentalDeposit && <p className="mt-1 text-[10px] text-amber-400/70">${Number(listing.rentalDeposit).toFixed(2)} refundable after safe return.</p>}
             </div>
@@ -826,7 +826,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
             <div className="mt-3 rounded-xl border border-sky-500/20 bg-gradient-to-br from-sky-500/[0.06] to-sky-500/[0.02] px-3 py-2 text-left text-[10px] leading-relaxed text-sky-400/80">
               💳 Secured by Stripe · 🛡️ Buyer Protection Active
             </div>
-            <div className="mt-2 flex items-center justify-center gap-1 text-xs text-zinc-500">
+            <div className="mt-2 flex items-center justify-center gap-1 text-xs text-white">
               <span className="text-emerald-400">✓</span>
               <span>Seller has been notified</span>
             </div>
@@ -847,7 +847,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
               </button>
               <button
                 onClick={safeClose}
-                className="w-full rounded-xl border border-transparent py-2 text-xs font-bold text-zinc-500 transition hover:text-[var(--foreground)]"
+                className="w-full rounded-xl border border-transparent py-2 text-xs font-bold text-white transition hover:text-[var(--foreground)]"
               >
                 Continue Browsing
               </button>
@@ -860,7 +860,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
               <h2 className="text-sm font-black text-white">
                 {step === "card" ? "Enter Card Details" : "Complete Purchase"}
               </h2>
-              <button onClick={safeClose} className="rounded-lg p-2 text-zinc-500 transition hover:bg-white/[0.05] hover:text-[var(--foreground)]">
+              <button onClick={safeClose} className="rounded-lg p-2 text-white transition hover:bg-white/[0.05] hover:text-[var(--foreground)]">
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -876,12 +876,12 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                 return (
                   <div key={stepItem.key} className="flex items-center gap-2 flex-1">
                     <div className={`flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold transition-all ${
-                      isCompleted ? 'bg-gradient-to-br from-sky-500 to-sky-400 text-white shadow-lg shadow-sky-500/20' : isCurrent ? 'bg-gradient-to-br from-sky-500/30 to-sky-500/20 text-sky-400 ring-1 ring-sky-500/40' : 'bg-white/[0.03] text-zinc-500 border border-white/[0.06]'
+                      isCompleted ? 'bg-gradient-to-br from-sky-500 to-sky-400 text-white shadow-lg shadow-sky-500/20' : isCurrent ? 'bg-gradient-to-br from-sky-500/30 to-sky-500/20 text-sky-400 ring-1 ring-sky-500/40' : 'bg-white/[0.03] text-white border border-white/[0.06]'
                     }`}>
                       {isCompleted ? '✓' : stepItem.icon}
                     </div>
                     <span className={`text-[10px] font-medium ${
-                      isCompleted ? 'text-sky-400' : isCurrent ? 'text-white' : 'text-zinc-500'
+                      isCompleted ? 'text-sky-400' : isCurrent ? 'text-white' : 'text-white'
                     }`}>
                       {stepItem.label}
                     </span>
@@ -903,7 +903,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
               )}
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold text-[var(--foreground)]">{listing.title}</p>
-                <p className="text-xs text-zinc-500">${listing.price}</p>
+                <p className="text-xs text-white">${listing.price}</p>
               </div>
               {/* Seller Trust Badge */}
               {sellerRating && (
@@ -919,7 +919,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                 <>
                   {!isBadge && (listing.pickupAvailable && listing.shippingAvailable) && (
                     <div>
-                      <label className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-zinc-400">Delivery</label>
+                      <label className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-white">Delivery</label>
                       <div className="space-y-1.5">
                         {listing.pickupAvailable && (
                           <button
@@ -927,7 +927,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                             className={`flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left text-sm transition-all ${
                               deliveryMethod === "pickup"
                                 ? "border-sky-500/40 bg-sky-500/10 text-[var(--foreground)] shadow-[0_0_20px_rgba(14,165,233,0.1)]"
-                                : "border-white/[0.06] bg-white/[0.02] text-zinc-400 hover:border-white/[0.12] hover:bg-white/[0.04]"
+                                : "border-white/[0.06] bg-white/[0.02] text-white hover:border-white/[0.12] hover:bg-white/[0.04]"
                             }`}
                           >
                             <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-all ${
@@ -944,7 +944,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                             className={`flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left text-sm transition-all ${
                               deliveryMethod === "shipping"
                                 ? "border-sky-500/40 bg-sky-500/10 text-[var(--foreground)] shadow-[0_0_20px_rgba(14,165,233,0.1)]"
-                                : "border-white/[0.06] bg-white/[0.02] text-zinc-400 hover:border-white/[0.12] hover:bg-white/[0.04]"
+                                : "border-white/[0.06] bg-white/[0.02] text-white hover:border-white/[0.12] hover:bg-white/[0.04]"
                             }`}
                           >
                             <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-all ${
@@ -960,27 +960,27 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                   )}
 
                   <div>
-                    <label className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-zinc-400">{isBadge ? "Your name" : "Your details"}</label>
+                    <label className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-white">{isBadge ? "Your name" : "Your details"}</label>
                     <div className="space-y-2">
                       <input type="text" placeholder={isBadge ? "Full name" : "Full name"} value={name} onChange={(e) => setName(e.target.value)}
-                        className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-zinc-500 hover:bg-white/[0.05] focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
+                        className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-white hover:bg-white/[0.05] focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
                       {!isBadge && (
                         <input type="tel" placeholder="Phone number" value={phone} onChange={(e) => setPhone(e.target.value)}
-                          className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-zinc-500 hover:bg-white/[0.05] focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
+                          className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-white hover:bg-white/[0.05] focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
                       )}
                       {deliveryMethod === "shipping" && (
                         <div className="space-y-2 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-3">
-                          <p className="text-[11px] font-medium text-zinc-400">Shipping address</p>
+                          <p className="text-[11px] font-medium text-white">Shipping address</p>
                           <input type="text" placeholder="Street address" value={address} onChange={(e) => setAddress(e.target.value)}
-                            className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-zinc-500 hover:bg-white/[0.05] focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
+                            className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-white hover:bg-white/[0.05] focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
                           <div className="grid grid-cols-2 gap-2">
                             <input type="text" placeholder="City" value={city} onChange={(e) => setCity(e.target.value)}
-                              className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-zinc-500 hover:bg-white/[0.05] focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
+                              className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-white hover:bg-white/[0.05] focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
                             <input type="text" placeholder="Postcode" value={postcode} onChange={(e) => setPostcode(e.target.value)}
-                              className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-zinc-500 hover:bg-white/[0.05] focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
+                              className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-white hover:bg-white/[0.05] focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
                           </div>
                           <input type="text" placeholder="Country" value={country} onChange={(e) => setCountry(e.target.value)}
-                            className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-zinc-500 hover:bg-white/[0.05] focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
+                            className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-white hover:bg-white/[0.05] focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
                         </div>
                       )}
                     </div>
@@ -988,12 +988,12 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
 
                   {/* Order Summary with Protection */}
                   <div className="rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] px-3.5 py-3 text-xs">
-                    <div className="flex items-center justify-between text-zinc-400">
+                    <div className="flex items-center justify-between text-white">
                       <span>{isRental ? `Rental — $${listing.price}/day × ${listing.rentalDays || 1} day(s)` : "Item"}</span>
                       <span>${rentalItemTotal.toFixed(2)}</span>
                     </div>
                     {deliveryMethod === "shipping" && shippingAmount > 0 && (
-                      <div className="mt-1 flex items-center justify-between text-zinc-400">
+                      <div className="mt-1 flex items-center justify-between text-white">
                         <span>Shipping</span>
                         <span>${shippingAmount.toFixed(2)}</span>
                       </div>
@@ -1004,7 +1004,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                         <span>${Number(listing.rentalDeposit).toFixed(2)}</span>
                       </div>
                     )}
-                    <div className="mt-1 flex items-center justify-between text-zinc-400">
+                    <div className="mt-1 flex items-center justify-between text-white">
                       <span>Buyer Protection</span>
                       <span>$1.00</span>
                     </div>
@@ -1052,12 +1052,12 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
               {step === "card" && clientSecret && (
                 <div>
                   <div className="rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] px-3.5 py-3 mb-4 text-xs">
-                    <div className="flex items-center justify-between text-zinc-400">
+                    <div className="flex items-center justify-between text-white">
                       <span>{isRental ? `Rental — $${listing.price}/day × ${listing.rentalDays || 1} day(s)` : "Item"}</span>
                       <span>${rentalItemTotal.toFixed(2)}</span>
                     </div>
                     {deliveryMethod === "shipping" && shippingAmount > 0 && (
-                      <div className="mt-1 flex items-center justify-between text-zinc-400">
+                      <div className="mt-1 flex items-center justify-between text-white">
                         <span>Shipping</span>
                         <span>${shippingAmount.toFixed(2)}</span>
                       </div>
@@ -1068,7 +1068,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                         <span>${Number(listing.rentalDeposit).toFixed(2)}</span>
                       </div>
                     )}
-                    <div className="mt-1 flex items-center justify-between text-zinc-400">
+                    <div className="mt-1 flex items-center justify-between text-white">
                       <span>Buyer Protection</span>
                       <span>$1.00</span>
                     </div>
@@ -1086,7 +1086,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
             </div>
 
             {step === "form" && (
-              <div className="sticky bottom-0 border-t border-white/[0.08] bg-gradient-to-b from-zinc-900/80 to-zinc-950 px-4 py-3 flex gap-2">
+              <div className="sticky bottom-0 border-t border-white/[0.08] bg-gradient-to-b from-black/80 to-black px-4 py-3 flex gap-2">
                 <button
                   onClick={safeClose}
                   className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm font-bold text-[var(--muted)] transition hover:bg-white/[0.06] hover:border-white/[0.12] hover:text-[var(--foreground)]"
@@ -1104,8 +1104,8 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
             )}
 
             {step === "processing" && (
-              <div className="sticky bottom-0 border-t border-white/[0.08] bg-gradient-to-b from-zinc-900/80 to-zinc-950 px-4 py-3">
-                <div className="flex items-center justify-center gap-2 py-3 text-sm text-zinc-400">
+              <div className="sticky bottom-0 border-t border-white/[0.08] bg-gradient-to-b from-black/80 to-black px-4 py-3">
+                <div className="flex items-center justify-center gap-2 py-3 text-sm text-white">
                   <svg className="h-4 w-4 animate-spin text-sky-400" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />

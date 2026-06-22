@@ -768,7 +768,7 @@ export default function Home() {
 
       {/* HERO / SEARCH SECTION */}
       <section className={`${PAGE_SHELL_WIDE} pt-3 sm:pt-4`}>
-        <div className="relative overflow-hidden rounded-[2rem] border border-white/[0.08] bg-[var(--card)]">
+        <div className="relative overflow-hidden rounded-[2rem] bg-[var(--card)]">
           <div className="absolute inset-0 bg-gradient-to-br from-sky-500/[0.08] via-sky-500/[0.02] to-transparent opacity-60" />
           <div className="absolute inset-0 bg-gradient-to-t from-[var(--background)] via-transparent to-transparent" />
           <div className="absolute inset-0 backdrop-blur-[2px]" />
@@ -776,7 +776,7 @@ export default function Home() {
           <div className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-sky-500/[0.1] blur-3xl" />
           <div className="relative z-10 px-5 py-8 sm:px-8 sm:py-10">
             <div className="mx-auto max-w-2xl text-center">
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white/90">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-sky-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white/90">
                 <span className="h-1.5 w-1.5 rounded-full bg-sky-400 animate-pulse" />
                 NZ Marketplace
               </div>
@@ -812,7 +812,7 @@ export default function Home() {
                   </Link>
                   <Link
                     href="/digital"
-                    className="inline-flex items-center gap-2 rounded-2xl border border-white/[0.12] bg-white/[0.04] px-6 py-3.5 text-sm font-bold text-white transition-all duration-300 hover:border-sky-500/30 hover:bg-white/[0.06]"
+                    className="inline-flex items-center gap-2 rounded-2xl bg-white/[0.04] px-6 py-3.5 text-sm font-bold text-white transition-all duration-300 hover:bg-white/[0.06]"
                   >
                     Browse Listings
                   </Link>
@@ -823,7 +823,7 @@ export default function Home() {
             {/* Search */}
             <div className="mx-auto mt-8 max-w-xl">
               <div className="relative">
-                <div className="relative flex items-center rounded-xl border border-white/[0.08] bg-[var(--card)] shadow-lg backdrop-blur-md transition-all duration-300 group-focus-within:border-sky-500/50 group-focus-within:bg-[var(--card-hover)]">
+                <div className="relative flex items-center rounded-xl bg-[var(--card)] shadow-lg backdrop-blur-md transition-all duration-300 group-focus-within:bg-[var(--card-hover)]">
                   <svg className="ml-4 h-4 w-4 shrink-0 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
@@ -881,7 +881,7 @@ export default function Home() {
                   className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-medium transition-all duration-200 active:scale-95 ${
                     selectedCategory === "All"
                       ? "border-sky-400/30 bg-sky-500/10 text-white shadow-[0_0_24px_rgba(14,165,233,0.1)] hover:shadow-[0_0_32px_rgba(14,165,233,0.15)]"
-                      : "border-[var(--border)] bg-[var(--card)] text-[var(--muted)] hover:border-[var(--border-hover)] hover:text-[var(--foreground)] hover:bg-[var(--card-hover)]"
+                      : "bg-[var(--card)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-hover)]"
                   }`}
                 >
                   <span className="text-sm leading-none transition-transform duration-200 group-hover:scale-110">✨</span>
@@ -894,7 +894,7 @@ export default function Home() {
                     className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-medium transition-all duration-200 active:scale-95 ${
                       selectedCategory === cat.name
                         ? "border-sky-400/30 bg-sky-500/10 text-white shadow-[0_0_24px_rgba(14,165,233,0.1)] hover:shadow-[0_0_32px_rgba(14,165,233,0.15)]"
-                        : "border-[var(--border)] bg-[var(--card)] text-[var(--muted)] hover:border-[var(--border-hover)] hover:text-[var(--foreground)] hover:bg-[var(--card-hover)]"
+                        : "bg-[var(--card)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-hover)]"
                     }`}
                   >
                     <span className="text-sm leading-none transition-transform duration-200 hover:scale-110">{cat.emoji}</span>
@@ -908,7 +908,7 @@ export default function Home() {
             {savedSearches.length > 0 && (
               <div className="mt-5 flex flex-wrap justify-center gap-2">
                 {savedSearches.map((s) => (
-                  <div key={s.label} className="group flex items-center gap-1.5 rounded-full border border-sky-500/20 bg-gradient-to-r from-sky-500/10 to-sky-500/5 px-3.5 py-1.5 text-[11px] text-white transition-all duration-200 hover:border-sky-500/40 hover:bg-sky-500/15 hover:shadow-lg hover:shadow-sky-500/10">
+                  <div key={s.label} className="group flex items-center gap-1.5 rounded-full bg-gradient-to-r from-sky-500/10 to-sky-500/5 px-3.5 py-1.5 text-[11px] text-white transition-all duration-200 hover:bg-sky-500/15 hover:shadow-lg hover:shadow-sky-500/10">
                     <button onClick={() => applySavedSearch(s)} className="flex items-center gap-1.5">
                       <svg className="h-3 w-3 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
@@ -927,7 +927,7 @@ export default function Home() {
 
       {/* Trust strip */}
       <section className={`${PAGE_SHELL_WIDE} py-3`}>
-        <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4 rounded-2xl border border-white/[0.04] bg-gradient-to-br from-sky-500/[0.03] via-sky-500/[0.01] to-transparent px-6 py-4 sm:gap-x-14 lg:gap-x-20 backdrop-blur-md relative overflow-hidden">
+        <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4 rounded-2xl bg-gradient-to-br from-sky-500/[0.03] via-sky-500/[0.01] to-transparent px-6 py-4 sm:gap-x-14 lg:gap-x-20 backdrop-blur-md relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-sky-400/[0.02] to-transparent" />
           <div className="absolute inset-0 backdrop-blur-sm" />
           {[

@@ -94,11 +94,13 @@ export default function WantedPage() {
   }, []);
 
   useEffect(() => {
-    const q = query(collection(db, "listings"), where("type", "==", "wanted"), orderBy("createdAt", "desc"), limit(60));
+    const q = query(collection(db, "listings"), where("type", "==", "wanted"), limit(100));
     getDocs(q).then((snap) => {
       const items: any[] = snap.docs
         .map((d) => ({ id: d.id, ...d.data() } as any))
-        .filter((i: any) => isListingVisibleInMarketplace(i));
+        .filter((i: any) => isListingVisibleInMarketplace(i))
+        .sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0))
+        .slice(0, 60);
       setListings(items);
     }).catch((err) => { console.error("Failed to load wanted listings:", err); });
   }, []);
@@ -221,7 +223,7 @@ export default function WantedPage() {
         >
           <div className="group relative mt-4 w-full max-w-2xl">
             <div className={`absolute -inset-1 rounded-xl bg-gradient-to-r ${t.searchGlow} opacity-0 blur-lg transition duration-500 group-focus-within:opacity-100`} />
-            <div className={`relative flex items-center rounded-xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-sm ring-0 transition-all duration-300 ${t.searchFocus}`}>
+            <div className={`relative flex items-center rounded-xl bg-white/[0.03] backdrop-blur-sm ring-0 transition-all duration-300 ${t.searchFocus}`}>
               <div className="ml-4 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.04]">
                 <svg className="h-4 w-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
@@ -262,7 +264,7 @@ export default function WantedPage() {
         </BrowseMarketplaceHero>
 
         {/* Explanation section */}
-        <div className="mx-auto mt-6 max-w-2xl rounded-2xl border border-sky-500/20 bg-sky-500/5 p-6 text-center">
+        <div className="mx-auto mt-6 max-w-2xl rounded-2xl bg-sky-500/5 p-6 text-center">
           <h3 className="text-lg font-bold text-sky-300">What are Wanted posts?</h3>
           <p className="mt-2 text-sm text-zinc-300">
             Post what you're looking for and let sellers come to you. Instead of searching through listings, describe what you need and sellers with matching items will reach out to you.
@@ -291,7 +293,7 @@ export default function WantedPage() {
                 <select
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="appearance-none rounded-lg border border-white/[0.06] bg-black/40 px-3 py-2 pr-8 text-[11px] text-white outline-none transition focus:border-sky-500/40 cursor-pointer"
+                  className="appearance-none rounded-lg bg-black/40 px-3 py-2 pr-8 text-[11px] text-white outline-none transition focus:border-sky-500/40 cursor-pointer"
                 >
                   {WANTED_CATEGORIES.map((cat) => (
                     <option key={cat} value={cat} className="bg-zinc-900">
@@ -314,7 +316,7 @@ export default function WantedPage() {
                 <select
                   value={selectedRegion}
                   onChange={(e) => handleRegionChange(e.target.value)}
-                  className="appearance-none rounded-lg border border-white/[0.06] bg-black/40 px-3 py-2 pr-8 text-[11px] text-white outline-none transition focus:border-sky-500/40 cursor-pointer"
+                  className="appearance-none rounded-lg bg-black/40 px-3 py-2 pr-8 text-[11px] text-white outline-none transition focus:border-sky-500/40 cursor-pointer"
                 >
                   <option value="All" className="bg-zinc-900">
                     All regions
@@ -342,7 +344,7 @@ export default function WantedPage() {
                     <select
                       value={selectedCity}
                       onChange={(e) => setSelectedCity(e.target.value)}
-                      className="appearance-none rounded-lg border border-white/[0.06] bg-black/40 px-3 py-2 pr-8 text-[11px] text-white outline-none transition focus:border-sky-500/40 cursor-pointer"
+                      className="appearance-none rounded-lg bg-black/40 px-3 py-2 pr-8 text-[11px] text-white outline-none transition focus:border-sky-500/40 cursor-pointer"
                     >
                       <option value="All" className="bg-zinc-900">
                         All cities
@@ -375,7 +377,7 @@ export default function WantedPage() {
                 <button
                   type="button"
                   onClick={clearFilters}
-                  className="rounded-lg border border-white/[0.06] px-3 py-2 text-[11px] font-medium text-zinc-400 transition hover:bg-white/[0.04] hover:text-white"
+                  className="rounded-lg bg-white/[0.03] px-3 py-2 text-[11px] font-medium text-zinc-400 transition hover:bg-white/[0.04] hover:text-white"
                 >
                   ✕ Clear filters
                 </button>
@@ -384,18 +386,9 @@ export default function WantedPage() {
           </div>
         )}
 
-        <HotThisWeek
-          items={hotItems}
-          timeAgo={timeAgo}
-          saveRecentlyViewed={saveRecentlyViewed}
-          cdnUrl={cdnUrl}
-          user={user}
-          sellerReviewStats={sellerReviewStats}
-          sellerBadges={sellerBadges}
-        />
         {listings.length === 0 ? (
           <div className="mx-auto max-w-md mt-12 text-center">
-            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/[0.03] border border-white/[0.06]">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/[0.03]">
               <span className="text-3xl">📋</span>
             </div>
             <h2 className="text-2xl font-black tracking-tight text-white">No wanted listings yet</h2>
@@ -406,7 +399,7 @@ export default function WantedPage() {
           </div>
         ) : filteredListings.length === 0 ? (
           <div className="mx-auto max-w-md mt-12 text-center">
-            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/[0.03] border border-white/[0.06]">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/[0.03]">
               <span className="text-3xl">🔍</span>
             </div>
             <h2 className="text-2xl font-black tracking-tight text-white">
@@ -424,7 +417,7 @@ export default function WantedPage() {
             <button
               type="button"
               onClick={clearFilters}
-              className="mt-5 inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-5 py-2.5 text-sm font-bold text-zinc-300 transition hover:bg-white/[0.06] hover:text-white"
+              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-white/[0.03] px-5 py-2.5 text-sm font-bold text-zinc-300 transition hover:bg-white/[0.06] hover:text-white"
             >
               Clear filters
             </button>
@@ -466,6 +459,7 @@ export default function WantedPage() {
                   sellerReviewStats={sellerReviewStats}
                   sellerBadges={sellerBadges}
                   sellerFullyVerified={sellerFullyVerified}
+                  badge="WANTED"
                 />
               ))}
             </div>

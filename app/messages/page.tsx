@@ -48,6 +48,7 @@ import { getTurnstileSiteKey } from "../lib/turnstile";
 import { canSellerConfirmArrangeSale, countSellerSales } from "../lib/arrange-purchase-status";
 import { getFreshIdToken } from "../lib/api-auth";
 import TurnstileWidget from "../components/TurnstileWidget";
+import NegotiationAssistant from "../components/NegotiationAssistant";
 import {
   blockedEmailsFromDocs,
   conversationKey,
@@ -2037,11 +2038,22 @@ function MessagesPage() {
                   )}
                   {/* Offer input */}
                   {showOfferInput && (
-                    <div className="mb-2 flex items-center gap-2">
+                    <div className="mb-2 space-y-2">
+                      <div className="flex items-center gap-2">
                       <input type="number" placeholder="Offer amount..." value={offerAmount} onChange={(e) => setOfferAmount(e.target.value)}
                         className="flex-1 rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] px-4 py-2 text-[13px] text-[var(--foreground)] outline-none transition focus:border-sky-400" />
                       <button onClick={() => { sendOffer("make", offerAmount); setShowOfferInput(false); setOfferAmount(""); }} className="rounded-xl bg-sky-500 px-4 py-2 text-[11px] font-bold text-white hover:bg-sky-400">Send Offer</button>
                       <button onClick={() => setShowOfferInput(false)} className="rounded-xl bg-zinc-700 px-4 py-2 text-[11px] font-bold text-[var(--foreground)] hover:bg-zinc-600">Cancel</button>
+                      </div>
+                      {chatListingId && listingCard && Number(offerAmount) > 0 && chatUser && (
+                        <NegotiationAssistant
+                          currentPrice={Number(offerAmount)}
+                          originalPrice={Number(listingCard.price) || Number(offerAmount)}
+                          listingTitle={listingCard.title || "Listing"}
+                          listingId={chatListingId}
+                          conversationPartner={chatUser}
+                        />
+                      )}
                     </div>
                   )}
                   <TurnstileWidget

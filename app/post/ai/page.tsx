@@ -1106,7 +1106,7 @@ export default function AIPostPage() {
 
         <div className="relative z-10 mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-12">
         {editLoading && (
-          <div className="mb-6 flex items-center justify-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+          <div className="mb-6 flex items-center justify-center gap-3 rounded-xl bg-white/[0.03] p-4">
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-sky-500 border-t-transparent"></div>
             <span className="text-sm text-[var(--muted)]">Loading listing...</span>
           </div>
@@ -1159,7 +1159,7 @@ export default function AIPostPage() {
 
         {!editId && (
           <div className="mb-6">
-            <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-sky-500/[0.08] via-sky-500/[0.04] to-zinc-950/80 p-5 shadow-[0_0_40px_rgba(14,165,233,0.08)]">
+            <div className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-gradient-to-br from-sky-500/[0.08] via-sky-500/[0.04] to-zinc-950/80 p-5 shadow-[0_0_40px_rgba(14,165,233,0.08)]">
               <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
               <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-sky-500/10 blur-2xl pointer-events-none" />
               <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -1226,12 +1226,12 @@ export default function AIPostPage() {
         {/* Form Card */}
         <div className="relative">
           <div className="absolute -inset-1 rounded-3xl bg-gradient-to-b from-sky-500/15 via-sky-500/5 to-purple-500/10 blur-xl pointer-events-none" />
-          <div className="relative overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--card)] p-4 sm:p-6 md:p-8 shadow-2xl backdrop-blur-xl">
+          <div className="relative overflow-hidden rounded-3xl bg-[var(--card)] p-4 sm:p-6 md:p-8 shadow-2xl backdrop-blur-xl">
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
 
         <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-500">
           {/* Honest form progress indicator */}
-          <div className="sticky top-0 z-20 -mx-6 mb-2 border-b border-white/[0.08] bg-[var(--card)] px-6 py-3 backdrop-blur-xl sm:-mx-8 sm:px-8">
+          <div className="sticky top-0 z-20 -mx-6 mb-2 border-b border-white/[0.06] bg-[var(--card)] px-6 py-3 backdrop-blur-xl sm:-mx-8 sm:px-8">
             <div className="flex items-center justify-between gap-3">
               <span className="text-[11px] font-bold text-[var(--muted)]">Form progress</span>
               <span className={`text-[11px] font-bold ${formProgress === 100 ? "text-emerald-400" : "text-sky-400"}`}>{formProgress}%</span>
@@ -1270,7 +1270,7 @@ export default function AIPostPage() {
                   className={`group relative rounded-2xl border p-4 text-left transition-all duration-200 active:scale-[0.97] ${
                     listingType === t.key
                       ? "border-sky-400/40 bg-gradient-to-b from-sky-500/[0.08] to-sky-500/[0.03] shadow-[0_0_30px_rgba(14,165,233,0.1)] ring-1 ring-sky-400/20"
-                      : "border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.12]"
+                      : "bg-white/[0.02] hover:bg-white/[0.04]"
                   }`}>
                   <div className="flex items-start gap-3 sm:flex-col sm:gap-0">
                     <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg transition-all duration-200 sm:h-12 sm:w-12 sm:text-2xl ${
@@ -1304,7 +1304,7 @@ export default function AIPostPage() {
           <div className="space-y-1.5 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150">
             <label htmlFor="listing-title" className="text-sm font-bold text-white tracking-wide">Title</label>
             <div className="relative">
-              <input id="listing-title" type="text" value={title} onChange={(e) => handleTitleChange(e.target.value)} aria-label="Listing title" aria-describedby={validationErrors.title ? "title-error" : undefined} className={`w-full rounded-xl border px-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:bg-white/[0.05] focus:ring-2 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:border-white/[0.12] placeholder="What are you selling?" ${validationErrors.title ? 'border-red-500/50 focus:border-red-500/60 focus:ring-red-500/20' : 'border-white/[0.06] focus:border-sky-500/60 focus:ring-sky-500/20'}`} placeholder="What are you selling?" />
+              <input id="listing-title" type="text" value={title} onChange={(e) => handleTitleChange(e.target.value)} aria-label="Listing title" aria-describedby={validationErrors.title ? "title-error" : undefined} className={`w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:bg-white/[0.05] focus:ring-2 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-white/[0.04] focus:border-sky-500/60 placeholder="What are you selling?" ${validationErrors.title ? 'bg-red-500/10 focus:ring-red-500/20' : 'focus:ring-sky-500/20'}`} placeholder="What are you selling?" />
               {isFieldValid(title, validateTitle) && (
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400" aria-hidden="true">
                   <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -1321,7 +1321,7 @@ export default function AIPostPage() {
           <div className="space-y-1.5 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150">
             <label htmlFor="listing-description" className="text-sm font-bold text-white tracking-wide">Description</label>
             <div className="relative">
-              <textarea id="listing-description" value={description} onChange={(e) => handleDescriptionChange(e.target.value)} rows={4} aria-label="Listing description" aria-describedby={validationErrors.description ? "description-error" : undefined} className={`w-full rounded-xl border px-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:bg-white/[0.05] focus:ring-2 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:border-white/[0.12] resize-none placeholder="Describe your item in detail..." ${validationErrors.description ? 'border-red-500/50 focus:border-red-500/60 focus:ring-red-500/20' : 'border-white/[0.06] focus:border-sky-500/60 focus:ring-sky-500/20'}`} placeholder="Describe your item in detail..." />
+              <textarea id="listing-description" value={description} onChange={(e) => handleDescriptionChange(e.target.value)} rows={4} aria-label="Listing description" aria-describedby={validationErrors.description ? "description-error" : undefined} className={`w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:bg-white/[0.05] focus:ring-2 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-white/[0.04] focus:border-sky-500/60 resize-none placeholder="Describe your item in detail..." ${validationErrors.description ? 'bg-red-500/10 focus:ring-red-500/20' : 'focus:ring-sky-500/20'}`} placeholder="Describe your item in detail..." />
               {isFieldValid(description, validateDescription) && (
                 <div className="absolute right-4 top-4 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400" aria-hidden="true">
                   <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -1338,7 +1338,7 @@ export default function AIPostPage() {
           <div className="grid grid-cols-2 gap-3 sm:gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-200">
             <div className="space-y-1.5">
               <label className="text-sm font-semibold text-white">Category</label>
-              <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-[var(--foreground)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-[var(--card-hover)] focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:border-[var(--border-hover)] appearance-none cursor-pointer">
+              <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-[var(--card-hover)] focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-[var(--card-hover)] appearance-none cursor-pointer">
                 {listingType === "digital" ? (
                   <><option>Templates & Assets</option><option>E-books & Guides</option><option>Art & Photography</option><option>Software & Audio</option><option>Gaming & 3D</option><option>Web & App Development</option><option>Graphic Design</option><option>SEO & Digital Marketing</option><option>Other Digital Services</option></>
                 ) : listingType === "service" ? (
@@ -1355,7 +1355,7 @@ export default function AIPostPage() {
             {listingType === "physical" && (
             <div className="space-y-1.5">
               <label className="text-sm font-semibold text-white">Condition</label>
-              <select value={condition} onChange={(e) => setCondition(e.target.value)} className="w-full rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-[var(--foreground)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-[var(--card-hover)] focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:border-[var(--border-hover)] appearance-none cursor-pointer">
+              <select value={condition} onChange={(e) => setCondition(e.target.value)} className="w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-[var(--card-hover)] focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-[var(--card-hover)] appearance-none cursor-pointer">
                 <option>New</option><option>Used - Like New</option><option>Used - Good</option><option>Used - Fair</option>
               </select>
             </div>
@@ -1369,7 +1369,7 @@ export default function AIPostPage() {
                 <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Salary / Price *</label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                  <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] pl-8 pr-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:border-white/[0.12]" />
+                  <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" className="w-full rounded-xl bg-white/[0.03] pl-8 pr-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-white/[0.04]" />
                 </div>
                 <p className="text-[10px] text-[var(--muted)]">Set the salary range or fixed price for this position.</p>
               </div>
@@ -1392,7 +1392,7 @@ export default function AIPostPage() {
                 </label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                  <input type="number" value={price} onChange={(e) => handlePriceChange(e.target.value)} placeholder="0" className={`w-full rounded-xl border pl-8 pr-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:bg-white/[0.05] focus:ring-2 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:border-white/[0.12] ${validationErrors.price ? 'border-red-500/50 focus:border-red-500/60 focus:ring-red-500/20' : 'border-white/[0.06] focus:border-sky-500/60 focus:ring-sky-500/20'}`} />
+                  <input type="number" value={price} onChange={(e) => handlePriceChange(e.target.value)} placeholder="0" className={`w-full rounded-xl pl-8 pr-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:bg-white/[0.05] focus:ring-2 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-white/[0.04] focus:border-sky-500/60 ${validationErrors.price ? 'bg-red-500/10 focus:ring-red-500/20' : 'bg-white/[0.03] focus:ring-sky-500/20'}`} />
                 </div>
                 {validationErrors.price && (
                   <p className="mt-1 text-[10px] text-red-400 animate-in fade-in slide-in-from-top-2">{validationErrors.price}</p>
@@ -1414,14 +1414,14 @@ export default function AIPostPage() {
             {(listingType === "physical" || listingType === "wanted") && (
             <div className="space-y-1.5">
               <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Location</label>
-              <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="City" className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:border-white/[0.12]" />
+              <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="City" className="w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-white/[0.04]" />
             </div>
             )}
           </div>
           )}
 
           {listingType === "physical" && saleType === "auction" && (
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+            <div className="rounded-xl bg-white/[0.03] p-4">
               <button
                 type="button"
                 onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
@@ -1470,7 +1470,7 @@ export default function AIPostPage() {
               ].map((opt) => (
                 <button key={opt.id} type="button" onClick={() => setSaleType(opt.id)}
                   className={`rounded-xl border px-4 py-3 text-xs font-bold text-left transition-all duration-200 active:scale-[0.97] ${
-                    saleType === opt.id ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.06)]" : "border-white/[0.06] bg-white/[0.02] text-[var(--muted)] hover:bg-white/[0.04] hover:border-white/[0.12]"
+                    saleType === opt.id ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.06)]" : "bg-white/[0.02] text-[var(--muted)] hover:bg-white/[0.04]"
                   }`}>
                   {opt.label}
                 </button>
@@ -1480,13 +1480,13 @@ export default function AIPostPage() {
           )}
 
           {(listingType !== "wanted" && listingType !== "job" && listingType !== "property") && (
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+          <div className="rounded-xl bg-white/[0.03] p-4">
             <button
               type="button"
               onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
               className="flex w-full items-center justify-between text-sm font-bold text-[var(--foreground)]"
             >
-              <span>Payment & Shipping Options</span>
+              <span>Payment Options</span>
               <svg
                 className={`h-4 w-4 transition-transform ${showAdvancedOptions ? "rotate-180" : ""}`}
                 fill="none"
@@ -1509,7 +1509,7 @@ export default function AIPostPage() {
                 <div className="grid grid-cols-2 gap-2">
                   <button type="button" onClick={() => setPaymentType("contact")}
                     className={`rounded-xl border px-4 py-3 text-xs font-bold text-left transition-all duration-200 active:scale-[0.97] ${
-                      paymentType === "contact" ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.06)]" : "border-white/[0.06] bg-white/[0.02] text-[var(--muted)] hover:bg-white/[0.04] hover:border-white/[0.12]"
+                      paymentType === "contact" ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.06)]" : "bg-white/[0.02] text-[var(--muted)] hover:bg-white/[0.04]"
                     }`}>
                     <span className="flex items-center gap-1.5">🤝 Arrange Purchase</span>
                     <span className="ml-1 rounded bg-sky-500/20 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-sky-300">Default</span>
@@ -1517,7 +1517,7 @@ export default function AIPostPage() {
                   </button>
                   <button type="button" onClick={() => setPaymentType("stripe")}
                     className={`rounded-xl border px-4 py-3 text-xs font-bold text-left transition-all duration-200 active:scale-[0.97] ${
-                      paymentType === "stripe" ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.06)]" : "border-white/[0.06] bg-white/[0.02] text-[var(--muted)] hover:bg-white/[0.04] hover:border-white/[0.12]"
+                      paymentType === "stripe" ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.06)]" : "bg-white/[0.02] text-[var(--muted)] hover:bg-white/[0.04]"
                     }`}>
                     <span className="flex items-center gap-1.5">
                       <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0" fill="currentColor">
@@ -1548,7 +1548,7 @@ export default function AIPostPage() {
 
           {/* Event Details */}
           {listingType === "event" && (
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+            <div className="rounded-xl bg-white/[0.03] p-4">
               <button
                 type="button"
                 onClick={() => setShowEventDetails(!showEventDetails)}
@@ -1609,7 +1609,7 @@ export default function AIPostPage() {
 
           {/* Job Details */}
           {listingType === "job" && (
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+            <div className="rounded-xl bg-white/[0.03] p-4">
               <button
                 type="button"
                 onClick={() => setShowJobDetails(!showJobDetails)}
@@ -1672,7 +1672,7 @@ export default function AIPostPage() {
 
           {/* Accept Offers — physical, service only */}
           {listingType !== "digital" && listingType !== "event" && listingType !== "job" && listingType !== "wanted" && !(listingType === "service" && offersDisabledForService(servicePricingType)) && (
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+            <div className="rounded-xl bg-white/[0.03] p-4">
               <button
                 type="button"
                 onClick={() => setShowAcceptOffers(!showAcceptOffers)}
@@ -1707,7 +1707,7 @@ export default function AIPostPage() {
 
           {/* Digital Pricing Type */}
           {listingType === "digital" && (
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+            <div className="rounded-xl bg-white/[0.03] p-4">
               <button
                 type="button"
                 onClick={() => setShowDigitalPricing(!showDigitalPricing)}
@@ -1762,7 +1762,7 @@ export default function AIPostPage() {
 
           {/* Digital File Upload */}
           {listingType === "digital" && pricingType === "fixed" && (
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+            <div className="rounded-xl bg-white/[0.03] p-4">
               <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Digital File</label>
               <p className="mb-3 text-[11px] font-medium tracking-wide bg-gradient-to-r from-sky-400 to-sky-400 bg-clip-text text-transparent">Upload your digital asset file</p>
               {digitalFileURL ? (
@@ -1778,7 +1778,7 @@ export default function AIPostPage() {
 
           {/* Service Details */}
           {listingType === "service" && (
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 space-y-4">
+            <div className="rounded-xl bg-white/[0.03] p-4 space-y-4">
               <button
                 type="button"
                 onClick={() => setShowServiceDetails(!showServiceDetails)}
@@ -1848,7 +1848,7 @@ export default function AIPostPage() {
 
           {/* Rental Details */}
           {listingType === "rental" && (
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+            <div className="rounded-xl bg-white/[0.03] p-4">
               <button
                 type="button"
                 onClick={() => setShowRentalDetails(!showRentalDetails)}
@@ -1880,7 +1880,7 @@ export default function AIPostPage() {
                           className={`flex flex-col items-center gap-1.5 rounded-xl border px-3 py-3 text-center transition-all active:scale-[0.97] ${
                             rentalSubType === opt.id
                               ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.06)]"
-                              : "border-white/[0.06] bg-white/[0.02] text-[var(--muted)] hover:bg-white/[0.04] hover:border-white/[0.12]"
+                              : "bg-white/[0.02] text-[var(--muted)] hover:bg-white/[0.04]"
                         }`}>
                           <span className="text-xl">{opt.icon}</span>
                           <span className="text-xs font-bold">{opt.label}</span>
@@ -1899,7 +1899,7 @@ export default function AIPostPage() {
 
                   {/* EQUIPMENT RENTAL */}
                   {rentalSubType === "equipment" && (
-                    <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 space-y-4">
+                    <div className="rounded-xl bg-white/[0.03] p-4 space-y-4">
                       <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--muted)]">Equipment Rental</p>
 
                       <div className="grid grid-cols-3 gap-3">
@@ -1965,7 +1965,7 @@ export default function AIPostPage() {
 
                   {/* VEHICLE RENTAL */}
                   {rentalSubType === "vehicle" && (
-                    <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 space-y-4">
+                    <div className="rounded-xl bg-white/[0.03] p-4 space-y-4">
                       <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--muted)]">Vehicle Rental</p>
 
                       <div className="grid grid-cols-3 gap-3">
@@ -2070,7 +2070,7 @@ export default function AIPostPage() {
 
           {/* Delivery Options — physical & vehicle */}
           {(listingType === "physical" || listingType === "vehicle") && (
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+          <div className="rounded-xl bg-white/[0.03] p-4">
             <div className="flex items-center justify-between mb-3">
               <label className="text-sm font-bold text-[var(--foreground)]">Delivery Options</label>
               <button
@@ -2078,7 +2078,7 @@ export default function AIPostPage() {
                 onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
                 className="text-xs text-sky-400 hover:text-sky-300 transition"
               >
-                {showAdvancedOptions ? "Show less" : "Show more"}
+                {showAdvancedOptions ? "Hide shipping options" : "Show shipping options"}
               </button>
             </div>
             <p className="mb-3 text-[10px] text-[var(--muted)]">Select how buyers can receive the item. You can offer both pickup and shipping.</p>
@@ -2163,7 +2163,7 @@ export default function AIPostPage() {
       {/* SCAM ALERT MODAL - INSIDE MAIN CONTAINER */}
       {scamAlert && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setScamAlert(null)}>
-          <div className="mx-4 w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="mx-4 w-full max-w-md rounded-2xl bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-black text-sky-400">⚠️ {scamAlert.title}</h3>
               <button onClick={() => setScamAlert(null)} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
@@ -2191,7 +2191,7 @@ export default function AIPostPage() {
       {/* PRICE ALERT MODAL */}
       {priceAlert && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setPriceAlert(false)}>
-          <div className="mx-4 w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="mx-4 w-full max-w-md rounded-2xl bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-black text-sky-400">⚠️ Unusually Low Price</h3>
               <button onClick={() => setPriceAlert(false)} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
@@ -2212,7 +2212,7 @@ export default function AIPostPage() {
       {/* KYC Verification Required Modal */}
       {showKycModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setShowKycModal(false)}>
-          <div className="mx-4 w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="mx-4 w-full max-w-md rounded-2xl bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-black text-sky-400">Verification Required</h3>
               <button onClick={() => setShowKycModal(false)} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
@@ -2235,13 +2235,13 @@ export default function AIPostPage() {
       {/* Listing Type Guide Modal */}
       {showTypeGuideModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setShowTypeGuideModal(false)}>
-          <div className="mx-4 w-full max-w-lg max-h-[80vh] overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="mx-4 w-full max-w-lg max-h-[80vh] overflow-y-auto rounded-2xl bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-black text-sky-400">Which listing type should I choose?</h3>
               <button onClick={() => setShowTypeGuideModal(false)} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
             </div>
             <div className="mt-4 space-y-4">
-              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+              <div className="rounded-xl bg-white/[0.02] p-4">
                 <div className="flex items-center gap-2">
                   <span className="text-2xl">📦</span>
                   <h4 className="font-bold text-white">Physical Items</h4>
@@ -2249,7 +2249,7 @@ export default function AIPostPage() {
                 <p className="mt-2 text-sm text-[var(--muted)]">Real items that can be picked up or shipped, including vehicles.</p>
                 <p className="mt-1 text-xs text-[var(--muted)]">Best for: Phones, furniture, tools, clothing, cars, collectibles.</p>
               </div>
-              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+              <div className="rounded-xl bg-white/[0.02] p-4">
                 <div className="flex items-center gap-2">
                   <span className="text-2xl">💾</span>
                   <h4 className="font-bold text-white">Digital Products</h4>
@@ -2257,7 +2257,7 @@ export default function AIPostPage() {
                 <p className="mt-2 text-sm text-[var(--muted)]">Digital files and online services delivered remotely.</p>
                 <p className="mt-1 text-xs text-[var(--muted)]">Best for: Software, templates, e-books, web design, SEO.</p>
               </div>
-              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+              <div className="rounded-xl bg-white/[0.02] p-4">
                 <div className="flex items-center gap-2">
                   <span className="text-2xl">🛠️</span>
                   <h4 className="font-bold text-white">Services</h4>
@@ -2265,7 +2265,7 @@ export default function AIPostPage() {
                 <p className="mt-2 text-sm text-[var(--muted)]">Local services performed in person at your location.</p>
                 <p className="mt-1 text-xs text-[var(--muted)]">Best for: Lawn mowing, cleaning, tutoring, trades, photography.</p>
               </div>
-              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+              <div className="rounded-xl bg-white/[0.02] p-4">
                 <div className="flex items-center gap-2">
                   <span className="text-2xl">🔑</span>
                   <h4 className="font-bold text-white">Rentals</h4>
@@ -2273,7 +2273,7 @@ export default function AIPostPage() {
                 <p className="mt-2 text-sm text-[var(--muted)]">Equipment or vehicles available for temporary hire.</p>
                 <p className="mt-1 text-xs text-[var(--muted)]">Best for: Equipment, vehicles, party gear.</p>
               </div>
-              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+              <div className="rounded-xl bg-white/[0.02] p-4">
                 <div className="flex items-center gap-2">
                   <span className="text-2xl">📋</span>
                   <h4 className="font-bold text-white">Wanted</h4>
@@ -2292,7 +2292,7 @@ export default function AIPostPage() {
       {/* Awhina Guide Modal */}
       {showAwhinaGuide && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setShowAwhinaGuide(false)}>
-          <div className="mx-4 w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="mx-4 w-full max-w-md rounded-2xl bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-black text-sky-400">What is Āwhina?</h3>
               <button onClick={() => setShowAwhinaGuide(false)} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>

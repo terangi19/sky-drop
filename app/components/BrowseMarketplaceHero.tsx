@@ -20,7 +20,7 @@ export default function BrowseMarketplaceHero({
 }: Props) {
   return (
     <div
-      className={`mb-5 relative overflow-hidden rounded-3xl border border-white/[0.04] bg-gradient-to-b from-white/[0.04] via-transparent to-transparent ${t.heroShadow}`}
+      className={`mb-5 relative overflow-hidden rounded-3xl border border-sky-500/20 bg-gradient-to-b from-sky-500/10 via-transparent to-transparent ${t.heroShadow}`}
     >
       <div className={`absolute inset-0 ${t.radial} pointer-events-none`} />
       <div className="relative flex flex-col items-center px-5 py-5 sm:px-8 sm:py-7 text-center">

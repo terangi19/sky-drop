@@ -46,8 +46,8 @@ interface HotThisWeekProps {
 
 const NEON_CARD =
   "border-sky-400/55 bg-white/[0.02] hover:border-sky-300/80 hover:bg-sky-500/[0.06] hover:shadow-[0_0_24px_rgba(56,189,248,0.2),0_0_48px_rgba(14,165,233,0.1)]";
-const CREAM_BADGE =
-  "rounded-full bg-[rgba(255,248,231,0.18)] px-2 py-0.5 text-[8px] font-bold text-[var(--cream)] backdrop-blur-sm";
+const BLUE_BADGE =
+  "rounded-full bg-sky-500/20 px-2 py-0.5 text-[8px] font-bold text-sky-400 backdrop-blur-sm";
 
 export default function HotThisWeek({
   items,
@@ -153,7 +153,7 @@ function HotWeekCard({
 
   return (
     <div
-      className={`hot-week-card group relative w-56 shrink-0 cursor-pointer rounded-2xl border p-2 text-[var(--cream)] transition-all duration-300 ease-out hover:-translate-y-0.5 hover:scale-[1.02] sm:w-60 ${NEON_CARD}`}
+      className={`hot-week-card group relative w-56 shrink-0 cursor-pointer rounded-2xl border p-2 text-white transition-all duration-300 ease-out hover:-translate-y-0.5 hover:scale-[1.02] sm:w-60 ${NEON_CARD}`}
               style={
                 hotGlow > 0
                   ? {
@@ -178,11 +178,11 @@ function HotWeekCard({
                 )}
                 <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none" />
                 <div className="absolute top-2 left-2">
-                  <span className={CREAM_BADGE}>🔥 Trending</span>
+                  <span className={BLUE_BADGE}>🔥 Trending</span>
                 </div>
                 {hotSaves > 0 && (
                   <div className="absolute top-2 right-2">
-                    <span className="inline-flex items-center gap-0.5 rounded-full border border-[rgba(255,248,231,0.2)] bg-black/60 px-1.5 py-0.5 text-[8px] font-bold text-[var(--cream)] backdrop-blur-md">
+                    <span className="inline-flex items-center gap-0.5 rounded-full border border-sky-500/20 bg-black/60 px-1.5 py-0.5 text-[8px] font-bold text-white backdrop-blur-md">
                       ⭐ {hotSaves.toLocaleString()}
                     </span>
                   </div>
@@ -213,17 +213,17 @@ function HotWeekCard({
                     href={profileHref}
                     className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1 py-0.5 transition hover:bg-white/[0.04]"
                   >
-                    <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[rgba(255,248,231,0.12)] text-[9px] font-bold text-[var(--cream)]">
+                    <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sky-500/10 text-[9px] font-bold text-sky-400">
                       {username.charAt(0).toUpperCase()}
                     </div>
-                    <span className="truncate text-[10px] font-semibold text-[var(--cream)]">
+                    <span className="truncate text-[10px] font-semibold text-white">
                       {username}
                     </span>
                   </Link>
                   {!isOwnListing && (
                     <Link
                       href={messageHref}
-                      className="shrink-0 rounded-md border border-zinc-700/40 px-2 py-1 text-[9px] font-semibold text-[var(--cream)] transition hover:border-sky-400/40 hover:bg-sky-500/10"
+                      className="shrink-0 rounded-md border border-zinc-700/40 px-2 py-1 text-[9px] font-semibold text-white transition hover:border-sky-400/40 hover:bg-sky-500/10"
                     >
                       Message
                     </Link>
