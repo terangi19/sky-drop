@@ -61,29 +61,37 @@ async function searchMatchingListings(
   const matched = new Map<string, MatchmakingListing>();
   const seen = new Set<string>();
 
-  for (const keyword of keywords) {
-    if (keyword.length < MIN_KEYWORD_LENGTH) continue;
+  try {
+    // Fetch all active listings of relevant types (no composite index needed for single where clause)
+    const snap = await db
+      .collection("listings")
+      .where("type", "in", ["physical", "vehicle", "service", "rental", "digital"])
+      .where("status", "==", "live")
+      .limit(100)
+      .get();
 
-    try {
-      const snap = await db
-        .collection("listings")
-        .where("title", ">=", keyword)
-        .where("title", "<=", keyword + "\uf8ff")
-        .where("type", "in", ["physical", "vehicle", "service", "rental", "digital"])
-        .limit(10)
-        .get();
+    const keywordSet = new Set(keywords.map(k => k.toLowerCase()));
 
-      for (const doc of snap.docs) {
-        const data = doc.data() as MatchmakingListing;
-        if (data.sellerEmail === excludeEmail) continue;
-        if (data.status === "sold") continue;
-        if (seen.has(doc.id)) continue;
+    for (const doc of snap.docs) {
+      const data = doc.data() as MatchmakingListing;
+      if (data.sellerEmail === excludeEmail) continue;
+      if (data.status === "sold") continue;
+      if (seen.has(doc.id)) continue;
+
+      // Check if title contains any keyword
+      const titleLower = (data.title || "").toLowerCase();
+      const descriptionLower = (data.description || "").toLowerCase();
+      const hasMatch = Array.from(keywordSet).some(keyword => 
+        titleLower.includes(keyword) || descriptionLower.includes(keyword)
+      );
+
+      if (hasMatch) {
         seen.add(doc.id);
         matched.set(doc.id, { id: doc.id, ...data });
       }
-    } catch {
-      // Skip keywords that don't have matching indexes
     }
+  } catch (e) {
+    console.error("[matchmaking] Failed to search listings:", e);
   }
 
   return [...matched.values()].slice(0, 10);
@@ -98,29 +106,37 @@ async function searchMatchingWanted(
   const matched = new Map<string, MatchmakingListing>();
   const seen = new Set<string>();
 
-  for (const keyword of keywords) {
-    if (keyword.length < MIN_KEYWORD_LENGTH) continue;
+  try {
+    // Fetch all wanted posts (no composite index needed for single where clause)
+    const snap = await db
+      .collection("listings")
+      .where("type", "==", "wanted")
+      .where("status", "==", "live")
+      .limit(100)
+      .get();
 
-    try {
-      const snap = await db
-        .collection("listings")
-        .where("title", ">=", keyword)
-        .where("title", "<=", keyword + "\uf8ff")
-        .where("type", "==", "wanted")
-        .limit(10)
-        .get();
+    const keywordSet = new Set(keywords.map(k => k.toLowerCase()));
 
-      for (const doc of snap.docs) {
-        const data = doc.data() as MatchmakingListing;
-        if (data.sellerEmail === excludeEmail) continue;
-        if (data.status === "sold") continue;
-        if (seen.has(doc.id)) continue;
+    for (const doc of snap.docs) {
+      const data = doc.data() as MatchmakingListing;
+      if (data.sellerEmail === excludeEmail) continue;
+      if (data.status === "sold") continue;
+      if (seen.has(doc.id)) continue;
+
+      // Check if title contains any keyword
+      const titleLower = (data.title || "").toLowerCase();
+      const descriptionLower = (data.description || "").toLowerCase();
+      const hasMatch = Array.from(keywordSet).some(keyword => 
+        titleLower.includes(keyword) || descriptionLower.includes(keyword)
+      );
+
+      if (hasMatch) {
         seen.add(doc.id);
         matched.set(doc.id, { id: doc.id, ...data });
       }
-    } catch {
-      // Skip keywords that don't have matching indexes
     }
+  } catch (e) {
+    console.error("[matchmaking] Failed to search wanted posts:", e);
   }
 
   return [...matched.values()].slice(0, 10);
@@ -182,20 +198,31 @@ async function logMatch(match: {
  * If the listing is any other type, find matching wanted posts and notify those buyers.
  */
 export async function runMatchmaking(listing: MatchmakingListing): Promise<void> {
-  if (!listing.id || !listing.sellerEmail) return;
-  if (!listing.title) return;
+  if (!listing.id || !listing.sellerEmail) {
+    console.error("[matchmaking] Missing required fields: id or sellerEmail");
+    return;
+  }
+  if (!listing.title) {
+    console.error("[matchmaking] Missing title for listing:", listing.id);
+    return;
+  }
 
   const keywords = extractKeywords(listing);
-  if (keywords.length === 0) return;
+  if (keywords.length === 0) {
+    console.warn("[matchmaking] No keywords extracted for listing:", listing.id);
+    return;
+  }
 
-  if (process.env.NODE_ENV !== "production") console.warn(`[matchmaking] Listing ${listing.id} (${listing.type}): keywords=${keywords.join(", ")}`);
+  console.log(`[matchmaking] Listing ${listing.id} (${listing.type}): keywords=${keywords.join(", ")}`);
 
   if (listing.type === "wanted") {
     // Wanted → find matching active listings
+    console.log("[matchmaking] Searching for matching active listings for wanted post:", listing.id);
     const matches = await searchMatchingListings(keywords, listing.sellerEmail);
-    if (process.env.NODE_ENV !== "production") console.warn(`[matchmaking] Found ${matches.length} matching listings for wanted post ${listing.id}`);
+    console.log(`[matchmaking] Found ${matches.length} matching listings for wanted post ${listing.id}`);
 
     for (const match of matches) {
+      console.log("[matchmaking] Sending notification to seller:", match.sellerEmail, "for listing:", match.id);
       await sendMatchNotification({
         targetEmail: match.sellerEmail || "",
         fromEmail: "system@skydrop.co.nz",
@@ -217,10 +244,12 @@ export async function runMatchmaking(listing: MatchmakingListing): Promise<void>
     }
   } else {
     // Regular listing → find matching wanted posts
+    console.log("[matchmaking] Searching for matching wanted posts for listing:", listing.id);
     const matches = await searchMatchingWanted(keywords, listing.sellerEmail);
-    if (process.env.NODE_ENV !== "production") console.warn(`[matchmaking] Found ${matches.length} matching wanted posts for listing ${listing.id}`);
+    console.log(`[matchmaking] Found ${matches.length} matching wanted posts for listing ${listing.id}`);
 
     for (const match of matches) {
+      console.log("[matchmaking] Sending notification to buyer:", match.sellerEmail, "for wanted post:", match.id);
       await sendMatchNotification({
         targetEmail: match.sellerEmail || "",
         fromEmail: "system@skydrop.co.nz",
