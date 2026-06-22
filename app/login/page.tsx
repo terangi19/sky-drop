@@ -31,6 +31,7 @@ import { formatNZPhone } from "../lib/phone-auth";
 import TurnstileWidget from "../components/TurnstileWidget";
 import { getTurnstileSiteKey } from "../lib/turnstile";
 import { getPasswordRequirements, validatePasswordStrength } from "../lib/password-strength";
+import { sanitizeRedirectPath } from "../lib/safe-redirect";
 
 const INPUT_CLASS =
   "login-page-input w-full rounded-xl px-4 py-3 text-sm";
@@ -115,7 +116,7 @@ export default function AuthPage() {
     const params = new URLSearchParams(window.location.search);
     const ref = params.get("ref");
     if (ref) setInviteCode(ref.toUpperCase());
-    const redir = params.get("redirect");
+    const redir = sanitizeRedirectPath(params.get("redirect"));
     if (redir) setRedirectTo(redir);
     if (params.get("signup") === "1" || params.get("mode") === "signup") {
       setIsLogin(false);

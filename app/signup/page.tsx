@@ -28,6 +28,7 @@ import { formatNZPhone } from "../lib/phone-auth";
 import TurnstileWidget from "../components/TurnstileWidget";
 import { getTurnstileSiteKey } from "../lib/turnstile";
 import { getPasswordRequirements, validatePasswordStrength } from "../lib/password-strength";
+import { sanitizeRedirectPath } from "../lib/safe-redirect";
 
 const INPUT_CLASS =
   "w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10";
@@ -103,7 +104,7 @@ export default function SignupPage() {
     const params = new URLSearchParams(window.location.search);
     const ref = params.get("ref");
     if (ref) setInviteCode(ref.toUpperCase());
-    const redir = params.get("redirect");
+    const redir = sanitizeRedirectPath(params.get("redirect"));
     if (redir) redirectTo.current = redir;
   }, []);
 
