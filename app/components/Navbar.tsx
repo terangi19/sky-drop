@@ -91,7 +91,6 @@ export default function Navbar() {
   const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const hamburgerRef = useRef<HTMLButtonElement>(null);
   const toggleLockRef = useRef(false);
@@ -363,14 +362,6 @@ export default function Navbar() {
     await signOut(auth);
   }
 
-  function submitSearch(e?: React.FormEvent) {
-    e?.preventDefault();
-    const q = searchQuery.trim();
-    if (!q) return;
-    router.push(`/search?q=${encodeURIComponent(q)}`);
-    closeMobileMenu();
-  }
-
   const browseActive =
     isActive("/digital") ||
     isActive("/services") ||
@@ -434,23 +425,6 @@ export default function Navbar() {
             )}
           </nav>
 
-          <form onSubmit={submitSearch} className="hidden md:flex items-center max-w-[11rem] lg:max-w-[14rem]">
-            <label htmlFor="navbar-search" className="sr-only">Search listings</label>
-            <div className="flex w-full items-center rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 py-1.5 transition focus-within:border-sky-500/40 light:border-black/[0.08] light:bg-black/[0.03]">
-              <svg className="h-3.5 w-3.5 shrink-0 text-[var(--nav-ice-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <input
-                id="navbar-search"
-                type="search"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search..."
-                className="ml-2 w-full bg-transparent text-xs text-[var(--nav-ice)] outline-none placeholder:text-[var(--nav-ice-faint)] light:text-gray-800 light:placeholder:text-gray-400"
-              />
-            </div>
-          </form>
-
           {/* HAMBURGER BUTTON */}
             <button
               ref={hamburgerRef}
@@ -486,20 +460,6 @@ export default function Navbar() {
                   : 'opacity-0 -translate-y-1.5 invisible pointer-events-none'
               }`}>
               <div className="flex flex-col gap-1 p-3 max-h-[80vh] overflow-y-auto">
-                <form onSubmit={submitSearch} className="mb-2 px-1 lg:hidden">
-                  <div className="flex items-center rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 light:border-black/[0.08] light:bg-black/[0.03]">
-                    <svg className="h-4 w-4 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                    <input
-                      type="search"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search listings..."
-                      className="ml-2 w-full bg-transparent text-sm text-gray-200 outline-none placeholder:text-gray-500 light:text-gray-800 light:placeholder:text-gray-400"
-                    />
-                  </div>
-                </form>
                 <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400 light:text-gray-500">Actions</div>
                 <Link href={user ? "/post/ai" : "/signup?redirect=/post/ai"} className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/post/ai") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>
                   <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm light:bg-sky-500/10">💰</span>
