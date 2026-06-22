@@ -12,6 +12,7 @@ import { kycRequiredBlockMessage } from "../../lib/seller-eligibility";
 import { verifyTurnstileToken, isTurnstileConfigured } from "../../lib/turnstile";
 import { trackAndCheckAbuse } from "../../lib/abuse-tracker";
 import { createSystemNotification } from "../../lib/system-notifications";
+import { runMatchmaking } from "../../lib/sky-ai-matchmaking";
 
 const SCAM_KEYWORDS = [
   "bank transfer only", "crypto only", "pay outside", "whatsapp",
@@ -333,6 +334,16 @@ export async function POST(req: NextRequest) {
         }
       } catch (e) {
         console.error("[create-listing] Saved-search notification failed:", e);
+      }
+
+      // Auto-Matching: notify users of matching listings/wanted posts
+      try {
+        const listingWithId = { ...finalData, id: listingId, type: listingType || "physical" };
+        console.log("[create-listing] Running matchmaking for listing:", listingId, listingWithId.type);
+        await runMatchmaking(listingWithId);
+        console.log("[create-listing] Matchmaking completed for listing:", listingId);
+      } catch (e) {
+        console.error("[create-listing] Matchmaking failed:", e);
       }
     }
 
