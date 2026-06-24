@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { verifyIdToken } from "../../lib/firebase-admin";
-import { rateLimit } from "../../lib/rate-limit";
+import { frictionLimit } from "../../lib/rate-limit";
+import { parseIpFromRequest } from "../../lib/geo-check";
 import {
   findBestDestination,
   getGuideReply,
@@ -66,7 +67,7 @@ function tryNavigationShortcut(message: string, pathname: string) {
 }
 
 async function checkRateLimit(req: NextRequest) {
-  const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+  const ip = parseIpFromRequest(req.headers);
   const authHeader = req.headers.get("authorization");
   let uid: string | null = null;
   let email = "";
@@ -83,8 +84,14 @@ async function checkRateLimit(req: NextRequest) {
 
   const limitKey = uid ? `sky-ai:${uid}` : `sky-ai:ip:${ip}`;
   const max = uid ? 500 : 100;
-  const { allowed } = await rateLimit(limitKey, max, 15 * 60_000);
-  return { allowed, uid, email };
+  // Soft-limit: delay heavy users instead of hard 429 (listing creation must stay smooth).
+  await frictionLimit(limitKey, max, 15 * 60_000, {
+    ip,
+    uid: uid ?? undefined,
+    email,
+    action: "sky-ai-chat",
+  });
+  return { uid, email };
 }
 
 function parseListingContext(body: unknown): SkyAiListingContext | null {
@@ -206,10 +213,7 @@ async function safePersist(
 
 export async function POST(req: NextRequest) {
   try {
-    const { allowed, uid, email } = await checkRateLimit(req);
-    if (!allowed) {
-      return NextResponse.json({ error: "Too many requests. Try again shortly." }, { status: 429 });
-    }
+    const { uid, email } = await checkRateLimit(req);
 
     const body = await req.json();
     const message = typeof body.message === "string" ? body.message.trim() : "";

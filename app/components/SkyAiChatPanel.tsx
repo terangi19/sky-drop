@@ -501,6 +501,12 @@ export default function SkyAiChatPanel({
           text = "Request timed out — please try again. If this keeps happening, try a shorter message.";
         } else if (isFetchFail) {
           text = "Couldn't connect to Āwhina — check your internet connection and try again.";
+        } else if (
+          err instanceof Error &&
+          /too many requests/i.test(err.message)
+        ) {
+          text =
+            "Āwhina is getting a lot of requests right now — wait 30 seconds and try again. Your listing text is still here, and you can fill the form manually below.";
         } else {
           text = rule.text;
           if (err instanceof Error && err.message && err.message !== AWHINA_REQUEST_FAILED) {

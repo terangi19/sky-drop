@@ -36,7 +36,9 @@ export async function rateLimit(
   // Layer 1: Upstash Redis (distributed, production)
   if (isUpstashEnabled()) {
     const result = await rateLimitUpstash(key, maxRequests, windowMs);
-    if (!result.allowed) {
+    if (result.degraded) {
+      // Redis misconfigured or unreachable — fall through to Firestore/in-memory.
+    } else if (!result.allowed) {
       const lastLogged = BLOCKED_KEY_CACHE.get(key) || 0;
       if (now - lastLogged > 60_000) {
         BLOCKED_KEY_CACHE.set(key, now);
@@ -45,9 +47,10 @@ export async function rateLimit(
         });
       }
       return result;
+    } else {
+      store.set(key, { count: 1, resetAt: now + windowMs });
+      return result;
     }
-    store.set(key, { count: 1, resetAt: now + windowMs });
-    return result;
   }
 
   // Layer 2: Fast in-memory check (dev / fallback)
