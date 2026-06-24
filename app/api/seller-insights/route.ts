@@ -21,32 +21,29 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Fetch seller's listings
+    // Fetch seller's listings (exclude wanted posts - this is a seller insights endpoint)
     const listingsSnap = await db
       .collection("listings")
       .where("sellerEmail", "==", userEmail)
+      .where("type", "!=", "wanted")
       .get();
 
     const listings = listingsSnap.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) }));
-    const sellerInsights: any[] = [];
-    const wantedInsights: any[] = [];
+    const insights: any[] = [];
 
     let totalViews = 0;
     let totalSaves = 0;
     const categoryCount = new Map<string, number>();
 
     // Track used listing IDs to prevent duplicates (max one insight per listing)
-    const usedSellerListingIds = new Set<string>();
-    const usedWantedListingIds = new Set<string>();
-    const usedSellerTypes = new Set<string>();
-    const usedWantedTypes = new Set<string>();
+    const usedListingIds = new Set<string>();
+    const usedTypes = new Set<string>();
 
-    // Separate listings and wanted posts for different recommendation engines
-    const regularListings = listings.filter(l => (l.type as string) !== "wanted");
-    const wantedPosts = listings.filter(l => (l.type as string) === "wanted");
+    // This endpoint only processes seller listings (not wanted posts)
+    // Wanted posts have their own separate recommendation engine
 
-    // Analyze regular listings (seller-focused recommendations)
-    for (const listing of regularListings) {
+    // Analyze seller listings (seller-focused recommendations)
+    for (const listing of listings) {
       totalViews += (listing.views as number) || 0;
       totalSaves += (listing.saves as number) || 0;
       
@@ -122,7 +119,7 @@ export async function GET(req: NextRequest) {
       // Check price competitiveness (simple heuristic)
       const price = Number(listing.price as string);
       if (price > 0) {
-        const sameCategoryListings = regularListings.filter(l => (l.type as string) === (listing.type as string) && l.id !== listing.id && Number(l.price as string) > 0);
+        const sameCategoryListings = listings.filter(l => (l.type as string) === (listing.type as string) && l.id !== listing.id && Number(l.price as string) > 0);
         if (sameCategoryListings.length > 2) {
           const avgPrice = sameCategoryListings.reduce((sum, l) => sum + (Number(l.price as string) || 0), 0) / sameCategoryListings.length;
           if (price > avgPrice * 1.3) {
@@ -208,7 +205,7 @@ export async function GET(req: NextRequest) {
       }
 
       // Only add the highest-impact insight for this listing (min confidence 65, max one per listing)
-      if (listingInsights.length > 0 && !usedSellerListingIds.has(listing.id)) {
+      if (listingInsights.length > 0 && !usedListingIds.has(listing.id)) {
         const impactOrder = { high: 0, medium: 1, low: 2 };
         const sortedInsights = listingInsights.sort((a, b) => {
           if (a.impact !== b.impact) return impactOrder[a.impact] - impactOrder[b.impact];
@@ -217,155 +214,22 @@ export async function GET(req: NextRequest) {
 
         const bestInsight = sortedInsights[0];
         if (bestInsight.confidence >= 65) {
-          sellerInsights.push(bestInsight);
-          usedSellerListingIds.add(listing.id);
-          usedSellerTypes.add(bestInsight.type);
+          insights.push(bestInsight);
+          usedListingIds.add(listing.id);
+          usedTypes.add(bestInsight.type);
         }
       }
     }
-
-    // Analyze wanted posts (buyer-focused recommendations)
-    for (const wanted of wantedPosts) {
-      totalViews += (wanted.views as number) || 0;
-      totalSaves += (wanted.saves as number) || 0;
-
-      const wantedPostInsights: any[] = [];
-      const createdAt = wanted.createdAt?.toMillis?.() || Date.now();
-      const daysSinceCreation = (Date.now() - createdAt) / (1000 * 60 * 60 * 24);
-      const description = (wanted.description as string) || "";
-      const budget = Number(wanted.price as string) || 0;
-
-      // Check for short or missing description
-      if (description.length < 50) {
-        wantedPostInsights.push({
-          type: "wanted-description",
-          listingId: wanted.id,
-          listingTitle: wanted.title as string,
-          recommendation: "Add more details about what you're looking for (condition, location, timeline) to attract better responses.",
-          impact: "high",
-          confidence: 85,
-        });
-      }
-
-      // Check for budget too low (no responses)
-      if (budget > 0 && daysSinceCreation > 7) {
-        wantedPostInsights.push({
-          type: "wanted-budget",
-          listingId: wanted.id,
-          listingTitle: wanted.title as string,
-          recommendation: "Your wanted post has been active for a week. Consider increasing your budget to attract more responses.",
-          impact: "medium",
-          confidence: 70,
-        });
-      }
-
-      // Check for missing reference photos
-      if (!(wanted.images as string[]) || (wanted.images as string[]).length === 0) {
-        wantedPostInsights.push({
-          type: "wanted-photos",
-          listingId: wanted.id,
-          listingTitle: wanted.title as string,
-          recommendation: "Add reference photos to help sellers understand exactly what you're looking for.",
-          impact: "medium",
-          confidence: 75,
-        });
-      }
-
-      // Check for old wanted post (stale)
-      if (daysSinceCreation > 14 && wanted.status === "live") {
-        wantedPostInsights.push({
-          type: "wanted-old",
-          listingId: wanted.id,
-          listingTitle: wanted.title as string,
-          recommendation: `This wanted post has been active for ${Math.floor(daysSinceCreation)} days. Refresh it with new details or expand your search criteria.`,
-          impact: "medium",
-          confidence: 70,
-        });
-      }
-
-      // Check for location specificity
-      if (!wanted.location || (wanted.location as string).length < 5) {
-        wantedPostInsights.push({
-          type: "wanted-location",
-          listingId: wanted.id,
-          listingTitle: wanted.title as string,
-          recommendation: "Add your city or region to help local sellers find your wanted post.",
-          impact: "medium",
-          confidence: 65,
-        });
-      }
-
-      // Only add the highest-impact insight for this wanted post (min confidence 65, max one per listing)
-      if (wantedPostInsights.length > 0 && !usedWantedListingIds.has(wanted.id)) {
-        const impactOrder = { high: 0, medium: 1, low: 2 };
-        const sortedInsights = wantedPostInsights.sort((a, b) => {
-          if (a.impact !== b.impact) return impactOrder[a.impact] - impactOrder[b.impact];
-          return (b.confidence || 0) - (a.confidence || 0);
-        });
-
-        const bestInsight = sortedInsights[0];
-        if (bestInsight.confidence >= 65) {
-          wantedInsights.push(bestInsight);
-          usedWantedListingIds.add(wanted.id);
-          usedWantedTypes.add(bestInsight.type);
-        }
-      }
-    }
-
-    // Check for similar listings across all wanted posts (outside the loop to avoid async issues)
-    if (wantedPosts.length > 0 && !usedWantedTypes.has("wanted-matches")) {
-      try {
-        const similarListings = await db
-          .collection("listings")
-          .where("type", "!=", "wanted")
-          .where("status", "==", "live")
-          .limit(20)
-          .get();
-
-        if (!similarListings.empty) {
-          for (const wanted of wantedPosts) {
-            if (usedWantedListingIds.has(wanted.id)) continue;
-
-            const title = (wanted.title as string).toLowerCase();
-            const matchingCount = similarListings.docs.filter(doc => {
-              const data = doc.data();
-              const listingTitle = (data.title as string).toLowerCase();
-              return title.split(" ").some(word => word.length > 3 && listingTitle.includes(word));
-            }).length;
-
-            if (matchingCount >= 2) {
-              wantedInsights.push({
-                type: "wanted-matches",
-                listingId: wanted.id,
-                listingTitle: wanted.title as string,
-                recommendation: `${matchingCount} similar listings have recently appeared. Browse them to find what you're looking for.`,
-                impact: "high",
-                confidence: 80,
-              });
-              usedWantedListingIds.add(wanted.id);
-              usedWantedTypes.add("wanted-matches");
-              break;
-            }
-          }
-        }
-      } catch (e) {
-        console.error("Error fetching similar listings for wanted posts:", e);
-      }
-    }
-
-    // Combine seller and wanted insights, but only return seller insights for Seller Insights endpoint
-    // This ensures wanted post recommendations don't appear in the seller insights
-    const allInsights = [...sellerInsights];
 
     // Sort insights by impact and confidence
     const impactOrder = { high: 0, medium: 1, low: 2 };
-    allInsights.sort((a, b) => {
+    insights.sort((a, b) => {
       if (a.impact !== b.impact) return impactOrder[a.impact] - impactOrder[b.impact];
       return (b.confidence || 0) - (a.confidence || 0);
     });
 
     // Limit to top 5 insights
-    const limitedInsights = allInsights.slice(0, 5);
+    const limitedInsights = insights.slice(0, 5);
 
     // Get seller stats from profile
     const profileDoc = await db.collection("profiles").doc(decoded.uid).get();
