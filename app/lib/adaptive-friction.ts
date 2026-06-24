@@ -36,7 +36,7 @@ export interface FrictionDecision {
 export interface FrictionInput {
   uid?: string;
   ip: string;
-  action: "listing" | "message" | "report" | "dispute" | "signup" | "login" | "offer" | "review" | "purchase";
+  action: "listing" | "message" | "report" | "dispute" | "signup" | "login" | "offer" | "review" | "purchase" | "sky-ai-chat";
   /** Optional hash of content to detect repetition (e.g. listing title hash, message text hash) */
   contentHash?: string;
   /** Account age in seconds (0 if unknown/new) */
