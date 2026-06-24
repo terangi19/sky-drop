@@ -416,65 +416,6 @@ export default function DashboardPage() {
 
         <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
           <div className="space-y-6">
-            <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-5 sm:p-6 transition-all duration-300 hover:border-white/[0.12]">
-              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent" />
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-500/10 text-lg ring-1 ring-sky-500/20">📋</div>
-                  <div>
-                    <h2 className="text-base font-black text-white">Recent orders</h2>
-                    <p className="text-[11px] text-zinc-500">Your latest sales activity</p>
-                  </div>
-                </div>
-                {sales.length > 0 && (
-                  <Link href="/sales" className="text-xs font-semibold text-sky-400 transition hover:text-sky-300">
-                    View all →
-                  </Link>
-                )}
-              </div>
-
-            {sales.length === 0 ? (
-              <div className="mt-8 rounded-xl border border-dashed border-white/[0.08] bg-gradient-to-br from-white/[0.02] to-transparent px-6 py-10 text-center">
-                <span className="text-4xl">📦</span>
-                <p className="mt-3 text-sm text-zinc-400">No orders yet.</p>
-                <p className="mt-1 text-xs text-zinc-500">Create a listing to start selling on Sky Drop.</p>
-                <Link
-                  href="/post/ai"
-                  className={`mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r ${t.listBtn} px-5 py-2.5 text-xs font-bold text-white shadow-lg transition hover:brightness-110 active:scale-[0.97]`}
-                >
-                  Create listing
-                </Link>
-              </div>
-            ) : (
-              <div className="mt-5 divide-y divide-white/[0.05]">
-                {sales.slice(0, 6).map((s) => (
-                  <div key={s.id} className="flex items-center gap-4 py-4 first:pt-0 last:pb-0 transition-all duration-200 hover:bg-white/[0.03] rounded-xl px-3 -mx-2 border border-transparent hover:border-white/[0.05]">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-500/10 text-lg ring-1 ring-sky-500/20">🛒</div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-white">{s.listingTitle}</p>
-                      <p className="mt-0.5 text-xs text-zinc-500">
-                        ${Number(s.total).toFixed(2)} · {s.buyerName || "Buyer"}
-                      </p>
-                    </div>
-                    <span
-                      className={`shrink-0 rounded-full border px-3 py-1 text-[10px] font-bold capitalize ${
-                        s.status === "delivered"
-                          ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
-                          : s.status === "pending"
-                            ? "border-sky-500/20 bg-sky-500/10 text-sky-400"
-                            : s.status === "cancelled"
-                              ? "border-red-500/20 bg-red-500/10 text-red-400"
-                              : "border-sky-500/20 bg-sky-500/10 text-sky-400"
-                      }`}
-                    >
-                      {s.status}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-            </div>
-
             {insights.length > 0 && (
               <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-5 sm:p-6 transition-all duration-300 hover:border-white/[0.12]">
                 <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent" />
@@ -517,6 +458,65 @@ export default function DashboardPage() {
                 </div>
               </div>
             )}
+
+            <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-5 sm:p-6 transition-all duration-300 hover:border-white/[0.12]">
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent" />
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-500/10 text-lg ring-1 ring-sky-500/20">📋</div>
+                  <div>
+                    <h2 className="text-base font-black text-white">Recent orders</h2>
+                    <p className="text-[11px] text-zinc-500">Your latest sales activity</p>
+                  </div>
+                </div>
+                {sales.length > 0 && (
+                  <Link href="/sales" className="text-xs font-semibold text-sky-400 transition hover:text-sky-300">
+                    View all →
+                  </Link>
+                )}
+              </div>
+
+              {sales.length === 0 ? (
+                <div className="mt-8 rounded-xl border border-dashed border-white/[0.08] bg-gradient-to-br from-white/[0.02] to-transparent px-6 py-10 text-center">
+                  <span className="text-4xl">📦</span>
+                  <p className="mt-3 text-sm text-zinc-400">No orders yet.</p>
+                  <p className="mt-1 text-xs text-zinc-500">Create a listing to start selling on Sky Drop.</p>
+                  <Link
+                    href="/post/ai"
+                    className={`mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r ${t.listBtn} px-5 py-2.5 text-xs font-bold text-white shadow-lg transition hover:brightness-110 active:scale-[0.97]`}
+                  >
+                    Create listing
+                  </Link>
+                </div>
+              ) : (
+                <div className="mt-5 divide-y divide-white/[0.05]">
+                  {sales.slice(0, 6).map((s) => (
+                    <div key={s.id} className="flex items-center gap-4 py-4 first:pt-0 last:pb-0 transition-all duration-200 hover:bg-white/[0.03] rounded-xl px-3 -mx-2 border border-transparent hover:border-white/[0.05]">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-500/10 text-lg ring-1 ring-sky-500/20">🛒</div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-bold text-white">{s.listingTitle}</p>
+                        <p className="mt-0.5 text-xs text-zinc-500">
+                          ${Number(s.total).toFixed(2)} · {s.buyerName || "Buyer"}
+                        </p>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-full border px-3 py-1 text-[10px] font-bold capitalize ${
+                          s.status === "delivered"
+                            ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+                            : s.status === "pending"
+                              ? "border-sky-500/20 bg-sky-500/10 text-sky-400"
+                              : s.status === "cancelled"
+                                ? "border-red-500/20 bg-red-500/10 text-red-400"
+                                : "border-sky-500/20 bg-sky-500/10 text-sky-400"
+                        }`}
+                      >
+                        {s.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           <aside className="space-y-4">
