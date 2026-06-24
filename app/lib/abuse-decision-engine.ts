@@ -46,7 +46,7 @@ function setDegraded(v: boolean) {
 
 export type ActionType =
   | "listing" | "message" | "report" | "dispute"
-  | "signup" | "login" | "offer" | "review" | "purchase";
+  | "signup" | "login" | "offer" | "review" | "purchase" | "sky-ai-chat";
 
 export type Verdict = "allow" | "slow" | "captcha_required" | "shadow_degrade" | "block";
 
@@ -101,6 +101,7 @@ function getSignals(key: string): ActorSignals {
 const ACTION_BASE: Record<ActionType, number> = {
   listing: 12, message: 3, report: 8, dispute: 10,
   signup: 6, login: 2, offer: 5, review: 5, purchase: 8,
+  "sky-ai-chat": 2,
 };
 
 const WINDOW_MS = 60_000;

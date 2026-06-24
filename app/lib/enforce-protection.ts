@@ -66,7 +66,7 @@ async function checkIdempotency(requestId: string): Promise<boolean> {
 
 // ── Action config ──
 
-type ActionType = "listing" | "message" | "report" | "dispute" | "signup" | "login" | "offer" | "review" | "purchase" | "trade_post" | "trade_shout" | "service_inquiry";
+type ActionType = "listing" | "message" | "report" | "dispute" | "signup" | "login" | "offer" | "review" | "purchase" | "trade_post" | "trade_shout" | "service_inquiry" | "sky-ai-chat";
 
 interface ActionConfig {
   rateLimitMax: number;
@@ -90,6 +90,7 @@ const ACTION_CONFIGS: Record<ActionType, ActionConfig> = {
   trade_post:     { rateLimitMax: 6,  rateLimitWindowMs: 60_000, requireAuth: true, requireEmailVerified: false, requireIdempotency: true,  failClosed: false },
   trade_shout:    { rateLimitMax: 10, rateLimitWindowMs: 60_000, requireAuth: true, requireEmailVerified: false, requireIdempotency: false, failClosed: false },
   service_inquiry:{ rateLimitMax: 15, rateLimitWindowMs: 60_000, requireAuth: true, requireEmailVerified: false, requireIdempotency: true,  failClosed: false },
+  "sky-ai-chat":  { rateLimitMax: 100, rateLimitWindowMs: 900_000, requireAuth: false, requireEmailVerified: false, requireIdempotency: false, failClosed: false },
 };
 
 // ── Result ──
