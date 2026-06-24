@@ -82,7 +82,7 @@ async function checkRateLimit(req: NextRequest) {
   }
 
   const limitKey = uid ? `sky-ai:${uid}` : `sky-ai:ip:${ip}`;
-  const max = uid ? 500 : 15;
+  const max = uid ? 500 : 100;
   const { allowed } = await rateLimit(limitKey, max, 15 * 60_000);
   return { allowed, uid, email };
 }
