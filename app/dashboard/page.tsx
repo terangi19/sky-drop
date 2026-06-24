@@ -27,6 +27,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [xp, setXp] = useState(0);
   const [sellerProfile, setSellerProfile] = useState<any>(null);
+  const [insights, setInsights] = useState<any[]>([]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -118,7 +119,24 @@ export default function DashboardPage() {
       }
     }
 
+    async function fetchSellerInsights() {
+      if (!mounted) return;
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        const res = await fetch("/api/seller-insights", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data = await res.json();
+        setInsights(data.insights || []);
+      } catch (e) {
+        console.error("Failed to fetch seller insights:", e);
+      }
+    }
+
     fetchDashboardData();
+    fetchSellerInsights();
     const interval = setInterval(fetchDashboardData, 60000); // Refresh every 60 seconds
 
     return () => {
@@ -397,22 +415,23 @@ export default function DashboardPage() {
         </div>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
-          <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-5 sm:p-6 transition-all duration-300 hover:border-white/[0.12]">
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent" />
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-500/10 text-lg ring-1 ring-sky-500/20">📋</div>
-                <div>
-                  <h2 className="text-base font-black text-white">Recent orders</h2>
-                  <p className="text-[11px] text-zinc-500">Your latest sales activity</p>
+          <div className="space-y-6">
+            <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-5 sm:p-6 transition-all duration-300 hover:border-white/[0.12]">
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent" />
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-500/10 text-lg ring-1 ring-sky-500/20">📋</div>
+                  <div>
+                    <h2 className="text-base font-black text-white">Recent orders</h2>
+                    <p className="text-[11px] text-zinc-500">Your latest sales activity</p>
+                  </div>
                 </div>
+                {sales.length > 0 && (
+                  <Link href="/sales" className="text-xs font-semibold text-sky-400 transition hover:text-sky-300">
+                    View all →
+                  </Link>
+                )}
               </div>
-              {sales.length > 0 && (
-                <Link href="/sales" className="text-xs font-semibold text-sky-400 transition hover:text-sky-300">
-                  View all →
-                </Link>
-              )}
-            </div>
 
             {sales.length === 0 ? (
               <div className="mt-8 rounded-xl border border-dashed border-white/[0.08] bg-gradient-to-br from-white/[0.02] to-transparent px-6 py-10 text-center">
@@ -452,6 +471,50 @@ export default function DashboardPage() {
                     </span>
                   </div>
                 ))}
+              </div>
+            )}
+            </div>
+
+            {insights.length > 0 && (
+              <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-5 sm:p-6 transition-all duration-300 hover:border-white/[0.12]">
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent" />
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-500/10 text-lg ring-1 ring-sky-500/20">💡</div>
+                    <div>
+                      <h2 className="text-base font-black text-white">Top Insights</h2>
+                      <p className="text-[11px] text-zinc-500">AI-powered recommendations</p>
+                    </div>
+                  </div>
+                  <Link href="/seller/insights" className="text-xs font-semibold text-sky-400 transition hover:text-sky-300">
+                    View all →
+                  </Link>
+                </div>
+                <div className="mt-5 space-y-3">
+                  {insights.slice(0, 5).map((insight) => (
+                    <div
+                      key={`${insight.listingId}-${insight.type}`}
+                      onClick={() => window.location.href = `/post/listing/${insight.listingId}`}
+                      className="rounded-xl border border-white/[0.06] bg-black/40 p-4 cursor-pointer transition hover:border-sky-500/30 hover:bg-black/50"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                              insight.impact === "high" ? "bg-red-500/20 text-red-400" :
+                              insight.impact === "medium" ? "bg-amber-500/20 text-amber-400" :
+                              "bg-sky-500/20 text-sky-400"
+                            }`}>
+                              {insight.impact.toUpperCase()} IMPACT
+                            </span>
+                          </div>
+                          <p className="text-sm font-bold text-white mb-1">{insight.listingTitle}</p>
+                          <p className="text-xs text-zinc-400">{insight.recommendation}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>

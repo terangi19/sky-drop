@@ -28,15 +28,18 @@ export async function GET(req: NextRequest) {
       .get();
 
     const listings = listingsSnap.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) }));
-    const insights: any[] = [];
+    const sellerInsights: any[] = [];
+    const wantedInsights: any[] = [];
 
     let totalViews = 0;
     let totalSaves = 0;
     const categoryCount = new Map<string, number>();
 
     // Track used listing IDs to prevent duplicates (max one insight per listing)
-    const usedListingIds = new Set<string>();
-    const usedTypes = new Set<string>();
+    const usedSellerListingIds = new Set<string>();
+    const usedWantedListingIds = new Set<string>();
+    const usedSellerTypes = new Set<string>();
+    const usedWantedTypes = new Set<string>();
 
     // Separate listings and wanted posts for different recommendation engines
     const regularListings = listings.filter(l => (l.type as string) !== "wanted");
@@ -92,15 +95,15 @@ export async function GET(req: NextRequest) {
         });
       }
 
-      // Check for missing images
+      // Check for missing images (reduced priority)
       if (!(listing.images as string[]) || (listing.images as string[]).length < 4) {
         listingInsights.push({
           type: "images",
           listingId: listing.id,
           listingTitle: listing.title as string,
           recommendation: "Add more images (4+) to increase visibility",
-          impact: "high",
-          confidence: 90,
+          impact: "low",
+          confidence: 60,
         });
       }
 
@@ -205,18 +208,18 @@ export async function GET(req: NextRequest) {
       }
 
       // Only add the highest-impact insight for this listing (min confidence 65, max one per listing)
-      if (listingInsights.length > 0 && !usedListingIds.has(listing.id)) {
+      if (listingInsights.length > 0 && !usedSellerListingIds.has(listing.id)) {
         const impactOrder = { high: 0, medium: 1, low: 2 };
         const sortedInsights = listingInsights.sort((a, b) => {
           if (a.impact !== b.impact) return impactOrder[a.impact] - impactOrder[b.impact];
           return (b.confidence || 0) - (a.confidence || 0);
         });
-        
+
         const bestInsight = sortedInsights[0];
         if (bestInsight.confidence >= 65) {
-          insights.push(bestInsight);
-          usedListingIds.add(listing.id);
-          usedTypes.add(bestInsight.type);
+          sellerInsights.push(bestInsight);
+          usedSellerListingIds.add(listing.id);
+          usedSellerTypes.add(bestInsight.type);
         }
       }
     }
@@ -225,8 +228,8 @@ export async function GET(req: NextRequest) {
     for (const wanted of wantedPosts) {
       totalViews += (wanted.views as number) || 0;
       totalSaves += (wanted.saves as number) || 0;
-      
-      const wantedInsights: any[] = [];
+
+      const wantedPostInsights: any[] = [];
       const createdAt = wanted.createdAt?.toMillis?.() || Date.now();
       const daysSinceCreation = (Date.now() - createdAt) / (1000 * 60 * 60 * 24);
       const description = (wanted.description as string) || "";
@@ -234,7 +237,7 @@ export async function GET(req: NextRequest) {
 
       // Check for short or missing description
       if (description.length < 50) {
-        wantedInsights.push({
+        wantedPostInsights.push({
           type: "wanted-description",
           listingId: wanted.id,
           listingTitle: wanted.title as string,
@@ -246,7 +249,7 @@ export async function GET(req: NextRequest) {
 
       // Check for budget too low (no responses)
       if (budget > 0 && daysSinceCreation > 7) {
-        wantedInsights.push({
+        wantedPostInsights.push({
           type: "wanted-budget",
           listingId: wanted.id,
           listingTitle: wanted.title as string,
@@ -258,7 +261,7 @@ export async function GET(req: NextRequest) {
 
       // Check for missing reference photos
       if (!(wanted.images as string[]) || (wanted.images as string[]).length === 0) {
-        wantedInsights.push({
+        wantedPostInsights.push({
           type: "wanted-photos",
           listingId: wanted.id,
           listingTitle: wanted.title as string,
@@ -270,7 +273,7 @@ export async function GET(req: NextRequest) {
 
       // Check for old wanted post (stale)
       if (daysSinceCreation > 14 && wanted.status === "live") {
-        wantedInsights.push({
+        wantedPostInsights.push({
           type: "wanted-old",
           listingId: wanted.id,
           listingTitle: wanted.title as string,
@@ -282,7 +285,7 @@ export async function GET(req: NextRequest) {
 
       // Check for location specificity
       if (!wanted.location || (wanted.location as string).length < 5) {
-        wantedInsights.push({
+        wantedPostInsights.push({
           type: "wanted-location",
           listingId: wanted.id,
           listingTitle: wanted.title as string,
@@ -293,24 +296,24 @@ export async function GET(req: NextRequest) {
       }
 
       // Only add the highest-impact insight for this wanted post (min confidence 65, max one per listing)
-      if (wantedInsights.length > 0 && !usedListingIds.has(wanted.id)) {
+      if (wantedPostInsights.length > 0 && !usedWantedListingIds.has(wanted.id)) {
         const impactOrder = { high: 0, medium: 1, low: 2 };
-        const sortedInsights = wantedInsights.sort((a, b) => {
+        const sortedInsights = wantedPostInsights.sort((a, b) => {
           if (a.impact !== b.impact) return impactOrder[a.impact] - impactOrder[b.impact];
           return (b.confidence || 0) - (a.confidence || 0);
         });
-        
+
         const bestInsight = sortedInsights[0];
         if (bestInsight.confidence >= 65) {
-          insights.push(bestInsight);
-          usedListingIds.add(wanted.id);
-          usedTypes.add(bestInsight.type);
+          wantedInsights.push(bestInsight);
+          usedWantedListingIds.add(wanted.id);
+          usedWantedTypes.add(bestInsight.type);
         }
       }
     }
 
     // Check for similar listings across all wanted posts (outside the loop to avoid async issues)
-    if (wantedPosts.length > 0 && !usedTypes.has("wanted-matches")) {
+    if (wantedPosts.length > 0 && !usedWantedTypes.has("wanted-matches")) {
       try {
         const similarListings = await db
           .collection("listings")
@@ -318,20 +321,20 @@ export async function GET(req: NextRequest) {
           .where("status", "==", "live")
           .limit(20)
           .get();
-        
+
         if (!similarListings.empty) {
           for (const wanted of wantedPosts) {
-            if (usedListingIds.has(wanted.id)) continue;
-            
+            if (usedWantedListingIds.has(wanted.id)) continue;
+
             const title = (wanted.title as string).toLowerCase();
             const matchingCount = similarListings.docs.filter(doc => {
               const data = doc.data();
               const listingTitle = (data.title as string).toLowerCase();
               return title.split(" ").some(word => word.length > 3 && listingTitle.includes(word));
             }).length;
-            
+
             if (matchingCount >= 2) {
-              insights.push({
+              wantedInsights.push({
                 type: "wanted-matches",
                 listingId: wanted.id,
                 listingTitle: wanted.title as string,
@@ -339,8 +342,8 @@ export async function GET(req: NextRequest) {
                 impact: "high",
                 confidence: 80,
               });
-              usedListingIds.add(wanted.id);
-              usedTypes.add("wanted-matches");
+              usedWantedListingIds.add(wanted.id);
+              usedWantedTypes.add("wanted-matches");
               break;
             }
           }
@@ -350,15 +353,19 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Combine seller and wanted insights, but only return seller insights for Seller Insights endpoint
+    // This ensures wanted post recommendations don't appear in the seller insights
+    const allInsights = [...sellerInsights];
+
     // Sort insights by impact and confidence
     const impactOrder = { high: 0, medium: 1, low: 2 };
-    insights.sort((a, b) => {
+    allInsights.sort((a, b) => {
       if (a.impact !== b.impact) return impactOrder[a.impact] - impactOrder[b.impact];
       return (b.confidence || 0) - (a.confidence || 0);
     });
 
     // Limit to top 5 insights
-    const limitedInsights = insights.slice(0, 5);
+    const limitedInsights = allInsights.slice(0, 5);
 
     // Get seller stats from profile
     const profileDoc = await db.collection("profiles").doc(decoded.uid).get();

@@ -421,10 +421,6 @@ export default function Navbar() {
                   Sales
                   {isActive("/sales") && <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-gradient-to-r from-sky-400 to-sky-300 shadow-[0_0_6px_rgba(56,189,248,0.4)]" />}
                 </Link>
-                <Link href="/seller/insights" className={`relative px-3 py-2 rounded-lg transition-all duration-200 ${isActive("/seller/insights") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
-                  Insights
-                  {isActive("/seller/insights") && <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-gradient-to-r from-sky-400 to-sky-300 shadow-[0_0_6px_rgba(56,189,248,0.4)]" />}
-                </Link>
               </>
             )}
           </nav>
@@ -484,7 +480,6 @@ export default function Navbar() {
                 <Link href="/watchlist" className={`rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/watchlist") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>Watchlist</Link>
                 <Link href="/purchases" className={`rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/purchases") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>Purchases</Link>
                 <Link href="/sales" className={`rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/sales") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>Sales</Link>
-                <Link href="/seller/insights" className={`rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/seller/insights") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>Seller Insights</Link>
 
                 <div className="my-1.5 mx-3 border-t border-white/[0.04] light:border-black/[0.08]" />
                 {user ? (
