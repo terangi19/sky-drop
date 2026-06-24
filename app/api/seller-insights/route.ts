@@ -34,7 +34,8 @@ export async function GET(req: NextRequest) {
     let totalSaves = 0;
     const categoryCount = new Map<string, number>();
 
-    // Track used recommendation types to avoid duplicates
+    // Track used listing IDs to prevent duplicates (max one insight per listing)
+    const usedListingIds = new Set<string>();
     const usedTypes = new Set<string>();
 
     // Separate listings and wanted posts for different recommendation engines
@@ -56,73 +57,68 @@ export async function GET(req: NextRequest) {
       const messages = (listing.messages as number) || 0;
 
       // Check for watchers but no messages (high interest but no engagement)
-      if (watchers >= 3 && messages === 0 && !usedTypes.has("watchers-no-messages")) {
+      if (watchers >= 3 && messages === 0) {
         listingInsights.push({
           type: "watchers-no-messages",
           listingId: listing.id,
           listingTitle: listing.title as string,
           recommendation: `${watchers} people are watching but no one has messaged. Consider lowering your price or adding more details.`,
           impact: "high",
-          estimatedImprovement: "+150% messages",
           confidence: 85,
         });
       }
 
       // Check for messages but no sale (engagement but no conversion)
-      if (messages >= 3 && listing.status === "live" && !usedTypes.has("messages-no-sale")) {
+      if (messages >= 3 && listing.status === "live") {
         listingInsights.push({
           type: "messages-no-sale",
           listingId: listing.id,
           listingTitle: listing.title as string,
           recommendation: `${messages} people have messaged but no sale yet. Consider offering a discount to active buyers.`,
           impact: "high",
-          estimatedImprovement: "+200% conversion",
           confidence: 80,
         });
       }
 
       // Check for old listings (stale inventory)
-      if (daysSinceCreation > 21 && listing.status === "live" && !usedTypes.has("old-listing")) {
+      if (daysSinceCreation > 21 && listing.status === "live") {
         listingInsights.push({
           type: "old-listing",
           listingId: listing.id,
           listingTitle: listing.title as string,
           recommendation: `This listing has been active for ${Math.floor(daysSinceCreation)} days. Refresh it with new photos or a price drop.`,
           impact: "medium",
-          estimatedImprovement: "+100% views",
           confidence: 75,
         });
       }
 
       // Check for missing images
-      if (!(listing.images as string[]) || (listing.images as string[]).length < 4 && !usedTypes.has("images")) {
+      if (!(listing.images as string[]) || (listing.images as string[]).length < 4) {
         listingInsights.push({
           type: "images",
           listingId: listing.id,
           listingTitle: listing.title as string,
-          recommendation: "Add more images (4+) to increase visibility by 3x",
+          recommendation: "Add more images (4+) to increase visibility",
           impact: "high",
-          estimatedImprovement: "+200% saves",
           confidence: 90,
         });
       }
 
       // Check for missing or short description
-      if (!(listing.description as string) || (listing.description as string).length < 100 && !usedTypes.has("description")) {
+      if (!(listing.description as string) || (listing.description as string).length < 100) {
         listingInsights.push({
           type: "description",
           listingId: listing.id,
           listingTitle: listing.title as string,
           recommendation: "Add a detailed description with keywords to improve search visibility",
           impact: "medium",
-          estimatedImprovement: "+50% views",
           confidence: 70,
         });
       }
 
       // Check price competitiveness (simple heuristic)
       const price = Number(listing.price as string);
-      if (price > 0 && !usedTypes.has("price")) {
+      if (price > 0) {
         const sameCategoryListings = regularListings.filter(l => (l.type as string) === (listing.type as string) && l.id !== listing.id && Number(l.price as string) > 0);
         if (sameCategoryListings.length > 2) {
           const avgPrice = sameCategoryListings.reduce((sum, l) => sum + (Number(l.price as string) || 0), 0) / sameCategoryListings.length;
@@ -133,17 +129,15 @@ export async function GET(req: NextRequest) {
               listingTitle: listing.title as string,
               recommendation: `Price is ${Math.round((price / avgPrice - 1) * 100)}% above average. Consider lowering to compete better`,
               impact: "high",
-              estimatedImprovement: "+80% faster sale",
               confidence: 85,
             });
-          } else if (price < avgPrice * 0.7 && !usedTypes.has("price-low")) {
+          } else if (price < avgPrice * 0.7) {
             listingInsights.push({
               type: "price-low",
               listingId: listing.id,
               listingTitle: listing.title as string,
               recommendation: "Your price is below market average. You could increase it to maximize profit.",
               impact: "medium",
-              estimatedImprovement: "+30% profit",
               confidence: 75,
             });
           }
@@ -151,73 +145,67 @@ export async function GET(req: NextRequest) {
       }
 
       // Check title quality
-      if ((listing.title as string) && (listing.title as string).length < 20 && !usedTypes.has("title")) {
+      if ((listing.title as string) && (listing.title as string).length < 20) {
         listingInsights.push({
           type: "title",
           listingId: listing.id,
           listingTitle: listing.title as string,
           recommendation: "Add more detail to your title to help buyers find your listing",
           impact: "medium",
-          estimatedImprovement: "+30% views",
           confidence: 65,
         });
       }
 
       // Check for missing offers enabled
-      if (!listing.offersEnabled && !usedTypes.has("offers")) {
+      if (!listing.offersEnabled) {
         listingInsights.push({
           type: "offers",
           listingId: listing.id,
           listingTitle: listing.title as string,
           recommendation: "Enable offers to let buyers make price proposals. This increases engagement.",
           impact: "medium",
-          estimatedImprovement: "+40% messages",
           confidence: 70,
         });
       }
 
       // Check for missing delivery options (for physical items)
-      if (category === "physical" && !listing.deliveryAvailable && !usedTypes.has("delivery")) {
+      if (category === "physical" && !listing.deliveryAvailable) {
         listingInsights.push({
           type: "delivery",
           listingId: listing.id,
           listingTitle: listing.title as string,
           recommendation: "Add delivery options to reach buyers outside your area.",
           impact: "medium",
-          estimatedImprovement: "+60% buyers",
           confidence: 75,
         });
       }
 
       // Check category accuracy (basic heuristic)
-      if (!usedTypes.has("category")) {
-        const title = (listing.title as string).toLowerCase();
-        const desc = (listing.description as string).toLowerCase();
-        const keywords = {
-          "vehicle": ["car", "truck", "suv", "van", "motorcycle", "bike"],
-          "rental": ["rent", "lease", "hire"],
-          "service": ["service", "cleaning", "repair", "install", "consult"],
-          "digital": ["digital", "download", "ebook", "course", "template"],
-        };
-        
-        for (const [cat, words] of Object.entries(keywords)) {
-          if (category !== cat && words.some(w => title.includes(w) || desc.includes(w))) {
-            listingInsights.push({
-              type: "category",
-              listingId: listing.id,
-              listingTitle: listing.title as string,
-              recommendation: `Consider changing category to "${cat}" for better visibility.`,
-              impact: "medium",
-              estimatedImprovement: "+50% views",
-              confidence: 60,
-            });
-            break;
-          }
+      const title = (listing.title as string).toLowerCase();
+      const desc = (listing.description as string).toLowerCase();
+      const keywords = {
+        "vehicle": ["car", "truck", "suv", "van", "motorcycle", "bike"],
+        "rental": ["rent", "lease", "hire"],
+        "service": ["service", "cleaning", "repair", "install", "consult"],
+        "digital": ["digital", "download", "ebook", "course", "template"],
+      };
+      
+      for (const [cat, words] of Object.entries(keywords)) {
+        if (category !== cat && words.some(w => title.includes(w) || desc.includes(w))) {
+          listingInsights.push({
+            type: "category",
+            listingId: listing.id,
+            listingTitle: listing.title as string,
+            recommendation: `Consider changing category to "${cat}" for better visibility.`,
+            impact: "medium",
+            confidence: 60,
+          });
+          break;
         }
       }
 
-      // Only add the highest-impact insight for this listing (min confidence 65)
-      if (listingInsights.length > 0) {
+      // Only add the highest-impact insight for this listing (min confidence 65, max one per listing)
+      if (listingInsights.length > 0 && !usedListingIds.has(listing.id)) {
         const impactOrder = { high: 0, medium: 1, low: 2 };
         const sortedInsights = listingInsights.sort((a, b) => {
           if (a.impact !== b.impact) return impactOrder[a.impact] - impactOrder[b.impact];
@@ -227,6 +215,7 @@ export async function GET(req: NextRequest) {
         const bestInsight = sortedInsights[0];
         if (bestInsight.confidence >= 65) {
           insights.push(bestInsight);
+          usedListingIds.add(listing.id);
           usedTypes.add(bestInsight.type);
         }
       }
@@ -244,72 +233,67 @@ export async function GET(req: NextRequest) {
       const budget = Number(wanted.price as string) || 0;
 
       // Check for short or missing description
-      if (description.length < 50 && !usedTypes.has("wanted-description")) {
+      if (description.length < 50) {
         wantedInsights.push({
           type: "wanted-description",
           listingId: wanted.id,
           listingTitle: wanted.title as string,
           recommendation: "Add more details about what you're looking for (condition, location, timeline) to attract better responses.",
           impact: "high",
-          estimatedImprovement: "+80% quality responses",
           confidence: 85,
         });
       }
 
       // Check for budget too low (no responses)
-      if (budget > 0 && daysSinceCreation > 7 && !usedTypes.has("wanted-budget")) {
+      if (budget > 0 && daysSinceCreation > 7) {
         wantedInsights.push({
           type: "wanted-budget",
           listingId: wanted.id,
           listingTitle: wanted.title as string,
           recommendation: "Your wanted post has been active for a week. Consider increasing your budget to attract more responses.",
           impact: "medium",
-          estimatedImprovement: "+100% responses",
           confidence: 70,
         });
       }
 
       // Check for missing reference photos
-      if (!(wanted.images as string[]) || (wanted.images as string[]).length === 0 && !usedTypes.has("wanted-photos")) {
+      if (!(wanted.images as string[]) || (wanted.images as string[]).length === 0) {
         wantedInsights.push({
           type: "wanted-photos",
           listingId: wanted.id,
           listingTitle: wanted.title as string,
           recommendation: "Add reference photos to help sellers understand exactly what you're looking for.",
           impact: "medium",
-          estimatedImprovement: "+60% relevant responses",
           confidence: 75,
         });
       }
 
       // Check for old wanted post (stale)
-      if (daysSinceCreation > 14 && wanted.status === "live" && !usedTypes.has("wanted-old")) {
+      if (daysSinceCreation > 14 && wanted.status === "live") {
         wantedInsights.push({
           type: "wanted-old",
           listingId: wanted.id,
           listingTitle: wanted.title as string,
           recommendation: `This wanted post has been active for ${Math.floor(daysSinceCreation)} days. Refresh it with new details or expand your search criteria.`,
           impact: "medium",
-          estimatedImprovement: "+80% visibility",
           confidence: 70,
         });
       }
 
       // Check for location specificity
-      if (!wanted.location || (wanted.location as string).length < 5 && !usedTypes.has("wanted-location")) {
+      if (!wanted.location || (wanted.location as string).length < 5) {
         wantedInsights.push({
           type: "wanted-location",
           listingId: wanted.id,
           listingTitle: wanted.title as string,
           recommendation: "Add your city or region to help local sellers find your wanted post.",
           impact: "medium",
-          estimatedImprovement: "+50% local responses",
           confidence: 65,
         });
       }
 
-      // Only add the highest-impact insight for this wanted post (min confidence 65)
-      if (wantedInsights.length > 0) {
+      // Only add the highest-impact insight for this wanted post (min confidence 65, max one per listing)
+      if (wantedInsights.length > 0 && !usedListingIds.has(wanted.id)) {
         const impactOrder = { high: 0, medium: 1, low: 2 };
         const sortedInsights = wantedInsights.sort((a, b) => {
           if (a.impact !== b.impact) return impactOrder[a.impact] - impactOrder[b.impact];
@@ -319,6 +303,7 @@ export async function GET(req: NextRequest) {
         const bestInsight = sortedInsights[0];
         if (bestInsight.confidence >= 65) {
           insights.push(bestInsight);
+          usedListingIds.add(wanted.id);
           usedTypes.add(bestInsight.type);
         }
       }
@@ -336,6 +321,8 @@ export async function GET(req: NextRequest) {
         
         if (!similarListings.empty) {
           for (const wanted of wantedPosts) {
+            if (usedListingIds.has(wanted.id)) continue;
+            
             const title = (wanted.title as string).toLowerCase();
             const matchingCount = similarListings.docs.filter(doc => {
               const data = doc.data();
@@ -350,9 +337,9 @@ export async function GET(req: NextRequest) {
                 listingTitle: wanted.title as string,
                 recommendation: `${matchingCount} similar listings have recently appeared. Browse them to find what you're looking for.`,
                 impact: "high",
-                estimatedImprovement: "Find items faster",
                 confidence: 80,
               });
+              usedListingIds.add(wanted.id);
               usedTypes.add("wanted-matches");
               break;
             }
@@ -362,6 +349,16 @@ export async function GET(req: NextRequest) {
         console.error("Error fetching similar listings for wanted posts:", e);
       }
     }
+
+    // Sort insights by impact and confidence
+    const impactOrder = { high: 0, medium: 1, low: 2 };
+    insights.sort((a, b) => {
+      if (a.impact !== b.impact) return impactOrder[a.impact] - impactOrder[b.impact];
+      return (b.confidence || 0) - (a.confidence || 0);
+    });
+
+    // Limit to top 5 insights
+    const limitedInsights = insights.slice(0, 5);
 
     // Get seller stats from profile
     const profileDoc = await db.collection("profiles").doc(decoded.uid).get();
@@ -391,16 +388,6 @@ export async function GET(req: NextRequest) {
       conversionRate,
       topPerformingCategory,
     };
-
-    // Sort insights by impact and confidence
-    const impactOrder = { high: 0, medium: 1, low: 2 };
-    insights.sort((a, b) => {
-      if (a.impact !== b.impact) return impactOrder[a.impact] - impactOrder[b.impact];
-      return (b.confidence || 0) - (a.confidence || 0);
-    });
-
-    // Limit to top 5 insights
-    const limitedInsights = insights.slice(0, 5);
 
     return NextResponse.json({ insights: limitedInsights, stats });
   } catch (e: any) {
