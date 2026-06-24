@@ -19,13 +19,13 @@ function logStatus() {
   }
 }
 
-function isProduction(): boolean {
-  return process.env.NODE_ENV === "production" || !!process.env.VERCEL;
-}
-
-function failClosed(maxRequests: number): { allowed: boolean; remaining: number; limit: number } {
-  return { allowed: false, remaining: 0, limit: maxRequests };
-}
+export type UpstashRateLimitResult = {
+  allowed: boolean;
+  remaining: number;
+  limit: number;
+  /** Upstash unreachable — caller should fall back to Firestore/in-memory. */
+  degraded?: boolean;
+};
 
 function getUpstashRatelimit(): Ratelimit | null {
   if (upstashRatelimit) return upstashRatelimit;
@@ -60,12 +60,16 @@ export async function rateLimitUpstash(
   identifier: string,
   maxRequests: number,
   windowMs: number
-): Promise<{ allowed: boolean; remaining: number; limit: number }> {
+): Promise<UpstashRateLimitResult> {
   const rl = getUpstashRatelimit();
   if (!rl) {
-    return isProduction()
-      ? failClosed(maxRequests)
-      : { allowed: true, remaining: maxRequests, limit: maxRequests };
+    // Fall back to Firestore/in-memory — do not block user-facing routes when Redis is misconfigured.
+    return {
+      allowed: true,
+      remaining: maxRequests,
+      limit: maxRequests,
+      degraded: true,
+    };
   }
 
   try {
@@ -82,9 +86,13 @@ export async function rateLimitUpstash(
       remaining: result.remaining,
       limit: result.limit,
     };
-  } catch {
-    return isProduction()
-      ? failClosed(maxRequests)
-      : { allowed: true, remaining: maxRequests, limit: maxRequests };
+  } catch (err) {
+    console.warn("[rate-limit] Upstash error, falling back to Firestore:", err);
+    return {
+      allowed: true,
+      remaining: maxRequests,
+      limit: maxRequests,
+      degraded: true,
+    };
   }
 }
