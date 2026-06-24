@@ -298,6 +298,16 @@ function pickNumField(o: Record<string, unknown>, keys: string[]): string {
   return "";
 }
 
+function pickBoolField(o: Record<string, unknown>, keys: string[]): boolean | undefined {
+  for (const k of keys) {
+    const v = o[k];
+    if (typeof v === "boolean") return v;
+    if (v === "true") return true;
+    if (v === "false") return false;
+  }
+  return undefined;
+}
+
 const BODY_TYPES = new Set([
   "SUV",
   "Sedan",
@@ -418,6 +428,11 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
     pricingType: pickField(o, ["pricingType"]),
     servicePricingType: pickField(o, ["servicePricingType", "servicePricing"]),
     location: pickField(o, ["location"]),
+    pickupArea: pickField(o, ["pickupArea", "pickup_area", "pickupSuburb", "suburb"]),
+    pickupAvailable: pickBoolField(o, ["pickupAvailable", "pickup_available", "pickup"]),
+    shippingAvailable: pickBoolField(o, ["shippingAvailable", "shipping_available", "shipping"]),
+    acceptOffers: pickBoolField(o, ["acceptOffers", "accept_offers", "offers"]),
+    saleType: pickField(o, ["saleType", "sale_type"]),
     paymentType: pickField(o, ["paymentType"]),
     vehicleMake: pickField(o, ["vehicleMake", "make"]),
     vehicleModel: pickField(o, ["vehicleModel", "model"]),
@@ -585,6 +600,13 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
   }
 
   if (raw.location) out.location = raw.location.slice(0, 80);
+  if (raw.pickupArea) out.pickupArea = raw.pickupArea.slice(0, 80);
+  if (raw.pickupAvailable !== undefined) out.pickupAvailable = raw.pickupAvailable;
+  if (raw.shippingAvailable !== undefined) out.shippingAvailable = raw.shippingAvailable;
+  if (raw.acceptOffers !== undefined) out.acceptOffers = raw.acceptOffers;
+  if (raw.saleType === "buy_now" || raw.saleType === "auction" || raw.saleType === "auction_buy_now") {
+    out.saleType = raw.saleType;
+  }
   if (raw.condition) out.condition = normalizeCondition(raw.condition);
   if (raw.paymentType) {
     const pt = normalizePaymentType(raw.paymentType);
@@ -853,11 +875,19 @@ export function applySkyAiListingFill(fill: SkyAiListingFill, h: ListingFillHand
     if (normalized.vehicleFuelType) h.setVehicleFuelType?.(normalized.vehicleFuelType);
     if (normalized.vehicleBodyType) h.setVehicleBodyType?.(normalized.vehicleBodyType);
     if (normalized.vehicleColour) h.setVehicleColour?.(normalized.vehicleColour);
+    if (normalized.pickupAvailable !== undefined) h.setPickupAvailable?.(normalized.pickupAvailable);
+    else if (normalized.location) h.setPickupAvailable?.(true);
+    if (normalized.shippingAvailable !== undefined) h.setShippingAvailable?.(normalized.shippingAvailable);
   } else {
     if (normalized.category) h.setCategory(normalized.category);
     if (normalized.condition) h.setCondition(normalized.condition);
     if (normalized.price) h.setPrice(normalized.price);
     if (normalized.paymentType) h.setPaymentType?.(normalized.paymentType);
+    if (normalized.pickupAvailable !== undefined) h.setPickupAvailable?.(normalized.pickupAvailable);
+    else if (normalized.location) h.setPickupAvailable?.(true);
+    if (normalized.shippingAvailable !== undefined) h.setShippingAvailable?.(normalized.shippingAvailable);
+    if (normalized.acceptOffers !== undefined) h.setAcceptOffers?.(normalized.acceptOffers);
+    if (normalized.saleType) h.setSaleType?.(normalized.saleType);
   }
 
   if (normalized.title) h.setTitle(normalized.title);

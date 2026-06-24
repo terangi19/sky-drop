@@ -22,6 +22,7 @@ import {
   skyAiCapabilitiesReply,
 } from "../../lib/sky-ai-prompts";
 import { openaiErrorResponse } from "../../lib/openai-errors";
+import { enhanceListingFillFromMessage } from "../../lib/sky-ai-form-actions";
 
 export const runtime = "nodejs";
 
@@ -141,6 +142,16 @@ function mergeFillWithContext(
   if (!listingFill) return undefined;
   if (!listingContext) return listingFill;
   return mergeListingFillWithDraft(listingContext, listingFill);
+}
+
+function finalizeListingFill(
+  message: string,
+  listingContext: SkyAiListingContext | null,
+  listingFill: SkyAiListingFill | undefined
+): SkyAiListingFill | undefined {
+  const merged = mergeFillWithContext(listingContext, listingFill);
+  if (!merged) return undefined;
+  return enhanceListingFillFromMessage(message, merged) ?? merged;
 }
 
 const MAX_SKY_AI_IMAGES = 4;
@@ -392,7 +403,7 @@ export async function POST(req: NextRequest) {
               );
             }
             const { text, navigateTo, listingFill } = extractSkyAiReply(full);
-            const mergedFill = mergeFillWithContext(listingContext, listingFill);
+            const mergedFill = finalizeListingFill(message, listingContext, listingFill);
             const finalNav = pathname.startsWith("/post/ai") && navigateTo === "/post/ai" ? undefined : navigateTo;
             if (listingFill || mergedFill) {
               console.log(`[Awhina] Listing fill: type=${listingFill?.listingType || mergedFill?.listingType}, title=${listingFill?.title || mergedFill?.title}, nav=${finalNav || "none"}`);
@@ -449,7 +460,7 @@ export async function POST(req: NextRequest) {
 
     const raw = completion.choices[0]?.message?.content || "";
     const { text, navigateTo, listingFill } = extractSkyAiReply(raw);
-    const mergedFill = mergeFillWithContext(listingContext, listingFill);
+    const mergedFill = finalizeListingFill(message, listingContext, listingFill);
     const finalNav = pathname.startsWith("/post/ai") && navigateTo === "/post/ai" ? undefined : navigateTo;
     if (listingFill || mergedFill) {
       console.log(`[Awhina] Listing fill: type=${listingFill?.listingType || mergedFill?.listingType}, title=${listingFill?.title || mergedFill?.title}, nav=${finalNav || "none"}`);
