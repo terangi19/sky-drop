@@ -27,10 +27,13 @@ export default function SearchPage() {
   const [condition, setCondition] = useState("all");
   const [location, setLocation] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
+  const [savedSearches, setSavedSearches] = useState<any[]>([]);
+  const [searchSaved, setSearchSaved] = useState(false);
 
   useEffect(() => {
     if (!user) {
       setWatchlist([]);
+      setSavedSearches([]);
       return;
     }
     const saved = localStorage.getItem(`watchlist_${user.uid}`);
@@ -41,7 +44,40 @@ export default function SearchPage() {
         console.error("Failed to parse watchlist:", e);
       }
     }
+    const savedSearchesData = localStorage.getItem(`savedSearches_${user.uid}`);
+    if (savedSearchesData) {
+      try {
+        setSavedSearches(JSON.parse(savedSearchesData));
+      } catch (e) {
+        console.error("Failed to parse saved searches:", e);
+      }
+    }
   }, [user]);
+
+  const checkIfSearchSaved = () => {
+    if (!user) return false;
+    const searchKey = `${query}-${minPrice}-${maxPrice}-${condition}-${location}`;
+    return savedSearches.some((s: any) => s.key === searchKey);
+  };
+
+  const saveSearch = async () => {
+    if (!user) return;
+    const searchKey = `${query}-${minPrice}-${maxPrice}-${condition}-${location}`;
+    const newSearch = {
+      key: searchKey,
+      query,
+      minPrice,
+      maxPrice,
+      condition,
+      location,
+      timestamp: Date.now(),
+    };
+    const updatedSearches = [...savedSearches, newSearch];
+    setSavedSearches(updatedSearches);
+    localStorage.setItem(`savedSearches_${user.uid}`, JSON.stringify(updatedSearches));
+    setSearchSaved(true);
+    setTimeout(() => setSearchSaved(false), 2000);
+  };
 
   const isInWatchlist = (id: string) => watchlist.includes(id);
 
@@ -116,13 +152,42 @@ export default function SearchPage() {
       <Navbar />
 
       <section className="relative z-10 mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12">
-        <div className="mb-8">
-          <h1 className="text-2xl font-black text-white sm:text-3xl">
-            {query ? `Search results for "${query}"` : "All Listings"}
-          </h1>
-          <p className="mt-2 text-sm text-[var(--muted)]">
-            {loading ? "Loading..." : `${filteredListings.length} listing${filteredListings.length !== 1 ? "s" : ""} found`}
-          </p>
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-black text-white sm:text-3xl">
+              {query ? `Search results for "${query}"` : "All Listings"}
+            </h1>
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              {loading ? "Loading..." : `${filteredListings.length} listing${filteredListings.length !== 1 ? "s" : ""} found`}
+            </p>
+          </div>
+          {user && (
+            <button
+              onClick={saveSearch}
+              disabled={checkIfSearchSaved() || searchSaved}
+              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition ${
+                checkIfSearchSaved() || searchSaved
+                  ? "border border-sky-500/30 bg-sky-500/10 text-sky-400 cursor-default"
+                  : "border border-sky-500/30 bg-sky-500/10 text-sky-400 hover:bg-sky-500/20"
+              }`}
+            >
+              {searchSaved || checkIfSearchSaved() ? (
+                <>
+                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  <span>Saved</span>
+                </>
+              ) : (
+                <>
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  <span>🔔 Save Search</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
 
         {/* Filter Controls */}

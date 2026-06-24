@@ -18,8 +18,6 @@ const LegendaryClaimNotification = dynamic(() => import("./components/LegendaryC
 const SkyAiChat = dynamic(() => import("./components/SkyAiChat"));
 const WantedLiveFeed = dynamic(() => import("./components/WantedLiveFeed"));
 const PlatformAnnouncement = dynamic(() => import("./components/PlatformAnnouncement"));
-const MarketplaceRadar = dynamic(() => import("./components/MarketplaceRadar"));
-const MatchmakingActivity = dynamic(() => import("./components/MatchmakingActivity"));
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -128,7 +126,7 @@ export default function RootLayout({
             })();
           `,
         }} />
-        <AuthProvider><ProfileProvider><AwhinaPageInsightProvider><VerificationBanner /><RouteGuard><PageEnter>{children}</PageEnter><Footer /><Spotlight /><ScrollToTop /><SkyAiChat /><MarketplaceRadar /><MatchmakingActivity /></RouteGuard><ToastContainer /><LegendaryClaimNotification /><WantedLiveFeed /><PlatformAnnouncement /><PWAProvider /></AwhinaPageInsightProvider></ProfileProvider></AuthProvider>
+        <AuthProvider><ProfileProvider><AwhinaPageInsightProvider><VerificationBanner /><RouteGuard><PageEnter>{children}</PageEnter><Footer /><Spotlight /><ScrollToTop /><SkyAiChat /></RouteGuard><ToastContainer /><LegendaryClaimNotification /><WantedLiveFeed /><PlatformAnnouncement /><PWAProvider /></AwhinaPageInsightProvider></ProfileProvider></AuthProvider>
       </body>
     </html>
   );
