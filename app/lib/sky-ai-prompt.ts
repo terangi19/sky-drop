@@ -55,7 +55,7 @@ Descriptions: short paragraphs separated by blank lines. No bullet-point spam un
 export function buildSkyAiSystemPrompt(
   currentPath: string,
   listingContext?: SkyAiListingContext | null,
-  options?: { hasImages?: boolean }
+  options?: { hasImages?: boolean; justGeneratedListing?: boolean }
 ): string {
   const siteMap = GUIDE_DESTINATIONS.map(
     (d) => `- ${d.title} → ${d.path} — ${d.blurb}`
@@ -84,13 +84,43 @@ When improving copy on /post/ai, use LISTING_FILL to apply updates directly — 
     ? "\n\nThe user's latest message includes product photo(s) — analyze them and use LISTING_FILL on /post/ai."
     : "";
 
+  const stateAwarenessNote = options?.justGeneratedListing
+    ? "\n\n## IMMEDIATE CONTEXT: A LISTING WAS JUST GENERATED IN THIS CONVERSATION.\n\nCRITICAL RULE: The user just received a LISTING_FILL. DO NOT generate ANY follow-up text. DO NOT suggest next steps. DO NOT ask what they need. DO NOT show welcome messages. Your response should be COMPLETE after [[/LISTING_FILL]]. Stop immediately. No additional text, no suggestions, no welcome message, nothing.\n\nIf you must respond to a new user message, provide a direct answer only. Never include welcome/onboarding text like \"Tell me what you need\" or \"create a listing, price help, safety tips\"."
+    : "";
+
   const isSellPage = currentPath === "/post/ai";
+
+  const listingIntentRules = !isSellPage ? `
+## LISTING INTENT DETECTION (CRITICAL — applies on ALL pages)
+
+When the user provides listing details (price, item name, condition, selling intent, vehicle info, etc.), you MUST generate LISTING_FILL regardless of which page they're on.
+
+TRIGGERS for LISTING_FILL (any of these means you MUST output LISTING_FILL):
+- Price with dollar sign ($500, $1,350, etc.)
+- Selling intent words (sell, selling, list, listing, post, advertise, for sale, want to sell, selling my)
+- Vehicle brand or model (Toyota, BMW, Mazda, Ford, iPhone, PS5, etc.)
+- Year followed by vehicle name (2015 Mazda, 2007 BMW, etc.)
+- Structured field labels (Title:, Price:, Description:, Location:, etc.)
+- Item condition (new, used, excellent condition, good condition, etc.)
+- Service keywords (cleaning, lawn mowing, tutoring, photography, etc.)
+- Rental keywords (room for rent, house for rent, weekly rent, etc.)
+
+When ANY of these triggers are present:
+1. Generate LISTING_FILL with all inferred fields
+2. Include [[NAV:/post/ai]] to take them to the sell page with the filled form
+3. NEVER give generic help like "I can help you create a listing" — just fill it
+
+EXAMPLE: User provides "Selling my iPhone 15 Pro Max 256GB, excellent condition, $1,350, Auckland"
+→ Output: [[LISTING_FILL]]{"title":"iPhone 15 Pro Max 256GB","listingType":"physical","category":"Tech","condition":"Used - Excellent","price":"1350","location":"Auckland","pickupAvailable":true,"shippingAvailable":true,"description":"..."}[[/LISTING_FILL]]
+→ Then: [[NAV:/post/ai]]
+` : "";
 
   return `You are **${AWHINA_NAME}**, the official assistant for Sky Drop — New Zealand's smartest marketplace AI. You know this product inside out.
 ${AWHINA_BRANDING_RULE}
 All prices NZD. Use the PROJECT KNOWLEDGE below as source of truth; do not contradict it.
 
-Current page: ${currentPath}${listingBlock}${imageNote}
+Current page: ${currentPath}${listingBlock}${imageNote}${stateAwarenessNote}
+${listingIntentRules}
 ${isSellPage ? `
 ## SELL PAGE RULES (CRITICAL — read every rule before responding)
 

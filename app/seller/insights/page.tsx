@@ -22,7 +22,7 @@ interface SellerStats {
   totalViews: number;
   totalSaves: number;
   averageResponseTime: number;
-  conversionRate: number;
+  saveRate: number;
   topPerformingCategory: string;
 }
 
@@ -104,8 +104,8 @@ export default function SellerInsightsPage() {
               <p className="text-2xl font-bold text-white">{stats.totalSaves.toLocaleString()}</p>
             </div>
             <div className="rounded-xl border border-sky-500/20 bg-black/60 p-4">
-              <p className="text-[10px] uppercase tracking-wider text-sky-400 mb-1">Conversion Rate</p>
-              <p className="text-2xl font-bold text-white">{stats.conversionRate}%</p>
+              <p className="text-[10px] uppercase tracking-wider text-sky-400 mb-1">Save Rate</p>
+              <p className="text-2xl font-bold text-white">{stats.saveRate}%</p>
             </div>
           </div>
         )}
@@ -140,10 +140,7 @@ export default function SellerInsightsPage() {
                         </span>
                       </div>
                       <p className="text-sm font-bold text-white mb-1">{insight.listingTitle}</p>
-                      <p className="text-xs text-zinc-400 mb-2">{insight.recommendation}</p>
-                      <p className="text-[10px] text-emerald-400 font-semibold">
-                        {insight.estimatedImprovement}
-                      </p>
+                      <p className="text-xs text-zinc-400">{insight.recommendation}</p>
                     </div>
                     <svg className="h-5 w-5 text-zinc-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -156,12 +153,12 @@ export default function SellerInsightsPage() {
         </div>
 
         <div className="rounded-xl border border-sky-500/20 bg-gradient-to-br from-sky-500/[0.02] to-sky-500/[0.01] p-6">
-          <h3 className="text-sm font-bold text-white mb-3">💡 Pro Tips</h3>
+          <h3 className="text-sm font-bold text-white mb-3">💡 General tips</h3>
           <ul className="space-y-2 text-xs text-zinc-400">
-            <li>• Listings with 4+ images get 3x more saves</li>
-            <li>• Responding to messages within 1 hour increases conversion by 40%</li>
-            <li>• Competitive pricing based on similar items sells 2x faster</li>
-            <li>• Detailed descriptions with keywords improve search visibility</li>
+            <li>• More photos help buyers see exactly what they&apos;re getting</li>
+            <li>• Responding to messages quickly keeps buyers engaged</li>
+            <li>• Clear, specific descriptions reduce back-and-forth questions</li>
+            <li>• Enabling shipping opens your listing to buyers outside your region</li>
           </ul>
         </div>
       </div>

@@ -123,12 +123,16 @@ export default function DashboardPage() {
       if (!mounted) return;
       try {
         const token = await auth.currentUser?.getIdToken();
+        console.log('[Dashboard] Fetching seller insights with token:', token ? 'present' : 'missing');
         const res = await fetch("/api/seller-insights", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
+          cache: "no-store",
         });
+        console.log('[Dashboard] Seller insights response status:', res.status);
         const data = await res.json();
+        console.log('[Dashboard] Seller insights data:', data);
         setInsights(data.insights || []);
       } catch (e) {
         console.error("Failed to fetch seller insights:", e);
@@ -137,7 +141,10 @@ export default function DashboardPage() {
 
     fetchDashboardData();
     fetchSellerInsights();
-    const interval = setInterval(fetchDashboardData, 60000); // Refresh every 60 seconds
+    const interval = setInterval(() => {
+      fetchDashboardData();
+      fetchSellerInsights();
+    }, 60000); // Refresh every 60 seconds
 
     return () => {
       mounted = false;
@@ -392,32 +399,45 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {statCards.map((card) => (
-            <div
-              key={card.label}
-              className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.06] to-white/[0.01] p-4 sm:p-5 transition-all duration-300 hover:border-white/[0.14] hover:shadow-lg hover:shadow-black/20 hover:-translate-y-0.5"
+        {listings.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-white/[0.08] bg-gradient-to-br from-white/[0.03] to-transparent px-6 py-10 text-center">
+            <span className="text-4xl">📦</span>
+            <p className="mt-3 text-base font-bold text-white">You haven&apos;t listed anything yet.</p>
+            <p className="mt-1 text-sm text-zinc-400">Create your first listing and start selling on Sky Drop.</p>
+            <Link
+              href="/post/ai"
+              className={`mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r ${t.listBtn} px-6 py-3 text-sm font-bold text-white shadow-lg transition hover:brightness-110 active:scale-[0.97]`}
             >
-              <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${card.accent}`} />
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-500">{card.label}</p>
-                  <p className="mt-2 text-2xl font-black text-white sm:text-3xl">
-                    {card.star && <span className={`${REVIEW_STAR_CLASS} mr-1 text-xl`}>★</span>}
-                    {card.value}
-                  </p>
-                  <p className="mt-1 text-[11px] text-zinc-500">{card.hint}</p>
+              Create your first listing with Āwhina
+            </Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {statCards.map((card) => (
+              <div
+                key={card.label}
+                className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.06] to-white/[0.01] p-4 sm:p-5 transition-all duration-300 hover:border-white/[0.14] hover:shadow-lg hover:shadow-black/20 hover:-translate-y-0.5"
+              >
+                <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${card.accent}`} />
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-500">{card.label}</p>
+                    <p className="mt-2 text-2xl font-black text-white sm:text-3xl">
+                      {card.star && <span className={`${REVIEW_STAR_CLASS} mr-1 text-xl`}>★</span>}
+                      {card.value}
+                    </p>
+                    <p className="mt-1 text-[11px] text-zinc-500">{card.hint}</p>
+                  </div>
+                  <span className="text-3xl opacity-80">{card.icon}</span>
                 </div>
-                <span className="text-3xl opacity-80">{card.icon}</span>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
           <div className="space-y-6">
-            {insights.length > 0 && (
-              <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-5 sm:p-6 transition-all duration-300 hover:border-white/[0.12]">
+            <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-5 sm:p-6 transition-all duration-300 hover:border-white/[0.12]">
                 <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent" />
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
@@ -427,37 +447,44 @@ export default function DashboardPage() {
                       <p className="text-[11px] text-zinc-500">AI-powered recommendations</p>
                     </div>
                   </div>
-                  <Link href="/seller/insights" className="text-xs font-semibold text-sky-400 transition hover:text-sky-300">
-                    View all →
-                  </Link>
+                  {insights.length > 0 && (
+                    <Link href="/seller/insights" className="text-xs font-semibold text-sky-400 transition hover:text-sky-300">
+                      View all →
+                    </Link>
+                  )}
                 </div>
-                <div className="mt-5 space-y-3">
-                  {insights.slice(0, 5).map((insight) => (
-                    <div
-                      key={`${insight.listingId}-${insight.type}`}
-                      onClick={() => window.location.href = `/post/listing/${insight.listingId}`}
-                      className="rounded-xl border border-white/[0.06] bg-black/40 p-4 cursor-pointer transition hover:border-sky-500/30 hover:bg-black/50"
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                              insight.impact === "high" ? "bg-red-500/20 text-red-400" :
-                              insight.impact === "medium" ? "bg-amber-500/20 text-amber-400" :
-                              "bg-sky-500/20 text-sky-400"
-                            }`}>
-                              {insight.impact.toUpperCase()} IMPACT
-                            </span>
+                {insights.length === 0 ? (
+                  <div className="mt-5 rounded-xl border border-dashed border-white/[0.08] bg-gradient-to-br from-white/[0.02] to-transparent px-6 py-8 text-center">
+                    <p className="text-sm text-zinc-400">No insights yet. Create listings to get AI-powered recommendations!</p>
+                  </div>
+                ) : (
+                  <div className="mt-5 space-y-3">
+                    {insights.slice(0, 5).map((insight) => (
+                      <div
+                        key={`${insight.listingId}-${insight.type}`}
+                        onClick={() => window.location.href = `/post/listing/${insight.listingId}`}
+                        className="rounded-xl border border-white/[0.06] bg-black/40 p-4 cursor-pointer transition hover:border-sky-500/30 hover:bg-black/50"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                                insight.impact === "high" ? "bg-red-500/20 text-red-400" :
+                                insight.impact === "medium" ? "bg-amber-500/20 text-amber-400" :
+                                "bg-sky-500/20 text-sky-400"
+                              }`}>
+                                {insight.impact.toUpperCase()} IMPACT
+                              </span>
+                            </div>
+                            <p className="text-sm font-bold text-white mb-1">{insight.listingTitle}</p>
+                            <p className="text-xs text-zinc-400">{insight.recommendation}</p>
                           </div>
-                          <p className="text-sm font-bold text-white mb-1">{insight.listingTitle}</p>
-                          <p className="text-xs text-zinc-400">{insight.recommendation}</p>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
 
             <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-5 sm:p-6 transition-all duration-300 hover:border-white/[0.12]">
               <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent" />

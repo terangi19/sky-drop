@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
       // Will be set on the listing doc below
     }
 
-    const { title, description, price, category, listingType } = body;
+    let { title, description, price, category, listingType } = body;
 
     const allowedFields: string[] = [
       "images", "sellerUsername", "expiresInDays",
@@ -154,6 +154,56 @@ export async function POST(req: NextRequest) {
     const VALID_LISTING_TYPES = ["physical", "digital", "service", "rental", "event", "vehicle", "job", "property", "wanted"];
     if (listingType && !VALID_LISTING_TYPES.includes(listingType)) {
       return NextResponse.json({ error: "Invalid listing type" }, { status: 400 });
+    }
+
+    // Data integrity validation: detect if title contains "wanted" keywords but type is not "wanted"
+    if (title) {
+      const lowerTitle = title.toLowerCase();
+      const wantedKeywords = /\b(wanted|looking for|seeking|searching for|need|iso|in search of|want to buy)\b/i;
+      if (wantedKeywords.test(lowerTitle) && listingType !== "wanted") {
+        console.warn("[create-listing] Data integrity warning: Title contains wanted keywords but type is not 'wanted'", {
+          title,
+          listingType,
+          suggestion: "Consider setting listingType to 'wanted'"
+        });
+        // Auto-correct: if title clearly indicates wanted post, set type to wanted
+        if (/^wanted:/i.test(title) || wantedKeywords.test(title.substring(0, 20))) {
+          console.log("[create-listing] Auto-correcting listingType to 'wanted' based on title");
+          listingType = "wanted";
+        }
+      }
+    }
+
+    // Duplicate wanted post detection
+    if (listingType === "wanted" && isAdminInitialized()) {
+      const similarWantedPosts = await getAdminDb().collection("listings")
+        .where("sellerEmail", "==", token.email)
+        .where("type", "==", "wanted")
+        .where("status", "==", "live")
+        .get();
+      
+      const normalizedTitle = title.toLowerCase().trim();
+      const duplicates = similarWantedPosts.docs.filter(doc => {
+        const existingTitle = doc.data().title?.toLowerCase().trim();
+        // Check if titles are similar (levenshtein distance or simple substring match)
+        return existingTitle && (
+          existingTitle === normalizedTitle ||
+          existingTitle.includes(normalizedTitle) ||
+          normalizedTitle.includes(existingTitle)
+        );
+      });
+
+      if (duplicates.length > 0) {
+        console.warn("[create-listing] Duplicate wanted post detected", {
+          newTitle: title,
+          duplicateCount: duplicates.length,
+          duplicateIds: duplicates.map(d => d.id)
+        });
+        // Allow the duplicate but log it - frontend could show a confirmation prompt
+        // For now, we allow it but mark it in the data
+        clientData.isDuplicate = true;
+        clientData.duplicateOf = duplicates[0].id;
+      }
     }
 
     if (!title || !description) {

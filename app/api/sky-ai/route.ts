@@ -15,7 +15,11 @@ import {
 } from "../../lib/sky-ai-firestore";
 import { buildSkyAiSystemPrompt } from "../../lib/sky-ai-prompt";
 import { mergeListingFillWithDraft } from "../../lib/sky-ai-draft-merge";
-import { extractSkyAiReply, type SkyAiListingFill } from "../../lib/sky-ai-listing-fill";
+import {
+  extractSkyAiReply,
+  stripSkyAiMachineTags,
+  type SkyAiListingFill,
+} from "../../lib/sky-ai-listing-fill";
 import type { SkyAiHistoryItem, SkyAiListingContext } from "../../lib/sky-ai-types";
 import {
   isSkyAiGeneralQuestion,
@@ -175,7 +179,8 @@ function buildMessages(
   pathname: string,
   history: SkyAiHistoryItem[],
   listingContext: SkyAiListingContext | null,
-  images: string[]
+  images: string[],
+  justGeneratedListing: boolean
 ): OpenAI.Chat.ChatCompletionMessageParam[] {
   const userContent: OpenAI.Chat.ChatCompletionMessageParam["content"] =
     images.length > 0
@@ -198,6 +203,7 @@ function buildMessages(
       role: "system",
       content: buildSkyAiSystemPrompt(pathname, listingContext, {
         hasImages: images.length > 0,
+        justGeneratedListing,
       }),
     },
     ...history.map((h) => ({
@@ -278,7 +284,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const hasListingIntent = pathname.startsWith("/post/ai") && (
+    const hasListingIntent = (
       // Structured field labels
       /(?:^|\n)(title|price|description|location|condition|category|make|model|year|odometer|colour|color|transmission|fuel|mileage|km|kms)\s*:/i.test(message) ||
       // Listing type keywords
@@ -293,9 +299,9 @@ export async function POST(req: NextRequest) {
       /\b(i('m| am| want to)?\s*(sell|selling|list|listing|post|create|make|put up|advertise)|for sale|selling my|i have a .* for sale|want to sell)\b/i.test(message) ||
       // Item descriptions with price
       /\$[\d,]+/.test(message) ||
-      // Vehicle brand keywords on sell page
+      // Vehicle brand keywords on any page
       /\b(toyota|honda|mazda|ford|holden|nissan|subaru|mitsubishi|hyundai|kia|bmw|mercedes|audi|volkswagen|vw|jeep|chevrolet|dodge|tesla|lexus|suzuki|isuzu|hilux|corolla|camry|rav4|cx-5|axela|swift|ranger|commodore)\b/i.test(message) ||
-      // Service/rental/digital signals on sell page
+      // Service/rental/digital signals on any page
       /\b(lawn|mow|clean|handyman|tutor|teach|photograph|design|seo|website|graphic|weekly rent|per week|bond|deposit|apartment|flat|room|house for rent|digital download|template|ebook|preset|notion|canva)\b/i.test(message) ||
       // Physical item selling
       /\b(ps5|playstation|xbox|iphone|samsung|laptop|macbook|tv|television|couch|sofa|fridge|washing machine|bike|bicycle|kayak|surfboard|guitar|camera)\b/i.test(message) ||
@@ -306,8 +312,44 @@ export async function POST(req: NextRequest) {
       // Odometer / km reading
       /\b\d{2,3}[\s,]?\d{3}\s*km\b/i.test(message)
     );
-    const isAdviceQuestion = /\b(should i|which (sale type|one|option)|what.s (best|better|faster|quickest)|how much (should|is)|is it (safe|worth)|recommend|suggestion)\b/i.test(message);
-    const shortcut = !isAdviceQuestion && !hasListingIntent ? tryNavigationShortcut(message, pathname) : null;
+
+  // Check if the last assistant message contained a LISTING_FILL (listing was just generated)
+  const lastAssistantMessage = history.length > 0 && history[history.length - 1]?.role === "assistant"
+    ? history[history.length - 1].content
+    : "";
+  const justGeneratedListing = /\[\[LISTING_FILL\]\]/.test(lastAssistantMessage);
+
+  // If a listing was just generated and the user sends an empty or generic message, show contextual actions instead of calling the AI
+  if (justGeneratedListing && (!message || message.length < 5 || /\b(what|help|do|need|can you)\b/i.test(message))) {
+    const contextualActions = `Here's what you can do next with your listing:\n\n• **Publish your listing** — Add photos above, then hit Publish below to go live\n• **Edit the title or description** — I can refine it for you\n• **Improve the description** — Add more details to attract buyers\n• **Generate keywords** — Add search terms for better visibility\n• **Price check** — Compare with similar listings\n• **Create Facebook Marketplace listing** — I can format it for FB\n• **Create Trade Me listing** — I can format it for Trade Me\n\nWhat would you like to do?`;
+    if (uid && conversationId) {
+      await safePersist(() =>
+        appendSkyAiExchange(conversationId, uid, message, contextualActions, undefined)
+      );
+    }
+    if (stream) {
+      return new Response(
+        sseLine({ type: "delta", text: contextualActions }) +
+          sseLine({
+            type: "done",
+            reply: contextualActions,
+            navigateTo: undefined,
+            source: "rules",
+            conversationId: conversationId || undefined,
+          }),
+        { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } }
+      );
+    }
+    return NextResponse.json({
+      reply: contextualActions,
+      navigateTo: undefined,
+      source: "rules",
+      conversationId: conversationId || undefined,
+    });
+  }
+
+  const isAdviceQuestion = /\b(should i|which (sale type|one|option)|what.s (best|better|faster|quickest)|how much (should|is)|is it (safe|worth)|recommend|suggestion)\b/i.test(message);
+  const shortcut = !isAdviceQuestion && !hasListingIntent && !justGeneratedListing ? tryNavigationShortcut(message, pathname) : null;
     if (shortcut) {
       const reply = stripBold(shortcut.reply);
       if (uid && conversationId) {
@@ -368,7 +410,7 @@ export async function POST(req: NextRequest) {
 
     const openai = new OpenAI({ apiKey });
     const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
-    const messages = buildMessages(message, pathname, history, listingContext, images);
+    const messages = buildMessages(message, pathname, history, listingContext, images, justGeneratedListing);
 
     if (stream) {
       let completion;
@@ -410,7 +452,7 @@ export async function POST(req: NextRequest) {
             }
             if (uid && conversationId) {
               await safePersist(() =>
-                appendSkyAiExchange(conversationId, uid, message, text, finalNav)
+                appendSkyAiExchange(conversationId, uid, message, full, finalNav)
               );
             }
             controller.enqueue(
@@ -468,7 +510,7 @@ export async function POST(req: NextRequest) {
 
     if (uid && conversationId) {
       await safePersist(() =>
-        appendSkyAiExchange(conversationId, uid, message, text, finalNav)
+        appendSkyAiExchange(conversationId, uid, message, raw, finalNav)
       );
     }
 

@@ -69,20 +69,17 @@ export default function SignupVerificationModal({ onClose, onVerify }: Props) {
 
         <div className="space-y-3">
           <button
-            onClick={handleBrowse}
+            onClick={() => { onClose(); router.push("/post/ai"); }}
             className="w-full rounded-lg bg-sky-500 py-3 font-bold text-[var(--foreground)] transition hover:bg-sky-400"
           >
-            Start Browsing
+            Create your first listing
           </button>
           <button
-            onClick={onVerify}
-            className="w-full rounded-lg border border-white/10 py-3 font-semibold transition hover:bg-white/[0.05]"
+            onClick={handleBrowse}
+            className="w-full rounded-lg border border-white/10 py-3 font-semibold text-[var(--foreground)] transition hover:bg-white/[0.05]"
           >
-            Set Up Seller Profile
+            Browse the marketplace
           </button>
-          <p className="text-center text-[10px] text-[var(--muted)]">
-            Optional now — required before you can list items for sale
-          </p>
           <button
             onClick={handleResendEmail}
             disabled={resending}

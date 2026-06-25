@@ -78,6 +78,7 @@ export default function WantedPage() {
   const [watchlistTick, setWatchlistTick] = useState(0);
   const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [loadingListings, setLoadingListings] = useState(true);
 
   const { sellerReviewStats, sellerBadges, sellerFullyVerified } = useSellerListingMeta(listings);
 
@@ -102,7 +103,8 @@ export default function WantedPage() {
         .sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0))
         .slice(0, 60);
       setListings(items);
-    }).catch((err) => { console.error("Failed to load wanted listings:", err); });
+      setLoadingListings(false);
+    }).catch((err) => { console.error("Failed to load wanted listings:", err); setLoadingListings(false); });
   }, []);
 
   function handleBuyNow(item: any) {
@@ -386,7 +388,13 @@ export default function WantedPage() {
           </div>
         )}
 
-        {listings.length === 0 ? (
+        {loadingListings ? (
+          <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-48 animate-pulse rounded-2xl bg-white/[0.04]" />
+            ))}
+          </div>
+        ) : listings.length === 0 ? (
           <div className="mx-auto max-w-md mt-12 text-center">
             <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/[0.03]">
               <span className="text-3xl">📋</span>
@@ -407,7 +415,9 @@ export default function WantedPage() {
                 ? "No matching wanted listings"
                 : selectedCity !== "All"
                   ? `No wanted listings in ${selectedCity}`
-                  : `No wanted listings in ${selectedRegion}`}
+                  : selectedRegion !== "All"
+                    ? `No wanted listings in ${selectedRegion}`
+                    : "No wanted listings match your filters"}
             </h2>
             <p className="mt-2 text-sm text-white/60">
               {searchQuery.trim()

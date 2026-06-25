@@ -5,6 +5,7 @@ import {
   deleteSkyAiConversation,
   loadSkyAiMessages,
 } from "../../../../lib/sky-ai-firestore";
+import { stripSkyAiMachineTags } from "../../../../lib/sky-ai-listing-fill";
 
 export const runtime = "nodejs";
 
@@ -36,7 +37,11 @@ export async function GET(
     }
 
     const messages = await loadSkyAiMessages(id, uid);
-    return NextResponse.json({ messages });
+    const cleaned = messages.map((m) => ({
+      ...m,
+      content: stripSkyAiMachineTags(m.content),
+    }));
+    return NextResponse.json({ messages: cleaned });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Failed to load messages";
     const status = msg.includes("not found") ? 404 : 500;

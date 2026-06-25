@@ -1,5 +1,6 @@
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { getAdminDb } from "./firebase-admin";
+import { stripSkyAiMachineTags } from "./sky-ai-listing-fill";
 
 const COL = "skyAiConversations";
 
@@ -107,7 +108,7 @@ export async function appendSkyAiExchange(
   batch.update(convRef, {
     updatedAt: FieldValue.serverTimestamp(),
     messageCount: FieldValue.increment(2),
-    lastPreview: assistantContent.slice(0, 120),
+    lastPreview: stripSkyAiMachineTags(assistantContent).slice(0, 120),
     ...(isFirst ? { title: titleFromMessage(userContent) } : {}),
   });
 

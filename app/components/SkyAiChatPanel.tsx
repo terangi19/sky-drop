@@ -36,6 +36,7 @@ type ChatMessage = {
   id: string;
   role: "user" | "assistant";
   text: string;
+  _rawText?: string; // Preserve original text with LISTING_FILL tags for history
   images?: string[];
   navigating?: boolean;
   streaming?: boolean;
@@ -145,6 +146,12 @@ export default function SkyAiChatPanel({
   const [pendingImages, setPendingImages] = useState<PendingAttachment[]>([]);
   const [imageBusy, setImageBusy] = useState(false);
   const [openAiReady, setOpenAiReady] = useState(true);
+  const [listingFillOccurred, _setListingFillOccurred] = useState(false);
+  const listingFillOccurredRef = useRef(false);
+  const setListingFillOccurred = useCallback((v: boolean) => {
+    listingFillOccurredRef.current = v;
+    _setListingFillOccurred(v);
+  }, []);
 
   useEffect(() => onAuthStateChanged(auth, setUser), []);
 
@@ -211,7 +218,34 @@ export default function SkyAiChatPanel({
   );
 
   const updateAssistant = useCallback((id: string, patch: Partial<ChatMessage>) => {
-    setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)));
+    setMessages((prev) => prev.map((m) => {
+      if (m.id === id) {
+        const updated = { ...m, ...patch };
+        console.log('[Awhina] updateAssistant called with patch.text:', patch.text);
+        // Always filter out welcome messages - AI should never show them after interaction
+        if (patch.text && /\b(Tell me what you need|create a listing, price help|safety tips|take me to seller guidelines|Tap a quick button below)\b/i.test(patch.text)) {
+          console.log('[Awhina] Filtering welcome message');
+          return {
+            ...updated,
+            text: `Done! I've filled your listing. What would you like to do next? You can edit the details, improve the description, generate keywords, check the price, or create listings for Facebook Marketplace or Trade Me.`,
+          };
+        }
+        console.log('[Awhina] Not filtering - no match');
+        return updated;
+      }
+      return m;
+    }));
+  }, []);
+
+  const addAssistantMessage = useCallback((msg: ChatMessage) => {
+    setMessages((prev) => {
+      // Always filter out welcome messages - AI should never show them after interaction
+      if (msg.text && /\b(Tell me what you need|create a listing, price help|safety tips|take me to seller guidelines|Tap a quick button below)\b/i.test(msg.text)) {
+        console.log('[Awhina] Filtering welcome message on add');
+        return [...prev, { ...msg, text: `Done! I've filled your listing. What would you like to do next? You can edit the details, improve the description, generate keywords, check the price, or create listings for Facebook Marketplace or Trade Me.` }];
+      }
+      return [...prev, msg];
+    });
   }, []);
 
   const startNewChat = useCallback(() => {
@@ -219,6 +253,7 @@ export default function SkyAiChatPanel({
     setMessages(welcomeMessages(welcomeText));
     setShowHistory(false);
     setListingPreviewFill(null);
+    setListingFillOccurred(false);
   }, [welcomeText]);
 
   const openConversation = useCallback(async (id: string) => {
@@ -238,8 +273,15 @@ export default function SkyAiChatPanel({
           text: m.content,
         })
       );
+      // Filter out welcome messages if a listing fill occurred in the loaded conversation
+      const filtered = loaded.map((msg) => {
+        if (msg.role === "assistant" && /\b(Tell me what you need|create a listing, price help|safety tips|take me to seller guidelines|Tap a quick button below)\b/i.test(msg.text)) {
+          return { ...msg, text: `Done! I've filled your listing. What would you like to do next? You can edit the details, improve the description, generate keywords, check the price, or create listings for Facebook Marketplace or Trade Me.` };
+        }
+        return msg;
+      });
       setConversationId(id);
-      setMessages(loaded.length ? loaded : welcomeMessages(welcomeText));
+      setMessages(filtered.length ? filtered : welcomeMessages(welcomeText));
       setShowHistory(false);
     } catch {
       /* ignore */
@@ -306,16 +348,18 @@ export default function SkyAiChatPanel({
       const history = [...messages, userMsg]
         .filter((m) => m.id !== "welcome" && !m.streaming)
         .slice(-20)
-        .map((m) => ({
-          role: m.role,
-          content: m.images?.length ? `${m.text} [sent ${m.images.length} photo(s)]` : m.text,
-        }));
+        .map((m) => {
+          // Use _rawText if available to preserve LISTING_FILL tags for state-awareness detection
+          const textToUse = (m as any)._rawText || m.text;
+          return {
+            role: m.role,
+            content: m.images?.length ? `${textToUse} [sent ${m.images.length} photo(s)]` : textToUse,
+          };
+        });
 
       const assistantId = `a-${Date.now()}`;
-      setMessages((prev) => [
-        ...prev,
-        { id: assistantId, role: "assistant", text: "", streaming: true },
-      ]);
+      const assistantMsg: ChatMessage = { id: assistantId, role: "assistant", text: "", streaming: true };
+      addAssistantMessage(assistantMsg);
 
       let navigateTo: string | undefined;
       let newConversationId = conversationId;
@@ -419,29 +463,54 @@ export default function SkyAiChatPanel({
                 };
                 if (evt.type === "delta" && evt.text) {
                   accumulated += evt.text;
+                  const stripped = stripSkyAiMachineTags(accumulated);
+                  // Filter welcome message during streaming if listing fill just occurred
+                  const filtered = listingFillOccurredRef.current && /\b(Tell me what you need|create a listing, price help|safety tips|take me to seller guidelines|Tap a quick button below)\b/i.test(stripped)
+                    ? `Done! I've filled your listing. What would you like to do next? You can edit the details, improve the description, generate keywords, check the price, or create listings for Facebook Marketplace or Trade Me.`
+                    : stripped;
                   updateAssistant(assistantId, {
-                    text: stripSkyAiMachineTags(accumulated),
+                    text: filtered,
+                    _rawText: accumulated, // Preserve raw text with LISTING_FILL tags
                   });
                 }
                 if (evt.type === "done") {
                   navigateTo = evt.navigateTo;
                   responseHandled = true;
                   if (isSellPage && navigateTo === "/post/ai") navigateTo = undefined;
-                  if (evt.listingFill && isSellPage) {
-                    setListingPreviewFill(evt.listingFill);
-                    const merged = mergeListingFillWithDraft(readListingDraftFromSkyAi(), evt.listingFill);
-                    onFill?.(merged);
-                    dispatchListingFill(merged);
-                    navigateTo = undefined;
-                    const aiReply = evt.reply || stripSkyAiMachineTags(accumulated);
-                    const cleanReply = aiReply && aiReply.length > 10
-                      ? aiReply
-                      : `Done! I've filled your listing — add photos above, then hit **Publish** below to go live.`;
-                    updateAssistant(assistantId, {
-                      text: cleanReply,
-                      streaming: false,
-                      navigating: false,
-                    });
+                  if (evt.listingFill) {
+                    console.log('[Awhina] Listing fill detected, setting listingFillOccurred = true');
+                    setListingFillOccurred(true);
+                    if (isSellPage) {
+                      setListingPreviewFill(evt.listingFill);
+                      const merged = mergeListingFillWithDraft(readListingDraftFromSkyAi(), evt.listingFill);
+                      onFill?.(merged);
+                      dispatchListingFill(merged);
+                      navigateTo = undefined;
+                      const aiReply = evt.reply || stripSkyAiMachineTags(accumulated);
+                      const cleanReply = aiReply && aiReply.length > 10
+                        ? aiReply
+                        : `Done! I've filled your listing — add photos above, then hit **Publish** below to go live.`;
+                      updateAssistant(assistantId, {
+                        text: cleanReply,
+                        _rawText: accumulated, // Preserve raw text with LISTING_FILL tags
+                        streaming: false,
+                        navigating: false,
+                      });
+                    } else {
+                      const navFromFill = handleListingFill(evt.listingFill, navigateTo);
+                      if (navFromFill) navigateTo = navFromFill;
+                      const aiReply = evt.reply || stripSkyAiMachineTags(accumulated);
+                      // Prevent welcome message after listing fill on non-sell pages
+                      const cleanReply = aiReply && aiReply.length > 10 && !/\b(Tell me what you need|create a listing, price help|safety tips|take me to seller guidelines)\b/i.test(aiReply)
+                        ? aiReply
+                        : `Done! I've filled your listing. What would you like to do next? You can edit the details, improve the description, generate keywords, check the price, or create listings for Facebook Marketplace or Trade Me.`;
+                      updateAssistant(assistantId, {
+                        text: cleanReply,
+                        _rawText: accumulated, // Preserve raw text with LISTING_FILL tags
+                        streaming: false,
+                        navigating: !!navigateTo,
+                      });
+                    }
                   } else {
                     const navFromFill = handleListingFill(evt.listingFill, navigateTo);
                     if (navFromFill) navigateTo = navFromFill;
@@ -465,21 +534,37 @@ export default function SkyAiChatPanel({
           const data = await res.json();
           navigateTo = data.navigateTo;
           if (isSellPage && navigateTo === "/post/ai") navigateTo = undefined;
-          if (data.listingFill && isSellPage) {
-            setListingPreviewFill(data.listingFill);
-            const merged = mergeListingFillWithDraft(readListingDraftFromSkyAi(), data.listingFill);
-            onFill?.(merged);
-            dispatchListingFill(merged);
-            navigateTo = undefined;
-            const aiReply = data.reply || "";
-            const cleanReply = aiReply && aiReply.length > 10
-              ? aiReply
-              : `Done! I've filled your listing — add photos above, then hit **Publish** below to go live.`;
-            updateAssistant(assistantId, {
-              text: cleanReply,
-              streaming: false,
-              navigating: false,
-            });
+          if (data.listingFill) {
+            setListingFillOccurred(true);
+            if (isSellPage) {
+              setListingPreviewFill(data.listingFill);
+              const merged = mergeListingFillWithDraft(readListingDraftFromSkyAi(), data.listingFill);
+              onFill?.(merged);
+              dispatchListingFill(merged);
+              navigateTo = undefined;
+              const aiReply = data.reply || "";
+              const cleanReply = aiReply && aiReply.length > 10
+                ? aiReply
+                : `Done! I've filled your listing — add photos above, then hit **Publish** below to go live.`;
+              updateAssistant(assistantId, {
+                text: cleanReply,
+                streaming: false,
+                navigating: false,
+              });
+            } else {
+              const navFromFill = handleListingFill(data.listingFill, navigateTo);
+              if (navFromFill) navigateTo = navFromFill;
+              const aiReply = data.reply || "";
+              // Prevent welcome message after listing fill on non-sell pages
+              const cleanReply = aiReply && aiReply.length > 10 && !/\b(Tell me what you need|create a listing, price help|safety tips|take me to seller guidelines)\b/i.test(aiReply)
+                ? aiReply
+                : `Done! I've filled your listing. What would you like to do next? You can edit the details, improve the description, generate keywords, check the price, or create listings for Facebook Marketplace or Trade Me.`;
+              updateAssistant(assistantId, {
+                text: cleanReply,
+                streaming: false,
+                navigating: !!navigateTo,
+              });
+            }
           } else {
             const navFromFill = handleListingFill(data.listingFill, navigateTo);
             if (navFromFill) navigateTo = navFromFill;
@@ -884,19 +969,21 @@ export default function SkyAiChatPanel({
           isSheet ? "max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]" : "rounded-b-xl"
         }`}
       >
-        <div className="mb-2 flex flex-wrap gap-1.5">
-          {quickPrompts.map((p) => (
-            <button
-              key={p.label}
-              type="button"
-              disabled={busy}
-              onClick={() => respond(p.query)}
-              className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-[10px] font-semibold text-sky-300 shadow-[0_0_12px_rgba(14,165,233,0.12)] hover:bg-sky-500/20 disabled:opacity-50"
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
+        {!listingPreviewFill && (
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {quickPrompts.map((p) => (
+              <button
+                key={p.label}
+                type="button"
+                disabled={busy}
+                onClick={() => respond(p.query)}
+                className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-[10px] font-semibold text-sky-300 shadow-[0_0_12px_rgba(14,165,233,0.12)] hover:bg-sky-500/20 disabled:opacity-50"
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        )}
         {pendingImages.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-1.5">
             {pendingImages.map((img, idx) => (

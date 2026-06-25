@@ -27,10 +27,11 @@ export default function ToastContainer() {
   useEffect(() => {
     addToastFn = (message, type) => {
       const id = ++toastId;
+      const duration = type === "error" ? 6000 : 3000;
       setToasts((prev) => [...prev, { id, message, type }]);
       setTimeout(() => {
         setToasts((prev) => prev.filter((t) => t.id !== id));
-      }, 3000);
+      }, duration);
     };
     return () => { addToastFn = null; };
   }, []);

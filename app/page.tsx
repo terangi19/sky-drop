@@ -566,7 +566,8 @@ export default function Home() {
             return (
               isVisible &&
               isListingVisibleInMarketplace(item) &&
-              !isDemoListing(item)
+              !isDemoListing(item) &&
+              item.type !== "wanted"
             );
 
           }
@@ -784,11 +785,7 @@ export default function Home() {
                 Welcome to Sky Drop
               </h1>
               <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-[var(--foreground)] sm:text-base">
-                {user ? (
-                  "List your items, message buyers directly, and sell nationwide with Āwhina AI assistance."
-                ) : (
-                  "Free listings, secure checkout, and a marketplace built for New Zealand."
-                )}
+                List your items, message buyers directly, and sell across New Zealand with help from Āwhina AI.
               </p>
               {user ? (
                 <div className="mt-6 flex justify-center">
@@ -811,7 +808,7 @@ export default function Home() {
                     Create Free Account
                   </Link>
                   <Link
-                    href="/digital"
+                    href="/#listings"
                     className="inline-flex items-center gap-2 rounded-2xl bg-white/[0.04] px-6 py-3.5 text-sm font-bold text-white transition-all duration-300 hover:bg-white/[0.06]"
                   >
                     Browse Listings
@@ -971,7 +968,28 @@ export default function Home() {
       </Suspense>
 
       {/* LISTINGS */}
-      <section className={`${PAGE_SHELL_MARKETPLACE} pb-10`}>
+      <section id="listings" className={`${PAGE_SHELL_MARKETPLACE} pb-10`}>
+
+        {/* Wanted Ads discovery banner */}
+        {(() => {
+          const wantedCount = listings.filter((l: any) => l.type === "wanted" && isListingVisibleInMarketplace(l)).length;
+          if (wantedCount === 0) return null;
+          return (
+            <Link
+              href="/wanted"
+              className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3 transition hover:border-amber-500/30 hover:bg-amber-500/[0.09]"
+            >
+              <div className="flex items-center gap-2.5">
+                <span className="text-lg">🔍</span>
+                <div>
+                  <p className="text-sm font-bold text-amber-300">{wantedCount} buyer{wantedCount !== 1 ? "s" : ""} looking for items</p>
+                  <p className="text-[11px] text-amber-400/70">Browse Wanted Ads — you might have what they need</p>
+                </div>
+              </div>
+              <svg className="h-4 w-4 shrink-0 text-amber-400/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+            </Link>
+          );
+        })()}
 
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
           <div className="flex items-center gap-4">
@@ -1080,11 +1098,20 @@ export default function Home() {
                   </svg>
                 </div>
                 <h2 className="text-2xl font-black tracking-tight text-white mb-2">No listings found</h2>
-                <p className="text-sm text-[var(--muted)] mb-6">Try adjusting your filters or search terms to find what you're looking for.</p>
-                <button onClick={() => { setSelectedCategory("All"); setSelectedCondition("All"); setSelectedRegion("All"); setSearch(""); }}
-                  className="rounded-xl border border-sky-500/30 bg-sky-500/10 px-6 py-3.5 text-sm font-bold text-sky-400 shadow-lg shadow-sky-500/10 transition-all duration-200 hover:bg-sky-500/15 hover:border-sky-500/40 hover:shadow-xl hover:shadow-sky-500/15 active:scale-[0.97]">
-                  Clear all filters
-                </button>
+                <p className="text-sm text-[var(--muted)] mb-2">
+                  {search ? <>Nothing matched <span className="font-semibold text-white">&ldquo;{search}&rdquo;</span> in the current filters.</> : "No listings match the current filters."}
+                </p>
+                <p className="text-xs text-[var(--muted)] mb-6">Clear your filters to see all listings, or post a Wanted ad so sellers can find you.</p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <button onClick={() => { setSelectedCategory("All"); setSelectedCondition("All"); setSelectedRegion("All"); setSearch(""); }}
+                    className="rounded-xl border border-sky-500/30 bg-sky-500/10 px-6 py-3.5 text-sm font-bold text-sky-400 transition-all duration-200 hover:bg-sky-500/15 hover:border-sky-500/40 active:scale-[0.97]">
+                    Clear all filters
+                  </button>
+                  <Link href="/post/ai?type=wanted"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-[var(--card)] px-6 py-3.5 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:bg-[var(--card-hover)] active:scale-[0.97]">
+                    Post a Wanted ad
+                  </Link>
+                </div>
               </>
             )}
           </div>

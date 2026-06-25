@@ -84,6 +84,7 @@ const LISTING_TYPES = new Set([
   "service",
   "rental",
   "vehicle",
+  "wanted",
 ]);
 
 const RENTAL_CATEGORIES = new Set(["Other", "Vehicles", "Equipment", "Property"]);
@@ -261,10 +262,12 @@ function inferListingType(
   blob: string
 ): string | undefined {
   if (raw.listingType) return normalizeListingType(raw.listingType, raw.category);
+  // Wanted signals — highest priority check
+  const lower = blob.toLowerCase();
+  if (/\b(wanted|looking for|seeking|searching for|need|iso|in search of|want to buy)\b/.test(lower)) return "wanted";
   // Rental signals — checked before vehicle brand detection
   if (raw.rentalSubType || raw.rentalPriceWeekly || raw.rentalPriceMonthly || raw.rentalDeposit ||
       raw.rentalBedrooms || raw.rentalAvailableDate) return "rental";
-  const lower = blob.toLowerCase();
   if (/\b(rent|rental|rent out|hire out|for hire|lease|for rent|to rent|renting out)\b/.test(lower)) return "rental";
   if (/\b(per day|daily rate|\/day|a day|per night|\/night)\b/.test(lower)) return "rental";
   if (/\b(digital|download|template|ebook|e-book|instant delivery|notion|preset)\b/.test(lower))
@@ -415,7 +418,11 @@ function normalizeRentalPetsPolicy(raw: string): string {
 }
 
 export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | null {
-  if (!input || typeof input !== "object") return null;
+  console.log('[Awhina normalizeSkyAiListingFill] Input:', input);
+  if (!input || typeof input !== "object") {
+    console.error('[Awhina normalizeSkyAiListingFill] Input is not an object:', input);
+    return null;
+  }
   const o = input as Record<string, unknown>;
   const daily = pickNumField(o, ["price", "rentalPriceDaily", "dailyRate", "rentalDaily"]);
   const raw: SkyAiListingFill = {
@@ -484,7 +491,11 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
     !!raw.vehicleColour ||
     !!raw.vehicleOdometer;
   const hasExtras = !!(raw.extras && raw.extras.length > 0);
-  if (!raw.title && !raw.description && !hasPrice && !hasVehicle && !hasExtras) return null;
+  console.log('[Awhina normalizeSkyAiListingFill] Validation check:', { title: raw.title, description: raw.description, hasPrice, hasVehicle, hasExtras });
+  if (!raw.title && !raw.description && !hasPrice && !hasVehicle && !hasExtras) {
+    console.error('[Awhina normalizeSkyAiListingFill] Validation failed - no data');
+    return null;
+  }
 
   const listingType =
     inferListingType(raw, blob) || (hasVehicle ? "vehicle" : "physical");
