@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { auth } from "../lib/firebase";
 import { getFreshIdToken } from "../lib/api-auth";
+import { trackFunnelEvent } from "../lib/funnel-events";
 import { showToast } from "./Toast";
 import AnimatedCheckmark from "./AnimatedCheckmark";
 
@@ -89,6 +90,14 @@ export default function ArrangePurchaseModal({ listing, buyerEmail, onClose, onS
 
       setConversationId(data.conversationId);
       setStep("success");
+      const uid = auth.currentUser?.uid;
+      if (uid) {
+        trackFunnelEvent({
+          event: "purchase_completed",
+          userId: uid,
+          listingId: listing.id,
+        });
+      }
 
       // Send initial message
       if (data.conversationId && listing.sellerEmail) {

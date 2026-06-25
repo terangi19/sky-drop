@@ -9,6 +9,7 @@ import ReportModal from "../../../components/ReportModal";
 import CheckoutModal from "../../../components/CheckoutModal";
 import PromoteModal from "../../../components/PromoteModal";
 import JobApplicationModal from "../../../components/JobApplicationModal";
+import ArrangePurchaseModal from "../../../components/ArrangePurchaseModal";
 import { showToast } from "../../../components/Toast";
 import { createNotification } from "../../../lib/notifications";
 import { User } from "firebase/auth";
@@ -20,6 +21,7 @@ import { isFullyVerifiedSeller, profileEmailVerified } from "../../../lib/seller
 import { detectSuspiciousPrice } from "../../../lib/pricedetection";
 import { safeGetDoc, safeOnSnapshot, parseFirestoreError, isOnline } from "../../../lib/firestore";
 import { getFreshIdToken } from "../../../lib/api-auth";
+import { trackFunnelEvent } from "../../../lib/funnel-events";
 import {
   isListingAvailableForPurchase,
   isListingVisibleInMarketplace,
@@ -152,12 +154,12 @@ export default function ListingPage() {
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showCheckout, setShowCheckout] = useState(false);
-  const [arrangingPurchase, setArrangingPurchase] = useState(false);
   const [winningBid, setWinningBid] = useState<number | null>(null);
   const [showPromote, setShowPromote] = useState(false);
   const [showJobApplication, setShowJobApplication] = useState(false);
   const [buyerPurchases, setBuyerPurchases] = useState<{ status?: string }[]>([]);
   const [sellerReviewData, setSellerReviewData] = useState<{ avg: number; count: number } | null>(null);
+  const [sellerSalesCount, setSellerSalesCount] = useState<number | null>(null);
   const [bidAmount, setBidAmount] = useState("");
   const [autoBidEnabled, setAutoBidEnabled] = useState(true);
   const [showBidModal, setShowBidModal] = useState(false);
@@ -171,6 +173,9 @@ export default function ListingPage() {
   const [answeringId, setAnsweringId] = useState<string | null>(null);
   const [answerText, setAnswerText] = useState("");
   const prevHighestBidderRef = useRef<string | null>(null);
+  const nativeActionsRef = useRef<HTMLDivElement | null>(null);
+  const [stickyBarVisible, setStickyBarVisible] = useState(true);
+  const [showArrangeModal, setShowArrangeModal] = useState(false);
 
   function getAuctionEndTime(endsAt: unknown): number {
     if (!endsAt) return 0;
@@ -194,35 +199,22 @@ export default function ListingPage() {
     setShowCheckout(true);
   }
 
-  async function handleArrangePurchase() {
-    if (!user?.email || !listingId || arrangingPurchase) return;
-    setArrangingPurchase(true);
-    try {
-      const token = await getFreshIdToken();
-      if (!token) {
-        showToast("Please sign in again.", "error");
-        return;
-      }
-      const res = await fetch("/api/arrange-purchase", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ listingId }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.success) {
-        showToast(data.error || "Could not start purchase. Try again.", "error");
-        return;
-      }
-      router.push(
-        `/messages?user=${encodeURIComponent(listing.sellerUsername || data.sellerEmail || listing.sellerEmail || "")}&listing=${listingId}`
-      );
-    } catch (e) {
-      console.error("Arrange purchase failed:", e);
-      showToast("Could not start purchase. Try again.", "error");
-    } finally {
-      setArrangingPurchase(false);
-    }
+  function handleArrangePurchase() {
+    if (!user?.email || !listing) return;
+    setShowArrangeModal(true);
   }
+
+  // Hide sticky bar when native action buttons scroll into view
+  useEffect(() => {
+    const el = nativeActionsRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setStickyBarVisible(!entry.isIntersecting),
+      { threshold: 0.5 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [listing]);
 
   // Auto-open checkout if navigated with ?buy=1 (Stripe for regular, Arrange Purchase for contact listings)
   useEffect(() => {
@@ -402,15 +394,19 @@ export default function ListingPage() {
     let mounted = true;
     (async () => {
       try {
-        const snap = await getDocs(query(collection(db, "reviews"), where("sellerEmail", "==", listing.sellerEmail)));
+        const [reviewSnap, salesSnap] = await Promise.all([
+          getDocs(query(collection(db, "reviews"), where("sellerEmail", "==", listing.sellerEmail))),
+          getDocs(query(collection(db, "purchases"), where("sellerEmail", "==", listing.sellerEmail), where("status", "in", ["delivered", "completed"]))),
+        ]);
         const ratings: number[] = [];
-        snap.docs.forEach((d) => {
+        reviewSnap.docs.forEach((d) => {
           const r = d.data().rating;
           if (r) ratings.push(Number(r));
         });
         if (mounted && ratings.length > 0) {
           setSellerReviewData({ avg: ratings.reduce((a, b) => a + b, 0) / ratings.length, count: ratings.length });
         }
+        if (mounted) setSellerSalesCount(salesSnap.size);
       } catch (e) { console.error(e); }
     })();
     return () => { mounted = false; };
@@ -437,16 +433,24 @@ export default function ListingPage() {
     } catch {}
   }, [listing]);
 
-  // View counter (debounced, once per session per listing)
+  // View counter + funnel event (debounced, once per session per listing)
   const viewedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!listingId || viewedRef.current.has(listingId)) return;
     viewedRef.current.add(listingId);
     const timer = setTimeout(() => {
       updateDoc(doc(db, "listings", listingId), { views: increment(1) }).catch((e) => console.error("Failed to increment view count:", e));
+      if (user?.uid) {
+        trackFunnelEvent({
+          event: "listing_detail_viewed",
+          userId: user.uid,
+          listingId,
+          listingType: listing?.type as string | undefined,
+        });
+      }
     }, 3000);
     return () => clearTimeout(timer);
-  }, [listingId]);
+  }, [listingId, user?.uid, listing?.type]);
 
   // Fetch Q&A
   useEffect(() => {
@@ -1410,7 +1414,7 @@ Property Status: 🟢 Inquiry Active`;
 
             {/* 5. BUY BUTTONS */}
             {isListingAvailableForPurchase(listing) && !isExpired && listing.type !== "service" && listing.type !== "job" && listing.type !== "property" && listing.type !== "rental" && !(listing.type === "digital" && listing.pricingType === "quote") && (purchaseUi.canPurchaseMore || (isContactListing && buyerArrangeRequestCount > 0)) && (
-            <div className="flex gap-2">
+            <div ref={nativeActionsRef} className="flex gap-2">
               {user && user.email !== listing.sellerEmail ? (
                 <>
                   {(listing as any).paymentType === "contact" ? (
@@ -1420,16 +1424,13 @@ Property Status: 🟢 Inquiry Active`;
                           e.stopPropagation();
                           handleArrangePurchase();
                         }}
-                        disabled={arrangingPurchase}
                         style={{
                           width: "100%",
                           minHeight: "44px",
                         }}
-                        className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
+                        className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98] whitespace-nowrap"
                       >
-                        {arrangingPurchase ? (
-                          "Connecting…"
-                        ) : buyerArrangeRequestCount > 0 ? (
+                        {buyerArrangeRequestCount > 0 ? (
                           <>
                             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -1843,11 +1844,20 @@ Service Status: 🟢 Inquiry Active`;
                       )}
                     </div>
                     <div className="mt-0.5 flex items-center gap-2 text-[11px]">
-                      <ReviewStars rating={sellerStatsData?.avg || 0} />
-                      <span className="text-white">{(sellerStatsData?.avg || 0).toFixed(1)}</span>
-                      <span className="text-zinc-500">{sellerStatsData?.count || 0} sale{(sellerStatsData?.count || 0) !== 1 ? "s" : ""}</span>
+                      {sellerStatsData && sellerStatsData.count > 0 ? (
+                        <>
+                          <ReviewStars rating={sellerStatsData.avg} />
+                          <span className="text-white">{sellerStatsData.avg.toFixed(1)}</span>
+                          <span className="text-zinc-500">{sellerStatsData.count} review{sellerStatsData.count !== 1 ? "s" : ""}</span>
+                        </>
+                      ) : (
+                        <span className="text-zinc-500 text-[10px]">No reviews yet</span>
+                      )}
+                      {sellerSalesCount !== null && sellerSalesCount > 0 && (
+                        <span className="text-zinc-500">· {sellerSalesCount} sale{sellerSalesCount !== 1 ? "s" : ""}</span>
+                      )}
                       {sellerProfile?.memberSince && (
-                        <span>· {(sellerProfile.memberSince as any).seconds ? new Date((sellerProfile.memberSince as any).seconds * 1000).getFullYear() : ""}</span>
+                        <span className="text-zinc-500">· {(sellerProfile.memberSince as any).seconds ? new Date((sellerProfile.memberSince as any).seconds * 1000).getFullYear() : ""}</span>
                       )}
                     </div>
                   </div>
@@ -2122,6 +2132,59 @@ Service Status: 🟢 Inquiry Active`;
             </div>
           </div>
         </div>
+      )}
+
+      {/* STICKY MOBILE CTA BAR — hidden on lg+, hidden when native buttons are in view */}
+      {listing && stickyBarVisible && user?.email !== listing.sellerEmail && isListingVisibleInMarketplace(listing) && !isExpired && listing.type !== "job" && (
+        <div className="fixed bottom-0 inset-x-0 z-40 lg:hidden border-t border-white/[0.06] bg-zinc-950/95 backdrop-blur-xl px-4 py-3 flex gap-3" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
+          {user ? (
+            <>
+              {isContactListing ? (
+                <button
+                  onClick={handleArrangePurchase}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-white"
+                >
+                  {`Request Purchase — $${listing.price}`}
+                </button>
+              ) : (
+                <button
+                  onClick={() => openStripeCheckout()}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-white"
+                >
+                  Buy Now — ${listing.price}
+                </button>
+              )}
+              <button
+                onClick={() => router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`)}
+                className="flex items-center justify-center gap-2 rounded-xl border border-white/[0.10] bg-white/[0.04] px-4 py-3 text-sm font-bold text-[var(--foreground)]"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                Message
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))}
+              className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-white"
+            >
+              Sign in to buy
+            </button>
+          )}
+        </div>
+      )}
+
+      {showArrangeModal && listing && user?.email && (
+        <ArrangePurchaseModal
+          listing={{ ...listing, id: listingId }}
+          buyerEmail={user.email}
+          onClose={() => setShowArrangeModal(false)}
+          onSuccess={(conversationId) => {
+            setShowArrangeModal(false);
+            router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`);
+          }}
+        />
       )}
 
       {showReportModal && listing && (

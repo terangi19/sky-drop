@@ -47,6 +47,7 @@ import { resolveSellerBySlug } from "../lib/seller-profile-lookup";
 import { getTurnstileSiteKey } from "../lib/turnstile";
 import { canSellerConfirmArrangeSale, countSellerSales } from "../lib/arrange-purchase-status";
 import { getFreshIdToken } from "../lib/api-auth";
+import { trackFunnelEvent } from "../lib/funnel-events";
 import TurnstileWidget from "../components/TurnstileWidget";
 import NegotiationAssistant from "../components/NegotiationAssistant";
 import {
@@ -715,9 +716,9 @@ function MessagesPage() {
     const activeListingTitle = listingCard?.title || null;
     const activeListingImage = listingCard?.images?.[0] || listingCard?.image || listingCard?.imageUrl || null;
     const activeListingPrice = listingCard?.price || null;
+    const tempId = "temp_" + Date.now();
     try {
       // Optimistic update - show message instantly
-      const tempId = "temp_" + Date.now();
       const optimisticMsg = {
         id: tempId,
         text: message,
@@ -741,6 +742,11 @@ function MessagesPage() {
           listingImage: activeListingImage || undefined, listingPrice: activeListingPrice || undefined,
         }),
       });
+      trackFunnelEvent({
+        event: "message_sent",
+        userId: user.uid,
+        listingId: chatListingId || undefined,
+      });
       createNotification({
         targetEmail: chatUser,
         fromEmail: user.email,
@@ -754,7 +760,11 @@ function MessagesPage() {
       await emitTyping(false);
       // Reset turnstile token after each send to prevent replay
       setTurnstileToken("");
-    } catch (e) { console.error(e); showToast("Failed to send", "error"); }
+    } catch (e) {
+      console.error(e);
+      showToast("Failed to send", "error");
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+    }
   }
   async function sendPendingMessage() {
     if (!pendingMessage || !user?.email || !chatUser) return;

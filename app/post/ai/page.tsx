@@ -10,6 +10,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { auth, db, storage, onAuthStateChanged } from "../../lib/firebase";
 import { getFreshIdToken } from "../../lib/api-auth";
 import { createPendingXP, trackListingCreated } from "../../lib/xpValidation";
+import { trackFunnelEvent } from "../../lib/funnel-events";
 import { checkImage } from "../../lib/nsfw";
 import { showToast } from "../../components/Toast";
 import DigitalAssetUpload from "../../components/DigitalAssetUpload";
@@ -319,18 +320,33 @@ export default function AIPostPage() {
   ]);
 
   const applyFill = useCallback((fill: SkyAiListingFill) => {
+    console.log('[Awhina Form] applyFill called with fill:', fill);
     const prior = readListingDraftFromSkyAi();
+    console.log('[Awhina Form] prior draft:', prior);
     const merged = mergeListingFillWithDraft(prior, fill);
+    console.log('[Awhina Form] merged fill:', merged);
     const isUpdate = hasActiveListingDraft(prior);
+
+    const beforeSnapshot = { title, description, category, condition, price, listingType, location };
+    let fieldsChanged = 0;
+
+    const trackingSetTitle = (v: string) => { if (v !== beforeSnapshot.title) fieldsChanged++; setTitle(v); };
+    const trackingSetDescription = (v: string) => { if (v !== beforeSnapshot.description) fieldsChanged++; setDescription(v); };
+    const trackingSetCategory = (v: string) => { if (v !== beforeSnapshot.category) fieldsChanged++; setCategory(v); };
+    const trackingSetCondition = (v: string) => { if (v !== beforeSnapshot.condition) fieldsChanged++; setCondition(v); };
+    const trackingSetPrice = (v: string) => { if (v !== beforeSnapshot.price) fieldsChanged++; setPrice(v); };
+    const trackingSetListingType = (v: "physical" | "digital" | "service" | "rental" | "event" | "vehicle" | "job" | "property" | "wanted") => { if (v !== beforeSnapshot.listingType) fieldsChanged++; setListingType(v); };
+    const trackingSetLocation = (v: string) => { if (v !== beforeSnapshot.location) fieldsChanged++; setLocation(v); };
+
     if (merged.extras?.length) setDraftExtras(merged.extras);
     const ok = applySkyAiListingFill(merged, {
-      setTitle,
-      setDescription,
-      setCategory,
-      setCondition,
-      setPrice,
-      setListingType,
-      setLocation,
+      setTitle: trackingSetTitle,
+      setDescription: trackingSetDescription,
+      setCategory: trackingSetCategory,
+      setCondition: trackingSetCondition,
+      setPrice: trackingSetPrice,
+      setListingType: trackingSetListingType,
+      setLocation: trackingSetLocation,
       setPaymentType,
       setVehicleMake,
       setVehicleModel,
@@ -362,7 +378,8 @@ export default function AIPostPage() {
       setStockQuantity,
       setServiceDuration,
     });
-    if (ok) {
+    console.log('[Awhina Form] applySkyAiListingFill returned:', ok, 'fieldsChanged:', fieldsChanged);
+    if (ok && fieldsChanged > 0) {
       const msg =
         fill.listingType === "digital"
           ? isUpdate
@@ -379,8 +396,11 @@ export default function AIPostPage() {
       setTimeout(() => {
         document.getElementById("listing-title")?.scrollIntoView({ behavior: "smooth", block: "center" });
       }, 300);
+    } else if (!ok) {
+      console.error('[Awhina Form] applySkyAiListingFill returned false - form not updated');
+      showToast("Āwhina couldn't fill your form - please check the console for details", "error");
     }
-  }, [imagePreviews.length]);
+  }, [imagePreviews.length, title, description, category, condition, price, listingType, location]);
 
   useEffect(() => {
     const pending = consumePendingListingFill();
@@ -442,6 +462,7 @@ export default function AIPostPage() {
 
       try {
         const script1 = document.createElement('script');
+        script1.type = 'module';
         script1.src = 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js';
         
         await Promise.race([
@@ -495,6 +516,16 @@ export default function AIPostPage() {
     });
     return () => unsub();
   }, []);
+
+  // Funnel: listing_form_started — once per session, only for new listings (not edits)
+  const formStartedRef = useRef(false);
+  useEffect(() => {
+    if (!user?.uid || formStartedRef.current) return;
+    const editParam = new URLSearchParams(window.location.search).get("edit");
+    if (editParam) return;
+    formStartedRef.current = true;
+    trackFunnelEvent({ event: "listing_form_started", userId: user.uid, listingType });
+  }, [user?.uid, listingType]);
 
   // Pre-select listing type from ?type= query param
   useEffect(() => {
@@ -673,6 +704,7 @@ export default function AIPostPage() {
   };
 
   const createListing = async () => {
+    if (loading) return;
     const needsPrice =
       listingType === "digital"
         ? pricingType !== "quote"
@@ -1020,6 +1052,12 @@ export default function AIPostPage() {
           createPendingXP(user.uid, "listing", data.listingId, data.listingId);
           trackListingCreated(user.uid, title);
         }
+        trackFunnelEvent({
+          event: "listing_form_completed",
+          userId: user.uid,
+          listingId: data.listingId,
+          listingType,
+        });
         showToast("Listing created!", "success");
       }
       setImagePreviews([]); setImageFiles([]); setExistingImages([]);
@@ -2071,15 +2109,8 @@ export default function AIPostPage() {
           {/* Delivery Options — physical & vehicle */}
           {(listingType === "physical" || listingType === "vehicle") && (
           <div className="rounded-xl bg-white/[0.03] p-4">
-            <div className="flex items-center justify-between mb-3">
+            <div className="mb-3">
               <label className="text-sm font-bold text-[var(--foreground)]">Delivery Options</label>
-              <button
-                type="button"
-                onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
-                className="text-xs text-sky-400 hover:text-sky-300 transition"
-              >
-                {showAdvancedOptions ? "Hide shipping options" : "Show shipping options"}
-              </button>
             </div>
             <p className="mb-3 text-[10px] text-[var(--muted)]">Select how buyers can receive the item. You can offer both pickup and shipping.</p>
             <div className="space-y-3">
@@ -2096,35 +2127,33 @@ export default function AIPostPage() {
                   <p className="mt-1 text-[10px] text-[var(--muted)]">Buyers will pick up the item from your location.</p>
                 </div>
               )}
-              {showAdvancedOptions && (
               <div className="border-t border-[var(--border)] pt-3 mt-3 space-y-3">
                 <label className="flex cursor-pointer items-center gap-2.5">
                   <input type="checkbox" checked={shippingAvailable} onChange={(e) => setShippingAvailable(e.target.checked)}
                     className="h-4 w-4 rounded border-[var(--border)] bg-[var(--card)] text-sky-500 focus:ring-sky-500/30" />
                   <span className="text-sm text-[var(--foreground)]">Shipping available</span>
                 </label>
-              {shippingAvailable && (
-                <div className="ml-7">
-                  <label className="flex cursor-pointer items-center gap-2">
-                    <input type="checkbox" checked={freeShipping} onChange={(e) => { setFreeShipping(e.target.checked); if (e.target.checked) setShippingFee(""); }}
-                      className="h-4 w-4 rounded border-[var(--border)] bg-[var(--card)] text-sky-500 focus:ring-sky-500/30" />
-                    <span className="text-xs text-[var(--foreground)]">Free shipping</span>
-                  </label>
-                  {!freeShipping && (
-                    <div className="mt-2">
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                        <input type="number" value={shippingFee} onChange={(e) => setShippingFee(e.target.value)}
-                          placeholder="Shipping fee"
-                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                {shippingAvailable && (
+                  <div className="ml-7">
+                    <label className="flex cursor-pointer items-center gap-2">
+                      <input type="checkbox" checked={freeShipping} onChange={(e) => { setFreeShipping(e.target.checked); if (e.target.checked) setShippingFee(""); }}
+                        className="h-4 w-4 rounded border-[var(--border)] bg-[var(--card)] text-sky-500 focus:ring-sky-500/30" />
+                      <span className="text-xs text-[var(--foreground)]">Free shipping</span>
+                    </label>
+                    {!freeShipping && (
+                      <div className="mt-2">
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                          <input type="number" value={shippingFee} onChange={(e) => setShippingFee(e.target.value)}
+                            placeholder="Shipping fee"
+                            className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                        </div>
+                        <p className="mt-1 text-[10px] text-[var(--muted)]">Buyers pay this shipping fee on top of the item price.</p>
                       </div>
-                      <p className="mt-1 text-[10px] text-[var(--muted)]">Buyers pay this shipping fee on top of the item price.</p>
-                    </div>
-                  )}
-                </div>
-              )}
+                    )}
+                  </div>
+                )}
               </div>
-              )}
             </div>
           </div>
           )}

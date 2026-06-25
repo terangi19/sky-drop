@@ -820,6 +820,24 @@ service cloud.firestore {
 
 
 
+    // Funnel analytics — append-only, write-once per event.
+    // Authenticated users may create events for themselves only.
+    // No client reads, updates, or deletes — keeps analytics trustworthy.
+    // Admin reads happen via server SDK (bypasses these rules).
+
+    match /funnelEvents/{eventId} {
+
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.event is string
+        && request.resource.data.sessionId is string;
+
+      allow read, update, delete: if false;
+
+    }
+
+
+
     match /skyAiConversations/{conversationId} {
 
       allow read: if request.auth != null && resource.data.uid == request.auth.uid;

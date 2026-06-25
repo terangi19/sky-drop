@@ -27,6 +27,7 @@ interface ListingData {
   image?: string;
   sellerEmail?: string;
   sellerUsername?: string;
+  sellerId?: string;
   pickupAvailable?: boolean;
   shippingAvailable?: boolean;
   pickupArea?: string;
@@ -223,6 +224,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
   const modalRef = useRef<HTMLDivElement>(null);
   const [sellerRating, setSellerRating] = useState<number | null>(null);
   const [sellerResponseTime, setSellerResponseTime] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const shippingAmount = listing.shippingFee && !listing.freeShipping ? listing.shippingFee : 0;
   const itemPrice = winningBid || Number(listing.price) || 0;
@@ -330,10 +332,10 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
         console.error("Failed to load profile shipping info:", e);
       }
 
-      // Load seller trust info
-      if (listing.sellerEmail && !cancelled) {
+      // Load seller trust info — profiles are keyed by UID (sellerId)
+      if (listing.sellerId && !cancelled) {
         try {
-          const sellerQuery = await getDoc(doc(db, "profiles", listing.sellerEmail.split("@")[0]));
+          const sellerQuery = await getDoc(doc(db, "profiles", listing.sellerId));
           if (sellerQuery.exists()) {
             const sellerData = sellerQuery.data();
             setSellerRating(sellerData.sellerRating || null);
@@ -371,10 +373,11 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
   }
 
   async function handleContinue() {
-    if (!isValid || step !== "form") return;
+    if (!isValid || step !== "form" || submitting) return;
+    setSubmitting(true);
     if (listing.stockQuantity != null && listing.stockQuantity <= 0) {
       showToast("This item is out of stock.", "error");
-      setStep("form");
+      setSubmitting(false);
       return;
     }
     setStep("card");
@@ -466,6 +469,8 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
         setIntentError(msg || "Could not connect to payment server. Please try again.");
       }
       setStep("form");
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -1095,10 +1100,10 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                 </button>
                 <button
                   onClick={handleContinue}
-                  disabled={!isValid}
+                  disabled={!isValid || submitting}
                   className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Continue — ${total.toFixed(2)}
+                  {submitting ? "Starting..." : `Continue — $${total.toFixed(2)}`}
                 </button>
               </div>
             )}
