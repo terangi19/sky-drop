@@ -1700,15 +1700,15 @@ function MessagesPage() {
                         // Offer card
                         if (msg.type === "offer") {
                           const statusColors: Record<string, string> = {
-                            pending: "text-sky-400 border-sky-500/20 bg-sky-500/10",
-                            accepted: "text-sky-400 border-sky-500/20 bg-sky-500/10",
-                            declined: "text-red-400 border-red-500/20 bg-red-500/10",
-                            countered: "text-sky-400 border-sky-500/20 bg-sky-500/10",
+                            pending: "text-sky-400 bg-sky-500/10",
+                            accepted: "text-sky-400 bg-sky-500/10",
+                            declined: "text-red-400 bg-red-500/10",
+                            countered: "text-sky-400 bg-sky-500/10",
                           };
                           const statusColor = statusColors[msg.offerStatus || "pending"] || statusColors.pending;
                           return (
                             <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
-                              <div className={`w-[280px] overflow-hidden rounded-2xl border ${statusColor}`}>
+                              <div className={`w-[280px] overflow-hidden rounded-2xl shadow-lg ${statusColor}`}>
                                 <div className="p-4">
                                   <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
@@ -1784,11 +1784,11 @@ function MessagesPage() {
                           return (
                             <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
                               <div className="w-full max-w-md">
-                                <div className={`overflow-hidden rounded-2xl border ${statusConfig.border} bg-[var(--card)] shadow-lg hover:shadow-xl transition-shadow duration-200`}>
+                                <div className={`overflow-hidden rounded-2xl bg-[var(--card)] shadow-lg hover:shadow-xl transition-shadow duration-200`}>
                                   {/* Header */}
                                   <div className="flex items-start gap-3 p-4 border-b border-white/[0.04]">
                                     {/* Thumbnail */}
-                                    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-[var(--soft-card)] border border-white/[0.06]">
+                                    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-[var(--soft-card)]">
                                       {msg.listingImage ? (
                                         <img src={msg.listingImage} alt="" className="h-full w-full object-cover" />
                                       ) : (
@@ -1923,7 +1923,7 @@ function MessagesPage() {
                           return (
                             <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
                               <div className="max-w-[75%]">
-                                <div className={`overflow-hidden rounded-2xl shadow-xl transition-all duration-200 hover:shadow-2xl ${isOwn ? "rounded-br-md border border-sky-500/30 bg-gradient-to-br from-sky-500 to-sky-600" : "rounded-bl-md border border-[var(--border)] bg-[var(--card)]"}`}>
+                                <div className={`overflow-hidden rounded-2xl shadow-lg transition-all duration-200 hover:shadow-xl ${isOwn ? "rounded-br-md bg-gradient-to-br from-sky-500 to-sky-600" : "rounded-bl-md bg-[var(--card)]"}`}>
                                   {(msg.imageUrl || msg.imageData) && (
                                     <img src={msg.imageUrl || msg.imageData} alt="Shared image" className="max-h-80 w-full object-cover"
                                       onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
@@ -1945,7 +1945,7 @@ function MessagesPage() {
                               <div className="max-w-[75%]">
                                 <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer"
                                   className={`flex items-center gap-3 rounded-2xl px-4 py-3 shadow-lg transition hover:opacity-80 ${
-                                    isOwn ? "rounded-br-md bg-gradient-to-br from-sky-500 to-sky-600 text-white border border-sky-500/30" : "rounded-bl-md bg-[var(--card)] text-[var(--foreground)] border border-[var(--border)]"
+                                    isOwn ? "rounded-br-md bg-gradient-to-br from-sky-500 to-sky-600 text-white" : "rounded-bl-md bg-[var(--card)] text-[var(--foreground)]"
                                   }`}>
                                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--soft-card)] text-lg">
                                     {isPdf ? "📄" : "📎"}
@@ -1972,7 +1972,7 @@ function MessagesPage() {
                         if (msg.type === "order_event") {
                           return (
                             <div key={msg.id} className="flex justify-center">
-                              <div className="w-full max-w-sm rounded-xl border border-sky-500/10 bg-sky-500/5 px-4 py-3 my-2">
+                              <div className="w-full max-w-sm rounded-xl bg-sky-500/5 px-4 py-3 my-2">
                                 <div className="flex items-center gap-2 mb-1.5">
                                   <span className="text-sm">📦</span>
                                   <span className="text-[11px] font-bold text-sky-400">Order Event</span>
@@ -2004,7 +2004,7 @@ function MessagesPage() {
                         if (msg.type === "system" && msg.sender === "system") {
                           return (
                             <div key={msg.id} className="flex justify-center">
-                              <div className="max-w-[90%] rounded-xl border border-sky-500/15 bg-sky-500/5 px-4 py-3 text-left">
+                              <div className="max-w-[90%] rounded-xl bg-sky-500/5 px-4 py-3 text-left">
                                 <p className="whitespace-pre-line text-[13px] leading-relaxed text-[var(--foreground)]">
                                   {formatMessageText(msg.text)}
                                 </p>
@@ -2020,7 +2020,7 @@ function MessagesPage() {
                         return (
                           <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
                             <div className="max-w-[75%]">
-                              <div className={`rounded-2xl px-4 py-3 text-[14px] shadow-lg transition-all duration-200 hover:shadow-xl ${isOwn ? "rounded-br-md bg-gradient-to-br from-sky-500 to-sky-600 text-white border border-sky-500/30" : "rounded-bl-md bg-[var(--card)] text-[var(--foreground)] border border-[var(--border)]"}`}>
+                              <div className={`rounded-2xl px-4 py-3 text-[14px] shadow-lg transition-all duration-200 hover:shadow-xl ${isOwn ? "rounded-br-md bg-gradient-to-br from-sky-500 to-sky-600 text-white" : "rounded-bl-md bg-[var(--card)] text-[var(--foreground)]"}`}>
                                 {!isOwn && (() => { const check = detectScam(msg.text || ""); return check.isScam ? (
                                   <span className="mb-2 inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2.5 py-1 text-[9px] font-bold text-red-400 border border-red-500/20" title={`Flagged: ${check.keywords.join(", ")}`}>&#9888;&#65039; Caution</span>
                                 ) : null; })()}
