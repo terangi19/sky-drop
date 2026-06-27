@@ -240,16 +240,33 @@ const [sellBadgePrice, setSellBadgePrice] = useState("50");
 const [authRefreshing, setAuthRefreshing] = useState(false);
 const [activeTab, setActiveTab] = useState("profile");
 
-const tabs = [
-  { id: "profile", label: "Profile", group: "account" },
-  { id: "listings", label: "Listings", group: "selling" },
-  { id: "reviews", label: "Reviews", group: "selling" },
-  { id: "verification", label: "Verification", group: "account" },
-  { id: "payments", label: "Payments", group: "account" },
-  { id: "notifications", label: "Notifications", group: "account" },
-  { id: "settings", label: "Settings", group: "account" },
-  { id: "danger", label: "Delete", group: "account" },
-] as const;
+// Check if user is new (less than 7 days old, no listings)
+const isNewUser = useMemo(() => {
+  const memberSince = profile.memberSince?.toDate?.() || new Date();
+  const daysSinceJoined = (Date.now() - memberSince.getTime()) / (1000 * 60 * 60 * 24);
+  return daysSinceJoined < 7 && activeListings.length === 0;
+}, [profile.memberSince, activeListings.length]);
+
+const tabs = useMemo(() => {
+  // Simplified tabs for new users
+  if (isNewUser) {
+    return [
+      { id: "profile", label: "Profile", group: "account" },
+      { id: "verification", label: "Verification", group: "account" },
+    ] as const;
+  }
+  // Full tabs for established users
+  return [
+    { id: "profile", label: "Profile", group: "account" },
+    { id: "listings", label: "Listings", group: "selling" },
+    { id: "reviews", label: "Reviews", group: "selling" },
+    { id: "verification", label: "Verification", group: "account" },
+    { id: "payments", label: "Payments", group: "account" },
+    { id: "notifications", label: "Notifications", group: "account" },
+    { id: "settings", label: "Settings", group: "account" },
+    { id: "danger", label: "Delete", group: "account" },
+  ] as const;
+}, [isNewUser]);
 
 const tabGroups = [
   { id: "account", label: "Account" },
