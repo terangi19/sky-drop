@@ -235,7 +235,7 @@ export default function SignupPage() {
             to: u.email!,
             subject: "Welcome to Sky Drop",
             title: "Welcome to Sky Drop",
-            message: "Thanks for joining. Browse anytime — complete KYC when you're ready to sell.",
+            message: "Thanks for joining. Browse listings anytime.",
             ctas: [{ label: "Browse Listings", url: process.env.NEXT_PUBLIC_URL || "https://skydrop.co.nz", primary: true }],
           });
           const token = await auth.currentUser?.getIdToken();
