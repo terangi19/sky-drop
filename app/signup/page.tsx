@@ -338,7 +338,7 @@ export default function SignupPage() {
                 </div>
                 <div>
                   <h3 className="font-bold text-white">Sell When Ready</h3>
-                  <p className="mt-1 text-sm text-zinc-500">Complete verification only when you want to list items</p>
+                  <p className="mt-1 text-sm text-zinc-500">List items whenever you're ready to sell</p>
                 </div>
               </div>
             </div>
