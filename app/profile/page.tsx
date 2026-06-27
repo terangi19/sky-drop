@@ -1224,6 +1224,7 @@ const tabGroups = [
   );
 
   const profileBadges = [
+    profile.phoneVerified && { key: "phone", label: "Phone Verified", className: "border-sky-500/25 bg-sky-500/10 text-sky-300" },
     isFullyVerified && { key: "verified", label: "Verified", className: "border-sky-500/25 bg-sky-500/10 text-sky-300" },
     profile.topTrader && { key: "top", label: "Top Trader", className: "border-sky-500/25 bg-sky-500/10 text-sky-300" },
     profile.trustedSeller && { key: "trusted", label: "Trusted", className: "border-sky-500/25 bg-sky-500/10 text-sky-300" },
