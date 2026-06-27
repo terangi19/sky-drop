@@ -11,7 +11,7 @@ export default function KycBuyerAssuranceBanner({ className = "" }: Props) {
       role="note"
     >
       <p className="text-[11px] leading-relaxed text-zinc-400">
-        <span className="font-semibold text-sky-400/90">ID-verified seller.</span>{" "}
+        <span className="font-semibold text-sky-400/90">Trusted seller.</span>{" "}
         If your item doesn&apos;t arrive, contact{" "}
         <a
           href={`mailto:${ARRANGE_KYC_SUPPORT_EMAIL}`}
