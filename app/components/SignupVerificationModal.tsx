@@ -60,9 +60,9 @@ export default function SignupVerificationModal({ onClose, onVerify }: Props) {
           </div>
 
           <div className="rounded-lg border border-white/5 bg-white/[0.02] p-4">
-            <h3 className="mb-2 font-semibold text-sky-400">To Sell Items</h3>
+            <h3 className="mb-2 font-semibold text-sky-400">Sell When Ready</h3>
             <p className="text-sm text-[var(--muted)]">
-              Complete seller verification when you're ready to list items for sale.
+              List items whenever you're ready to sell.
             </p>
           </div>
         </div>
