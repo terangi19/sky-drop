@@ -1,6 +1,5 @@
 import {
   createUserWithEmailAndPassword,
-  sendEmailVerification,
   type User,
 } from "firebase/auth";
 import {
@@ -155,7 +154,15 @@ export async function createSkyDropAccount(input: CreateAccountInput): Promise<U
   const user = cred.user;
 
   try {
-    await sendEmailVerification(user);
+    const token = await user.getIdToken();
+    await fetch("/api/send-verification-email", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ email: user.email }),
+    });
   } catch (e) {
     console.error("Email verification send failed:", e);
   }

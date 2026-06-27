@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { sendEmailVerification } from "firebase/auth";
 import { auth, onAuthStateChanged } from "../lib/firebase";
 import { showToast } from "./Toast";
 
@@ -35,13 +34,22 @@ export default function VerificationBanner() {
     if (!user || sending) return;
     setSending(true);
     try {
-      await sendEmailVerification(user, {
-        url: (typeof window !== "undefined" ? window.location.origin : process.env.NEXT_PUBLIC_URL) + "/profile",
+      const token = await user.getIdToken();
+      const res = await fetch("/api/send-verification-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ email: user.email }),
       });
+      if (!res.ok) {
+        throw new Error("Failed to send verification email");
+      }
       setSent(true);
       setTimeout(() => setSent(false), 4000);
     } catch (e: any) {
-      showToast(e.message, "error");
+      showToast(e.message || "Failed to send verification email", "error");
     }
     setSending(false);
   }
