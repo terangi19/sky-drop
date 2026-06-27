@@ -3,7 +3,12 @@ import { test, expect } from "@playwright/test";
 test.describe("Authentication", () => {
   test("login page loads", async ({ page }) => {
     await page.goto("/login");
-    await expect(page.getByRole("heading", { name: /Login|Create account/ })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("heading", { name: "Log in" })).toBeVisible({ timeout: 10000 });
+  });
+
+  test("signup page loads", async ({ page }) => {
+    await page.goto("/signup");
+    await expect(page.getByRole("heading", { name: "Join Sky Drop" })).toBeVisible({ timeout: 10000 });
   });
 
   test("homepage loads without auth", async ({ page }) => {
@@ -39,10 +44,8 @@ test.describe("Authentication", () => {
     }
   });
 
-  test("signup toggle switches to create account mode", async ({ page }) => {
+  test("login links to signup", async ({ page }) => {
     await page.goto("/login");
-    await expect(page.getByRole("heading", { name: "Login" })).toBeVisible({ timeout: 10000 });
-    await page.getByRole("button", { name: /Sign up/i }).click();
-    await expect(page.getByRole("heading", { name: "Create account" })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("link", { name: /Join free/i })).toBeVisible({ timeout: 10000 });
   });
 });
