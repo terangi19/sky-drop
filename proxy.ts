@@ -10,6 +10,15 @@ import {
   STRICT_API_ROUTES,
 } from "./app/lib/rate-limit-edge";
 
+const CSRF_COOKIE_NAME = 'csrf_token';
+const TOKEN_LENGTH = 32;
+
+function generateToken(): string {
+  const array = new Uint8Array(TOKEN_LENGTH);
+  crypto.getRandomValues(array);
+  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
 /**
  * App-layer abuse resistance. Volumetric network DDoS still needs CDN/WAF
  * (Cloudflare, Vercel Firewall, AWS Shield). For distributed rate limits across
@@ -105,8 +114,23 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const country = request.geo?.country || "";
 
+  // Generate CSRF token if not present
+  const existingToken = request.cookies.get(CSRF_COOKIE_NAME);
+  const response = NextResponse.next();
+  
+  if (!existingToken) {
+    const newToken = generateToken();
+    response.cookies.set(CSRF_COOKIE_NAME, newToken, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24, // 24 hours
+      path: '/',
+    });
+  }
+
   for (const prefix of RATE_LIMIT_EXEMPT_PREFIXES) {
-    if (pathname.startsWith(prefix)) return NextResponse.next();
+    if (pathname.startsWith(prefix)) return response;
   }
 
   if (pathname.startsWith("/api")) {
@@ -118,7 +142,7 @@ export async function proxy(request: NextRequest) {
     const rateLimited = checkApiRateLimits(pathname, ip);
     if (rateLimited) return rateLimited;
 
-    if (!country) return NextResponse.next();
+    if (!country) return response;
   }
 
   const isBlocked = BLOCKED_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
@@ -126,7 +150,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/unavailable", request.url));
   }
 
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {
