@@ -189,8 +189,8 @@ export const onReportCreated = onDocumentCreated("reports/{reportId}", async (ev
   }
 });
 
-// Auto-release escrow 14 days after delivery if no dispute
-export const autoReleaseEscrow = onSchedule("every 24 hours", async () => {
+// Auto-release funds 14 days after delivery if no dispute
+export const autoReleaseFunds = onSchedule("every 24 hours", async () => {
   const cutoff = admin.firestore.Timestamp.fromMillis(Date.now() - 14 * 24 * 60 * 60 * 1000);
   try {
     const snapshot = await db
@@ -212,10 +212,10 @@ export const autoReleaseEscrow = onSchedule("every 24 hours", async () => {
         autoReleased: true,
       });
 
-      console.log("[autoReleaseEscrow] Released funds for purchase:", doc.id);
+      console.log("[autoReleaseFunds] Released funds for purchase:", doc.id);
     }
   } catch (e) {
-    console.error("[autoReleaseEscrow] Failed:", e);
+    console.error("[autoReleaseFunds] Failed:", e);
   }
 });
 

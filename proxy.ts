@@ -28,7 +28,7 @@ const BLOCKED_PATHS = [
   "/opportunities", "/jobs",
   "/post", "/seller", "/reviews",
   "/reports", "/disputes", "/dashboard",
-  "/checkout", "/escrow", "/payments",
+  "/checkout", "/payments",
   "/manage", "/admin", "/blocked",
 ];
 

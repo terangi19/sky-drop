@@ -80,10 +80,10 @@ export const GUIDE_DESTINATIONS: GuideDestination[] = [
     blurb: "What Sky Drop is and how payments work.",
   },
   {
-    id: "escrow",
+    id: "payments",
     title: "How payments work",
-    path: "/escrow",
-    keywords: ["escrow", "stripe checkout", "payment types", "how to pay", "buyer protection"],
+    path: "/payments",
+    keywords: ["payments", "stripe checkout", "payment types", "how to pay", "buyer protection"],
     blurb: "Stripe Checkout vs Arrange Purchase explained.",
   },
   {

@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
         : (now - createdAt) > 14 * 86400000;   // 14 days after purchase
 
       if (!autoReleaseElapsed) {
-        return NextResponse.json({ error: "Funds are held in escrow until the buyer confirms receipt. Auto-release will trigger after 14 days." }, { status: 400 });
+        return NextResponse.json({ error: "Payment is being processed. Auto-release will trigger after 14 days." }, { status: 400 });
       }
 
       // Double-check no dispute was opened since the start of this request
@@ -232,7 +232,7 @@ export async function POST(req: NextRequest) {
     });
     await notifyAdmin({
       type: "payment_release_failure",
-      title: "Escrow Payment Release Failed",
+      title: "Payment Release Failed",
       message: `Purchase ${purchaseId}: ${errorMsg}`,
       metadata: {
         purchaseId,
@@ -244,7 +244,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    await logSecurityCritical("payment_release_failed", `Escrow release failed for purchase ${purchaseId}`, {
+    await logSecurityCritical("payment_release_failed", `Payment release failed for purchase ${purchaseId}`, {
       actorEmail: decodedToken?.email,
       metadata: { purchaseId, error: e.message, sellerEmail: purchase?.sellerEmail, buyerEmail: purchase?.buyerEmail },
     });

@@ -54,7 +54,7 @@ These operations must go through API routes for security, validation, or complex
 - **Why API Required**:
   - Payment validation
   - Stripe integration
-  - Escrow management
+  - Payment processing
   - Fraud detection
 
 ### Offer Acceptance
@@ -119,7 +119,7 @@ These operations must go through API routes for security, validation, or complex
 - **Operations**: Create and manage disputes
 - **Collection**: `disputes/{id}`, `purchases/{id}`
 - **Why API Required**:
-  - Escrow release logic
+  - Payment release logic
   - Evidence collection
   - Admin review workflow
 

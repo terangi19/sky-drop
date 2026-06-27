@@ -25,7 +25,7 @@ Real items that can be picked up or shipped, including vehicles (phones, furnitu
 
 ### Available Payment Types
 - **Arrange Purchase** (contact): Default - bank transfer, cash, or pickup
-- **Stripe Checkout**: Card payment with escrow
+- **Stripe Checkout**: Card payment with buyer protection
 
 ### Sale Types
 - **Buy Now**: Fixed price listing
@@ -281,10 +281,10 @@ Post what you're looking for and let sellers come to you (buyer creates listing,
 
 ### Stripe Checkout
 - **Requires**: Stripe Connect account linked in Profile
-- **Flow**: Buyer pays via card, funds held in escrow
-- **Protection**: Full buyer protection through escrow
+- **Flow**: Buyer pays via card through Stripe Checkout
+- **Protection**: Full buyer protection through dispute process
 - **Fees**: Platform fees apply
-- **Release**: Funds released to seller after buyer confirms receipt
+- **Release**: Funds go directly to seller's Stripe account
 - **Disputes**: Can be raised if issues arise
 
 ---
@@ -298,10 +298,10 @@ Post what you're looking for and let sellers come to you (buyer creates listing,
 - **Risk**: Higher - buyer must trust seller
 
 ### Stripe Checkout
-- **Protection**: Full - funds held in escrow
+- **Protection**: Full - buyer protection through dispute process
 - **Disputes**: Formal dispute process with evidence
 - **Refunds**: Automatic if dispute resolved in buyer's favor
-- **Risk**: Lower - platform holds funds until confirmed
+- **Risk**: Lower - platform manages payment disputes
 
 ---
 

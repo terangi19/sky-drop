@@ -468,7 +468,7 @@ export default function SalesPage() {
                       ) : (s as any).destinationCharge ? (
                         <span className="text-[11px] text-sky-400 font-bold">✅ Funds sent to your Stripe account</span>
                       ) : s.status === "delivered" && !(s as any).fundsReleased ? (
-                        <span className="text-[11px] text-sky-400 font-bold">🔒 Funds Held in Escrow</span>
+                        <span className="text-[11px] text-sky-400 font-bold">🔒 Payment Processing</span>
                       ) : null}
                       {(s as any).fundsReleased && !(s as any).destinationCharge && (
                         <span className="text-[11px] text-sky-400 font-bold">✅ Funds Released</span>

@@ -160,7 +160,7 @@ const PAGE_INTROS: Record<string, string[]> = {
     "This is the Seller Guide — best practices for listing, pricing, and shipping.",
     "Follow these tips to sell faster and keep buyers happy.",
   ],
-  "/escrow": [
+  "/payments": [
     "This is How Payments Work — Stripe checkout and buyer protections.",
     "Read how money moves between buyers and sellers on Sky Drop.",
   ],

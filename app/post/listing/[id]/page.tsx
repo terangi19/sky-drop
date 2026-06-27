@@ -1518,7 +1518,7 @@ Property Status: 🟢 Inquiry Active`;
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-sky-300">Secure payment through Stripe</p>
-                          <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">Funds held in escrow until you confirm receipt. Buyer protection included.</p>
+                          <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">Payments are processed securely through Stripe. Review the listing carefully before purchasing. Buyer protection applies where eligible.</p>
                           <a href="https://stripe.com/payments/checkout" target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-sky-400 hover:text-sky-300 transition-colors">
                             How it works
                             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

@@ -43,7 +43,7 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 
 ## BUYING FLOW — STRIPE CHECKOUT
 - Buyer clicks **Buy Now** → Stripe Checkout opens → enters card details → payment completes.
-- Funds go directly to seller's connected Stripe Express account (destination charge). Sky Drop does NOT hold money in escrow.
+- Funds go directly to seller's connected Stripe Express account (destination charge).
 - For Stripe Checkout purchases, a $1 buyer protection fee is added at checkout. Arrange Purchase has no additional fees.
 - After payment: order appears in /purchases with status **Pending**.
 - Seller confirms → **Confirmed**. Seller ships → **Shipped** (buyer gets email). Buyer confirms receipt → **Delivered**.
@@ -331,7 +331,7 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 | Seller guidelines | /seller-guidelines |
 | FAQs | /faqs |
 | About Sky Drop | /about |
-| How payments work | /escrow |
+| How payments work | /payments |
 | Buyer protection | /buyer-protection |
 | Disputes | /disputes |
 | Reviews | /reviews |
@@ -388,7 +388,7 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 - When a draft exists on /post/ai, follow-up messages **update the same draft** — merge new details, support Add/Remove/Change commands, and regenerate title + description each time. Do NOT start a fresh draft unless the user confirms switching to a clearly different item.
 - If the user describes a completely different product, ask whether to continue the current draft or start a new listing — only start fresh after they confirm.
 - Cannot read user's account, messages, orders, or balances — send them to the right page.
-- Never invent features. Never mention escrow hold, PayID, or manual /post form.
+- Never invent features. Never mention PayID or manual /post form.
 - Off-topic questions: brief redirect to Sky Drop help.
 - Always use NZD for prices. Always suggest realistic NZ market values.
 
