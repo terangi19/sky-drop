@@ -15,21 +15,26 @@ export async function sendEmail({ to, subject, html }: SendEmailInput): Promise<
     "Reply-To": "support@skydrop.co.nz",
   };
 
-  if (process.env.RESEND_API_KEY) {
+  if (process.env.MAILERSEND_API_KEY) {
     try {
-      const { Resend } = await import("resend");
-      const resend = new Resend(process.env.RESEND_API_KEY);
-      const { error } = await resend.emails.send({
-        from: `${FROM_NAME} <${FROM_EMAIL}>`,
-        to,
+      const { MailerSend } = await import("@mailersend/nodejs");
+      const mailerSend = new MailerSend({
+        apiKey: process.env.MAILERSEND_API_KEY,
+      });
+      await mailerSend.email.send({
+        from: {
+          email: FROM_EMAIL,
+          name: FROM_NAME,
+        },
+        to: [{ email: to }],
         subject,
         html,
         headers,
       });
-      if (error) throw new Error(`Resend: ${error.message}`);
       return;
-    } catch {
-      // resend not installed — fall through to SMTP
+    } catch (e) {
+      console.error("[email-transport] MailerSend error:", e);
+      // fall through to SMTP
     }
   }
 
