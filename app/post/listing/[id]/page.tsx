@@ -191,13 +191,14 @@ export default function ListingPage() {
 
   const isContactListing = (listing as { paymentType?: string })?.paymentType === "contact";
 
-  function openStripeCheckout() {
-    if (isContactListing) {
-      showToast("This listing uses Arrange Purchase — tap the green Purchase button to message the seller.", "info");
-      return;
-    }
-    setShowCheckout(true);
-  }
+  // Stripe checkout hidden for testing
+  // function openStripeCheckout() {
+  //   if (isContactListing) {
+  //     showToast("This listing uses Arrange Purchase — tap the green Purchase button to message the seller.", "info");
+  //     return;
+  //   }
+  //   setShowCheckout(true);
+  // }
 
   function handleArrangePurchase() {
     if (!user?.email || !listing) return;
@@ -216,20 +217,15 @@ export default function ListingPage() {
     return () => observer.disconnect();
   }, [listing]);
 
-  // Auto-open checkout if navigated with ?buy=1 (Stripe for regular, Arrange Purchase for contact listings)
+  // Auto-open checkout if navigated with ?buy=1 (Arrange Purchase for all listings)
   useEffect(() => {
     if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("buy") === "1" && user?.email && listing) {
       if (listing.pricingType === "quote") return;
       if (isAuctionWinner) {
         setWinningBid(listing.currentBid || listing.startingBid || 0);
       }
-      if (isContactListing) {
-        // For contact listings, trigger arrange purchase instead
-        handleArrangePurchase();
-        return;
-      }
-      const t = setTimeout(() => openStripeCheckout(), 0);
-      return () => clearTimeout(t);
+      // Stripe checkout hidden for testing - use arrange purchase instead
+      handleArrangePurchase();
     }
   }, [user, listing, isAuctionWinner, isContactListing]);
 
@@ -248,7 +244,7 @@ export default function ListingPage() {
         targetEmail: listing.highestBidder,
         fromEmail: listing.sellerEmail || "",
         title: "You Won the Auction! 🎉",
-        message: `Congratulations! You won the auction for "${listing.title}" with a bid of $${bidAmount}.\n\nComplete your purchase within 24 hours to secure the item. Payment will be sent directly to the seller via Stripe.`,
+        message: `Congratulations! You won the auction for "${listing.title}" with a bid of $${bidAmount}.\n\nComplete your purchase within 24 hours to secure the item. Coordinate payment with the seller via Arrange Purchase.`,
         listingId: listing.id,
         listingTitle: listing.title,
         listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
@@ -1824,7 +1820,8 @@ Service Status: 🟢 Inquiry Active`;
                     )}
                     <button onClick={() => {
                       if (rentalDays < 1) { showToast("Select pickup and return dates", "info"); return; }
-                      openStripeCheckout();
+                      // Stripe checkout hidden for testing - use arrange purchase instead
+                      handleArrangePurchase();
                     }}
                       className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 text-base font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-200 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:brightness-110 active:scale-[0.98]">
                       Rent Now {rentalDays > 0 ? `— $${(Number(listing.price) * rentalDays + 1).toFixed(2)}` : ""}
@@ -1867,14 +1864,9 @@ Service Status: 🟢 Inquiry Active`;
                   <p className="mt-0.5 text-[10px] leading-relaxed text-zinc-500">Tap Purchase to chat and agree payment with the seller. Keep communication on Sky Drop so we can review evidence if something goes wrong. <span className="text-sky-400/70 underline">How it works →</span></p>
                 </a>
               ) : (
-                <a href="/payments#card-checkout" target="_blank" rel="noopener noreferrer" className="rounded-lg border border-sky-500/10 bg-sky-500/[0.03] px-3.5 py-2.5 block transition hover:bg-sky-500/[0.06]">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <svg viewBox="0 0 24 24" className="h-4 w-4 text-sky-400 shrink-0" fill="currentColor">
-                      <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.866 6.001 1.632V2.94c-1.608-.732-3.965-1.413-6.076-1.413-3.659 0-6.328 1.803-6.328 4.866 0 3.354 2.547 4.545 5.644 5.604 2.162.795 3.251 1.499 3.251 2.476 0 .968-.747 1.49-2.153 1.49-2.49 0-5.206-1.156-6.748-2.041v4.133c1.682.827 4.127 1.435 6.824 1.435 3.943 0 6.827-1.835 6.827-5.017.001-3.452-2.587-4.596-5.617-5.608z"/>
-                    </svg>
-                    <span className="text-xs font-bold text-sky-400">Stripe Secure Checkout</span>
-                  </div>
-                  <p className="text-[10px] leading-relaxed text-zinc-500">Your payment is processed by Stripe. <span className="text-sky-400/70 underline">How it works →</span></p>
+                <a href="/payments#arrange" target="_blank" rel="noopener noreferrer" className="rounded-lg border border-sky-500/10 bg-sky-500/[0.03] px-3.5 py-2.5 block transition hover:bg-sky-500/[0.06]">
+                  <p className="text-xs font-bold text-sky-400">🤝 Arrange Purchase — ${(listing as any).price}</p>
+                  <p className="mt-0.5 text-[10px] leading-relaxed text-zinc-500">Tap Purchase to chat and agree payment with the seller. Keep communication on Sky Drop so we can review evidence if something goes wrong. <span className="text-sky-400/70 underline">How it works →</span></p>
                 </a>
               )
             )}
@@ -2247,7 +2239,7 @@ Service Status: 🟢 Inquiry Active`;
                 </button>
               ) : (
                 <button
-                  onClick={() => openStripeCheckout()}
+                  onClick={() => handleArrangePurchase()}
                   className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-white"
                 >
                   Buy Now — ${listing.price}
