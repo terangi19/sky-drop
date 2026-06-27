@@ -1018,8 +1018,14 @@ const tabGroups = [
         }
         const linkedPhone = claim.phone || formattedPhone;
         setPhone(linkedPhone);
-        // Server API already updated Firestore with phoneVerified: true
-        // Wait longer for Firestore transaction to complete, then refetch
+        // Server API updated Firestore with phoneVerified: true
+        // Also update client-side Firestore directly to ensure persistence
+        await setDoc(doc(db, "profiles", user.uid), {
+          phone: formattedPhone,
+          phoneNumber: formattedPhone,
+          phoneVerified: true,
+        }, { merge: true });
+        // Wait for Firestore update to propagate, then refetch
         await new Promise(resolve => setTimeout(resolve, 1000));
         await fetchProfile();
         // Verify the data was actually persisted
