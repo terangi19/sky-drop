@@ -11,7 +11,6 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import { auth, db } from "./firebase";
-import { buildEmailHtml } from "./email";
 import { validatePasswordStrength } from "./password-strength";
 import { getTurnstileSiteKey } from "./turnstile";
 import {
@@ -195,37 +194,6 @@ export async function createSkyDropAccount(input: CreateAccountInput): Promise<U
     } catch (e) {
       console.error("Referral tracking failed:", e);
     }
-  }
-
-  try {
-    const welcomeHtml = buildEmailHtml({
-      to: user.email!,
-      subject: "Welcome to Sky Drop",
-      title: "Welcome to Sky Drop",
-      message: "Thanks for joining. Browse and buy items immediately.",
-      ctas: [
-        {
-          label: "Browse Listings",
-          url: process.env.NEXT_PUBLIC_URL || "https://skydrop.co.nz",
-          primary: true,
-        },
-      ],
-    });
-    const token = await user.getIdToken();
-    await fetch("/api/send-email", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        to: user.email,
-        subject: "Welcome to Sky Drop",
-        html: welcomeHtml,
-      }),
-    });
-  } catch {
-    /* optional */
   }
 
   return user;
