@@ -1,5 +1,5 @@
 const FROM_NAME = "Sky Drop";
-const FROM_EMAIL = process.env.SMTP_FROM || "noreply@skydrop.app";
+const FROM_EMAIL = process.env.SMTP_FROM || "noreply@skydrop.co.nz";
 
 interface SendEmailInput {
   to: string;
@@ -8,6 +8,13 @@ interface SendEmailInput {
 }
 
 export async function sendEmail({ to, subject, html }: SendEmailInput): Promise<void> {
+  const baseUrl = process.env.NEXT_PUBLIC_URL || "https://skydrop.co.nz";
+  const headers = {
+    "List-Unsubscribe": `<mailto:unsubscribe@skydrop.co.nz>, <${baseUrl}/settings>`,
+    "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    "Reply-To": "support@skydrop.co.nz",
+  };
+
   if (process.env.RESEND_API_KEY) {
     try {
       const { Resend } = await import("resend");
@@ -17,6 +24,7 @@ export async function sendEmail({ to, subject, html }: SendEmailInput): Promise<
         to,
         subject,
         html,
+        headers,
       });
       if (error) throw new Error(`Resend: ${error.message}`);
       return;
@@ -46,5 +54,6 @@ export async function sendEmail({ to, subject, html }: SendEmailInput): Promise<
     to,
     subject,
     html,
+    headers,
   });
 }

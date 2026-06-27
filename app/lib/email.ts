@@ -450,6 +450,7 @@ function footerBlock(baseUrl: string, compact = false): string {
           </tr>
           <tr>
             <td style="padding:8px 0 0;font-size:10px;color:#3a3a3a;text-align:center;line-height:1.5;">
+              Sky Drop Limited, Level 1, 123 Queen Street, Auckland 1010, New Zealand<br>
               You're receiving this because you have a Sky Drop account.<br>
               <a href="${baseUrl}/settings" style="color:#3a3a3a;text-decoration:underline;">Notification settings</a>
             </td>
