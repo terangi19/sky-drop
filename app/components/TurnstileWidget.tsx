@@ -53,7 +53,6 @@ export default function TurnstileWidget({ onToken, onExpire, className }: Turnst
         callback: onToken,
         "expired-callback": onExpire,
         theme: "dark",
-        size: "invisible",
         appearance: "interaction-only",
       } as any);
     }
