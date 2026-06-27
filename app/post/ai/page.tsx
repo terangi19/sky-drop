@@ -41,7 +41,7 @@ import {
   normalizeServicePricingType,
 } from "../../lib/service-pricing";
 import { compressImage, generateThumbnail, type CompressedImage, type Thumbnail } from "../../lib/image-optimization";
-import { getClientCsrfToken } from "../../lib/csrf";
+import { getClientCsrfToken } from "../../lib/csrf-client";
 
 const objectToCategory: Record<string, string> = {
   "car": "Cars", "truck": "Cars", "bus": "Cars", "motorcycle": "Cars",

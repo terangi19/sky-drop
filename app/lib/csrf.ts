@@ -14,7 +14,7 @@ function generateToken(): string {
 }
 
 /**
- * Get or create CSRF token from cookies
+ * Get or create CSRF token from cookies (Server-side only)
  */
 export async function getCsrfToken(): Promise<string> {
   const cookieStore = await cookies();
@@ -37,7 +37,7 @@ export async function getCsrfToken(): Promise<string> {
 }
 
 /**
- * Validate CSRF token from request headers
+ * Validate CSRF token from request headers (Server-side only)
  */
 export async function validateCsrfToken(request: Request): Promise<boolean> {
   const cookieStore = await cookies();
@@ -105,21 +105,4 @@ export const CSRF_PROTECTED_OPERATIONS = new Set([
  */
 export function requiresCsrfProtection(operation: string): boolean {
   return CSRF_PROTECTED_OPERATIONS.has(operation);
-}
-
-/**
- * Get CSRF token from client-side cookies
- * This is a client-side helper to read the non-httpOnly cookie
- */
-export function getClientCsrfToken(): string | null {
-  if (typeof document === 'undefined') return null;
-  
-  const cookies = document.cookie.split(';');
-  for (const cookie of cookies) {
-    const [name, value] = cookie.trim().split('=');
-    if (name === CSRF_COOKIE_NAME) {
-      return value;
-    }
-  }
-  return null;
 }
