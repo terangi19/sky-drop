@@ -325,8 +325,8 @@ export default function SignupPage() {
                   </svg>
                 </div>
                 <div>
-                  <h3 className="font-bold text-white">Secure Escrow Payments</h3>
-                  <p className="mt-1 text-sm text-zinc-500">Your money is protected until you receive your item</p>
+                  <h3 className="font-bold text-white">Secure Payments</h3>
+                  <p className="mt-1 text-sm text-zinc-500">Your payments are protected with Stripe</p>
                 </div>
               </div>
 
