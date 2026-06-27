@@ -782,10 +782,10 @@ export default function Home() {
                 NZ Marketplace
               </div>
               <h1 className="text-2xl font-black tracking-tight text-white sm:text-4xl lg:text-5xl">
-                Buy & Sell Safely in New Zealand
+                Buy & Sell in New Zealand
               </h1>
               <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-[var(--foreground)] sm:text-base">
-                New Zealand's trusted marketplace. Verified sellers, secure payments, local pickup or shipping. Join thousands buying and selling safely.
+                A New Zealand marketplace for everything. List items, connect with local sellers, and find great deals. Join the community today.
               </p>
               {user ? (
                 <div className="mt-6 flex justify-center">
