@@ -1019,9 +1019,15 @@ const tabGroups = [
         const linkedPhone = claim.phone || formattedPhone;
         setPhone(linkedPhone);
         // Server API already updated Firestore with phoneVerified: true
-        // Wait a moment for Firestore transaction to complete, then refetch
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Wait longer for Firestore transaction to complete, then refetch
+        await new Promise(resolve => setTimeout(resolve, 1000));
         await fetchProfile();
+        // Verify the data was actually persisted
+        const verificationCheck = await getDoc(doc(db, "profiles", user.uid));
+        if (verificationCheck.exists()) {
+          const data = verificationCheck.data();
+          console.log("Phone verification check:", data.phoneVerified, data.emailVerified);
+        }
         // Reset polling timer to prevent overwriting fresh data
         if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = setInterval(fetchProfile, 60000);
