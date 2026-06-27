@@ -10,7 +10,7 @@ const scriptSrcUnsafeEval = isDev ? "'unsafe-eval' " : "";
 
 
 
-const nextConfig: NextConfig = {
+const nextConfig = {
 
   images: {
 
@@ -36,13 +36,6 @@ const nextConfig: NextConfig = {
 
   },
 
-  experimental: {
-
-    workerThreads: false,
-
-    cpus: 2,
-
-  },
 
   async redirects() {
 
@@ -180,7 +173,7 @@ const nextConfig: NextConfig = {
 
 
 
-export default withSentryConfig(nextConfig, {
+export default withSentryConfig(nextConfig as NextConfig, {
 
   org: process.env.SENTRY_ORG || "sky-drop",
 
