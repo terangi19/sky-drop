@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken, getServerDb } from "../../lib/firebase-admin";
+import { requireCsrf } from "../../lib/csrf";
 import { parseIpFromRequest } from "../../lib/geo-check";
 import { rateLimit } from "../../lib/rate-limit";
 import { DEFAULT_MAX_JSON_BYTES, isContentLengthOverLimit, payloadTooLargeResponse } from "../../lib/request-body";
@@ -7,8 +8,9 @@ import { verifiedFlagAfterUpdate } from "../../lib/seller-verified";
 
 export async function POST(req: NextRequest) {
   try {
+    await requireCsrf(req);
     const ip = parseIpFromRequest(req.headers);
-    const { allowed } = await rateLimit(`save-profile:${ip}`, 10, 60_000);
+    const { allowed } = await rateLimit(`save-profile:${ip}`, 5, 60_000);
     if (!allowed) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }
@@ -156,6 +158,37 @@ export async function POST(req: NextRequest) {
       memberSince: existingData?.memberSince || new Date(),
       lastActive: new Date(),
     };
+
+    // Validate bank details before saving
+    if (typeof bankAccountNumber === "string" && bankAccountNumber.trim()) {
+      const trimmedAccountNumber = bankAccountNumber.trim();
+      if (!/^[0-9- ]{8,20}$/.test(trimmedAccountNumber)) {
+        return NextResponse.json(
+          { error: "Invalid bank account number format. Must be 8-20 characters (numbers, hyphens, spaces only)." },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (typeof bankAccountName === "string" && bankAccountName.trim()) {
+      const trimmedAccountName = bankAccountName.trim();
+      if (trimmedAccountName.length < 2) {
+        return NextResponse.json(
+          { error: "Bank account name is too short (minimum 2 characters)." },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (typeof bankReference === "string" && bankReference.trim()) {
+      const trimmedReference = bankReference.trim();
+      if (trimmedReference.length > 50) {
+        return NextResponse.json(
+          { error: "Bank reference is too long (maximum 50 characters)." },
+          { status: 400 }
+        );
+      }
+    }
 
     const bankData: Record<string, string> = {};
     if (typeof bankAccountName === "string") bankData.bankAccountName = bankAccountName.trim();

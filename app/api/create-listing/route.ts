@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken, getAdminDb, getServerDb, isAdminInitialized } from "../../lib/firebase-admin";
+import { requireCsrf } from "../../lib/csrf";
 import { parseIpFromRequest } from "../../lib/geo-check";
 import { rateLimit } from "../../lib/rate-limit";
 import {
@@ -60,6 +61,7 @@ async function getSellerProfileForUid(uid: string, email?: string | null) {
 
 export async function POST(req: NextRequest) {
   try {
+    await requireCsrf(req);
     const ip = parseIpFromRequest(req.headers);
 
     const authHeader = req.headers.get("authorization");

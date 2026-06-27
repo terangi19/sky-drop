@@ -213,7 +213,6 @@ export default function ProfilePage() {
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [listingToDelete, setListingToDelete] = useState<any>(null);
   const [phone, setPhone] = useState("");
-  const [phoneVerified, setPhoneVerified] = useState(false);
 const [phoneCode, setPhoneCode] = useState("");
 const [phoneSent, setPhoneSent] = useState(false);
 const [phoneMsg, setPhoneMsg] = useState("");
@@ -304,7 +303,6 @@ const tabGroups = [
     setNotifQuietHoursEnd(data.notifQuietHoursEnd || "08:00");
     setNotifDigest(data.notifDigest || false);
     setPhone(data.phone || data.phoneNumber || "");
-    setPhoneVerified(!!data.phoneVerified);
     setStripeAccountId(data.stripeAccountId || "");
     setBankAccountName(data.bankAccountName || "");
     setBankAccountNumber(data.bankAccountNumber || "");
@@ -343,7 +341,7 @@ const tabGroups = [
             verified: verifiedFlagAfterUpdate(
               {
                 kycStatus: profile.kycStatus,
-                phoneVerified: phoneVerified || profile.phoneVerified,
+                phoneVerified: profile.phoneVerified,
                 emailVerified: profile.emailVerified,
               },
               { emailVerified: true }
@@ -383,44 +381,40 @@ const tabGroups = [
   }, []);
 
   // Fetch profile with getDoc + polling (60 seconds) instead of real-time for cost optimization
-  useEffect(() => {
+  const fetchProfile = useCallback(async () => {
     if (!user?.uid) return;
-    let mounted = true;
+    try {
+      const snap = await getDoc(doc(db, "profiles", user.uid));
+      if (snap.exists()) {
+        const data = snap.data() as ProfileData;
+        applyProfileData(data);
 
-    async function fetchProfile() {
-      if (!mounted) return;
-      try {
-        const snap = await getDoc(doc(db, "profiles", user.uid));
-        if (snap.exists() && mounted) {
-          const data = snap.data() as ProfileData;
-          applyProfileData(data);
-
-          if (!data.referralCode && !referralInitRef.current) {
-            referralInitRef.current = true;
-            const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-            setReferralCode(newCode);
-            await setDoc(
-              doc(db, "profiles", user.uid),
-              { referralCode: newCode },
-              { merge: true }
-            ).catch((e) => console.error("Failed to save referral code:", e));
-          }
+        if (!data.referralCode && !referralInitRef.current) {
+          referralInitRef.current = true;
+          const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+          setReferralCode(newCode);
+          await setDoc(
+            doc(db, "profiles", user.uid),
+            { referralCode: newCode },
+            { merge: true }
+          ).catch((e) => console.error("Failed to save referral code:", e));
         }
-        setLoading(false);
-      } catch (error) {
-        console.error("Profile fetch error:", error);
-        if (mounted) setLoading(false);
       }
+      setLoading(false);
+    } catch (error) {
+      console.error("Profile fetch error:", error);
+      setLoading(false);
     }
+  }, [user?.uid, applyProfileData]);
 
+  useEffect(() => {
     fetchProfile();
     const interval = setInterval(fetchProfile, 60000); // Refresh every 60 seconds
 
     return () => {
-      mounted = false;
       clearInterval(interval);
     };
-  }, [user?.uid, applyProfileData]);
+  }, [fetchProfile]);
 
   // Update lastActive on mount
   useEffect(() => {
@@ -804,7 +798,7 @@ const tabGroups = [
 
       const formattedPhone = phone.trim() ? formatNZPhone(phone) : "";
       const existingPhone = String(profile.phone || profile.phoneNumber || "").trim();
-      const isPhoneMarkedVerified = phoneVerified || !!profile.phoneVerified || !!profile.verified;
+      const isPhoneMarkedVerified = !!profile.phoneVerified || !!profile.verified;
       const phoneToSave =
         formattedPhone || (isPhoneMarkedVerified ? existingPhone : "");
 
@@ -1005,7 +999,7 @@ const tabGroups = [
     setPhoneMsg("Verifying...");
     const result = await verifyPhoneCode(phoneCode);
     if (result.ok) {
-      setPhoneVerified(true);
+      // Phone verification will be reflected in profile after claim
       setPhoneMsg("Verified Phone ✅");
       setPhoneCode("");
       setPhoneSent(false);
@@ -1014,7 +1008,7 @@ const tabGroups = [
         setPhone(formattedPhone);
         const claim = await claimVerifiedPhoneOnServer(formattedPhone);
         if (!claim.success) {
-          setPhoneVerified(false);
+          // Phone verification will be reflected in profile after removal
           setPhoneMsg(claim.error || "Could not link phone number.");
           showToast(claim.error || "Could not link phone number.", "error");
           setPhoneVerifying(false);
@@ -1045,6 +1039,8 @@ const tabGroups = [
         } catch {
           /* profile doc is source of truth */
         }
+        // Immediately refetch profile to update UI
+        await fetchProfile();
       }
     } else {
       setPhoneMsg(result.error || "Invalid code.");
@@ -1054,7 +1050,7 @@ const tabGroups = [
 
   async function handleRemovePhone() {
     setPhone("");
-    setPhoneVerified(false);
+    // Phone verification will be reflected in profile after removal
     setPhoneCode("");
     setPhoneSent(false);
     setPhoneMsg("");
@@ -1066,6 +1062,8 @@ const tabGroups = [
         phoneVerifiedAt: null,
         verified: false,
       }, { merge: true });
+      // Immediately refetch profile to update UI
+      await fetchProfile();
     }
   }
 
@@ -1073,8 +1071,8 @@ const tabGroups = [
     const v = e.target.value;
     const digits = v.replace(/\D/g, "");
     if (digits.length > 12) return;
-    if (v !== phone && phoneVerified) {
-      setPhoneVerified(false);
+    if (v !== phone && profile.phoneVerified) {
+      // Phone verification will be reflected in profile after removal
       setPhoneSent(false);
       setPhoneCode("");
       setPhoneMsg("");
@@ -1235,10 +1233,10 @@ const tabGroups = [
     () =>
       isFullyVerifiedSeller({
         kycStatus: profile.kycStatus || poaStatus,
-        phoneVerified: phoneVerified || profile.phoneVerified,
+        phoneVerified: profile.phoneVerified,
         emailVerified: profile.emailVerified || user?.emailVerified,
       }),
-    [profile.kycStatus, profile.phoneVerified, profile.emailVerified, phoneVerified, poaStatus, user?.emailVerified]
+    [profile.kycStatus, profile.phoneVerified, profile.emailVerified, poaStatus, user?.emailVerified]
   );
 
   const profileBadges = [
@@ -1853,7 +1851,7 @@ const tabGroups = [
                       <p className="text-xs text-zinc-500">Required — verify your phone number</p>
                     </div>
                     <p className="text-sm">
-                      {phoneVerified ? (
+                      {profile.phoneVerified ? (
                         <span className="text-sky-400 font-medium">Verified</span>
                       ) : (
                         <span className="text-zinc-500 font-medium">Not verified</span>
@@ -1863,9 +1861,9 @@ const tabGroups = [
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <input type="tel" value={phone} onChange={handlePhoneInput}
                       placeholder="021 123 4567"
-                      disabled={phoneSent && !phoneVerified}
+                      disabled={phoneSent && !profile.phoneVerified}
                       className={`${fieldInput} sm:flex-1 disabled:opacity-50`} />
-                    {!phoneVerified && (
+                    {!profile.phoneVerified && (
                       <button onClick={handleSendPhoneCode} disabled={!phone || sendingPhone || phoneVerifying || phoneCooldown > 0}
                         className="shrink-0 rounded-xl bg-sky-500 px-4 py-3 text-sm font-semibold text-white hover:bg-sky-400 disabled:opacity-40 transition-all active:scale-[0.98]">
                         {sendingPhone
@@ -1878,7 +1876,7 @@ const tabGroups = [
                       </button>
                     )}
                   </div>
-                  {phoneSent && !phoneVerified && (
+                  {phoneSent && !profile.phoneVerified && (
                     <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                       <input type="text" value={phoneCode} onChange={(e) => setPhoneCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                         placeholder="6-digit code" className={`${fieldInput} sm:flex-1`} />
@@ -1888,7 +1886,7 @@ const tabGroups = [
                       </button>
                     </div>
                   )}
-                  {phoneVerified && (
+                  {profile.phoneVerified && (
                     <p className="mt-2 text-xs text-sky-400">
                       ✓ Phone verified. You cannot change your phone number.
                     </p>

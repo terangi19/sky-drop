@@ -12,6 +12,16 @@ import Footer from "./components/Footer";
 import ScrollToTop from "./components/ScrollToTop";
 import PageEnter from "./components/PageEnter";
 import PWAProvider from "./components/PWAProvider";
+import { validateEnv } from "./lib/env-validation";
+
+// Validate environment variables on startup
+const envValidation = validateEnv();
+if (!envValidation.valid) {
+  console.error("Environment validation failed:", envValidation.errors);
+}
+if (envValidation.warnings.length > 0) {
+  console.warn("Environment warnings:", envValidation.warnings);
+}
 
 const Spotlight = dynamic(() => import("./components/Spotlight"));
 const LegendaryClaimNotification = dynamic(() => import("./components/LegendaryClaimNotification"));

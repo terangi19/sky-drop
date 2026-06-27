@@ -283,7 +283,13 @@ export async function POST(req: NextRequest) {
     await eventRef.update({ status: "completed", processedAt: new Date() });
     return NextResponse.json({ received: true });
   } catch (e: any) {
-    try { await eventRef.delete(); } catch {}
+    try { 
+      await eventRef.update({ 
+        status: "failed", 
+        error: e.message || "Unknown webhook error",
+        failedAt: new Date()
+      }); 
+    } catch {}
     console.error("[stripe-webhook] Error:", e);
     Sentry.captureException(e, { tags: { type: "stripe-webhook" }, extra: { eventType: event?.type, eventId: event?.id } });
 
