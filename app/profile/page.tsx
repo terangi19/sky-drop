@@ -34,7 +34,7 @@ import {
   User,
 } from "firebase/auth";
 import { getListingBlockReason } from "../lib/seller-eligibility";
-import { isFullyVerifiedSeller, verifiedFlagAfterUpdate } from "../lib/seller-verified";
+import { isFullyVerifiedSeller, profilePhoneVerified, verifiedFlagAfterUpdate } from "../lib/seller-verified";
 import { isAdminEmail } from "../lib/admin-check";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { auth, db, storage, onAuthStateChanged } from "../lib/firebase";
@@ -1215,16 +1215,12 @@ const tabGroups = [
 
   const isFullyVerified = useMemo(
     () =>
-      isFullyVerifiedSeller({
-        kycStatus: profile.kycStatus || poaStatus,
-        phoneVerified: profile.phoneVerified,
-        emailVerified: profile.emailVerified || user?.emailVerified,
-      }),
-    [profile.kycStatus, profile.phoneVerified, profile.emailVerified, poaStatus, user?.emailVerified]
+      profilePhoneVerified(profile) &&
+      (profile.emailVerified || user?.emailVerified),
+    [profile.phoneVerified, profile.emailVerified, user?.emailVerified]
   );
 
   const profileBadges = [
-    profile.phoneVerified && { key: "phone", label: "Phone Verified", className: "border-sky-500/25 bg-sky-500/10 text-sky-300" },
     isFullyVerified && { key: "verified", label: "Verified", className: "border-sky-500/25 bg-sky-500/10 text-sky-300" },
     profile.topTrader && { key: "top", label: "Top Trader", className: "border-sky-500/25 bg-sky-500/10 text-sky-300" },
     profile.trustedSeller && { key: "trusted", label: "Trusted", className: "border-sky-500/25 bg-sky-500/10 text-sky-300" },
