@@ -390,6 +390,13 @@ const tabGroups = [
         const data = snap.data() as ProfileData;
         applyProfileData(data);
 
+        // Ensure emailVerified is synced from Firebase Auth to profile
+        if (user.emailVerified && !data.emailVerified) {
+          await setDoc(doc(db, "profiles", user.uid), {
+            emailVerified: true,
+          }, { merge: true });
+        }
+
         if (!data.referralCode && !referralInitRef.current) {
           referralInitRef.current = true;
           const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -406,7 +413,7 @@ const tabGroups = [
       console.error("Profile fetch error:", error);
       setLoading(false);
     }
-  }, [user?.uid, applyProfileData]);
+  }, [user?.uid, applyProfileData, user?.emailVerified]);
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
