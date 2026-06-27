@@ -126,7 +126,57 @@ export default function RootLayout({
             })();
           `,
         }} />
-        <AuthProvider><ProfileProvider><AwhinaPageInsightProvider><VerificationBanner /><RouteGuard><PageEnter>{children}</PageEnter><Footer /><Spotlight /><ScrollToTop /><SkyAiChat /></RouteGuard><ToastContainer /><LegendaryClaimNotification /><WantedLiveFeed /><PlatformAnnouncement /><PWAProvider /></AwhinaPageInsightProvider></ProfileProvider></AuthProvider>
+        <script dangerouslySetInnerHTML={{
+          __html: `
+            (function(){
+              try {
+                var enabled = /(?:\\?|&)debugTabs=1(?:&|$)/.test(location.search) ||
+                  localStorage.getItem('skydrop:debugTabs') === '1';
+                if (!enabled) return;
+
+                function stack() {
+                  try { return new Error().stack; } catch (e) { return ''; }
+                }
+
+                var origOpen = window.open;
+                window.open = function(url, target, features) {
+                  console.warn('[skydrop:debugTabs] window.open', {
+                    url: url,
+                    target: target,
+                    features: features,
+                    stack: stack()
+                  });
+                  return origOpen.apply(window, arguments);
+                };
+
+                var origPush = history.pushState;
+                history.pushState = function(state, title, url) {
+                  console.warn('[skydrop:debugTabs] history.pushState', { url: url, stack: stack() });
+                  return origPush.apply(history, arguments);
+                };
+
+                var origReplace = history.replaceState;
+                history.replaceState = function(state, title, url) {
+                  console.warn('[skydrop:debugTabs] history.replaceState', { url: url, stack: stack() });
+                  return origReplace.apply(history, arguments);
+                };
+
+                document.addEventListener('click', function(e) {
+                  var el = e.target && e.target.closest ? e.target.closest('a[target="_blank"]') : null;
+                  if (el) {
+                    console.warn('[skydrop:debugTabs] target=_blank click', {
+                      href: el.href,
+                      stack: stack()
+                    });
+                  }
+                }, true);
+
+                console.info('[skydrop:debugTabs] Tab debugging enabled. See DEBUGGING_NOTES.md');
+              } catch (e) {}
+            })();
+          `,
+        }} />
+        <AuthProvider><ProfileProvider><AwhinaPageInsightProvider><VerificationBanner /><RouteGuard><PageEnter>{children}</PageEnter><Footer /><Spotlight /><ScrollToTop /><SkyAiChat /><MarketplaceRadar /><MatchmakingActivity /></RouteGuard><ToastContainer /><LegendaryClaimNotification /><WantedLiveFeed /><PlatformAnnouncement /><PWAProvider /></AwhinaPageInsightProvider></ProfileProvider></AuthProvider>
       </body>
     </html>
   );

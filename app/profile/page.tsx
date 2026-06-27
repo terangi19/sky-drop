@@ -1269,7 +1269,7 @@ const tabGroups = [
         <section className={`${PAGE_SHELL_WIDE} pb-10 pt-2 sm:pt-3`}>
           <BrowseMarketplaceHero badge="Account" title="Profile">
             <p className="mt-3 text-sm text-zinc-400">Sign in to manage your seller profile and settings.</p>
-            <Link href="/login" className={`mt-4 inline-flex items-center gap-2 ${primaryBtn} px-5 py-2.5`}>
+            <Link href="/login?redirect=/profile" className={`mt-4 inline-flex items-center gap-2 ${primaryBtn} px-5 py-2.5`}>
               Sign in
             </Link>
           </BrowseMarketplaceHero>
