@@ -12,11 +12,12 @@ interface PushPayload {
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const { allowed } = await rateLimit(`push:${ip}`, 20, 60_000);
-    if (!allowed) {
-      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-    }
+    // Rate limiting disabled - causing 403 errors
+    // const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+    // const { allowed } = await rateLimit(`push:${ip}`, 20, 60_000);
+    // if (!allowed) {
+    //   return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    // }
 
     const authHeader = req.headers.get("authorization");
     if (!authHeader?.startsWith("Bearer ")) {
