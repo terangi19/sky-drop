@@ -737,7 +737,7 @@ export default function ListingPage() {
       <main className="flex min-h-screen items-center justify-center bg-[var(--background)]">
         <div className="text-center">
           <p className="text-[var(--muted)] mb-4">Listing not found.</p>
-          <Link href="/" className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">
+          <Link href="/" className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 px-3 py-1.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">
             Browse Marketplace
           </Link>
         </div>
@@ -875,7 +875,7 @@ export default function ListingPage() {
         <div className="flex flex-col items-center justify-center py-24">
           <span className="text-5xl mb-4">🔍</span>
           <p className="text-lg font-bold text-[var(--foreground)]">{loading ? "Loading..." : "Listing not found"}</p>
-          {!loading && <Link href="/" className="mt-6 inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">Browse Marketplace</Link>}
+          {!loading && <Link href="/" className="mt-6 inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 px-3 py-1.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">Browse Marketplace</Link>}
         </div>
       ) : (<>
       <section className="relative z-10 mx-auto max-w-5xl px-6 py-8">
@@ -1312,7 +1312,7 @@ Property Status: 🟢 Inquiry Active`;
                     style={{
                       width: "100%",
                     }}
-                    className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98] whitespace-nowrap"
+                    className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98] whitespace-nowrap"
                   >
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -1324,7 +1324,7 @@ Property Status: 🟢 Inquiry Active`;
                       style={{
                         width: "100%",
                       }}
-                      className="flex items-center justify-center gap-2 rounded-xl border-2 border-zinc-700 bg-zinc-900/60 px-4 py-2.5 text-xs font-bold text-[var(--foreground)] transition-all duration-200 hover:border-zinc-600 hover:bg-zinc-800/60 whitespace-nowrap"
+                      className="flex items-center justify-center gap-2 rounded-xl border-2 border-zinc-700 bg-zinc-900/60 px-3 py-1.5 text-[11px] font-bold text-[var(--foreground)] transition-all duration-200 hover:border-zinc-600 hover:bg-zinc-800/60 whitespace-nowrap"
                     >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
@@ -1377,7 +1377,7 @@ Property Status: 🟢 Inquiry Active`;
                     style={{
                       width: "100%",
                     }}
-                    className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-400 px-4 py-2.5 text-xs font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-200 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:brightness-110 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 whitespace-nowrap"
+                    className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-400 px-3 py-1.5 text-[11px] font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-200 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:brightness-110 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 whitespace-nowrap"
                   >
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -1388,9 +1388,8 @@ Property Status: 🟢 Inquiry Active`;
                     onClick={() => router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`)}
                     style={{
                       width: "100%",
-                      minHeight: "36px",
                     }}
-                    className="flex items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-xs font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06] hover:-translate-y-0.5 active:translate-y-0 whitespace-nowrap"
+                    className="flex items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-[11px] font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06] hover:-translate-y-0.5 active:translate-y-0 whitespace-nowrap"
                   >
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -1425,7 +1424,7 @@ Property Status: 🟢 Inquiry Active`;
                           width: "100%",
                           minHeight: "36px",
                         }}
-                        className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98] whitespace-nowrap"
+                        className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98] whitespace-nowrap"
                       >
                         {buyerArrangeRequestCount > 0 ? (
                           <>
@@ -1453,7 +1452,7 @@ Property Status: 🟢 Inquiry Active`;
                           width: "100%",
                           minHeight: "36px",
                         }}
-                        className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-400 px-4 py-2.5 text-xs font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-200 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:brightness-110 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 whitespace-nowrap"
+                        className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-400 px-3 py-1.5 text-[11px] font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-200 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:brightness-110 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 whitespace-nowrap"
                       >
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
@@ -1470,7 +1469,7 @@ Property Status: 🟢 Inquiry Active`;
                           width: "100%",
                           minHeight: "36px",
                         }}
-                        className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-400 px-4 py-2.5 text-xs font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-200 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:brightness-110 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 whitespace-nowrap"
+                        className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-400 px-3 py-1.5 text-[11px] font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-200 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:brightness-110 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 whitespace-nowrap"
                       >
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -1486,7 +1485,7 @@ Property Status: 🟢 Inquiry Active`;
                         width: "100%",
                         minHeight: "36px",
                       }}
-                      className="flex items-center justify-center gap-2 rounded-2xl border border-sky-500/30 bg-sky-500/10 px-4 py-2.5 text-xs font-bold text-sky-400 transition-all duration-200 hover:bg-sky-500/20 hover:border-sky-500/50 hover:-translate-y-0.5 active:translate-y-0 whitespace-nowrap"
+                      className="flex items-center justify-center gap-2 rounded-2xl border border-sky-500/30 bg-sky-500/10 px-3 py-1.5 text-[11px] font-bold text-sky-400 transition-all duration-200 hover:bg-sky-500/20 hover:border-sky-500/50 hover:-translate-y-0.5 active:translate-y-0 whitespace-nowrap"
                     >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1501,7 +1500,7 @@ Property Status: 🟢 Inquiry Active`;
                         width: "100%",
                         minHeight: "36px",
                       }}
-                      className="flex items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-xs font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06] hover:-translate-y-0.5 active:translate-y-0 whitespace-nowrap"
+                      className="flex items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-[11px] font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06] hover:-translate-y-0.5 active:translate-y-0 whitespace-nowrap"
                     >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
@@ -1513,9 +1512,8 @@ Property Status: 🟢 Inquiry Active`;
                     onClick={() => router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`)}
                     style={{
                       width: "100%",
-                      minHeight: "36px",
                     }}
-                    className="flex items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-xs font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06] hover:-translate-y-0.5 active:translate-y-0 whitespace-nowrap"
+                    className="flex items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-[11px] font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06] hover:-translate-y-0.5 active:translate-y-0 whitespace-nowrap"
                   >
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -1898,7 +1896,7 @@ Service Status: 🟢 Inquiry Active`;
                       <button
                         onClick={sendMessageToSeller}
                         disabled={!messageText.trim() || sendingMessage}
-                        className="shrink-0 rounded-lg bg-sky-500 px-3 py-2.5 text-xs font-bold text-[var(--foreground)] transition hover:bg-sky-400 disabled:opacity-50"
+                        className="shrink-0 rounded-lg bg-sky-500 px-3 py-2 text-[11px] font-bold text-[var(--foreground)] transition hover:bg-sky-400 disabled:opacity-50"
                       >
                         {sendingMessage ? "..." : "Send"}
                       </button>
@@ -2015,7 +2013,7 @@ Service Status: 🟢 Inquiry Active`;
                         });
                       } catch {}
                     }} disabled={!newQuestion.trim() || sendingQuestion}
-                      className="shrink-0 rounded-lg bg-sky-500 px-4 py-2 text-[11px] font-bold text-white transition hover:bg-sky-400 disabled:opacity-50">
+                      className="shrink-0 rounded-lg bg-sky-500 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-sky-400 disabled:opacity-50">
                       Ask
                     </button>
                 </div>
@@ -2024,7 +2022,7 @@ Service Status: 🟢 Inquiry Active`;
 
             {/* 9. WATCHLIST & SHARE */}
             <div className="flex gap-2 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-1">
-              <button onClick={saveToWatchlist} className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold text-[var(--muted)] transition hover:bg-white/[0.04] hover:text-[var(--foreground)] flex-1">
+              <button onClick={saveToWatchlist} className="flex items-center justify-center gap-1.5 rounded-xl py-2 text-[11px] font-semibold text-[var(--muted)] transition hover:bg-white/[0.04] hover:text-[var(--foreground)] flex-1">
                 <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                 </svg>
@@ -2036,7 +2034,7 @@ Service Status: 🟢 Inquiry Active`;
                 } catch {
                   navigator.clipboard?.writeText(window.location.href).then(() => showToast("Link copied!", "success")).catch(() => {});
                 }
-              }} className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-semibold text-[var(--muted)] transition hover:bg-white/[0.04] hover:text-[var(--foreground)] flex-1">
+              }} className="flex items-center justify-center gap-1.5 rounded-xl py-2 text-[11px] font-semibold text-[var(--muted)] transition hover:bg-white/[0.04] hover:text-[var(--foreground)] flex-1">
                 <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
                 </svg>
