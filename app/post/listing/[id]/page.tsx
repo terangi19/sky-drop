@@ -1259,14 +1259,15 @@ export default function ListingPage() {
 
             {/* Property inquiry buttons */}
             {listing.type === "property" && (
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-3">
               {user && user.email !== listing.sellerEmail ? (
                 <>
-                  <button
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      try {
-                        const buyerMsg = `🏡 Property inquiry started for "${listing.title}"
+                  <div className="w-full">
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        try {
+                          const buyerMsg = `🏡 Property inquiry started for "${listing.title}"
 
 You're now connected with the property owner/agent.
 
@@ -1282,9 +1283,93 @@ Please keep all communication inside Sky Drop for protection.
 
 Property Status: 🟢 Inquiry Active`;
 
-                        const result = await sendMessage({
-                          type: "system",
-                          text: buyerMsg,
+                          const result = await sendMessage({
+                            type: "system",
+                            text: buyerMsg,
+                            receiver: listing.sellerEmail,
+                            listingId,
+                            listingTitle: listing.title,
+                            listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
+                            listingPrice: listing.price,
+                            createConversation: true,
+                            convKey: `listing_${listingId}`,
+                            buyerEmail: user!.email!,
+                            sellerEmail: listing.sellerEmail,
+                          });
+
+                          await sendMessage({
+                            type: "text",
+                            text: `🟢 A user is interested in your property listing.\n\nUse this chat to discuss:\n• viewing arrangements\n• price/negotiation\n• property details\n• settlement or tenancy\n\nKeep all communication inside Sky Drop for protection.`,
+                            receiver: listing.sellerEmail,
+                            listingId,
+                            listingTitle: listing.title,
+                            conversationId: result.conversationId,
+                          });
+                        } catch (e) {
+                          console.error("Property inquiry failed:", e);
+                        }
+                        router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`);
+                      }}
+                      className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-5 text-base font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98]"
+                    >
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03 8 9 8s9 3.582 9 8z" />
+                      </svg>
+                      Contact Owner
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {listing.acceptOffers && (
+                      <button onClick={() => setShowOffer(true)}
+                        className="h-11 flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06]"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                        </svg>
+                        Make Offer
+                      </button>
+                    )}
+                    <button
+                      onClick={() => router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`)}
+                      className="h-11 flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06]"
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03 8 9 8s9 3.582 9 8z" />
+                      </svg>
+                      Message Seller
+                    </button>
+                  </div>
+                </>
+              ) : user?.email === listing.sellerEmail ? (
+                <div className="flex gap-3 w-full">
+                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 h-11 flex items-center justify-center rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:brightness-110 active:scale-[0.98]">
+                    ✏️ Edit Listing
+                  </Link>
+                  <button onClick={() => setShowPromote(true)}
+                    className="h-11 px-4 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sm font-bold text-sky-400 transition hover:bg-sky-500/20 hover:border-sky-500/50">
+                    📈 Promote
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="w-full h-11 rounded-lg border border-white/[0.08] bg-white/[0.03] text-sm font-bold text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-white/[0.06]">
+                  Sign in to continue
+                </button>
+              )}
+            </div>
+            )}
+
+            {/* QUOTE REQUIRED — digital services */}
+            {listing.type === "digital" && listing.pricingType === "quote" && isListingVisibleInMarketplace(listing) && !isExpired && (
+            <div className="flex flex-col gap-3">
+              {user && user.email !== listing.sellerEmail ? (
+                <>
+                  <div className="w-full">
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        await sendMessage({
+                          type: "text",
+                          text: `Hi, I'm interested in "${listing.title}" — could you please provide a quote?`,
                           receiver: listing.sellerEmail,
                           listingId,
                           listingTitle: listing.title,
@@ -1295,244 +1380,183 @@ Property Status: 🟢 Inquiry Active`;
                           buyerEmail: user!.email!,
                           sellerEmail: listing.sellerEmail,
                         });
-
-                        await sendMessage({
-                          type: "text",
-                          text: `🟢 A user is interested in your property listing.\n\nUse this chat to discuss:\n• viewing arrangements\n• price/negotiation\n• property details\n• settlement or tenancy\n\nKeep all communication inside Sky Drop for protection.`,
-                          receiver: listing.sellerEmail,
-                          listingId,
-                          listingTitle: listing.title,
-                          conversationId: result.conversationId,
-                        });
-                      } catch (e) {
-                        console.error("Property inquiry failed:", e);
-                      }
-                      router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`);
-                    }}
-                    style={{
-                      width: "100%",
-                    }}
-                    className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98] whitespace-nowrap"
-                  >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
-                    Contact Owner
-                  </button>
-                  {listing.acceptOffers && (
-                    <button onClick={() => setShowOffer(true)}
-                      style={{
-                        width: "100%",
+                        router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`);
                       }}
-                      className="flex items-center justify-center gap-2 rounded-xl border-2 border-zinc-700 bg-zinc-900/60 px-3 py-1.5 text-[11px] font-bold text-[var(--foreground)] transition-all duration-200 hover:border-zinc-600 hover:bg-zinc-800/60 whitespace-nowrap"
+                      className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 text-base font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-200 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:brightness-110 active:scale-[0.98]"
+                    >
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Request Quote
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`)}
+                      className="h-11 flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06]"
                     >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03 8 9 8s9 3.582 9 8z" />
                       </svg>
-                      Make Offer
+                      Message Seller
                     </button>
-                  )}
+                  </div>
                 </>
               ) : user?.email === listing.sellerEmail ? (
-                <div className="flex gap-2 w-full">
-                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 rounded-lg bg-gradient-to-r from-sky-500 to-sky-500 py-3 text-center text-[13px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">
+                <div className="flex gap-3 w-full">
+                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 h-11 flex items-center justify-center rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:brightness-110 active:scale-[0.98]">
                     ✏️ Edit Listing
                   </Link>
-                  <button onClick={() => setShowPromote(true)}
-                    className="rounded-lg border border-sky-500/30 bg-sky-500/5 px-3 py-3 text-[13px] font-bold text-sky-400 transition hover:bg-sky-500/15">
+                  <button onClick={() => setShowPromote(true)} className="h-11 px-4 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sm font-bold text-sky-400 transition hover:bg-sky-500/20 hover:border-sky-500/50">
                     📈 Promote
                   </button>
                 </div>
               ) : (
-                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="flex-1 rounded-lg border border-zinc-700 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-zinc-800">
-                  Sign in
+                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="w-full h-11 rounded-lg border border-white/[0.08] bg-white/[0.03] text-sm font-bold text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-white/[0.06]">
+                  Sign in to continue
                 </button>
-              )}
-            </div>
-            )}
-
-            {/* 5. QUOTE REQUIRED — digital services */}
-            {listing.type === "digital" && listing.pricingType === "quote" && isListingVisibleInMarketplace(listing) && !isExpired && (
-            <div className="flex gap-2">
-              {user && user.email !== listing.sellerEmail ? (
-                <>
-                  <button
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      await sendMessage({
-                        type: "text",
-                        text: `Hi, I'm interested in "${listing.title}" — could you please provide a quote?`,
-                        receiver: listing.sellerEmail,
-                        listingId,
-                        listingTitle: listing.title,
-                        listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
-                        listingPrice: listing.price,
-                        createConversation: true,
-                        convKey: `listing_${listingId}`,
-                        buyerEmail: user!.email!,
-                        sellerEmail: listing.sellerEmail,
-                      });
-                      router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`);
-                    }}
-                    style={{
-                      width: "100%",
-                    }}
-                    className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-400 px-3 py-1.5 text-[11px] font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-200 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:brightness-110 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 whitespace-nowrap"
-                  >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    Request Quote
-                  </button>
-                  <button
-                    onClick={() => router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`)}
-                    style={{
-                      width: "100%",
-                    }}
-                    className="flex items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-[11px] font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06] hover:-translate-y-0.5 active:translate-y-0 whitespace-nowrap"
-                  >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
-                    Message Seller
-                  </button>
-                </>
-              ) : user?.email === listing.sellerEmail ? (
-                <div className="flex gap-2 w-full">
-                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-400 py-3.5 text-center text-[13px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:brightness-110 active:scale-[0.97]">✏️ Edit Listing</Link>
-                  <button onClick={() => setShowPromote(true)} className="rounded-2xl border border-sky-500/30 bg-sky-500/10 px-4 py-3.5 text-[13px] font-bold text-sky-400 transition hover:bg-sky-500/20 hover:border-sky-500/50">📈 Promote</button>
-                </div>
-              ) : (
-                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="flex-1 rounded-2xl border border-white/[0.08] bg-white/[0.03] py-3.5 text-[13px] font-bold text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-white/[0.06] hover:-translate-y-0.5 active:translate-y-0">Sign in to continue</button>
               )}
             </div>
             )}
 
             {/* 5. BUY BUTTONS */}
             {isListingAvailableForPurchase(listing) && !isExpired && listing.type !== "service" && listing.type !== "job" && listing.type !== "property" && listing.type !== "rental" && !(listing.type === "digital" && listing.pricingType === "quote") && (purchaseUi.canPurchaseMore || (isContactListing && buyerArrangeRequestCount > 0)) && (
-            <div ref={nativeActionsRef} className="flex gap-2">
+            <div ref={nativeActionsRef} className="flex flex-col gap-3">
               {user && user.email !== listing.sellerEmail ? (
                 <>
-                  {(listing as any).paymentType === "contact" ? (
-                    <>
+                  {/* PRIMARY CTA - Full width Buy Now */}
+                  <div className="w-full">
+                    {(listing as any).paymentType === "contact" ? (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           handleArrangePurchase();
                         }}
-                        style={{
-                          width: "100%",
-                          minHeight: "36px",
-                        }}
-                        className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98] whitespace-nowrap"
+                        className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-5 text-base font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98]"
                       >
                         {buyerArrangeRequestCount > 0 ? (
                           <>
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03 8 9 8s9 3.582 9 8z" />
                             </svg>
                             Open Chat
                           </>
                         ) : (
                           <>
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                             </svg>
                             Request Purchase — ${listing.price}
                           </>
                         )}
                       </button>
-                      <p className="mt-1 text-[10px] leading-relaxed text-zinc-500">Arrange Purchase is handled directly between buyer and seller. Keep communication on Sky Drop so we can review evidence if something goes wrong.</p>
-                    </>
-                  ) : isAuctionWinner ? (
-                    <>
+                    ) : isAuctionWinner ? (
                       <button
                         onClick={() => { setWinningBid(listing.currentBid || listing.startingBid || 0); openStripeCheckout(); }}
-                        style={{
-                          width: "100%",
-                          minHeight: "36px",
-                        }}
-                        className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-400 px-3 py-1.5 text-[11px] font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-200 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:brightness-110 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 whitespace-nowrap"
+                        className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 text-base font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-200 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:brightness-110 active:scale-[0.98]"
                       >
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                         </svg>
                         Pay Now — ${listing.currentBid || listing.startingBid || 0}
                       </button>
-                      <p className="mt-2 text-[10px] leading-relaxed text-zinc-500">Secure payment through Stripe with buyer protection. Funds held in escrow until you confirm receipt.</p>
-                    </>
-                  ) : (
-                    <>
+                    ) : (
                       <button
                         onClick={() => openStripeCheckout()}
-                        style={{
-                          width: "100%",
-                          minHeight: "36px",
-                        }}
-                        className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-400 px-3 py-1.5 text-[11px] font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-200 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:brightness-110 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 whitespace-nowrap"
+                        className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 text-base font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-200 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:brightness-110 active:scale-[0.98]"
                       >
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                         </svg>
                         Buy Now — ${listing.price}
                       </button>
-                      <p className="mt-2 text-[10px] leading-relaxed text-zinc-500">Secure payment through Stripe with buyer protection. Funds held in escrow until you confirm receipt.</p>
-                    </>
-                  )}
-                  {!auctionEnded && (listing.saleType === "auction" || listing.saleType === "auction_buy_now") && user && user.email !== listing.sellerEmail && (
-                    <button onClick={() => { setShowBidModal(true); setBidAmount(String(getMinimumNextBid(listing.currentBid || listing.startingBid || 0))); }}
-                      style={{
-                        width: "100%",
-                        minHeight: "36px",
-                      }}
-                      className="flex items-center justify-center gap-2 rounded-2xl border border-sky-500/30 bg-sky-500/10 px-3 py-1.5 text-[11px] font-bold text-sky-400 transition-all duration-200 hover:bg-sky-500/20 hover:border-sky-500/50 hover:-translate-y-0.5 active:translate-y-0 whitespace-nowrap"
-                    >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      Bid Now
-                    </button>
-                  )}
-                  {(listing as any).paymentType !== "contact" && listing.acceptOffers && (
+                    )}
+                  </div>
+
+                  {/* SECONDARY BUTTONS - Responsive grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {!auctionEnded && (listing.saleType === "auction" || listing.saleType === "auction_buy_now") && (
+                      <button onClick={() => { setShowBidModal(true); setBidAmount(String(getMinimumNextBid(listing.currentBid || listing.startingBid || 0))); }}
+                        className="h-11 flex items-center justify-center gap-2 rounded-lg border border-sky-500/30 bg-sky-500/10 px-4 text-sm font-bold text-sky-400 transition-all duration-200 hover:bg-sky-500/20 hover:border-sky-500/50"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Bid Now
+                      </button>
+                    )}
+                    {(listing as any).paymentType !== "contact" && listing.acceptOffers && (
+                      <button
+                        onClick={() => setShowOffer(true)}
+                        className="h-11 flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06]"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                        </svg>
+                        Make Offer
+                      </button>
+                    )}
                     <button
-                      onClick={() => setShowOffer(true)}
-                      style={{
-                        width: "100%",
-                        minHeight: "36px",
-                      }}
-                      className="flex items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-[11px] font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06] hover:-translate-y-0.5 active:translate-y-0 whitespace-nowrap"
+                      onClick={() => router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`)}
+                      className="h-11 flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06]"
                     >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03 8 9 8s9 3.582 9 8z" />
                       </svg>
-                      Make Offer
+                      Message Seller
                     </button>
+                  </div>
+
+                  {/* SECURE PAYMENT INFO CARD */}
+                  {(listing as any).paymentType !== "contact" && (
+                    <div className="rounded-lg border border-sky-500/10 bg-sky-500/5 px-4 py-3">
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 mt-0.5">
+                          <svg className="h-5 w-5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.745 3.745 0 011.043 3.296A3.745 3.745 0 0121 12z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-sky-300">Secure payment through Stripe</p>
+                          <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">Funds held in escrow until you confirm receipt. Buyer protection included.</p>
+                          <a href="https://stripe.com/payments/checkout" target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-sky-400 hover:text-sky-300 transition-colors">
+                            How it works
+                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </a>
+                        </div>
+                      </div>
+                    </div>
                   )}
-                  <button
-                    onClick={() => router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`)}
-                    style={{
-                      width: "100%",
-                    }}
-                    className="flex items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-[11px] font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06] hover:-translate-y-0.5 active:translate-y-0 whitespace-nowrap"
-                  >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
-                    Message Seller
-                  </button>
+                  {(listing as any).paymentType === "contact" && (
+                    <div className="rounded-lg border border-zinc-700 bg-zinc-800/50 px-4 py-3">
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 mt-0.5">
+                          <svg className="h-5 w-5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-zinc-300">Arrange Purchase</p>
+                          <p className="mt-1 text-xs leading-relaxed text-zinc-500">Payment and delivery handled directly between buyer and seller. Keep communication on Sky Drop for protection.</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </>
               ) : user?.email === listing.sellerEmail ? (
-                <div className="flex gap-2 w-full">
-                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-400 py-3.5 text-center text-[13px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:brightness-110 active:scale-[0.97]">
+                <div className="flex gap-3 w-full">
+                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 h-11 flex items-center justify-center rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:brightness-110 active:scale-[0.98]">
                     ✏️ Edit Listing
                   </Link>
                   <button onClick={() => setShowPromote(true)}
-                    className="rounded-2xl border border-sky-500/30 bg-sky-500/10 px-4 py-3.5 text-[13px] font-bold text-sky-400 transition hover:bg-sky-500/20 hover:border-sky-500/50">
+                    className="h-11 px-4 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sm font-bold text-sky-400 transition hover:bg-sky-500/20 hover:border-sky-500/50">
                     📈 Promote
                   </button>
                 </div>
               ) : (
-                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="flex-1 rounded-2xl border border-white/[0.08] bg-white/[0.03] py-3.5 text-[13px] font-bold text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-white/[0.06] hover:-translate-y-0.5 active:translate-y-0">
+                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="w-full h-11 rounded-lg border border-white/[0.08] bg-white/[0.03] text-sm font-bold text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-white/[0.06]">
                   Sign in to continue
                 </button>
               )}
@@ -1541,14 +1565,15 @@ Property Status: 🟢 Inquiry Active`;
 
             {/* Job buttons */}
             {listing.type === "job" && (
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-3">
               {user && user.email !== listing.sellerEmail ? (
                 <>
-                  <button
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      try {
-                        const buyerMsg = `💼 Job inquiry started for "${listing.title}"
+                  <div className="w-full">
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        try {
+                          const buyerMsg = `💼 Job inquiry started for "${listing.title}"
 
 You're now connected with the employer.
 
@@ -1564,47 +1589,62 @@ Please keep all communication inside Sky Drop for protection.
 
 Application Status: 🟢 Active`;
 
-                        const result = await sendMessage({
-                          type: "system",
-                          text: buyerMsg,
-                          receiver: listing.sellerEmail,
-                          listingId,
-                          listingTitle: listing.title,
-                          listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
-                          listingPrice: listing.price,
-                          createConversation: true,
-                          convKey: `listing_${listingId}`,
-                          buyerEmail: user!.email!,
-                          sellerEmail: listing.sellerEmail,
-                        });
+                          const result = await sendMessage({
+                            type: "system",
+                            text: buyerMsg,
+                            receiver: listing.sellerEmail,
+                            listingId,
+                            listingTitle: listing.title,
+                            listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
+                            listingPrice: listing.price,
+                            createConversation: true,
+                            convKey: `listing_${listingId}`,
+                            buyerEmail: user!.email!,
+                            sellerEmail: listing.sellerEmail,
+                          });
 
-                        await sendMessage({
-                          type: "text",
-                          text: `🟢 A user is interested in your job listing.\n\nUse this chat to discuss:\n• experience/skills\n• availability\n• interview arrangements\n• pay/rates\n• job expectations\n\nKeep all communication inside Sky Drop for protection.`,
-                          receiver: listing.sellerEmail,
-                          listingId,
-                          listingTitle: listing.title,
-                          conversationId: result.conversationId,
-                        });
-                      } catch (e) {
-                        console.error("Job inquiry failed:", e);
-                      }
-                      try { localStorage.setItem("skyJobPrefill", `Hi, I'm interested in this job 👋`); } catch {}
-                      router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`);
-                    }}
-                    className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-sky-500 to-sky-500 py-3 text-[13px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:shadow-sky-500/30"
-                  >
-                    Apply Now
-                  </button>
+                          await sendMessage({
+                            type: "text",
+                            text: `🟢 A user is interested in your job listing.\n\nUse this chat to discuss:\n• experience/skills\n• availability\n• interview arrangements\n• pay/rates\n• job expectations\n\nKeep all communication inside Sky Drop for protection.`,
+                            receiver: listing.sellerEmail,
+                            listingId,
+                            listingTitle: listing.title,
+                            conversationId: result.conversationId,
+                          });
+                        } catch (e) {
+                          console.error("Job inquiry failed:", e);
+                        }
+                        try { localStorage.setItem("skyJobPrefill", `Hi, I'm interested in this job 👋`); } catch {}
+                        router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`);
+                      }}
+                      className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 text-base font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-200 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:brightness-110 active:scale-[0.98]"
+                    >
+                      Apply Now
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`)}
+                      className="h-11 flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06]"
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03 8 9 8s9 3.582 9 8z" />
+                      </svg>
+                      Message Seller
+                    </button>
+                  </div>
                 </>
               ) : user?.email === listing.sellerEmail ? (
-                <div className="flex gap-2 w-full">
-                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 rounded-lg bg-sky-500 py-3 text-center text-[13px] font-bold text-white transition hover:bg-sky-400">
-                    Edit Listing
+                <div className="flex gap-3 w-full">
+                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 h-11 flex items-center justify-center rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:brightness-110 active:scale-[0.98]">
+                    ✏️ Edit Listing
                   </Link>
+                  <button onClick={() => setShowPromote(true)} className="h-11 px-4 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sm font-bold text-sky-400 transition hover:bg-sky-500/20 hover:border-sky-500/50">
+                    📈 Promote
+                  </button>
                 </div>
               ) : (
-                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="flex-1 rounded-lg border border-zinc-700 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-zinc-800">
+                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="w-full h-11 rounded-lg border border-white/[0.08] bg-white/[0.03] text-sm font-bold text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-white/[0.06]">
                   Sign in to Apply
                 </button>
               )}
@@ -1613,13 +1653,14 @@ Application Status: 🟢 Active`;
 
             {/* Service buttons */}
             {listing.type === "service" && (
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-3">
               {user && user.email !== listing.sellerEmail ? (
                 <>
-                  <button
-                    onClick={async () => {
-                      try {
-                        const buyerMsg = `🛠️ Service inquiry started for "${listing.title}"
+                  <div className="w-full">
+                    <button
+                      onClick={async () => {
+                        try {
+                          const buyerMsg = `🛠️ Service inquiry started for "${listing.title}"
 
 You're now connected with the service provider.
 
@@ -1635,53 +1676,63 @@ Please keep all communication and payments inside Sky Drop for protection.
 
 Service Status: 🟢 Inquiry Active`;
 
-                        const result = await sendMessage({
-                          type: "system",
-                          text: buyerMsg,
-                          receiver: listing.sellerEmail,
-                          listingId,
-                          listingTitle: listing.title,
-                          listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
-                          listingPrice: listing.price,
-                          createConversation: true,
-                          convKey: `listing_${listingId}`,
-                          buyerEmail: user!.email!,
-                          sellerEmail: listing.sellerEmail,
-                        });
+                          const result = await sendMessage({
+                            type: "system",
+                            text: buyerMsg,
+                            receiver: listing.sellerEmail,
+                            listingId,
+                            listingTitle: listing.title,
+                            listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
+                            listingPrice: listing.price,
+                            createConversation: true,
+                            convKey: `listing_${listingId}`,
+                            buyerEmail: user!.email!,
+                            sellerEmail: listing.sellerEmail,
+                          });
 
-                        await sendMessage({
-                          type: "text",
-                          text: `🟢 A user is interested in hiring your service.\n\nUse this chat to discuss:\n• project requirements\n• pricing\n• deadlines\n• revisions\n• delivery expectations\n\nKeep all communication inside Sky Drop for protection.`,
-                          receiver: listing.sellerEmail,
-                          listingId,
-                          listingTitle: listing.title,
-                          conversationId: result.conversationId,
-                        });
-                      } catch (e) {
-                        console.error("Service inquiry failed:", e);
-                      }
-                      router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`)
-                    }}
-                    className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-sky-500 to-fuchsia-500 py-3 text-[13px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:shadow-sky-500/30"
-                  >
-                    Message Seller
-                  </button>
-                  {listing.acceptOffers && (
-                    <button onClick={() => setShowOffer(true)}
-                      className="rounded-lg border border-zinc-700 px-4 py-3 text-[12px] font-medium text-[var(--foreground)] transition hover:border-zinc-600">
-                      Make Offer
+                          await sendMessage({
+                            type: "text",
+                            text: `🟢 A user is interested in hiring your service.\n\nUse this chat to discuss:\n• project requirements\n• pricing\n• deadlines\n• revisions\n• delivery expectations\n\nKeep all communication inside Sky Drop for protection.`,
+                            receiver: listing.sellerEmail,
+                            listingId,
+                            listingTitle: listing.title,
+                            conversationId: result.conversationId,
+                          });
+                        } catch (e) {
+                          console.error("Service inquiry failed:", e);
+                        }
+                        router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`)
+                      }}
+                      className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-fuchsia-500 px-5 text-base font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98]"
+                    >
+                      Message Seller
                     </button>
-                  )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {listing.acceptOffers && (
+                      <button onClick={() => setShowOffer(true)}
+                        className="h-11 flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06]"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                        </svg>
+                        Make Offer
+                      </button>
+                    )}
+                  </div>
                 </>
               ) : user?.email === listing.sellerEmail ? (
-                <div className="flex gap-2 w-full">
-                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 rounded-lg bg-gradient-to-r from-sky-500 to-fuchsia-500 py-3 text-center text-[13px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">
+                <div className="flex gap-3 w-full">
+                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 h-11 flex items-center justify-center rounded-lg bg-gradient-to-r from-sky-500 to-fuchsia-500 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:brightness-110 active:scale-[0.98]">
                     ✏️ Edit Listing
                   </Link>
+                  <button onClick={() => setShowPromote(true)} className="h-11 px-4 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sm font-bold text-sky-400 transition hover:bg-sky-500/20 hover:border-sky-500/50">
+                    📈 Promote
+                  </button>
                 </div>
               ) : (
-                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="flex-1 rounded-lg border border-zinc-700 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-zinc-800">
-                  Sign in
+                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="w-full h-11 rounded-lg border border-white/[0.08] bg-white/[0.03] text-sm font-bold text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-white/[0.06]">
+                  Sign in to continue
                 </button>
               )}
             </div>
@@ -1689,91 +1740,98 @@ Service Status: 🟢 Inquiry Active`;
 
             {/* Rental buttons */}
             {listing.type === "rental" && (
-            <div>
-              <div className="flex gap-2">
-                {user && user.email !== listing.sellerEmail ? (
-                  <>
-                    <div className="flex-1 space-y-3 rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Pickup date</label>
-                          <input type="date" value={pickupDate} onChange={(e) => {
-                            setPickupDate(e.target.value);
-                            if (returnDate && e.target.value > returnDate) setReturnDate("");
-                            if (returnDate && e.target.value <= returnDate) {
-                              const diff = Math.ceil((new Date(returnDate).getTime() - new Date(e.target.value).getTime()) / 86400000);
-                              setRentalDays(diff);
-                            }
-                          }}
-                            className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3 py-2 text-xs text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+            <div className="flex flex-col gap-3">
+              {user && user.email !== listing.sellerEmail ? (
+                <>
+                  <div className="w-full space-y-3 rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Pickup date</label>
+                        <input type="date" value={pickupDate} onChange={(e) => {
+                          setPickupDate(e.target.value);
+                          if (returnDate && e.target.value > returnDate) setReturnDate("");
+                          if (returnDate && e.target.value <= returnDate) {
+                            const diff = Math.ceil((new Date(returnDate).getTime() - new Date(e.target.value).getTime()) / 86400000);
+                            setRentalDays(diff);
+                          }
+                        }}
+                          className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3 py-2 text-xs text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Return date</label>
+                        <input type="date" value={returnDate} onChange={(e) => {
+                          setReturnDate(e.target.value);
+                          if (pickupDate && e.target.value > pickupDate) {
+                            const diff = Math.ceil((new Date(e.target.value).getTime() - new Date(pickupDate).getTime()) / 86400000);
+                            setRentalDays(diff);
+                          }
+                        }} min={pickupDate || undefined}
+                          className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3 py-2 text-xs text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                      </div>
+                    </div>
+                    {rentalDays > 0 && (
+                      <div className="rounded-lg bg-zinc-800/40 px-3 py-2 text-xs">
+                        <div className="space-y-1">
+                          <p className="font-medium text-sky-400 text-[11px]">
+                            ${(Number(listing.price) || 0).toFixed(2)}/day
+                            {listing.rentalPriceWeekly ? ` · $${Number(listing.rentalPriceWeekly).toFixed(2)}/wk` : ""}
+                            {listing.rentalPriceMonthly ? ` · $${Number(listing.rentalPriceMonthly).toFixed(2)}/mo` : ""}
+                          </p>
                         </div>
-                        <div>
-                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Return date</label>
-                          <input type="date" value={returnDate} onChange={(e) => {
-                            setReturnDate(e.target.value);
-                            if (pickupDate && e.target.value > pickupDate) {
-                              const diff = Math.ceil((new Date(e.target.value).getTime() - new Date(pickupDate).getTime()) / 86400000);
-                              setRentalDays(diff);
-                            }
-                          }} min={pickupDate || undefined}
-                            className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3 py-2 text-xs text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                        <div className="mt-1.5 flex items-center justify-between text-[var(--muted)]">
+                          <span>${Number(listing.price)}/day × {rentalDays} day{rentalDays > 1 ? "s" : ""}</span>
+                          <span className="text-white font-bold">${(Number(listing.price) * rentalDays).toFixed(2)}</span>
+                        </div>
+                        {listing.rentalDeposit && (
+                          <div className="mt-0.5 flex items-center justify-between text-[var(--muted)]">
+                            <span className="text-sky-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">🔒 Refundable Deposit</span>
+                            <span>$${(Number(listing.rentalDeposit) || 0).toFixed(2)}</span>
+                          </div>
+                        )}
+                        <div className="mt-0.5 flex items-center justify-between text-[var(--muted)]">
+                          <span>Buyer Protection</span>
+                          <span>$1.00</span>
+                        </div>
+                        <div className="mt-1 flex items-center justify-between border-t border-zinc-700 pt-1 text-sm font-bold text-white">
+                          <span>Total</span>
+                          <span>${(Number(listing.price) * rentalDays + 1).toFixed(2)}</span>
                         </div>
                       </div>
-                      {rentalDays > 0 && (
-                        <div className="rounded-lg bg-zinc-800/40 px-3 py-2 text-xs">
-                          <div className="space-y-1">
-                            <p className="font-medium text-sky-400 text-[11px]">
-                              ${(Number(listing.price) || 0).toFixed(2)}/day
-                              {listing.rentalPriceWeekly ? ` · $${Number(listing.rentalPriceWeekly).toFixed(2)}/wk` : ""}
-                              {listing.rentalPriceMonthly ? ` · $${Number(listing.rentalPriceMonthly).toFixed(2)}/mo` : ""}
-                            </p>
-                          </div>
-                          <div className="mt-1.5 flex items-center justify-between text-[var(--muted)]">
-                            <span>${Number(listing.price)}/day × {rentalDays} day{rentalDays > 1 ? "s" : ""}</span>
-                            <span className="text-white font-bold">${(Number(listing.price) * rentalDays).toFixed(2)}</span>
-                          </div>
-                          {listing.rentalDeposit && (
-                            <div className="mt-0.5 flex items-center justify-between text-[var(--muted)]">
-                              <span className="text-sky-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">🔒 Refundable Deposit</span>
-                              <span>$${(Number(listing.rentalDeposit) || 0).toFixed(2)}</span>
-                            </div>
-                          )}
-                          <div className="mt-0.5 flex items-center justify-between text-[var(--muted)]">
-                            <span>Buyer Protection</span>
-                            <span>$1.00</span>
-                          </div>
-                          <div className="mt-1 flex items-center justify-between border-t border-zinc-700 pt-1 text-sm font-bold text-white">
-                            <span>Total</span>
-                            <span>${(Number(listing.price) * rentalDays + 1).toFixed(2)}</span>
-                          </div>
-                        </div>
-                      )}
-                      <button onClick={() => {
-                        if (rentalDays < 1) { showToast("Select pickup and return dates", "info"); return; }
-                        openStripeCheckout();
-                      }}
-                        className="w-full rounded-lg bg-gradient-to-r from-sky-500 to-sky-500 py-3 text-[13px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:shadow-sky-500/30">
-                        Rent Now {rentalDays > 0 ? `— $${(Number(listing.price) * rentalDays + 1).toFixed(2)}` : ""}
-                      </button>
-                    </div>
+                    )}
+                    <button onClick={() => {
+                      if (rentalDays < 1) { showToast("Select pickup and return dates", "info"); return; }
+                      openStripeCheckout();
+                    }}
+                      className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 text-base font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-200 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:brightness-110 active:scale-[0.98]">
+                      Rent Now {rentalDays > 0 ? `— $${(Number(listing.price) * rentalDays + 1).toFixed(2)}` : ""}
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
                     <Link
                       href={`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`}
-                      className="flex items-center justify-center rounded-lg border border-zinc-700 px-4 py-3 text-[12px] font-medium text-[var(--foreground)] transition hover:border-zinc-600 self-stretch">
-                      Message
-                    </Link>
-                  </>
-                ) : user?.email === listing.sellerEmail ? (
-                  <div className="flex gap-2 w-full">
-                    <Link href={`/post/ai?edit=${listingId}`} className="flex-1 rounded-lg bg-sky-500 py-3 text-center text-[13px] font-bold text-white transition hover:bg-sky-400">
-                      Edit Listing
+                      className="h-11 flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06]"
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03 8 9 8s9 3.582 9 8z" />
+                      </svg>
+                      Message Seller
                     </Link>
                   </div>
-                ) : (
-                  <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="flex-1 rounded-lg border border-zinc-700 py-3 text-[13px] font-bold text-[var(--foreground)] transition hover:bg-zinc-800">
-                    Sign in
+                </>
+              ) : user?.email === listing.sellerEmail ? (
+                <div className="flex gap-3 w-full">
+                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 h-11 flex items-center justify-center rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:brightness-110 active:scale-[0.98]">
+                    ✏️ Edit Listing
+                  </Link>
+                  <button onClick={() => setShowPromote(true)} className="h-11 px-4 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sm font-bold text-sky-400 transition hover:bg-sky-500/20 hover:border-sky-500/50">
+                    📈 Promote
                   </button>
-                )}
-              </div>
+                </div>
+              ) : (
+                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="w-full h-11 rounded-lg border border-white/[0.08] bg-white/[0.03] text-sm font-bold text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-white/[0.06]">
+                  Sign in to continue
+                </button>
+              )}
             </div>
             )}
 
