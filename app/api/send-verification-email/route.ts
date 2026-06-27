@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getAdminAuth, getAdminDb } from "../../lib/firebase-admin";
 
 export async function POST(req: NextRequest) {
   try {
@@ -8,8 +9,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
 
+    const auth = getAdminAuth();
+    const db = getAdminDb();
     const baseUrl = process.env.NEXT_PUBLIC_URL || "https://skydrop.co.nz";
-    const verificationLink = `${baseUrl}/verify-email?email=${encodeURIComponent(email)}`;
+    
+    // Generate a verification token
+    const verificationToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    
+    // Store the token in Firestore with expiration
+    await db.collection("email-verification").doc(verificationToken).set({
+      email: email.toLowerCase(),
+      createdAt: new Date(),
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+    });
+
+    const verificationLink = `${baseUrl}/verify-email?token=${verificationToken}`;
 
     const html = `
       <!DOCTYPE html>

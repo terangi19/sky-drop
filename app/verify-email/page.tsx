@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { applyActionCode } from "firebase/auth";
-import { auth } from "../lib/firebase";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 
@@ -15,24 +13,28 @@ export default function VerifyEmailPage() {
 
   useEffect(() => {
     async function verifyEmail() {
-      const email = searchParams.get("email");
-      if (!email) {
+      const token = searchParams.get("token");
+      if (!token) {
         setStatus("error");
-        setMessage("No email provided in verification link.");
+        setMessage("Invalid verification link.");
         return;
       }
 
-      // Since we're using a custom verification flow, we just need to reload the user
-      // Firebase will automatically check email verification status
       try {
-        await auth.currentUser?.reload();
-        if (auth.currentUser?.emailVerified) {
+        const res = await fetch("/api/verify-email-token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+        });
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
           setStatus("success");
           setMessage("Your email has been verified successfully!");
           setTimeout(() => router.push("/"), 3000);
         } else {
           setStatus("error");
-          setMessage("Email verification pending. Please check your email and click the verification link.");
+          setMessage(data.error || "Verification failed. The link may have expired.");
         }
       } catch (e: any) {
         setStatus("error");
