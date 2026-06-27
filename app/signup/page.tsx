@@ -75,18 +75,18 @@ export default function SignupPage() {
       <Background />
 
       <section className="relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] max-w-md flex-col justify-center px-6 py-12">
-        <div className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-zinc-950/90 to-zinc-900/80 p-8 shadow-2xl shadow-black/40 backdrop-blur-xl">
+        <div className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-[var(--card)] p-8 shadow-2xl shadow-black/40 backdrop-blur-xl">
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
-          <div className="absolute -inset-20 -z-10 bg-gradient-to-br from-sky-500/10 via-sky-500/5 to-purple-500/10 blur-3xl opacity-50" />
+          <div className="absolute -inset-20 -z-10 bg-gradient-to-br from-sky-500/10 via-sky-500/5 to-sky-500/10 blur-3xl opacity-50" />
           
           <div className="relative">
             <h1 className="text-3xl font-black text-white tracking-tight">Join Sky Drop</h1>
-            <p className="mt-2 text-sm text-zinc-400">Free to join — browse and buy straight away.</p>
+            <p className="mt-2 text-sm text-[var(--muted)]">Free to join — browse and buy straight away.</p>
           </div>
 
           {user ? (
             <div className="mt-6 space-y-4">
-              <p className="text-sm text-zinc-400">
+              <p className="text-sm text-[var(--muted)]">
                 Signed in as <span className="font-medium text-white">{user.email}</span>
               </p>
               <button
@@ -100,7 +100,7 @@ export default function SignupPage() {
           ) : (
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
               <div>
-                <label htmlFor="signup-email" className="mb-1.5 block text-xs font-semibold text-zinc-400">
+                <label htmlFor="signup-email" className="mb-1.5 block text-xs font-semibold text-[var(--muted)]">
                   Email
                 </label>
                 <input
@@ -117,7 +117,7 @@ export default function SignupPage() {
               </div>
 
               <div>
-                <label htmlFor="signup-password" className="mb-1.5 block text-xs font-semibold text-zinc-400">
+                <label htmlFor="signup-password" className="mb-1.5 block text-xs font-semibold text-[var(--muted)]">
                   Password
                 </label>
                 <input
@@ -134,12 +134,12 @@ export default function SignupPage() {
                 />
               </div>
 
-              <label className="flex cursor-pointer items-start gap-2.5 text-xs leading-relaxed text-zinc-400">
+              <label className="flex cursor-pointer items-start gap-2.5 text-xs leading-relaxed text-[var(--muted)]">
                 <input
                   type="checkbox"
                   checked={acceptedTerms}
                   onChange={(e) => setAcceptedTerms(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-zinc-600 text-sky-500"
+                  className="mt-0.5 h-4 w-4 rounded border-white/[0.08] text-sky-500"
                   disabled={loading}
                 />
                 <span>
@@ -169,7 +169,7 @@ export default function SignupPage() {
             </form>
           )}
 
-          <p className="mt-6 text-center text-sm text-zinc-500">
+          <p className="mt-6 text-center text-sm text-[var(--muted)]">
             Already a member?{" "}
             <Link
               href={redirectTo ? `/login?redirect=${encodeURIComponent(redirectTo)}` : "/login"}
@@ -180,7 +180,7 @@ export default function SignupPage() {
           </p>
 
           <p className="mt-3 text-center">
-            <Link href="/" className="text-xs text-zinc-600 hover:text-zinc-400">
+            <Link href="/" className="text-xs text-[var(--muted)] hover:text-[var(--foreground)]">
               Browse without an account
             </Link>
           </p>

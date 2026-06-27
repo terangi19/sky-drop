@@ -151,7 +151,7 @@ export default function AdminDashboard() {
 
             {/* Today's Activity */}
             <div>
-              <h2 className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-3">📈 Today's Activity</h2>
+              <h2 className="text-xs font-bold text-sky-400 uppercase tracking-widest mb-3">📈 Today's Activity</h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <StatCard label="New Users" value={stats.newUsersToday} />
                 <StatCard label="New Listings" value={stats.listingsToday} />
@@ -162,7 +162,7 @@ export default function AdminDashboard() {
             {/* Activity Feed */}
             {stats.activityFeed?.length > 0 && (
               <div>
-                <h2 className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-3">🔔 Recent Activity</h2>
+                <h2 className="text-xs font-bold text-sky-400 uppercase tracking-widest mb-3">🔔 Recent Activity</h2>
                 <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 space-y-3">
                   {stats.activityFeed.slice(0, 10).map((item) => (
                     <div key={item.id} className="flex items-center gap-3 text-sm">

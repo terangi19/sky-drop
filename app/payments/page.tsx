@@ -96,7 +96,7 @@ export default function PaymentsPage() {
               <div>
                 <h3 className="text-sm font-bold text-sky-400">Verified sellers</h3>
                 <p className="mt-1 text-xs text-[var(--muted)] leading-relaxed">
-                  Sellers complete ID verification (KYC) to list items. Optional phone verification adds a verified seller badge. See <Link href="/trust" className="text-sky-400/80 underline">Trust & Safety</Link> for full details.
+                  Sellers may complete identity verification to unlock full selling capabilities. Optional phone verification adds a verified seller badge. See <Link href="/trust" className="text-sky-400/80 underline">Trust & Safety</Link> for full details.
                 </p>
               </div>
             </div>

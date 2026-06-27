@@ -304,9 +304,9 @@ export default function ArrangePurchaseModal({ listing, buyerEmail, onClose, onS
                   onChange={(e) => setMessage(e.target.value)}
                   placeholder="Hi, I'm interested in this item. When would be a good time to arrange pickup and payment?"
                   rows={4}
-                  className="w-full rounded-lg border border-zinc-800 bg-zinc-900/60 px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-emerald-500/40 resize-none"
+                  className="w-full rounded-lg border border-[var(--card-border)] bg-[var(--soft-card)] px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-500/40 resize-none"
                 />
-                <p className="mt-1 text-[10px] text-zinc-500">
+                <p className="mt-1 text-[10px] text-[var(--muted)]">
                   This message will be sent to the seller to start the conversation.
                 </p>
               </div>
@@ -319,25 +319,25 @@ export default function ArrangePurchaseModal({ listing, buyerEmail, onClose, onS
             </div>
 
             {/* Actions */}
-            <div className="sticky bottom-0 border-t border-zinc-800 bg-zinc-950 px-4 py-3 flex gap-2">
+            <div className="sticky bottom-0 border-t border-[var(--card-border)] bg-[var(--card)] px-4 py-3 flex gap-2">
               <button
                 onClick={safeClose}
                 disabled={loading}
-                className="rounded-xl border border-zinc-700 px-4 py-3 text-sm font-bold text-[var(--muted)] transition hover:border-zinc-600 hover:text-[var(--foreground)] disabled:opacity-50"
+                className="rounded-xl border border-[var(--card-border)] px-4 py-3 text-sm font-bold text-[var(--muted)] transition hover:border-sky-400 hover:text-[var(--foreground)] disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleArrangePurchase}
                 disabled={loading || !message.trim()}
-                className="flex-1 rounded-xl bg-emerald-500 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-emerald-400 disabled:opacity-50"
+                className="flex-1 rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-sky-400 disabled:opacity-50"
               >
                 {loading ? "Sending..." : "Send Request"}
               </button>
             </div>
 
             {step === "processing" && (
-              <div className="sticky bottom-0 border-t border-zinc-800 bg-zinc-950 px-4 py-3">
+              <div className="sticky bottom-0 border-t border-[var(--card-border)] bg-[var(--card)] px-4 py-3">
                 <div className="flex items-center justify-center gap-2 py-3 text-sm text-[var(--muted)]">
                   <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />

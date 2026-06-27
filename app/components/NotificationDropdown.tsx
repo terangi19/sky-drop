@@ -46,17 +46,17 @@ const TYPE_META: Record<
   },
   offer: {
     icon: "\uD83D\uDCB0",
-    color: "bg-amber-500/20 border-amber-500/30",
+    color: "bg-sky-500/20 border-sky-500/30",
     priority: "high",
   },
   sold: {
     icon: "\u2705",
-    color: "bg-emerald-500/20 border-emerald-500/30",
+    color: "bg-sky-500/20 border-sky-500/30",
     priority: "high",
   },
   verification: {
     icon: "\uD83D\uDD10",
-    color: "bg-violet-500/20 border-violet-500/30",
+    color: "bg-sky-500/20 border-sky-500/30",
     priority: "high",
   },
   warning: {
@@ -66,12 +66,12 @@ const TYPE_META: Record<
   },
   watchlist: {
     icon: "\u2B50",
-    color: "bg-orange-500/20 border-orange-500/30",
+    color: "bg-sky-500/20 border-sky-500/30",
     priority: "medium",
   },
   purchase: {
     icon: "\uD83D\uDCEB",
-    color: "bg-emerald-500/20 border-emerald-500/30",
+    color: "bg-sky-500/20 border-sky-500/30",
     priority: "high",
   },
   price_drop: {
@@ -81,7 +81,7 @@ const TYPE_META: Record<
   },
   saved_search_match: {
     icon: "\uD83D\uDD0D",
-    color: "bg-violet-500/20 border-violet-500/30",
+    color: "bg-sky-500/20 border-sky-500/30",
     priority: "medium",
   },
 };
@@ -283,19 +283,19 @@ export default function NotificationDropdown({
                           )}
                           {notification.type ===
                             "offer" && (
-                            <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[8px] font-bold text-amber-400 border border-amber-500/30">
+                            <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-[8px] font-bold text-sky-400 border border-sky-500/30">
                               Offer
                             </span>
                           )}
                           {notification.type ===
                             "sold" && (
-                            <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[8px] font-bold text-emerald-400 border border-emerald-500/30">
+                            <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-[8px] font-bold text-sky-400 border border-sky-500/30">
                               Sold
                             </span>
                           )}
                           {notification.type ===
                             "purchase" && (
-                            <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[8px] font-bold text-emerald-400 border border-emerald-500/30">
+                            <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-[8px] font-bold text-sky-400 border border-sky-500/30">
                               Purchase
                             </span>
                           )}

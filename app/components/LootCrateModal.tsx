@@ -19,7 +19,7 @@ interface RewardDef {
 }
 
 const RARITY_COLORS: Record<Rarity, string> = {
-  common: "border-2 border-zinc-600",
+  common: "border-2 border-white/[0.08]",
   rare: "border-2 border-sky-400/70",
   epic: "border-2 border-sky-400/70",
   legendary: "border-[3px] border-sky-400/70",
@@ -33,7 +33,7 @@ const RARITY_STARS: Record<Rarity, string> = {
 };
 
 const RARITY_BG: Record<Rarity, string> = {
-  common: "from-zinc-800 to-zinc-900",
+  common: "from-white/[0.03] to-white/[0.05]",
   rare: "from-sky-950 to-zinc-950",
   epic: "from-sky-950 to-zinc-950",
   legendary: "from-sky-950 to-zinc-950",

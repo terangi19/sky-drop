@@ -14,7 +14,7 @@ export default function NotificationBell({
   return (
     <button
       onClick={onClick}
-      className={`relative flex h-9 w-9 items-center justify-center rounded-lg transition ${hasNotifications ? "bg-zinc-800/80 animate-breathe-glow" : "bg-zinc-800/50 hover:bg-zinc-700/50"}`}
+      className={`relative flex h-9 w-9 items-center justify-center rounded-lg transition ${hasNotifications ? "bg-[var(--soft-card)] animate-breathe-glow" : "bg-[var(--soft-card)] hover:bg-[var(--card-hover)]"}`}
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -31,7 +31,7 @@ export default function NotificationBell({
       </svg>
 
       {hasNotifications && (
-        <span className="absolute -right-1.5 -top-1.5 flex min-w-[18px] h-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white ring-2 ring-zinc-900">
+        <span className="absolute -right-1.5 -top-1.5 flex min-w-[18px] h-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white ring-2 ring-[var(--card)]">
           {count > 9 ? "9+" : count}
         </span>
       )}

@@ -783,7 +783,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                 ))}
               </div>
             )}
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500/30 to-emerald-500/20 ring-1 ring-emerald-500/30">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-sky-500/30 to-sky-500/20 ring-1 ring-sky-500/30">
               <AnimatedCheckmark />
             </div>
             <h2 className="mt-4 text-lg font-black text-white">Payment Successful</h2>
@@ -799,31 +799,31 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                 <div className="mt-1 flex items-center justify-between text-white"><span>Shipping</span><span>${shippingAmount.toFixed(2)}</span></div>
               )}
               {isRental && listing.rentalDeposit && (
-                <div className="mt-1 flex items-center justify-between text-amber-400">
-                  <span className="text-amber-400">🔒 Refundable Deposit</span>
+                <div className="mt-1 flex items-center justify-between text-sky-400">
+                  <span className="text-sky-400">🔒 Refundable Deposit</span>
                   <span>${Number(listing.rentalDeposit).toFixed(2)}</span>
                 </div>
               )}
               <div className="mt-1 flex items-center justify-between text-white"><span>Buyer Protection</span><span>$1.00</span></div>
               <div className="mt-2 flex items-center justify-between border-t border-white/[0.08] pt-2 text-sm font-bold text-white"><span>Total Due Today</span><span>${total.toFixed(2)}</span></div>
-              {isRental && listing.rentalDeposit && <p className="mt-1 text-[10px] text-amber-400/70">${Number(listing.rentalDeposit).toFixed(2)} refundable after safe return.</p>}
+              {isRental && listing.rentalDeposit && <p className="mt-1 text-[10px] text-sky-400/70">${Number(listing.rentalDeposit).toFixed(2)} refundable after safe return.</p>}
             </div>
 
             {/* Next Steps */}
-            <div className="mt-4 rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.06] to-emerald-500/[0.02] px-4 py-3 text-left">
-              <p className="text-[11px] font-bold text-emerald-400 mb-2">What happens next?</p>
+            <div className="mt-4 rounded-xl border border-sky-500/20 bg-gradient-to-br from-sky-500/[0.06] to-sky-500/[0.02] px-4 py-3 text-left">
+              <p className="text-[11px] font-bold text-sky-400 mb-2">What happens next?</p>
               <div className="space-y-2">
                 <div className="flex items-start gap-2">
                   <span className="text-[10px] mt-0.5">1️⃣</span>
-                  <p className="text-[10px] text-emerald-400/80">Order confirmed - Seller has received your shipping details</p>
+                  <p className="text-[10px] text-sky-400/80">Order confirmed - Seller has received your shipping details</p>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="text-[10px] mt-0.5">2️⃣</span>
-                  <p className="text-[10px] text-emerald-400/80">{isDigital ? "Download from your Purchases page" : deliveryMethod === "shipping" ? "Seller will ship to your address" : "Arrange pickup with seller"}</p>
+                  <p className="text-[10px] text-sky-400/80">{isDigital ? "Download from your Purchases page" : deliveryMethod === "shipping" ? "Seller will ship to your address" : "Arrange pickup with seller"}</p>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="text-[10px] mt-0.5">3️⃣</span>
-                  <p className="text-[10px] text-emerald-400/80">Track order status in your Purchases</p>
+                  <p className="text-[10px] text-sky-400/80">Track order status in your Purchases</p>
                 </div>
               </div>
             </div>
@@ -832,7 +832,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
               💳 Secured by Stripe · 🛡️ Buyer Protection Active
             </div>
             <div className="mt-2 flex items-center justify-center gap-1 text-xs text-white">
-              <span className="text-emerald-400">✓</span>
+              <span className="text-sky-400">✓</span>
               <span>Seller has been notified</span>
             </div>
 
@@ -912,9 +912,9 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
               </div>
               {/* Seller Trust Badge */}
               {sellerRating && (
-                <div className="flex items-center gap-1 rounded-full bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 px-2 py-1 border border-emerald-500/20">
+                <div className="flex items-center gap-1 rounded-full bg-gradient-to-br from-sky-500/10 to-sky-500/5 px-2 py-1 border border-sky-500/20">
                   <span className="text-[10px]">⭐</span>
-                  <span className="text-[10px] font-bold text-emerald-400">{sellerRating.toFixed(1)}</span>
+                  <span className="text-[10px] font-bold text-sky-400">{sellerRating.toFixed(1)}</span>
                 </div>
               )}
             </div>
@@ -1017,16 +1017,16 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                       <span>Total Due Today</span>
                       <span>${total.toFixed(2)}</span>
                     </div>
-                    {isRental && listing.rentalDeposit && <p className="mt-1 text-[10px] text-amber-400/70">${Number(listing.rentalDeposit).toFixed(2)} refundable after safe return.</p>}
+                    {isRental && listing.rentalDeposit && <p className="mt-1 text-[10px] text-sky-400/70">${Number(listing.rentalDeposit).toFixed(2)} refundable after safe return.</p>}
                   </div>
 
                   {/* Buyer Protection Banner */}
-                  <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.06] to-emerald-500/[0.02] px-3.5 py-3">
+                  <div className="rounded-xl border border-sky-500/20 bg-gradient-to-br from-sky-500/[0.06] to-sky-500/[0.02] px-3.5 py-3">
                     <div className="flex items-start gap-2">
                       <span className="text-lg">🛡️</span>
                       <div>
-                        <p className="text-[11px] font-bold text-emerald-400">Buyer Protection</p>
-                        <p className="mt-1 text-[10px] text-emerald-400/80 leading-relaxed">
+                        <p className="text-[11px] font-bold text-sky-400">Buyer Protection</p>
+                        <p className="mt-1 text-[10px] text-sky-400/80 leading-relaxed">
                           Your payment is protected. If the item doesn't arrive or isn't as described, you may be eligible for a full refund.
                         </p>
                       </div>
@@ -1081,7 +1081,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                       <span>Total Due Today</span>
                       <span>${total.toFixed(2)}</span>
                     </div>
-                    {isRental && listing.rentalDeposit && <p className="mt-1 text-[10px] text-amber-400/70">${Number(listing.rentalDeposit).toFixed(2)} refundable after safe return.</p>}
+                    {isRental && listing.rentalDeposit && <p className="mt-1 text-[10px] text-sky-400/70">${Number(listing.rentalDeposit).toFixed(2)} refundable after safe return.</p>}
                   </div>
                   <Elements stripe={stripePromise} options={{ clientSecret }}>
                     <PaymentForm total={total} listingId={listing.id} title={listing.title} price={String(total)} buyerEmail={buyerEmail} paymentIntentId={paymentIntentId} onSuccess={handlePaymentSuccess} onBack={resetToForm} badgeForSale={listing.badgeForSale} sellerEmail={listing.sellerEmail} collectionName={collectionName} type={listing.type} digitalFileURL={listing.digitalFileURL} digitalFileName={listing.digitalFileName} digitalStoragePath={listing.digitalStoragePath} />

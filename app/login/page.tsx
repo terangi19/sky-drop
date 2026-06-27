@@ -105,9 +105,9 @@ export default function LoginPage() {
       <Background />
 
       <section className="relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] max-w-md flex-col justify-center px-6 py-12">
-        <div className="login-page-card rounded-2xl border border-white/[0.08] bg-zinc-950/80 p-8 shadow-xl backdrop-blur-sm">
+        <div className="login-page-card rounded-2xl border border-white/[0.08] bg-[var(--card)] p-8 shadow-xl backdrop-blur-sm">
           <h1 className="login-page-title text-2xl font-bold">Log in</h1>
-          <p className="login-page-body mt-1 text-sm text-zinc-400">Welcome back to Sky Drop.</p>
+          <p className="login-page-body mt-1 text-sm text-[var(--muted)]">Welcome back to Sky Drop.</p>
 
           {user ? (
             <p className="login-page-body mt-6 text-sm">

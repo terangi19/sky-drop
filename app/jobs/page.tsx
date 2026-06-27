@@ -62,28 +62,28 @@ export default function JobsPage() {
               <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sm">🔍</span>
               <div>
                 <p className="text-sm font-bold text-[var(--foreground)]">Browse Jobs</p>
-                <p className="mt-0.5 text-xs text-zinc-500">Find your next role across NZ in various industries.</p>
+                <p className="mt-0.5 text-xs text-[var(--muted)]">Find your next role across NZ in various industries.</p>
               </div>
             </div>
             <div className="flex gap-3">
               <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sm">📄</span>
               <div>
                 <p className="text-sm font-bold text-[var(--foreground)]">Review Details</p>
-                <p className="mt-0.5 text-xs text-zinc-500">Check salary range, employment type, and company info.</p>
+                <p className="mt-0.5 text-xs text-[var(--muted)]">Check salary range, employment type, and company info.</p>
               </div>
             </div>
             <div className="flex gap-3">
               <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sm">💬</span>
               <div>
                 <p className="text-sm font-bold text-[var(--foreground)]">Apply Directly</p>
-                <p className="mt-0.5 text-xs text-zinc-500">Send your application with a cover letter and resume.</p>
+                <p className="mt-0.5 text-xs text-[var(--muted)]">Send your application with a cover letter and resume.</p>
               </div>
             </div>
             <div className="flex gap-3">
               <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sm">✅</span>
               <div>
                 <p className="text-sm font-bold text-[var(--foreground)]">Get Hired</p>
-                <p className="mt-0.5 text-xs text-zinc-500">Employer reviews your application and reaches out.</p>
+                <p className="mt-0.5 text-xs text-[var(--muted)]">Employer reviews your application and reaches out.</p>
               </div>
             </div>
           </div>
@@ -102,7 +102,7 @@ export default function JobsPage() {
               className={`rounded-full px-4 py-2 text-xs font-bold tracking-wide transition-all duration-200 ${
                 category === c
                   ? "bg-gradient-to-r from-sky-500 to-sky-500 text-white shadow-lg shadow-sky-500/25"
-                  : "border border-zinc-800 bg-zinc-900/40 text-zinc-500 hover:border-zinc-700 hover:text-zinc-300"
+                  : "border border-white/[0.08] bg-[var(--soft-card)] text-[var(--muted)] hover:border-white/[0.12] hover:text-[var(--foreground)]"
               }`}>
               {c}
             </button>
@@ -115,7 +115,7 @@ export default function JobsPage() {
               <span className="text-3xl">💼</span>
             </div>
             <h2 className="text-2xl font-black tracking-tight text-white">No jobs listed yet</h2>
-            <p className="mt-2 text-sm text-zinc-500">Be the first to post a job.</p>
+            <p className="mt-2 text-sm text-[var(--muted)]">Be the first to post a job.</p>
             <Link href="/post/ai?type=job" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:scale-105 active:scale-95">
               Post a Job
             </Link>
@@ -130,7 +130,7 @@ export default function JobsPage() {
                   ) : (
                     <div className="flex h-full items-center justify-center text-5xl opacity-30">💼</div>
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-zinc-900/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                   <div className="absolute top-3 left-3 rounded-full border border-sky-500/20 bg-sky-500/10 px-2 py-0.5 text-[9px] font-bold text-sky-400 backdrop-blur-sm">Job</div>
                 </div>
 
@@ -138,20 +138,20 @@ export default function JobsPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-bold text-[var(--foreground)] group-hover:text-sky-400 transition-colors duration-300">{item.title}</p>
-                      <p className="mt-0.5 text-[11px] text-zinc-500">{item.company || item.category}</p>
+                      <p className="mt-0.5 text-[11px] text-[var(--muted)]">{item.company || item.category}</p>
                     </div>
                     <span className="shrink-0 text-right">
                       <span className="block text-sm font-black text-sky-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.3)]">{formatSalary(item)}</span>
                     </span>
                   </div>
 
-                  <div className="mt-2 text-[10px] text-zinc-500">
+                  <div className="mt-2 text-[10px] text-[var(--muted)]">
                     {item.employmentType && <span>{item.employmentType}</span>}
                     {item.location && <span> · {item.location}</span>}
                   </div>
 
-                  <div className="mt-auto flex items-center justify-between border-t border-zinc-800/50 pt-4">
-                    <span className="text-[11px] text-zinc-500">{item.sellerUsername || item.sellerEmail?.split("@")[0] || "Employer"}</span>
+                  <div className="mt-auto flex items-center justify-between border-t border-white/[0.06] pt-4">
+                    <span className="text-[11px] text-[var(--muted)]">{item.sellerUsername || item.sellerEmail?.split("@")[0] || "Employer"}</span>
                     <Link href={`/post/listing/${item.id}`} className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-4 py-1.5 text-[11px] font-bold text-sky-400 transition-all duration-200 hover:bg-sky-500/20 hover:scale-105 active:scale-95">
                       View Job
                     </Link>

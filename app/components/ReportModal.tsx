@@ -83,7 +83,7 @@ export default function ReportModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in-backdrop" onClick={onClose}>
-      <div className="mx-4 w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl animate-fade-in-scale" onClick={(e) => e.stopPropagation()}>
+      <div className="mx-4 w-full max-w-md rounded-2xl border border-white/[0.08] bg-[var(--card)] p-6 shadow-2xl animate-fade-in-scale" onClick={(e) => e.stopPropagation()}>
         {sent ? (
           <div className="py-4 text-center">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-sky-500/20">
@@ -93,7 +93,7 @@ export default function ReportModal({
             </div>
             <h3 className="mt-4 text-lg font-black text-[var(--foreground)]">Report Submitted</h3>
             <p className="mt-2 text-sm text-[var(--foreground)]">Our moderation team will review this report.</p>
-            <button onClick={onClose} className="mt-6 w-full rounded-xl bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] transition-all duration-150 hover:bg-zinc-700 active:scale-[0.98]">
+            <button onClick={onClose} className="mt-6 w-full rounded-xl bg-[var(--soft-card)] py-3 text-sm font-bold text-[var(--foreground)] transition-all duration-150 hover:bg-[var(--card-hover)] active:scale-[0.98]">
               Done
             </button>
           </div>
@@ -106,7 +106,7 @@ export default function ReportModal({
             <p className="mt-1 text-sm text-[var(--muted)]">Why are you reporting this {type}?</p>
             <div className="mt-4 space-y-2">
               {REPORT_REASONS.map((r) => (
-                <label key={r} className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-all ${reason === r ? "border-sky-500/50 bg-sky-500/10" : "border-zinc-700 bg-zinc-800/50 hover:border-zinc-600"}`}>
+                <label key={r} className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-all ${reason === r ? "border-sky-500/50 bg-sky-500/10" : "border-[var(--card-border)] bg-[var(--soft-card)] hover:border-sky-400"}`}>
                   <input type="radio" name="reason" value={r} checked={reason === r} onChange={() => setReason(r)} className="h-4 w-4 accent-sky-500" />
                   <span className="text-sm font-medium text-[var(--foreground)]">{r}</span>
                 </label>
@@ -117,7 +117,7 @@ export default function ReportModal({
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Optional: add more details..."
               rows={3}
-              className="mt-4 w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500"
+              className="mt-4 w-full rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] px-4 py-3 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500"
             />
             <TurnstileWidget
               onToken={(token) => setTurnstileToken(token)}
@@ -125,7 +125,7 @@ export default function ReportModal({
               className="mt-4 flex justify-center scale-[0.85] origin-center"
             />
             <div className="mt-4 flex gap-3">
-              <button onClick={onClose} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] transition-all duration-150 hover:bg-zinc-700 active:scale-[0.98]">
+              <button onClick={onClose} className="flex-1 rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] py-3 text-sm font-bold text-[var(--foreground)] transition-all duration-150 hover:bg-[var(--card-hover)] active:scale-[0.98]">
                 Cancel
               </button>
               <button

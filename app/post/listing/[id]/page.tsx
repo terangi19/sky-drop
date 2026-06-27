@@ -711,16 +711,16 @@ export default function ListingPage() {
         <Background />
         <Navbar />
         <section className="relative z-10 mx-auto max-w-5xl px-6 py-8">
-          <div className="h-4 w-48 rounded bg-zinc-800 animate-pulse mb-8" />
+          <div className="h-4 w-48 rounded bg-white/[0.03] animate-pulse mb-8" />
           <div className="grid gap-6 lg:grid-cols-2">
-            <div className="aspect-[4/3] rounded-2xl bg-zinc-800/60 animate-pulse" />
+            <div className="aspect-[4/3] rounded-2xl bg-white/[0.03] animate-pulse" />
             <div className="space-y-4">
-              <div className="h-5 w-32 rounded-full bg-zinc-800 animate-pulse" />
-              <div className="h-8 w-64 rounded bg-zinc-800 animate-pulse" />
-              <div className="h-10 w-28 rounded bg-zinc-800 animate-pulse" />
-              <div className="h-20 w-full rounded-lg bg-zinc-800/40 animate-pulse" />
-              <div className="h-12 w-full rounded-lg bg-zinc-800/60 animate-pulse" />
-              <div className="h-16 w-full rounded-lg bg-zinc-800/40 animate-pulse" />
+              <div className="h-5 w-32 rounded-full bg-white/[0.03] animate-pulse" />
+              <div className="h-8 w-64 rounded bg-white/[0.03] animate-pulse" />
+              <div className="h-10 w-28 rounded bg-white/[0.03] animate-pulse" />
+              <div className="h-20 w-full rounded-lg bg-white/[0.02] animate-pulse" />
+              <div className="h-12 w-full rounded-lg bg-white/[0.03] animate-pulse" />
+              <div className="h-16 w-full rounded-lg bg-white/[0.02] animate-pulse" />
             </div>
           </div>
         </section>
@@ -771,7 +771,7 @@ export default function ListingPage() {
 
       {showOffer && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in-backdrop" onClick={resetOffer}>
-          <div className="mx-4 w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl animate-fade-in-scale" onClick={(e) => e.stopPropagation()}>
+          <div className="mx-4 w-full max-w-md rounded-2xl border border-white/[0.08] bg-[var(--card)] p-6 shadow-2xl animate-fade-in-scale" onClick={(e) => e.stopPropagation()}>
             {offerSent ? (
               <div className="py-4 text-center">
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-sky-500/20">
@@ -783,7 +783,7 @@ export default function ListingPage() {
                 <p className="mt-2 text-sm text-[var(--foreground)]">
                   Your offer of <span className="font-bold text-sky-400">${offerAmount}</span> for &ldquo;{listing.title}&rdquo; has been sent to the seller.
                 </p>
-                <button onClick={resetOffer} className="mt-6 w-full rounded-xl bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] transition-all duration-150 hover:bg-zinc-700 active:scale-[0.98]">
+                <button onClick={resetOffer} className="mt-6 w-full rounded-xl bg-[var(--card)] py-3 text-sm font-bold text-[var(--foreground)] transition-all duration-150 hover:bg-[var(--card-hover)] active:scale-[0.98]">
                   Done
                 </button>
               </div>
@@ -1763,7 +1763,7 @@ Service Status: 🟢 Inquiry Active`;
             <div className="flex flex-col gap-3">
               {user && user.email !== listing.sellerEmail ? (
                 <>
-                  <div className="w-full space-y-3 rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
+                  <div className="w-full space-y-3 rounded-lg border border-white/[0.08] bg-[var(--card)] p-4">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Pickup date</label>
@@ -1775,7 +1775,7 @@ Service Status: 🟢 Inquiry Active`;
                             setRentalDays(diff);
                           }
                         }}
-                          className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3 py-2 text-xs text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                          className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-xs text-[var(--foreground)] outline-none transition focus:border-sky-500" />
                       </div>
                       <div>
                         <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Return date</label>
@@ -1786,11 +1786,11 @@ Service Status: 🟢 Inquiry Active`;
                             setRentalDays(diff);
                           }
                         }} min={pickupDate || undefined}
-                          className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-3 py-2 text-xs text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                          className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-xs text-[var(--foreground)] outline-none transition focus:border-sky-500" />
                       </div>
                     </div>
                     {rentalDays > 0 && (
-                      <div className="rounded-lg bg-zinc-800/40 px-3 py-2 text-xs">
+                      <div className="rounded-lg bg-white/[0.02] px-3 py-2 text-xs">
                         <div className="space-y-1">
                           <p className="font-medium text-sky-400 text-[11px]">
                             ${(Number(listing.price) || 0).toFixed(2)}/day

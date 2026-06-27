@@ -12,8 +12,8 @@ const sections = [
     content:
       "New accounts start with limited selling capabilities and earn higher limits through successful sales and account age. This prevents scammers from abusing the platform.",
     items: [
-      "Must have: verified email, verified mobile (one number per account), and either ID verification (licence or passport + selfie) or 30-day account age",
-      "Account must be at least 30 days old before first listing (or verify identity with KYC)",
+      "Must have: verified email, verified mobile (one number per account), and either identity verification (licence or passport + selfie) or 30-day account age",
+      "Account must be at least 30 days old before first listing (or complete identity verification)",
       "First listing: max $600, max 1 listing, hidden for 24 hours",
       "Message cap: 5 per day until you complete sales",
       "Maximum $500 total earnings across first 3 sales combined",
@@ -21,16 +21,16 @@ const sections = [
   },
   {
     title: "Selling Limits",
-    content: "KYC (ID verification) is required before you can list items for sale. Your price cap increases as you earn positive reviews (rating 4+):",
+    content: "Identity verification may be required to unlock full selling capabilities. Your price cap increases as you earn positive reviews (rating 4+):",
     items: [
-      "KYC approved: $5,000 starting cap · unlimited after 10 positive reviews · unlimited listings · ID Verified badge",
-      "Without KYC approval you cannot create listings — verify your ID on Profile → Verification",
+      "Identity verified: $5,000 starting cap · unlimited after 10 positive reviews · unlimited listings · ID Verified badge",
+      "Without identity verification, selling limits may apply — verify your ID on Profile → Verification",
     ],
   },
   {
-    title: "KYC — Identity Verification",
+    title: "Identity Verification",
     content:
-      "Upload photos of your driver's licence or passport (front and back) — that's all we need for ID verification. Phone verification is optional and adds a verified seller badge. Admin reviews manually.",
+      "Upload photos of your driver's licence or passport (front and back) — that's all we need for identity verification. Phone verification is optional and adds a verified seller badge. Admin reviews manually.",
     items: [
       "Approved: list immediately, $5,000 starting cap (unlimited after 10 positive reviews), unlimited listings, +20 trust score",
       'Get an "ID Verified" badge on your profile and listings',
@@ -44,7 +44,7 @@ const sections = [
     content:
       "Your trust score is a reputation badge that only goes up. Reports from other users never lower it — this prevents troll abuse. Serious violations are enforced separately through account restriction or banning (see below).",
     items: [
-      "Email verified +10 · Profile complete +10 · 30 days old +10 · 90 days old +5 · First sale +10 · 10 sales +5 · KYC verified +20",
+      "Email verified +10 · Profile complete +10 · 30 days old +10 · 90 days old +5 · First sale +10 · 10 sales +5 · Identity verified +20",
       "≥ 80 Trusted · ≥ 60 Good · ≥ 40 Average · < 40 Low",
       "Below 40: listings pushed down in search, no new listings until you verify your email or complete your profile. Accounts that violate our terms are restricted or banned by admins — not through the trust score.",
     ],
@@ -78,7 +78,7 @@ const sections = [
       "Phone number blacklisted — can never be used on Sky Drop again",
       "All listings, reviews, XP, followers, and badges permanently deleted",
       "IP and device fingerprint get a 30-day cooldown before any new account can use them",
-      "If the user had KYC: their identity documents are flagged and available as evidence where legally required",
+      "If the user completed identity verification: their identity documents are flagged and available as evidence where legally required",
     ],
   },
   {

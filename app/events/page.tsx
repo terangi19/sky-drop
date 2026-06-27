@@ -55,28 +55,28 @@ export default function EventsPage() {
               <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sm">🔍</span>
               <div>
                 <p className="text-sm font-bold text-[var(--foreground)]">Find Events</p>
-                <p className="mt-0.5 text-xs text-zinc-500">Browse concerts, festivals, workshops and sports events.</p>
+                <p className="mt-0.5 text-xs text-[var(--muted)]">Browse concerts, festivals, workshops and sports events.</p>
               </div>
             </div>
             <div className="flex gap-3">
               <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sm">🎟</span>
               <div>
                 <p className="text-sm font-bold text-[var(--foreground)]">Select Tickets</p>
-                <p className="mt-0.5 text-xs text-zinc-500">Choose the event and number of tickets you need.</p>
+                <p className="mt-0.5 text-xs text-[var(--muted)]">Choose the event and number of tickets you need.</p>
               </div>
             </div>
             <div className="flex gap-3">
               <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sm">💳</span>
               <div>
                 <p className="text-sm font-bold text-[var(--foreground)]">Buy Securely</p>
-                <p className="mt-0.5 text-xs text-zinc-500">Checkout is handled securely through Stripe.</p>
+                <p className="mt-0.5 text-xs text-[var(--muted)]">Checkout is handled securely through Stripe.</p>
               </div>
             </div>
             <div className="flex gap-3">
               <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sm">✅</span>
               <div>
                 <p className="text-sm font-bold text-[var(--foreground)]">Show Up</p>
-                <p className="mt-0.5 text-xs text-zinc-500">Coordinate with the seller through chat for delivery or pickup.</p>
+                <p className="mt-0.5 text-xs text-[var(--muted)]">Coordinate with the seller through chat for delivery or pickup.</p>
               </div>
             </div>
           </div>
@@ -96,7 +96,7 @@ export default function EventsPage() {
               className={`rounded-full px-4 py-2 text-xs font-bold tracking-wide transition-all duration-200 ${
                 category === c
                   ? "bg-gradient-to-r from-sky-500 to-sky-500 text-white shadow-lg shadow-sky-500/25"
-                  : "border border-zinc-800 bg-zinc-900/40 text-zinc-500 hover:border-zinc-700 hover:text-zinc-300"
+                  : "border border-white/[0.08] bg-[var(--soft-card)] text-[var(--muted)] hover:border-white/[0.12] hover:text-[var(--foreground)]"
               }`}>
               {c}
             </button>
@@ -109,7 +109,7 @@ export default function EventsPage() {
               <span className="text-3xl">🎟</span>
             </div>
             <h2 className="text-2xl font-black tracking-tight text-white">No events listed yet</h2>
-            <p className="mt-2 text-sm text-zinc-500">Be the first to list an event.</p>
+            <p className="mt-2 text-sm text-[var(--muted)]">Be the first to list an event.</p>
             <Link href="/post/ai?type=event" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:scale-105 active:scale-95">
               List an Event
             </Link>
@@ -124,7 +124,7 @@ export default function EventsPage() {
                   ) : (
                     <div className="flex h-full items-center justify-center text-5xl opacity-30">🎟</div>
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-zinc-900/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                   <div className="absolute top-3 left-3 rounded-full border border-sky-500/20 bg-sky-500/10 px-2 py-0.5 text-[9px] font-bold text-sky-400 backdrop-blur-sm">Event</div>
                 </div>
 
@@ -132,12 +132,12 @@ export default function EventsPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-bold text-[var(--foreground)] group-hover:text-sky-400 transition-colors duration-300">{item.title}</p>
-                      <p className="mt-0.5 text-[11px] text-zinc-500">{item.category}</p>
+                      <p className="mt-0.5 text-[11px] text-[var(--muted)]">{item.category}</p>
                     </div>
                     <span className="shrink-0 text-lg font-black text-sky-400 drop-shadow-[0_0_8px_rgba(234,179,8,0.3)]">${item.price}</span>
                   </div>
 
-                  <div className="mt-2 text-[10px] text-zinc-500">
+                  <div className="mt-2 text-[10px] text-[var(--muted)]">
                     {item.eventDate && (
                       <span>{new Date(item.eventDate).toLocaleDateString("en-NZ", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}</span>
                     )}
@@ -145,8 +145,8 @@ export default function EventsPage() {
                     {item.venue && <span> · {item.venue}</span>}
                   </div>
 
-                  <div className="mt-auto flex items-center justify-between border-t border-zinc-800/50 pt-4">
-                    <span className="text-[11px] text-zinc-500">{item.ticketType || "General Admission"}{item.ticketQuantity ? ` · ${item.ticketQuantity} left` : ""}</span>
+                  <div className="mt-auto flex items-center justify-between border-t border-white/[0.06] pt-4">
+                    <span className="text-[11px] text-[var(--muted)]">{item.ticketType || "General Admission"}{item.ticketQuantity ? ` · ${item.ticketQuantity} left` : ""}</span>
                     <span className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-4 py-1.5 text-[11px] font-bold text-sky-400 transition-all duration-200 group-hover:bg-sky-500/20 group-hover:scale-105 active:scale-95">
                       Buy Tickets
                     </span>

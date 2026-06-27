@@ -1679,7 +1679,7 @@ function MessagesPage() {
                           <p className="truncate text-[13px] font-bold text-[var(--foreground)]">{listingCard.title || "Listing"}</p>
                           {listingCard.price && <p className="text-[12px] font-black text-[var(--muted)]">${listingCard.price}</p>}
                         </div>
-                        <Link href={listingCard?.type === "service" ? "/services" : `/post/listing/${listingCard.id}`}
+                        <Link href={`/post/listing/${listingCard.id}`}
                           className="shrink-0 rounded-lg bg-[var(--soft-card)] px-3 py-1.5 text-[10px] font-bold text-[var(--foreground)] transition hover:bg-[var(--card-hover)]">
                           View Listing
                         </Link>

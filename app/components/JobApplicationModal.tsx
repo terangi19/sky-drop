@@ -64,7 +64,7 @@ export default function JobApplicationModal({ listingId, listingTitle, employerE
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
-      <div className="mx-4 w-full max-w-lg rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="mx-4 w-full max-w-lg rounded-2xl border border-white/[0.08] bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         {step === "success" ? (
           <div className="text-center py-6">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-sky-500/20">
@@ -99,27 +99,27 @@ export default function JobApplicationModal({ listingId, listingTitle, employerE
               <div>
                 <label className="mb-1 block text-[11px] font-medium text-[var(--muted)]">Name *</label>
                 <input type="text" value={name} onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                  className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
               </div>
 
               <div>
                 <label className="mb-1 block text-[11px] font-medium text-[var(--muted)]">Phone</label>
                 <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                  className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
               </div>
 
               <div>
                 <label className="mb-1 block text-[11px] font-medium text-[var(--muted)]">Cover Letter *</label>
                 <textarea value={coverLetter} onChange={(e) => setCoverLetter(e.target.value)} rows={5}
                   placeholder="Tell the employer why you're a good fit for this role..."
-                  className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-4 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500 resize-none" />
+                  className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500 resize-none" />
               </div>
 
               <div>
                 <label className="mb-1 block text-[11px] font-medium text-[var(--muted)]">Resume / CV (optional)</label>
                 <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.txt" onChange={(e) => setResumeFile(e.target.files?.[0] || null)} className="hidden" />
                 <button onClick={() => fileRef.current?.click()}
-                  className="w-full rounded-xl border border-dashed border-zinc-700 bg-zinc-800/40 px-4 py-3 text-sm text-[var(--muted)] hover:border-zinc-600 hover:text-[var(--foreground)] transition">
+                  className="w-full rounded-xl border border-dashed border-white/[0.08] bg-white/[0.02] px-4 py-3 text-sm text-[var(--muted)] hover:border-white/[0.12] hover:text-[var(--foreground)] transition">
                   {resumeFile ? resumeFile.name : "Tap to select resume (PDF, DOC, TXT)"}
                 </button>
               </div>

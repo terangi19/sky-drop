@@ -128,15 +128,15 @@ function AdminReportsContent() {
       <AdminNav />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-amber-500/20 bg-[var(--card)] p-5 shadow-xl">
+        <div className="rounded-2xl border border-sky-500/20 bg-[var(--card)] p-5 shadow-xl">
           <p className="text-sm text-[var(--muted)]">Pending</p>
-          <p className="mt-1 text-3xl font-black text-amber-400">{pendingReports.length}</p>
+          <p className="mt-1 text-3xl font-black text-sky-400">{pendingReports.length}</p>
         </div>
         <div className="rounded-2xl border border-sky-500/20 bg-[var(--card)] p-5 shadow-xl">
           <p className="text-sm text-[var(--muted)]">Reviewed</p>
           <p className="mt-1 text-3xl font-black text-sky-400">{reviewedReports.length}</p>
         </div>
-        <div className="rounded-2xl border border-zinc-500/20 bg-[var(--card)] p-5 shadow-xl">
+        <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5 shadow-xl">
           <p className="text-sm text-[var(--muted)]">Total</p>
           <p className="mt-1 text-3xl font-black text-[var(--foreground)]">{reports.length}</p>
         </div>
@@ -168,7 +168,7 @@ function AdminReportsContent() {
             <button
               onClick={bulkDismiss}
               disabled={bulkActionLoading}
-              className="rounded-lg px-3 py-1.5 text-[11px] font-bold border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 transition disabled:opacity-50"
+              className="rounded-lg px-3 py-1.5 text-[11px] font-bold border border-sky-500/30 text-sky-400 hover:bg-sky-500/10 transition disabled:opacity-50"
             >
               Dismiss ({selectedIds.size})
             </button>

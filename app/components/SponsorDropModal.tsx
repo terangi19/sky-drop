@@ -106,7 +106,7 @@ export default function SponsorDropModal({ listing, sellerEmail, userId, onClose
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in-backdrop" onClick={onClose}>
-      <div className="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl overflow-hidden animate-fade-in-up" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-sm rounded-2xl border border-white/[0.08] bg-[var(--card)] shadow-2xl overflow-hidden animate-fade-in-up" onClick={(e) => e.stopPropagation()}>
         {step === "success" ? (
           <div className="flex flex-col items-center px-6 py-10 text-center animate-fade-in-up">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-sky-500/20 text-2xl">🎁</div>
@@ -132,8 +132,8 @@ export default function SponsorDropModal({ listing, sellerEmail, userId, onClose
               <h2 className="text-sm font-bold">🎁 Sponsor a Drop</h2>
               <button onClick={onClose} className="text-[var(--muted)] hover:text-[var(--foreground)]">✕</button>
             </div>
-            <div className="flex items-center gap-3 rounded-lg bg-zinc-900/40 p-3 text-xs">
-              {imageSrc && <div className="h-10 w-10 shrink-0 rounded-lg bg-zinc-800 overflow-hidden"><img src={imageSrc} className="h-full w-full object-cover" /></div>}
+            <div className="flex items-center gap-3 rounded-lg bg-white/[0.03] p-3 text-xs">
+              {imageSrc && <div className="h-10 w-10 shrink-0 rounded-lg bg-white/[0.05] overflow-hidden"><img src={imageSrc} className="h-full w-full object-cover" /></div>}
               <div className="min-w-0 flex-1"><p className="truncate font-bold">{listing.title}</p>{listing.price && <p className="text-[var(--muted)]">${listing.price}</p>}</div>
             </div>
             <div className="rounded-lg bg-sky-500/5 border border-sky-500/20 px-4 py-3 text-xs space-y-1">

@@ -74,7 +74,7 @@ function PaymentForm({ total, listingId, title, buyerEmail, sellerEmail, onSucce
         {submitting ? "Processing..." : `Pay $${total.toFixed(2)}`}
       </button>
       <button type="button" onClick={onBack}
-        className="w-full rounded-xl border border-zinc-700 py-3 text-sm font-bold text-zinc-400 transition hover:border-zinc-600 hover:text-white">
+        className="w-full rounded-xl border border-white/[0.08] py-3 text-sm font-bold text-[var(--muted)] transition hover:border-white/[0.12] hover:text-[var(--foreground)]">
         Cancel
       </button>
     </form>

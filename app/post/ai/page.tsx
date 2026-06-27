@@ -1168,7 +1168,7 @@ export default function AIPostPage() {
             Back
           </Link>
           <div className="relative flex flex-col items-center">
-            <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/10 via-sky-500/5 to-purple-500/10 blur-3xl pointer-events-none" />
+            <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/10 via-sky-500/5 to-sky-500/10 blur-3xl pointer-events-none" />
             <div className="relative mb-3 inline-flex items-center gap-2 rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-[11px] font-bold text-sky-300">
               <span className="h-1.5 w-1.5 rounded-full bg-sky-400 animate-pulse" />
               {editId ? "Edit Listing" : "AI-Powered Listing"}
@@ -1389,15 +1389,15 @@ export default function AIPostPage() {
               <label className="text-sm font-semibold text-white">Category</label>
               <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-[var(--card-hover)] focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-[var(--card-hover)] appearance-none cursor-pointer">
                 {listingType === "digital" ? (
-                  <><option>Templates & Assets</option><option>E-books & Guides</option><option>Art & Photography</option><option>Software & Audio</option><option>Gaming & 3D</option><option>Web & App Development</option><option>Graphic Design</option><option>SEO & Digital Marketing</option><option>Other Digital Services</option></>
+                  <><option className="bg-[var(--card)] text-[var(--foreground)]">Templates & Assets</option><option className="bg-[var(--card)] text-[var(--foreground)]">E-books & Guides</option><option className="bg-[var(--card)] text-[var(--foreground)]">Art & Photography</option><option className="bg-[var(--card)] text-[var(--foreground)]">Software & Audio</option><option className="bg-[var(--card)] text-[var(--foreground)]">Gaming & 3D</option><option className="bg-[var(--card)] text-[var(--foreground)]">Web & App Development</option><option className="bg-[var(--card)] text-[var(--foreground)]">Graphic Design</option><option className="bg-[var(--card)] text-[var(--foreground)]">SEO & Digital Marketing</option><option className="bg-[var(--card)] text-[var(--foreground)]">Other Digital Services</option></>
                 ) : listingType === "service" ? (
-                  <><option>Trades & Repairs</option><option>Cleaning & Maintenance</option><option>Tutoring & Lessons</option><option>Photography</option><option>Personal Training</option><option>Events & Catering</option><option>Other Services</option></>
+                  <><option className="bg-[var(--card)] text-[var(--foreground)]">Trades & Repairs</option><option className="bg-[var(--card)] text-[var(--foreground)]">Cleaning & Maintenance</option><option className="bg-[var(--card)] text-[var(--foreground)]">Tutoring & Lessons</option><option className="bg-[var(--card)] text-[var(--foreground)]">Photography</option><option className="bg-[var(--card)] text-[var(--foreground)]">Personal Training</option><option className="bg-[var(--card)] text-[var(--foreground)]">Events & Catering</option><option className="bg-[var(--card)] text-[var(--foreground)]">Other Services</option></>
                 ) : listingType === "rental" ? (
-                  <><option>Other</option><option>Vehicles</option><option>Equipment</option></>
+                  <><option className="bg-[var(--card)] text-[var(--foreground)]">Other</option><option className="bg-[var(--card)] text-[var(--foreground)]">Vehicles</option><option className="bg-[var(--card)] text-[var(--foreground)]">Equipment</option></>
                 ) : listingType === "wanted" ? (
-                  <><option>Items</option><option>Services</option><option>Rentals</option><option>Vehicles</option></>
+                  <><option className="bg-[var(--card)] text-[var(--foreground)]">Items</option><option className="bg-[var(--card)] text-[var(--foreground)]">Services</option><option className="bg-[var(--card)] text-[var(--foreground)]">Rentals</option><option className="bg-[var(--card)] text-[var(--foreground)]">Vehicles</option></>
                 ) : (
-                  <><option>Tech</option><option>Cars</option><option>Gaming</option><option>Fashion</option><option>Home</option><option>Sports</option><option>Other</option></>
+                  <><option className="bg-[var(--card)] text-[var(--foreground)]">Tech</option><option className="bg-[var(--card)] text-[var(--foreground)]">Cars</option><option className="bg-[var(--card)] text-[var(--foreground)]">Gaming</option><option className="bg-[var(--card)] text-[var(--foreground)]">Fashion</option><option className="bg-[var(--card)] text-[var(--foreground)]">Home</option><option className="bg-[var(--card)] text-[var(--foreground)]">Sports</option><option className="bg-[var(--card)] text-[var(--foreground)]">Other</option></>
                 )}
               </select>
             </div>
@@ -1405,7 +1405,7 @@ export default function AIPostPage() {
             <div className="space-y-1.5">
               <label className="text-sm font-semibold text-white">Condition</label>
               <select value={condition} onChange={(e) => setCondition(e.target.value)} className="w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-[var(--card-hover)] focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-[var(--card-hover)] appearance-none cursor-pointer">
-                <option>New</option><option>Used - Like New</option><option>Used - Good</option><option>Used - Fair</option>
+                <option className="bg-[var(--card)] text-[var(--foreground)]">New</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Like New</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Good</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Fair</option>
               </select>
             </div>
             )}
@@ -1451,13 +1451,24 @@ export default function AIPostPage() {
                 {(listingType === "physical" || listingType === "vehicle" || listingType === "property") && <p className="text-[10px] text-[var(--muted)]">Set the fixed price for this item.</p>}
               </div>
             ) : (
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Starting Bid *</label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                  <input type="number" value={startingBid} onChange={(e) => setStartingBid(e.target.value)} placeholder="0" className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] pl-8 pr-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Starting Bid *</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                    <input type="number" value={startingBid} onChange={(e) => setStartingBid(e.target.value)} placeholder="0" className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] pl-8 pr-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
+                  </div>
                 </div>
-                <p className="text-[10px] text-[var(--muted)]">Minimum price to start the auction. Bidders can place higher bids.</p>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Duration *</label>
+                  <select value={auctionDuration} onChange={(e) => setAuctionDuration(e.target.value)}
+                    className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-sm text-[var(--foreground)] outline-none focus:border-sky-500">
+                    <option value="1" className="bg-[var(--card)] text-[var(--foreground)]">24 hours</option>
+                    <option value="3" className="bg-[var(--card)] text-[var(--foreground)]">3 days</option>
+                    <option value="7" className="bg-[var(--card)] text-[var(--foreground)]">7 days</option>
+                    <option value="14" className="bg-[var(--card)] text-[var(--foreground)]">14 days</option>
+                  </select>
+                </div>
               </div>
             )}
             {(listingType === "physical" || listingType === "wanted") && (
@@ -1469,45 +1480,6 @@ export default function AIPostPage() {
           </div>
           )}
 
-          {listingType === "physical" && saleType === "auction" && (
-            <div className="rounded-xl bg-white/[0.03] p-4">
-              <button
-                type="button"
-                onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
-                className="flex w-full items-center justify-between text-sm font-bold text-[var(--foreground)]"
-              >
-                <span>Auction Settings</span>
-                <svg
-                  className={`h-4 w-4 transition-transform ${showAdvancedOptions ? "rotate-180" : ""}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {showAdvancedOptions && (
-                <div className="mt-4 grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Reserve Price <span className="text-[var(--muted)] font-normal">(optional)</span></label>
-                    <input type="number" value={reservePrice} onChange={(e) => setReservePrice(e.target.value)} placeholder="$"
-                      className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-[var(--foreground)]" />
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Auction Duration</label>
-                    <select value={auctionDuration} onChange={(e) => setAuctionDuration(e.target.value)}
-                      className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm text-[var(--foreground)] outline-none focus:border-sky-500">
-                      <option value="1">24 hours</option>
-                      <option value="3">3 days</option>
-                      <option value="7">7 days</option>
-                      <option value="14">14 days</option>
-                    </select>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
 
           {listingType === "physical" && (
           <div className="space-y-3">
@@ -1597,215 +1569,138 @@ export default function AIPostPage() {
 
           {/* Event Details */}
           {listingType === "event" && (
-            <div className="rounded-xl bg-white/[0.03] p-4">
-              <button
-                type="button"
-                onClick={() => setShowEventDetails(!showEventDetails)}
-                className="flex w-full items-center justify-between text-sm font-bold text-[var(--foreground)]"
-              >
-                <span>Event Details</span>
-                <svg
-                  className={`h-4 w-4 transition-transform ${showEventDetails ? "rotate-180" : ""}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {showEventDetails && (
-                <div className="mt-4 space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Event date *</label>
-                      <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)}
-                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Event time</label>
-                      <input type="time" value={eventTime} onChange={(e) => setEventTime(e.target.value)}
-                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Venue *</label>
-                    <input type="text" value={venue} onChange={(e) => setVenue(e.target.value)} placeholder="e.g. Spark Arena, Auckland"
-                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Ticket quantity</label>
-                      <input type="number" value={ticketQuantity} onChange={(e) => setTicketQuantity(e.target.value)} placeholder="e.g. 100"
-                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Ticket type</label>
-                      <select value={ticketType} onChange={(e) => setTicketType(e.target.value)}
-                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
-                        <option>General Admission</option>
-                        <option>VIP</option>
-                        <option>Early Bird</option>
-                        <option>Student</option>
-                        <option>Family Pass</option>
-                      </select>
-                    </div>
-                  </div>
+            <div className="space-y-3">
+              <label className="text-sm font-bold text-[var(--foreground)]">Event Details</label>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Event date *</label>
+                  <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)}
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
                 </div>
-              )}
+                <div>
+                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Event time</label>
+                  <input type="time" value={eventTime} onChange={(e) => setEventTime(e.target.value)}
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Venue *</label>
+                <input type="text" value={venue} onChange={(e) => setVenue(e.target.value)} placeholder="e.g. Spark Arena, Auckland"
+                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Ticket quantity</label>
+                  <input type="number" value={ticketQuantity} onChange={(e) => setTicketQuantity(e.target.value)} placeholder="e.g. 100"
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Ticket type</label>
+                  <select value={ticketType} onChange={(e) => setTicketType(e.target.value)}
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                    <option className="bg-[var(--card)] text-[var(--foreground)]">General Admission</option>
+                    <option className="bg-[var(--card)] text-[var(--foreground)]">VIP</option>
+                    <option className="bg-[var(--card)] text-[var(--foreground)]">Early Bird</option>
+                    <option className="bg-[var(--card)] text-[var(--foreground)]">Student</option>
+                    <option className="bg-[var(--card)] text-[var(--foreground)]">Family Pass</option>
+                  </select>
+                </div>
+              </div>
             </div>
           )}
 
           {/* Job Details */}
           {listingType === "job" && (
-            <div className="rounded-xl bg-white/[0.03] p-4">
-              <button
-                type="button"
-                onClick={() => setShowJobDetails(!showJobDetails)}
-                className="flex w-full items-center justify-between text-sm font-bold text-[var(--foreground)]"
-              >
-                <span>Job Details</span>
-                <svg
-                  className={`h-4 w-4 transition-transform ${showJobDetails ? "rotate-180" : ""}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {showJobDetails && (
-                <div className="mt-4 space-y-3">
-                  <div>
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Company *</label>
-                    <input type="text" value={jobCompany} onChange={(e) => setJobCompany(e.target.value)} placeholder="e.g. Sky Drop Ltd"
-                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Employment type</label>
-                      <select value={jobEmploymentType} onChange={(e) => setJobEmploymentType(e.target.value)}
-                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
-                        <option>Full-time</option><option>Part-time</option><option>Contract</option><option>Casual</option><option>Fixed-term</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Location</label>
-                      <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Auckland"
-                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Salary min</label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                        <input type="number" value={salaryMin} onChange={(e) => setSalaryMin(e.target.value)} placeholder="70000"
-                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Salary max</label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                        <input type="number" value={salaryMax} onChange={(e) => setSalaryMax(e.target.value)} placeholder="90000"
-                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                      </div>
-                    </div>
+            <div className="space-y-3">
+              <label className="text-sm font-bold text-[var(--foreground)]">Job Details</label>
+              <div>
+                <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Company *</label>
+                <input type="text" value={jobCompany} onChange={(e) => setJobCompany(e.target.value)} placeholder="e.g. Sky Drop Ltd"
+                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Employment type</label>
+                  <select value={jobEmploymentType} onChange={(e) => setJobEmploymentType(e.target.value)}
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                    <option className="bg-[var(--card)] text-[var(--foreground)]">Full-time</option><option className="bg-[var(--card)] text-[var(--foreground)]">Part-time</option><option className="bg-[var(--card)] text-[var(--foreground)]">Contract</option><option className="bg-[var(--card)] text-[var(--foreground)]">Casual</option><option className="bg-[var(--card)] text-[var(--foreground)]">Fixed-term</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Location</label>
+                  <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Auckland"
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Salary min</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                    <input type="number" value={salaryMin} onChange={(e) => setSalaryMin(e.target.value)} placeholder="70000"
+                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
                   </div>
                 </div>
-              )}
+                <div>
+                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Salary max</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                    <input type="number" value={salaryMax} onChange={(e) => setSalaryMax(e.target.value)} placeholder="90000"
+                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
           {/* Accept Offers — physical, service only */}
           {listingType !== "digital" && listingType !== "event" && listingType !== "job" && listingType !== "wanted" && !(listingType === "service" && offersDisabledForService(servicePricingType)) && (
-            <div className="rounded-xl bg-white/[0.03] p-4">
-              <button
-                type="button"
-                onClick={() => setShowAcceptOffers(!showAcceptOffers)}
-                className="flex w-full items-center justify-between text-sm font-bold text-[var(--foreground)]"
-              >
-                <span>Accept Offers</span>
-                <svg
-                  className={`h-4 w-4 transition-transform ${showAcceptOffers ? "rotate-180" : ""}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {showAcceptOffers && (
-                <div className="mt-4 flex items-start">
-                  <div className="flex h-5 items-center">
-                    <input id="acceptOffers" type="checkbox" checked={acceptOffers}
-                      onChange={(e) => setAcceptOffers(e.target.checked)}
-                      className="h-4 w-4 rounded border-[var(--border)] bg-[var(--card)] text-sky-500 focus:ring-sky-500/30" />
-                  </div>
-                  <div className="ml-3">
-                    <label htmlFor="acceptOffers" className="text-sm font-bold text-[var(--foreground)]">Allow buyers to make offers</label>
-                    <p className="text-[10px] text-[var(--muted)]">Buyers can send offers below your asking price</p>
-                  </div>
-                </div>
-              )}
+            <div className="flex items-start gap-3">
+              <div className="flex h-5 items-center pt-0.5">
+                <input id="acceptOffers" type="checkbox" checked={acceptOffers}
+                  onChange={(e) => setAcceptOffers(e.target.checked)}
+                  className="h-4 w-4 rounded border-[var(--border)] bg-[var(--card)] text-sky-500 focus:ring-sky-500/30" />
+              </div>
+              <div>
+                <label htmlFor="acceptOffers" className="text-sm font-bold text-[var(--foreground)]">Allow buyers to make offers</label>
+                <p className="text-[10px] text-[var(--muted)]">Buyers can send offers below your asking price</p>
+              </div>
             </div>
           )}
 
           {/* Digital Pricing Type */}
           {listingType === "digital" && (
-            <div className="rounded-xl bg-white/[0.03] p-4">
-              <button
-                type="button"
-                onClick={() => setShowDigitalPricing(!showDigitalPricing)}
-                className="flex w-full items-center justify-between text-sm font-bold text-[var(--foreground)]"
-              >
-                <span>Pricing Type</span>
-                <svg
-                  className={`h-4 w-4 transition-transform ${showDigitalPricing ? "rotate-180" : ""}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
+            <div className="space-y-3">
+              <label className="text-sm font-bold text-[var(--foreground)]">Pricing Type</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPricingType("fixed")}
+                  className={`flex-1 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                    pricingType === "fixed"
+                      ? "border-sky-500 bg-sky-500/10 text-sky-400"
+                      : "border-[var(--border)] bg-[var(--card)] text-[var(--muted)] hover:border-[var(--border-hover)]"
+                  }`}
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {showDigitalPricing && (
-                <div className="mt-4 space-y-3">
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setPricingType("fixed")}
-                      className={`flex-1 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
-                        pricingType === "fixed"
-                          ? "border-sky-500 bg-sky-500/10 text-sky-400"
-                          : "border-[var(--border)] bg-[var(--card)] text-[var(--muted)] hover:border-[var(--border-hover)]"
-                      }`}
-                    >
-                      Fixed Price
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPricingType("quote")}
-                      className={`flex-1 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
-                        pricingType === "quote"
-                          ? "border-sky-500 bg-sky-500/10 text-sky-400"
-                          : "border-[var(--border)] bg-[var(--card)] text-[var(--muted)] hover:border-[var(--border-hover)]"
-                      }`}
-                    >
-                      Quote Required
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-[var(--muted)]">
-                    {pricingType === "fixed"
-                      ? "Buyers see the exact price and can purchase immediately."
-                      : "Buyers contact you to request a custom quote."}
-                  </p>
-                </div>
-              )}
+                  Fixed Price
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPricingType("quote")}
+                  className={`flex-1 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                    pricingType === "quote"
+                      ? "border-sky-500 bg-sky-500/10 text-sky-400"
+                      : "border-[var(--border)] bg-[var(--card)] text-[var(--muted)] hover:border-[var(--border-hover)]"
+                  }`}
+                >
+                  Quote Required
+                </button>
+              </div>
+              <p className="text-[10px] text-[var(--muted)]">
+                {pricingType === "fixed"
+                  ? "Buyers see the exact price and can purchase immediately."
+                  : "Buyers contact you to request a custom quote."}
+              </p>
             </div>
           )}
 
@@ -1827,129 +1722,92 @@ export default function AIPostPage() {
 
           {/* Service Details */}
           {listingType === "service" && (
-            <div className="rounded-xl bg-white/[0.03] p-4 space-y-4">
-              <button
-                type="button"
-                onClick={() => setShowServiceDetails(!showServiceDetails)}
-                className="flex w-full items-center justify-between text-sm font-bold text-[var(--foreground)]"
-              >
-                <span>Service Details</span>
-                <svg
-                  className={`h-4 w-4 transition-transform ${showServiceDetails ? "rotate-180" : ""}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {showServiceDetails && (
-                <div className="mt-4 space-y-4">
-                  <div>
-                    <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Pricing Type</label>
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      {[
-                        { value: "fixed", label: "Fixed Price", hint: "Set a fixed price for your service" },
-                        { value: "request_quote", label: "Quote Required", hint: "Buyers contact you for a custom quote" },
-                      ].map((opt) => (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => {
-                            setServicePricingType(opt.value as "fixed" | "request_quote");
-                            if (opt.value === "request_quote") {
-                              setPrice("");
-                              setAcceptOffers(false);
-                            }
-                          }}
-                          className={`rounded-lg border px-3 py-2.5 text-left text-sm font-semibold transition ${
-                            servicePricingType === opt.value
-                              ? "border-sky-500 bg-sky-500/10 text-sky-400"
-                              : "border-[var(--border)] bg-[var(--card)] text-[var(--muted)] hover:border-[var(--border-hover)]"
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                    <p className="mt-2 text-[10px] text-[var(--muted)]">
-                      {servicePricingType === "fixed" ? "Set a fixed price for your service" : "Buyers contact you for a custom quote"}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Estimated turnaround</label>
-                    <input
-                      type="text"
-                      value={serviceDuration}
-                      onChange={(e) => setServiceDuration(e.target.value)}
-                      placeholder="e.g. 1 hour, same day, 3-5 days"
-                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500"
-                    />
-                    <p className="mt-2 text-[10px] text-[var(--muted)]">
-                      Local, in-person services — buyers message you to agree scope and timing.
-                    </p>
-                  </div>
+            <div className="space-y-3">
+              <label className="text-sm font-bold text-[var(--foreground)]">Service Details</label>
+              <div>
+                <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Pricing Type</label>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {[
+                    { value: "fixed", label: "Fixed Price", hint: "Set a fixed price for your service" },
+                    { value: "request_quote", label: "Quote Required", hint: "Buyers contact you for a custom quote" },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => {
+                        setServicePricingType(opt.value as "fixed" | "request_quote");
+                        if (opt.value === "request_quote") {
+                          setPrice("");
+                          setAcceptOffers(false);
+                        }
+                      }}
+                      className={`rounded-lg border px-3 py-2.5 text-left text-sm font-semibold transition ${
+                        servicePricingType === opt.value
+                          ? "border-sky-500 bg-sky-500/10 text-sky-400"
+                          : "border-[var(--border)] bg-[var(--card)] text-[var(--muted)] hover:border-[var(--border-hover)]"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
                 </div>
-              )}
+                <p className="mt-2 text-[10px] text-[var(--muted)]">
+                  {servicePricingType === "fixed" ? "Set a fixed price for your service" : "Buyers contact you for a custom quote"}
+                </p>
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Estimated turnaround</label>
+                <input
+                  type="text"
+                  value={serviceDuration}
+                  onChange={(e) => setServiceDuration(e.target.value)}
+                  placeholder="e.g. 1 hour, same day, 3-5 days"
+                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500"
+                />
+                <p className="mt-2 text-[10px] text-[var(--muted)]">
+                  Local, in-person services — buyers message you to agree scope and timing.
+                </p>
+              </div>
             </div>
           )}
 
           {/* Rental Details */}
           {listingType === "rental" && (
-            <div className="rounded-xl bg-white/[0.03] p-4">
-              <button
-                type="button"
-                onClick={() => setShowRentalDetails(!showRentalDetails)}
-                className="flex w-full items-center justify-between text-sm font-bold text-[var(--foreground)]"
-              >
-                <span>Rental Details</span>
-                <svg
-                  className={`h-4 w-4 transition-transform ${showRentalDetails ? "rotate-180" : ""}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {showRentalDetails && (
-                <div className="mt-4 space-y-4">
-                  {/* Rental Sub-Type Selector */}
-                  <div>
-                    <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Rental Type</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {([
-                        { id: "equipment", icon: "🔧", label: "Equipment" },
-                        { id: "vehicle", icon: "🚗", label: "Vehicle" },
-                      ] as const).map((opt) => (
-                        <button key={opt.id} type="button"
-                          onClick={() => setRentalSubType(opt.id)}
-                          className={`flex flex-col items-center gap-1.5 rounded-xl border px-3 py-3 text-center transition-all active:scale-[0.97] ${
-                            rentalSubType === opt.id
-                              ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.06)]"
-                              : "bg-white/[0.02] text-[var(--muted)] hover:bg-white/[0.04]"
-                        }`}>
-                          <span className="text-xl">{opt.icon}</span>
-                          <span className="text-xs font-bold">{opt.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+            <div className="space-y-4">
+              {/* Rental Sub-Type Selector */}
+              <div>
+                <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Rental Type</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {([
+                    { id: "equipment", icon: "🔧", label: "Equipment" },
+                    { id: "vehicle", icon: "🚗", label: "Vehicle" },
+                  ] as const).map((opt) => (
+                    <button key={opt.id} type="button"
+                      onClick={() => setRentalSubType(opt.id)}
+                      className={`flex flex-col items-center gap-1.5 rounded-xl border px-3 py-3 text-center transition-all active:scale-[0.97] ${
+                        rentalSubType === opt.id
+                          ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.06)]"
+                          : "bg-white/[0.02] text-[var(--muted)] hover:bg-white/[0.04]"
+                    }`}>
+                      <span className="text-xl">{opt.icon}</span>
+                      <span className="text-xs font-bold">{opt.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-                  {/* Location */}
-                  <div>
-                    <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Pickup location *</label>
-                    <input type="text" value={location} onChange={(e) => setLocation(e.target.value)}
-                      placeholder="City or suburb"
-                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                  </div>
+              {/* Location */}
+              <div>
+                <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Pickup location *</label>
+                <input type="text" value={location} onChange={(e) => setLocation(e.target.value)}
+                  placeholder="City or suburb"
+                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+              </div>
 
-                  {/* EQUIPMENT RENTAL */}
-                  {rentalSubType === "equipment" && (
-                    <div className="rounded-xl bg-white/[0.03] p-4 space-y-4">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--muted)]">Equipment Rental</p>
+              {/* EQUIPMENT RENTAL */}
+              {rentalSubType === "equipment" && (
+                <div className="rounded-xl bg-white/[0.03] p-4 space-y-4">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--muted)]">Equipment Rental</p>
 
                       <div className="grid grid-cols-3 gap-3">
                         <div>
@@ -2006,7 +1864,7 @@ export default function AIPostPage() {
                         <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Condition</label>
                         <select value={condition} onChange={(e) => setCondition(e.target.value)}
                           className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
-                          <option>New</option><option>Used - Like New</option><option>Used - Good</option><option>Used - Fair</option>
+                          <option className="bg-[var(--card)] text-[var(--foreground)]">New</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Like New</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Good</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Fair</option>
                         </select>
                       </div>
                     </div>
@@ -2069,7 +1927,7 @@ export default function AIPostPage() {
                           <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Condition</label>
                           <select value={condition} onChange={(e) => setCondition(e.target.value)}
                             className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
-                            <option>New</option><option>Used - Like New</option><option>Used - Good</option><option>Used - Fair</option>
+                            <option className="bg-[var(--card)] text-[var(--foreground)]">New</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Like New</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Good</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Fair</option>
                           </select>
                         </div>
                       </div>
@@ -2100,7 +1958,7 @@ export default function AIPostPage() {
                           <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Transmission</label>
                           <select value={vehicleTransmission} onChange={(e) => setVehicleTransmission(e.target.value)}
                             className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
-                            <option>Automatic</option><option>Manual</option>
+                            <option className="bg-[var(--card)] text-[var(--foreground)]">Automatic</option><option className="bg-[var(--card)] text-[var(--foreground)]">Manual</option>
                           </select>
                         </div>
                         <div>
@@ -2112,8 +1970,6 @@ export default function AIPostPage() {
                       </div>
                     </div>
                   )}
-                </div>
-              )}
             </div>
           )}
 
@@ -2174,9 +2030,9 @@ export default function AIPostPage() {
             <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Listing expires in</label>
             <select value={expiresIn} onChange={(e) => setExpiresIn(e.target.value)}
               className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
-              <option value="7">7 days</option>
-              <option value="14">14 days</option>
-              <option value="30">30 days</option>
+              <option value="7" className="bg-[var(--card)] text-[var(--foreground)]">7 days</option>
+              <option value="14" className="bg-[var(--card)] text-[var(--foreground)]">14 days</option>
+              <option value="30" className="bg-[var(--card)] text-[var(--foreground)]">30 days</option>
             </select>
           </div>
 

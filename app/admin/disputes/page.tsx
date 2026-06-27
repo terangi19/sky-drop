@@ -37,7 +37,7 @@ const STATUS_STYLES: Record<string, string> = {
   open: "bg-red-500/10 text-red-400 border-red-500/20",
   under_review: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   resolved_buyer: "bg-sky-500/10 text-sky-400 border-sky-500/20",
-  resolved_seller: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20",
+  resolved_seller: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   refunded: "bg-sky-500/10 text-sky-400 border-sky-500/20",
 };
 

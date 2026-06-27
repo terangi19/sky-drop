@@ -500,6 +500,21 @@ body {
   color: #000000 !important;
 }
 
+/* ── FIX FIELD INPUT CLASS IN LIGHT MODE ── */
+:root.light .w-full.rounded-xl.border.border-white\/\[0\.08\].bg-black\/20 {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+}
+:root.light .w-full.rounded-xl.border.border-white\/\[0\.08\].bg-black\/20::placeholder {
+  color: #000000 !important;
+  opacity: 0.5 !important;
+}
+
+/* ── FIX LOADING OVERLAYS IN LIGHT MODE ── */
+:root.light .bg-black\/60 {
+  background-color: rgba(0, 0, 0, 0.4) !important;
+}
+
 /* ── PREMIUM HOMEPAGE LIGHT MODE ── */
 :root.light .shadow-\[0_0_150px_-20px_rgba\(14\,165\,233\,0\.12\)\] {
   box-shadow: none !important;

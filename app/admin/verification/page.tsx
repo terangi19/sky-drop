@@ -191,7 +191,7 @@ export default function AdminVerificationPage() {
         <div className="mb-8 flex gap-2">
           {tabs.map((t) => (
             <button key={t.key} onClick={() => setTab(t.key)}
-              className={`rounded-xl px-5 py-2.5 text-xs font-bold transition ${tab === t.key ? "bg-sky-500 text-[var(--foreground)]" : "border border-zinc-700 text-[var(--muted)] hover:border-zinc-600"}`}>
+              className={`rounded-xl px-5 py-2.5 text-xs font-bold transition ${tab === t.key ? "bg-sky-500 text-[var(--foreground)]" : "border border-[var(--card-border)] text-[var(--muted)] hover:border-sky-400"}`}>
               {t.label}
             </button>
           ))}
@@ -243,7 +243,7 @@ export default function AdminVerificationPage() {
                       </button>
                       <input type="text" value={rejectInputs[`lst_${listing.id}`] || ""} onChange={(e) => setRejectInputs((prev) => ({ ...prev, [`lst_${listing.id}`]: e.target.value }))}
                         placeholder="Rejection reason..."
-                        className="flex-1 min-w-[180px] rounded-xl border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-xs text-[var(--foreground)] outline-none focus:border-red-500/40 placeholder:text-zinc-600" />
+                        className="flex-1 min-w-[180px] rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] px-3 py-2 text-xs text-[var(--foreground)] outline-none focus:border-red-500/40 placeholder:text-[var(--muted)]" />
                       <button onClick={() => handleRejectListing(listing.id)} disabled={!rejectInputs[`lst_${listing.id}`]?.trim()}
                         className="rounded-xl bg-red-500/15 px-5 py-2.5 text-xs font-bold text-red-400 transition hover:bg-red-500/25 disabled:opacity-40">
                         ❌ Reject
@@ -288,7 +288,7 @@ export default function AdminVerificationPage() {
                       </button>
                       <input type="text" value={rejectInputs[`dig_${listing.id}`] || ""} onChange={(e) => setRejectInputs((prev) => ({ ...prev, [`dig_${listing.id}`]: e.target.value }))}
                         placeholder="Rejection reason..."
-                        className="flex-1 min-w-[180px] rounded-xl border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-xs text-[var(--foreground)] outline-none focus:border-red-500/40 placeholder:text-zinc-600" />
+                        className="flex-1 min-w-[180px] rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] px-3 py-2 text-xs text-[var(--foreground)] outline-none focus:border-red-500/40 placeholder:text-[var(--muted)]" />
                       <button onClick={() => handleRejectDigital(listing.id)} disabled={!rejectInputs[`dig_${listing.id}`]?.trim()}
                         className="rounded-xl bg-red-500/15 px-5 py-2.5 text-xs font-bold text-red-400 transition hover:bg-red-500/25 disabled:opacity-40">
                         ❌ Reject

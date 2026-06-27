@@ -409,11 +409,11 @@ export default function BrowseCategoryPage({ config }: Props) {
                       onChange={(e) => handleRegionChange(e.target.value)}
                       className={`appearance-none rounded-lg border border-white/[0.06] bg-black/40 px-3 py-2 pr-8 text-[11px] text-white outline-none transition cursor-pointer ${t.filterFocus}`}
                     >
-                      <option value="All" className="bg-zinc-900">
+                      <option value="All" className="bg-[var(--card)] text-[var(--foreground)]">
                         All regions
                       </option>
                       {NZ_REGIONS.map((r) => (
-                        <option key={r} value={r} className="bg-zinc-900">
+                        <option key={r} value={r} className="bg-[var(--card)] text-[var(--foreground)]">
                           {r}
                         </option>
                       ))}
@@ -439,11 +439,11 @@ export default function BrowseCategoryPage({ config }: Props) {
                           onChange={(e) => setSelectedCity(e.target.value)}
                           className={`appearance-none rounded-lg border border-white/[0.06] bg-black/40 px-3 py-2 pr-8 text-[11px] text-white outline-none transition cursor-pointer ${t.filterFocus}`}
                         >
-                          <option value="All" className="bg-zinc-900">
+                          <option value="All" className="bg-[var(--card)] text-[var(--foreground)]">
                             All cities
                           </option>
                           {cityOptions.map((c) => (
-                            <option key={c} value={c} className="bg-zinc-900">
+                            <option key={c} value={c} className="bg-[var(--card)] text-[var(--foreground)]">
                               {c}
                             </option>
                           ))}
@@ -473,7 +473,7 @@ export default function BrowseCategoryPage({ config }: Props) {
                       className={`appearance-none rounded-lg border border-white/[0.06] bg-black/40 px-3 py-2 pr-8 text-[11px] text-white outline-none transition cursor-pointer ${t.filterFocus}`}
                     >
                       {(config.categories || ["All"]).map((c) => (
-                        <option key={c} value={c} className="bg-zinc-900">
+                        <option key={c} value={c} className="bg-[var(--card)] text-[var(--foreground)]">
                           {c === "All" ? "All categories" : c}
                         </option>
                       ))}
