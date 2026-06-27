@@ -14,21 +14,46 @@ import { auth, db } from "./firebase";
 import { buildEmailHtml } from "./email";
 import { validatePasswordStrength } from "./password-strength";
 import { getTurnstileSiteKey } from "./turnstile";
+import {
+  defaultUsernameFromEmail,
+  normalizeUsernameInput,
+  validateUsername,
+} from "./username";
 
-function defaultUsernameFromEmail(email: string): string {
-  const prefix = (email.split("@")[0] || "user").replace(/[^a-zA-Z0-9_]/g, "").slice(0, 20);
-  return prefix || "user";
+function candidateUsername(base: string, attempt: number): string {
+  if (attempt === 0) return base;
+  return `${base}${attempt + 1}`.slice(0, 30);
 }
 
 async function createProfileWithReservedUsername(
   uid: string,
   email: string,
-  profileData: Record<string, unknown>
+  profileData: Record<string, unknown>,
+  preferredUsername?: string
 ): Promise<string> {
-  const base = defaultUsernameFromEmail(email);
+  const fromEmail = defaultUsernameFromEmail(email);
+  const userPicked = preferredUsername ? normalizeUsernameInput(preferredUsername) : "";
+  const base = userPicked || fromEmail;
+
   return runTransaction(db, async (transaction) => {
-    let username = base;
-    for (let attempt = 0; attempt < 5; attempt++) {
+    if (userPicked) {
+      const usernameKey = userPicked.toLowerCase();
+      const usernameRef = doc(db, "usernames", usernameKey);
+      const usernameSnap = await transaction.get(usernameRef);
+      if (usernameSnap.exists() && usernameSnap.data()?.uid !== uid) {
+        throw new Error("That username is already taken. Try another one.");
+      }
+      transaction.set(usernameRef, { uid }, { merge: true });
+      transaction.set(
+        doc(db, "profiles", uid),
+        { ...profileData, email, username: userPicked },
+        { merge: true }
+      );
+      return userPicked;
+    }
+
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const username = candidateUsername(base, attempt);
       const usernameKey = username.toLowerCase();
       const usernameRef = doc(db, "usernames", usernameKey);
       const usernameSnap = await transaction.get(usernameRef);
@@ -41,9 +66,8 @@ async function createProfileWithReservedUsername(
         );
         return username;
       }
-      username = `${base}${Math.random().toString(36).substring(2, 6)}`.slice(0, 24);
     }
-    throw new Error("Could not reserve username");
+    throw new Error("Could not reserve username — try choosing one manually.");
   });
 }
 
@@ -95,6 +119,7 @@ export type CreateAccountInput = {
   email: string;
   password: string;
   turnstileToken: string;
+  username?: string;
   inviteCode?: string;
 };
 
@@ -117,6 +142,16 @@ export async function createSkyDropAccount(input: CreateAccountInput): Promise<U
     throw new Error(emailCheck.error);
   }
 
+  const preferredUsername = input.username?.trim()
+    ? normalizeUsernameInput(input.username)
+    : "";
+  if (preferredUsername) {
+    const usernameValidation = validateUsername(preferredUsername);
+    if (!usernameValidation.valid) {
+      throw new Error(usernameValidation.error);
+    }
+  }
+
   const cred = await createUserWithEmailAndPassword(auth, email, password);
   const user = cred.user;
 
@@ -127,14 +162,19 @@ export async function createSkyDropAccount(input: CreateAccountInput): Promise<U
   }
 
   const referralCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-  await createProfileWithReservedUsername(user.uid, user.email || email, {
-    phone: "",
-    phoneVerified: false,
-    referralCode,
-    memberSince: Timestamp.now(),
-    lastActive: Timestamp.now(),
-    createdAt: serverTimestamp(),
-  });
+  await createProfileWithReservedUsername(
+    user.uid,
+    user.email || email,
+    {
+      phone: "",
+      phoneVerified: false,
+      referralCode,
+      memberSince: Timestamp.now(),
+      lastActive: Timestamp.now(),
+      createdAt: serverTimestamp(),
+    },
+    preferredUsername || undefined
+  );
 
   const invite = input.inviteCode?.trim().toUpperCase();
   if (invite) {
