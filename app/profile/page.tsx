@@ -261,6 +261,7 @@ const tabGroups = [
   const referralInitRef = useRef(false);
 
   const applyProfileData = useCallback((data: ProfileData) => {
+    console.log("applyProfileData received:", { phoneVerified: data.phoneVerified, emailVerified: data.emailVerified, phone: data.phone, phoneNumber: data.phoneNumber });
     const uname = data.username || "";
     setProfile(data);
     setUsername(uname);
