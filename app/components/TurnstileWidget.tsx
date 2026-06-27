@@ -1,5 +1,6 @@
 "use client";
 
+// Turnstile widget for Cloudflare verification
 import { useEffect, useRef } from "react";
 import { getTurnstileSiteKey } from "../lib/turnstile";
 
