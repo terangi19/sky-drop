@@ -30,7 +30,6 @@ import { detectScam } from "../lib/scamdetection";
 import { calculateTrustScore } from "../lib/trustscore";
 import { checkImage } from "../lib/nsfw";
 import { showToast } from "../components/Toast";
-import { showAdBlockerWarning } from "../lib/adblock-detector";
 import { createNotification } from "../lib/notifications";
 import OfferPaymentModal from "../components/OfferPaymentModal";
 import ArrangePaymentCopyBar from "../components/ArrangePaymentCopyBar";
@@ -111,7 +110,6 @@ function MessagesPage() {
   const [chatUser, setChatUser] = useState("");
   const [chatListingId, setChatListingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [firebaseBlocked, setFirebaseBlocked] = useState(false);
   const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
   const [usernames, setUsernames] = useState<Record<string, string>>({});
   const [scamWarning, setScamWarning] = useState(false);
@@ -491,7 +489,6 @@ function MessagesPage() {
       items.sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
       setMessages(items);
       setLoading(false);
-      setFirebaseBlocked(false);
       if (snap.metadata?.hasPendingWrites) return;
       items.forEach((msg: any) => {
         fetchUsername(msg.sender);
@@ -503,11 +500,6 @@ function MessagesPage() {
       console.error("Messages snapshot error:", err);
       if (mounted) {
         setLoading(false);
-        // Check if it's an ad blocker error
-        if (err?.message?.includes("ERR_BLOCKED_BY_CLIENT") || err?.code === "unavailable") {
-          setFirebaseBlocked(true);
-          showAdBlockerWarning();
-        }
       }
     });
 
@@ -764,13 +756,7 @@ function MessagesPage() {
       await emitTyping(false);
     } catch (e) {
       console.error(e);
-      // Check if it's an ad blocker error
-      if (e instanceof Error && (e.message.includes("ERR_BLOCKED_BY_CLIENT") || e.message.includes("Failed to fetch"))) {
-        showAdBlockerWarning();
-        showToast("Ad blocker is blocking messages. Please whitelist Firebase domains.", "error");
-      } else {
-        showToast("Failed to send", "error");
-      }
+      showToast("Failed to send", "error");
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
     }
   }
@@ -1212,30 +1198,7 @@ function MessagesPage() {
               </div>
             </div>
             <div className="flex-1 overflow-y-auto scrollbar-thin">
-              {firebaseBlocked ? (
-                <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-500/10">
-                    <svg className="h-5 w-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                  </div>
-                  <p className="mt-4 text-[13px] font-medium text-red-400">Ad Blocker Detected</p>
-                  <p className="mt-2 text-[11px] text-[var(--muted)] leading-relaxed max-w-xs">
-                    Your ad blocker is blocking Firebase. Please whitelist these domains to use messages:
-                  </p>
-                  <div className="mt-3 space-y-1 text-[10px] text-[var(--muted)]">
-                    <code className="block rounded bg-black/30 px-2 py-1">firestore.googleapis.com</code>
-                    <code className="block rounded bg-black/30 px-2 py-1">firebasestorage.googleapis.com</code>
-                    <code className="block rounded bg-black/30 px-2 py-1">identitytoolkit.googleapis.com</code>
-                  </div>
-                  <button 
-                    onClick={() => window.location.reload()}
-                    className="mt-4 rounded-lg bg-sky-500 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-sky-400"
-                  >
-                    Retry After Whitelisting
-                  </button>
-                </div>
-              ) : loading ? (
+              {loading ? (
                 <div className="p-6 text-center text-[13px] text-[var(--muted)]">Loading...</div>
               ) : conversations.length === 0 ? (
                 <div className="flex flex-col items-center justify-center px-6 py-16 text-center">

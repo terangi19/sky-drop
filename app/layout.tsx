@@ -13,7 +13,6 @@ import ScrollToTop from "./components/ScrollToTop";
 import PageEnter from "./components/PageEnter";
 import PWAProvider from "./components/PWAProvider";
 import { validateEnv } from "./lib/env-validation";
-import { detectAdBlocker } from "./lib/adblock-detector";
 
 // Validate environment variables on startup
 const envValidation = validateEnv();
@@ -31,7 +30,6 @@ const WantedLiveFeed = dynamic(() => import("./components/WantedLiveFeed"));
 const PlatformAnnouncement = dynamic(() => import("./components/PlatformAnnouncement"));
 const MarketplaceRadar = dynamic(() => import("./components/MarketplaceRadar"));
 const MatchmakingActivity = dynamic(() => import("./components/MatchmakingActivity"));
-const AdBlockDetector = dynamic(() => import("./components/AdBlockDetector"));
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -190,7 +188,7 @@ export default function RootLayout({
             })();
           `,
         }} />
-        <AuthProvider><ProfileProvider><AwhinaPageInsightProvider><VerificationBanner /><RouteGuard><PageEnter>{children}</PageEnter><Footer /><Spotlight /><ScrollToTop /><SkyAiChat /><MarketplaceRadar /><MatchmakingActivity /></RouteGuard><ToastContainer /><LegendaryClaimNotification /><WantedLiveFeed /><PlatformAnnouncement /><PWAProvider /><AdBlockDetector /></AwhinaPageInsightProvider></ProfileProvider></AuthProvider>
+        <AuthProvider><ProfileProvider><AwhinaPageInsightProvider><VerificationBanner /><RouteGuard><PageEnter>{children}</PageEnter><Footer /><Spotlight /><ScrollToTop /><SkyAiChat /><MarketplaceRadar /><MatchmakingActivity /></RouteGuard><ToastContainer /><LegendaryClaimNotification /><WantedLiveFeed /><PlatformAnnouncement /><PWAProvider /></AwhinaPageInsightProvider></ProfileProvider></AuthProvider>
       </body>
     </html>
   );
