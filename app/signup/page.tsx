@@ -20,7 +20,7 @@ import {
 } from "../lib/username";
 
 const INPUT =
-  "w-full rounded-lg border border-white/[0.1] bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-zinc-500 outline-none transition focus:border-sky-500/50 focus:ring-2 focus:ring-sky-500/15";
+  "w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3.5 text-sm text-white placeholder:text-zinc-500 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -122,9 +122,14 @@ export default function SignupPage() {
       <Background />
 
       <section className="relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] max-w-md flex-col justify-center px-6 py-12">
-        <div className="rounded-2xl border border-white/[0.08] bg-zinc-950/80 p-8 shadow-xl backdrop-blur-sm">
-          <h1 className="text-2xl font-bold text-white">Join Sky Drop</h1>
-          <p className="mt-1 text-sm text-zinc-400">Free to join — browse and buy straight away.</p>
+        <div className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-zinc-950/90 to-zinc-900/80 p-8 shadow-2xl shadow-black/40 backdrop-blur-xl">
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
+          <div className="absolute -inset-20 -z-10 bg-gradient-to-br from-sky-500/10 via-sky-500/5 to-purple-500/10 blur-3xl opacity-50" />
+          
+          <div className="relative">
+            <h1 className="text-3xl font-black text-white tracking-tight">Join Sky Drop</h1>
+            <p className="mt-2 text-sm text-zinc-400">Free to join — browse and buy straight away.</p>
+          </div>
 
           {user ? (
             <div className="mt-6 space-y-4">
@@ -134,7 +139,7 @@ export default function SignupPage() {
               <button
                 type="button"
                 onClick={() => router.push(redirectTo || "/")}
-                className="w-full rounded-lg bg-sky-500 py-3 text-sm font-bold text-white hover:bg-sky-400"
+                className="w-full rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3.5 font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 active:scale-[0.99]"
               >
                 Continue
               </button>
@@ -142,7 +147,7 @@ export default function SignupPage() {
           ) : (
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
               <div>
-                <label htmlFor="signup-email" className="mb-1.5 block text-xs font-medium text-zinc-400">
+                <label htmlFor="signup-email" className="mb-1.5 block text-xs font-semibold text-zinc-400">
                   Email
                 </label>
                 <input
@@ -159,7 +164,7 @@ export default function SignupPage() {
               </div>
 
               <div>
-                <label htmlFor="signup-username" className="mb-1.5 block text-xs font-medium text-zinc-400">
+                <label htmlFor="signup-username" className="mb-1.5 block text-xs font-semibold text-zinc-400">
                   Username
                 </label>
                 <div className="relative">
@@ -199,7 +204,7 @@ export default function SignupPage() {
               </div>
 
               <div>
-                <label htmlFor="signup-password" className="mb-1.5 block text-xs font-medium text-zinc-400">
+                <label htmlFor="signup-password" className="mb-1.5 block text-xs font-semibold text-zinc-400">
                   Password
                 </label>
                 <input
@@ -244,7 +249,7 @@ export default function SignupPage() {
               <button
                 type="submit"
                 disabled={loading || !acceptedTerms}
-                className="w-full rounded-lg bg-sky-500 py-3 text-sm font-bold text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3.5 font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {loading ? "Creating account…" : "Join free"}
               </button>
