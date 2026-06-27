@@ -934,36 +934,42 @@ const tabGroups = [
 
   // Change password
   async function changePassword() {
-    if (!pwOld || !pwNew) { setPwMsg("Fill both fields."); return; }
-    if (pwNew.length < 6) { setPwMsg("Minimum 6 characters."); return; }
+    if (!pwOld || !pwNew) { setPwMsg("Enter your current password and a new password."); return; }
+    if (pwNew.length < 6) { setPwMsg("New password must be at least 6 characters. Try adding numbers or symbols."); return; }
     try {
       setPwMsg("Updating...");
       const cred = EmailAuthProvider.credential(user!.email!, pwOld);
       await reauthenticateWithCredential(user!, cred);
       await updatePassword(user!, pwNew);
-      setPwMsg("Password updated!");
+      setPwMsg("Password updated successfully!");
       setPwOld(""); setPwNew("");
       setTimeout(() => setPwMsg(""), 3000);
     } catch (e: any) {
-      setPwMsg(e.message || "Failed.");
+      if (e.code === "auth/wrong-password") {
+        setPwMsg("Current password is incorrect. Please try again.");
+      } else if (e.code === "auth/weak-password") {
+        setPwMsg("New password is too weak. Add numbers, symbols, or use a longer password.");
+      } else {
+        setPwMsg(e.message || "Password update failed. Please try again.");
+      }
     }
   }
 
   // Delete account
   async function deleteAccount() {
-    if (deleteConfirm !== "DELETE") { showToast('Type DELETE to confirm.', "error"); return; }
+    if (deleteConfirm !== "DELETE") { showToast('Type DELETE in all caps to confirm account deletion.', "error"); return; }
     if (!user) return;
     try {
       setSaving("Deleting...");
       await deleteDoc(doc(db, "profiles", user.uid));
       await deleteUser(user);
-      showToast("Account deleted.", "success");
+      showToast("Account deleted successfully.", "success");
       router.push("/");
     } catch (e: any) {
       if (e.code === "auth/requires-recent-login") {
-        showToast("Please log out and log back in, then try again.", "error");
+        showToast("For security, please log out and log back in, then try deleting your account.", "error");
       } else {
-        showToast("Delete failed. Re-login and try again.", "error");
+        showToast("Could not delete account. Please contact support if this persists.", "error");
       }
     }
     setSaving("");
@@ -1092,8 +1098,8 @@ const tabGroups = [
     try {
       await deleteDoc(doc(db, "listings", id));
       setListingToDelete(null);
-      showToast("Listing deleted", "success");
-    } catch (e) { console.error(e); showToast("Failed to delete listing", "error"); }
+      showToast("Listing deleted successfully", "success");
+    } catch (e) { console.error(e); showToast("Could not delete listing. Please refresh and try again.", "error"); }
   }
 
   async function handleStripeConnect() {
