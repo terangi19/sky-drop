@@ -54,7 +54,6 @@ const MOBILE_NAV_ITEMS = [
 
 const BROWSE_LINKS = [
   { href: "/", label: "All Items", desc: "Browse the full marketplace", icon: "🏪" },
-  { href: "/", label: "Physical Items", desc: "Cars, tech, fashion, home & more", icon: "📦" },
   { href: "/digital", label: "Digital Downloads", desc: "E-books, software, digital assets", icon: "📥" },
   { href: "/services", label: "Services & Gigs", desc: "Freelance work, consulting, help", icon: "🤝" },
   { href: "/rentals", label: "Rentals", desc: "Tools, equipment, cameras for rent", icon: "🔑" },
