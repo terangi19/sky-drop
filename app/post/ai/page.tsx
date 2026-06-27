@@ -41,6 +41,7 @@ import {
   normalizeServicePricingType,
 } from "../../lib/service-pricing";
 import { compressImage, generateThumbnail, type CompressedImage, type Thumbnail } from "../../lib/image-optimization";
+import { getClientCsrfToken } from "../../lib/csrf";
 
 const objectToCategory: Record<string, string> = {
   "car": "Cars", "truck": "Cars", "bus": "Cars", "motorcycle": "Cars",
@@ -1014,9 +1015,14 @@ export default function AIPostPage() {
       let newId = editId;
       if (editId) {
         const token = await auth.currentUser?.getIdToken();
+        const csrfToken = getClientCsrfToken();
         const res = await fetch("/api/update-listing", {
           method: "PUT",
-          headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
+          headers: { 
+            "Content-Type": "application/json", 
+            ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+            ...(csrfToken && { "x-csrf-token": csrfToken })
+          },
           body: JSON.stringify({ listingId: editId, ...listingData, expiresInDays: expiresIn }),
         });
         const data = await res.json();
@@ -1033,9 +1039,14 @@ export default function AIPostPage() {
           setLoading(false);
           return;
         }
+        const csrfToken = getClientCsrfToken();
         const res = await fetch("/api/create-listing", {
           method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          headers: { 
+            "Content-Type": "application/json", 
+            Authorization: `Bearer ${token}`,
+            ...(csrfToken && { "x-csrf-token": csrfToken })
+          },
           body: JSON.stringify({ ...listingData, expiresInDays: expiresIn, listingType }),
         });
         const data = await res.json().catch(() => ({}));
