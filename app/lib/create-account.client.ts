@@ -202,7 +202,7 @@ export async function createSkyDropAccount(input: CreateAccountInput): Promise<U
       to: user.email!,
       subject: "Welcome to Sky Drop",
       title: "Welcome to Sky Drop",
-      message: "Thanks for joining. Browse anytime — complete seller verification when you're ready to list.",
+      message: "Thanks for joining. Browse and buy items immediately.",
       ctas: [
         {
           label: "Browse Listings",
