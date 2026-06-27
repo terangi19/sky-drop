@@ -23,12 +23,12 @@ export default function SellerAccessCard({
   const unlocked = accessState === "kyc_unlocked";
   const needsSetup = unlocked && !readyToList && listingBlockReason;
 
-  let statusTitle = "ID verification required";
-  let statusDetail = kycRequiredBlockMessage();
+  let statusTitle = "Ready to sell";
+  let statusDetail = "You can list items for sale.";
 
   if (accessState === "kyc_unlocked") {
-    statusTitle = "ID verified";
-    statusDetail = "Your identity is verified — you can list items for sale.";
+    statusTitle = "Ready to sell";
+    statusDetail = "You can list items for sale.";
   }
 
   return (
@@ -43,7 +43,7 @@ export default function SellerAccessCard({
         <div>
           <p className="text-sm font-semibold text-white">Seller access</p>
           <p className="mt-0.5 text-xs text-zinc-500">
-            Browse and buy anytime. Complete ID verification to sell.
+            Browse and buy anytime. List items whenever you're ready to sell.
           </p>
         </div>
         <span
