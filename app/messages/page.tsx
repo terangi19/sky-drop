@@ -30,25 +30,23 @@ import { detectScam } from "../lib/scamdetection";
 import { calculateTrustScore } from "../lib/trustscore";
 import { checkImage } from "../lib/nsfw";
 import { showToast } from "../components/Toast";
+import { showAdBlockerWarning } from "../lib/adblock-detector";
 import { createNotification } from "../lib/notifications";
 import OfferPaymentModal from "../components/OfferPaymentModal";
 import ArrangePaymentCopyBar from "../components/ArrangePaymentCopyBar";
 import StayOnSkyDropNotice from "../components/StayOnSkyDropNotice";
 import BraveWarning from "../components/BraveWarning";
 import { STAY_ON_SKY_DROP_HEADLINE } from "../lib/conversation-safety";
-import {
-  extractEmailsFromText,
+import { extractEmailsFromText,
   isEmailLike,
   publicHandleFromProfile,
   sanitizePublicText,
   sellerProfileSlug,
 } from "../lib/public-display";
 import { resolveSellerBySlug } from "../lib/seller-profile-lookup";
-import { getTurnstileSiteKey } from "../lib/turnstile";
 import { canSellerConfirmArrangeSale, countSellerSales } from "../lib/arrange-purchase-status";
 import { getFreshIdToken } from "../lib/api-auth";
 import { trackFunnelEvent } from "../lib/funnel-events";
-import TurnstileWidget from "../components/TurnstileWidget";
 import NegotiationAssistant from "../components/NegotiationAssistant";
 import {
   blockedEmailsFromDocs,
@@ -113,6 +111,7 @@ function MessagesPage() {
   const [chatUser, setChatUser] = useState("");
   const [chatListingId, setChatListingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [firebaseBlocked, setFirebaseBlocked] = useState(false);
   const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
   const [usernames, setUsernames] = useState<Record<string, string>>({});
   const [scamWarning, setScamWarning] = useState(false);
@@ -122,7 +121,6 @@ function MessagesPage() {
   const [conversationFilter, setConversationFilter] = useState<"all" | "sellers" | "buyers">("all");
   // Typing
   const [otherTyping, setOtherTyping] = useState(false);
-  const [turnstileToken, setTurnstileToken] = useState("");
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
@@ -249,6 +247,17 @@ function MessagesPage() {
 
   useEffect(() => {
     if (chatUser) fetchUsername(chatUser);
+  }, [chatUser]);
+
+  // Clear rate limiter when conversation changes
+  useEffect(() => {
+    if (chatUser) {
+      try {
+        const msgTracker = JSON.parse(localStorage.getItem("msgTracker") || "{}");
+        delete msgTracker[chatUser];
+        localStorage.setItem("msgTracker", JSON.stringify(msgTracker));
+      } catch (e) { console.error("Failed to clear rate limiter:", e); }
+    }
   }, [chatUser]);
 
   // Fetch seller profile + trust score
@@ -482,6 +491,7 @@ function MessagesPage() {
       items.sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
       setMessages(items);
       setLoading(false);
+      setFirebaseBlocked(false);
       if (snap.metadata?.hasPendingWrites) return;
       items.forEach((msg: any) => {
         fetchUsername(msg.sender);
@@ -489,7 +499,17 @@ function MessagesPage() {
         msg.participants?.forEach((p: string) => fetchUsername(p));
         extractEmailsFromText(msg.text || "").forEach((e) => fetchUsername(e));
       });
-    }, (err) => { console.error("Messages snapshot error:", err); if (mounted) setLoading(false); });
+    }, (err) => { 
+      console.error("Messages snapshot error:", err);
+      if (mounted) {
+        setLoading(false);
+        // Check if it's an ad blocker error
+        if (err?.message?.includes("ERR_BLOCKED_BY_CLIENT") || err?.code === "unavailable") {
+          setFirebaseBlocked(true);
+          showAdBlockerWarning();
+        }
+      }
+    });
 
     return () => { mounted = false; unsub(); };
   }, [user?.email, blockedUsers]);
@@ -572,19 +592,7 @@ function MessagesPage() {
   }
 
   function checkMessageRateLimit(): boolean {
-    try {
-      const msgTracker = JSON.parse(localStorage.getItem("msgTracker") || "{}");
-      const now = Date.now();
-      if (msgTracker[chatUser] && now - msgTracker[chatUser] < 5000) {
-        showToast("Please wait before messaging this user again", "info");
-        return false;
-      }
-      msgTracker[chatUser] = now;
-      for (const key of Object.keys(msgTracker)) {
-        if (now - msgTracker[key] > 3600000) delete msgTracker[key];
-      }
-      localStorage.setItem("msgTracker", JSON.stringify(msgTracker));
-    } catch (e) { console.error("Msg tracker error:", e); }
+    // Rate limiter disabled - causing issues with messaging
     return true;
   }
 
@@ -708,10 +716,6 @@ function MessagesPage() {
       const kw = containsRiskyKeywords(message);
       if (kw) { setRiskyKeyword(kw); setShowSafetyWarning(true); return; }
     }
-    if (getTurnstileSiteKey() && !turnstileToken) {
-      showToast("Complete the security check to send messages.", "error");
-      return;
-    }
 
     const activeListingTitle = listingCard?.title || null;
     const activeListingImage = listingCard?.images?.[0] || listingCard?.image || listingCard?.imageUrl || null;
@@ -758,11 +762,15 @@ function MessagesPage() {
         listingImage: activeListingImage || undefined,
       });
       await emitTyping(false);
-      // Reset turnstile token after each send to prevent replay
-      setTurnstileToken("");
     } catch (e) {
       console.error(e);
-      showToast("Failed to send", "error");
+      // Check if it's an ad blocker error
+      if (e instanceof Error && (e.message.includes("ERR_BLOCKED_BY_CLIENT") || e.message.includes("Failed to fetch"))) {
+        showAdBlockerWarning();
+        showToast("Ad blocker is blocking messages. Please whitelist Firebase domains.", "error");
+      } else {
+        showToast("Failed to send", "error");
+      }
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
     }
   }
@@ -1084,11 +1092,11 @@ function MessagesPage() {
       {/* Block User Confirmation Modal */}
       {blockConfirmTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setBlockConfirmTarget(null)}>
-          <div className="mx-4 w-full max-w-sm rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="mx-4 w-full max-w-sm rounded-2xl border border-white/[0.08] bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-black text-red-400">Block User</h3>
             <p className="mt-2 text-sm text-[var(--foreground)]">Block {getDisplayName(blockConfirmTarget)}? They won&apos;t be able to message you, and their messages will be hidden.</p>
             <div className="mt-5 flex gap-3">
-              <button onClick={() => setBlockConfirmTarget(null)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700">Cancel</button>
+              <button onClick={() => setBlockConfirmTarget(null)} className="flex-1 rounded-xl border border-white/[0.08] bg-[var(--card)] py-3 text-sm font-bold text-[var(--foreground)] hover:bg-[var(--card-hover)]">Cancel</button>
               <button onClick={() => { blockUser(blockConfirmTarget); setBlockConfirmTarget(null); }} className="flex-1 rounded-xl bg-red-500 py-3 text-sm font-bold text-white hover:bg-red-400">Block</button>
             </div>
           </div>
@@ -1098,11 +1106,11 @@ function MessagesPage() {
       {/* Clear All Messages Confirmation Modal */}
       {clearAllConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setClearAllConfirm(false)}>
-          <div className="mx-4 w-full max-w-sm rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="mx-4 w-full max-w-sm rounded-2xl border border-white/[0.08] bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-black text-red-400">Clear All Messages</h3>
             <p className="mt-2 text-sm text-[var(--foreground)]">Delete all your messages? This cannot be undone.</p>
             <div className="mt-5 flex gap-3">
-              <button onClick={() => setClearAllConfirm(false)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700">Cancel</button>
+              <button onClick={() => setClearAllConfirm(false)} className="flex-1 rounded-xl border border-white/[0.08] bg-[var(--card)] py-3 text-sm font-bold text-[var(--foreground)] hover:bg-[var(--card-hover)]">Cancel</button>
               <button onClick={executeClearAllMessages} className="flex-1 rounded-xl bg-red-500 py-3 text-sm font-bold text-white hover:bg-red-400">Delete All</button>
             </div>
           </div>
@@ -1112,7 +1120,7 @@ function MessagesPage() {
       {/* Scam Warning Modal */}
       {scamWarning && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => { setScamWarning(false); setPendingMessage(""); }}>
-          <div className="mx-4 w-full max-w-md rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="mx-4 w-full max-w-md rounded-2xl border border-white/[0.08] bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-black text-[var(--foreground)]">&#9888;&#65039; Safety Warning</h3>
               <button onClick={() => { setScamWarning(false); setPendingMessage(""); }} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
@@ -1121,7 +1129,7 @@ function MessagesPage() {
               Your message contains words associated with suspicious activity. {STAY_ON_SKY_DROP_HEADLINE} so we can review disputes and reports — we cannot see SMS, email, or other apps.
             </p>
             <div className="mt-4 flex gap-3">
-              <button onClick={() => { setScamWarning(false); setPendingMessage(""); }} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700">Edit Message</button>
+              <button onClick={() => { setScamWarning(false); setPendingMessage(""); }} className="flex-1 rounded-xl border border-white/[0.08] bg-[var(--card)] py-3 text-sm font-bold text-[var(--foreground)] hover:bg-[var(--card-hover)]">Edit Message</button>
               <button onClick={sendPendingMessage} className="flex flex-1 items-center justify-center rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-sky-400">Send Anyway</button>
             </div>
           </div>
@@ -1130,7 +1138,7 @@ function MessagesPage() {
       {/* Risky keyword warning */}
       {showSafetyWarning && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setShowSafetyWarning(false)}>
-          <div className="mx-4 w-full max-w-md rounded-2xl border border-sky-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="mx-4 w-full max-w-md rounded-2xl border border-sky-500/20 bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-black text-sky-400">&#9888;&#65039; Payment Safety</h3>
               <button onClick={() => setShowSafetyWarning(false)} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
@@ -1139,7 +1147,7 @@ function MessagesPage() {
               Your message mentions &ldquo;{riskyKeyword}&rdquo; — often used to move deals off Sky Drop. {STAY_ON_SKY_DROP_HEADLINE}: Stripe disputes need your chat history here (Purchases → Open dispute within 7 days). Off-platform chats cannot be reviewed.
             </p>
             <div className="mt-4 flex gap-3">
-              <button onClick={() => setShowSafetyWarning(false)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700">Edit Message</button>
+              <button onClick={() => setShowSafetyWarning(false)} className="flex-1 rounded-xl border border-white/[0.08] bg-[var(--card)] py-3 text-sm font-bold text-[var(--foreground)] hover:bg-[var(--card-hover)]">Edit Message</button>
               <button onClick={() => { setShowSafetyWarning(false); sendMessage(true); }} className="flex flex-1 items-center justify-center rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-sky-400">Send Anyway</button>
             </div>
           </div>
@@ -1204,7 +1212,30 @@ function MessagesPage() {
               </div>
             </div>
             <div className="flex-1 overflow-y-auto scrollbar-thin">
-              {loading ? (
+              {firebaseBlocked ? (
+                <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-500/10">
+                    <svg className="h-5 w-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  </div>
+                  <p className="mt-4 text-[13px] font-medium text-red-400">Ad Blocker Detected</p>
+                  <p className="mt-2 text-[11px] text-[var(--muted)] leading-relaxed max-w-xs">
+                    Your ad blocker is blocking Firebase. Please whitelist these domains to use messages:
+                  </p>
+                  <div className="mt-3 space-y-1 text-[10px] text-[var(--muted)]">
+                    <code className="block rounded bg-black/30 px-2 py-1">firestore.googleapis.com</code>
+                    <code className="block rounded bg-black/30 px-2 py-1">firebasestorage.googleapis.com</code>
+                    <code className="block rounded bg-black/30 px-2 py-1">identitytoolkit.googleapis.com</code>
+                  </div>
+                  <button 
+                    onClick={() => window.location.reload()}
+                    className="mt-4 rounded-lg bg-sky-500 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-sky-400"
+                  >
+                    Retry After Whitelisting
+                  </button>
+                </div>
+              ) : loading ? (
                 <div className="p-6 text-center text-[13px] text-[var(--muted)]">Loading...</div>
               ) : conversations.length === 0 ? (
                 <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
@@ -1303,10 +1334,10 @@ function MessagesPage() {
                       </button>
                       {/* Profile preview popover */}
                       {showProfilePreview && (
-                        <div ref={profilePreviewRef} className="absolute left-0 top-12 z-50 w-60 overflow-hidden rounded-2xl border border-white/[0.08] bg-zinc-950/95 shadow-2xl shadow-black/40 backdrop-blur-xl"
+                        <div ref={profilePreviewRef} className="absolute left-0 top-12 z-50 w-60 overflow-hidden rounded-2xl border border-white/[0.08] bg-[var(--card)] shadow-2xl shadow-black/40 backdrop-blur-xl"
                           onClick={(e) => e.stopPropagation()}>
-                          <div className="relative h-16 bg-gradient-to-r from-sky-500/20 via-sky-500/10 to-purple-500/20">
-                            <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-sky-500/20 to-sky-500/10 text-[16px] font-bold text-sky-400 ring-4 ring-zinc-950/95">
+                          <div className="relative h-16 bg-gradient-to-r from-sky-500/20 via-sky-500/10 to-sky-500/20">
+                            <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-sky-500/20 to-sky-500/10 text-[16px] font-bold text-sky-400 ring-4 ring-[var(--card)]">
                               {getDisplayName(chatUser)[0].toUpperCase()}
                             </div>
                           </div>
@@ -1383,7 +1414,7 @@ function MessagesPage() {
                     </svg>
                   </button>
                   {showMenu && (
-                    <div className="absolute right-0 top-11 z-40 w-52 overflow-hidden rounded-2xl border border-white/[0.08] bg-zinc-950/95 shadow-2xl shadow-black/40 backdrop-blur-xl p-1.5">
+                    <div className="absolute right-0 top-11 z-40 w-52 overflow-hidden rounded-2xl border border-white/[0.08] bg-[var(--card)] shadow-2xl shadow-black/40 backdrop-blur-xl p-1.5">
                       <button onClick={() => reportUser(chatUser)} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[12px] text-[var(--foreground)] hover:bg-white/[0.06] transition-colors">
                         <svg className="h-3.5 w-3.5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg>
                         Report user
@@ -1429,10 +1460,10 @@ function MessagesPage() {
                     <StayOnSkyDropNotice paymentType={purchaseData?.paymentType} />
                   )}
                   {listingCard && hasPurchaseInChat && (
-                    <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-zinc-900/60 shadow-[0_0_20px_rgba(56,189,248,0.15)]">
+                    <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-[var(--soft-card)] shadow-[0_0_20px_rgba(56,189,248,0.15)]">
                       <div className="flex items-center gap-3 p-3">
                         {listingCard.image ? (
-                          <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-zinc-800">
+                          <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-[var(--soft-card)]">
                             <img src={listingCard.image} alt="" className="h-full w-full object-cover"
                               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                           </div>
@@ -1509,7 +1540,7 @@ function MessagesPage() {
                   {/* Listing context card — auction ended */}
                   {listingCard && !hasPurchaseInChat && auctionEnded && (
                     <div className={`mb-3 overflow-hidden rounded-2xl border ${
-                      isAuctionWinner ? "border-sky-500/30 bg-sky-500/5" : "border-sky-500/10 bg-zinc-900/60"
+                      isAuctionWinner ? "border-sky-500/30 bg-sky-500/5" : "border-sky-500/10 bg-[var(--soft-card)]"
                     } shadow-[0_0_20px_rgba(56,189,248,0.15)]`}>
                       {/* Winner banner */}
                       {isAuctionWinner && (
@@ -1521,7 +1552,7 @@ function MessagesPage() {
                       )}
                       <div className="flex items-center gap-3 p-3">
                         {listingCard.image ? (
-                          <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl bg-zinc-800 shadow-md">
+                          <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl bg-[var(--soft-card)] shadow-md">
                             <img src={listingCard.image} alt={listingCard.title || ""} className="h-full w-full object-cover"
                               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                           </div>
@@ -1544,8 +1575,8 @@ function MessagesPage() {
                             isAuctionWinner
                               ? "bg-gradient-to-r from-sky-500 to-sky-400 text-black"
                               : isAuctionSeller
-                                ? listingCard.highestBidder ? "bg-sky-500 text-black" : "bg-zinc-700 text-[var(--foreground)]"
-                                : "bg-zinc-700 text-[var(--foreground)]"
+                                ? listingCard.highestBidder ? "bg-sky-500 text-black" : "bg-[var(--soft-card)] text-[var(--foreground)]"
+                                : "bg-[var(--soft-card)] text-[var(--foreground)]"
                           }`}>
                           {isAuctionWinner ? (listingCard.saleType === "auction_buy_now" ? "Proceed to Payment" : "Arrange Pickup")
                             : isAuctionSeller ? (listingCard.highestBidder ? "Awaiting Payment" : "View Listing")
@@ -1559,7 +1590,7 @@ function MessagesPage() {
                     <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-[var(--soft-card)]/80 shadow-[0_0_20px_rgba(56,189,248,0.15)]">
                       <div className="flex items-center gap-3 p-3">
                         {listingCard.image ? (
-                          <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-zinc-800">
+                          <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-[var(--soft-card)]">
                             <img src={listingCard.image} alt={listingCard.title || ""} className="h-full w-full object-cover"
                               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                           </div>
@@ -1581,10 +1612,10 @@ function MessagesPage() {
                   )}
                   {/* Listing context card — active auction */}
                   {listingCard && !hasPurchaseInChat && !auctionEnded && isAuction && listingCard?.saleType !== "buy_now" && (
-                    <div className="mb-3 overflow-hidden rounded-2xl border border-sky-500/10 bg-zinc-900/60 shadow-[0_0_20px_rgba(56,189,248,0.15)]">
+                    <div className="mb-3 overflow-hidden rounded-2xl border border-sky-500/10 bg-[var(--soft-card)] shadow-[0_0_20px_rgba(56,189,248,0.15)]">
                       <div className="flex items-center gap-3 p-3">
                         {listingCard.image ? (
-                          <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl bg-zinc-800 shadow-md">
+                          <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl bg-[var(--soft-card)] shadow-md">
                             <img src={listingCard.image} alt={listingCard.title || ""} className="h-full w-full object-cover"
                               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                           </div>
@@ -1610,7 +1641,7 @@ function MessagesPage() {
                     <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-[var(--soft-card)]/80 shadow-[0_0_20px_rgba(56,189,248,0.15)]">
                       <div className="flex items-center gap-3 p-3">
                         {listingCard.image ? (
-                          <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-zinc-800">
+                          <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-[var(--soft-card)]">
                             <img src={listingCard.image} alt={listingCard.title || ""} className="h-full w-full object-cover"
                               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                           </div>
@@ -1635,7 +1666,7 @@ function MessagesPage() {
                     <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-[var(--soft-card)]/80 shadow-[0_0_20px_rgba(56,189,248,0.15)]">
                       <div className="flex items-center gap-3 p-3">
                         {listingCard.image ? (
-                          <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-zinc-800">
+                          <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-[var(--soft-card)]">
                             <img src={listingCard.image} alt={listingCard.title || ""} className="h-full w-full object-cover"
                               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                           </div>
@@ -1649,7 +1680,7 @@ function MessagesPage() {
                           {listingCard.price && <p className="text-[12px] font-black text-[var(--muted)]">${listingCard.price}</p>}
                         </div>
                         <Link href={listingCard?.type === "service" ? "/services" : `/post/listing/${listingCard.id}`}
-                          className="shrink-0 rounded-lg bg-zinc-700 px-3 py-1.5 text-[10px] font-bold text-[var(--foreground)] transition hover:bg-zinc-600">
+                          className="shrink-0 rounded-lg bg-[var(--soft-card)] px-3 py-1.5 text-[10px] font-bold text-[var(--foreground)] transition hover:bg-[var(--card-hover)]">
                           View Listing
                         </Link>
                       </div>
@@ -1737,11 +1768,11 @@ function MessagesPage() {
                           const getStatusConfig = (status?: string) => {
                             const configs: Record<string, { icon: string; label: string; color: string; bg: string; border: string }> = {
                               paid: { icon: "💳", label: "Payment Confirmed", color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/20" },
-                              awaiting_seller: { icon: "⏳", label: "Awaiting Seller", color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/20" },
+                              awaiting_seller: { icon: "⏳", label: "Awaiting Seller", color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/20" },
                               pickup_arranged: { icon: "📍", label: "Pickup Arranged", color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/20" },
                               shipped: { icon: "🚚", label: "Shipped", color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/20" },
-                              delivered: { icon: "✅", label: "Delivered", color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
-                              completed: { icon: "✨", label: "Completed", color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
+                              delivered: { icon: "✅", label: "Delivered", color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/20" },
+                              completed: { icon: "✨", label: "Completed", color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/20" },
                               disputed: { icon: "⚠️", label: "Disputed", color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20" },
                             };
                             return configs[status || "paid"] || configs.paid;
@@ -1757,11 +1788,11 @@ function MessagesPage() {
                                   {/* Header */}
                                   <div className="flex items-start gap-3 p-4 border-b border-white/[0.04]">
                                     {/* Thumbnail */}
-                                    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-zinc-800/50 border border-white/[0.06]">
+                                    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-[var(--soft-card)] border border-white/[0.06]">
                                       {msg.listingImage ? (
                                         <img src={msg.listingImage} alt="" className="h-full w-full object-cover" />
                                       ) : (
-                                        <div className="flex h-full w-full items-center justify-center text-zinc-600">
+                                        <div className="flex h-full w-full items-center justify-center text-[var(--muted)]">
                                           <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                           </svg>
@@ -1808,16 +1839,16 @@ function MessagesPage() {
                                     </div>
                                   ) : isCompleted ? (
                                     // Success State for completed orders
-                                    <div className="px-4 py-4 bg-emerald-500/5 border-b border-emerald-500/10">
+                                    <div className="px-4 py-4 bg-sky-500/5 border-b border-sky-500/10">
                                       <div className="flex items-center gap-3">
-                                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/20">
-                                          <svg className="h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-500/20">
+                                          <svg className="h-5 w-5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                                           </svg>
                                         </div>
                                         <div>
-                                          <p className="text-sm font-bold text-emerald-400">Order Completed</p>
-                                          <p className="text-[11px] text-emerald-400/80">Your purchase has been successfully delivered.</p>
+                                          <p className="text-sm font-bold text-sky-400">Order Completed</p>
+                                          <p className="text-[11px] text-sky-400/80">Your purchase has been successfully delivered.</p>
                                         </div>
                                       </div>
                                       <div className="mt-3 flex items-center gap-4 text-[10px] text-[var(--muted)]">
@@ -1868,7 +1899,7 @@ function MessagesPage() {
                                     </button>
                                     {isCompleted ? (
                                       <button
-                                        className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[11px] font-bold text-amber-400 transition hover:bg-amber-500/20"
+                                        className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 py-2 text-[11px] font-bold text-sky-400 transition hover:bg-sky-500/20"
                                       >
                                         <span>⭐</span>
                                         <span>Review</span>
@@ -1916,7 +1947,7 @@ function MessagesPage() {
                                   className={`flex items-center gap-3 rounded-2xl px-4 py-3 shadow-lg transition hover:opacity-80 ${
                                     isOwn ? "rounded-br-md bg-gradient-to-br from-sky-500 to-sky-600 text-white border border-sky-500/30" : "rounded-bl-md bg-[var(--card)] text-[var(--foreground)] border border-[var(--border)]"
                                   }`}>
-                                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-800 text-lg">
+                                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--soft-card)] text-lg">
                                     {isPdf ? "📄" : "📎"}
                                   </div>
                                   <div className="min-w-0 flex-1">
@@ -1948,7 +1979,7 @@ function MessagesPage() {
                                 </div>
                                 <p className="text-xs text-[var(--foreground)] leading-relaxed">{formatMessageText(msg.text)}</p>
                                 {msg.shippingAddress && (
-                                  <div className="mt-2 rounded-lg bg-zinc-800/30 px-3 py-2 text-[10px] text-[var(--muted)]">
+                                  <div className="mt-2 rounded-lg bg-[var(--soft-card)] px-3 py-2 text-[10px] text-[var(--muted)]">
                                     <p>Shipping to:</p>
                                     <p className="text-[var(--foreground)]">
                                       {msg.buyerName && !isEmailLike(msg.buyerName)
@@ -2037,7 +2068,7 @@ function MessagesPage() {
                   {/* File attachment preview */}
                   {fileAttachment && (
                     <div className="mb-2 flex items-center gap-3 rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] p-2">
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-zinc-800 text-lg">📎</span>
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--soft-card)] text-lg">📎</span>
                       <div className="flex-1 min-w-0">
                         <p className="truncate text-[11px] font-medium text-[var(--foreground)]">{fileAttachment.name}</p>
                         <p className="text-[9px] text-[var(--muted)]">{(fileAttachment.size / 1024).toFixed(1)} KB</p>
@@ -2053,7 +2084,7 @@ function MessagesPage() {
                       <input type="number" placeholder="Offer amount..." value={offerAmount} onChange={(e) => setOfferAmount(e.target.value)}
                         className="flex-1 rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] px-4 py-2 text-[13px] text-[var(--foreground)] outline-none transition focus:border-sky-400" />
                       <button onClick={() => { sendOffer("make", offerAmount); setShowOfferInput(false); setOfferAmount(""); }} className="rounded-xl bg-sky-500 px-4 py-2 text-[11px] font-bold text-white hover:bg-sky-400">Send Offer</button>
-                      <button onClick={() => setShowOfferInput(false)} className="rounded-xl bg-zinc-700 px-4 py-2 text-[11px] font-bold text-[var(--foreground)] hover:bg-zinc-600">Cancel</button>
+                      <button onClick={() => setShowOfferInput(false)} className="rounded-xl bg-[var(--soft-card)] px-4 py-2 text-[11px] font-bold text-[var(--foreground)] hover:bg-[var(--card-hover)]">Cancel</button>
                       </div>
                       {chatListingId && listingCard && Number(offerAmount) > 0 && chatUser && (
                         <NegotiationAssistant
@@ -2066,11 +2097,6 @@ function MessagesPage() {
                       )}
                     </div>
                   )}
-                  <TurnstileWidget
-                    onToken={(token) => setTurnstileToken(token)}
-                    onExpire={() => setTurnstileToken("")}
-                    className="mb-2 scale-[0.7] origin-left"
-                  />
                   {!message.trim() && (
                     <div className="mb-2 flex flex-wrap gap-1.5">
                       {QUICK_REPLIES.map((reply) => (

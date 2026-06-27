@@ -24,6 +24,7 @@ export default function ForgotPasswordPage() {
     try {
       await sendPasswordResetEmail(auth, email.trim(), {
         url: (process.env.NEXT_PUBLIC_URL || "https://skydrop.co.nz") + "/login",
+        handleCodeInApp: false,
       });
       setSent(true);
     } catch {
@@ -44,7 +45,7 @@ export default function ForgotPasswordPage() {
           Back to Login
         </Link>
 
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-8">
+        <div className="rounded-2xl border border-white/[0.08] bg-[var(--card)] p-8">
           {sent ? (
             <div className="text-center">
               <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-sky-500/10">
@@ -57,8 +58,8 @@ export default function ForgotPasswordPage() {
               <p className="mt-3 text-sm text-[var(--muted)] leading-relaxed">
                 If an account exists for <strong className="text-[var(--foreground)]">{email}</strong>, we&apos;ve sent a password reset link. It will arrive within a few minutes.
               </p>
-              <p className="mt-4 text-xs text-zinc-600">
-                Didn&apos;t receive it? Check your spam folder or{" "}
+              <p className="mt-4 text-xs text-[var(--muted)]">
+                Didn&apos;t receive it? Check your spam folder (mark as &quot;Not spam&quot; if found). If still not received after 5 minutes,{" "}
                 <button onClick={() => { setSent(false); setEmail(""); }} className="text-sky-400 underline hover:text-sky-300 transition-colors">
                   try again
                 </button>.
@@ -84,7 +85,7 @@ export default function ForgotPasswordPage() {
                     placeholder="you@example.com"
                     autoComplete="email"
                     autoFocus
-                    className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500 placeholder:text-zinc-600"
+                    className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500 placeholder:text-[var(--muted)]"
                   />
                 </div>
 
@@ -107,7 +108,7 @@ export default function ForgotPasswordPage() {
           )}
         </div>
 
-        <p className="mt-6 text-center text-xs text-zinc-600">
+        <p className="mt-6 text-center text-xs text-[var(--muted)]">
           Remember your password?{" "}
           <Link href="/login" className="text-sky-400 hover:text-sky-300 transition-colors">Sign in</Link>
         </p>
