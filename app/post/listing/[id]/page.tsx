@@ -1869,7 +1869,7 @@ Service Status: 🟢 Inquiry Active`;
             <div>
               <Link
                 href={user?.email === listing.sellerEmail ? "#" : `/seller/${listing.sellerUsername || listing.sellerEmail}`}
-                className="block"
+                className="block rounded-xl border border-sky-500/20 bg-sky-500/5 p-4 transition-all duration-200 hover:border-sky-500/30 hover:bg-sky-500/10"
               >
                 <div className="flex items-center gap-3">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-sm font-bold text-[var(--foreground)]">
