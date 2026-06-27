@@ -2,9 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyTurnstileToken, isTurnstileConfigured } from "../../lib/turnstile";
 
 export async function POST(req: NextRequest) {
-  // Temporarily skip Turnstile verification to unblock login
-  return NextResponse.json({ success: true, skipped: true });
-
   if (!isTurnstileConfigured()) {
     return NextResponse.json({ success: true, skipped: true });
   }
