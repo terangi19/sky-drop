@@ -12,12 +12,6 @@ import { auth } from "../lib/firebase";
 import { createSkyDropAccount, signupAuthError } from "../lib/create-account.client";
 import { getTurnstileSiteKey } from "../lib/turnstile";
 import { sanitizeRedirectPath } from "../lib/safe-redirect";
-import {
-  defaultUsernameFromEmail,
-  isUsernameAvailable,
-  normalizeUsernameInput,
-  validateUsername,
-} from "../lib/username";
 
 const INPUT =
   "w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3.5 text-sm text-white placeholder:text-zinc-500 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10";
@@ -25,9 +19,6 @@ const INPUT =
 export default function SignupPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
-  const [username, setUsername] = useState("");
-  const [usernameTouched, setUsernameTouched] = useState(false);
-  const [usernameStatus, setUsernameStatus] = useState<"idle" | "ok" | "taken" | "invalid">("idle");
   const [password, setPassword] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
@@ -48,46 +39,9 @@ export default function SignupPage() {
     return onAuthStateChanged(auth, (u) => setUser(u));
   }, []);
 
-  useEffect(() => {
-    if (!usernameTouched && email.includes("@")) {
-      setUsername(defaultUsernameFromEmail(email));
-    }
-  }, [email, usernameTouched]);
-
-  useEffect(() => {
-    const u = normalizeUsernameInput(username);
-    if (!u) {
-      setUsernameStatus("idle");
-      return;
-    }
-    const validation = validateUsername(u);
-    if (!validation.valid) {
-      setUsernameStatus("invalid");
-      return;
-    }
-    let cancelled = false;
-    isUsernameAvailable(u).then((available) => {
-      if (!cancelled) setUsernameStatus(available ? "ok" : "taken");
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [username]);
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!email.trim() || !password || !username.trim()) return;
-
-    const normalizedUsername = normalizeUsernameInput(username);
-    const usernameValidation = validateUsername(normalizedUsername);
-    if (!usernameValidation.valid) {
-      showToast(usernameValidation.error || "Choose a valid username.", "error");
-      return;
-    }
-    if (usernameStatus === "taken") {
-      showToast("That username is already taken. Try another one.", "error");
-      return;
-    }
+    if (!email.trim() || !password) return;
 
     if (!acceptedTerms) {
       showToast("Please agree to the Terms and Privacy Policy.", "error");
@@ -105,7 +59,6 @@ export default function SignupPage() {
         email,
         password,
         turnstileToken,
-        username: normalizedUsername,
         inviteCode: inviteCode || undefined,
       });
       showToast("Welcome to Sky Drop! Check your email to verify your address.", "success");
@@ -161,46 +114,6 @@ export default function SignupPage() {
                   required
                   disabled={loading}
                 />
-              </div>
-
-              <div>
-                <label htmlFor="signup-username" className="mb-1.5 block text-xs font-semibold text-zinc-400">
-                  Username
-                </label>
-                <div className="relative">
-                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">
-                    @
-                  </span>
-                  <input
-                    id="signup-username"
-                    type="text"
-                    autoComplete="username"
-                    placeholder="yourname"
-                    value={username}
-                    onChange={(e) => {
-                      setUsernameTouched(true);
-                      setUsername(e.target.value);
-                    }}
-                    className={`${INPUT} pl-8`}
-                    required
-                    maxLength={30}
-                    disabled={loading}
-                  />
-                </div>
-                <p className="mt-1 text-[11px] text-zinc-500">
-                  Your public name on Sky Drop — like Trade Me member name.
-                </p>
-                {usernameStatus === "taken" && (
-                  <p className="mt-1 text-[11px] text-amber-400">That username is taken — try another.</p>
-                )}
-                {usernameStatus === "invalid" && username.trim() && (
-                  <p className="mt-1 text-[11px] text-amber-400">
-                    Use 3–30 characters; start with a letter.
-                  </p>
-                )}
-                {usernameStatus === "ok" && (
-                  <p className="mt-1 text-[11px] text-emerald-400">Username available</p>
-                )}
               </div>
 
               <div>
