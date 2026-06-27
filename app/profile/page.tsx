@@ -1008,7 +1008,6 @@ const tabGroups = [
         setPhone(formattedPhone);
         const claim = await claimVerifiedPhoneOnServer(formattedPhone);
         if (!claim.success) {
-          // Phone verification will be reflected in profile after removal
           setPhoneMsg(claim.error || "Could not link phone number.");
           showToast(claim.error || "Could not link phone number.", "error");
           setPhoneVerifying(false);
@@ -1016,30 +1015,8 @@ const tabGroups = [
         }
         const linkedPhone = claim.phone || formattedPhone;
         setPhone(linkedPhone);
-        const phonePatch = {
-          phone: linkedPhone,
-          phoneNumber: linkedPhone,
-          phoneVerified: true,
-          phoneVerifiedAt: serverTimestamp(),
-        };
-        await setDoc(doc(db, "profiles", user.uid), {
-          ...phonePatch,
-          verified: verifiedFlagAfterUpdate(
-            {
-              kycStatus: profile.kycStatus || poaStatus,
-              phoneVerified: profile.phoneVerified,
-              emailVerified: profile.emailVerified || user.emailVerified,
-            },
-            { phoneVerified: true }
-          ),
-        }, { merge: true });
-        try {
-          await user.reload();
-          setUser(auth.currentUser);
-        } catch {
-          /* profile doc is source of truth */
-        }
-        // Immediately refetch profile to update UI
+        // Server API already updated Firestore with phoneVerified: true
+        // Immediately refetch profile to update UI with the latest data
         await fetchProfile();
       }
     } else {
@@ -1841,10 +1818,12 @@ const tabGroups = [
                 </div>
 
                 <div className="rounded-xl border border-white/[0.04] bg-white/[0.02] px-4 py-3.5">
-                  <div className="mb-3 rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3">
-                    <p className="text-xs font-medium text-red-400">Phone verification is required</p>
-                    <p className="mt-1 text-xs text-zinc-400">One phone number per account for security and account recovery.</p>
-                  </div>
+                  {!profile.phoneVerified && (
+                    <div className="mb-3 rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3">
+                      <p className="text-xs font-medium text-red-400">Phone verification is required</p>
+                      <p className="mt-1 text-xs text-zinc-400">One phone number per account for security and account recovery.</p>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between gap-4 mb-3">
                     <div>
                       <p className="text-sm font-medium text-white">Phone</p>
