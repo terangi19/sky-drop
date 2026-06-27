@@ -407,12 +407,15 @@ const tabGroups = [
     }
   }, [user?.uid, applyProfileData]);
 
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
     fetchProfile();
-    const interval = setInterval(fetchProfile, 60000); // Refresh every 60 seconds
+    if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+    pollingIntervalRef.current = setInterval(fetchProfile, 60000); // Refresh every 60 seconds
 
     return () => {
-      clearInterval(interval);
+      if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
     };
   }, [fetchProfile]);
 
@@ -1016,8 +1019,12 @@ const tabGroups = [
         const linkedPhone = claim.phone || formattedPhone;
         setPhone(linkedPhone);
         // Server API already updated Firestore with phoneVerified: true
-        // Immediately refetch profile to update UI with the latest data
+        // Wait a moment for Firestore transaction to complete, then refetch
+        await new Promise(resolve => setTimeout(resolve, 500));
         await fetchProfile();
+        // Reset polling timer to prevent overwriting fresh data
+        if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = setInterval(fetchProfile, 60000);
       }
     } else {
       setPhoneMsg(result.error || "Invalid code.");
