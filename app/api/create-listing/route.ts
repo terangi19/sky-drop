@@ -353,7 +353,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const db = isAdminInitialized() ? getAdminDb() : getServerDb(idToken);
+    const db = isAdminInitialized() ? getAdminDb() : getServerDb(idToken || "");
     const ref = await db.collection("listings").add(finalData);
     const listingId = ref.id;
 
