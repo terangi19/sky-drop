@@ -208,7 +208,7 @@ export default function ServicesPage() {
               <div className={`relative flex items-center rounded-xl border border-white/[0.06] bg-white/[0.03] backdrop-blur-sm ring-0 transition-all duration-300 ${t.searchFocus}`}>
                 <div className="ml-4 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.04]">
                   <svg
-                    className="h-4 w-4 text-zinc-400"
+                    className="h-4 w-4 text-[var(--muted)]"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -276,7 +276,7 @@ export default function ServicesPage() {
                 className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-medium transition-all ${
                   selectedCategory === cat.name
                     ? "border-sky-400/30 bg-sky-500/10 text-white shadow-[0_0_24px_rgba(14,165,233,0.1)]"
-                    : "border-white/[0.06] bg-white/[0.02] text-zinc-400 hover:border-white/10 hover:text-zinc-200"
+                    : "border-white/[0.06] bg-white/[0.02] text-[var(--muted)] hover:border-white/10 hover:text-[var(--foreground)]"
                 }`}
               >
                 <span className="text-sm leading-none">{cat.emoji}</span>
@@ -290,7 +290,7 @@ export default function ServicesPage() {
               <button
                 type="button"
                 onClick={clearFilters}
-                className="rounded-lg border border-white/[0.06] px-3 py-2 text-[11px] font-medium text-zinc-400 transition hover:bg-white/[0.04] hover:text-white"
+                className="rounded-lg border border-white/[0.06] px-3 py-2 text-[11px] font-medium text-[var(--muted)] transition hover:bg-white/[0.04] hover:text-white"
               >
                 ✕ Clear filters
               </button>
@@ -340,7 +340,7 @@ export default function ServicesPage() {
             <button
               type="button"
               onClick={clearFilters}
-              className="mt-5 inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-5 py-2.5 text-sm font-bold text-zinc-300 transition hover:bg-white/[0.06] hover:text-white"
+              className="mt-5 inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-5 py-2.5 text-sm font-bold text-[var(--foreground)] transition hover:bg-white/[0.06] hover:text-white"
             >
               Clear filters
             </button>

@@ -43,12 +43,12 @@ export default function ToastContainer() {
       {toasts.map((t) => (
         <div
           key={t.id}
-          className={`flex items-center gap-2.5 rounded-xl border px-4 py-3 text-sm font-bold shadow-2xl backdrop-blur-xl pointer-events-auto ${
+          className={`flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-bold shadow-2xl backdrop-blur-xl pointer-events-auto ${
             t.type === "success"
-              ? "border-sky-500/25 bg-sky-500/15 text-sky-400"
+              ? "bg-sky-500/15 text-sky-400"
               : t.type === "error"
-                ? "border-red-500/25 bg-red-500/15 text-red-400"
-                : "border-sky-500/25 bg-sky-500/15 text-sky-400"
+                ? "bg-red-500/15 text-red-400"
+                : "bg-sky-500/15 text-sky-400"
           } animate-toast-in`}
         >
           <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black ${

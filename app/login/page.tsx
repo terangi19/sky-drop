@@ -14,7 +14,7 @@ import { getTurnstileSiteKey } from "../lib/turnstile";
 import { sanitizeRedirectPath } from "../lib/safe-redirect";
 
 const INPUT =
-  "login-page-input w-full rounded-lg px-4 py-3 text-sm";
+  "login-page-input w-full rounded-lg px-4 py-3 text-sm bg-white/[0.03] text-white placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10";
 
 function loginAuthError(error: unknown): string {
   const code =

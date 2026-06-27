@@ -14,7 +14,7 @@ import { getTurnstileSiteKey } from "../lib/turnstile";
 import { sanitizeRedirectPath } from "../lib/safe-redirect";
 
 const INPUT =
-  "w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3.5 text-sm text-white placeholder:text-zinc-500 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10";
+  "w-full rounded-xl bg-white/[0.03] px-4 py-3.5 text-sm text-white placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10";
 
 export default function SignupPage() {
   const router = useRouter();

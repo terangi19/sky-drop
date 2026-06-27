@@ -148,32 +148,32 @@ export default function ArrangePurchaseModal({ listing, buyerEmail, onClose, onS
       onClick={safeClose}
     >
       <div
-        className="w-full max-w-lg rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl max-h-[90vh] overflow-y-auto my-4 sm:my-0"
+        className="w-full max-w-lg rounded-2xl border border-white/[0.06] bg-[var(--card)] shadow-2xl max-h-[90vh] overflow-y-auto my-4 sm:my-0"
         onClick={(e) => e.stopPropagation()}
       >
         {step === "success" ? (
           <div className="flex flex-col px-6 py-8 text-center relative overflow-hidden">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/20">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-sky-500/20">
               <AnimatedCheckmark />
             </div>
             <h2 className="mt-4 text-lg font-black text-[var(--foreground)]">Purchase Request Sent</h2>
             <p className="mt-1 text-xs text-[var(--muted)]">The seller will contact you shortly</p>
 
             {/* TradeMe-style Next Steps */}
-            <div className="mt-4 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-left">
-              <p className="text-[11px] font-bold text-emerald-400 mb-2">What happens next?</p>
+            <div className="mt-4 rounded-lg border border-sky-500/20 bg-sky-500/5 px-4 py-3 text-left">
+              <p className="text-[11px] font-bold text-sky-400 mb-2">What happens next?</p>
               <div className="space-y-2">
                 <div className="flex items-start gap-2">
                   <span className="text-[10px] mt-0.5">1️⃣</span>
-                  <p className="text-[10px] text-emerald-400/80">Seller will confirm your purchase request</p>
+                  <p className="text-[10px] text-sky-400/80">Seller will confirm your purchase request</p>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="text-[10px] mt-0.5">2️⃣</span>
-                  <p className="text-[10px] text-emerald-400/80">You'll receive payment details in the chat</p>
+                  <p className="text-[10px] text-sky-400/80">You'll receive payment details in the chat</p>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="text-[10px] mt-0.5">3️⃣</span>
-                  <p className="text-[10px] text-emerald-400/80">Complete payment and arrange pickup/shipping</p>
+                  <p className="text-[10px] text-sky-400/80">Complete payment and arrange pickup/shipping</p>
                 </div>
               </div>
             </div>
@@ -181,13 +181,13 @@ export default function ArrangePurchaseModal({ listing, buyerEmail, onClose, onS
             <div className="mt-5 space-y-2">
               <button
                 onClick={() => router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listing.id}`)}
-                className="w-full rounded-xl bg-emerald-500 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-emerald-400"
+                className="w-full rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-sky-400"
               >
                 Open Chat
               </button>
               <button
                 onClick={safeClose}
-                className="w-full rounded-xl border border-zinc-700 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-zinc-800"
+                className="w-full rounded-xl border border-white/[0.06] py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-[var(--card-hover)]"
               >
                 Done
               </button>
@@ -203,10 +203,10 @@ export default function ArrangePurchaseModal({ listing, buyerEmail, onClose, onS
             <h2 className="mt-4 text-lg font-black text-[var(--foreground)]">Request Failed</h2>
             <p className="mt-1 text-xs text-[var(--muted)]">{error}</p>
             <div className="mt-5 flex gap-2">
-              <button onClick={safeClose} className="flex-1 rounded-xl border border-zinc-700 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-zinc-800">
+              <button onClick={safeClose} className="flex-1 rounded-xl border border-white/[0.06] py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-[var(--card-hover)]">
                 Close
               </button>
-              <button onClick={() => setStep("intro")} className="flex-1 rounded-xl bg-emerald-500 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-emerald-400">
+              <button onClick={() => setStep("intro")} className="flex-1 rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-sky-400">
                 Try Again
               </button>
             </div>
@@ -214,7 +214,7 @@ export default function ArrangePurchaseModal({ listing, buyerEmail, onClose, onS
         ) : (
           <>
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+            <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
               <h2 className="text-sm font-bold text-[var(--foreground)]">Arrange Purchase</h2>
               <button onClick={safeClose} className="p-2 text-[var(--muted)] transition hover:text-[var(--foreground)]">
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -224,7 +224,7 @@ export default function ArrangePurchaseModal({ listing, buyerEmail, onClose, onS
             </div>
 
             {/* Progress Stepper */}
-            <div className="flex items-center justify-between border-b border-zinc-800/50 px-4 py-3 bg-zinc-900/30">
+            <div className="flex items-center justify-between border-b border-white/[0.04] px-4 py-3 bg-[var(--soft-card)]">
               {ARRANGE_STEPS.map((stepItem, index) => {
                 const currentIndex = getCurrentStepIndex();
                 const isCompleted = index < currentIndex;
@@ -232,18 +232,18 @@ export default function ArrangePurchaseModal({ listing, buyerEmail, onClose, onS
                 return (
                   <div key={stepItem.key} className="flex items-center gap-2 flex-1">
                     <div className={`flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold transition-all ${
-                      isCompleted ? 'bg-emerald-500 text-white' : isCurrent ? 'bg-emerald-500/20 text-emerald-400 ring-2 ring-emerald-500/40' : 'bg-zinc-800 text-zinc-500'
+                      isCompleted ? 'bg-sky-500 text-white' : isCurrent ? 'bg-sky-500/20 text-sky-400 ring-2 ring-sky-500/40' : 'bg-[var(--soft-card)] text-[var(--muted)]'
                     }`}>
                       {isCompleted ? '✓' : stepItem.icon}
                     </div>
                     <span className={`text-[10px] font-medium ${
-                      isCompleted ? 'text-emerald-400' : isCurrent ? 'text-[var(--foreground)]' : 'text-zinc-500'
+                      isCompleted ? 'text-sky-400' : isCurrent ? 'text-[var(--foreground)]' : 'text-[var(--muted)]'
                     }`}>
                       {stepItem.label}
                     </span>
                     {index < ARRANGE_STEPS.length - 1 && (
                       <div className={`flex-1 h-px mx-2 ${
-                        isCompleted ? 'bg-emerald-500' : 'bg-zinc-800'
+                        isCompleted ? 'bg-sky-500' : 'bg-white/[0.06]'
                       }`} />
                     )}
                   </div>
@@ -252,9 +252,9 @@ export default function ArrangePurchaseModal({ listing, buyerEmail, onClose, onS
             </div>
 
             {/* Item Summary */}
-            <div className="flex items-center gap-3 border-b border-zinc-800/50 px-4 py-3">
+            <div className="flex items-center gap-3 border-b border-white/[0.04] px-4 py-3">
               {imageSrc && (
-                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-zinc-800">
+                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-[var(--soft-card)]">
                   <img src={imageSrc} alt="" className="h-full w-full object-cover" />
                 </div>
               )}
@@ -266,12 +266,12 @@ export default function ArrangePurchaseModal({ listing, buyerEmail, onClose, onS
 
             <div className="space-y-4 overflow-y-auto px-4 py-4" style={{ maxHeight: 'calc(90vh - 250px)' }}>
               {/* TradeMe-style Info Banner */}
-              <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3.5 py-3">
+              <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 px-3.5 py-3">
                 <div className="flex items-start gap-2">
                   <span className="text-lg">🤝</span>
                   <div>
-                    <p className="text-[11px] font-bold text-emerald-400">Arrange Purchase</p>
-                    <p className="mt-1 text-[10px] text-emerald-400/80 leading-relaxed">
+                    <p className="text-[11px] font-bold text-sky-400">Arrange Purchase</p>
+                    <p className="mt-1 text-[10px] text-sky-400/80 leading-relaxed">
                       Contact the seller directly to arrange payment and pickup/shipping. No payment is processed through this platform.
                     </p>
                   </div>
@@ -279,12 +279,12 @@ export default function ArrangePurchaseModal({ listing, buyerEmail, onClose, onS
               </div>
 
               {/* Safety Tips */}
-              <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3.5 py-3">
+              <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 px-3.5 py-3">
                 <div className="flex items-start gap-2">
                   <span className="text-lg">⚠️</span>
                   <div>
-                    <p className="text-[11px] font-bold text-amber-400">Safety Tips</p>
-                    <ul className="mt-1 space-y-1 text-[10px] text-amber-400/80 leading-relaxed">
+                    <p className="text-[11px] font-bold text-sky-400">Safety Tips</p>
+                    <ul className="mt-1 space-y-1 text-[10px] text-sky-400/80 leading-relaxed">
                       <li>• Meet in safe, public locations for pickup</li>
                       <li>• Check the item before paying</li>
                       <li>• Keep all communication in the chat</li>

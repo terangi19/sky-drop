@@ -127,7 +127,7 @@ function SuccessInner() {
   return (
     <main className="relative flex min-h-screen items-center justify-center bg-[var(--background)] text-[var(--foreground)]">
       <div className="mx-auto max-w-md px-6 text-center">
-        <div className="rounded-3xl border border-zinc-800 bg-zinc-950/80 p-10 shadow-2xl backdrop-blur">
+        <div className="rounded-3xl border border-white/[0.06] bg-[var(--card)] p-10 shadow-2xl backdrop-blur">
           {status === "loading" ? (
             <>
               <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-sky-500 border-t-transparent" />
@@ -154,7 +154,7 @@ function SuccessInner() {
                 </button>
                 <button
                   onClick={redirectToMessages}
-                  className="rounded-xl border border-zinc-700 px-6 py-3 font-bold text-[var(--foreground)] transition hover:bg-zinc-800"
+                  className="rounded-xl border border-white/[0.06] bg-[var(--card)] px-6 py-3 font-bold text-[var(--foreground)] transition hover:bg-[var(--card-hover)]"
                 >
                   View Messages
                 </button>

@@ -1208,7 +1208,7 @@ export default function AIPostPage() {
 
         {!editId && (
           <div className="mb-6">
-            <div className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-gradient-to-br from-sky-500/[0.08] via-sky-500/[0.04] to-zinc-950/80 p-5 shadow-[0_0_40px_rgba(14,165,233,0.08)]">
+            <div className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-gradient-to-br from-sky-500/[0.08] via-sky-500/[0.04] to-[var(--card)] p-5 shadow-[0_0_40px_rgba(14,165,233,0.08)]">
               <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
               <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-sky-500/10 blur-2xl pointer-events-none" />
               <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -1274,7 +1274,7 @@ export default function AIPostPage() {
 
         {/* Form Card */}
         <div className="relative">
-          <div className="absolute -inset-1 rounded-3xl bg-gradient-to-b from-sky-500/15 via-sky-500/5 to-purple-500/10 blur-xl pointer-events-none" />
+          <div className="absolute -inset-1 rounded-3xl bg-gradient-to-b from-sky-500/15 via-sky-500/5 to-sky-500/10 blur-xl pointer-events-none" />
           <div className="relative overflow-hidden rounded-3xl bg-[var(--card)] p-4 sm:p-6 md:p-8 shadow-2xl backdrop-blur-xl">
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
 
@@ -1283,11 +1283,11 @@ export default function AIPostPage() {
           <div className="sticky top-0 z-20 -mx-6 mb-2 border-b border-white/[0.06] bg-[var(--card)] px-6 py-3 backdrop-blur-xl sm:-mx-8 sm:px-8">
             <div className="flex items-center justify-between gap-3">
               <span className="text-[11px] font-bold text-[var(--muted)]">Form progress</span>
-              <span className={`text-[11px] font-bold ${formProgress === 100 ? "text-emerald-400" : "text-sky-400"}`}>{formProgress}%</span>
+              <span className={`text-[11px] font-bold ${formProgress === 100 ? "text-sky-400" : "text-sky-400"}`}>{formProgress}%</span>
             </div>
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
               <div
-                className={`h-full rounded-full transition-all duration-500 ${formProgress === 100 ? "bg-gradient-to-r from-emerald-500 to-emerald-400" : "bg-gradient-to-r from-sky-500 to-sky-400"}`}
+                className={`h-full rounded-full transition-all duration-500 ${formProgress === 100 ? "bg-gradient-to-r from-sky-500 to-sky-400" : "bg-gradient-to-r from-sky-500 to-sky-400"}`}
                 style={{ width: `${formProgress}%` }}
               />
             </div>
@@ -1337,7 +1337,7 @@ export default function AIPostPage() {
                         )}
                       </div>
                       <p className="mt-1 text-[11px] leading-snug text-white">{t.desc}</p>
-                      <p className="mt-1 text-[10px] leading-snug text-[var(--muted)]"><span className="font-medium text-zinc-300">Best for: </span>{t.examples}</p>
+                      <p className="mt-1 text-[10px] leading-snug text-[var(--muted)]"><span className="font-medium text-[var(--foreground)]">Best for: </span>{t.examples}</p>
                     </div>
                   </div>
                 </button>

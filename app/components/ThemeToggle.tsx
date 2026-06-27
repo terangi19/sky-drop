@@ -35,8 +35,8 @@ export default function ThemeToggle() {
       onClick={toggleTheme}
       className={`fixed right-5 bottom-24 md:right-5 md:top-1/2 md:-translate-y-1/2 z-40 rounded-full px-4 py-3 md:px-5 md:py-4 text-lg md:text-xl shadow-2xl backdrop-blur-xl transition hover:scale-105 ${
         lightMode
-          ? "border border-black/10 bg-white text-black"
-          : "border border-white/10 bg-black/60 text-white"
+          ? "bg-white text-black"
+          : "bg-black/60 text-white"
       }`}
     >
       {lightMode ? "🌙" : "☀️"}

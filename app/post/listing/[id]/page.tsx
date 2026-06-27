@@ -802,13 +802,13 @@ export default function ListingPage() {
                       onChange={(e) => setOfferAmount(e.target.value)}
                       placeholder={`${Math.floor(Number(listing.price) * 0.8)}`}
                       disabled={offerSending}
-                      className="w-full rounded-xl border border-zinc-700 bg-zinc-800 py-3.5 pl-9 pr-4 text-lg text-[var(--foreground)] outline-none transition-all duration-150 focus:border-sky-500 disabled:opacity-50"
+                      className="w-full rounded-xl bg-white/[0.03] py-3.5 pl-9 pr-4 text-lg text-[var(--foreground)] outline-none transition-all duration-150 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10 disabled:opacity-50"
                     />
                   </div>
                   <p className="mt-2 text-xs text-[var(--muted)]">Listed at ${listing.price}</p>
                 </div>
                 <div className="mt-6 flex gap-3">
-                  <button onClick={resetOffer} disabled={offerSending} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] transition-all duration-150 hover:bg-zinc-700 disabled:opacity-50">
+                  <button onClick={resetOffer} disabled={offerSending} className="flex-1 rounded-xl border border-white/[0.06] bg-[var(--card)] py-3 text-sm font-bold text-[var(--foreground)] transition-all duration-150 hover:bg-[var(--card-hover)] disabled:opacity-50">
                     Cancel
                   </button>
                   <button
@@ -878,9 +878,9 @@ export default function ListingPage() {
         {/* BREADCRUMB */}
         <nav className="mb-4 flex items-center gap-2 text-xs text-[var(--muted)]">
           <Link href="/" className="transition-colors hover:text-sky-400">Home</Link>
-          <span className="text-zinc-700">/</span>
+          <span className="text-[var(--muted)]">/</span>
           <span className="text-[var(--muted)]">{listing.category || "Other"}</span>
-          <span className="text-zinc-700">/</span>
+          <span className="text-[var(--muted)]">/</span>
           <span className="max-w-[200px] truncate text-[var(--foreground)]">{listing.title}</span>
         </nav>
 
@@ -917,7 +917,7 @@ export default function ListingPage() {
           {(() => {
             const displayImages = listing.images && listing.images.length > 0 ? listing.images : listing.imageUrl ? [listing.imageUrl] : [];
             return (
-              <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-zinc-900/90 to-zinc-950/90 border border-white/[0.08] shadow-2xl shadow-black/30">
+              <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[var(--card)] to-[var(--soft-card)] border border-white/[0.08] shadow-2xl shadow-black/30">
                 <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
                 {displayImages.length > 0 ? (
                   <div className="relative"
@@ -953,10 +953,10 @@ export default function ListingPage() {
                     )}
                   </div>
                 ) : (
-                  <div className="flex h-64 items-center justify-center bg-zinc-700/30 text-[var(--muted)] text-sm">No image</div>
+                  <div className="flex h-64 items-center justify-center bg-[var(--soft-card)] text-[var(--muted)] text-sm">No image</div>
                 )}
                 {listing.description && (
-                  <div className="border-t border-zinc-700/50 px-5 py-4">
+                  <div className="border-t border-white/[0.04] px-5 py-4">
                     <h2 className="mb-2 text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Description</h2>
                     <div className="text-sm leading-relaxed text-[var(--foreground)] whitespace-pre-wrap">
                       {listing.description}
@@ -974,15 +974,15 @@ export default function ListingPage() {
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-2.5 py-0.5 text-[10px] font-bold text-sky-400">{listing.category || "Other"}</span>
               {listing.condition && (
-                <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${listing.condition === "New" ? "border-sky-500/20 bg-sky-500/10 text-sky-400" : "border-white/[0.08] bg-zinc-800 text-[var(--foreground)]"}`}>
+                <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${listing.condition === "New" ? "border-sky-500/20 bg-sky-500/10 text-sky-400" : "border-white/[0.08] bg-[var(--soft-card)] text-[var(--foreground)]"}`}>
                   {listing.condition}
                 </span>
               )}
               {listing.createdAt?.seconds != null && (
-                <span className="rounded-full border border-white/[0.08] bg-zinc-800 px-2.5 py-0.5 text-[10px] text-[var(--muted)]">{timeAgo(listing.createdAt.seconds)}</span>
+                <span className="rounded-full border border-white/[0.08] bg-[var(--soft-card)] px-2.5 py-0.5 text-[10px] text-[var(--muted)]">{timeAgo(listing.createdAt.seconds)}</span>
               )}
               {listing.location && (
-                <span className="rounded-full border border-white/[0.08] bg-zinc-800 px-2.5 py-0.5 text-[10px] text-[var(--muted)]">{listing.location}</span>
+                <span className="rounded-full border border-white/[0.08] bg-[var(--soft-card)] px-2.5 py-0.5 text-[10px] text-[var(--muted)]">{listing.location}</span>
               )}
             </div>
 
@@ -1005,7 +1005,7 @@ export default function ListingPage() {
                 <span className="rounded bg-red-600/90 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[var(--foreground)]">Sold</span>
               )}
               {isListingVisibleInMarketplace(listing) && listing.expiresAt?.toMillis?.() < Date.now() && (
-                <span className="rounded bg-zinc-700/90 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[var(--muted)]">Expired</span>
+                <span className="rounded bg-[var(--soft-card)] px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[var(--muted)]">Expired</span>
               )}
               {(listing as any).promotedUntil?.toMillis?.() > Date.now() && (
                 <span className="rounded bg-sky-500/90 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">📈 Promoted</span>
@@ -1077,7 +1077,7 @@ export default function ListingPage() {
                   <span>{listing.pricingType === "quote" ? "Service delivered remotely — Request a Quote" : (listing as { paymentType?: string }).paymentType === "contact" ? "Digital product — arrange payment & delivery in Messages" : "Digital Download — Instant Delivery"}</span>
                 </div>
                 {listing.pricingType === "quote" && (
-                  <span className="mt-1.5 inline-flex rounded-full border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400">Quote Required</span>
+                  <span className="mt-1.5 inline-flex rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold text-sky-400">Quote Required</span>
                 )}
               </div>
             ) : listing.type === "service" ? (
@@ -1106,7 +1106,7 @@ export default function ListingPage() {
                 </div>
                 {listing.rentalDeposit && (
                   <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
-                    <span className="text-sky-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">🔒 $${(Number(listing.rentalDeposit) || 0).toFixed(2)} refundable deposit</span>
+                    <span className="text-sky-400">🔒 $${(Number(listing.rentalDeposit) || 0).toFixed(2)} refundable deposit</span>
                   </div>
                 )}
                 {listing.condition && (
@@ -1168,9 +1168,9 @@ export default function ListingPage() {
                 )}
               </div>
             ) : listing.type === "vehicle" ? (
-              <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3 space-y-1.5">
+              <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 p-3 space-y-1.5">
                 <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
-                  <span className="shrink-0 text-blue-400">🚗</span>
+                  <span className="shrink-0 text-sky-400">🚗</span>
                   <span>Vehicle</span>
                 </div>
                 {listing.vehicleMake && listing.vehicleModel && (
@@ -1220,7 +1220,7 @@ export default function ListingPage() {
                 )}
               </div>
             ) : listing.type !== "property" && (listing.pickupAvailable || listing.shippingAvailable || listing.stockQuantity !== undefined) && (
-              <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3 space-y-1.5">
+              <div className="rounded-lg border border-white/[0.06] bg-[var(--soft-card)] p-3 space-y-1.5">
                 {listing.pickupAvailable && (
                   <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
                     <span className="shrink-0 text-sky-400">📍</span>
@@ -1550,16 +1550,16 @@ Property Status: 🟢 Inquiry Active`;
                     </div>
                   )}
                   {(listing as any).paymentType === "contact" && (
-                    <div className="rounded-lg border border-zinc-700 bg-zinc-800/50 px-4 py-3">
+                    <div className="rounded-lg border border-white/[0.06] bg-[var(--soft-card)] px-4 py-3">
                       <div className="flex items-start gap-3">
                         <div className="flex-shrink-0 mt-0.5">
-                          <svg className="h-5 w-5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <svg className="h-5 w-5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
                           </svg>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-zinc-300">Arrange Purchase</p>
-                          <p className="mt-1 text-xs leading-relaxed text-zinc-500">Payment and delivery handled directly between buyer and seller. Keep communication on Sky Drop for protection.</p>
+                          <p className="text-sm font-medium text-sky-300">Arrange Purchase</p>
+                          <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">Payment and delivery handled directly between buyer and seller. Keep communication on Sky Drop for protection.</p>
                         </div>
                       </div>
                     </div>

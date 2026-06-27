@@ -89,7 +89,7 @@ export default function PromoteModal({ listing, collectionName = "listings", onC
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in-backdrop" onClick={onClose}>
-      <div className="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl overflow-hidden relative animate-fade-in-up" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-sm rounded-2xl border border-white/[0.06] bg-[var(--card)] shadow-2xl overflow-hidden relative animate-fade-in-up" onClick={(e) => e.stopPropagation()}>
         {showConfetti && (
           <div className="absolute inset-0 z-50 pointer-events-none">
             {Array.from({ length: 30 }).map((_, i) => (
@@ -97,7 +97,7 @@ export default function PromoteModal({ listing, collectionName = "listings", onC
                 style={{
                   left: `${Math.random() * 100}%`,
                   top: `${Math.random() * 100}%`,
-                  background: ["#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ef4444", "#ec4899"][Math.floor(Math.random() * 6)],
+                  background: ["#0ea5e9", "#38bdf8", "#0284c7", "#7dd3fc"][Math.floor(Math.random() * 4)],
                   animationDelay: `${Math.random() * 0.5}s`,
                   animationDuration: `${0.6 + Math.random() * 0.8}s`,
                 }}
@@ -130,8 +130,8 @@ export default function PromoteModal({ listing, collectionName = "listings", onC
               <h2 className="text-sm font-bold">Promote This Listing</h2>
               <button onClick={onClose} className="text-[var(--muted)] hover:text-[var(--foreground)]">✕</button>
             </div>
-            <div className="flex items-center gap-3 rounded-lg bg-zinc-900/40 p-3 text-xs">
-              {imageSrc && <div className="h-10 w-10 shrink-0 rounded-lg bg-zinc-800 overflow-hidden"><img src={imageSrc} className="h-full w-full object-cover" /></div>}
+            <div className="flex items-center gap-3 rounded-lg bg-[var(--card)] p-3 text-xs">
+              {imageSrc && <div className="h-10 w-10 shrink-0 rounded-lg bg-[var(--soft-card)] overflow-hidden"><img src={imageSrc} className="h-full w-full object-cover" /></div>}
               <div className="min-w-0 flex-1"><p className="truncate font-bold">{listing.title}</p>{listing.price && <p className="text-[var(--muted)]">${listing.price}</p>}</div>
             </div>
             <div className="rounded-lg bg-sky-500/5 border border-sky-500/20 px-4 py-3 text-xs space-y-1">
