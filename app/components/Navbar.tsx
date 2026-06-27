@@ -53,11 +53,11 @@ const MOBILE_NAV_ITEMS = [
 ];
 
 const BROWSE_LINKS = [
-  { href: "/", label: "Physical Goods", desc: "Electronics, fashion, home", icon: "📦" },
-  { href: "/digital", label: "Digital Store", desc: "E-books, software, assets", icon: "📥" },
-  { href: "/services", label: "Services", desc: "Freelance, consulting, gigs", icon: "🤝" },
-  { href: "/rentals", label: "Rentals", desc: "Tools, equipment, cameras", icon: "🔑" },
-  { href: "/wanted", label: "Wanted", desc: "People looking to buy, hire, rent", icon: "📋" },
+  { href: "/", label: "All Items", desc: "Browse the full marketplace", icon: "🏪" },
+  { href: "/digital", label: "Digital Downloads", desc: "E-books, software, digital assets", icon: "📥" },
+  { href: "/services", label: "Services & Gigs", desc: "Freelance work, consulting, help", icon: "🤝" },
+  { href: "/rentals", label: "Rentals", desc: "Tools, equipment, cameras for rent", icon: "🔑" },
+  { href: "/wanted", label: "Wanted Ads", desc: "Items people are looking for", icon: "📋" },
 ] as const;
 
 

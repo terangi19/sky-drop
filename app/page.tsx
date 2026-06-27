@@ -782,10 +782,10 @@ export default function Home() {
                 NZ Marketplace
               </div>
               <h1 className="text-2xl font-black tracking-tight text-white sm:text-4xl lg:text-5xl">
-                Welcome to Sky Drop
+                Buy & Sell Safely in New Zealand
               </h1>
               <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-[var(--foreground)] sm:text-base">
-                List your items, message buyers directly, and sell across New Zealand with help from Āwhina AI.
+                New Zealand's trusted marketplace. Verified sellers, secure payments, local pickup or shipping. Join thousands buying and selling safely.
               </p>
               {user ? (
                 <div className="mt-6 flex justify-center">
@@ -796,7 +796,7 @@ export default function Home() {
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                     </svg>
-                    Create a Listing
+                    Start Selling
                   </Link>
                 </div>
               ) : (
@@ -805,13 +805,13 @@ export default function Home() {
                     href="/signup"
                     className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-400 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.98]"
                   >
-                    Create Free Account
+                    Join Free
                   </Link>
                   <Link
                     href="/#listings"
                     className="inline-flex items-center gap-2 rounded-2xl bg-white/[0.04] px-6 py-3.5 text-sm font-bold text-white transition-all duration-300 hover:bg-white/[0.06]"
                   >
-                    Browse Listings
+                    Browse Items
                   </Link>
                 </div>
               )}

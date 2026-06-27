@@ -410,6 +410,7 @@ export default memo(function MarketplaceListingCard({
                     }}
                     disabled={loading}
                     className={`flex-1 rounded-md border py-2.5 text-[12px] font-semibold transition-all duration-150 active:scale-95 ${BLUE_BTN} ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    title={item.paymentType === "contact" ? "Arrange payment directly with seller (bank transfer, cash, etc.)" : "Pay instantly with credit card via Stripe"}
                   >
                     {loading ? (
                       <span className="flex items-center justify-center gap-2">
@@ -417,7 +418,7 @@ export default memo(function MarketplaceListingCard({
                         Processing...
                       </span>
                     ) : (
-                      item.paymentType === "contact" ? "Purchase" : "Buy Now"
+                      item.paymentType === "contact" ? "Arrange Purchase" : "Buy Now"
                     )}
                   </button>
                   {(item.saleType === "auction" || item.saleType === "auction_buy_now") && (

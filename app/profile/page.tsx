@@ -1843,9 +1843,16 @@ const tabGroups = [
 
                 <div className="rounded-xl border border-white/[0.04] bg-white/[0.02] px-4 py-3.5">
                   {!profile.phoneVerified && (
-                    <div className="mb-3 rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3">
-                      <p className="text-xs font-medium text-red-400">Phone verification is required</p>
-                      <p className="mt-1 text-xs text-zinc-400">One phone number per account for security and account recovery.</p>
+                    <div className="mb-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3">
+                      <div className="flex items-start gap-2">
+                        <svg className="h-4 w-4 shrink-0 mt-0.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div className="flex-1">
+                          <p className="text-xs font-medium text-amber-400">Phone verification required</p>
+                          <p className="mt-1 text-xs text-zinc-400">Required to sell items and receive payments. Helps protect your account and enables secure transactions.</p>
+                        </div>
+                      </div>
                     </div>
                   )}
                   <div className="flex items-center justify-between gap-4 mb-3">
