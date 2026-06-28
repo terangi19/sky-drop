@@ -56,6 +56,8 @@ export type SkyAiChatPanelProps = {
   autoQuery?: string;
   onAutoQueryConsumed?: () => void;
   onFill?: (fill: SkyAiListingFill) => void;
+  /** Sheet mode: show built-in bottom-right FAB (default true). */
+  floatingFab?: boolean;
   quickPrompts?: QuickPrompt[];
   /** First assistant message (defaults to global welcome) */
   welcomeText?: string;
@@ -115,19 +117,30 @@ export default function SkyAiChatPanel({
   quickPrompts = SKY_AI_QUICK_PROMPTS,
   welcomeText = SKY_AI_WELCOME,
   className = "",
+  floatingFab = true,
 }: SkyAiChatPanelProps) {
   const router = useRouter();
   const pathname = usePathname() || "/";
   const isSheet = mode === "sheet";
+  const isControlledSheet = isSheet && openControlled !== undefined;
   const [openInternal, setOpenInternal] = useState(false);
-  const open = isSheet ? openInternal : (openControlled ?? false);
+  const open = isSheet
+    ? isControlledSheet
+      ? (openControlled ?? false)
+      : openInternal
+    : (openControlled ?? false);
   const setOpen = useCallback(
     (v: boolean | ((prev: boolean) => boolean)) => {
-      const next = typeof v === "function" ? v(isSheet ? openInternal : (openControlled ?? false)) : v;
-      if (isSheet) setOpenInternal(next);
+      const prev = isSheet
+        ? isControlledSheet
+          ? (openControlled ?? false)
+          : openInternal
+        : (openControlled ?? false);
+      const next = typeof v === "function" ? v(prev) : v;
+      if (isSheet && !isControlledSheet) setOpenInternal(next);
       else onOpenChange?.(next);
     },
-    [isSheet, openInternal, openControlled, onOpenChange]
+    [isSheet, isControlledSheet, openInternal, openControlled, onOpenChange]
   );
 
   const [user, setUser] = useState<User | null>(null);
@@ -671,10 +684,9 @@ export default function SkyAiChatPanel({
   const canSend = (input.trim() || pendingImages.length > 0) && !busy && !imageBusy;
 
   useEffect(() => {
-    if (!isSheet) return;
     const onOpen = (e: Event) => {
       const query = (e as CustomEvent<SkyAiOpenDetail>).detail?.query?.trim();
-      setOpen(true);
+      if (isSheet) setOpen(true);
       if (query) respond(query);
     };
     window.addEventListener(SKY_AI_OPEN_EVENT, onOpen);
@@ -1151,6 +1163,7 @@ export default function SkyAiChatPanel({
         />
       )}
 
+      {floatingFab && (
       <div className={`fixed z-[10002] transition-all duration-300 ${open ? "opacity-0 pointer-events-none scale-75" : "opacity-100"} bottom-6 right-6 max-md:bottom-24 max-md:right-4`}>
         <div className="relative group">
           <span className="awhina-chat-fab-tooltip absolute -top-10 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-lg bg-zinc-900/95 border border-white/[0.06] text-[11px] font-semibold text-always-white whitespace-nowrap shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
@@ -1169,6 +1182,7 @@ export default function SkyAiChatPanel({
           </button>
         </div>
       </div>
+      )}
     </>
   );
 }

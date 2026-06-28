@@ -31,6 +31,15 @@ export default function SearchPage() {
   const [searchSaved, setSearchSaved] = useState(false);
 
   useEffect(() => {
+    const max = searchParams.get("maxPrice");
+    const min = searchParams.get("minPrice");
+    const loc = searchParams.get("location");
+    if (max) setMaxPrice(max);
+    if (min) setMinPrice(min);
+    if (loc) setLocation(loc);
+  }, [searchParams]);
+
+  useEffect(() => {
     if (!user) {
       setWatchlist([]);
       setSavedSearches([]);

@@ -320,6 +320,59 @@ body {
   color: #ffffff !important;
 }
 
+/* Āwhina global voice dock */
+@keyframes awhina-voice-ring-pulse {
+  0% { transform: scale(1); opacity: 0.55; }
+  100% { transform: scale(1.45); opacity: 0; }
+}
+
+@keyframes awhina-voice-bar {
+  0%, 100% { height: 0.35rem; opacity: 0.45; }
+  50% { height: 1.1rem; opacity: 1; }
+}
+
+@keyframes awhina-voice-progress {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}
+
+@keyframes awhina-voice-card-glow {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.65; }
+}
+
+.awhina-voice-ring {
+  animation: awhina-voice-ring-pulse 1.8s ease-out infinite;
+}
+
+.awhina-voice-ring-delay {
+  animation-delay: 0.65s;
+}
+
+.awhina-voice-bar {
+  animation: awhina-voice-bar 0.9s ease-in-out infinite;
+}
+
+.awhina-voice-progress {
+  width: 40%;
+  animation: awhina-voice-progress 1.2s ease-in-out infinite;
+}
+
+.awhina-voice-card-glow-listening {
+  background: radial-gradient(ellipse at 30% 20%, rgba(139, 92, 246, 0.22), transparent 55%),
+    radial-gradient(ellipse at 80% 80%, rgba(56, 189, 248, 0.12), transparent 50%);
+  animation: awhina-voice-card-glow 2.4s ease-in-out infinite;
+}
+
+.awhina-voice-card-glow-processing {
+  background: radial-gradient(ellipse at 50% 50%, rgba(56, 189, 248, 0.18), transparent 60%);
+  animation: awhina-voice-card-glow 1.6s ease-in-out infinite;
+}
+
+:root.light .awhina-voice-card {
+  filter: saturate(1.05);
+}
+
 :root.light .text-white\/95 { color: #000000 !important; }
 :root.light header .text-white\/95 { color: #ffffff !important; }
 :root.light .text-white\/90 { color: #000000 !important; }
