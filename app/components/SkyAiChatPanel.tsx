@@ -155,6 +155,10 @@ export default function SkyAiChatPanel({
 
   useEffect(() => onAuthStateChanged(auth, setUser), []);
 
+  const showVoiceInputHelp = () => {
+    alert("Free Voice Input:\n\nChrome/Edge: Click the microphone icon in the address bar or press Ctrl+Shift+Period\n\nMobile: Tap the microphone on your keyboard\n\nThis uses your browser's built-in free voice typing.");
+  };
+
   useEffect(() => {
     let cancelled = false;
     fetch("/api/sky-ai/status")
@@ -1023,6 +1027,16 @@ export default function SkyAiChatPanel({
             aria-label="Add photos"
           >
             📷
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={showVoiceInputHelp}
+            className="shrink-0 self-end flex h-[42px] w-[42px] items-center justify-center rounded-xl border border-sky-500/25 bg-sky-500/10 text-lg text-sky-300 hover:bg-sky-500/20 disabled:opacity-40"
+            title="Voice input help"
+            aria-label="Voice input help"
+          >
+            🎙️
           </button>
           <textarea
             value={input}
