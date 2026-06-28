@@ -2063,29 +2063,6 @@ function MessagesPage() {
                       <button onClick={sendFileMessage} className="rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white hover:bg-sky-400">Send</button>
                     </div>
                   )}
-                  {/* Offer input */}
-                  {showOfferInput && (
-                    <div className="mb-2 space-y-2">
-                      <div className="flex items-center gap-2">
-                      <input type="number" placeholder="Offer amount..." value={offerAmount} onChange={(e) => setOfferAmount(e.target.value)}
-                        className="flex-1 rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] px-4 py-2 text-[13px] text-[var(--foreground)] outline-none transition focus:border-sky-400" />
-                      <button onClick={() => { sendOffer("make", offerAmount); setShowOfferInput(false); setOfferAmount(""); }} className="rounded-xl bg-sky-500 px-4 py-2 text-[11px] font-bold text-white hover:bg-sky-400">Send Offer</button>
-                      <button onClick={() => setShowOfferInput(false)} className="rounded-xl bg-[var(--soft-card)] px-4 py-2 text-[11px] font-bold text-[var(--foreground)] hover:bg-[var(--card-hover)]">Cancel</button>
-                      </div>
-                      {chatListingId && listingCard && Number(offerAmount) > 0 && chatUser && (
-                        <NegotiationAssistant
-                          currentPrice={Number(offerAmount)}
-                          originalPrice={Number(listingCard.price) || Number(offerAmount)}
-                          listingTitle={listingCard.title || "Listing"}
-                          listingId={chatListingId}
-                          conversationPartner={chatUser}
-                        />
-                      )}
-                      {!chatListingId && (
-                        <p className="text-[10px] text-[var(--muted)]">This offer is not linked to a specific listing</p>
-                      )}
-                    </div>
-                  )}
                   {!message.trim() && (
                     <div className="mb-2 flex flex-wrap gap-1.5">
                       {QUICK_REPLIES.map((reply) => (
@@ -2115,17 +2092,6 @@ function MessagesPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                       </svg>
                     </button>
-                    {/* Offer button */}
-                    {user?.email && user.email !== chatUser && (
-                      <button onClick={() => setShowOfferInput((prev) => !prev)}
-                        className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border transition ${
-                          showOfferInput
-                            ? "border-sky-500/40 bg-sky-500/10 text-sky-400"
-                            : "border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--muted)] hover:border-sky-400 hover:text-sky-400"
-                        }`}>
-                        <span className="text-lg font-black">$</span>
-                      </button>
-                    )}
                     <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
                     <input ref={fileAttachInputRef} type="file" onChange={handleFileSelect} className="hidden" />
                     <input ref={messageInputRef} type="text" placeholder="Type a message..." value={message} maxLength={2000}
