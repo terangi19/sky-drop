@@ -14,7 +14,9 @@ const LISTING_INTENT =
 const MESSAGE_INTENT = /\b(message|contact|chat with|tell the seller|write to)\b/i;
 
 const INCOMPLETE_TRAIL =
-  /\b(my|a|an|the|with|for|and|or|about|selling|it's|its|this|that|in|on|at|to)\s*$/i;
+  /\b(my|a|an|the|with|for|and|or|about|selling|it's|its|this|that|in|on|at)\s*$/i;
+
+const NAV_TO_INCOMPLETE = /\b(?:go|take me|navigate|open|bring me)\s+to\s*$/i;
 
 export const SILENCE_MS: Record<VoiceUtteranceKind, number> = {
   navigation: 2_600,
@@ -29,7 +31,7 @@ export function classifyVoiceUtterance(text: string): VoiceUtteranceKind {
   if (!t) return "conversation";
 
   const words = t.split(/\s+/).length;
-  const looksIncomplete = INCOMPLETE_TRAIL.test(t) || t.endsWith("...");
+  const looksIncomplete = INCOMPLETE_TRAIL.test(t) || NAV_TO_INCOMPLETE.test(t) || t.endsWith("...");
 
   if (LISTING_INTENT.test(t) || looksIncomplete || words >= 10) {
     return "listing";

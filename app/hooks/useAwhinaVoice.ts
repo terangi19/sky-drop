@@ -66,6 +66,7 @@ export function useAwhinaVoice() {
   const stillListeningTimerRef = useRef<number | null>(null);
   const abortProcessingRef = useRef(false);
   const processGenerationRef = useRef(0);
+  const lastScheduledTextRef = useRef("");
   const inactivityTimerRef = useRef<number | null>(null);
   const stopListeningRef = useRef<(() => void) | null>(null);
   const startListeningRef = useRef<(() => Promise<void>) | null>(null);
@@ -358,6 +359,7 @@ export function useAwhinaVoice() {
   const flushUtterance = useCallback(
     (text: string) => {
       clearEndOfSpeechTimers();
+      lastScheduledTextRef.current = "";
       utteranceTextRef.current = "";
       onUtteranceFlushedRef.current?.();
       void processTranscript(text);
@@ -366,10 +368,17 @@ export function useAwhinaVoice() {
   );
 
   const scheduleEndOfSpeech = useCallback(
-    (display: string) => {
-      clearEndOfSpeechTimers();
+    (display: string, opts?: { force?: boolean }) => {
       const trimmed = display.trim();
       if (!trimmed) return;
+
+      const unchanged = trimmed === lastScheduledTextRef.current;
+      if (unchanged && !opts?.force && endOfSpeechTimerRef.current) {
+        return;
+      }
+
+      lastScheduledTextRef.current = trimmed;
+      clearEndOfSpeechTimers();
 
       const silenceMs = silenceMsForText(trimmed);
       const quietStart = Date.now();
@@ -383,6 +392,7 @@ export function useAwhinaVoice() {
       endOfSpeechTimerRef.current = window.setTimeout(() => {
         const latest = utteranceTextRef.current.trim();
         if (!latest || busyRef.current) return;
+        lastScheduledTextRef.current = "";
         flushUtterance(latest);
       }, silenceMs);
     },
@@ -399,10 +409,11 @@ export function useAwhinaVoice() {
         setHeadline("Listening…");
       }
 
-      clearEndOfSpeechTimers();
+      const trimmed = display.trim();
+      const textChanged = trimmed !== utteranceTextRef.current.trim();
       utteranceTextRef.current = display;
 
-      if (!display.trim()) return;
+      if (!trimmed) return;
 
       if (pausedRef.current) {
         setPausedState(false);
@@ -415,11 +426,15 @@ export function useAwhinaVoice() {
       if (voiceModeRef.current) setHint(VOICE_MODE_ON_HINT);
 
       if (meta.completeUtterance) {
-        flushUtterance(display.trim());
+        flushUtterance(trimmed);
         return;
       }
 
-      scheduleEndOfSpeech(display);
+      if (textChanged || meta.hadFinalChunk) {
+        scheduleEndOfSpeech(display);
+      } else if (!endOfSpeechTimerRef.current) {
+        scheduleEndOfSpeech(display, { force: true });
+      }
     },
     [bumpActivity, flushUtterance, scheduleEndOfSpeech, setPausedState]
   );
@@ -467,14 +482,7 @@ export function useAwhinaVoice() {
         setHint(message);
       }
     },
-    onActivity: () => {
-      bumpActivity();
-      const display = utteranceTextRef.current;
-      if (display.trim() && !busyRef.current) {
-        setHeadline(listeningHeadline(display, 0));
-        scheduleEndOfSpeech(display);
-      }
-    },
+    onActivity: bumpActivity,
   });
 
   startListeningRef.current = startListening;

@@ -264,8 +264,8 @@ export function useVoiceInput({
         const display = [sessionBufferRef.current, interim].filter(Boolean).join(" ").trim();
         if (!display) return;
 
-        callbacksRef.current.onActivity?.();
         emitUtterance(display, hadFinalChunk);
+        callbacksRef.current.onActivity?.();
       };
 
       recognition.onerror = (event) => {
