@@ -15,30 +15,49 @@ const LISTING_INTENT =
 
 const MESSAGE_INTENT = /\b(message|contact|chat with|tell the seller|write to)\b/i;
 
+const NOISE_ONLY =
+  /^(uh+|um+|ah+|hmm+|oh+|the|a|an|and|or|so|like|yeah|yes|no|okay|ok)[\s.!?]*$/i;
+
 const INCOMPLETE_TRAIL =
   /\b(my|a|an|the|with|for|and|or|about|selling|it's|its|this|that|in|on|at)\s*$/i;
 
 const NAV_TO_INCOMPLETE = /\b(?:go|take me|navigate|open|bring me)\s+to\s*$/i;
 
 export const SILENCE_MS: Record<VoiceUtteranceKind, number> = {
-  navigation: 1_200,
-  search: 2_000,
-  listing: 8_000,
-  conversation: 6_500,
+  navigation: 700,
+  search: 1_200,
+  listing: 7_500,
+  conversation: 5_500,
 };
 
 /** Short pause after the browser commits a complete phrase (user already stopped). */
 const POST_FINAL_MS: Record<VoiceUtteranceKind, number> = {
-  navigation: 350,
-  search: 550,
-  listing: 1_200,
-  conversation: 1_800,
+  navigation: 150,
+  search: 280,
+  listing: 900,
+  conversation: 1_400,
 };
 
 export function isIncompleteUtterance(text: string): boolean {
   const t = text.trim();
   if (!t) return true;
   return INCOMPLETE_TRAIL.test(t) || NAV_TO_INCOMPLETE.test(t) || t.endsWith("...");
+}
+
+/** Skip noise / junk STT before running a command. */
+export function isActionableTranscript(text: string, pathname?: string): boolean {
+  const t = text.trim();
+  if (t.length < 3) return false;
+  if (NOISE_ONLY.test(t)) return false;
+
+  if (pathname) {
+    const cmd = resolveVoiceCommand(t, pathname);
+    if (cmd) return true;
+  }
+
+  const words = t.split(/\s+/).filter(Boolean);
+  if (words.length >= 2) return true;
+  return t.length >= 10;
 }
 
 /** Classify accumulated speech to pick a patient or fast end-of-speech window. */
@@ -83,18 +102,21 @@ export function endOfSpeechDelayMs(text: string, options?: EndOfSpeechOptions): 
   const kind = classifyVoiceUtterance(t);
   const incomplete = isIncompleteUtterance(t);
 
-  if (options?.hadFinalChunk && !incomplete) {
-    return POST_FINAL_MS[kind];
-  }
-
   if (!incomplete && options?.pathname) {
     const cmd = resolveVoiceCommand(t, options.pathname);
     if (cmd?.type === "navigate" || cmd?.type === "page") {
-      return options.hadFinalChunk ? POST_FINAL_MS.navigation : 900;
+      return options.hadFinalChunk ? POST_FINAL_MS.navigation : 550;
     }
     if (cmd?.type === "search") {
-      return options.hadFinalChunk ? POST_FINAL_MS.search : 1_400;
+      return options.hadFinalChunk ? POST_FINAL_MS.search : 900;
     }
+    if (cmd?.type === "resume" || cmd?.type === "voice_off") {
+      return options.hadFinalChunk ? 120 : 400;
+    }
+  }
+
+  if (options?.hadFinalChunk && !incomplete) {
+    return POST_FINAL_MS[kind];
   }
 
   return SILENCE_MS[kind];
@@ -108,7 +130,7 @@ export function silenceMsForText(text: string): number {
 /** UI label while waiting for more speech. */
 export function listeningHeadline(text: string, quietForMs: number): string {
   if (!text.trim()) return "Listening…";
-  if (quietForMs >= 1_000) return "Still listening…";
+  if (quietForMs >= 800) return "Still listening…";
   return "Listening…";
 }
 

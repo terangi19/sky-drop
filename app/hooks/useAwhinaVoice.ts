@@ -6,6 +6,7 @@ import { AWHINA_NAME } from "../lib/awhina-brand";
 import {
   endOfSpeechDelayMs,
   formatUtteranceDisplay,
+  isActionableTranscript,
   isIncompleteUtterance,
   listeningHeadline,
 } from "../lib/awhina-voice-end-of-speech";
@@ -130,14 +131,26 @@ export function useAwhinaVoice() {
     if (pausedRef.current) return;
     setPhase("listening");
     setHeadline("Listening…");
+    setTranscript("");
     setHint(VOICE_MODE_ON_HINT);
     scheduleInactivityPause();
+    stopListeningRef.current?.();
     window.setTimeout(() => {
       if (voiceModeRef.current && !pausedRef.current && !busyRef.current) {
         void startListeningRef.current?.();
       }
-    }, 500);
+    }, 120);
   }, [scheduleInactivityPause]);
+
+  const ensureListening = useCallback(() => {
+    if (!voiceModeRef.current || pausedRef.current || busyRef.current) return;
+    stopListeningRef.current?.();
+    window.setTimeout(() => {
+      if (voiceModeRef.current && !pausedRef.current && !busyRef.current) {
+        void startListeningRef.current?.();
+      }
+    }, 120);
+  }, []);
 
   const resumeListening = useCallback(() => {
     if (!voiceModeRef.current) return;
@@ -150,8 +163,8 @@ export function useAwhinaVoice() {
     setTranscript("");
     setHint(VOICE_MODE_ON_HINT);
     scheduleInactivityPause();
-    void startListeningRef.current?.();
-  }, [clearEndOfSpeechTimers, scheduleInactivityPause, setPausedState]);
+    ensureListening();
+  }, [clearEndOfSpeechTimers, ensureListening, scheduleInactivityPause, setPausedState]);
 
   const disableVoiceMode = useCallback(() => {
     voiceModeRef.current = false;
@@ -196,10 +209,6 @@ export function useAwhinaVoice() {
       );
       setHint(action.status);
 
-      if (action.type !== "reply") {
-        await new Promise((r) => setTimeout(r, 80));
-      }
-
       if (action.type === "page") {
         const result = action.run();
         if (!result.ok) {
@@ -228,7 +237,7 @@ export function useAwhinaVoice() {
         setTranscript(action.message);
       }
 
-      window.setTimeout(() => afterCommandCycle(), action.type === "reply" ? 2200 : 350);
+      window.setTimeout(() => afterCommandCycle(), action.type === "reply" ? 1800 : 150);
     },
     [afterCommandCycle, disableVoiceMode, resumeListening, router]
   );
@@ -359,13 +368,27 @@ export function useAwhinaVoice() {
 
   const flushUtterance = useCallback(
     (text: string) => {
+      const trimmed = text.trim();
       clearEndOfSpeechTimers();
       lastScheduledTextRef.current = "";
       utteranceTextRef.current = "";
       onUtteranceFlushedRef.current?.();
-      void processTranscript(text);
+
+      if (!isActionableTranscript(trimmed, pathname)) {
+        if (voiceModeRef.current && !pausedRef.current) {
+          setPhase("listening");
+          setHeadline("Listening…");
+          setTranscript("");
+          setHint(VOICE_MODE_ON_HINT);
+          ensureListening();
+        }
+        return;
+      }
+
+      stopListeningRef.current?.();
+      void processTranscript(trimmed);
     },
-    [clearEndOfSpeechTimers, processTranscript]
+    [clearEndOfSpeechTimers, ensureListening, pathname, processTranscript]
   );
 
   const scheduleEndOfSpeech = useCallback(
@@ -406,13 +429,7 @@ export function useAwhinaVoice() {
 
   const handleUtteranceUpdate = useCallback(
     (display: string, meta: UtteranceUpdateMeta) => {
-      if (busyRef.current) {
-        abortProcessingRef.current = true;
-        busyRef.current = false;
-        processGenerationRef.current += 1;
-        setPhase("listening");
-        setHeadline("Listening…");
-      }
+      if (busyRef.current) return;
 
       const trimmed = display.trim();
       const textChanged = trimmed !== utteranceTextRef.current.trim();
@@ -424,7 +441,7 @@ export function useAwhinaVoice() {
         setPausedState(false);
       }
 
-      bumpActivity();
+      if (textChanged) bumpActivity();
       setPhase("listening");
       setHeadline(listeningHeadline(display, 0));
       setTranscript(formatUtteranceDisplay(display));
@@ -489,7 +506,9 @@ export function useAwhinaVoice() {
         setHint(message);
       }
     },
-    onActivity: bumpActivity,
+    onActivity: () => {
+      if (!busyRef.current) bumpActivity();
+    },
   });
 
   startListeningRef.current = startListening;
@@ -537,14 +556,20 @@ export function useAwhinaVoice() {
   }, [resumeListening]);
 
   useEffect(() => {
-    if (!voiceModeRef.current || pausedRef.current || busyRef.current) return;
-    const t = window.setTimeout(() => {
-      if (voiceModeRef.current && !pausedRef.current && !busyRef.current && !listening) {
-        void startListening();
+    if (!voiceMode) return;
+
+    const restart = () => {
+      if (!voiceModeRef.current || pausedRef.current) return;
+      if (busyRef.current) {
+        window.setTimeout(restart, 150);
+        return;
       }
-    }, 700);
+      ensureListening();
+    };
+
+    const t = window.setTimeout(restart, 250);
     return () => window.clearTimeout(t);
-  }, [pathname, listening, startListening]);
+  }, [pathname, voiceMode, ensureListening]);
 
   useEffect(() => {
     const onBeforeUnload = () => {

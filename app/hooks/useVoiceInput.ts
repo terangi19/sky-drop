@@ -190,6 +190,9 @@ export function useVoiceInput({
 
       if (result.ok === false) {
         callbacksRef.current.onError?.(result.message);
+        if (keepAliveRef.current && !intentionalStopRef.current) {
+          window.setTimeout(() => void startListeningRef.current?.(), 400);
+        }
         return;
       }
 
@@ -218,14 +221,11 @@ export function useVoiceInput({
     const session = startMicrophoneRecording({
       maxMs: sessionContinuous ? 60_000 : 30_000,
       getSilenceMs: () => getSilenceMs(utteranceTextRef?.current ?? ""),
+      speechThreshold: sessionContinuous ? 0.038 : 0.032,
+      minSpeechMs: 500,
       onSpeaking: () => {
         callbacksRef.current.onActivity?.();
         callbacksRef.current.onStatus?.("Listening…");
-      },
-      onSpeechActivity: () => {
-        callbacksRef.current.onActivity?.();
-        const preview = utteranceTextRef?.current ?? "";
-        if (preview) emitUtterance(preview, false);
       },
     });
     recordingSessionRef.current = session;

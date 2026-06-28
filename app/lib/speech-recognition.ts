@@ -357,9 +357,9 @@ function rmsFromAnalyser(analyser: AnalyserNode): number {
 export function startMicrophoneRecording(options?: VadOptions): RecordingController {
   const maxMs = options?.maxMs ?? 45_000;
   const baseSilenceMs = options?.silenceMs ?? 3_600;
-  const minSpeechMs = options?.minSpeechMs ?? 350;
+  const minSpeechMs = options?.minSpeechMs ?? 500;
   const noSpeechMs = options?.noSpeechMs ?? 7_000;
-  const speechThreshold = options?.speechThreshold ?? 0.018;
+  const speechThreshold = options?.speechThreshold ?? 0.032;
 
   let recorder: MediaRecorder | null = null;
   let stream: MediaStream | null = null;
