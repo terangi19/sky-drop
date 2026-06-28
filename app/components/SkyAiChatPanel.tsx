@@ -159,6 +159,14 @@ export default function SkyAiChatPanel({
   const startRecording = async () => {
     console.log("=== START RECORDING ===");
     console.log("Microphone button clicked");
+    console.log("Current URL:", window.location.href);
+    console.log("Protocol:", window.location.protocol);
+    console.log("Is secure context:", window.isSecureContext);
+    
+    if (!window.isSecureContext) {
+      alert("Voice input requires HTTPS. The site must be served over HTTPS or localhost for voice input to work.");
+      return;
+    }
     
     if (typeof window === "undefined") {
       console.error("Window is undefined");
@@ -208,7 +216,7 @@ export default function SkyAiChatPanel({
         console.error("Error name:", event.error);
         console.error("Error message:", event.message);
         if (event.error === "not-allowed") {
-          alert("Microphone access denied. Check: 1) Browser address bar for blocked permissions 2) System settings 3) Refresh page after allowing");
+          alert("Microphone access denied. This usually means: 1) Site is not HTTPS 2) Permission was denied 3) Browser privacy settings. Check address bar for permission icon.");
         } else {
           alert("Speech recognition error: " + event.error + " - " + event.message);
         }
