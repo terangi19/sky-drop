@@ -216,7 +216,7 @@ export default function SkyAiChatPanel({
         console.error("Error name:", event.error);
         console.error("Error message:", event.message);
         if (event.error === "not-allowed") {
-          alert("Microphone access denied. This usually means: 1) Site is not HTTPS 2) Permission was denied 3) Browser privacy settings. Check address bar for permission icon.");
+          alert("Microphone access denied. To fix in Chrome:\n\n1. Click the lock icon in the address bar\n2. Click 'Site settings'\n3. Find 'Microphone' and set to 'Allow'\n4. Refresh the page\n\nIf that doesn't work:\n1. Chrome Settings → Privacy and security → Site settings → Microphone\n2. Find skydrop.co.nz and remove it\n3. Refresh the page and allow when prompted\n\nDisable ad blockers/extensions that might block microphone access.");
         } else {
           alert("Speech recognition error: " + event.error + " - " + event.message);
         }
