@@ -149,7 +149,7 @@ export default function SkyAiChatPanel({
   const [listingFillOccurred, _setListingFillOccurred] = useState(false);
   const listingFillOccurredRef = useRef(false);
   const [isRecording, setIsRecording] = useState(false);
-  const [recognition, setRecognition] = useState<any>(null);
+  const recognitionRef = useRef<any>(null);
   const setListingFillOccurred = useCallback((v: boolean) => {
     listingFillOccurredRef.current = v;
     _setListingFillOccurred(v);
@@ -184,7 +184,7 @@ export default function SkyAiChatPanel({
             setIsRecording(false);
           };
 
-          setRecognition(rec);
+          recognitionRef.current = rec;
           console.log("Speech recognition initialized");
         } catch (error) {
           console.error("Failed to initialize speech recognition:", error);
@@ -196,10 +196,10 @@ export default function SkyAiChatPanel({
   }, []);
 
   const startRecording = () => {
-    console.log("Start recording called, recognition:", !!recognition);
-    if (recognition) {
+    console.log("Start recording called, recognition:", !!recognitionRef.current);
+    if (recognitionRef.current) {
       try {
-        recognition.start();
+        recognitionRef.current.start();
         setIsRecording(true);
       } catch (error) {
         console.error("Failed to start recording:", error);
@@ -212,9 +212,9 @@ export default function SkyAiChatPanel({
 
   const stopRecording = () => {
     console.log("Stop recording called");
-    if (recognition) {
+    if (recognitionRef.current) {
       try {
-        recognition.stop();
+        recognitionRef.current.stop();
         setIsRecording(false);
       } catch (error) {
         console.error("Failed to stop recording:", error);
