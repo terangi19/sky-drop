@@ -148,79 +148,12 @@ export default function SkyAiChatPanel({
   const [openAiReady, setOpenAiReady] = useState(true);
   const [listingFillOccurred, _setListingFillOccurred] = useState(false);
   const listingFillOccurredRef = useRef(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const recognitionRef = useRef<any>(null);
   const setListingFillOccurred = useCallback((v: boolean) => {
     listingFillOccurredRef.current = v;
     _setListingFillOccurred(v);
   }, []);
 
   useEffect(() => onAuthStateChanged(auth, setUser), []);
-
-  // Initialize Web Speech API
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
-      if (SpeechRecognition) {
-        try {
-          const rec = new SpeechRecognition();
-          rec.continuous = false;
-          rec.interimResults = true;
-          rec.lang = "en-NZ";
-
-          rec.onresult = (event: any) => {
-            const transcript = Array.from(event.results)
-              .map((result: any) => result[0].transcript)
-              .join("");
-            setInput(transcript);
-          };
-
-          rec.onerror = (event: any) => {
-            console.error("Speech recognition error:", event.error);
-            setIsRecording(false);
-          };
-
-          rec.onend = () => {
-            setIsRecording(false);
-          };
-
-          recognitionRef.current = rec;
-          console.log("Speech recognition initialized");
-        } catch (error) {
-          console.error("Failed to initialize speech recognition:", error);
-        }
-      } else {
-        console.log("Speech recognition not supported in this browser");
-      }
-    }
-  }, []);
-
-  const startRecording = () => {
-    console.log("Start recording called, recognition:", !!recognitionRef.current);
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.start();
-        setIsRecording(true);
-      } catch (error) {
-        console.error("Failed to start recording:", error);
-        alert("Could not start voice input. Please try again.");
-      }
-    } else {
-      alert("Voice input is not supported in this browser. Please use Chrome or Edge.");
-    }
-  };
-
-  const stopRecording = () => {
-    console.log("Stop recording called");
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-        setIsRecording(false);
-      } catch (error) {
-        console.error("Failed to stop recording:", error);
-      }
-    }
-  };
 
   useEffect(() => {
     let cancelled = false;
@@ -1090,20 +1023,6 @@ export default function SkyAiChatPanel({
             aria-label="Add photos"
           >
             📷
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={isRecording ? stopRecording : startRecording}
-            className={`shrink-0 self-end flex h-[42px] w-[42px] items-center justify-center rounded-xl border text-lg transition-all ${
-              isRecording 
-                ? "border-red-500/50 bg-red-500/20 text-red-400 animate-pulse" 
-                : "border-sky-500/25 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20"
-            }`}
-            title={isRecording ? "Stop recording" : "Voice input"}
-            aria-label={isRecording ? "Stop recording" : "Voice input"}
-          >
-            {isRecording ? "🎤" : "🎙️"}
           </button>
           <textarea
             value={input}
