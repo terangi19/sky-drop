@@ -67,7 +67,7 @@ export function useVoiceInput({
     }
 
     const permission = await ensureMicrophonePermission();
-    if (!permission.ok) {
+    if (permission.ok === false) {
       callbacksRef.current.onError?.(permission.message);
       return;
     }
