@@ -156,12 +156,21 @@ export default function SkyAiChatPanel({
 
   useEffect(() => onAuthStateChanged(auth, setUser), []);
 
-  const startRecording = () => {
+  const startRecording = async () => {
     console.log("Microphone button clicked");
-    alert("Mic button clicked - checking browser support...");
     
     if (typeof window === "undefined") {
       alert("Window is undefined");
+      return;
+    }
+    
+    // Request microphone permission first
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(track => track.stop()); // Stop immediately, we just needed permission
+    } catch (error) {
+      console.error("Microphone permission denied:", error);
+      alert("Microphone permission denied. Please allow microphone access in your browser settings and try again.");
       return;
     }
     
@@ -189,7 +198,11 @@ export default function SkyAiChatPanel({
 
       recognition.onerror = (event: any) => {
         console.error("Speech recognition error:", event.error);
-        alert("Speech recognition error: " + event.error);
+        if (event.error === "not-allowed") {
+          alert("Microphone access denied. Please allow microphone access in your browser settings.");
+        } else {
+          alert("Speech recognition error: " + event.error);
+        }
         setIsRecording(false);
       };
 
