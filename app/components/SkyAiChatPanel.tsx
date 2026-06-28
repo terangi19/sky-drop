@@ -148,12 +148,56 @@ export default function SkyAiChatPanel({
   const [openAiReady, setOpenAiReady] = useState(true);
   const [listingFillOccurred, _setListingFillOccurred] = useState(false);
   const listingFillOccurredRef = useRef(false);
+  const [isRecording, setIsRecording] = useState(false);
   const setListingFillOccurred = useCallback((v: boolean) => {
     listingFillOccurredRef.current = v;
     _setListingFillOccurred(v);
   }, []);
 
   useEffect(() => onAuthStateChanged(auth, setUser), []);
+
+  const startRecording = () => {
+    if (typeof window === "undefined") return;
+    
+    const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Voice input is not supported in this browser. Please use Chrome or Edge.");
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = "en-NZ";
+
+      recognition.onresult = (event: any) => {
+        const transcript = Array.from(event.results)
+          .map((result: any) => result[0].transcript)
+          .join("");
+        setInput(transcript);
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error("Speech recognition error:", event.error);
+        setIsRecording(false);
+      };
+
+      recognition.onend = () => {
+        setIsRecording(false);
+      };
+
+      recognition.start();
+      setIsRecording(true);
+    } catch (error) {
+      console.error("Failed to start recording:", error);
+      alert("Could not start voice input. Please try again.");
+    }
+  };
+
+  const stopRecording = () => {
+    setIsRecording(false);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -1023,6 +1067,20 @@ export default function SkyAiChatPanel({
             aria-label="Add photos"
           >
             📷
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={isRecording ? stopRecording : startRecording}
+            className={`shrink-0 self-end flex h-[42px] w-[42px] items-center justify-center rounded-xl border text-lg transition-all ${
+              isRecording 
+                ? "border-red-500/50 bg-red-500/20 text-red-400 animate-pulse" 
+                : "border-sky-500/25 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20"
+            }`}
+            title={isRecording ? "Stop recording" : "Voice input"}
+            aria-label={isRecording ? "Stop recording" : "Voice input"}
+          >
+            {isRecording ? "🎤" : "🎙️"}
           </button>
           <textarea
             value={input}
