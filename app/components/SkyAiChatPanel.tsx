@@ -157,12 +157,18 @@ export default function SkyAiChatPanel({
   useEffect(() => onAuthStateChanged(auth, setUser), []);
 
   const startRecording = async () => {
+    console.log("=== START RECORDING ===");
     console.log("Microphone button clicked");
     
     if (typeof window === "undefined") {
+      console.error("Window is undefined");
       alert("Window is undefined");
       return;
     }
+    
+    console.log("Browser:", navigator.userAgent);
+    console.log("webkitSpeechRecognition:", !!(window as any).webkitSpeechRecognition);
+    console.log("SpeechRecognition:", !!(window as any).SpeechRecognition);
     
     const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
     console.log("SpeechRecognition available:", !!SpeechRecognition);
@@ -173,37 +179,50 @@ export default function SkyAiChatPanel({
     }
 
     try {
+      console.log("Creating SpeechRecognition instance...");
       const recognition = new SpeechRecognition();
+      console.log("SpeechRecognition instance created:", recognition);
+      
       recognition.continuous = false;
       recognition.interimResults = true;
       recognition.lang = "en-NZ";
+      
+      console.log("Config: continuous=false, interimResults=true, lang=en-NZ");
+
+      recognition.onstart = () => {
+        console.log("Speech recognition STARTED");
+        setIsRecording(true);
+      };
 
       recognition.onresult = (event: any) => {
-        console.log("Speech recognition result:", event);
+        console.log("Speech recognition RESULT:", event);
         const transcript = Array.from(event.results)
           .map((result: any) => result[0].transcript)
           .join("");
+        console.log("Transcript:", transcript);
         setInput(transcript);
       };
 
       recognition.onerror = (event: any) => {
-        console.error("Speech recognition error:", event.error);
+        console.error("Speech recognition ERROR:", event);
+        console.error("Error name:", event.error);
+        console.error("Error message:", event.message);
         if (event.error === "not-allowed") {
-          alert("Microphone access denied. In Brave: Settings → Shields → Microphone → Allow for this site. Then refresh the page.");
+          alert("Microphone access denied. Check: 1) Browser address bar for blocked permissions 2) System settings 3) Refresh page after allowing");
         } else {
-          alert("Speech recognition error: " + event.error);
+          alert("Speech recognition error: " + event.error + " - " + event.message);
         }
         setIsRecording(false);
       };
 
       recognition.onend = () => {
-        console.log("Speech recognition ended");
+        console.log("Speech recognition ENDED");
         setIsRecording(false);
       };
 
+      console.log("Calling recognition.start()...");
       recognition.start();
-      setIsRecording(true);
-      console.log("Speech recognition started");
+      console.log("recognition.start() called successfully");
     } catch (error) {
       console.error("Failed to start recording:", error);
       alert("Could not start voice input: " + (error as Error).message);
