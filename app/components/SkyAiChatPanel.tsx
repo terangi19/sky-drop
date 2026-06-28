@@ -164,16 +164,6 @@ export default function SkyAiChatPanel({
       return;
     }
     
-    // Request microphone permission first
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(track => track.stop()); // Stop immediately, we just needed permission
-    } catch (error) {
-      console.error("Microphone permission denied:", error);
-      alert("Microphone permission denied. Please allow microphone access in your browser settings and try again.");
-      return;
-    }
-    
     const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
     console.log("SpeechRecognition available:", !!SpeechRecognition);
     
@@ -199,7 +189,7 @@ export default function SkyAiChatPanel({
       recognition.onerror = (event: any) => {
         console.error("Speech recognition error:", event.error);
         if (event.error === "not-allowed") {
-          alert("Microphone access denied. Please allow microphone access in your browser settings.");
+          alert("Microphone access denied. In Brave: Settings → Shields → Microphone → Allow for this site. Then refresh the page.");
         } else {
           alert("Speech recognition error: " + event.error);
         }
