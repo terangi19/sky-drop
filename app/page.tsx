@@ -969,28 +969,6 @@ export default function Home() {
 
       {/* LISTINGS */}
       <section id="listings" className={`${PAGE_SHELL_MARKETPLACE} pb-10`}>
-
-        {/* Wanted Ads discovery banner */}
-        {(() => {
-          const wantedCount = listings.filter((l: any) => l.type === "wanted" && isListingVisibleInMarketplace(l)).length;
-          if (wantedCount === 0) return null;
-          return (
-            <Link
-              href="/wanted"
-              className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3 transition hover:border-amber-500/30 hover:bg-amber-500/[0.09]"
-            >
-              <div className="flex items-center gap-2.5">
-                <span className="text-lg">🔍</span>
-                <div>
-                  <p className="text-sm font-bold text-amber-300">{wantedCount} buyer{wantedCount !== 1 ? "s" : ""} looking for items</p>
-                  <p className="text-[11px] text-amber-400/70">Browse Wanted Ads — you might have what they need</p>
-                </div>
-              </div>
-              <svg className="h-4 w-4 shrink-0 text-amber-400/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-            </Link>
-          );
-        })()}
-
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
           <div className="flex items-center gap-4">
             <h2 className="text-base font-semibold tracking-tight text-white sm:text-lg">
