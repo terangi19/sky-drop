@@ -155,6 +155,11 @@ export default function SkyAiChatPanel({
 
   useEffect(() => onAuthStateChanged(auth, setUser), []);
 
+  // TODO: Implement free voice input for hands-free navigation
+  // Browser compatibility issues with Web Speech API - needs investigation
+  // Current blockers: Brave privacy features block microphone access despite permissions
+  // Alternative approaches to explore: Deepgram API (paid), browser-specific workarounds
+
   useEffect(() => {
     let cancelled = false;
     fetch("/api/sky-ai/status")
