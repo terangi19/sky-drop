@@ -897,15 +897,38 @@ function MessagesPage() {
     if (!user?.email || !chatUser || sendingOffer) return;
     setSendingOffer(true);
     try {
+      const tempId = "temp_" + Date.now();
+      const offerAmountNum = amount ? Number(amount) : null;
+      const offerStatus = type === "make" ? "pending" : type === "accept" ? "accepted" : type === "decline" ? "declined" : "countered";
+      const offerText = type === "make" ? `Offer: $${amount || "?"}` : type === "accept" ? "Offer accepted" : type === "decline" ? "Offer declined" : "Counter offer";
+      
+      // Optimistic update - show offer instantly
+      const optimisticMsg = {
+        id: tempId,
+        type: "offer",
+        text: offerText,
+        sender: user.email,
+        receiver: chatUser,
+        participants: [user.email, chatUser],
+        offerType: type,
+        offerAmount: offerAmountNum,
+        offerStatus: offerStatus,
+        ...(chatListingId ? { listingId: chatListingId, listingTitle: listingCard?.title || null } : {}),
+        createdAt: { seconds: Math.floor(Date.now() / 1000) },
+      };
+      setMessages((prev) => [optimisticMsg, ...prev]);
+      // Auto-scroll after optimistic update
+      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+
       const sendToken = await user.getIdToken();
       const msgRes = await fetch("/api/send-message", {
         method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${sendToken}` },
         body: JSON.stringify({
           type: "offer", receiver: chatUser,
           offerType: type,
-          offerAmount: amount ? Number(amount) : null,
-          offerStatus: type === "make" ? "pending" : type === "accept" ? "accepted" : type === "decline" ? "declined" : "countered",
-          text: type === "make" ? `Offer: $${amount || "?"}` : type === "accept" ? "Offer accepted" : type === "decline" ? "Offer declined" : "Counter offer",
+          offerAmount: offerAmountNum,
+          offerStatus: offerStatus,
+          text: offerText,
           listingId: chatListingId,
           listingTitle: listingCard?.title || null,
         }),
