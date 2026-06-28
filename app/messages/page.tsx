@@ -2058,6 +2058,9 @@ function MessagesPage() {
                           conversationPartner={chatUser}
                         />
                       )}
+                      {!chatListingId && (
+                        <p className="text-[10px] text-[var(--muted)]">This offer is not linked to a specific listing</p>
+                      )}
                     </div>
                   )}
                   {!message.trim() && (
@@ -2090,7 +2093,7 @@ function MessagesPage() {
                       </svg>
                     </button>
                     {/* Offer button */}
-                    {(chatListingId || getSearchParam("listing")) && user?.email !== chatUser && (
+                    {user?.email && user.email !== chatUser && (
                       <button onClick={() => setShowOfferInput((prev) => !prev)}
                         className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border transition ${
                           showOfferInput
