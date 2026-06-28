@@ -135,6 +135,11 @@ export default function AIPostPage() {
   const [showKycModal, setShowKycModal] = useState(false);
   const [showTypeGuideModal, setShowTypeGuideModal] = useState(false);
   const [showAwhinaGuide, setShowAwhinaGuide] = useState(false);
+  const [showAutoPublishConfirm, setShowAutoPublishConfirm] = useState(false);
+  const [autoPublishCountdown, setAutoPublishCountdown] = useState(3);
+  const [priceSuggestion, setPriceSuggestion] = useState<{ suggestedMin: number; suggestedMax: number; reasoning: string; marketFactors: string[]; confidence: string } | null>(null);
+  const [showPriceModal, setShowPriceModal] = useState(false);
+  const [loadingPriceSuggestion, setLoadingPriceSuggestion] = useState(false);
 
   const [skyChatOpen, setSkyChatOpen] = useState(false);
   const [skyAutoQuery, setSkyAutoQuery] = useState<string | undefined>();
@@ -149,6 +154,7 @@ export default function AIPostPage() {
   const [showRentalDetails, setShowRentalDetails] = useState(false);
   const [showStockSettings, setShowStockSettings] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [autoPublish, setAutoPublish] = useState(false);
 
   const isDigital = listingType === "digital";
 
@@ -397,11 +403,73 @@ export default function AIPostPage() {
       setTimeout(() => {
         document.getElementById("listing-title")?.scrollIntoView({ behavior: "smooth", block: "center" });
       }, 300);
+      
+      // Trigger auto-publish if enabled
+      if (autoPublish && fieldsChanged > 0) {
+        setShowAutoPublishConfirm(true);
+        setAutoPublishCountdown(3);
+        const countdown = setInterval(() => {
+          setAutoPublishCountdown((prev) => {
+            if (prev <= 1) {
+              clearInterval(countdown);
+              setShowAutoPublishConfirm(false);
+              createListing();
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      }
     } else if (!ok) {
       console.error('[Awhina Form] applySkyAiListingFill returned false - form not updated');
       showToast("Āwhina couldn't fill your form - please check the console for details", "error");
     }
-  }, [imagePreviews.length, title, description, category, condition, price, listingType, location]);
+  }, [imagePreviews.length, title, description, category, condition, price, listingType, location, autoPublish]);
+
+  const fetchPriceSuggestion = async () => {
+    if (!title || !category) {
+      showToast("Please enter a title and category first", "error");
+      return;
+    }
+
+    setLoadingPriceSuggestion(true);
+    try {
+      const token = await getFreshIdToken();
+      if (!token) {
+        showToast("Please sign in to get price suggestions", "error");
+        setLoadingPriceSuggestion(false);
+        return;
+      }
+
+      const res = await fetch("/api/ai-price-suggestion", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ title, category, condition, price }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to get price suggestion");
+      }
+
+      setPriceSuggestion(data);
+      setShowPriceModal(true);
+    } catch (error) {
+      console.error("Price suggestion error:", error);
+      showToast(error instanceof Error ? error.message : "Failed to get price suggestion", "error");
+    } finally {
+      setLoadingPriceSuggestion(false);
+    }
+  };
+
+  const applyPriceSuggestion = (suggestedPrice: number) => {
+    setPrice(String(suggestedPrice));
+    setShowPriceModal(false);
+    showToast(`Price updated to $${suggestedPrice}`, "success");
+  };
 
   useEffect(() => {
     const pending = consumePendingListingFill();
@@ -1441,7 +1509,15 @@ export default function AIPostPage() {
                 </label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                  <input type="number" value={price} onChange={(e) => handlePriceChange(e.target.value)} placeholder="0" className={`w-full rounded-xl pl-8 pr-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:bg-white/[0.05] focus:ring-2 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-white/[0.04] focus:border-sky-500/60 ${validationErrors.price ? 'bg-red-500/10 focus:ring-red-500/20' : 'bg-white/[0.03] focus:ring-sky-500/20'}`} />
+                  <input type="number" value={price} onChange={(e) => handlePriceChange(e.target.value)} placeholder="0" className={`w-full rounded-xl pl-8 pr-20 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:bg-white/[0.05] focus:ring-2 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-white/[0.04] focus:border-sky-500/60 ${validationErrors.price ? 'bg-red-500/10 focus:ring-red-500/20' : 'bg-white/[0.03] focus:ring-sky-500/20'}`} />
+                  <button
+                    type="button"
+                    onClick={fetchPriceSuggestion}
+                    disabled={loadingPriceSuggestion}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-sky-500/10 px-2 py-1 text-[10px] font-bold text-sky-400 hover:bg-sky-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {loadingPriceSuggestion ? "..." : "AI Suggest"}
+                  </button>
                 </div>
                 {validationErrors.price && (
                   <p className="mt-1 text-[10px] text-red-400 animate-in fade-in slide-in-from-top-2">{validationErrors.price}</p>
@@ -2036,6 +2112,14 @@ export default function AIPostPage() {
             </select>
           </div>
 
+          <div className="mt-4 flex items-center gap-2">
+            <label className="flex cursor-pointer items-center gap-2">
+              <input type="checkbox" checked={autoPublish} onChange={(e) => setAutoPublish(e.target.checked)}
+                className="h-4 w-4 rounded border-[var(--border)] bg-[var(--card)] text-sky-500 focus:ring-sky-500/30" />
+              <span className="text-xs text-[var(--muted)]">Auto-publish after AI fills form</span>
+            </label>
+          </div>
+
           <button
             id="listing-submit-btn"
             onClick={createListing}
@@ -2221,6 +2305,77 @@ export default function AIPostPage() {
             </div>
             <div className="mt-6">
               <button onClick={() => setShowAwhinaGuide(false)} className="w-full rounded-xl bg-sky-500 py-3 text-sm font-bold text-white hover:bg-sky-400">Got it</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Auto-Publish Confirmation Modal */}
+      {showAutoPublishConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setShowAutoPublishConfirm(false)}>
+          <div className="mx-4 w-full max-w-md rounded-2xl bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-black text-sky-400">Auto-Publishing Listing</h3>
+              <button onClick={() => setShowAutoPublishConfirm(false)} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
+            </div>
+            <p className="mt-4 text-sm text-[var(--foreground)]">
+              Āwhina has filled your form. Publishing in <span className="font-bold text-sky-400">{autoPublishCountdown}</span> second{autoPublishCountdown !== 1 ? "s" : ""}...
+            </p>
+            <p className="mt-2 text-xs text-[var(--muted)]">
+              Review the listing below before it goes live.
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button onClick={() => setShowAutoPublishConfirm(false)} className="flex-1 rounded-xl border border-[var(--card-border)] bg-[var(--card)] py-3 text-sm font-bold text-[var(--foreground)] hover:bg-[var(--card-hover)] active:scale-[0.98]">
+                Cancel & Review
+              </button>
+              <button onClick={() => { setShowAutoPublishConfirm(false); createListing(); }} className="flex-1 rounded-xl bg-sky-500 py-3 text-sm font-bold text-white hover:bg-sky-400 active:scale-[0.98]">
+                Publish Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Price Suggestion Modal */}
+      {showPriceModal && priceSuggestion && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setShowPriceModal(false)}>
+          <div className="mx-4 w-full max-w-md rounded-2xl bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-black text-sky-400">AI Price Suggestion</h3>
+              <button onClick={() => setShowPriceModal(false)} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
+            </div>
+            <div className="mt-4 rounded-xl bg-sky-500/10 p-4">
+              <p className="text-sm font-medium text-sky-300">
+                Suggested Price: <span className="font-bold text-white">${priceSuggestion.suggestedMin} - ${priceSuggestion.suggestedMax}</span>
+              </p>
+              <p className="mt-2 text-xs text-sky-400/80">
+                Confidence: <span className="font-medium">{priceSuggestion.confidence}</span>
+              </p>
+            </div>
+            <div className="mt-4">
+              <p className="text-xs font-bold text-[var(--muted)] uppercase tracking-wider">Why this price?</p>
+              <p className="mt-2 text-sm text-[var(--foreground)]">{priceSuggestion.reasoning}</p>
+            </div>
+            {priceSuggestion.marketFactors?.length > 0 && (
+              <div className="mt-4">
+                <p className="text-xs font-bold text-[var(--muted)] uppercase tracking-wider">Market Factors</p>
+                <ul className="mt-2 space-y-1">
+                  {priceSuggestion.marketFactors.map((factor, i) => (
+                    <li key={i} className="text-xs text-[var(--muted)] flex gap-2">
+                      <span className="text-sky-400">•</span>
+                      {factor}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div className="mt-6 flex gap-3">
+              <button onClick={() => setShowPriceModal(false)} className="flex-1 rounded-xl border border-[var(--card-border)] bg-[var(--card)] py-3 text-sm font-bold text-[var(--foreground)] hover:bg-[var(--card-hover)] active:scale-[0.98]">
+                Keep My Price
+              </button>
+              <button onClick={() => applyPriceSuggestion(Math.round((priceSuggestion.suggestedMin + priceSuggestion.suggestedMax) / 2))} className="flex-1 rounded-xl bg-sky-500 py-3 text-sm font-bold text-white hover:bg-sky-400 active:scale-[0.98]">
+                Apply Suggestion
+              </button>
             </div>
           </div>
         </div>
