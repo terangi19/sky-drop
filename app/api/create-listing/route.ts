@@ -141,6 +141,7 @@ export async function POST(req: NextRequest) {
       "propertyType", "bedrooms", "bathrooms", "landArea", "floorArea", "parking",
       "paymentType",
       "pricingType",
+      "type",
     ];
     const clientData: Record<string, unknown> = {};
     for (const key of allowedFields) {
