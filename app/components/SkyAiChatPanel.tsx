@@ -148,6 +148,7 @@ export default function SkyAiChatPanel({
   const [imageBusy, setImageBusy] = useState(false);
   const [openAiReady, setOpenAiReady] = useState(true);
   const [voiceHint, setVoiceHint] = useState<string | null>(null);
+  const [voiceStatus, setVoiceStatus] = useState<string | null>(null);
   const [listingFillOccurred, _setListingFillOccurred] = useState(false);
   const listingFillOccurredRef = useRef(false);
   const setListingFillOccurred = useCallback((v: boolean) => {
@@ -630,6 +631,7 @@ export default function SkyAiChatPanel({
       const trimmed = text.trim();
       if (!trimmed) return;
       setVoiceHint(null);
+      setVoiceStatus(null);
       setInput("");
       respond(trimmed);
     },
@@ -640,10 +642,18 @@ export default function SkyAiChatPanel({
     disabled: busy || imageBusy,
     onInterimTranscript: (text) => {
       setVoiceHint(null);
+      setVoiceStatus(null);
       setInput(text);
     },
     onFinalTranscript: handleVoiceFinal,
-    onError: (message) => setVoiceHint(message),
+    onError: (message) => {
+      setVoiceStatus(null);
+      setVoiceHint(message);
+    },
+    onStatus: (message) => {
+      setVoiceHint(null);
+      setVoiceStatus(message || null);
+    },
   });
 
   function handleSubmit(e: React.FormEvent) {
@@ -1095,8 +1105,13 @@ export default function SkyAiChatPanel({
             Send
           </button>
         </form>
+        {voiceStatus && (
+          <p className="mt-1.5 text-[10px] leading-snug text-sky-400/90" role="status">
+            {voiceStatus}
+          </p>
+        )}
         {voiceHint && (
-          <p className="mt-1.5 text-[10px] leading-snug text-amber-400/90" role="status">
+          <p className="mt-1.5 text-[10px] leading-snug text-amber-400/90" role="alert">
             {voiceHint}
           </p>
         )}

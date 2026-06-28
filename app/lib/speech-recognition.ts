@@ -1,6 +1,7 @@
 /**
  * Browser Web Speech API helpers for Āwhina voice input.
- * Uses the free built-in SpeechRecognition (Chrome, Edge, Brave, Safari).
+ * Prefers on-device recognition (works when Brave blocks Google cloud STT).
+ * Falls back to server Whisper transcription when browser STT fails.
  */
 
 export type SpeechRecognitionErrorCode =
@@ -19,6 +20,7 @@ export type SpeechRecognitionLike = {
   continuous: boolean;
   interimResults: boolean;
   maxAlternatives: number;
+  processLocally?: boolean;
   onresult: ((event: SpeechRecognitionEventLike) => void) | null;
   onerror: ((event: { error: string; message?: string }) => void) | null;
   onend: (() => void) | null;
@@ -41,12 +43,36 @@ export type SpeechRecognitionEventLike = {
 
 type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
 
+type SpeechAvailabilityStatus =
+  | "available"
+  | "downloadable"
+  | "downloading"
+  | "unavailable";
+
+type SpeechRecognitionStatic = SpeechRecognitionCtor & {
+  available?: (options: {
+    langs: string[];
+    processLocally?: boolean;
+  }) => Promise<SpeechAvailabilityStatus>;
+  install?: (options: {
+    langs: string[];
+    processLocally?: boolean;
+  }) => Promise<boolean>;
+};
+
 declare global {
   interface Window {
-    SpeechRecognition?: SpeechRecognitionCtor;
-    webkitSpeechRecognition?: SpeechRecognitionCtor;
+    SpeechRecognition?: SpeechRecognitionStatic;
+    webkitSpeechRecognition?: SpeechRecognitionStatic;
   }
 }
+
+export type SpeechRecognitionConfig = {
+  lang: string;
+  processLocally: boolean;
+};
+
+const LANGUAGE_CANDIDATES = ["en-NZ", "en-US", "en-GB"] as const;
 
 /** True when the browser exposes SpeechRecognition (client-only). */
 export function isSpeechRecognitionSupported(): boolean {
@@ -54,15 +80,104 @@ export function isSpeechRecognitionSupported(): boolean {
   return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
 }
 
-export function createSpeechRecognition(): SpeechRecognitionLike | null {
+function getSpeechRecognitionCtor(): SpeechRecognitionStatic | null {
   if (typeof window === "undefined") return null;
-  const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+}
+
+export async function isBraveBrowser(): Promise<boolean> {
+  if (typeof navigator === "undefined") return false;
+  const brave = (navigator as Navigator & { brave?: { isBrave?: () => Promise<boolean> } }).brave;
+  if (!brave?.isBrave) return false;
+  try {
+    return await brave.isBrave();
+  } catch {
+    return false;
+  }
+}
+
+function uniqueLangs(preferred: string): string[] {
+  const langs = [preferred, ...LANGUAGE_CANDIDATES].filter(
+    (lang, index, all) => lang && all.indexOf(lang) === index
+  );
+  return langs;
+}
+
+async function checkAvailability(
+  Ctor: SpeechRecognitionStatic,
+  lang: string,
+  processLocally: boolean
+): Promise<SpeechAvailabilityStatus | null> {
+  if (typeof Ctor.available !== "function") return null;
+  try {
+    return await Ctor.available({ langs: [lang], processLocally });
+  } catch {
+    return null;
+  }
+}
+
+async function tryInstallLanguagePack(
+  Ctor: SpeechRecognitionStatic,
+  lang: string
+): Promise<boolean> {
+  if (typeof Ctor.install !== "function") return false;
+  try {
+    return await Ctor.install({ langs: [lang], processLocally: true });
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Pick the best speech engine: on-device first (Brave-friendly), then cloud.
+ */
+export async function resolveSpeechRecognitionConfig(
+  preferredLang = "en-NZ"
+): Promise<SpeechRecognitionConfig | null> {
+  const Ctor = getSpeechRecognitionCtor();
   if (!Ctor) return null;
+
+  const langs = uniqueLangs(preferredLang);
+  const brave = await isBraveBrowser();
+  const modes: boolean[] = brave ? [true] : [true, false];
+
+  for (const processLocally of modes) {
+    for (const lang of langs) {
+      const status = await checkAvailability(Ctor, lang, processLocally);
+
+      if (status === "available") {
+        return { lang, processLocally };
+      }
+
+      if (processLocally && status === "downloadable") {
+        const installed = await tryInstallLanguagePack(Ctor, lang);
+        if (installed) {
+          const after = await checkAvailability(Ctor, lang, true);
+          if (after === "available") return { lang, processLocally: true };
+        }
+      }
+    }
+  }
+
+  // Brave blocks Google cloud STT — don't fall back to remote recognition.
+  if (brave) return null;
+
+  // Legacy browsers without available() — prefer en-US cloud.
+  return { lang: langs.includes("en-US") ? "en-US" : langs[0], processLocally: false };
+}
+
+export function createSpeechRecognition(config: SpeechRecognitionConfig): SpeechRecognitionLike | null {
+  const Ctor = getSpeechRecognitionCtor();
+  if (!Ctor) return null;
+
   const recognition = new Ctor();
   recognition.continuous = false;
   recognition.interimResults = true;
   recognition.maxAlternatives = 1;
-  recognition.lang = "en-NZ";
+  recognition.lang = config.lang;
+  if (config.processLocally) {
+    recognition.processLocally = true;
+  }
   return recognition;
 }
 
@@ -110,7 +225,10 @@ export async function ensureMicrophonePermission(): Promise<
   }
 }
 
-export function mapSpeechError(error: string): { code: SpeechRecognitionErrorCode; message: string } {
+export function mapSpeechError(
+  error: string,
+  options?: { usedOnDevice?: boolean; isBrave?: boolean }
+): { code: SpeechRecognitionErrorCode; message: string; retryWithServer?: boolean } {
   switch (error) {
     case "not-allowed":
       return {
@@ -125,17 +243,26 @@ export function mapSpeechError(error: string): { code: SpeechRecognitionErrorCod
     case "network":
       return {
         code: "network",
-        message: "Voice recognition needs an internet connection (browser speech service).",
+        message: options?.isBrave
+          ? "Brave blocked cloud voice recognition. Retrying with on-device transcription…"
+          : options?.usedOnDevice
+            ? "On-device voice failed. Retrying via server…"
+            : "Cloud voice blocked — retrying on-device or server transcription…",
+        retryWithServer: true,
       };
     case "aborted":
       return { code: "aborted", message: "" };
     case "service-not-available":
       return {
         code: "service-not-available",
-        message: "Voice input isn't supported in this browser. Try Chrome, Edge, or Brave with Shields down.",
+        message: "Browser voice service unavailable. Retrying via server transcription…",
+        retryWithServer: true,
       };
     case "language-not-supported":
-      return { code: "language-not-supported", message: "English (NZ) voice isn't supported here — try typing instead." };
+      return {
+        code: "language-not-supported",
+        message: "Voice language not supported here — retrying with English (US)…",
+      };
     default:
       return { code: "unknown", message: "Voice input failed — try typing instead." };
   }
@@ -155,4 +282,121 @@ export function extractTranscript(event: SpeechRecognitionEventLike): {
     else interim += (interim ? " " : "") + text;
   }
   return { interim, final };
+}
+
+function pickRecorderMimeType(): string | undefined {
+  if (typeof MediaRecorder === "undefined") return undefined;
+  const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"];
+  return candidates.find((type) => MediaRecorder.isTypeSupported(type));
+}
+
+type RecordingController = {
+  stop: () => void;
+  finished: Promise<Blob | null>;
+};
+
+/** Record mic audio until stop() is called or maxMs elapses. */
+export function startMicrophoneRecording(options?: {
+  maxMs?: number;
+}): RecordingController {
+  const maxMs = options?.maxMs ?? 20_000;
+  let recorder: MediaRecorder | null = null;
+  let stream: MediaStream | null = null;
+  let timeoutId = 0;
+
+  const finished = new Promise<Blob | null>((resolve) => {
+    void (async () => {
+      if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+        resolve(null);
+        return;
+      }
+
+      const permission = await ensureMicrophonePermission();
+      if (permission.ok === false) {
+        resolve(null);
+        return;
+      }
+
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch {
+        resolve(null);
+        return;
+      }
+
+      const mimeType = pickRecorderMimeType();
+      try {
+        recorder = mimeType
+          ? new MediaRecorder(stream, { mimeType })
+          : new MediaRecorder(stream);
+      } catch {
+        stream.getTracks().forEach((t) => t.stop());
+        resolve(null);
+        return;
+      }
+
+      const chunks: Blob[] = [];
+      let settled = false;
+
+      const finish = (blob: Blob | null) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timeoutId);
+        stream?.getTracks().forEach((t) => t.stop());
+        resolve(blob);
+      };
+
+      timeoutId = window.setTimeout(() => {
+        if (recorder && recorder.state !== "inactive") recorder.stop();
+      }, maxMs);
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+
+      recorder.onstop = () => {
+        if (!chunks.length) {
+          finish(null);
+          return;
+        }
+        finish(new Blob(chunks, { type: recorder?.mimeType || mimeType || "audio/webm" }));
+      };
+
+      recorder.onerror = () => finish(null);
+      recorder.start();
+    })();
+  });
+
+  return {
+    stop: () => {
+      if (recorder && recorder.state !== "inactive") recorder.stop();
+    },
+    finished,
+  };
+}
+
+export async function transcribeAudioOnServer(blob: Blob): Promise<
+  { ok: true; text: string } | { ok: false; message: string }
+> {
+  const form = new FormData();
+  const ext = blob.type.includes("mp4") ? "m4a" : blob.type.includes("ogg") ? "ogg" : "webm";
+  form.append("audio", blob, `voice.${ext}`);
+
+  try {
+    const res = await fetch("/api/sky-ai/transcribe", { method: "POST", body: form });
+    const data = (await res.json().catch(() => ({}))) as { text?: string; error?: string };
+    if (!res.ok) {
+      return {
+        ok: false,
+        message: data.error || "Voice transcription failed — try typing your message.",
+      };
+    }
+    const text = (data.text || "").trim();
+    if (!text) {
+      return { ok: false, message: "Didn't catch that — try speaking again." };
+    }
+    return { ok: true, text };
+  } catch {
+    return { ok: false, message: "Couldn't reach voice transcription — check your connection." };
+  }
 }
