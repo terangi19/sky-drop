@@ -678,7 +678,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
     >
       <div
       ref={modalRef}
-      className={`relative w-full max-w-lg overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-black/95 to-black/90 shadow-2xl shadow-black/40 backdrop-blur-xl max-h-[92vh] overflow-y-auto my-4 sm:my-0 mx-auto animate-fade-in-scale ${
+      className={`relative w-full max-w-lg overflow-hidden rounded-3xl border border-[var(--card-border)] bg-gradient-to-br from-black/95 to-black/90 shadow-2xl shadow-black/40 backdrop-blur-xl max-h-[92vh] overflow-y-auto my-4 sm:my-0 mx-auto animate-fade-in-scale ${
         step === "success" || step === "share_address" || step === "error" ? "max-w-sm" : ""
       }`}
       onClick={(e) => e.stopPropagation()}

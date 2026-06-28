@@ -28,6 +28,7 @@ import {
   SKY_AI_MAX_IMAGES_PER_MESSAGE,
 } from "../lib/sky-ai-images";
 import { getFreshIdToken } from "../lib/api-auth";
+import { useVoiceInput } from "../hooks/useVoiceInput";
 import type { SkyAiConversationSummary } from "../lib/sky-ai-types";
 
 export type SkyAiChatPanelMode = "sheet" | "inline";
@@ -146,6 +147,7 @@ export default function SkyAiChatPanel({
   const [pendingImages, setPendingImages] = useState<PendingAttachment[]>([]);
   const [imageBusy, setImageBusy] = useState(false);
   const [openAiReady, setOpenAiReady] = useState(true);
+  const [voiceHint, setVoiceHint] = useState<string | null>(null);
   const [listingFillOccurred, _setListingFillOccurred] = useState(false);
   const listingFillOccurredRef = useRef(false);
   const setListingFillOccurred = useCallback((v: boolean) => {
@@ -154,11 +156,6 @@ export default function SkyAiChatPanel({
   }, []);
 
   useEffect(() => onAuthStateChanged(auth, setUser), []);
-
-  // TODO: Implement free voice input for hands-free navigation
-  // Browser compatibility issues with Web Speech API - needs investigation
-  // Current blockers: Brave privacy features block microphone access despite permissions
-  // Alternative approaches to explore: Deepgram API (paid), browser-specific workarounds
 
   useEffect(() => {
     let cancelled = false;
@@ -628,12 +625,38 @@ export default function SkyAiChatPanel({
     ]
   );
 
+  const handleVoiceFinal = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      setVoiceHint(null);
+      setInput("");
+      respond(trimmed);
+    },
+    [respond]
+  );
+
+  const { supported: voiceSupported, listening, toggleListening, stopListening } = useVoiceInput({
+    disabled: busy || imageBusy,
+    onInterimTranscript: (text) => {
+      setVoiceHint(null);
+      setInput(text);
+    },
+    onFinalTranscript: handleVoiceFinal,
+    onError: (message) => setVoiceHint(message),
+  });
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    stopListening();
     const q = input;
     setInput("");
     respond(q);
   }
+
+  useEffect(() => {
+    if (!open || busy) stopListening();
+  }, [open, busy, stopListening]);
 
   const canSend = (input.trim() || pendingImages.length > 0) && !busy && !imageBusy;
 
@@ -1029,6 +1052,27 @@ export default function SkyAiChatPanel({
           >
             📷
           </button>
+          {voiceSupported && (
+            <button
+              type="button"
+              disabled={busy || imageBusy}
+              onClick={toggleListening}
+              className={`shrink-0 self-end flex h-[42px] w-[42px] items-center justify-center rounded-xl border text-lg transition disabled:opacity-40 ${
+                listening
+                  ? "border-red-400/50 bg-red-500/20 text-red-300 animate-pulse shadow-[0_0_16px_rgba(248,113,113,0.35)]"
+                  : "border-sky-500/25 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20"
+              }`}
+              title={
+                listening
+                  ? "Stop listening"
+                  : 'Voice input — try "take me to services" or describe what you\'re selling'
+              }
+              aria-label={listening ? "Stop voice input" : "Start voice input"}
+              aria-pressed={listening}
+            >
+              🎤
+            </button>
+          )}
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -1051,6 +1095,11 @@ export default function SkyAiChatPanel({
             Send
           </button>
         </form>
+        {voiceHint && (
+          <p className="mt-1.5 text-[10px] leading-snug text-amber-400/90" role="status">
+            {voiceHint}
+          </p>
+        )}
       </div>
     </>
   );

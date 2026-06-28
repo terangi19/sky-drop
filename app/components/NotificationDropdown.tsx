@@ -142,9 +142,9 @@ export default function NotificationDropdown({
   }
 
   return (
-    <div className="absolute right-0 top-[58px] z-50 w-[340px] overflow-hidden rounded-2xl border border-white/[0.05] bg-[#111318]/95 shadow-2xl backdrop-blur-xl animate-slide-down">
+    <div className="absolute right-0 top-[58px] z-50 w-[340px] overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[#111318]/95 shadow-2xl backdrop-blur-xl animate-slide-down">
       {/* HEADER */}
-      <div className="flex items-center justify-between border-b border-white/[0.04] px-4 py-3">
+      <div className="flex items-center justify-between border-b border-[var(--card-border)] px-4 py-3">
         <div>
           <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--muted)]">
             Notifications

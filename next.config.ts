@@ -94,7 +94,7 @@ const nextConfig = {
 
             key: "Permissions-Policy",
 
-            value: "camera=(), microphone=(), geolocation=(), payment=(self \"https://*.stripe.com\")",
+            value: "camera=(), microphone=(self), geolocation=(), payment=(self \"https://*.stripe.com\")",
 
           },
 

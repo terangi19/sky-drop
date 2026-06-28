@@ -45,7 +45,7 @@ interface HotThisWeekProps {
 }
 
 const NEON_CARD =
-  "border-sky-400/55 bg-white/[0.02] hover:border-sky-300/80 hover:bg-sky-500/[0.06] hover:shadow-[0_0_24px_rgba(56,189,248,0.2),0_0_48px_rgba(14,165,233,0.1)]";
+  "border-sky-400/40 bg-white/[0.01] hover:border-sky-300/60 hover:bg-sky-500/[0.04] hover:shadow-[0_0_24px_rgba(56,189,248,0.2),0_0_48px_rgba(14,165,233,0.1)]";
 const BLUE_BADGE =
   "rounded-full bg-sky-500/20 px-2 py-0.5 text-[8px] font-bold text-sky-400 backdrop-blur-sm";
 

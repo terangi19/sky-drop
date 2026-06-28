@@ -148,7 +148,7 @@ export default function ArrangePurchaseModal({ listing, buyerEmail, onClose, onS
       onClick={safeClose}
     >
       <div
-        className="w-full max-w-lg rounded-2xl border border-white/[0.06] bg-[var(--card)] shadow-2xl max-h-[90vh] overflow-y-auto my-4 sm:my-0"
+        className="w-full max-w-lg rounded-2xl border border-[var(--card-border)] bg-[var(--card)] shadow-2xl max-h-[90vh] overflow-y-auto my-4 sm:my-0"
         onClick={(e) => e.stopPropagation()}
       >
         {step === "success" ? (
@@ -187,7 +187,7 @@ export default function ArrangePurchaseModal({ listing, buyerEmail, onClose, onS
               </button>
               <button
                 onClick={safeClose}
-                className="w-full rounded-xl border border-white/[0.06] py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-[var(--card-hover)]"
+                className="w-full rounded-xl border border-[var(--card-border)] py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-[var(--card-hover)]"
               >
                 Done
               </button>

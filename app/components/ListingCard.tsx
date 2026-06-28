@@ -67,7 +67,7 @@ export default function ListingCard({
           tabIndex={0}
           aria-label={`View listing: ${item.title}. ${item.price ? `Price: $${item.price}.` : ''} ${categoryLabel} in ${item.condition || 'unknown condition'}`}
           aria-describedby={`listing-card-${item.id}-details`}
-          className="listing-card relative z-[1] flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.04] to-white/[0.01] backdrop-blur-sm transition-all duration-500 ease-out animate-fade-in-up hover:-translate-y-2 hover:border-[#6b8e6b]/50 hover:bg-white/[0.08] hover:shadow-[0_0_40px_rgba(107,142,107,0.3),0_0_80px_rgba(107,142,107,0.15)] active:-translate-y-1 active:scale-[0.98] active:border-[#5a7a5a]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6b8e6b]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a0f]"
+          className="listing-card relative z-[1] flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-[var(--card-border)] bg-gradient-to-b from-white/[0.02] to-white/[0.01] backdrop-blur-sm transition-all duration-500 ease-out animate-fade-in-up hover:-translate-y-2 hover:border-[#6b8e6b]/50 hover:bg-white/[0.04] hover:shadow-[0_0_40px_rgba(107,142,107,0.3),0_0_80px_rgba(107,142,107,0.15)] active:-translate-y-1 active:scale-[0.98] active:border-[#5a7a5a]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6b8e6b]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a0f]"
           style={{
             animationDelay: `${Math.min(cardIndex, 10) * 40}ms`,
           }}
