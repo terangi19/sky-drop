@@ -34,7 +34,7 @@ export function useVoiceInput({
   const [supported, setSupported] = useState(false);
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
-  const recordingStopRef = useRef<(() => void) | null>(null);
+  const recordingSessionRef = useRef<{ stop: () => void; cancel: () => void } | null>(null);
   const listeningRef = useRef(false);
   const recordingRef = useRef(false);
   const usedOnDeviceRef = useRef(false);
@@ -49,8 +49,8 @@ export function useVoiceInput({
     return () => {
       recognitionRef.current?.abort();
       recognitionRef.current = null;
-      recordingStopRef.current?.();
-      recordingStopRef.current = null;
+      recordingSessionRef.current?.cancel();
+      recordingSessionRef.current = null;
       listeningRef.current = false;
       recordingRef.current = false;
     };
@@ -61,12 +61,14 @@ export function useVoiceInput({
     recordingRef.current = false;
     setListening(false);
     recognitionRef.current = null;
-    recordingStopRef.current = null;
+    recordingSessionRef.current = null;
   }, []);
 
   const stopListening = useCallback(() => {
-    if (recordingStopRef.current) {
-      recordingStopRef.current();
+    if (recordingSessionRef.current) {
+      recordingSessionRef.current.cancel();
+      recordingSessionRef.current = null;
+      clearActive();
       return;
     }
     try {
@@ -77,14 +79,25 @@ export function useVoiceInput({
     if (!recordingRef.current) clearActive();
   }, [clearActive]);
 
-  const finishServerRecording = useCallback(async () => {
-    const stop = recordingStopRef.current;
-    if (!stop) return;
+  const transcribeBlob = useCallback(async (blob: Blob | null) => {
+    clearActive();
 
-    stop();
-    recordingStopRef.current = null;
+    if (!blob) {
+      callbacksRef.current.onError?.("Didn't catch that — try speaking again.");
+      return;
+    }
+
     callbacksRef.current.onStatus?.("Transcribing…");
-  }, []);
+    const result = await transcribeAudioOnServer(blob);
+    callbacksRef.current.onStatus?.("");
+
+    if (result.ok === false) {
+      callbacksRef.current.onError?.(result.message);
+      return;
+    }
+
+    callbacksRef.current.onFinalTranscript(result.text);
+  }, [clearActive]);
 
   const beginServerRecording = useCallback(() => {
     if (recordingRef.current) return;
@@ -92,43 +105,31 @@ export function useVoiceInput({
     recordingRef.current = true;
     listeningRef.current = true;
     setListening(true);
-    callbacksRef.current.onStatus?.("Recording… tap mic when done, then we'll transcribe.");
+    callbacksRef.current.onStatus?.("Listening… speak now.");
 
-    const session = startMicrophoneRecording({ maxMs: 20_000 });
-    recordingStopRef.current = session.stop;
-
-    void session.finished.then(async (blob) => {
-      clearActive();
-
-      if (!blob) {
-        callbacksRef.current.onError?.("No audio captured — try again or type your message.");
-        return;
-      }
-
-      const result = await transcribeAudioOnServer(blob);
-      callbacksRef.current.onStatus?.("");
-
-      if (result.ok === false) {
-        callbacksRef.current.onError?.(result.message);
-        return;
-      }
-
-      callbacksRef.current.onFinalTranscript(result.text);
+    const session = startMicrophoneRecording({
+      onSpeaking: () => callbacksRef.current.onStatus?.("Listening…"),
     });
-  }, [clearActive]);
+    recordingSessionRef.current = session;
+
+    void session.finished.then((blob) => transcribeBlob(blob));
+  }, [transcribeBlob]);
 
   const attachRecognitionHandlers = useCallback(
     (recognition: SpeechRecognitionLike, allowServerFallback: boolean) => {
       recognition.onstart = () => {
         listeningRef.current = true;
         setListening(true);
-        callbacksRef.current.onStatus?.("");
+        callbacksRef.current.onStatus?.("Listening… speak now.");
       };
 
       recognition.onresult = (event) => {
         const { interim, final } = extractTranscript(event);
         if (interim) callbacksRef.current.onInterimTranscript?.(interim);
-        if (final) callbacksRef.current.onFinalTranscript(final);
+        if (final) {
+          callbacksRef.current.onStatus?.("");
+          callbacksRef.current.onFinalTranscript(final);
+        }
       };
 
       recognition.onerror = (event) => {
@@ -142,6 +143,8 @@ export function useVoiceInput({
           listeningRef.current = false;
           setListening(false);
           recognitionRef.current = null;
+
+          if (event.error === "aborted") return;
 
           if (event.error === "language-not-supported") {
             const retry = createSpeechRecognition({
@@ -161,11 +164,6 @@ export function useVoiceInput({
           }
 
           if (allowServerFallback && mapped.retryWithServer) {
-            callbacksRef.current.onStatus?.(
-              brave
-                ? "Brave blocked cloud voice — recording on your device instead. Tap mic when done."
-                : "Browser voice unavailable — recording instead. Tap mic when done."
-            );
             beginServerRecording();
             return;
           }
@@ -219,16 +217,12 @@ export function useVoiceInput({
   }, [beginServerRecording, disabled, startBrowserRecognition]);
 
   const toggleListening = useCallback(() => {
-    if (recordingRef.current && recordingStopRef.current) {
-      void finishServerRecording();
-      return;
-    }
-    if (listeningRef.current) {
+    if (listeningRef.current || recordingRef.current) {
       stopListening();
       return;
     }
     void startListening();
-  }, [finishServerRecording, startListening, stopListening]);
+  }, [startListening, stopListening]);
 
   return {
     supported,

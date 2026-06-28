@@ -1075,7 +1075,7 @@ export default function SkyAiChatPanel({
               title={
                 listening
                   ? "Stop listening"
-                  : 'Voice input — try "take me to services" or describe what you\'re selling'
+                  : 'Voice input — speak naturally, e.g. "take me to services"'
               }
               aria-label={listening ? "Stop voice input" : "Start voice input"}
               aria-pressed={listening}

@@ -292,83 +292,173 @@ function pickRecorderMimeType(): string | undefined {
 
 type RecordingController = {
   stop: () => void;
+  cancel: () => void;
   finished: Promise<Blob | null>;
 };
 
-/** Record mic audio until stop() is called or maxMs elapses. */
-export function startMicrophoneRecording(options?: {
+type VadOptions = {
   maxMs?: number;
-}): RecordingController {
-  const maxMs = options?.maxMs ?? 20_000;
+  silenceMs?: number;
+  minSpeechMs?: number;
+  noSpeechMs?: number;
+  speechThreshold?: number;
+  onSpeaking?: () => void;
+};
+
+function rmsFromAnalyser(analyser: AnalyserNode): number {
+  const data = new Uint8Array(analyser.fftSize);
+  analyser.getByteTimeDomainData(data);
+  let sum = 0;
+  for (let i = 0; i < data.length; i++) {
+    const sample = (data[i] - 128) / 128;
+    sum += sample * sample;
+  }
+  return Math.sqrt(sum / data.length);
+}
+
+/**
+ * Record mic audio until silence is detected, stop() is called, or maxMs elapses.
+ * Auto-stops ~1.2s after the user stops speaking.
+ */
+export function startMicrophoneRecording(options?: VadOptions): RecordingController {
+  const maxMs = options?.maxMs ?? 18_000;
+  const silenceMs = options?.silenceMs ?? 1_200;
+  const minSpeechMs = options?.minSpeechMs ?? 350;
+  const noSpeechMs = options?.noSpeechMs ?? 7_000;
+  const speechThreshold = options?.speechThreshold ?? 0.018;
+
   let recorder: MediaRecorder | null = null;
   let stream: MediaStream | null = null;
+  let audioContext: AudioContext | null = null;
+  let monitorId = 0;
   let timeoutId = 0;
+  let cancelled = false;
 
+  let resolveFinished: (blob: Blob | null) => void = () => undefined;
   const finished = new Promise<Blob | null>((resolve) => {
-    void (async () => {
-      if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
-        resolve(null);
+    resolveFinished = resolve;
+  });
+
+  void (async () => {
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      resolveFinished(null);
+      return;
+    }
+
+    const permission = await ensureMicrophonePermission();
+    if (permission.ok === false) {
+      resolveFinished(null);
+      return;
+    }
+
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true },
+      });
+    } catch {
+      resolveFinished(null);
+      return;
+    }
+
+    const mimeType = pickRecorderMimeType();
+    const chunks: Blob[] = [];
+    let settled = false;
+
+    const settle = (blob: Blob | null) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeoutId);
+      if (monitorId) window.cancelAnimationFrame(monitorId);
+      monitorId = 0;
+      stream?.getTracks().forEach((t) => t.stop());
+      void audioContext?.close().catch(() => undefined);
+      stream = null;
+      audioContext = null;
+      resolveFinished(blob);
+    };
+
+    try {
+      recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
+    } catch {
+      settle(null);
+      return;
+    }
+
+    timeoutId = window.setTimeout(() => {
+      if (recorder && recorder.state !== "inactive") recorder.stop();
+      else settle(null);
+    }, maxMs);
+
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) chunks.push(e.data);
+    };
+
+    recorder.onstop = () => {
+      if (cancelled || !chunks.length) {
+        settle(null);
         return;
       }
+      settle(new Blob(chunks, { type: recorder?.mimeType || mimeType || "audio/webm" }));
+    };
 
-      const permission = await ensureMicrophonePermission();
-      if (permission.ok === false) {
-        resolve(null);
-        return;
-      }
+    recorder.onerror = () => settle(null);
+    recorder.start(250);
 
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      } catch {
-        resolve(null);
-        return;
-      }
+    try {
+      audioContext = new AudioContext();
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 2048;
+      audioContext.createMediaStreamSource(stream).connect(analyser);
 
-      const mimeType = pickRecorderMimeType();
-      try {
-        recorder = mimeType
-          ? new MediaRecorder(stream, { mimeType })
-          : new MediaRecorder(stream);
-      } catch {
-        stream.getTracks().forEach((t) => t.stop());
-        resolve(null);
-        return;
-      }
+      const startedAt = Date.now();
+      let heardSpeech = false;
+      let speechSince = 0;
+      let quietSince = 0;
 
-      const chunks: Blob[] = [];
-      let settled = false;
+      const monitor = () => {
+        if (settled || cancelled) return;
 
-      const finish = (blob: Blob | null) => {
-        if (settled) return;
-        settled = true;
-        window.clearTimeout(timeoutId);
-        stream?.getTracks().forEach((t) => t.stop());
-        resolve(blob);
-      };
+        const level = rmsFromAnalyser(analyser);
+        const now = Date.now();
 
-      timeoutId = window.setTimeout(() => {
-        if (recorder && recorder.state !== "inactive") recorder.stop();
-      }, maxMs);
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data);
-      };
-
-      recorder.onstop = () => {
-        if (!chunks.length) {
-          finish(null);
+        if (level >= speechThreshold) {
+          if (!heardSpeech) {
+            heardSpeech = true;
+            speechSince = now;
+            options?.onSpeaking?.();
+          }
+          quietSince = 0;
+        } else if (heardSpeech) {
+          if (!quietSince) quietSince = now;
+          const quietFor = now - quietSince;
+          const spokeFor = now - speechSince;
+          if (quietFor >= silenceMs && spokeFor >= minSpeechMs) {
+            if (recorder && recorder.state !== "inactive") recorder.stop();
+            return;
+          }
+        } else if (now - startedAt >= noSpeechMs) {
+          if (recorder && recorder.state !== "inactive") recorder.stop();
+          else settle(null);
           return;
         }
-        finish(new Blob(chunks, { type: recorder?.mimeType || mimeType || "audio/webm" }));
+
+        monitorId = window.requestAnimationFrame(monitor);
       };
 
-      recorder.onerror = () => finish(null);
-      recorder.start();
-    })();
-  });
+      monitorId = window.requestAnimationFrame(monitor);
+    } catch {
+      /* VAD unavailable — fall back to max timeout only */
+    }
+  })();
 
   return {
     stop: () => {
+      if (recorder && recorder.state !== "inactive") recorder.stop();
+    },
+    cancel: () => {
+      cancelled = true;
       if (recorder && recorder.state !== "inactive") recorder.stop();
     },
     finished,
