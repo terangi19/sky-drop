@@ -4,9 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { AWHINA_NAME } from "../lib/awhina-brand";
 import {
+  endOfSpeechDelayMs,
   formatUtteranceDisplay,
+  isIncompleteUtterance,
   listeningHeadline,
-  silenceMsForText,
 } from "../lib/awhina-voice-end-of-speech";
 import {
   listingFillFromVoiceApi,
@@ -195,7 +196,9 @@ export function useAwhinaVoice() {
       );
       setHint(action.status);
 
-      await new Promise((r) => setTimeout(r, 400));
+      if (action.type !== "reply") {
+        await new Promise((r) => setTimeout(r, 80));
+      }
 
       if (action.type === "page") {
         const result = action.run();
@@ -223,11 +226,9 @@ export function useAwhinaVoice() {
 
       if (action.type === "reply") {
         setTranscript(action.message);
-        window.setTimeout(() => afterCommandCycle(), 2800);
-        return;
       }
 
-      window.setTimeout(() => afterCommandCycle(), 900);
+      window.setTimeout(() => afterCommandCycle(), action.type === "reply" ? 2200 : 350);
     },
     [afterCommandCycle, disableVoiceMode, resumeListening, router]
   );
@@ -368,7 +369,7 @@ export function useAwhinaVoice() {
   );
 
   const scheduleEndOfSpeech = useCallback(
-    (display: string, opts?: { force?: boolean }) => {
+    (display: string, opts?: { force?: boolean; hadFinalChunk?: boolean }) => {
       const trimmed = display.trim();
       if (!trimmed) return;
 
@@ -380,14 +381,18 @@ export function useAwhinaVoice() {
       lastScheduledTextRef.current = trimmed;
       clearEndOfSpeechTimers();
 
-      const silenceMs = silenceMsForText(trimmed);
+      const silenceMs = endOfSpeechDelayMs(trimmed, {
+        hadFinalChunk: opts?.hadFinalChunk,
+        pathname,
+      });
       const quietStart = Date.now();
+      const stillListeningMs = Math.min(1_000, Math.max(400, silenceMs - 300));
 
       stillListeningTimerRef.current = window.setTimeout(() => {
         if (!utteranceTextRef.current.trim() || busyRef.current) return;
         const quietFor = Date.now() - quietStart;
         setHeadline(listeningHeadline(utteranceTextRef.current, quietFor));
-      }, 1_400);
+      }, stillListeningMs);
 
       endOfSpeechTimerRef.current = window.setTimeout(() => {
         const latest = utteranceTextRef.current.trim();
@@ -396,7 +401,7 @@ export function useAwhinaVoice() {
         flushUtterance(latest);
       }, silenceMs);
     },
-    [clearEndOfSpeechTimers, flushUtterance]
+    [clearEndOfSpeechTimers, flushUtterance, pathname]
   );
 
   const handleUtteranceUpdate = useCallback(
@@ -430,8 +435,10 @@ export function useAwhinaVoice() {
         return;
       }
 
-      if (textChanged || meta.hadFinalChunk) {
-        scheduleEndOfSpeech(display);
+      if (meta.hadFinalChunk && !isIncompleteUtterance(trimmed)) {
+        scheduleEndOfSpeech(display, { force: true, hadFinalChunk: true });
+      } else if (textChanged || meta.hadFinalChunk) {
+        scheduleEndOfSpeech(display, { hadFinalChunk: meta.hadFinalChunk });
       } else if (!endOfSpeechTimerRef.current) {
         scheduleEndOfSpeech(display, { force: true });
       }
