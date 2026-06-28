@@ -4,22 +4,30 @@ import type { AwhinaVoicePhase } from "../hooks/useAwhinaVoice";
 
 type Props = {
   phase: AwhinaVoicePhase;
+  voiceMode: boolean;
+  paused: boolean;
   headline: string;
   transcript: string;
   hint: string | null;
   onDismiss?: () => void;
+  onResume?: () => void;
 };
 
 export default function AwhinaVoiceStatusCard({
   phase,
+  voiceMode,
+  paused,
   headline,
   transcript,
   hint,
   onDismiss,
+  onResume,
 }: Props) {
-  if (phase === "idle") return null;
+  if (!voiceMode && phase === "idle") return null;
+  if (phase === "idle" && !voiceMode) return null;
 
   const isListening = phase === "listening";
+  const isPaused = phase === "paused" || paused;
   const isProcessing = phase === "processing" || phase === "speaking";
   const isError = phase === "error";
 
@@ -33,10 +41,12 @@ export default function AwhinaVoiceStatusCard({
         className={`relative overflow-hidden rounded-2xl border backdrop-blur-xl shadow-[0_8px_40px_rgba(0,0,0,0.45)] ${
           isError
             ? "border-amber-500/30 bg-[#121018]/95"
-            : "border-violet-400/25 bg-[#0c0e16]/95"
+            : isPaused
+              ? "border-zinc-500/30 bg-[#101018]/95"
+              : "border-violet-400/25 bg-[#0c0e16]/95"
         }`}
       >
-        {!isError && (
+        {!isError && !isPaused && (
           <div
             className={`absolute inset-0 opacity-60 ${
               isListening ? "awhina-voice-card-glow-listening" : "awhina-voice-card-glow-processing"
@@ -58,9 +68,11 @@ export default function AwhinaVoiceStatusCard({
                 className={`relative flex h-10 w-10 items-center justify-center rounded-full text-base ${
                   isError
                     ? "bg-amber-500/15 text-amber-300"
-                    : isListening
-                      ? "bg-violet-500/20 text-violet-200"
-                      : "bg-sky-500/20 text-sky-200"
+                    : isPaused
+                      ? "bg-zinc-500/15 text-zinc-300"
+                      : isListening
+                        ? "bg-violet-500/20 text-violet-200"
+                        : "bg-sky-500/20 text-sky-200"
                 }`}
               >
                 🎤
@@ -68,7 +80,20 @@ export default function AwhinaVoiceStatusCard({
             </div>
 
             <div className="min-w-0 flex-1">
-              <p className="text-[12px] font-bold text-always-white">{headline}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-[12px] font-bold text-always-white">{headline}</p>
+                {voiceMode && !isError && (
+                  <span
+                    className={`rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider ${
+                      isPaused
+                        ? "bg-zinc-500/20 text-zinc-400"
+                        : "bg-violet-500/25 text-violet-300 awhina-voice-mode-pill"
+                    }`}
+                  >
+                    {isPaused ? "Paused" : "On"}
+                  </span>
+                )}
+              </div>
 
               {isListening && (
                 <div className="mt-2 flex h-5 items-end gap-0.5" aria-hidden>
@@ -101,6 +126,16 @@ export default function AwhinaVoiceStatusCard({
                   {hint}
                 </p>
               )}
+
+              {isPaused && onResume && (
+                <button
+                  type="button"
+                  onClick={onResume}
+                  className="mt-2 rounded-lg border border-violet-400/30 bg-violet-500/10 px-2.5 py-1 text-[10px] font-bold text-violet-200 hover:bg-violet-500/20"
+                >
+                  Resume listening
+                </button>
+              )}
             </div>
 
             {onDismiss && (
@@ -108,7 +143,8 @@ export default function AwhinaVoiceStatusCard({
                 type="button"
                 onClick={onDismiss}
                 className="shrink-0 rounded-lg px-1.5 py-1 text-[10px] text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-300"
-                aria-label="Dismiss"
+                aria-label="Turn off Voice Mode"
+                title="Turn off Voice Mode"
               >
                 ✕
               </button>

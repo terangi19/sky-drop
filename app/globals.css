@@ -369,6 +369,19 @@ body {
   animation: awhina-voice-card-glow 1.6s ease-in-out infinite;
 }
 
+@keyframes awhina-voice-pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(0.85); }
+}
+
+.awhina-voice-pulse-dot {
+  animation: awhina-voice-pulse-dot 1.4s ease-in-out infinite;
+}
+
+.awhina-voice-mode-pill {
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.2);
+}
+
 :root.light .awhina-voice-card {
   filter: saturate(1.05);
 }

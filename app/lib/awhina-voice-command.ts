@@ -1,5 +1,6 @@
 import { findBestDestination, getGuideReply, scoreDestination } from "./guide-assistant";
 import { dispatchListingFill, type SkyAiListingFill } from "./sky-ai-listing-fill";
+import { messageSellerOnPage, openListingByIndex } from "./awhina-voice-page-actions";
 
 export type VoiceCommandAction =
   | {
@@ -29,7 +30,29 @@ export type VoiceCommandAction =
       type: "reply";
       status: string;
       message: string;
+    }
+  | {
+      type: "page";
+      status: string;
+      run: () => { ok: boolean; path?: string };
+    }
+  | {
+      type: "resume";
+      status: string;
+    }
+  | {
+      type: "voice_off";
+      status: string;
     };
+
+const RESUME_INTENT = /\b(resume( listening)?|continue listening|i'?m back|keep listening)\b/i;
+const VOICE_OFF_INTENT = /\b(stop listening|turn off voice|disable voice|exit voice( mode)?|stop voice)\b/i;
+
+const OPEN_LISTING_INTENT =
+  /\b(open|show|go to|view)\s+(the\s+)?(first|1st|second|2nd|third|3rd|top)\s+(listing|result|one|item)\b/i;
+
+const MESSAGE_SELLER_INTENT =
+  /\b(message|contact|chat with|talk to)\s+(the\s+)?(seller|owner|them|vendor)\b/i;
 
 const SEARCH_INTENT =
   /\b(find|search(?:ing)?|look(?:ing)?\s+for|show me|get me|hunt for|browse for|need a|want a|where can i find)\b/i;
@@ -61,7 +84,7 @@ function extractSearchTerms(text: string): string {
 }
 
 function buildSearchPath(text: string): { path: string; query: string; status: string } | null {
-  if (!SEARCH_INTENT.test(text)) return null;
+  if (!SEARCH_INTENT.test(text) && !/\bshow me\b/i.test(text)) return null;
 
   const query = extractSearchTerms(text);
   if (!query || query.length < 2) return null;
@@ -105,10 +128,61 @@ function buildListingAction(text: string): VoiceCommandAction | null {
   };
 }
 
+function listingIndexFromText(text: string): number {
+  if (/\b(second|2nd)\b/i.test(text)) return 1;
+  if (/\b(third|3rd)\b/i.test(text)) return 2;
+  return 0;
+}
+
+function buildPageAction(text: string, pathname: string): VoiceCommandAction | null {
+  if (VOICE_OFF_INTENT.test(text)) {
+    return { type: "voice_off", status: "Turning off Voice Mode…" };
+  }
+
+  if (RESUME_INTENT.test(text)) {
+    return { type: "resume", status: "Resuming…" };
+  }
+
+  if (OPEN_LISTING_INTENT.test(text)) {
+    const index = listingIndexFromText(text);
+    return {
+      type: "page",
+      status: index === 0 ? "Opening the first listing…" : `Opening listing ${index + 1}…`,
+      run: () => {
+        const result = openListingByIndex(index);
+        return result.ok ? { ok: true, path: result.path } : { ok: false };
+      },
+    };
+  }
+
+  if (MESSAGE_SELLER_INTENT.test(text)) {
+    return {
+      type: "page",
+      status: "Opening messages…",
+      run: () => {
+        const result = messageSellerOnPage();
+        if (result.ok) return { ok: true, path: result.path };
+        if (pathname.startsWith("/search") || pathname === "/") {
+          const opened = openListingByIndex(0);
+          if (opened.ok) {
+            return { ok: true, path: opened.path };
+          }
+        }
+        return { ok: false };
+      },
+    };
+  }
+
+  return null;
+}
+
 /** Resolve voice commands locally before calling the API. */
 export function resolveVoiceCommand(text: string, pathname: string): VoiceCommandAction | null {
   const trimmed = text.trim();
   if (!trimmed) return null;
+
+  const pageAction = buildPageAction(trimmed, pathname);
+  if (pageAction) return pageAction;
 
   const search = buildSearchPath(trimmed);
   if (search) {

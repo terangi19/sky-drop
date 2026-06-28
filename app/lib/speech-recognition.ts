@@ -166,12 +166,15 @@ export async function resolveSpeechRecognitionConfig(
   return { lang: langs.includes("en-US") ? "en-US" : langs[0], processLocally: false };
 }
 
-export function createSpeechRecognition(config: SpeechRecognitionConfig): SpeechRecognitionLike | null {
+export function createSpeechRecognition(
+  config: SpeechRecognitionConfig,
+  options?: { continuous?: boolean }
+): SpeechRecognitionLike | null {
   const Ctor = getSpeechRecognitionCtor();
   if (!Ctor) return null;
 
   const recognition = new Ctor();
-  recognition.continuous = false;
+  recognition.continuous = options?.continuous ?? false;
   recognition.interimResults = true;
   recognition.maxAlternatives = 1;
   recognition.lang = config.lang;
@@ -284,6 +287,33 @@ export function extractTranscript(event: SpeechRecognitionEventLike): {
   return { interim, final };
 }
 
+/** Full committed + live partial text from a continuous recognition event. */
+export function extractSessionTranscript(event: SpeechRecognitionEventLike): {
+  committed: string;
+  interim: string;
+  display: string;
+  hadFinalChunk: boolean;
+} {
+  let committed = "";
+  let interim = "";
+  let hadFinalChunk = false;
+
+  for (let i = 0; i < event.results.length; i++) {
+    const result = event.results[i];
+    const text = (result[0]?.transcript ?? "").trim();
+    if (!text) continue;
+    if (result.isFinal) {
+      committed += (committed ? " " : "") + text;
+      if (i >= event.resultIndex) hadFinalChunk = true;
+    } else {
+      interim = text;
+    }
+  }
+
+  const display = [committed, interim].filter(Boolean).join(" ").trim();
+  return { committed, interim, display, hadFinalChunk };
+}
+
 function pickRecorderMimeType(): string | undefined {
   if (typeof MediaRecorder === "undefined") return undefined;
   const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"];
@@ -299,10 +329,14 @@ type RecordingController = {
 type VadOptions = {
   maxMs?: number;
   silenceMs?: number;
+  /** Dynamic silence window — overrides silenceMs when provided. */
+  getSilenceMs?: () => number;
   minSpeechMs?: number;
   noSpeechMs?: number;
   speechThreshold?: number;
   onSpeaking?: () => void;
+  /** Fired when user is speaking (for extending patience mid-utterance). */
+  onSpeechActivity?: () => void;
 };
 
 function rmsFromAnalyser(analyser: AnalyserNode): number {
@@ -318,11 +352,11 @@ function rmsFromAnalyser(analyser: AnalyserNode): number {
 
 /**
  * Record mic audio until silence is detected, stop() is called, or maxMs elapses.
- * Auto-stops ~1.2s after the user stops speaking.
+ * Silence window can be dynamic via getSilenceMs (longer for listing descriptions).
  */
 export function startMicrophoneRecording(options?: VadOptions): RecordingController {
-  const maxMs = options?.maxMs ?? 18_000;
-  const silenceMs = options?.silenceMs ?? 1_200;
+  const maxMs = options?.maxMs ?? 45_000;
+  const baseSilenceMs = options?.silenceMs ?? 3_600;
   const minSpeechMs = options?.minSpeechMs ?? 350;
   const noSpeechMs = options?.noSpeechMs ?? 7_000;
   const speechThreshold = options?.speechThreshold ?? 0.018;
@@ -430,10 +464,12 @@ export function startMicrophoneRecording(options?: VadOptions): RecordingControl
             options?.onSpeaking?.();
           }
           quietSince = 0;
+          options?.onSpeechActivity?.();
         } else if (heardSpeech) {
           if (!quietSince) quietSince = now;
           const quietFor = now - quietSince;
           const spokeFor = now - speechSince;
+          const silenceMs = options?.getSilenceMs?.() ?? baseSilenceMs;
           if (quietFor >= silenceMs && spokeFor >= minSpeechMs) {
             if (recorder && recorder.state !== "inactive") recorder.stop();
             return;

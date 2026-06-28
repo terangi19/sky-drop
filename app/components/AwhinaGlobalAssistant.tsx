@@ -33,7 +33,13 @@ export default function AwhinaGlobalAssistant() {
   const [chatOpen, setChatOpen] = useState(false);
   const voice = useAwhinaVoice();
 
-  useEffect(() => onAuthStateChanged(auth, setUser), []);
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      if (!u) voice.cancel();
+    });
+    return () => unsub();
+  }, [voice.cancel]);
 
   if (!user || isAuthPath(pathname) || pathname.startsWith(ADMIN_PREFIX)) {
     return null;
