@@ -148,98 +148,12 @@ export default function SkyAiChatPanel({
   const [openAiReady, setOpenAiReady] = useState(true);
   const [listingFillOccurred, _setListingFillOccurred] = useState(false);
   const listingFillOccurredRef = useRef(false);
-  const [isRecording, setIsRecording] = useState(false);
   const setListingFillOccurred = useCallback((v: boolean) => {
     listingFillOccurredRef.current = v;
     _setListingFillOccurred(v);
   }, []);
 
   useEffect(() => onAuthStateChanged(auth, setUser), []);
-
-  const startRecording = async () => {
-    console.log("=== START RECORDING ===");
-    console.log("Microphone button clicked");
-    console.log("Current URL:", window.location.href);
-    console.log("Protocol:", window.location.protocol);
-    console.log("Is secure context:", window.isSecureContext);
-    
-    if (!window.isSecureContext) {
-      alert("Voice input requires HTTPS. The site must be served over HTTPS or localhost for voice input to work.");
-      return;
-    }
-    
-    if (typeof window === "undefined") {
-      console.error("Window is undefined");
-      alert("Window is undefined");
-      return;
-    }
-    
-    console.log("Browser:", navigator.userAgent);
-    console.log("webkitSpeechRecognition:", !!(window as any).webkitSpeechRecognition);
-    console.log("SpeechRecognition:", !!(window as any).SpeechRecognition);
-    
-    const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
-    console.log("SpeechRecognition available:", !!SpeechRecognition);
-    
-    if (!SpeechRecognition) {
-      alert("Voice input is not supported in this browser. Please use Chrome or Edge.");
-      return;
-    }
-
-    try {
-      console.log("Creating SpeechRecognition instance...");
-      const recognition = new SpeechRecognition();
-      console.log("SpeechRecognition instance created:", recognition);
-      
-      recognition.continuous = false;
-      recognition.interimResults = true;
-      recognition.lang = "en-NZ";
-      
-      console.log("Config: continuous=false, interimResults=true, lang=en-NZ");
-
-      recognition.onstart = () => {
-        console.log("Speech recognition STARTED");
-        setIsRecording(true);
-      };
-
-      recognition.onresult = (event: any) => {
-        console.log("Speech recognition RESULT:", event);
-        const transcript = Array.from(event.results)
-          .map((result: any) => result[0].transcript)
-          .join("");
-        console.log("Transcript:", transcript);
-        setInput(transcript);
-      };
-
-      recognition.onerror = (event: any) => {
-        console.error("Speech recognition ERROR:", event);
-        console.error("Error name:", event.error);
-        console.error("Error message:", event.message);
-        if (event.error === "not-allowed") {
-          alert("Microphone access denied.\n\nFor Chrome:\n1. Click lock icon → Site settings → Microphone → Allow\n2. Refresh page\n\nFor Brave:\n1. Click Brave shield icon\n2. Toggle 'Enhanced tracking protection' OFF\n3. Click lock icon → Site settings → Microphone → Allow\n4. Refresh page\n\nIf that doesn't work:\n1. Chrome/Brave Settings → Privacy → Site settings → Microphone\n2. Remove skydrop.co.nz from blocked list\n3. Refresh page and allow when prompted\n\nDisable ad blockers/extensions that might block microphone access.");
-        } else {
-          alert("Speech recognition error: " + event.error + " - " + event.message);
-        }
-        setIsRecording(false);
-      };
-
-      recognition.onend = () => {
-        console.log("Speech recognition ENDED");
-        setIsRecording(false);
-      };
-
-      console.log("Calling recognition.start()...");
-      recognition.start();
-      console.log("recognition.start() called successfully");
-    } catch (error) {
-      console.error("Failed to start recording:", error);
-      alert("Could not start voice input: " + (error as Error).message);
-    }
-  };
-
-  const stopRecording = () => {
-    setIsRecording(false);
-  };
 
   useEffect(() => {
     let cancelled = false;
@@ -1109,20 +1023,6 @@ export default function SkyAiChatPanel({
             aria-label="Add photos"
           >
             📷
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={isRecording ? stopRecording : startRecording}
-            className={`shrink-0 self-end flex h-[42px] w-[42px] items-center justify-center rounded-xl border text-lg transition-all ${
-              isRecording 
-                ? "border-red-500/50 bg-red-500/20 text-red-400 animate-pulse" 
-                : "border-sky-500/25 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20"
-            }`}
-            title={isRecording ? "Stop recording" : "Voice input"}
-            aria-label={isRecording ? "Stop recording" : "Voice input"}
-          >
-            {isRecording ? "🎤" : "🎙️"}
           </button>
           <textarea
             value={input}
