@@ -903,7 +903,7 @@ function MessagesPage() {
         body: JSON.stringify({
           type: "offer", receiver: chatUser,
           offerType: type,
-          offerAmount: amount || null,
+          offerAmount: amount ? Number(amount) : null,
           offerStatus: type === "make" ? "pending" : type === "accept" ? "accepted" : type === "decline" ? "declined" : "countered",
           text: type === "make" ? `Offer: $${amount || "?"}` : type === "accept" ? "Offer accepted" : type === "decline" ? "Offer declined" : "Counter offer",
           listingId: chatListingId,
