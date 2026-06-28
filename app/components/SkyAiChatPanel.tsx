@@ -157,9 +157,17 @@ export default function SkyAiChatPanel({
   useEffect(() => onAuthStateChanged(auth, setUser), []);
 
   const startRecording = () => {
-    if (typeof window === "undefined") return;
+    console.log("Microphone button clicked");
+    alert("Mic button clicked - checking browser support...");
+    
+    if (typeof window === "undefined") {
+      alert("Window is undefined");
+      return;
+    }
     
     const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+    console.log("SpeechRecognition available:", !!SpeechRecognition);
+    
     if (!SpeechRecognition) {
       alert("Voice input is not supported in this browser. Please use Chrome or Edge.");
       return;
@@ -172,6 +180,7 @@ export default function SkyAiChatPanel({
       recognition.lang = "en-NZ";
 
       recognition.onresult = (event: any) => {
+        console.log("Speech recognition result:", event);
         const transcript = Array.from(event.results)
           .map((result: any) => result[0].transcript)
           .join("");
@@ -180,18 +189,21 @@ export default function SkyAiChatPanel({
 
       recognition.onerror = (event: any) => {
         console.error("Speech recognition error:", event.error);
+        alert("Speech recognition error: " + event.error);
         setIsRecording(false);
       };
 
       recognition.onend = () => {
+        console.log("Speech recognition ended");
         setIsRecording(false);
       };
 
       recognition.start();
       setIsRecording(true);
+      console.log("Speech recognition started");
     } catch (error) {
       console.error("Failed to start recording:", error);
-      alert("Could not start voice input. Please try again.");
+      alert("Could not start voice input: " + (error as Error).message);
     }
   };
 
