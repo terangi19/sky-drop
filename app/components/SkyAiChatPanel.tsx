@@ -159,48 +159,66 @@ export default function SkyAiChatPanel({
 
   // Initialize Web Speech API
   useEffect(() => {
-    if (typeof window !== "undefined" && "webkitSpeechRecognition" in window) {
+    if (typeof window !== "undefined") {
       const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
       if (SpeechRecognition) {
-        const rec = new SpeechRecognition();
-        rec.continuous = false;
-        rec.interimResults = true;
-        rec.lang = "en-NZ";
+        try {
+          const rec = new SpeechRecognition();
+          rec.continuous = false;
+          rec.interimResults = true;
+          rec.lang = "en-NZ";
 
-        rec.onresult = (event: any) => {
-          const transcript = Array.from(event.results)
-            .map((result: any) => result[0].transcript)
-            .join("");
-          setInput(transcript);
-        };
+          rec.onresult = (event: any) => {
+            const transcript = Array.from(event.results)
+              .map((result: any) => result[0].transcript)
+              .join("");
+            setInput(transcript);
+          };
 
-        rec.onerror = (event: any) => {
-          console.error("Speech recognition error:", event.error);
-          setIsRecording(false);
-        };
+          rec.onerror = (event: any) => {
+            console.error("Speech recognition error:", event.error);
+            setIsRecording(false);
+          };
 
-        rec.onend = () => {
-          setIsRecording(false);
-        };
+          rec.onend = () => {
+            setIsRecording(false);
+          };
 
-        setRecognition(rec);
+          setRecognition(rec);
+          console.log("Speech recognition initialized");
+        } catch (error) {
+          console.error("Failed to initialize speech recognition:", error);
+        }
+      } else {
+        console.log("Speech recognition not supported in this browser");
       }
     }
   }, []);
 
   const startRecording = () => {
+    console.log("Start recording called, recognition:", !!recognition);
     if (recognition) {
-      recognition.start();
-      setIsRecording(true);
+      try {
+        recognition.start();
+        setIsRecording(true);
+      } catch (error) {
+        console.error("Failed to start recording:", error);
+        alert("Could not start voice input. Please try again.");
+      }
     } else {
       alert("Voice input is not supported in this browser. Please use Chrome or Edge.");
     }
   };
 
   const stopRecording = () => {
+    console.log("Stop recording called");
     if (recognition) {
-      recognition.stop();
-      setIsRecording(false);
+      try {
+        recognition.stop();
+        setIsRecording(false);
+      } catch (error) {
+        console.error("Failed to stop recording:", error);
+      }
     }
   };
 
