@@ -254,6 +254,7 @@ export function resolveVoiceCommand(text: string, pathname: string): VoiceComman
 export function isQuickVoiceCommand(text: string, pathname: string): boolean {
   const cmd = resolveVoiceCommand(text, pathname);
   if (!cmd) return false;
+  if (cmd.type === "listing" || cmd.type === "chat" || cmd.type === "reply") return false;
   return (
     cmd.type === "navigate" ||
     cmd.type === "search" ||

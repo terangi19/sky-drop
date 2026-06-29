@@ -8,6 +8,7 @@ import {
   formatUtteranceDisplay,
   isActionableTranscript,
   isIncompleteUtterance,
+  isListingSpeech,
   listeningHeadline,
 } from "../lib/awhina-voice-end-of-speech";
 import {
@@ -32,6 +33,7 @@ export type AwhinaVoicePhase =
   | "error";
 
 const INACTIVITY_MS = 45_000;
+const VOICE_MODE_STORAGE_KEY = "awhina-voice-mode-on";
 const PAUSED_HINT =
   'Voice paused. Tap the mic or say "Resume listening" to continue.';
 const VOICE_MODE_ON_HINT = "Voice Mode on — speak anytime.";
@@ -71,9 +73,22 @@ export function useAwhinaVoice() {
   const processGenerationRef = useRef(0);
   const lastScheduledTextRef = useRef("");
   const inactivityTimerRef = useRef<number | null>(null);
-  const stopListeningRef = useRef<(() => void) | null>(null);
+  const stopListeningRef = useRef<((options?: { preserveVoiceSession?: boolean }) => void) | null>(null);
   const startListeningRef = useRef<(() => Promise<void>) | null>(null);
   const restartListeningRef = useRef<(() => Promise<void>) | null>(null);
+  const micListeningRef = useRef(false);
+
+  const persistVoiceMode = useCallback((on: boolean) => {
+    if (typeof window === "undefined") return;
+    if (on) sessionStorage.setItem(VOICE_MODE_STORAGE_KEY, "1");
+    else sessionStorage.removeItem(VOICE_MODE_STORAGE_KEY);
+  }, []);
+
+  const keepVoiceModeOn = useCallback(() => {
+    voiceModeRef.current = true;
+    setVoiceMode(true);
+    persistVoiceMode(true);
+  }, [persistVoiceMode]);
 
   const clearEndOfSpeechTimers = useCallback(() => {
     if (endOfSpeechTimerRef.current) {
@@ -130,14 +145,20 @@ export function useAwhinaVoice() {
       utteranceTextRef.current = "";
       return;
     }
+    keepVoiceModeOn();
     if (pausedRef.current) return;
+    onUtteranceFlushedRef.current?.();
+    lastScheduledTextRef.current = "";
+    utteranceTextRef.current = "";
     setPhase("listening");
     setHeadline("Listening…");
     setTranscript("");
     setHint(VOICE_MODE_ON_HINT);
     scheduleInactivityPause();
-    void restartListeningRef.current?.();
-  }, [scheduleInactivityPause]);
+    if (!micListeningRef.current) {
+      void restartListeningRef.current?.();
+    }
+  }, [keepVoiceModeOn, scheduleInactivityPause]);
 
   const ensureListening = useCallback(() => {
     if (!voiceModeRef.current || pausedRef.current || busyRef.current) return;
@@ -162,6 +183,7 @@ export function useAwhinaVoice() {
     voiceModeRef.current = false;
     setPausedState(false);
     setVoiceMode(false);
+    persistVoiceMode(false);
     clearInactivityTimer();
     clearEndOfSpeechTimers();
     busyRef.current = false;
@@ -172,10 +194,11 @@ export function useAwhinaVoice() {
     setPhase("idle");
     setTranscript("");
     setHint(null);
-  }, [clearEndOfSpeechTimers, clearInactivityTimer, setPausedState]);
+  }, [clearEndOfSpeechTimers, clearInactivityTimer, persistVoiceMode, setPausedState]);
 
   const runAction = useCallback(
     async (action: VoiceCommandAction) => {
+      keepVoiceModeOn();
       if (action.type === "resume") {
         resumeListening();
         busyRef.current = false;
@@ -233,7 +256,7 @@ export function useAwhinaVoice() {
 
       afterCommandCycle();
     },
-    [afterCommandCycle, disableVoiceMode, resumeListening, router]
+    [afterCommandCycle, disableVoiceMode, keepVoiceModeOn, resumeListening, router]
   );
 
   const processTranscript = useCallback(
@@ -379,7 +402,9 @@ export function useAwhinaVoice() {
         return;
       }
 
-      stopListeningRef.current?.();
+      if (!voiceModeRef.current) {
+        stopListeningRef.current?.();
+      }
       void processTranscript(trimmed);
     },
     [clearEndOfSpeechTimers, ensureListening, pathname, processTranscript]
@@ -456,8 +481,19 @@ export function useAwhinaVoice() {
         return;
       }
 
+      if (isListingSpeech(trimmed)) {
+        if (meta.hadFinalChunk && !isIncompleteUtterance(trimmed)) {
+          scheduleEndOfSpeech(display, { force: true, hadFinalChunk: true });
+        } else if (textChanged || meta.hadFinalChunk) {
+          scheduleEndOfSpeech(display, { hadFinalChunk: meta.hadFinalChunk });
+        } else if (!endOfSpeechTimerRef.current) {
+          scheduleEndOfSpeech(display, { force: true });
+        }
+        return;
+      }
+
       if (isQuickVoiceCommand(trimmed, pathname)) {
-        if (meta.hadFinalChunk) {
+        if (meta.hadFinalChunk || meta.completeUtterance) {
           flushUtterance(trimmed);
           return;
         }
@@ -486,6 +522,7 @@ export function useAwhinaVoice() {
     sessionContinuousRef: voiceModeRef,
     utteranceTextRef,
     onUtteranceFlushedRef,
+    micListeningRef,
     onUtteranceUpdate: handleUtteranceUpdate,
     onError: (message) => {
       if (!voiceModeRef.current) {
@@ -529,9 +566,8 @@ export function useAwhinaVoice() {
   restartListeningRef.current = restartListening;
 
   const enableVoiceMode = useCallback(() => {
-    voiceModeRef.current = true;
+    keepVoiceModeOn();
     setPausedState(false);
-    setVoiceMode(true);
     utteranceTextRef.current = "";
     onUtteranceFlushedRef.current?.();
     clearEndOfSpeechTimers();
@@ -541,7 +577,7 @@ export function useAwhinaVoice() {
     setHint(VOICE_MODE_ON_HINT);
     scheduleInactivityPause();
     void startListening();
-  }, [clearEndOfSpeechTimers, scheduleInactivityPause, setPausedState, startListening]);
+  }, [clearEndOfSpeechTimers, keepVoiceModeOn, scheduleInactivityPause, setPausedState, startListening]);
 
   const toggle = useCallback(() => {
     if (!voiceSupported) {
@@ -570,6 +606,33 @@ export function useAwhinaVoice() {
   }, [resumeListening]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (sessionStorage.getItem(VOICE_MODE_STORAGE_KEY) !== "1") return;
+    if (voiceModeRef.current) return;
+    keepVoiceModeOn();
+    setPausedState(false);
+    setPhase("listening");
+    setHeadline("Listening…");
+    setHint(VOICE_MODE_ON_HINT);
+    scheduleInactivityPause();
+    void startListeningRef.current?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- restore once on mount
+  }, []);
+
+  useEffect(() => {
+    if (!voiceMode) return;
+
+    const id = window.setInterval(() => {
+      if (!voiceModeRef.current || pausedRef.current || busyRef.current) return;
+      if (!micListeningRef.current) {
+        void restartListeningRef.current?.();
+      }
+    }, 1_500);
+
+    return () => window.clearInterval(id);
+  }, [voiceMode]);
+
+  useEffect(() => {
     if (!voiceMode) return;
 
     let attempts = 0;
@@ -584,7 +647,9 @@ export function useAwhinaVoice() {
         }
         return;
       }
-      void restartListeningRef.current?.();
+      if (!micListeningRef.current) {
+        void restartListeningRef.current?.();
+      }
     };
 
     const t = window.setTimeout(restart, 180);
@@ -597,6 +662,7 @@ export function useAwhinaVoice() {
   useEffect(() => {
     const onBeforeUnload = () => {
       voiceModeRef.current = false;
+      persistVoiceMode(false);
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);

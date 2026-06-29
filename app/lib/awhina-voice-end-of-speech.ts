@@ -24,17 +24,17 @@ const INCOMPLETE_TRAIL =
 const NAV_TO_INCOMPLETE = /\b(?:go|take me|navigate|open|bring me)\s+to\s*$/i;
 
 export const SILENCE_MS: Record<VoiceUtteranceKind, number> = {
-  navigation: 700,
-  search: 1_200,
-  listing: 7_500,
-  conversation: 5_500,
+  navigation: 500,
+  search: 900,
+  listing: 11_000,
+  conversation: 5_000,
 };
 
 /** Short pause after the browser commits a complete phrase (user already stopped). */
 const POST_FINAL_MS: Record<VoiceUtteranceKind, number> = {
-  navigation: 150,
-  search: 280,
-  listing: 900,
+  navigation: 0,
+  search: 120,
+  listing: 2_000,
   conversation: 1_400,
 };
 
@@ -42,6 +42,17 @@ export function isIncompleteUtterance(text: string): boolean {
   const t = text.trim();
   if (!t) return true;
   return INCOMPLETE_TRAIL.test(t) || NAV_TO_INCOMPLETE.test(t) || t.endsWith("...");
+}
+
+/** User is describing or creating a listing — stay patient. */
+export function isListingSpeech(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  if (LISTING_INTENT.test(t)) return true;
+  if (isIncompleteUtterance(t) && LISTING_INTENT.test(t)) return true;
+  const words = t.split(/\s+/).length;
+  if (words >= 8 && (LISTING_INTENT.test(t) || /\$[\d,]+/.test(t))) return true;
+  return classifyVoiceUtterance(t) === "listing" && words >= 4;
 }
 
 /** Skip noise / junk STT before running a command. */
@@ -105,15 +116,19 @@ export function endOfSpeechDelayMs(text: string, options?: EndOfSpeechOptions): 
 
   if (!incomplete && options?.pathname) {
     const cmd = resolveVoiceCommand(t, options.pathname);
+    if (cmd?.type === "listing") {
+      if (options.hadFinalChunk) return POST_FINAL_MS.listing;
+      return SILENCE_MS.listing;
+    }
     if (cmd?.type === "navigate" || cmd?.type === "page") {
       if (options.hadFinalChunk) return 0;
-      if (options.quickCommand) return 220;
-      return 320;
+      if (options.quickCommand) return 100;
+      return 200;
     }
     if (cmd?.type === "search") {
-      if (options.hadFinalChunk) return 80;
-      if (options.quickCommand) return 320;
-      return 500;
+      if (options.hadFinalChunk) return 0;
+      if (options.quickCommand) return 200;
+      return 400;
     }
     if (cmd?.type === "resume" || cmd?.type === "voice_off") {
       return options.hadFinalChunk ? 0 : 200;
@@ -121,8 +136,11 @@ export function endOfSpeechDelayMs(text: string, options?: EndOfSpeechOptions): 
   }
 
   if (options?.hadFinalChunk && !incomplete) {
+    if (kind === "listing" || isListingSpeech(t)) return POST_FINAL_MS.listing;
     return POST_FINAL_MS[kind];
   }
+
+  if (isListingSpeech(t)) return SILENCE_MS.listing;
 
   return SILENCE_MS[kind];
 }

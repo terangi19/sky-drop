@@ -36,6 +36,8 @@ export type UseVoiceInputOptions = {
   utteranceTextRef?: MutableRefObject<string>;
   /** Called after parent flushes an utterance so browser STT buffer resets. */
   onUtteranceFlushedRef?: MutableRefObject<(() => void) | null>;
+  /** Mirrors whether the mic pipeline is actively listening. */
+  micListeningRef?: MutableRefObject<boolean>;
   continuous?: boolean;
   keepAlive?: boolean;
 };
@@ -52,6 +54,7 @@ export function useVoiceInput({
   sessionContinuousRef,
   utteranceTextRef,
   onUtteranceFlushedRef,
+  micListeningRef,
   continuous = false,
   keepAlive = false,
 }: UseVoiceInputOptions) {
@@ -67,6 +70,20 @@ export function useVoiceInput({
   const continuousRef = useRef(continuous);
   const sessionBufferRef = useRef("");
   const startListeningRef = useRef<(() => Promise<void>) | null>(null);
+
+  const isVoiceSession = useCallback(
+    () => Boolean(sessionContinuousRef?.current ?? keepAliveRef.current),
+    [sessionContinuousRef]
+  );
+
+  const syncMicListening = useCallback(
+    (active: boolean) => {
+      listeningRef.current = active;
+      if (micListeningRef) micListeningRef.current = active;
+      setListening(active);
+    },
+    [micListeningRef]
+  );
   const callbacksRef = useRef({
     onFinalTranscript,
     onInterimTranscript,
@@ -123,32 +140,36 @@ export function useVoiceInput({
   }, []);
 
   const clearActive = useCallback(() => {
-    listeningRef.current = false;
+    syncMicListening(false);
     recordingRef.current = false;
-    setListening(false);
     recognitionRef.current = null;
     recordingSessionRef.current = null;
-  }, []);
+  }, [syncMicListening]);
 
-  const stopListening = useCallback(() => {
-    intentionalStopRef.current = true;
-    if (recordingSessionRef.current) {
-      recordingSessionRef.current.cancel();
-      recordingSessionRef.current = null;
-      clearActive();
-      return;
-    }
-    try {
-      recognitionRef.current?.abort();
-    } catch {
-      try {
-        recognitionRef.current?.stop();
-      } catch {
-        /* already stopped */
+  const stopListening = useCallback(
+    (options?: { preserveVoiceSession?: boolean }) => {
+      if (!options?.preserveVoiceSession) {
+        intentionalStopRef.current = true;
       }
-    }
-    clearActive();
-  }, [clearActive]);
+      if (recordingSessionRef.current) {
+        recordingSessionRef.current.cancel();
+        recordingSessionRef.current = null;
+        clearActive();
+        return;
+      }
+      try {
+        recognitionRef.current?.abort();
+      } catch {
+        try {
+          recognitionRef.current?.stop();
+        } catch {
+          /* already stopped */
+        }
+      }
+      clearActive();
+    },
+    [clearActive]
+  );
 
   const emitUtterance = useCallback(
     (display: string, hadFinalChunk: boolean, meta?: Partial<UtteranceUpdateMeta>) => {
@@ -176,7 +197,7 @@ export function useVoiceInput({
       clearActive();
 
       if (!blob) {
-        if (!keepAliveRef.current) {
+        if (!isVoiceSession()) {
           callbacksRef.current.onError?.("Didn't catch that — try speaking again.");
         } else {
           void startListeningRef.current?.();
@@ -190,7 +211,7 @@ export function useVoiceInput({
 
       if (result.ok === false) {
         callbacksRef.current.onError?.(result.message);
-        if (keepAliveRef.current && !intentionalStopRef.current) {
+        if (isVoiceSession() && !intentionalStopRef.current) {
           window.setTimeout(() => void startListeningRef.current?.(), 400);
         }
         return;
@@ -199,7 +220,7 @@ export function useVoiceInput({
       emitUtterance(result.text, true, { completeUtterance: true });
 
       if (
-        keepAliveRef.current &&
+        isVoiceSession() &&
         !intentionalStopRef.current &&
         !callbacksRef.current.onUtteranceUpdate
       ) {
@@ -208,15 +229,14 @@ export function useVoiceInput({
         }, 400);
       }
     },
-    [clearActive, emitUtterance]
+    [clearActive, emitUtterance, isVoiceSession]
   );
 
   const beginServerRecording = useCallback(() => {
     if (recordingRef.current || intentionalStopRef.current) return;
 
     recordingRef.current = true;
-    listeningRef.current = true;
-    setListening(true);
+    syncMicListening(true);
     if (utteranceTextRef) utteranceTextRef.current = "";
     sessionBufferRef.current = "";
     callbacksRef.current.onStatus?.("Listening…");
@@ -235,14 +255,13 @@ export function useVoiceInput({
     recordingSessionRef.current = session;
 
     void session.finished.then((blob) => transcribeBlob(blob));
-  }, [emitUtterance, sessionContinuousRef, transcribeBlob, utteranceTextRef]);
+  }, [emitUtterance, isVoiceSession, sessionContinuousRef, transcribeBlob, utteranceTextRef, syncMicListening]);
 
   const attachRecognitionHandlers = useCallback(
     (recognition: SpeechRecognitionLike, allowServerFallback: boolean) => {
       recognition.onstart = () => {
-        listeningRef.current = true;
         intentionalStopRef.current = false;
-        setListening(true);
+        syncMicListening(true);
         if (!continuousRef.current && !keepAliveRef.current) {
           clearSessionBuffer();
         }
@@ -283,10 +302,11 @@ export function useVoiceInput({
           });
 
           listeningRef.current = false;
+          if (micListeningRef) micListeningRef.current = false;
           setListening(false);
           recognitionRef.current = null;
 
-          if (event.error === "no-speech" && keepAliveRef.current) {
+          if (event.error === "no-speech" && isVoiceSession()) {
             void startListeningRef.current?.();
             return;
           }
@@ -315,7 +335,7 @@ export function useVoiceInput({
 
           if (mapped.message) callbacksRef.current.onError?.(mapped.message);
 
-          if (keepAliveRef.current && !intentionalStopRef.current && event.error === "network") {
+          if (isVoiceSession() && !intentionalStopRef.current && event.error === "network") {
             window.setTimeout(() => void startListeningRef.current?.(), 600);
           }
         })();
@@ -323,17 +343,18 @@ export function useVoiceInput({
 
       recognition.onend = () => {
         if (recordingRef.current) return;
-        const shouldRestart =
-          keepAliveRef.current && !intentionalStopRef.current && listeningRef.current;
+        const keepSession = isVoiceSession() && !intentionalStopRef.current;
         clearActive();
-        if (shouldRestart) {
+        if (keepSession) {
           window.setTimeout(() => {
-            if (!intentionalStopRef.current) void startListeningRef.current?.();
-          }, 250);
+            if (isVoiceSession() && !intentionalStopRef.current) {
+              void startListeningRef.current?.();
+            }
+          }, 100);
         }
       };
     },
-    [beginServerRecording, clearActive, clearSessionBuffer, emitUtterance, utteranceTextRef]
+    [beginServerRecording, clearActive, clearSessionBuffer, emitUtterance, isVoiceSession, micListeningRef, syncMicListening, utteranceTextRef]
   );
 
   const startBrowserRecognition = useCallback(async () => {
@@ -405,17 +426,19 @@ export function useVoiceInput({
       recognitionRef.current = null;
     }
 
-    listeningRef.current = false;
     recordingRef.current = false;
-    setListening(false);
+    syncMicListening(false);
     intentionalStopRef.current = false;
 
-    await new Promise<void>((resolve) => window.setTimeout(resolve, 60));
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 80 + attempt * 60));
+      if (disabled || intentionalStopRef.current) return;
+      if (listeningRef.current || recordingRef.current) return;
 
-    if (!disabled) {
       await startListening();
+      if (listeningRef.current || recordingRef.current) return;
     }
-  }, [disabled, startListening]);
+  }, [disabled, startListening, syncMicListening]);
 
   const toggleListening = useCallback(() => {
     if (listeningRef.current || recordingRef.current) {
