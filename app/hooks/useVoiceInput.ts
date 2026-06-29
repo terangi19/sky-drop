@@ -134,7 +134,7 @@ export function useVoiceInput({
         const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (Ctor) {
           const warm = new Ctor();
-          warm.lang = "en-US";
+          warm.lang = "en-NZ";
           warm.start();
           warm.abort();
         }
