@@ -6,6 +6,7 @@ import { User } from "firebase/auth";
 import { auth, onAuthStateChanged } from "../lib/firebase";
 import { useAwhinaVoice } from "../hooks/useAwhinaVoice";
 import AwhinaFabStack from "./AwhinaFabStack";
+import AwhinaVoiceBar from "./AwhinaVoiceBar";
 import SkyAiChatPanel from "./SkyAiChatPanel";
 
 const AUTH_ONLY_PATHS = ["/login", "/forgot-password", "/create-account"];
@@ -57,6 +58,15 @@ export default function AwhinaGlobalAssistant() {
           floatingFab={false}
         />
       )}
+
+      <AwhinaVoiceBar
+        phase={voice.phase}
+        voiceMode={voice.voiceMode}
+        paused={voice.paused}
+        headline={voice.headline}
+        transcript={voice.transcript}
+        hint={voice.hint}
+      />
 
       <AwhinaFabStack
         voice={voice}
