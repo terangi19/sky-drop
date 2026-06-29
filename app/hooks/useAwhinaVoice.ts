@@ -8,11 +8,11 @@ import {
   formatUtteranceDisplay,
   isActionableTranscript,
   isIncompleteUtterance,
+  isInstantVoiceCommand,
   isListingSpeech,
   listeningHeadline,
 } from "../lib/awhina-voice-end-of-speech";
 import {
-  isQuickVoiceCommand,
   listingFillFromVoiceApi,
   resolveVoiceCommand,
   type VoiceCommandAction,
@@ -210,20 +210,6 @@ export function useAwhinaVoice() {
         return;
       }
 
-      setPhase("speaking");
-      setHeadline(
-        action.type === "search"
-          ? "Searching…"
-          : action.type === "navigate"
-            ? "Navigating…"
-            : action.type === "listing"
-              ? "Creating listing…"
-              : action.type === "page"
-                ? "Working…"
-                : `${AWHINA_NAME}`
-      );
-      setHint(action.status);
-
       if (action.type === "page") {
         const result = action.run();
         if (!result.ok) {
@@ -235,7 +221,11 @@ export function useAwhinaVoice() {
         if (result.path && !result.path.startsWith("#")) {
           router.push(result.path);
         }
-      } else if (
+        afterCommandCycle();
+        return;
+      }
+
+      if (
         action.type === "search" ||
         action.type === "navigate" ||
         action.type === "listing"
@@ -244,11 +234,20 @@ export function useAwhinaVoice() {
           dispatchSkyAiOpen(action.message);
         }
         router.push(action.path);
-      } else if (action.type === "chat") {
+        afterCommandCycle();
+        return;
+      }
+
+      if (action.type === "chat") {
         dispatchSkyAiOpen(action.message);
+        afterCommandCycle();
+        return;
       }
 
       if (action.type === "reply") {
+        setPhase("speaking");
+        setHeadline(`${AWHINA_NAME}`);
+        setHint(action.status);
         setTranscript(action.message);
         window.setTimeout(() => afterCommandCycle(), 1800);
         return;
@@ -267,16 +266,25 @@ export function useAwhinaVoice() {
       const generation = ++processGenerationRef.current;
       abortProcessingRef.current = false;
       clearInactivityTimer();
+
+      const local = resolveVoiceCommand(trimmed, pathname);
+      const isInstant =
+        local?.type === "navigate" ||
+        local?.type === "search" ||
+        local?.type === "page";
+
       busyRef.current = true;
-      setPhase("processing");
-      setHeadline("Processing…");
-      setTranscript(formatUtteranceDisplay(trimmed));
-      setHint(null);
+
+      if (!isInstant) {
+        setPhase("processing");
+        setHeadline("Processing…");
+        setTranscript(formatUtteranceDisplay(trimmed));
+        setHint(null);
+      }
 
       const abortIfSuperseded = () =>
         abortProcessingRef.current || generation !== processGenerationRef.current;
 
-      const local = resolveVoiceCommand(trimmed, pathname);
       if (local) {
         if (abortIfSuperseded()) {
           busyRef.current = false;
@@ -286,8 +294,10 @@ export function useAwhinaVoice() {
         return;
       }
 
+      setPhase("processing");
       setHeadline("Processing…");
-      setHint(`Understanding "${trimmed.length > 48 ? `${trimmed.slice(0, 48)}…` : trimmed}"…`);
+      setTranscript(formatUtteranceDisplay(trimmed));
+      setHint(null);
 
       try {
         const token = await getFreshIdToken();
@@ -481,6 +491,11 @@ export function useAwhinaVoice() {
         return;
       }
 
+      if (isInstantVoiceCommand(trimmed, pathname)) {
+        flushUtterance(trimmed);
+        return;
+      }
+
       if (isListingSpeech(trimmed)) {
         if (meta.hadFinalChunk && !isIncompleteUtterance(trimmed)) {
           scheduleEndOfSpeech(display, { force: true, hadFinalChunk: true });
@@ -489,15 +504,6 @@ export function useAwhinaVoice() {
         } else if (!endOfSpeechTimerRef.current) {
           scheduleEndOfSpeech(display, { force: true });
         }
-        return;
-      }
-
-      if (isQuickVoiceCommand(trimmed, pathname)) {
-        if (meta.hadFinalChunk || meta.completeUtterance) {
-          flushUtterance(trimmed);
-          return;
-        }
-        scheduleEndOfSpeech(display, { force: true, quickCommand: true });
         return;
       }
 

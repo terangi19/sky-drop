@@ -106,6 +106,27 @@ export type EndOfSpeechOptions = {
   quickCommand?: boolean;
 };
 
+/** Ready to act immediately — no silence wait (page names, go to X, etc.). */
+export function isInstantVoiceCommand(text: string, pathname: string): boolean {
+  const t = text.trim();
+  if (!t || isIncompleteUtterance(t) || isListingSpeech(t)) return false;
+
+  const cmd = resolveVoiceCommand(t, pathname);
+  if (!cmd) return false;
+  if (cmd.type === "listing" || cmd.type === "chat" || cmd.type === "reply") return false;
+
+  const words = t.split(/\s+/).filter(Boolean).length;
+  if (cmd.type === "search" && words < 3) return false;
+
+  return (
+    cmd.type === "navigate" ||
+    cmd.type === "search" ||
+    cmd.type === "page" ||
+    cmd.type === "resume" ||
+    cmd.type === "voice_off"
+  );
+}
+
 /** How long to wait after the last speech activity before processing. */
 export function endOfSpeechDelayMs(text: string, options?: EndOfSpeechOptions): number {
   const t = text.trim();
@@ -121,17 +142,13 @@ export function endOfSpeechDelayMs(text: string, options?: EndOfSpeechOptions): 
       return SILENCE_MS.listing;
     }
     if (cmd?.type === "navigate" || cmd?.type === "page") {
-      if (options.hadFinalChunk) return 0;
-      if (options.quickCommand) return 100;
-      return 200;
+      return 0;
     }
     if (cmd?.type === "search") {
-      if (options.hadFinalChunk) return 0;
-      if (options.quickCommand) return 200;
-      return 400;
+      return 0;
     }
     if (cmd?.type === "resume" || cmd?.type === "voice_off") {
-      return options.hadFinalChunk ? 0 : 200;
+      return 0;
     }
   }
 
