@@ -93,6 +93,8 @@ export function useAwhinaVoice() {
   const lastScheduledTextRef = useRef("");
   const lastInstantExecRef = useRef("");
   const lastInstantAtRef = useRef(0);
+  const lastCommandAtRef = useRef(0);
+  const COMMAND_COOLDOWN_MS = 800;
   const inactivityTimerRef = useRef<number | null>(null);
   const stopListeningRef = useRef<((options?: { preserveVoiceSession?: boolean }) => void) | null>(null);
   const startListeningRef = useRef<(() => Promise<void>) | null>(null);
@@ -157,6 +159,7 @@ export function useAwhinaVoice() {
   }, [scheduleInactivityPause]);
 
   const afterCommandCycle = useCallback(() => {
+    lastCommandAtRef.current = Date.now();
     busyRef.current = false;
     abortProcessingRef.current = false;
     if (!voiceModeRef.current) {
@@ -597,6 +600,9 @@ export function useAwhinaVoice() {
 
       const trimmed = display.trim();
       if (!trimmed) return;
+
+      // Cooldown after a command — reject stale/noise STT during mic restart.
+      if (Date.now() - lastCommandAtRef.current < COMMAND_COOLDOWN_MS) return;
 
       const textChanged = trimmed !== utteranceTextRef.current.trim();
       utteranceTextRef.current = display;

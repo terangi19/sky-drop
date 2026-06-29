@@ -227,7 +227,7 @@ function compactSpeech(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-const MIN_PREFIX = 4;
+const MIN_PREFIX = 3;
 const _prefixMap = new Map<string, GuideDestination>();
 
 function _buildPrefixMap(): void {
