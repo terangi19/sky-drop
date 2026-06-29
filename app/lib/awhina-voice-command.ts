@@ -250,18 +250,36 @@ export function resolveVoiceCommand(text: string, pathname: string): VoiceComman
   return null;
 }
 
+/** Resolve a command to run immediately on interim STT (no silence wait). */
+export function resolveInstantCommand(
+  text: string,
+  pathname: string
+): VoiceCommandAction | null {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+
+  const cmd = resolveVoiceCommand(trimmed, pathname);
+  if (cmd) {
+    if (cmd.type === "listing" || cmd.type === "chat" || cmd.type === "reply") return null;
+    if (cmd.type === "search" && trimmed.split(/\s+/).filter(Boolean).length < 2) return null;
+    return cmd;
+  }
+
+  const bare = trimmed.toLowerCase();
+  if (!bare.includes(" ") && bare.length >= 4) {
+    const dest = findBestDestination(trimmed);
+    if (dest && scoreDestination(trimmed, dest) >= 3) {
+      if (pathname === dest.path) return null;
+      return { type: "navigate", path: dest.path, status: "" };
+    }
+  }
+
+  return null;
+}
+
 /** Commands that should navigate or act immediately once speech is final. */
 export function isQuickVoiceCommand(text: string, pathname: string): boolean {
-  const cmd = resolveVoiceCommand(text, pathname);
-  if (!cmd) return false;
-  if (cmd.type === "listing" || cmd.type === "chat" || cmd.type === "reply") return false;
-  return (
-    cmd.type === "navigate" ||
-    cmd.type === "search" ||
-    cmd.type === "page" ||
-    cmd.type === "resume" ||
-    cmd.type === "voice_off"
-  );
+  return resolveInstantCommand(text, pathname) !== null;
 }
 
 export function listingFillFromVoiceApi(fill: SkyAiListingFill | undefined) {

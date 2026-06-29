@@ -1,6 +1,6 @@
 /** Context-aware end-of-speech timing for Āwhina Voice. */
 
-import { resolveVoiceCommand } from "./awhina-voice-command";
+import { resolveInstantCommand, resolveVoiceCommand } from "./awhina-voice-command";
 
 export type VoiceUtteranceKind = "navigation" | "search" | "listing" | "conversation";
 
@@ -108,23 +108,7 @@ export type EndOfSpeechOptions = {
 
 /** Ready to act immediately — no silence wait (page names, go to X, etc.). */
 export function isInstantVoiceCommand(text: string, pathname: string): boolean {
-  const t = text.trim();
-  if (!t || isIncompleteUtterance(t) || isListingSpeech(t)) return false;
-
-  const cmd = resolveVoiceCommand(t, pathname);
-  if (!cmd) return false;
-  if (cmd.type === "listing" || cmd.type === "chat" || cmd.type === "reply") return false;
-
-  const words = t.split(/\s+/).filter(Boolean).length;
-  if (cmd.type === "search" && words < 3) return false;
-
-  return (
-    cmd.type === "navigate" ||
-    cmd.type === "search" ||
-    cmd.type === "page" ||
-    cmd.type === "resume" ||
-    cmd.type === "voice_off"
-  );
+  return resolveInstantCommand(text, pathname) !== null;
 }
 
 /** How long to wait after the last speech activity before processing. */
