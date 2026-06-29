@@ -96,7 +96,7 @@ export function useAwhinaVoice() {
   const inactivityTimerRef = useRef<number | null>(null);
   const stopListeningRef = useRef<((options?: { preserveVoiceSession?: boolean }) => void) | null>(null);
   const startListeningRef = useRef<(() => Promise<void>) | null>(null);
-  const restartListeningRef = useRef<(() => Promise<void>) | null>(null);
+  const restartListeningRef = useRef<((options?: { force?: boolean }) => Promise<void>) | null>(null);
   const micListeningRef = useRef(false);
 
   const persistVoiceMode = useCallback((on: boolean) => {
@@ -179,7 +179,7 @@ export function useAwhinaVoice() {
     scheduleInactivityPause();
     if (navigatedByVoiceRef.current || !micListeningRef.current) {
       navigatedByVoiceRef.current = false;
-      void restartListeningRef.current?.();
+      void restartListeningRef.current?.({ force: true });
     }
   }, [keepVoiceModeOn, scheduleInactivityPause]);
 

@@ -407,7 +407,9 @@ export function useVoiceInput({
 
   const restartingRef = useRef(false);
 
-  const restartListening = useCallback(async () => {
+  type RestartOptions = { force?: boolean };
+
+  const restartListening = useCallback(async (options?: RestartOptions) => {
     if (disabled || restartingRef.current) return;
     restartingRef.current = true;
     try {
@@ -432,6 +434,11 @@ export function useVoiceInput({
       recordingRef.current = false;
       syncMicListening(false);
       intentionalStopRef.current = false;
+
+      if (options?.force) {
+        await startListening();
+        return;
+      }
 
       for (let attempt = 0; attempt < 3; attempt++) {
         await new Promise<void>((resolve) => window.setTimeout(resolve, 80 + attempt * 60));

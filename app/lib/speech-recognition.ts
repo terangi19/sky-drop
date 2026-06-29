@@ -128,14 +128,22 @@ async function tryInstallLanguagePack(
   }
 }
 
+let _cachedConfig: SpeechRecognitionConfig | null | undefined = undefined;
+
 /**
  * Pick the best speech engine: on-device first (Brave-friendly), then cloud.
+ * Results are cached so successive mic restarts skip async availability checks.
  */
 export async function resolveSpeechRecognitionConfig(
   preferredLang = "en-NZ"
 ): Promise<SpeechRecognitionConfig | null> {
+  if (_cachedConfig !== undefined) return _cachedConfig;
+
   const Ctor = getSpeechRecognitionCtor();
-  if (!Ctor) return null;
+  if (!Ctor) {
+    _cachedConfig = null;
+    return null;
+  }
 
   const langs = uniqueLangs(preferredLang);
   const brave = await isBraveBrowser();
@@ -146,24 +154,32 @@ export async function resolveSpeechRecognitionConfig(
       const status = await checkAvailability(Ctor, lang, processLocally);
 
       if (status === "available") {
-        return { lang, processLocally };
+        _cachedConfig = { lang, processLocally };
+        return _cachedConfig;
       }
 
       if (processLocally && status === "downloadable") {
         const installed = await tryInstallLanguagePack(Ctor, lang);
         if (installed) {
           const after = await checkAvailability(Ctor, lang, true);
-          if (after === "available") return { lang, processLocally: true };
+          if (after === "available") {
+            _cachedConfig = { lang, processLocally: true };
+            return _cachedConfig;
+          }
         }
       }
     }
   }
 
   // Brave blocks Google cloud STT — don't fall back to remote recognition.
-  if (brave) return null;
+  if (brave) {
+    _cachedConfig = null;
+    return null;
+  }
 
   // Legacy browsers without available() — prefer en-US cloud.
-  return { lang: langs.includes("en-US") ? "en-US" : langs[0], processLocally: false };
+  _cachedConfig = { lang: langs.includes("en-US") ? "en-US" : langs[0], processLocally: false };
+  return _cachedConfig;
 }
 
 export function createSpeechRecognition(
