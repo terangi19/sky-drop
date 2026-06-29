@@ -302,7 +302,7 @@ export function useAwhinaVoice() {
         lastInstantExecRef.current === execKey &&
         now - lastInstantAtRef.current < 600
       ) {
-        return cmd.type === "reply";
+        return true;
       }
 
       clearEndOfSpeechTimers();
@@ -780,6 +780,7 @@ export function useAwhinaVoice() {
   useEffect(() => {
     if (!voiceModeRef.current && !readVoiceModePersisted()) return;
     keepVoiceModeOn();
+    clearEndOfSpeechTimers();
 
     let cancelled = false;
     const restart = () => {
@@ -796,7 +797,7 @@ export function useAwhinaVoice() {
       cancelled = true;
       window.clearTimeout(t);
     };
-  }, [keepVoiceModeOn, pathname, voiceMode]);
+  }, [clearEndOfSpeechTimers, keepVoiceModeOn, pathname, voiceMode]);
 
   useEffect(() => {
     if (!voiceMode) return;

@@ -405,38 +405,44 @@ export function useVoiceInput({
 
   startListeningRef.current = startListening;
 
+  const restartingRef = useRef(false);
+
   const restartListening = useCallback(async () => {
-    if (disabled) return;
-
-    if (recordingSessionRef.current) {
-      recordingSessionRef.current.cancel();
-      recordingSessionRef.current = null;
-    }
-
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.abort();
-      } catch {
-        try {
-          recognitionRef.current.stop();
-        } catch {
-          /* already stopped */
-        }
+    if (disabled || restartingRef.current) return;
+    restartingRef.current = true;
+    try {
+      if (recordingSessionRef.current) {
+        recordingSessionRef.current.cancel();
+        recordingSessionRef.current = null;
       }
-      recognitionRef.current = null;
-    }
 
-    recordingRef.current = false;
-    syncMicListening(false);
-    intentionalStopRef.current = false;
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {
+          try {
+            recognitionRef.current.stop();
+          } catch {
+            /* already stopped */
+          }
+        }
+        recognitionRef.current = null;
+      }
 
-    for (let attempt = 0; attempt < 3; attempt++) {
-      await new Promise<void>((resolve) => window.setTimeout(resolve, 80 + attempt * 60));
-      if (disabled || intentionalStopRef.current) return;
-      if (listeningRef.current || recordingRef.current) return;
+      recordingRef.current = false;
+      syncMicListening(false);
+      intentionalStopRef.current = false;
 
-      await startListening();
-      if (listeningRef.current || recordingRef.current) return;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 80 + attempt * 60));
+        if (disabled || intentionalStopRef.current) return;
+        if (listeningRef.current || recordingRef.current) return;
+
+        await startListening();
+        if (listeningRef.current || recordingRef.current) return;
+      }
+    } finally {
+      restartingRef.current = false;
     }
   }, [disabled, startListening, syncMicListening]);
 
