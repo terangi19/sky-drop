@@ -188,7 +188,7 @@ export default function RootLayout({
             })();
           `,
         }} />
-        <AuthProvider><ProfileProvider><AwhinaPageInsightProvider><VerificationBanner /><RouteGuard><PageEnter>{children}</PageEnter><Footer /><Spotlight /><ScrollToTop /><SkyAiChat /><MarketplaceRadar /><MatchmakingActivity /></RouteGuard><ToastContainer /><LegendaryClaimNotification /><WantedLiveFeed /><PlatformAnnouncement /><PWAProvider /></AwhinaPageInsightProvider></ProfileProvider></AuthProvider>
+        <AuthProvider><ProfileProvider><AwhinaPageInsightProvider><VerificationBanner /><RouteGuard><PageEnter>{children}</PageEnter><Footer /><Spotlight /><ScrollToTop /><MarketplaceRadar /><MatchmakingActivity /></RouteGuard><SkyAiChat /><ToastContainer /><LegendaryClaimNotification /><WantedLiveFeed /><PlatformAnnouncement /><PWAProvider /></AwhinaPageInsightProvider></ProfileProvider></AuthProvider>
       </body>
     </html>
   );

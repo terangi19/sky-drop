@@ -1,4 +1,4 @@
-import { findBestDestination, getGuideReply, scoreDestination } from "./guide-assistant";
+import { findBestDestination, getGuideReply, scoreDestination, type GuideDestination } from "./guide-assistant";
 import { dispatchListingFill, type SkyAiListingFill } from "./sky-ai-listing-fill";
 import { messageSellerOnPage, openListingByIndex } from "./awhina-voice-page-actions";
 
@@ -176,6 +176,19 @@ function buildPageAction(text: string, pathname: string): VoiceCommandAction | n
   return null;
 }
 
+function compactSpeech(text: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function stripNavPrefix(text: string): string {
+  return text
+    .replace(
+      /^(please\s+)?(can you\s+)?(take me to|go to|open|show me|navigate to|bring me to|send me to|guide me to)\s+/i,
+      ""
+    )
+    .trim();
+}
+
 /** Resolve voice commands locally before calling the API. */
 export function resolveVoiceCommand(text: string, pathname: string): VoiceCommandAction | null {
   const trimmed = text.trim();
@@ -197,14 +210,22 @@ export function resolveVoiceCommand(text: string, pathname: string): VoiceComman
   const listing = buildListingAction(trimmed);
   if (listing) return listing;
 
-  const dest = findBestDestination(trimmed);
-  const destScore = dest ? scoreDestination(trimmed, dest) : 0;
+  const navTarget = stripNavPrefix(trimmed);
+  const dest = findBestDestination(trimmed) ?? (navTarget !== trimmed ? findBestDestination(navTarget) : null);
+  const destScore = dest ? Math.max(scoreDestination(trimmed, dest), scoreDestination(navTarget, dest)) : 0;
+  const compactTrimmed = compactSpeech(trimmed);
+  const compactTarget = compactSpeech(navTarget);
+  const matchesDestination = (destination: GuideDestination) =>
+    compactSpeech(destination.id) === compactTrimmed ||
+    compactSpeech(destination.id) === compactTarget ||
+    destination.keywords.some((kw) => {
+      const c = compactSpeech(kw);
+      return c === compactTrimmed || c === compactTarget;
+    });
   const barePageName =
     dest &&
-    !trimmed.includes(" ") &&
-    (dest.id === trimmed.toLowerCase() ||
-      dest.title.toLowerCase() === trimmed.toLowerCase() ||
-      dest.keywords.some((kw) => kw.toLowerCase() === trimmed.toLowerCase()));
+    trimmed.split(/\s+/).length <= 4 &&
+    matchesDestination(dest);
   const wantsNav =
     /\b(take me|go to|open|show me|navigate|bring me|send me|guide me|my messages|my purchases|my sales|my profile)\b/i.test(
       trimmed

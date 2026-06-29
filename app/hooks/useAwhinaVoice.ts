@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { AWHINA_NAME } from "../lib/awhina-brand";
 import {
@@ -45,6 +45,11 @@ const VOICE_PREFETCH_PATHS = [
 
 const INACTIVITY_MS = 45_000;
 const VOICE_MODE_STORAGE_KEY = "awhina-voice-mode-on";
+
+function readVoiceModePersisted(): boolean {
+  if (typeof window === "undefined") return false;
+  return sessionStorage.getItem(VOICE_MODE_STORAGE_KEY) === "1";
+}
 const PAUSED_HINT =
   'Voice paused. Tap the mic or say "Resume listening" to continue.';
 const VOICE_MODE_ON_HINT = "Voice Mode on — speak anytime.";
@@ -66,16 +71,19 @@ export type AwhinaVoiceState = {
 export function useAwhinaVoice() {
   const router = useRouter();
   const pathname = usePathname() || "/";
-  const [phase, setPhase] = useState<AwhinaVoicePhase>("idle");
-  const [voiceMode, setVoiceMode] = useState(false);
+  const [phase, setPhase] = useState<AwhinaVoicePhase>(() =>
+    readVoiceModePersisted() ? "listening" : "idle"
+  );
+  const [voiceMode, setVoiceMode] = useState(readVoiceModePersisted);
   const [paused, setPaused] = useState(false);
   const [headline, setHeadline] = useState("Listening…");
   const [transcript, setTranscript] = useState("");
   const [hint, setHint] = useState<string | null>(null);
 
-  const voiceModeRef = useRef(false);
+  const voiceModeRef = useRef(readVoiceModePersisted());
   const pausedRef = useRef(false);
   const busyRef = useRef(false);
+  const navigatedByVoiceRef = useRef(false);
   const utteranceTextRef = useRef("");
   const onUtteranceFlushedRef = useRef<(() => void) | null>(null);
   const endOfSpeechTimerRef = useRef<number | null>(null);
@@ -169,7 +177,8 @@ export function useAwhinaVoice() {
     setTranscript("");
     setHint(VOICE_MODE_ON_HINT);
     scheduleInactivityPause();
-    if (!micListeningRef.current) {
+    if (navigatedByVoiceRef.current || !micListeningRef.current) {
+      navigatedByVoiceRef.current = false;
       void restartListeningRef.current?.();
     }
   }, [keepVoiceModeOn, scheduleInactivityPause]);
@@ -233,6 +242,7 @@ export function useAwhinaVoice() {
           return;
         }
         if (result.path && !result.path.startsWith("#")) {
+          navigatedByVoiceRef.current = true;
           router.push(result.path);
         }
         afterCommandCycle();
@@ -247,6 +257,7 @@ export function useAwhinaVoice() {
         if (action.type === "listing") {
           dispatchSkyAiOpen(action.message);
         }
+        navigatedByVoiceRef.current = true;
         router.push(action.path);
         afterCommandCycle();
         return;
@@ -337,6 +348,7 @@ export function useAwhinaVoice() {
           return false;
         }
         if (result.path && !result.path.startsWith("#")) {
+          navigatedByVoiceRef.current = true;
           router.push(result.path);
         }
         afterCommandCycle();
@@ -350,6 +362,7 @@ export function useAwhinaVoice() {
         if (cmd.type === "listing") {
           dispatchSkyAiOpen(cmd.message);
         }
+        navigatedByVoiceRef.current = true;
         router.push(cmd.path);
         afterCommandCycle();
         return true;
@@ -371,11 +384,8 @@ export function useAwhinaVoice() {
   const shouldTryInstant = useCallback(
     (trimmed: string, meta: UtteranceUpdateMeta): boolean => {
       if (meta.completeUtterance) return true;
-      if (meta.hadFinalChunk && isCompleteNavPhrase(trimmed, pathname)) return true;
-      const words = trimmed.split(/\s+/).filter(Boolean);
-      if (words.length === 1 && trimmed.length >= 4 && isCompleteNavPhrase(trimmed, pathname)) {
-        return true;
-      }
+      if (isCompleteNavPhrase(trimmed, pathname)) return true;
+      if (meta.hadFinalChunk && !isIncompleteUtterance(trimmed)) return true;
       return false;
     },
     [pathname]
@@ -755,10 +765,8 @@ export function useAwhinaVoice() {
     resumeListening();
   }, [resumeListening]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (sessionStorage.getItem(VOICE_MODE_STORAGE_KEY) !== "1") return;
-    if (voiceModeRef.current) return;
+  useLayoutEffect(() => {
+    if (!readVoiceModePersisted()) return;
     keepVoiceModeOn();
     setPausedState(false);
     setPhase("listening");
@@ -768,6 +776,27 @@ export function useAwhinaVoice() {
     void startListeningRef.current?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- restore once on mount
   }, []);
+
+  useEffect(() => {
+    if (!voiceModeRef.current && !readVoiceModePersisted()) return;
+    keepVoiceModeOn();
+
+    let cancelled = false;
+    const restart = () => {
+      if (cancelled || !voiceModeRef.current || pausedRef.current) return;
+      if (busyRef.current) {
+        window.setTimeout(restart, 80);
+        return;
+      }
+      void restartListeningRef.current?.();
+    };
+
+    const t = window.setTimeout(restart, navigatedByVoiceRef.current ? 60 : 180);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [keepVoiceModeOn, pathname, voiceMode]);
 
   useEffect(() => {
     if (!voiceMode) return;
@@ -790,40 +819,13 @@ export function useAwhinaVoice() {
   }, [router, voiceMode]);
 
   useEffect(() => {
-    if (!voiceMode) return;
-
-    let attempts = 0;
-    let cancelled = false;
-
-    const restart = () => {
-      if (cancelled || !voiceModeRef.current || pausedRef.current) return;
-      if (busyRef.current) {
-        if (attempts < 12) {
-          attempts += 1;
-          window.setTimeout(restart, 120);
-        }
-        return;
-      }
-      if (!micListeningRef.current) {
-        void restartListeningRef.current?.();
-      }
+    const onPageHide = (event: PageTransitionEvent) => {
+      if (event.persisted) return;
+      persistVoiceMode(voiceModeRef.current);
     };
-
-    const t = window.setTimeout(restart, 180);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(t);
-    };
-  }, [pathname, voiceMode]);
-
-  useEffect(() => {
-    const onBeforeUnload = () => {
-      voiceModeRef.current = false;
-      persistVoiceMode(false);
-    };
-    window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, []);
+    window.addEventListener("pagehide", onPageHide);
+    return () => window.removeEventListener("pagehide", onPageHide);
+  }, [persistVoiceMode]);
 
   useEffect(
     () => () => {

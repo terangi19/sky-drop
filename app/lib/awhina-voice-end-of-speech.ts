@@ -133,7 +133,7 @@ export function endOfSpeechDelayMs(text: string, options?: EndOfSpeechOptions): 
       cmd?.type === "resume" ||
       cmd?.type === "voice_off"
     ) {
-      return options.quickCommand || options.hadFinalChunk ? 0 : POST_FINAL_MS.navigation;
+      return 0;
     }
   }
 

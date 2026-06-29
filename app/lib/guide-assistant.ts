@@ -234,16 +234,21 @@ function normalize(text: string): string {
 export function scoreDestination(query: string, dest: GuideDestination): number {
   const q = normalize(query);
   if (!q) return 0;
+  const qCompact = q.replace(/\s+/g, "");
   let score = 0;
   for (const kw of dest.keywords) {
     const k = kw.toLowerCase();
+    const kCompact = k.replace(/\s+/g, "");
     if (q.includes(k)) score += k.split(" ").length + 2;
+    if (qCompact.includes(kCompact)) score += k.split(" ").length + 3;
   }
   const titleWords = dest.title.toLowerCase().split(/\s+/);
   for (const w of titleWords) {
     if (w.length > 3 && q.includes(w)) score += 1;
   }
+  const destIdCompact = dest.id.replace(/-/g, "");
   if (q.includes(dest.id.replace(/-/g, " "))) score += 3;
+  if (qCompact === destIdCompact || qCompact.includes(destIdCompact)) score += 4;
   return score;
 }
 

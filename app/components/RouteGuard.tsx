@@ -6,7 +6,7 @@ import { auth, onAuthStateChanged } from "../lib/firebase";
 
 export function RouteGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [checking, setChecking] = useState(true);
+  const [checking, setChecking] = useState(() => typeof window !== "undefined" && !!auth.currentUser);
 
   useEffect(() => {
     if (auth.currentUser) {
@@ -25,5 +25,5 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return <div key={pathname}>{children}</div>;
+  return <>{children}</>;
 }
