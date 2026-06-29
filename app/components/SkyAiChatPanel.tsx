@@ -228,7 +228,7 @@ export default function SkyAiChatPanel({
             document.getElementById(hash)?.scrollIntoView({ behavior: "smooth", block: "start" });
           }, 400);
         }
-      }, 700);
+      }, 100);
     },
     [router]
   );
