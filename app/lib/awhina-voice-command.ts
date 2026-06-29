@@ -259,22 +259,27 @@ export function resolveInstantCommand(
   if (!trimmed) return null;
 
   const cmd = resolveVoiceCommand(trimmed, pathname);
-  if (cmd) {
-    if (cmd.type === "listing" || cmd.type === "chat" || cmd.type === "reply") return null;
-    if (cmd.type === "search" && trimmed.split(/\s+/).filter(Boolean).length < 2) return null;
-    return cmd;
-  }
+  if (!cmd) return null;
+  if (cmd.type === "listing" || cmd.type === "chat") return null;
+  if (cmd.type === "search" && trimmed.split(/\s+/).filter(Boolean).length < 2) return null;
+  return cmd;
+}
 
-  const bare = trimmed.toLowerCase();
-  if (!bare.includes(" ") && bare.length >= 4) {
-    const dest = findBestDestination(trimmed);
-    if (dest && scoreDestination(trimmed, dest) >= 3) {
-      if (pathname === dest.path) return null;
-      return { type: "navigate", path: dest.path, status: "" };
-    }
-  }
-
-  return null;
+/** True when speech looks like a complete navigation phrase (not mid-sentence). */
+export function isCompleteNavPhrase(text: string, pathname: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  if (/\b(?:go|take me|navigate|open|bring me)\s+to\s*$/i.test(t)) return false;
+  if (/\b(my|a|an|the|with|for|and|or|about|in|on|at)\s*$/i.test(t)) return false;
+  const cmd = resolveVoiceCommand(t, pathname);
+  if (!cmd) return false;
+  return (
+    cmd.type === "navigate" ||
+    cmd.type === "search" ||
+    cmd.type === "page" ||
+    cmd.type === "resume" ||
+    cmd.type === "voice_off"
+  );
 }
 
 /** Commands that should navigate or act immediately once speech is final. */

@@ -12,8 +12,8 @@ import {
   listeningHeadline,
 } from "../lib/awhina-voice-end-of-speech";
 import {
+  isCompleteNavPhrase,
   listingFillFromVoiceApi,
-  resolveInstantCommand,
   resolveVoiceCommand,
   type VoiceCommandAction,
 } from "../lib/awhina-voice-command";
@@ -163,6 +163,7 @@ export function useAwhinaVoice() {
     onUtteranceFlushedRef.current?.();
     lastScheduledTextRef.current = "";
     utteranceTextRef.current = "";
+    lastInstantExecRef.current = "";
     setPhase("listening");
     setHeadline("Listening…");
     setTranscript("");
@@ -271,50 +272,68 @@ export function useAwhinaVoice() {
     [afterCommandCycle, disableVoiceMode, keepVoiceModeOn, resumeListening, router]
   );
 
-  const instantExecKey = useCallback((cmd: VoiceCommandAction) => {
-    if (cmd.type === "navigate" || cmd.type === "search" || cmd.type === "listing") {
-      return `${cmd.type}:${cmd.path}`;
-    }
-    if (cmd.type === "page") return `page:${pathname}`;
-    return cmd.type;
-  }, [pathname]);
-
-  const executeInstantCommand = useCallback(
+  const runVoiceCommandNow = useCallback(
     (trimmed: string): boolean => {
-      if (busyRef.current || isListingSpeech(trimmed)) return false;
+      if (busyRef.current) return false;
 
-      const cmd = resolveInstantCommand(trimmed, pathname);
+      const cmd = resolveVoiceCommand(trimmed, pathname);
       if (!cmd) return false;
 
-      const key = instantExecKey(cmd);
+      if (cmd.type === "listing" && isListingSpeech(trimmed)) return false;
+      if (cmd.type === "chat") return false;
+
+      const execKey =
+        cmd.type === "navigate" || cmd.type === "search" || cmd.type === "listing"
+          ? `${cmd.type}:${cmd.path}`
+          : cmd.type;
       const now = Date.now();
-      if (lastInstantExecRef.current === key && now - lastInstantAtRef.current < 1_500) {
-        return true;
+      if (
+        lastInstantExecRef.current === execKey &&
+        now - lastInstantAtRef.current < 600
+      ) {
+        return cmd.type === "reply";
       }
-      lastInstantExecRef.current = key;
-      lastInstantAtRef.current = now;
 
       clearEndOfSpeechTimers();
       lastScheduledTextRef.current = "";
       utteranceTextRef.current = "";
       onUtteranceFlushedRef.current?.();
-
       keepVoiceModeOn();
 
       if (cmd.type === "resume") {
+        lastInstantExecRef.current = execKey;
+        lastInstantAtRef.current = now;
         busyRef.current = false;
         resumeListening();
         return true;
       }
+
       if (cmd.type === "voice_off") {
+        lastInstantExecRef.current = execKey;
+        lastInstantAtRef.current = now;
         disableVoiceMode();
         return true;
       }
+
+      if (cmd.type === "reply") {
+        lastInstantExecRef.current = execKey;
+        lastInstantAtRef.current = now;
+        busyRef.current = true;
+        setTranscript(formatUtteranceDisplay(trimmed));
+        setHint(cmd.message.replace(/\*\*([^*]+)\*\*/g, "$1"));
+        afterCommandCycle();
+        return true;
+      }
+
       if (cmd.type === "page") {
         busyRef.current = true;
+        lastInstantExecRef.current = execKey;
+        lastInstantAtRef.current = now;
         const result = cmd.run();
         if (!result.ok) {
           busyRef.current = false;
+          setHint("Couldn't do that on this page — try another command.");
+          afterCommandCycle();
           return false;
         }
         if (result.path && !result.path.startsWith("#")) {
@@ -323,8 +342,11 @@ export function useAwhinaVoice() {
         afterCommandCycle();
         return true;
       }
+
       if (cmd.type === "navigate" || cmd.type === "search" || cmd.type === "listing") {
         busyRef.current = true;
+        lastInstantExecRef.current = execKey;
+        lastInstantAtRef.current = now;
         if (cmd.type === "listing") {
           dispatchSkyAiOpen(cmd.message);
         }
@@ -339,12 +361,24 @@ export function useAwhinaVoice() {
       afterCommandCycle,
       clearEndOfSpeechTimers,
       disableVoiceMode,
-      instantExecKey,
       keepVoiceModeOn,
       pathname,
       resumeListening,
       router,
     ]
+  );
+
+  const shouldTryInstant = useCallback(
+    (trimmed: string, meta: UtteranceUpdateMeta): boolean => {
+      if (meta.completeUtterance) return true;
+      if (meta.hadFinalChunk && isCompleteNavPhrase(trimmed, pathname)) return true;
+      const words = trimmed.split(/\s+/).filter(Boolean);
+      if (words.length === 1 && trimmed.length >= 4 && isCompleteNavPhrase(trimmed, pathname)) {
+        return true;
+      }
+      return false;
+    },
+    [pathname]
   );
 
   const processTranscript = useCallback(
@@ -490,6 +524,8 @@ export function useAwhinaVoice() {
       utteranceTextRef.current = "";
       onUtteranceFlushedRef.current?.();
 
+      if (runVoiceCommandNow(trimmed)) return;
+
       if (!isActionableTranscript(trimmed, pathname)) {
         if (voiceModeRef.current && !pausedRef.current) {
           setPhase("listening");
@@ -506,7 +542,7 @@ export function useAwhinaVoice() {
       }
       void processTranscript(trimmed);
     },
-    [clearEndOfSpeechTimers, ensureListening, pathname, processTranscript]
+    [clearEndOfSpeechTimers, ensureListening, pathname, processTranscript, runVoiceCommandNow]
   );
 
   const scheduleEndOfSpeech = useCallback(
@@ -562,10 +598,6 @@ export function useAwhinaVoice() {
       const trimmed = display.trim();
       if (!trimmed) return;
 
-      if (!isListingSpeech(trimmed) && executeInstantCommand(trimmed)) {
-        return;
-      }
-
       const textChanged = trimmed !== utteranceTextRef.current.trim();
       utteranceTextRef.current = display;
 
@@ -578,6 +610,10 @@ export function useAwhinaVoice() {
       setHeadline(listeningHeadline(display, 0));
       setTranscript(formatUtteranceDisplay(display));
       if (voiceModeRef.current) setHint(VOICE_MODE_ON_HINT);
+
+      if (shouldTryInstant(trimmed, meta) && runVoiceCommandNow(trimmed)) {
+        return;
+      }
 
       if (meta.completeUtterance) {
         flushUtterance(trimmed);
@@ -596,14 +632,31 @@ export function useAwhinaVoice() {
       }
 
       if (meta.hadFinalChunk && !isIncompleteUtterance(trimmed)) {
-        scheduleEndOfSpeech(display, { force: true, hadFinalChunk: true });
-      } else if (textChanged || meta.hadFinalChunk) {
+        flushUtterance(trimmed);
+        return;
+      }
+
+      if (isCompleteNavPhrase(trimmed, pathname)) {
+        if (runVoiceCommandNow(trimmed)) return;
+        scheduleEndOfSpeech(display, { force: true, quickCommand: true });
+        return;
+      }
+
+      if (textChanged || meta.hadFinalChunk) {
         scheduleEndOfSpeech(display, { hadFinalChunk: meta.hadFinalChunk });
       } else if (!endOfSpeechTimerRef.current) {
         scheduleEndOfSpeech(display, { force: true });
       }
     },
-    [bumpActivity, executeInstantCommand, flushUtterance, scheduleEndOfSpeech, setPausedState]
+    [
+      bumpActivity,
+      flushUtterance,
+      pathname,
+      runVoiceCommandNow,
+      scheduleEndOfSpeech,
+      setPausedState,
+      shouldTryInstant,
+    ]
   );
 
   const voiceSupported =

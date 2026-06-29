@@ -48,11 +48,12 @@ export function isIncompleteUtterance(text: string): boolean {
 export function isListingSpeech(text: string): boolean {
   const t = text.trim();
   if (!t) return false;
-  if (LISTING_INTENT.test(t)) return true;
-  if (isIncompleteUtterance(t) && LISTING_INTENT.test(t)) return true;
+  if (LISTING_INTENT.test(t) && /\b(sell|selling|list|listing|post|for sale)\b/i.test(t)) {
+    return true;
+  }
   const words = t.split(/\s+/).length;
   if (words >= 8 && (LISTING_INTENT.test(t) || /\$[\d,]+/.test(t))) return true;
-  return classifyVoiceUtterance(t) === "listing" && words >= 4;
+  return false;
 }
 
 /** Skip noise / junk STT before running a command. */
@@ -125,14 +126,14 @@ export function endOfSpeechDelayMs(text: string, options?: EndOfSpeechOptions): 
       if (options.hadFinalChunk) return POST_FINAL_MS.listing;
       return SILENCE_MS.listing;
     }
-    if (cmd?.type === "navigate" || cmd?.type === "page") {
-      return 0;
-    }
-    if (cmd?.type === "search") {
-      return 0;
-    }
-    if (cmd?.type === "resume" || cmd?.type === "voice_off") {
-      return 0;
+    if (
+      cmd?.type === "navigate" ||
+      cmd?.type === "page" ||
+      cmd?.type === "search" ||
+      cmd?.type === "resume" ||
+      cmd?.type === "voice_off"
+    ) {
+      return options.quickCommand || options.hadFinalChunk ? 0 : POST_FINAL_MS.navigation;
     }
   }
 
