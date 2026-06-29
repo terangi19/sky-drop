@@ -1,6 +1,6 @@
 import { findByCompactPrefix, findBestDestination, getGuideReply, scoreDestination, type GuideDestination } from "./guide-assistant";
 import { dispatchListingFill, type SkyAiListingFill } from "./sky-ai-listing-fill";
-import { messageSellerOnPage, openListingByIndex } from "./awhina-voice-page-actions";
+import { messageSellerOnPage, openListingByIndex, switchTab } from "./awhina-voice-page-actions";
 
 export type VoiceCommandAction =
   | {
@@ -171,6 +171,33 @@ function buildPageAction(text: string, pathname: string): VoiceCommandAction | n
         return { ok: false };
       },
     };
+  }
+
+  // In-page tab navigation (profile, manage, admin pages)
+  const TAB_PAGES: Array<{ prefix: string; aliases: Record<string, string> }> = [
+    {
+      prefix: "/profile",
+      aliases: {
+        settings: "Settings", verification: "Verification", payments: "Payments",
+        payment: "Payments", notifications: "Notifications", notification: "Notifications",
+        listings: "Listings", listing: "Listings", reviews: "Reviews", review: "Reviews",
+        profile: "Profile", delete: "Delete", danger: "Delete",
+      },
+    },
+  ];
+  for (const page of TAB_PAGES) {
+    if (!pathname.startsWith(page.prefix)) continue;
+    const words = text.toLowerCase().match(/\b(\w+)\b/g) || [];
+    for (const word of words) {
+      const label = page.aliases[word];
+      if (label) {
+        return {
+          type: "page",
+          status: `Opening ${label}…`,
+          run: () => switchTab(label),
+        };
+      }
+    }
   }
 
   return null;

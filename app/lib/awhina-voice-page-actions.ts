@@ -62,3 +62,34 @@ export function messageSellerOnPage(): { ok: true; path?: string } | { ok: false
 
   return { ok: false };
 }
+
+/**
+ * Switch to a tab on the current page by finding the tab button with
+ * matching role="tab" and aria-selected or text content.
+ */
+export function switchTab(tabId: string): { ok: true; path?: string } | { ok: false } {
+  if (typeof document === "undefined") return { ok: false };
+
+  const tabs = document.querySelectorAll<HTMLElement>('[role="tab"]');
+  for (const tab of tabs) {
+    const match =
+      tab.getAttribute("data-tab") === tabId ||
+      tab.textContent?.toLowerCase().trim() === tabId.toLowerCase() ||
+      tab.getAttribute("aria-controls") === tabId;
+    if (match) {
+      tab.click();
+      return { ok: true, path: `#${tabId}` };
+    }
+  }
+
+  const buttons = document.querySelectorAll<HTMLButtonElement>("button");
+  for (const btn of buttons) {
+    const text = btn.textContent?.toLowerCase().trim();
+    if (text === tabId.toLowerCase()) {
+      btn.click();
+      return { ok: true, path: `#${tabId}` };
+    }
+  }
+
+  return { ok: false };
+}
