@@ -141,6 +141,8 @@ export function useVoiceInput({
       } catch {
         /* pre-warm is best-effort */
       }
+      // Also warm the config cache so the first startListening has no async delay.
+      resolveSpeechRecognitionConfig().catch(() => undefined);
     }
     return () => {
       intentionalStopRef.current = true;
