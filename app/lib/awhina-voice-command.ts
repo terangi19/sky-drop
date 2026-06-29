@@ -199,10 +199,18 @@ export function resolveVoiceCommand(text: string, pathname: string): VoiceComman
 
   const dest = findBestDestination(trimmed);
   const destScore = dest ? scoreDestination(trimmed, dest) : 0;
+  const barePageName =
+    dest &&
+    !trimmed.includes(" ") &&
+    (dest.id === trimmed.toLowerCase() ||
+      dest.title.toLowerCase() === trimmed.toLowerCase() ||
+      dest.keywords.some((kw) => kw.toLowerCase() === trimmed.toLowerCase()));
   const wantsNav =
     /\b(take me|go to|open|show me|navigate|bring me|send me|guide me|my messages|my purchases|my sales|my profile)\b/i.test(
       trimmed
-    ) || destScore >= 4;
+    ) ||
+    destScore >= 3 ||
+    barePageName;
 
   if (dest && wantsNav) {
     const same =
@@ -240,6 +248,19 @@ export function resolveVoiceCommand(text: string, pathname: string): VoiceComman
   }
 
   return null;
+}
+
+/** Commands that should navigate or act immediately once speech is final. */
+export function isQuickVoiceCommand(text: string, pathname: string): boolean {
+  const cmd = resolveVoiceCommand(text, pathname);
+  if (!cmd) return false;
+  return (
+    cmd.type === "navigate" ||
+    cmd.type === "search" ||
+    cmd.type === "page" ||
+    cmd.type === "resume" ||
+    cmd.type === "voice_off"
+  );
 }
 
 export function listingFillFromVoiceApi(fill: SkyAiListingFill | undefined) {

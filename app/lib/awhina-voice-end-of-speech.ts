@@ -92,6 +92,7 @@ export function classifyVoiceUtterance(text: string): VoiceUtteranceKind {
 export type EndOfSpeechOptions = {
   hadFinalChunk?: boolean;
   pathname?: string;
+  quickCommand?: boolean;
 };
 
 /** How long to wait after the last speech activity before processing. */
@@ -105,13 +106,17 @@ export function endOfSpeechDelayMs(text: string, options?: EndOfSpeechOptions): 
   if (!incomplete && options?.pathname) {
     const cmd = resolveVoiceCommand(t, options.pathname);
     if (cmd?.type === "navigate" || cmd?.type === "page") {
-      return options.hadFinalChunk ? POST_FINAL_MS.navigation : 550;
+      if (options.hadFinalChunk) return 0;
+      if (options.quickCommand) return 220;
+      return 320;
     }
     if (cmd?.type === "search") {
-      return options.hadFinalChunk ? POST_FINAL_MS.search : 900;
+      if (options.hadFinalChunk) return 80;
+      if (options.quickCommand) return 320;
+      return 500;
     }
     if (cmd?.type === "resume" || cmd?.type === "voice_off") {
-      return options.hadFinalChunk ? 120 : 400;
+      return options.hadFinalChunk ? 0 : 200;
     }
   }
 

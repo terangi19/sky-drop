@@ -198,7 +198,11 @@ export function useVoiceInput({
 
       emitUtterance(result.text, true, { completeUtterance: true });
 
-      if (keepAliveRef.current && !intentionalStopRef.current) {
+      if (
+        keepAliveRef.current &&
+        !intentionalStopRef.current &&
+        !callbacksRef.current.onUtteranceUpdate
+      ) {
         window.setTimeout(() => {
           if (!intentionalStopRef.current) void startListeningRef.current?.();
         }, 400);
@@ -380,6 +384,39 @@ export function useVoiceInput({
 
   startListeningRef.current = startListening;
 
+  const restartListening = useCallback(async () => {
+    if (disabled) return;
+
+    if (recordingSessionRef.current) {
+      recordingSessionRef.current.cancel();
+      recordingSessionRef.current = null;
+    }
+
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.abort();
+      } catch {
+        try {
+          recognitionRef.current.stop();
+        } catch {
+          /* already stopped */
+        }
+      }
+      recognitionRef.current = null;
+    }
+
+    listeningRef.current = false;
+    recordingRef.current = false;
+    setListening(false);
+    intentionalStopRef.current = false;
+
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 60));
+
+    if (!disabled) {
+      await startListening();
+    }
+  }, [disabled, startListening]);
+
   const toggleListening = useCallback(() => {
     if (listeningRef.current || recordingRef.current) {
       stopListening();
@@ -393,6 +430,7 @@ export function useVoiceInput({
     listening,
     startListening,
     stopListening,
+    restartListening,
     toggleListening,
   };
 }

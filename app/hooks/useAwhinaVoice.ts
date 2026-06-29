@@ -11,6 +11,7 @@ import {
   listeningHeadline,
 } from "../lib/awhina-voice-end-of-speech";
 import {
+  isQuickVoiceCommand,
   listingFillFromVoiceApi,
   resolveVoiceCommand,
   type VoiceCommandAction,
@@ -72,6 +73,7 @@ export function useAwhinaVoice() {
   const inactivityTimerRef = useRef<number | null>(null);
   const stopListeningRef = useRef<(() => void) | null>(null);
   const startListeningRef = useRef<(() => Promise<void>) | null>(null);
+  const restartListeningRef = useRef<(() => Promise<void>) | null>(null);
 
   const clearEndOfSpeechTimers = useCallback(() => {
     if (endOfSpeechTimerRef.current) {
@@ -134,22 +136,12 @@ export function useAwhinaVoice() {
     setTranscript("");
     setHint(VOICE_MODE_ON_HINT);
     scheduleInactivityPause();
-    stopListeningRef.current?.();
-    window.setTimeout(() => {
-      if (voiceModeRef.current && !pausedRef.current && !busyRef.current) {
-        void startListeningRef.current?.();
-      }
-    }, 120);
+    void restartListeningRef.current?.();
   }, [scheduleInactivityPause]);
 
   const ensureListening = useCallback(() => {
     if (!voiceModeRef.current || pausedRef.current || busyRef.current) return;
-    stopListeningRef.current?.();
-    window.setTimeout(() => {
-      if (voiceModeRef.current && !pausedRef.current && !busyRef.current) {
-        void startListeningRef.current?.();
-      }
-    }, 120);
+    void restartListeningRef.current?.();
   }, []);
 
   const resumeListening = useCallback(() => {
@@ -235,9 +227,11 @@ export function useAwhinaVoice() {
 
       if (action.type === "reply") {
         setTranscript(action.message);
+        window.setTimeout(() => afterCommandCycle(), 1800);
+        return;
       }
 
-      window.setTimeout(() => afterCommandCycle(), action.type === "reply" ? 1800 : 150);
+      afterCommandCycle();
     },
     [afterCommandCycle, disableVoiceMode, resumeListening, router]
   );
@@ -392,7 +386,7 @@ export function useAwhinaVoice() {
   );
 
   const scheduleEndOfSpeech = useCallback(
-    (display: string, opts?: { force?: boolean; hadFinalChunk?: boolean }) => {
+    (display: string, opts?: { force?: boolean; hadFinalChunk?: boolean; quickCommand?: boolean }) => {
       const trimmed = display.trim();
       if (!trimmed) return;
 
@@ -407,22 +401,32 @@ export function useAwhinaVoice() {
       const silenceMs = endOfSpeechDelayMs(trimmed, {
         hadFinalChunk: opts?.hadFinalChunk,
         pathname,
+        quickCommand: opts?.quickCommand,
       });
       const quietStart = Date.now();
-      const stillListeningMs = Math.min(1_000, Math.max(400, silenceMs - 300));
 
-      stillListeningTimerRef.current = window.setTimeout(() => {
-        if (!utteranceTextRef.current.trim() || busyRef.current) return;
-        const quietFor = Date.now() - quietStart;
-        setHeadline(listeningHeadline(utteranceTextRef.current, quietFor));
-      }, stillListeningMs);
+      if (silenceMs > 400) {
+        const stillListeningMs = Math.min(900, Math.max(350, silenceMs - 250));
+        stillListeningTimerRef.current = window.setTimeout(() => {
+          if (!utteranceTextRef.current.trim() || busyRef.current) return;
+          const quietFor = Date.now() - quietStart;
+          setHeadline(listeningHeadline(utteranceTextRef.current, quietFor));
+        }, stillListeningMs);
+      }
 
-      endOfSpeechTimerRef.current = window.setTimeout(() => {
+      const runFlush = () => {
         const latest = utteranceTextRef.current.trim();
         if (!latest || busyRef.current) return;
         lastScheduledTextRef.current = "";
         flushUtterance(latest);
-      }, silenceMs);
+      };
+
+      if (silenceMs <= 0) {
+        runFlush();
+        return;
+      }
+
+      endOfSpeechTimerRef.current = window.setTimeout(runFlush, silenceMs);
     },
     [clearEndOfSpeechTimers, flushUtterance, pathname]
   );
@@ -452,6 +456,15 @@ export function useAwhinaVoice() {
         return;
       }
 
+      if (isQuickVoiceCommand(trimmed, pathname)) {
+        if (meta.hadFinalChunk) {
+          flushUtterance(trimmed);
+          return;
+        }
+        scheduleEndOfSpeech(display, { force: true, quickCommand: true });
+        return;
+      }
+
       if (meta.hadFinalChunk && !isIncompleteUtterance(trimmed)) {
         scheduleEndOfSpeech(display, { force: true, hadFinalChunk: true });
       } else if (textChanged || meta.hadFinalChunk) {
@@ -460,14 +473,14 @@ export function useAwhinaVoice() {
         scheduleEndOfSpeech(display, { force: true });
       }
     },
-    [bumpActivity, flushUtterance, scheduleEndOfSpeech, setPausedState]
+    [bumpActivity, flushUtterance, pathname, scheduleEndOfSpeech, setPausedState]
   );
 
   const voiceSupported =
     typeof window !== "undefined" &&
     (isSpeechRecognitionSupported() || typeof MediaRecorder !== "undefined");
 
-  const { listening, startListening, stopListening } = useVoiceInput({
+  const { listening, startListening, stopListening, restartListening } = useVoiceInput({
     continuous: voiceMode,
     keepAlive: voiceMode,
     sessionContinuousRef: voiceModeRef,
@@ -492,9 +505,9 @@ export function useAwhinaVoice() {
       if (!pausedRef.current && !busyRef.current) {
         window.setTimeout(() => {
           if (voiceModeRef.current && !pausedRef.current && !busyRef.current) {
-            void startListeningRef.current?.();
+            void restartListeningRef.current?.();
           }
-        }, 1200);
+        }, 600);
       }
     },
     onStatus: (message) => {
@@ -513,6 +526,7 @@ export function useAwhinaVoice() {
 
   startListeningRef.current = startListening;
   stopListeningRef.current = stopListening;
+  restartListeningRef.current = restartListening;
 
   const enableVoiceMode = useCallback(() => {
     voiceModeRef.current = true;
@@ -558,18 +572,27 @@ export function useAwhinaVoice() {
   useEffect(() => {
     if (!voiceMode) return;
 
+    let attempts = 0;
+    let cancelled = false;
+
     const restart = () => {
-      if (!voiceModeRef.current || pausedRef.current) return;
+      if (cancelled || !voiceModeRef.current || pausedRef.current) return;
       if (busyRef.current) {
-        window.setTimeout(restart, 150);
+        if (attempts < 12) {
+          attempts += 1;
+          window.setTimeout(restart, 120);
+        }
         return;
       }
-      ensureListening();
+      void restartListeningRef.current?.();
     };
 
-    const t = window.setTimeout(restart, 250);
-    return () => window.clearTimeout(t);
-  }, [pathname, voiceMode, ensureListening]);
+    const t = window.setTimeout(restart, 180);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [pathname, voiceMode]);
 
   useEffect(() => {
     const onBeforeUnload = () => {
