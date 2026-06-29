@@ -72,7 +72,7 @@ export type SpeechRecognitionConfig = {
   processLocally: boolean;
 };
 
-const LANGUAGE_CANDIDATES = ["en-NZ", "en-US", "en-GB"] as const;
+const LANGUAGE_CANDIDATES = ["en-US", "en-NZ", "en-GB"] as const;
 
 /** True when the browser exposes SpeechRecognition (client-only). */
 export function isSpeechRecognitionSupported(): boolean {
@@ -135,7 +135,7 @@ let _cachedConfig: SpeechRecognitionConfig | null | undefined = undefined;
  * Results are cached so successive mic restarts skip async availability checks.
  */
 export async function resolveSpeechRecognitionConfig(
-  preferredLang = "en-NZ"
+  preferredLang = "en-US"
 ): Promise<SpeechRecognitionConfig | null> {
   if (_cachedConfig !== undefined) return _cachedConfig;
 
@@ -147,7 +147,9 @@ export async function resolveSpeechRecognitionConfig(
 
   const langs = uniqueLangs(preferredLang);
   const brave = await isBraveBrowser();
-  const modes: boolean[] = brave ? [true] : [true, false];
+  // Brave previously blocked cloud STT, but shields can be lowered per-site.
+  // Try cloud too — error handling in onerror/checkAvailability catches blocks.
+  const modes: boolean[] = [true, false];
 
   for (const processLocally of modes) {
     for (const lang of langs) {
