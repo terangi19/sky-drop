@@ -381,16 +381,6 @@ export function useAwhinaVoice() {
     ]
   );
 
-  const shouldTryInstant = useCallback(
-    (trimmed: string, meta: UtteranceUpdateMeta): boolean => {
-      if (meta.completeUtterance) return true;
-      if (isCompleteNavPhrase(trimmed, pathname)) return true;
-      if (meta.hadFinalChunk && !isIncompleteUtterance(trimmed)) return true;
-      return false;
-    },
-    [pathname]
-  );
-
   const processTranscript = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
@@ -621,7 +611,7 @@ export function useAwhinaVoice() {
       setTranscript(formatUtteranceDisplay(display));
       if (voiceModeRef.current) setHint(VOICE_MODE_ON_HINT);
 
-      if (shouldTryInstant(trimmed, meta) && runVoiceCommandNow(trimmed)) {
+      if (runVoiceCommandNow(trimmed)) {
         return;
       }
 
@@ -665,7 +655,6 @@ export function useAwhinaVoice() {
       runVoiceCommandNow,
       scheduleEndOfSpeech,
       setPausedState,
-      shouldTryInstant,
     ]
   );
 
