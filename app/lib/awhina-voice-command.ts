@@ -1,4 +1,4 @@
-import { findBestDestination, getGuideReply, scoreDestination, type GuideDestination } from "./guide-assistant";
+import { findByCompactPrefix, findBestDestination, getGuideReply, scoreDestination, type GuideDestination } from "./guide-assistant";
 import { dispatchListingFill, type SkyAiListingFill } from "./sky-ai-listing-fill";
 import { messageSellerOnPage, openListingByIndex } from "./awhina-voice-page-actions";
 
@@ -196,6 +196,16 @@ export function resolveVoiceCommand(text: string, pathname: string): VoiceComman
 
   const pageAction = buildPageAction(trimmed, pathname);
   if (pageAction) return pageAction;
+
+  // Prefix match: navigate as soon as MIN_PREFIX chars uniquely identify a destination.
+  if (trimmed.split(/\s+/).length <= 4) {
+    const navTarget = stripNavPrefix(trimmed);
+    const compact = compactSpeech(navTarget);
+    const prefixDest = findByCompactPrefix(compact);
+    if (prefixDest && pathname !== prefixDest.path) {
+      return { type: "navigate", path: prefixDest.path, status: `Opening ${prefixDest.title}…` };
+    }
+  }
 
   const search = buildSearchPath(trimmed);
   if (search) {

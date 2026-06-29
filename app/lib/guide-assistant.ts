@@ -221,6 +221,56 @@ export const GUIDE_DESTINATIONS: GuideDestination[] = [
 const NAVIGATE_PATTERNS =
   /\b(take me|go to|open|show me|navigate|bring me|send me|guide me|where is|where's|how do i get to|i need)\b/i;
 
+/* ── Prefix map for instant partial-match navigation ── */
+
+function compactSpeech(text: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+const MIN_PREFIX = 4;
+const _prefixMap = new Map<string, GuideDestination>();
+
+function _buildPrefixMap(): void {
+  const markCollision = (prefix: string) => _prefixMap.set(prefix, null as unknown as GuideDestination);
+
+  for (const dest of GUIDE_DESTINATIONS) {
+    const keys = [dest.id, ...dest.keywords];
+    for (const raw of keys) {
+      const compact = compactSpeech(raw);
+      if (!compact || compact.length < MIN_PREFIX) continue;
+      for (let len = MIN_PREFIX; len <= compact.length; len++) {
+        const prefix = compact.slice(0, len);
+        const existing = _prefixMap.get(prefix);
+        if (existing === undefined) {
+          _prefixMap.set(prefix, dest);
+        } else if (existing !== dest) {
+          markCollision(prefix);
+        }
+      }
+    }
+  }
+}
+_buildPrefixMap();
+
+/**
+ * Fast path: if the user has spoken at least MIN_PREFIX characters that
+ * uniquely identify one destination, return it immediately — no scoring.
+ * Returns null for ambiguous prefixes (multiple destinations share them).
+ */
+export function findByCompactPrefix(compact: string): GuideDestination | null {
+  if (!compact || compact.length < MIN_PREFIX) return null;
+  // Walk prefix lengths from MIN_PREFIX up to full text. Only return when
+  // the ENTIRE utterance is a known prefix — this avoids false matches
+  // on partial collisions (e.g. "watchtower" sharing "watc" with "watchlist").
+  for (let len = MIN_PREFIX; len <= compact.length; len++) {
+    const prefix = compact.slice(0, len);
+    const dest = _prefixMap.get(prefix);
+    if (dest === undefined) return null;
+    if (dest !== null && len === compact.length) return dest;
+  }
+  return null;
+}
+
 export type GuideReply = {
   text: string;
   navigateTo?: string;
