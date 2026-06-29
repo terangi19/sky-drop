@@ -63,9 +63,7 @@ export default function AwhinaGlobalAssistant() {
         phase={voice.phase}
         voiceMode={voice.voiceMode}
         paused={voice.paused}
-        headline={voice.headline}
-        transcript={voice.transcript}
-        hint={voice.hint}
+        toggle={voice.toggle}
       />
 
       <AwhinaFabStack
