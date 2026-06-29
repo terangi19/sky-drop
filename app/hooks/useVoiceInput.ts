@@ -128,6 +128,20 @@ export function useVoiceInput({
 
   useEffect(() => {
     setSupported(isSpeechRecognitionSupported() || typeof MediaRecorder !== "undefined");
+    // Pre-warm STT engine — load the language model so first tap is instant.
+    if (isSpeechRecognitionSupported() && typeof window !== "undefined") {
+      try {
+        const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (Ctor) {
+          const warm = new Ctor();
+          warm.lang = "en-US";
+          warm.start();
+          warm.abort();
+        }
+      } catch {
+        /* pre-warm is best-effort */
+      }
+    }
     return () => {
       intentionalStopRef.current = true;
       recognitionRef.current?.abort();
