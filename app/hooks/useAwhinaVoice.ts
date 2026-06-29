@@ -425,6 +425,9 @@ export function useAwhinaVoice() {
       setTranscript(formatUtteranceDisplay(trimmed));
       setHint(null);
 
+      const controller = new AbortController();
+      const fetchTimeout = window.setTimeout(() => controller.abort(), 15_000);
+
       try {
         const token = await getFreshIdToken();
         const res = await fetch("/api/sky-ai", {
@@ -439,6 +442,7 @@ export function useAwhinaVoice() {
             listingContext: readListingDraftFromSkyAi(),
             stream: false,
           }),
+          signal: controller.signal,
         });
 
         if (abortIfSuperseded()) {
@@ -514,6 +518,8 @@ export function useAwhinaVoice() {
             setHint(null);
           }
         }, 3500);
+      } finally {
+        window.clearTimeout(fetchTimeout);
       }
     },
     [clearInactivityTimer, pathname, resumeListening, runAction]
@@ -596,7 +602,12 @@ export function useAwhinaVoice() {
 
   const handleUtteranceUpdate = useCallback(
     (display: string, meta: UtteranceUpdateMeta) => {
-      if (busyRef.current) return;
+      if (busyRef.current) {
+        // Let the user's next utterance abort a stuck processing cycle.
+        abortProcessingRef.current = true;
+        processGenerationRef.current += 1;
+        return;
+      }
 
       const trimmed = display.trim();
       if (!trimmed) return;
