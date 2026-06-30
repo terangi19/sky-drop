@@ -1956,42 +1956,7 @@ const tabGroups = [
           {activeTab === "payments" && (
             <div id="payment-settings" className={settingsSection}>
               <h2 className="mb-1 text-base font-bold text-white">Payments</h2>
-              <p className="mb-5 text-sm text-zinc-500">Set up how you want to receive payments when you sell items. Bank transfer for Arrange Purchase (buyer contacts you directly), or Stripe for instant card checkout.</p>
-
-              <div className="mb-5 space-y-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-medium text-white">Arrange Purchase bank details</p>
-                  {hasArrangePaymentDetails({ bankAccountName, bankAccountNumber, bankReference }) ? (
-                    <span className="text-xs text-sky-400">Saved</span>
-                  ) : (
-                    <span className="text-xs text-sky-400">Not set</span>
-                  )}
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-zinc-400">Account name</label>
-                    <input type="text" value={bankAccountName} onChange={(e) => setBankAccountName(e.target.value)}
-                      placeholder="Name on bank account" className={fieldInput} />
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-zinc-400">Account number</label>
-                    <input type="text" value={bankAccountNumber} onChange={(e) => setBankAccountNumber(e.target.value)}
-                      placeholder="00-0000-0000000-00" className={fieldInput} />
-                  </div>
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-zinc-400">Payment reference (optional)</label>
-                  <input type="text" value={bankReference} onChange={(e) => setBankReference(e.target.value)}
-                    placeholder="e.g. Your username or listing title" className={fieldInput} />
-                </div>
-                <button type="button" onClick={() => saveProfile({ bankOnly: true })} disabled={!!saving}
-                  className="w-full rounded-xl bg-sky-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-sky-500 active:scale-[0.98] disabled:opacity-50">
-                  {saving === "Saving bank details..." ? "Saving..." : "Save bank details"}
-                </button>
-                <Link href="/seller-guidelines#arrange-payment" className="block text-center text-xs text-sky-400 hover:text-sky-300">
-                  How Arrange Purchase works
-                </Link>
-              </div>
+              <p className="mb-5 text-sm text-zinc-500">Set up how you want to receive payments when you sell items. Stripe for instant card checkout.</p>
 
               <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
                 <div className="mb-3 flex items-center justify-between gap-2">
