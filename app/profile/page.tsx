@@ -375,35 +375,47 @@ const tabGroups = [
   const fetchProfile = useCallback(async () => {
     if (!user?.uid) return;
     try {
-      const snap = await getDoc(doc(db, "profiles", user.uid));
-      if (snap.exists()) {
-        const data = snap.data() as ProfileData;
-        applyProfileData(data);
-
-        // Ensure emailVerified is synced from Firebase Auth to profile
-        if (user.emailVerified && !data.emailVerified) {
-          await setDoc(doc(db, "profiles", user.uid), {
-            emailVerified: true,
-          }, { merge: true });
+      const token = await user.getIdToken();
+      const res = await fetch("/api/me/profile", {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        if (res.status === 404) {
+          setLoading(false);
+          return;
         }
+        throw new Error(`Profile fetch failed (${res.status})`);
+      }
+      const { profile: data } = (await res.json()) as { profile: ProfileData };
+      if (!data) {
+        setLoading(false);
+        return;
+      }
+      applyProfileData(data);
 
-        if (!data.referralCode && !referralInitRef.current) {
-          referralInitRef.current = true;
-          const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-          setReferralCode(newCode);
-          await setDoc(
-            doc(db, "profiles", user.uid),
-            { referralCode: newCode },
-            { merge: true }
-          ).catch((e) => console.error("Failed to save referral code:", e));
-        }
+      // Ensure emailVerified is synced from Firebase Auth to profile
+      if (user.emailVerified && !data.emailVerified) {
+        await setDoc(doc(db, "profiles", user.uid), {
+          emailVerified: true,
+        }, { merge: true });
+      }
+
+      if (!data.referralCode && !referralInitRef.current) {
+        referralInitRef.current = true;
+        const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+        setReferralCode(newCode);
+        await setDoc(
+          doc(db, "profiles", user.uid),
+          { referralCode: newCode },
+          { merge: true }
+        ).catch(() => {});
       }
       setLoading(false);
-    } catch (error) {
-      console.error("Profile fetch error:", error);
+    } catch {
       setLoading(false);
     }
-  }, [user?.uid, applyProfileData, user?.emailVerified]);
+  }, [user, applyProfileData, user?.emailVerified]);
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -416,13 +428,6 @@ const tabGroups = [
       if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
     };
   }, [fetchProfile]);
-
-  // Update lastActive once profile document exists (rules block create without email)
-  useEffect(() => {
-    if (!user?.uid || loading || !profile.email) return;
-    const ref = doc(db, "profiles", user.uid);
-    setDoc(ref, { lastActive: Timestamp.now() }, { merge: true }).catch(() => {});
-  }, [user?.uid, loading, profile.email]);
 
   // Read bank details with getDoc + on-demand (not real-time) for cost optimization
   useEffect(() => {

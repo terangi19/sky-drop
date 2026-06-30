@@ -60,6 +60,10 @@ export function useVoiceInput({
   continuous = false,
   keepAlive = false,
 }: UseVoiceInputOptions) {
+  const voiceDebug = (...args: unknown[]) => {
+    if (process.env.NODE_ENV === "development") console.log(...args);
+  };
+
   const [supported, setSupported] = useState(false);
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
@@ -399,16 +403,16 @@ export function useVoiceInput({
           clearActive();
         }
         if (keepSession) {
-          console.log(`[VoiceInput] Auto-restarting session (current count: ${sessionCountRef.current})`);
+          voiceDebug(`[VoiceInput] Auto-restarting session (current count: ${sessionCountRef.current})`);
           window.setTimeout(() => {
             if (isStale() || intentionalStopRef.current || !isVoiceSession()) {
-              console.log(`[VoiceInput] Skipping restart - stale or stopped`);
+              voiceDebug(`[VoiceInput] Skipping restart - stale or stopped`);
               return;
             }
             void startListeningRef.current?.();
           }, 100);
         } else {
-          console.log(`[VoiceInput] Session ended without restart (keepSession: ${keepSession})`);
+          voiceDebug(`[VoiceInput] Session ended without restart (keepSession: ${keepSession})`);
         }
       };
     },
@@ -429,7 +433,7 @@ export function useVoiceInput({
 
     // Increment session count for tracking
     sessionCountRef.current++;
-    console.log(`[VoiceInput] Starting recognition session #${sessionCountRef.current}`);
+    voiceDebug(`[VoiceInput] Starting recognition session #${sessionCountRef.current}`);
 
     recognitionRef.current = recognition;
     attachRecognitionHandlers(recognition, true);
@@ -520,15 +524,17 @@ export function useVoiceInput({
         if (disabled || intentionalStopRef.current) return;
         if (listeningRef.current || recordingRef.current) return;
 
-        console.log(`[VoiceInput] Restart attempt ${attempt + 1}/5`);
+        voiceDebug(`[VoiceInput] Restart attempt ${attempt + 1}/5`);
         await startListening();
         if (listeningRef.current || recordingRef.current) {
-          console.log(`[VoiceInput] Restart succeeded on attempt ${attempt + 1}`);
+          voiceDebug(`[VoiceInput] Restart succeeded on attempt ${attempt + 1}`);
           return;
         }
       }
 
-      console.error(`[VoiceInput] All restart attempts failed`);
+      if (process.env.NODE_ENV === "development") {
+        console.error(`[VoiceInput] All restart attempts failed`);
+      }
     } finally {
       restartingRef.current = false;
     }
