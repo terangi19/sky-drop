@@ -82,6 +82,7 @@ function isPriorityNav(cmd: VoiceCommandAction | null): boolean {
 const PAUSED_HINT =
   'Voice paused. Tap the mic or say "Resume listening" to continue.';
 const VOICE_MODE_ON_HINT = "Voice Mode on — speak anytime.";
+const VOICE_MODE_INTRO = "🎤 Control Sky Drop with your voice.\nNavigate pages, search listings, create posts, and more—just speak naturally.";
 
 /* Confirmation intent detection */
 const CONFIRM_INTENT = /\b(yes|yeah|yep|sure|correct|that'?s right|right|go ahead|do it|okay|ok|confirm|that'?s it|exactly)\b/i;
@@ -103,6 +104,8 @@ export type AwhinaVoiceState = {
   heardText: string | null;
   /** Visual feedback: what action is being taken */
   actionText: string | null;
+  /** Intro text for voice mode */
+  intro: string | null;
 };
 
 export function useAwhinaVoice() {
@@ -118,6 +121,7 @@ export function useAwhinaVoice() {
   const [hint, setHint] = useState<string | null>(null);
   const [heardText, setHeardText] = useState<string | null>(null);
   const [actionText, setActionText] = useState<string | null>(null);
+  const [intro, setIntro] = useState<string | null>(null);
 
   const voiceModeRef = useRef(readVoiceModePersisted());
   const pausedRef = useRef(false);
@@ -180,6 +184,7 @@ export function useAwhinaVoice() {
   const clearVisualFeedback = useCallback(() => {
     setHeardText(null);
     setActionText(null);
+    setIntro(null);
   }, []);
 
   const scheduleInactivityPause = useCallback(() => {
@@ -915,6 +920,7 @@ export function useAwhinaVoice() {
     setHint(VOICE_MODE_ON_HINT);
     setHeardText(null);
     setActionText(null);
+    setIntro(VOICE_MODE_INTRO);
     scheduleInactivityPause();
     for (const path of VOICE_PREFETCH_PATHS) {
       router.prefetch(path);
@@ -1091,5 +1097,6 @@ export function useAwhinaVoice() {
     resume,
     heardText,
     actionText,
+    intro,
   };
 }

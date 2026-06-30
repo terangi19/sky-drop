@@ -13,6 +13,7 @@ type Props = {
   actionText: string | null;
   onDismiss?: () => void;
   onResume?: () => void;
+  intro?: string | null;
 };
 
 export default function AwhinaVoiceStatusCard({
@@ -26,6 +27,7 @@ export default function AwhinaVoiceStatusCard({
   actionText,
   onDismiss,
   onResume,
+  intro,
 }: Props) {
   if (!voiceMode && phase === "idle") return null;
   if (phase === "idle" && !voiceMode) return null;
@@ -139,6 +141,11 @@ export default function AwhinaVoiceStatusCard({
                     <span className="text-zinc-500">→</span> Opening {actionText}…
                   </p>
                 </div>
+              )}
+
+              {/* Intro text when first enabling voice mode */}
+              {intro && !transcript && !hint && !hasHeardAction && isListening && (
+                <p className="mt-2 text-[11px] leading-relaxed text-zinc-300/90">{intro}</p>
               )}
 
               {/* Transcript display */}

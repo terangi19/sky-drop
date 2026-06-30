@@ -80,6 +80,7 @@ export default function AwhinaGlobalAssistant() {
           actionText={voice.actionText}
           onDismiss={voice.cancel}
           onResume={voice.resume}
+          intro={voice.intro}
         />
       </div>
 
