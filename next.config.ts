@@ -12,11 +12,6 @@ const scriptSrcUnsafeEval = isDev ? "'unsafe-eval' " : "";
 
 const nextConfig = {
 
-  // Disable Next.js built-in CSRF protection - causing issues
-  experimental: {
-    csrfToken: false,
-  },
-
   images: {
 
     remotePatterns: [

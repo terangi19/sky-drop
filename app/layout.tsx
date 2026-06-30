@@ -17,7 +17,11 @@ import { validateEnv } from "./lib/env-validation";
 // Validate environment variables on startup
 const envValidation = validateEnv();
 if (!envValidation.valid) {
-  console.error("Environment validation failed:", envValidation.errors);
+  const isBuild =
+    process.env.NEXT_PHASE === "phase-production-build" ||
+    (process.env.VERCEL === "1" && process.env.NODE_ENV === "production");
+  const log = isBuild ? console.warn : console.error;
+  log("Environment validation failed:", envValidation.errors);
 }
 if (envValidation.warnings.length > 0) {
   console.warn("Environment warnings:", envValidation.warnings);

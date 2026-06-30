@@ -47,14 +47,36 @@ import { cdnUrl } from "../lib/cdn";
 import { useSellerListingMeta } from "../lib/useSellerListingMeta";
 import { LISTING_GRID_MT, PAGE_SHELL_MARKETPLACE } from "../lib/page-layout";
 
-function listingSearchText(
+function categoryExtraSearchFields(
+  configKey: BrowseCategoryKey,
   item: Record<string, unknown>
+): string[] {
+  switch (configKey) {
+    case "vehicle":
+      return [item.vehicleMake, item.vehicleModel, item.vehicleYear, item.vehicleBodyType]
+        .filter(Boolean)
+        .map(String);
+    case "property":
+      return [item.propertyType, item.bedrooms, item.bathrooms].filter(Boolean).map(String);
+    case "job":
+      return [item.jobCompany, item.employmentType].filter(Boolean).map(String);
+    case "event":
+      return [item.venue, item.eventTime].filter(Boolean).map(String);
+    default:
+      return [];
+  }
+}
+
+function listingSearchText(
+  item: Record<string, unknown>,
+  configKey: BrowseCategoryKey
 ): string {
   const parts = [
     item.title,
     item.description,
     item.location,
     item.category,
+    ...categoryExtraSearchFields(configKey, item),
   ];
   return parts
     .filter(Boolean)
@@ -65,9 +87,10 @@ function listingSearchText(
 
 function listingMatchesSearch(
   item: Record<string, unknown>,
-  queryText: string
+  queryText: string,
+  configKey: BrowseCategoryKey
 ): boolean {
-  const haystack = listingSearchText(item);
+  const haystack = listingSearchText(item, configKey);
   const words = queryText.toLowerCase().split(/\s+/).filter((w) => w.length >= 1);
   if (words.length === 0) return true;
   return words.every((w) => haystack.includes(w));
@@ -227,7 +250,7 @@ export default function BrowseCategoryPage({ configKey }: Props) {
         return false;
       }
       if (!q) return true;
-      return listingMatchesSearch(item, q);
+      return listingMatchesSearch(item, q, configKey);
     });
   }, [
     listings,
@@ -236,6 +259,7 @@ export default function BrowseCategoryPage({ configKey }: Props) {
     selectedCategory,
     searchQuery,
     config.filterMode,
+    configKey,
   ]);
 
   const hasActiveFilters =

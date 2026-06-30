@@ -25,6 +25,22 @@ const OPTIONAL_ENV_VARS = {
   TURNSTILE_SECRET_KEY: "Turnstile secret key",
 };
 
+/** Vars that may be absent during Vercel static build but are required at runtime. */
+const BUILD_TIME_OPTIONAL = new Set([
+  "NEXT_PUBLIC_FIREBASE_API_KEY",
+  "NEXT_PUBLIC_FIREBASE_PROJECT_ID",
+  "FIREBASE_SERVICE_ACCOUNT",
+  "STRIPE_SECRET_KEY",
+  "STRIPE_WEBHOOK_SECRET",
+]);
+
+function isProductionBuildPhase(): boolean {
+  return (
+    process.env.NEXT_PHASE === "phase-production-build" ||
+    (process.env.VERCEL === "1" && process.env.NODE_ENV === "production")
+  );
+}
+
 export function validateEnv(): { valid: boolean; errors: string[]; warnings: string[] } {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -32,7 +48,12 @@ export function validateEnv(): { valid: boolean; errors: string[]; warnings: str
   // Check required environment variables
   for (const [key, description] of Object.entries(REQUIRED_ENV_VARS)) {
     if (!process.env[key]) {
-      errors.push(`Missing required environment variable: ${key} (${description})`);
+      const message = `Missing required environment variable: ${key} (${description})`;
+      if (isProductionBuildPhase() && BUILD_TIME_OPTIONAL.has(key)) {
+        warnings.push(`${message} — will be required at runtime`);
+      } else {
+        errors.push(message);
+      }
     }
   }
 
