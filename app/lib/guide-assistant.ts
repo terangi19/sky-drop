@@ -524,6 +524,14 @@ export function getGuideReply(query: string, currentPath: string): GuideReply {
       (dest.path.includes("#") && currentPath === dest.path.split("#")[0]);
 
     if (samePage) {
+      // If on the same page but with a hash fragment, scroll to the section
+      if (dest.path.includes("#") && currentPath === dest.path.split("#")[0]) {
+        return {
+          text: `Scrolling to **${dest.title}**…\n\n${dest.blurb}`,
+          navigateTo: dest.path,
+          destination: dest,
+        };
+      }
       return {
         text: `You're already on **${dest.title}**. ${dest.blurb} Ask if you want another page.`,
         destination: dest,
@@ -535,6 +543,18 @@ export function getGuideReply(query: string, currentPath: string): GuideReply {
       navigateTo: dest.path,
       destination: dest,
     };
+  }
+
+  // Special case: if user says "payments" on profile, take them to /payments page, not payment-settings
+  if (/\bpayments?\b/i.test(normalized) && currentPath === "/profile") {
+    const paymentsDest = GUIDE_DESTINATIONS.find((d) => d.id === "payments");
+    if (paymentsDest) {
+      return {
+        text: `Opening **${paymentsDest.title}** now…\n\n${paymentsDest.blurb}`,
+        navigateTo: paymentsDest.path,
+        destination: paymentsDest,
+      };
+    }
   }
 
   if (/\b(events?|jobs?|property|real estate|tickets?|concert|employment|hiring)\b/.test(normalized) &&
