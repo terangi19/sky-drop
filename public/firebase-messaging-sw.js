@@ -18,7 +18,7 @@ messaging.onBackgroundMessage((payload) => {
   const title = notification?.title || "Sky Drop";
   const options = {
     body: notification?.body || "",
-    icon: "/icon-192.png",
+    icon: "/favicon.svg",
     badge: "/favicon.svg",
     data: data || {},
     vibrate: [200, 100, 200],

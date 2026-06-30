@@ -366,8 +366,6 @@ function MessagesPage() {
   useEffect(() => {
     if (!chatUser || !user?.email) return;
     
-    console.log("[messages] Conversation opened", { chatUser, chatListingId });
-    
     // Clear seen batch when conversation changes to allow re-marking
     seenBatchRef.current.clear();
     
@@ -376,8 +374,6 @@ function MessagesPage() {
       messageInActiveConversation(m, user.email!, chatUser, chatListingId)
     );
     const unreadMsgs = relevant.filter((m: any) => m.sender !== user.email && !m.read);
-    
-    console.log("[messages] Unread messages to mark", unreadMsgs.length);
     
     for (const msg of unreadMsgs) {
       seenBatchRef.current.add(msg.id);
@@ -394,9 +390,7 @@ function MessagesPage() {
           body: JSON.stringify({ messageIds }),
         }).then(async (res) => {
           if (res.ok) {
-            console.log("[messages] Marked messages read successfully", messageIds.length);
-            const result = await res.json();
-            console.log("[messages] Marked count:", result.marked);
+            await res.json();
             // Immediately update local messages state for instant UI feedback
             setMessages(prev => prev.map(m => 
               messageIds.includes(m.id) ? { ...m, read: true } : m
@@ -517,7 +511,6 @@ function MessagesPage() {
       map[key] = (map[key] || 0) + 1;
       raw[msg.id] = true;
     });
-    console.log("[messages] Unread map calculated", { totalUnread: Object.values(map).reduce((a, b) => a + b, 0), conversations: Object.keys(map).length });
     setConversationUnread(map);
     setUnreadMap(raw);
   }, [messages, user?.email, blockedUsers]);
@@ -1243,7 +1236,6 @@ function MessagesPage() {
                   return (
                     <button key={key}
                       onClick={() => { 
-                        console.log("[messages] Conversation clicked", { participant: convo.participant, listingId: convo.listingId });
                         setChatUser(convo.participant); 
                         setChatListingId(convo.listingId); 
                         if (isMobile) setMobileView("chat"); 

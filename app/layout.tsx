@@ -97,7 +97,7 @@ export const metadata: Metadata = {
     },
     {
       rel: "apple-touch-icon",
-      url: "/icon-192.png"
+      url: "/favicon.svg"
     }
   ],
   manifest: "/manifest.json",

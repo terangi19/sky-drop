@@ -168,7 +168,7 @@ service cloud.firestore {
 
         && request.auth.uid == profileId
 
-        && !('email' in request.resource.data)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['email'])
 
         && (!request.resource.data.diff(resource.data).affectedKeys()
 
@@ -518,7 +518,11 @@ service cloud.firestore {
 
       allow read: if request.auth != null
 
-        && (resource.data.followerId == request.auth.uid || resource.data.followingId == request.auth.uid);
+        && (resource.data.followerId == request.auth.uid
+
+          || resource.data.sellerId == request.auth.uid
+
+          || resource.data.followingId == request.auth.uid);
 
       allow create: if request.auth != null
 

@@ -251,9 +251,9 @@ const tabGroups = [
   const referralInitRef = useRef(false);
 
   const applyProfileData = useCallback((data: ProfileData) => {
-    console.log("applyProfileData received:", { phoneVerified: data.phoneVerified, emailVerified: data.emailVerified, phone: data.phone, phoneNumber: data.phoneNumber });
     const uname = data.username || "";
     setProfile(data);
+    setFollowerCount(data.followers ?? 0);
     setUsername(uname);
     setContextUsername(uname);
     setBio(data.bio || "");
@@ -417,12 +417,12 @@ const tabGroups = [
     };
   }, [fetchProfile]);
 
-  // Update lastActive on mount
+  // Update lastActive once profile document exists (rules block create without email)
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!user?.uid || loading || !profile.email) return;
     const ref = doc(db, "profiles", user.uid);
-    setDoc(ref, { lastActive: Timestamp.now() }, { merge: true }).catch((e) => console.error("Failed to update lastActive:", e));
-  }, [user?.uid]);
+    setDoc(ref, { lastActive: Timestamp.now() }, { merge: true }).catch(() => {});
+  }, [user?.uid, loading, profile.email]);
 
   // Read bank details with getDoc + on-demand (not real-time) for cost optimization
   useEffect(() => {
@@ -518,33 +518,7 @@ const tabGroups = [
     };
   }, [user?.uid]);
 
-  // Fetch follower count with getDocs + polling (60 seconds) instead of real-time for cost optimization
-  useEffect(() => {
-    if (!user?.uid) return;
-    let mounted = true;
-
-    async function fetchFollowerCount() {
-      if (!mounted) return;
-      try {
-        const q = query(collection(db, "followers"), where("sellerId", "==", user.uid), limit(100));
-        const snap = await getDocs(q);
-        if (mounted) {
-          setFollowerCount(snap.size);
-        }
-      } catch (error) {
-        console.error("Failed to fetch follower count:", error);
-      }
-    }
-
-    fetchFollowerCount();
-    const interval = setInterval(fetchFollowerCount, 60000); // Refresh every 60 seconds
-
-    return () => {
-      mounted = false;
-      clearInterval(interval);
-    };
-  }, [user?.uid]);
-
+  // followerCount comes from profile.followers (updated on follow/unfollow)
   // Fetch listings with getDocs + polling (60 seconds) instead of real-time for cost optimization
   useEffect(() => {
     if (!user?.email) return;

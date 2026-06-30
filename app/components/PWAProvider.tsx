@@ -2,7 +2,13 @@
 
 import { useEffect, useRef } from "react";
 import { auth, onAuthStateChanged } from "../lib/firebase";
-import { requestNotificationPermission, getFCMToken, saveFCMToken, removeFCMToken } from "../lib/fcm";
+import {
+  ensureFCMServiceWorker,
+  requestNotificationPermission,
+  getFCMToken,
+  saveFCMToken,
+  removeFCMToken,
+} from "../lib/fcm";
 
 function isTabDebugEnabled(): boolean {
   if (typeof window === "undefined") return false;
@@ -23,13 +29,7 @@ export default function PWAProvider() {
     if (typeof window === "undefined") return;
     if (!("Notification" in window) || !("serviceWorker" in navigator)) return;
 
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.getRegistration("/firebase-messaging-sw.js").then((reg) => {
-        if (!reg) {
-          navigator.serviceWorker.register("/firebase-messaging-sw.js").catch(() => {});
-        }
-      });
-    }
+    void ensureFCMServiceWorker();
 
     const unsubAuth = onAuthStateChanged(auth, async (user) => {
       if (isTabDebugEnabled()) {
