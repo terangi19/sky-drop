@@ -295,14 +295,36 @@ export default function SellerPage() {
 
   const avgRating = reviews.length > 0 ? (reviews.reduce((t, r) => t + r.rating, 0) / reviews.length) : 0;
 
-  const memberDate = profile?.memberSince?.toDate().toLocaleDateString("en-NZ", { year: "numeric", month: "short" }) || "";
+  const memberDate = useMemo(() => {
+    if (!profile?.memberSince) return "";
+    // Handle both Timestamp objects and plain strings/numbers
+    if (typeof profile.memberSince === "object" && "toDate" in profile.memberSince) {
+      return profile.memberSince.toDate().toLocaleDateString("en-NZ", { year: "numeric", month: "short" });
+    }
+    // If it's a string or number, try to parse it
+    const date = new Date(profile.memberSince);
+    if (!isNaN(date.getTime())) {
+      return date.toLocaleDateString("en-NZ", { year: "numeric", month: "short" });
+    }
+    return "";
+  }, [profile?.memberSince]);
   const sellerEmail = profile?.email || "";
   const displayName = sellerProfileDisplayName(profile, "Seller");
   const displayHandle = displayName === "Seller" ? displayName : `@${displayName}`;
   const initial = displayName.charAt(0).toUpperCase();
 
   const trustScore = useMemo(() => {
-    const memberDate = profile?.memberSince?.toDate ? profile.memberSince.toDate() : null;
+    let memberDate = null;
+    if (profile?.memberSince) {
+      if (typeof profile.memberSince === "object" && "toDate" in profile.memberSince) {
+        memberDate = profile.memberSince.toDate();
+      } else {
+        const date = new Date(profile.memberSince);
+        if (!isNaN(date.getTime())) {
+          memberDate = date;
+        }
+      }
+    }
     return calculateTrustScore({
       emailVerified: profileEmailVerified(profile),
       hasProfile: true,
