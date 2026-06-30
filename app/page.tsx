@@ -570,9 +570,7 @@ export default function Home() {
               isVisible &&
               isListingVisibleInMarketplace(item) &&
               !isDemoListing(item) &&
-              (selectedCategory === "All"
-                ? isHomeBrowseListing(item)
-                : isPhysicalHomeCategoryListing(item))
+              isPhysicalHomeCategoryListing(item)
             );
 
           }
