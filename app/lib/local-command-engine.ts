@@ -33,6 +33,14 @@ export type LocalCommandAction = {
   run?: () => { ok: boolean; path?: string };
 };
 
+/* ── Direct shortcut commands ── */
+// These bypass the entire pipeline for reliability.
+const EXACT_NAV: Record<string, { path: string; title: string; aliases: string[] }> = {
+  sell:    { path: "/post/ai", title: "Sell",  aliases: ["sell", "sells", "i want to sell", "create a listing", "new listing", "post something", "list something"] },
+  sales:   { path: "/sales",   title: "Sales", aliases: ["sales", "sells", "sails", "my sales", "sold items"] },
+  home:    { path: "/",        title: "Home",  aliases: ["home", "go home", "home page", "main", "marketplace"] },
+};
+
 /* ── Intent Regexes ── */
 
 const RESUME_INTENT = /\b(resume( listening)?|continue listening|i'?m back|keep listening|unpause)\b/i;
@@ -459,6 +467,13 @@ function buildNavCompacts(): Set<string> {
   for (const p of ["goback", "gohome", "scrollup", "scrolldown", "scrolltotop", "scrolltobottom", "refresh", "reload", "stoplistening", "resumelistening", "close", "cancel", "back", "home"]) {
     s.add(p);
   }
+  // Add EXACT_NAV shortcut aliases
+  for (const entry of Object.values(EXACT_NAV)) {
+    for (const alias of entry.aliases) {
+      const c = alias.toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (c.length <= 25) s.add(c);
+    }
+  }
   _navCompacts = s;
   return s;
 }
@@ -495,6 +510,23 @@ export function matchLocalCommand(text: string, pathname: string): LocalCommandA
   if (!trimmed) return null;
 
   const nw = wordCount(trimmed);
+
+  // 0. Direct shortcut commands — bypass all pipeline logic for reliability.
+  // These handle the most common nav commands that users expect to just work.
+  if (nw <= 4) {
+    const compact = trimmed.toLowerCase().replace(/[^a-z0-9]/g, "");
+    for (const entry of Object.values(EXACT_NAV)) {
+      for (const alias of entry.aliases) {
+        const a = alias.toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (compact === a) {
+          const samePath = pathname === entry.path;
+          return samePath
+            ? { type: "page", status: `You're already on ${entry.title}.`, confidence: "high", heard: trimmed, targetTitle: entry.title, run: () => ({ ok: true }) }
+            : { type: "navigate", path: entry.path, status: `Opening ${entry.title}…`, confidence: "high", heard: trimmed, targetTitle: entry.title };
+        }
+      }
+    }
+  }
 
   // 1. Context actions (highest priority — go back, go home, scroll, refresh, close)
   const contextAction = buildContextAction(trimmed);
