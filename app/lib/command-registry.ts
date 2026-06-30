@@ -24,7 +24,7 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
     path: "/post/ai",
     title: "Sell",
     aliases: [
-      "sell", "create listing", "new listing", "post", "list item",
+      "sell", "sells", "create listing", "new listing", "post", "list item",
       "sell tab", "ai post", "create a listing", "create a new listing",
       "list something", "sell something", "i want to sell", "make a listing",
       "post something", "start selling", "post an ad", "place an ad",
@@ -593,7 +593,7 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
 ];
 
 /* ── Precomputed lookup structures ── */
-type FlatEntry = { path: string; title: string; phrase: string };
+type FlatEntry = { path: string; title: string; phrase: string; phonetic: boolean };
 
 let _flatMap: FlatEntry[] | null = null;
 
@@ -606,33 +606,39 @@ function buildFlatMap(): FlatEntry[] {
   const map: FlatEntry[] = [];
   for (const entry of ROUTE_REGISTRY) {
     for (const alias of entry.aliases) {
-      map.push({ path: entry.path, title: entry.title, phrase: normalize(alias) });
+      map.push({ path: entry.path, title: entry.title, phrase: normalize(alias), phonetic: false });
     }
     for (const alias of entry.phoneticAliases ?? []) {
-      map.push({ path: entry.path, title: entry.title, phrase: normalize(alias) });
+      map.push({ path: entry.path, title: entry.title, phrase: normalize(alias), phonetic: true });
     }
   }
   _flatMap = map;
   return map;
 }
 
-/** Score how well a normalized query matches a phrase. */
-export function scorePhraseMatch(query: string, phrase: string): number {
+/** Score how well a normalized query matches a phrase.
+ *  Phonetic aliases get a 2-point penalty so primary aliases
+ *  always win ties. This prevents "sells" (common STT output
+ *  for "sell") from routing to Sales via its phonetic alias.
+ */
+export function scorePhraseMatch(query: string, phrase: string, phonetic: boolean): number {
   if (!query || !phrase) return 0;
 
-  if (query === phrase) return 10;
+  let score: number;
 
-  if (query.startsWith(phrase) || phrase.startsWith(query)) return 8;
+  if (query === phrase) score = 10;
+  else if (query.startsWith(phrase) || phrase.startsWith(query)) score = 8;
+  else if (query.includes(phrase) || phrase.includes(query)) score = 6;
+  else {
+    const qWords = new Set(query.split(" "));
+    const pWords = phrase.split(" ");
+    const overlap = pWords.filter((w) => qWords.has(w)).length;
+    if (overlap === pWords.length && overlap > 0 && pWords.length >= 2) score = 5;
+    else if (overlap >= 2) score = 4;
+    else return 0;
+  }
 
-  if (query.includes(phrase) || phrase.includes(query)) return 6;
-
-  const qWords = new Set(query.split(" "));
-  const pWords = phrase.split(" ");
-  const overlap = pWords.filter((w) => qWords.has(w)).length;
-  if (overlap === pWords.length && overlap > 0 && pWords.length >= 2) return 5;
-  if (overlap >= 2) return 4;
-
-  return 0;
+  return phonetic ? score - 2 : score;
 }
 
 /** Find the best matching route for a query. Returns null if nothing close. */
@@ -647,7 +653,7 @@ export function matchRouteFromRegistry(
   let best: { path: string; title: string; score: number } | null = null;
 
   for (const entry of map) {
-    const score = scorePhraseMatch(query, entry.phrase);
+    const score = scorePhraseMatch(query, entry.phrase, entry.phonetic);
     if (score > 0 && (!best || score > best.score)) {
       best = { path: entry.path, title: entry.title, score };
     }
