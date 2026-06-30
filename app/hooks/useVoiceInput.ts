@@ -72,6 +72,8 @@ export function useVoiceInput({
   const continuousRef = useRef(continuous);
   const sessionBufferRef = useRef("");
   const startListeningRef = useRef<(() => Promise<void>) | null>(null);
+  /** Bumped before abort/stop so stale recognition handlers cannot clobber a new session. */
+  const recognitionGenerationRef = useRef(0);
 
   const isVoiceSession = useCallback(
     () => Boolean(sessionContinuousRef?.current ?? keepAliveRef.current),
@@ -174,10 +176,15 @@ export function useVoiceInput({
     recordingSessionRef.current = null;
   }, [syncMicListening]);
 
+  const invalidateRecognitionSession = useCallback(() => {
+    recognitionGenerationRef.current += 1;
+  }, []);
+
   const stopListening = useCallback(
     (options?: { preserveVoiceSession?: boolean }) => {
       if (!options?.preserveVoiceSession) {
         intentionalStopRef.current = true;
+        invalidateRecognitionSession();
       }
       if (recordingSessionRef.current) {
         recordingSessionRef.current.cancel();
@@ -196,7 +203,7 @@ export function useVoiceInput({
       }
       clearActive();
     },
-    [clearActive]
+    [clearActive, invalidateRecognitionSession]
   );
 
   const emitUtterance = useCallback(
@@ -288,7 +295,12 @@ export function useVoiceInput({
 
   const attachRecognitionHandlers = useCallback(
     (recognition: SpeechRecognitionLike, allowServerFallback: boolean) => {
+      const generation = ++recognitionGenerationRef.current;
+
+      const isStale = () => generation !== recognitionGenerationRef.current;
+
       recognition.onstart = () => {
+        if (isStale()) return;
         intentionalStopRef.current = false;
         syncMicListening(true);
         if (!continuousRef.current && !keepAliveRef.current) {
@@ -298,6 +310,7 @@ export function useVoiceInput({
       };
 
       recognition.onresult = (event) => {
+        if (isStale()) return;
         let hadFinalChunk = false;
         let interim = "";
 
@@ -322,18 +335,24 @@ export function useVoiceInput({
 
       recognition.onerror = (event) => {
         void (async () => {
-          if (event.error === "aborted") return;
+          if (isStale() || event.error === "aborted") return;
 
           const brave = await isBraveBrowser();
+          if (isStale()) return;
+
           const mapped = mapSpeechError(event.error, {
             usedOnDevice: usedOnDeviceRef.current,
             isBrave: brave,
           });
 
+          if (isStale()) return;
+
           listeningRef.current = false;
           if (micListeningRef) micListeningRef.current = false;
           setListening(false);
-          recognitionRef.current = null;
+          if (recognitionRef.current === recognition) {
+            recognitionRef.current = null;
+          }
 
           if (event.error === "no-speech" && isVoiceSession()) {
             void startListeningRef.current?.();
@@ -345,7 +364,8 @@ export function useVoiceInput({
               { lang: "en-US", processLocally: usedOnDeviceRef.current },
               { continuous: continuousRef.current }
             );
-            if (retry) {
+            if (retry && !isStale()) {
+              invalidateRecognitionSession();
               recognitionRef.current = retry;
               attachRecognitionHandlers(retry, false);
               try {
@@ -371,19 +391,20 @@ export function useVoiceInput({
       };
 
       recognition.onend = () => {
-        if (recordingRef.current) return;
+        if (isStale() || recordingRef.current) return;
         const keepSession = isVoiceSession() && !intentionalStopRef.current;
-        clearActive();
+        if (recognitionRef.current === recognition) {
+          clearActive();
+        }
         if (keepSession) {
           window.setTimeout(() => {
-            if (isVoiceSession() && !intentionalStopRef.current) {
-              void startListeningRef.current?.();
-            }
+            if (isStale() || intentionalStopRef.current || !isVoiceSession()) return;
+            void startListeningRef.current?.();
           }, 100);
         }
       };
     },
-    [beginServerRecording, clearActive, clearSessionBuffer, emitUtterance, isVoiceSession, micListeningRef, syncMicListening, utteranceTextRef]
+    [beginServerRecording, clearActive, clearSessionBuffer, emitUtterance, invalidateRecognitionSession, isVoiceSession, micListeningRef, syncMicListening, utteranceTextRef]
   );
 
   const startBrowserRecognition = useCallback(async () => {
@@ -442,6 +463,8 @@ export function useVoiceInput({
     if (disabled || restartingRef.current) return;
     restartingRef.current = true;
     try {
+      invalidateRecognitionSession();
+
       if (recordingSessionRef.current) {
         recordingSessionRef.current.cancel();
         recordingSessionRef.current = null;
@@ -480,7 +503,7 @@ export function useVoiceInput({
     } finally {
       restartingRef.current = false;
     }
-  }, [disabled, startListening, syncMicListening]);
+  }, [disabled, invalidateRecognitionSession, startListening, syncMicListening]);
 
   const toggleListening = useCallback(() => {
     if (listeningRef.current || recordingRef.current) {

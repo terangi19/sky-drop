@@ -132,8 +132,6 @@ export function useAwhinaVoice() {
   const lastScheduledTextRef = useRef("");
   const lastInstantExecRef = useRef("");
   const lastInstantAtRef = useRef(0);
-  const lastCommandAtRef = useRef(0);
-  const COMMAND_COOLDOWN_MS = 500;
   const inactivityTimerRef = useRef<number | null>(null);
   const stopListeningRef = useRef<((options?: { preserveVoiceSession?: boolean }) => void) | null>(null);
   const startListeningRef = useRef<(() => Promise<void>) | null>(null);
@@ -209,7 +207,6 @@ export function useAwhinaVoice() {
   }, [scheduleInactivityPause]);
 
   const afterCommandCycle = useCallback(() => {
-    lastCommandAtRef.current = Date.now();
     busyRef.current = false;
     abortProcessingRef.current = false;
     pendingConfirmationRef.current = null;
@@ -235,10 +232,7 @@ export function useAwhinaVoice() {
     setHeardText(null);
     setActionText(null);
     scheduleInactivityPause();
-    if (navigatedByVoiceRef.current || !micListeningRef.current) {
-      navigatedByVoiceRef.current = false;
-      void restartListeningRef.current?.({ force: true });
-    }
+    void restartListeningRef.current?.({ force: true });
   }, [keepVoiceModeOn, scheduleInactivityPause]);
 
   const ensureListening = useCallback(() => {
@@ -787,8 +781,6 @@ export function useAwhinaVoice() {
 
       if (!trimmed) return;
 
-      if (Date.now() - lastCommandAtRef.current < COMMAND_COOLDOWN_MS && !isExactNavShortcut(trimmed)) return;
-
       const textChanged = trimmed !== utteranceTextRef.current.trim();
       utteranceTextRef.current = display;
 
@@ -886,7 +878,7 @@ export function useAwhinaVoice() {
       if (!pausedRef.current && !busyRef.current) {
         window.setTimeout(() => {
           if (voiceModeRef.current && !pausedRef.current && !busyRef.current) {
-            void restartListeningRef.current?.();
+            void restartListeningRef.current?.({ force: true });
           }
         }, 600);
       }
@@ -1019,10 +1011,10 @@ export function useAwhinaVoice() {
         window.setTimeout(restart, 80);
         return;
       }
-      void restartListeningRef.current?.();
+      void restartListeningRef.current?.({ force: true });
     };
 
-    const t = window.setTimeout(restart, navigatedByVoiceRef.current ? 60 : 180);
+    const t = window.setTimeout(restart, navigatedByVoiceRef.current ? 80 : 200);
     return () => {
       cancelled = true;
       window.clearTimeout(t);
@@ -1040,7 +1032,7 @@ export function useAwhinaVoice() {
     const id = window.setInterval(() => {
       if (!voiceModeRef.current || pausedRef.current || busyRef.current) return;
       if (!micListeningRef.current) {
-        void restartListeningRef.current?.();
+        void restartListeningRef.current?.({ force: true });
       }
     }, 1_500);
 
