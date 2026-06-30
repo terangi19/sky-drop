@@ -80,6 +80,36 @@ export function isSpeechRecognitionSupported(): boolean {
   return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
 }
 
+/** True when MediaRecorder is available (server-side VAD fallback). */
+export function isMediaRecorderSupported(): boolean {
+  if (typeof window === "undefined") return false;
+  return typeof MediaRecorder !== "undefined" && typeof navigator.mediaDevices?.getUserMedia === "function";
+}
+
+/**
+ * Pre-warm the audio pipeline for server-side recording.
+ * Call early on mount so the first mic start is instant.
+ */
+export function prewarmServerRecording(): void {
+  if (typeof window === "undefined") return;
+  if (typeof AudioContext === "undefined") return;
+  try {
+    const ctx = new AudioContext();
+    if (ctx.state === "suspended") {
+      void ctx.resume().catch(() => undefined);
+    }
+    // Don't keep the context open — just warm it.
+    window.setTimeout(() => ctx.close().catch(() => undefined), 100);
+  } catch {
+    /* best-effort pre-warm */
+  }
+  // Pre-check mime type
+  if (typeof MediaRecorder !== "undefined") {
+    const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"];
+    candidates.find((type) => MediaRecorder.isTypeSupported(type));
+  }
+}
+
 function getSpeechRecognitionCtor(): SpeechRecognitionStatic | null {
   if (typeof window === "undefined") return null;
   return window.SpeechRecognition || window.webkitSpeechRecognition || null;
@@ -147,9 +177,11 @@ export async function resolveSpeechRecognitionConfig(
 
   const langs = uniqueLangs(preferredLang);
   const brave = await isBraveBrowser();
-  // Brave previously blocked cloud STT, but shields can be lowered per-site.
-  // Try cloud too — error handling in onerror/checkAvailability catches blocks.
-  const modes: boolean[] = [true, false];
+  // Brave blocks cloud STT — only try on-device recognition, then fall
+  // through to server transcription immediately instead of waiting for
+  // cloud attempts to fail.
+  const modes: boolean[] = [true];
+  if (!brave) modes.push(false);
 
   for (const processLocally of modes) {
     for (const lang of langs) {
@@ -376,7 +408,7 @@ export function startMicrophoneRecording(options?: VadOptions): RecordingControl
   const maxMs = options?.maxMs ?? 45_000;
   const baseSilenceMs = options?.silenceMs ?? 3_600;
   const minSpeechMs = options?.minSpeechMs ?? 500;
-  const noSpeechMs = options?.noSpeechMs ?? 7_000;
+  const noSpeechMs = options?.noSpeechMs ?? 4_000;
   const speechThreshold = options?.speechThreshold ?? 0.032;
 
   let recorder: MediaRecorder | null = null;

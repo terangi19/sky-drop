@@ -5,8 +5,10 @@ import {
   createSpeechRecognition,
   ensureMicrophonePermission,
   isBraveBrowser,
+  isMediaRecorderSupported,
   isSpeechRecognitionSupported,
   mapSpeechError,
+  prewarmServerRecording,
   resolveSpeechRecognitionConfig,
   startMicrophoneRecording,
   transcribeAudioOnServer,
@@ -127,9 +129,12 @@ export function useVoiceInput({
   }, [onFinalTranscript, onInterimTranscript, onUtteranceUpdate, onError, onStatus, onActivity]);
 
   useEffect(() => {
-    setSupported(isSpeechRecognitionSupported() || typeof MediaRecorder !== "undefined");
+    const sttSupported = isSpeechRecognitionSupported();
+    const recorderSupported = isMediaRecorderSupported();
+    setSupported(sttSupported || recorderSupported);
+
     // Pre-warm STT engine — load the language model so first tap is instant.
-    if (isSpeechRecognitionSupported() && typeof window !== "undefined") {
+    if (sttSupported && typeof window !== "undefined") {
       try {
         const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (Ctor) {
@@ -144,6 +149,13 @@ export function useVoiceInput({
       // Also warm the config cache so the first startListening has no async delay.
       resolveSpeechRecognitionConfig().catch(() => undefined);
     }
+
+    // Pre-warm server recording path for Brave or when STT isn't available,
+    // so the first mic start (AudioContext, mime check) is instant.
+    if (!sttSupported || isBraveBrowser()) {
+      prewarmServerRecording();
+    }
+
     return () => {
       intentionalStopRef.current = true;
       recognitionRef.current?.abort();
@@ -261,8 +273,9 @@ export function useVoiceInput({
     const session = startMicrophoneRecording({
       maxMs: sessionContinuous ? 60_000 : 30_000,
       getSilenceMs: () => getSilenceMs(utteranceTextRef?.current ?? ""),
-      speechThreshold: sessionContinuous ? 0.038 : 0.032,
-      minSpeechMs: 500,
+      speechThreshold: sessionContinuous ? 0.035 : 0.028,
+      minSpeechMs: 400,
+      noSpeechMs: 3_500,
       onSpeaking: () => {
         callbacksRef.current.onActivity?.();
         callbacksRef.current.onStatus?.("Listening…");
