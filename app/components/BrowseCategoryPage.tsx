@@ -48,15 +48,13 @@ import { useSellerListingMeta } from "../lib/useSellerListingMeta";
 import { LISTING_GRID_MT, PAGE_SHELL_MARKETPLACE } from "../lib/page-layout";
 
 function listingSearchText(
-  item: Record<string, unknown>,
-  extra?: (item: Record<string, unknown>) => string[]
+  item: Record<string, unknown>
 ): string {
   const parts = [
     item.title,
     item.description,
     item.location,
     item.category,
-    ...(extra?.(item) || []),
   ];
   return parts
     .filter(Boolean)
@@ -67,10 +65,9 @@ function listingSearchText(
 
 function listingMatchesSearch(
   item: Record<string, unknown>,
-  queryText: string,
-  extra?: (item: Record<string, unknown>) => string[]
+  queryText: string
 ): boolean {
-  const haystack = listingSearchText(item, extra);
+  const haystack = listingSearchText(item);
   const words = queryText.toLowerCase().split(/\s+/).filter((w) => w.length >= 1);
   if (words.length === 0) return true;
   return words.every((w) => haystack.includes(w));
@@ -230,7 +227,7 @@ export default function BrowseCategoryPage({ configKey }: Props) {
         return false;
       }
       if (!q) return true;
-      return listingMatchesSearch(item, q, config.extraSearchFields);
+      return listingMatchesSearch(item, q);
     });
   }, [
     listings,
@@ -239,7 +236,6 @@ export default function BrowseCategoryPage({ configKey }: Props) {
     selectedCategory,
     searchQuery,
     config.filterMode,
-    config.extraSearchFields,
   ]);
 
   const hasActiveFilters =

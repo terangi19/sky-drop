@@ -171,8 +171,6 @@ export const BROWSE_CATEGORY_CONFIGS: Record<string, BrowseCategoryConfig> = {
       "Hospitality & Tourism",
       "Other",
     ],
-    extraSearchFields: (item) =>
-      [item.company, item.employmentType].filter(Boolean) as string[],
     trustRow: [
       "🔍 Browse by industry",
       "💬 Apply directly in chat",
@@ -207,8 +205,6 @@ export const BROWSE_CATEGORY_CONFIGS: Record<string, BrowseCategoryConfig> = {
       "Food & Drink",
       "Other",
     ],
-    extraSearchFields: (item) =>
-      [item.venue, item.eventTime].filter(Boolean) as string[],
     trustRow: [
       "🔍 Browse by category",
       "🎟 Buy tickets securely",
@@ -233,13 +229,6 @@ export const BROWSE_CATEGORY_CONFIGS: Record<string, BrowseCategoryConfig> = {
     emptyTitle: "No vehicles listed yet",
     emptySubtitle: "Be the first to list a vehicle.",
     filterMode: "region",
-    extraSearchFields: (item) =>
-      [
-        item.vehicleMake,
-        item.vehicleModel,
-        item.vehicleYear,
-        item.vehicleBodyType,
-      ].filter(Boolean) as string[],
     trustRow: [
       "🔍 Browse by region",
       "💬 Message sellers directly",
@@ -264,8 +253,6 @@ export const BROWSE_CATEGORY_CONFIGS: Record<string, BrowseCategoryConfig> = {
     emptyTitle: "No property listed yet",
     emptySubtitle: "Be the first to list a property.",
     filterMode: "region",
-    extraSearchFields: (item) =>
-      [item.propertyType, item.bedrooms, item.bathrooms].filter(Boolean) as string[],
     trustRow: [
       "🔍 Browse by region",
       "💬 Contact agents & sellers",
