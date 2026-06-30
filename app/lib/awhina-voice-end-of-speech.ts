@@ -1,6 +1,11 @@
-/** Context-aware end-of-speech timing for Āwhina Voice. */
+/** Context-aware end-of-speech timing for Voice Mode.
+ *
+ * Local commands (navigation, search, page actions) get zero silence wait.
+ * Conversational and listing speech get generous patience.
+ */
 
-import { resolveInstantCommand, resolveVoiceCommand } from "./awhina-voice-command";
+import { isInstantLocalCommand } from "./local-command-engine";
+import { resolveVoiceCommand } from "./awhina-voice-command";
 
 export type VoiceUtteranceKind = "navigation" | "search" | "listing" | "conversation";
 
@@ -24,16 +29,16 @@ const INCOMPLETE_TRAIL =
 const NAV_TO_INCOMPLETE = /\b(?:go|take me|navigate|open|bring me|bring up|head|show)\s+to\s*$/i;
 
 export const SILENCE_MS: Record<VoiceUtteranceKind, number> = {
-  navigation: 600,
-  search: 800,
-  listing: 12_000,
-  conversation: 5_000,
+  navigation: 0,        // Instant — no silence wait for local commands
+  search: 0,            // Instant
+  listing: 12_000,      // Patient — user is dictating
+  conversation: 5_000,  // Wait for complete thought
 };
 
 /** Short pause after the browser commits a complete phrase (user already stopped). */
 const POST_FINAL_MS: Record<VoiceUtteranceKind, number> = {
   navigation: 0,
-  search: 300,
+  search: 0,
   listing: 2_500,
   conversation: 1_500,
 };
@@ -107,15 +112,20 @@ export type EndOfSpeechOptions = {
   quickCommand?: boolean;
 };
 
-/** Ready to act immediately — no silence wait (page names, go to X, etc.). */
+/** Check if text is an instant local command (no silence wait needed). */
 export function isInstantVoiceCommand(text: string, pathname: string): boolean {
-  return resolveInstantCommand(text, pathname) !== null;
+  return isInstantLocalCommand(text, pathname);
 }
 
 /** How long to wait after the last speech activity before processing. */
 export function endOfSpeechDelayMs(text: string, options?: EndOfSpeechOptions): number {
   const t = text.trim();
   if (!t) return SILENCE_MS.conversation;
+
+  // Quick check: if this is an instant local command, return 0
+  if (options?.pathname && isInstantLocalCommand(t, options.pathname)) {
+    return 0;
+  }
 
   const kind = classifyVoiceUtterance(t);
   const incomplete = isIncompleteUtterance(t);
@@ -126,13 +136,7 @@ export function endOfSpeechDelayMs(text: string, options?: EndOfSpeechOptions): 
       if (options.hadFinalChunk) return POST_FINAL_MS.listing;
       return SILENCE_MS.listing;
     }
-    if (
-      cmd?.type === "navigate" ||
-      cmd?.type === "page" ||
-      cmd?.type === "search" ||
-      cmd?.type === "resume" ||
-      cmd?.type === "voice_off"
-    ) {
+    if (cmd?.type === "voice_off" || cmd?.type === "resume") {
       return 0;
     }
   }

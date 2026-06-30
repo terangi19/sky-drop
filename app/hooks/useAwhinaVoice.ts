@@ -35,6 +35,7 @@ export type AwhinaVoicePhase =
   | "confirming";
 
 const VOICE_PREFETCH_PATHS = [
+  "/",
   "/watchlist",
   "/services",
   "/search",
@@ -45,6 +46,17 @@ const VOICE_PREFETCH_PATHS = [
   "/post/ai",
   "/sales",
   "/purchases",
+  "/list-list",
+  "/notifications",
+  "/profile",
+  "/payments",
+  "/reviews",
+  "/trade-feed",
+  "/wanted",
+  "/opportunities",
+  "/events",
+  "/jobs",
+  "/faqs",
 ];
 
 const INACTIVITY_MS = 45_000;
@@ -53,6 +65,18 @@ const VOICE_MODE_STORAGE_KEY = "awhina-voice-mode-on";
 function readVoiceModePersisted(): boolean {
   if (typeof window === "undefined") return false;
   return sessionStorage.getItem(VOICE_MODE_STORAGE_KEY) === "1";
+}
+
+/** Check if a voice command is high-priority navigation — can preempt AI processing. */
+function isPriorityNav(cmd: VoiceCommandAction | null): boolean {
+  if (!cmd) return false;
+  return (
+    cmd.type === "navigate" ||
+    cmd.type === "search" ||
+    cmd.type === "page" ||
+    cmd.type === "resume" ||
+    cmd.type === "voice_off"
+  );
 }
 const PAUSED_HINT =
   'Voice paused. Tap the mic or say "Resume listening" to continue.';
@@ -516,15 +540,24 @@ export function useAwhinaVoice() {
       }
 
       setPhase("processing");
-      setHeadline("Processing…");
+      setHeadline("Asking Āwhina…");
       setTranscript(formatUtteranceDisplay(trimmed));
-      setHint(null);
+      setHint("One moment…");
+
+      if (abortIfSuperseded()) {
+        busyRef.current = false;
+        return;
+      }
 
       const controller = new AbortController();
-      const fetchTimeout = window.setTimeout(() => controller.abort(), 15_000);
+      const fetchTimeout = window.setTimeout(() => controller.abort(), 8_000);
 
       try {
         const token = await getFreshIdToken();
+        if (abortIfSuperseded()) {
+          busyRef.current = false;
+          return;
+        }
         const res = await fetch("/api/sky-ai", {
           method: "POST",
           headers: {
@@ -705,24 +738,31 @@ export function useAwhinaVoice() {
 
   const handleUtteranceUpdate = useCallback(
     (display: string, meta: UtteranceUpdateMeta) => {
-      if (busyRef.current) {
-        abortProcessingRef.current = true;
-        processGenerationRef.current += 1;
-        // If we're waiting for confirmation and user says something, process it
-        if (pendingConfirmationRef.current) {
-          const trimmed = display.trim();
-          if (trimmed) {
-            busyRef.current = false; // Temporarily un-busy to let runVoiceCommandNow handle it
-            abortProcessingRef.current = false;
-          } else {
-            return;
-          }
+      const trimmed = display.trim();
+
+      // Check if this is a priority navigation command that can preempt AI processing
+      if (busyRef.current && trimmed) {
+        const navCmd = resolveVoiceCommand(trimmed, pathname);
+        if (isPriorityNav(navCmd)) {
+          abortProcessingRef.current = true;
+          processGenerationRef.current += 1;
+          busyRef.current = false;
+          clearEndOfSpeechTimers();
+          clearInactivityTimer();
+          setPhase("listening");
+          setHeadline("Listening…");
+          // Fall through to handle this nav command immediately
+          if (runVoiceCommandNow(trimmed)) return;
+        } else if (pendingConfirmationRef.current) {
+          abortProcessingRef.current = true;
+          processGenerationRef.current += 1;
+          busyRef.current = false;
+          abortProcessingRef.current = false;
         } else {
           return;
         }
       }
 
-      const trimmed = display.trim();
       if (!trimmed) return;
 
       if (Date.now() - lastCommandAtRef.current < COMMAND_COOLDOWN_MS) return;
@@ -895,7 +935,46 @@ export function useAwhinaVoice() {
     setHeadline("Listening…");
     setHint(VOICE_MODE_ON_HINT);
     scheduleInactivityPause();
-    void startListeningRef.current?.();
+
+    let cancel = false;
+    let attempts = 0;
+    const maxAttempts = 4;
+    const tryStart = () => {
+      if (cancel || !voiceModeRef.current || attempts >= maxAttempts) {
+        if (attempts >= maxAttempts && !cancel) {
+          setHint("Tap the mic to resume.");
+          setPhase("paused");
+          setHeadline("Voice paused");
+          setPausedState(true);
+        }
+        return;
+      }
+      attempts++;
+      try {
+        const p = startListeningRef.current?.();
+        if (p) {
+          p.catch(() => {
+            if (!cancel && voiceModeRef.current) {
+              window.setTimeout(tryStart, 250);
+            }
+          });
+        } else {
+          window.setTimeout(tryStart, 100);
+        }
+      } catch {
+        if (!cancel && voiceModeRef.current) {
+          window.setTimeout(tryStart, 250);
+        }
+      }
+    };
+
+    // Wait briefly for startListeningRef to be assigned, then try
+    const ready = () => {
+      if (startListeningRef.current) tryStart();
+      else window.setTimeout(ready, 50);
+    };
+    ready();
+    return () => { cancel = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- restore once on mount
   }, []);
 

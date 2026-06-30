@@ -1,4 +1,4 @@
-/** Phonetic matching for voice commands — handles common STT mishearings. */
+/** Phonetic matching for voice commands — handles common STT mishearings and fuzzy matching. */
 
 /* ── Direct phonetic substitution map ── */
 // Maps what STT often hears → what the user likely meant
@@ -14,55 +14,78 @@ const PHONETIC_SUBSTITUTIONS: Record<string, string[]> = {
   profiel: ["profile"],
   profil: ["profile"],
   prophile: ["profile"],
+  profile: ["profile"],
+  prof: ["profile"],
 
   // Messages
   massages: ["messages"],
   messags: ["messages"],
   mesages: ["messages"],
   inboxs: ["messages"],
+  mesagges: ["messages"],
+  messeges: ["messages"],
 
   // Payments
   paymants: ["payments"],
   paymints: ["payments"],
+  paymint: ["payments"],
+  billings: ["payments"],
+  wallit: ["wallet", "payments"],
 
   // Purchases
   purchas: ["purchases"],
   purches: ["purchases"],
+  purchis: ["purchases"],
+  purch: ["purchases"],
 
   // Watchlist
   watchlit: ["watchlist"],
-  favourits: ["favorites", "favourites"],
-  favorits: ["favorites", "favourites"],
+  watchlist: ["watchlist"],
+  favourits: ["favorites", "favourites", "watchlist"],
+  favorits: ["favorites", "favourites", "watchlist"],
+  wichlist: ["watchlist"],
+  wishlist: ["watchlist"],
 
   // Listings
   listins: ["listings"],
   listngs: ["listings"],
+  listing: ["listings"],
 
   // Vehicles
   vihicles: ["vehicles"],
   vehicls: ["vehicles"],
   vecals: ["vehicles"],
+  vihicle: ["vehicles"],
+  vheicles: ["vehicles"],
 
   // Services
   servises: ["services"],
   servics: ["services"],
   survices: ["services"],
+  servic: ["services"],
 
   // Rentals
   rentls: ["rentals"],
   rintals: ["rentals"],
+  rentel: ["rentals"],
+  rentals: ["rentals"],
 
   // Notifications
   notifcations: ["notifications"],
   notificashuns: ["notifications"],
+  notif: ["notifications"],
+  notificashon: ["notifications"],
 
   // Dashboard
   dashbord: ["dashboard"],
   dashbard: ["dashboard"],
+  dash: ["dashboard"],
+  dashboad: ["dashboard"],
 
   // Admin
   admen: ["admin"],
   admine: ["admin"],
+  admn: ["admin"],
 
   // Digital
   digitl: ["digital"],
@@ -71,24 +94,88 @@ const PHONETIC_SUBSTITUTIONS: Record<string, string[]> = {
   // Reviews
   revews: ["reviews"],
   revues: ["reviews"],
+  revws: ["reviews"],
+  ratins: ["ratings", "reviews"],
 
   // Search
   serch: ["search"],
   brous: ["browse"],
   surch: ["search"],
+  sarch: ["search"],
+  brwose: ["browse"],
 
   // Home
   hoam: ["home"],
   hom: ["home"],
+  hompage: ["home"],
+  mainpage: ["home"],
 
   // Awhina / Sky Drop
   athena: ["awhina"],
   awina: ["awhina"],
   ahina: ["awhina"],
+  awhina: ["awhina"],
+
+  // Settings
+  settins: ["settings"],
+  settngs: ["settings"],
+  setings: ["settings"],
+  prefrences: ["preferences", "settings"],
+
+  // Security
+  secrity: ["security"],
+  sucurity: ["security"],
+  secutity: ["security"],
+
+  // Verification
+  verifcation: ["verification"],
+  verificashun: ["verification"],
+  verefy: ["verify", "verification"],
+
+  // Help
+  halp: ["help"],
+  saport: ["support", "help"],
+  helpp: ["help"],
+
+  // Analytics
+  analitics: ["analytics"],
+  analytix: ["analytics"],
+  insites: ["insights", "analytics"],
+
+  // Opportunities
+  oportunities: ["opportunities"],
+  oppertunities: ["opportunities"],
+  oportinities: ["opportunities"],
+
+  // Auctions
+  awkshuns: ["auctions"],
+  ocshuns: ["auctions"],
+  auktion: ["auction", "auctions"],
+
+  // Checkout
+  chekout: ["checkout"],
+
+  // Disputes
+  displuts: ["disputes"],
+
+  // Offers
+  offrs: ["offers"],
+  offas: ["offers"],
+
+  // Events
+  evnts: ["events"],
+
+  // Jobs
+  jobbs: ["jobs"],
+
+  // Drafts
+  drafst: ["drafts"],
+
+  // Stats
+  statss: ["stats", "statistics"],
 };
 
 /* ── Character-level normalization ── */
-// Collapse common STT character confusions
 const PHONETIC_PATTERNS: [RegExp, string][] = [
   [/\bc\b/g, "s"],          // isolated 'c' → 's' (e.g., "cells" → "sells")
   [/ck/g, "k"],              // 'ck' → 'k'
@@ -121,7 +208,6 @@ export function phoneticSimilarity(a: string, b: string): number {
   const nb = phoneticNormalize(b);
   if (na === nb) return 1.0;
   if (na.includes(nb) || nb.includes(na)) return 0.8;
-  // Levenshtein distance ratio
   const dist = levenshtein(na, nb);
   const maxLen = Math.max(na.length, nb.length);
   return maxLen > 0 ? 1 - dist / maxLen : 0;
