@@ -514,7 +514,7 @@ export function getGuideReply(query: string, currentPath: string): GuideReply {
 
   // Special case: if user says "payments" on profile, take them to /payments page, not payment-settings
   // Match "payments" but not "payment settings" or "payment-settings"
-  if (/\bpayments?\b/i.test(normalized) && !/\b(payment\s*settings|payment-settings)\b/i.test(normalized) && currentPath === "/profile") {
+  if (/\bpayments?\b/i.test(normalized) && !/\b(payment\s*settings|payment-settings)\b/i.test(normalized) && (currentPath === "/profile" || currentPath.startsWith("/profile"))) {
     const paymentsDest = GUIDE_DESTINATIONS.find((d) => d.id === "payments");
     if (paymentsDest) {
       return {
