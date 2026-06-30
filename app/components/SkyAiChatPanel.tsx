@@ -653,6 +653,7 @@ export default function SkyAiChatPanel({
 
   const { supported: voiceSupported, listening, toggleListening, stopListening } = useVoiceInput({
     disabled: busy || imageBusy,
+    keepAlive: true,
     onInterimTranscript: (text) => {
       setVoiceHint(null);
       setVoiceStatus(null);
