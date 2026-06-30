@@ -780,8 +780,16 @@ export function useAwhinaVoice() {
       setTranscript(formatUtteranceDisplay(display));
       if (voiceModeRef.current) setHint(VOICE_MODE_ON_HINT);
 
-      if (runVoiceCommandNow(trimmed)) {
-        return;
+      // Only run urgent commands (voice_off, resume) on interim STT.
+      // Navigation waits for a final chunk to avoid acting on
+      // partial matches like "sell" (interim for "sales").
+      if (meta.hadFinalChunk) {
+        if (runVoiceCommandNow(trimmed)) return;
+      } else {
+        const urgent = resolveVoiceCommand(trimmed, pathname);
+        if (urgent && (urgent.type === "voice_off" || urgent.type === "resume")) {
+          if (runVoiceCommandNow(trimmed)) return;
+        }
       }
 
       if (meta.completeUtterance) {
