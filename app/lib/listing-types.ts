@@ -57,5 +57,5 @@ export function isPhysicalHomeCategoryListing(item: {
   type?: string | null;
 }): boolean {
   const t = item.type || "physical";
-  return t === "physical" || t === "vehicle" || t === "property";
+  return t === "physical";
 }
