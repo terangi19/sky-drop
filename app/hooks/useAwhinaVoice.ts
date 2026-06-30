@@ -108,7 +108,7 @@ export function useAwhinaVoice() {
   const lastInstantExecRef = useRef("");
   const lastInstantAtRef = useRef(0);
   const lastCommandAtRef = useRef(0);
-  const COMMAND_COOLDOWN_MS = 1200;
+  const COMMAND_COOLDOWN_MS = 500;
   const inactivityTimerRef = useRef<number | null>(null);
   const stopListeningRef = useRef<((options?: { preserveVoiceSession?: boolean }) => void) | null>(null);
   const startListeningRef = useRef<(() => Promise<void>) | null>(null);
@@ -678,7 +678,7 @@ export function useAwhinaVoice() {
       const quietStart = Date.now();
 
       if (silenceMs > 400) {
-        const stillListeningMs = Math.min(1400, Math.max(500, silenceMs - 400));
+        const stillListeningMs = Math.max(200, silenceMs - 300);
         stillListeningTimerRef.current = window.setTimeout(() => {
           if (!utteranceTextRef.current.trim() || busyRef.current) return;
           const quietFor = Date.now() - quietStart;

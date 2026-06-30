@@ -24,18 +24,18 @@ const INCOMPLETE_TRAIL =
 const NAV_TO_INCOMPLETE = /\b(?:go|take me|navigate|open|bring me|bring up|head|show)\s+to\s*$/i;
 
 export const SILENCE_MS: Record<VoiceUtteranceKind, number> = {
-  navigation: 1200,
-  search: 1800,
+  navigation: 600,
+  search: 800,
   listing: 12_000,
-  conversation: 6_000,
+  conversation: 5_000,
 };
 
 /** Short pause after the browser commits a complete phrase (user already stopped). */
 const POST_FINAL_MS: Record<VoiceUtteranceKind, number> = {
-  navigation: 600,
-  search: 1000,
+  navigation: 0,
+  search: 300,
   listing: 2_500,
-  conversation: 2_000,
+  conversation: 1_500,
 };
 
 export function isIncompleteUtterance(text: string): boolean {
@@ -133,9 +133,7 @@ export function endOfSpeechDelayMs(text: string, options?: EndOfSpeechOptions): 
       cmd?.type === "resume" ||
       cmd?.type === "voice_off"
     ) {
-      // Brief buffer so user isn't cut off — 600ms for nav, 1000ms for search
-      if (cmd.type === "search") return POST_FINAL_MS.search;
-      return POST_FINAL_MS.navigation;
+      return 0;
     }
   }
 
@@ -157,8 +155,7 @@ export function silenceMsForText(text: string): number {
 /** UI label while waiting for more speech. */
 export function listeningHeadline(text: string, quietForMs: number): string {
   if (!text.trim()) return "Listening…";
-  if (quietForMs >= 1200) return "Still listening…";
-  if (quietForMs >= 600) return "Waiting…";
+  if (quietForMs >= 400) return "Still listening…";
   return "Listening…";
 }
 
