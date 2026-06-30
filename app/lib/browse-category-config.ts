@@ -45,7 +45,6 @@ export type BrowseCategoryConfig = {
   emptySubtitle: string;
   filterMode: "region" | "category";
   categories?: string[];
-  extraSearchFields?: (item: Record<string, unknown>) => string[];
   trustRow: [string, string, string];
 };
 
@@ -274,3 +273,5 @@ export const BROWSE_CATEGORY_CONFIGS: Record<string, BrowseCategoryConfig> = {
     ],
   },
 };
+
+export type BrowseCategoryKey = keyof typeof BROWSE_CATEGORY_CONFIGS;

@@ -23,8 +23,9 @@ import {
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
 import {
+  BROWSE_CATEGORY_CONFIGS,
   HOME_MARKETPLACE_THEME,
-  type BrowseCategoryConfig,
+  type BrowseCategoryKey,
 } from "../lib/browse-category-config";
 import {
   getRecentlyViewed,
@@ -76,10 +77,11 @@ function listingMatchesSearch(
 }
 
 type Props = {
-  config: BrowseCategoryConfig;
+  configKey: BrowseCategoryKey;
 };
 
-export default function BrowseCategoryPage({ config }: Props) {
+export default function BrowseCategoryPage({ configKey }: Props) {
+  const config = BROWSE_CATEGORY_CONFIGS[configKey];
   const router = useRouter();
   const t = HOME_MARKETPLACE_THEME;
   const [listings, setListings] = useState<any[]>([]);
