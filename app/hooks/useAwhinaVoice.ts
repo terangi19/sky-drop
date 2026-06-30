@@ -386,6 +386,15 @@ export function useAwhinaVoice() {
           afterCommandCycle();
           return true;
         }
+        // Check if user repeated the original command (implicit confirmation)
+        const targetNorm = pending.heard?.toLowerCase().replace(/[^a-z0-9]/g, "");
+        const saidNorm = trimmed.toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (targetNorm && (saidNorm === targetNorm || saidNorm.includes(targetNorm) || targetNorm.includes(saidNorm))) {
+          pendingConfirmationRef.current = null;
+          busyRef.current = true;
+          void runAction(pending);
+          return true;
+        }
         // User said something else — cancel confirmation, process new input
         pendingConfirmationRef.current = null;
       }
@@ -814,7 +823,7 @@ export function useAwhinaVoice() {
       }
 
       if (isCompleteNavPhrase(trimmed, pathname)) {
-        if (runVoiceCommandNow(trimmed)) return;
+        if (meta.hadFinalChunk && runVoiceCommandNow(trimmed)) return;
         scheduleEndOfSpeech(display, { force: true, quickCommand: true });
         return;
       }

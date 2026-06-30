@@ -45,7 +45,7 @@ const MESSAGE_SELLER_INTENT =
   /\b(message|contact|chat with|talk to)\s+(the\s+)?(seller|owner|them|vendor)\b/i;
 
 const SEARCH_INTENT =
-  /\b(find|search(?:ing)?|look(?:ing)?\s+for|show me|show|get me|need a|want a|where can i find|i need a|i want a|looking for|hunt for|browse for)\b/i;
+  /\b(find|search(?:ing)?|look(?:ing)?\s+for|show me|show|get me|need a|want a|where can i find|i need a|i want a|i want to|i'd like|i'd like to|need to|looking for|hunt for|browse for)\b/i;
 
 const UNDER_PRICE = /\b(?:under|below|less than|max|maximum|up to)\s*\$?\s*([\d,]+(?:\.\d{2})?)/i;
 const OVER_PRICE = /\b(?:over|above|more than|min|minimum|at least)\s*\$?\s*([\d,]+(?:\.\d{2})?)/i;
@@ -71,9 +71,9 @@ const NAV_PREFIXES = [
   "navigate to", "bring me to", "send me to", "guide me to",
   "bring up", "go into", "view", "head to", "get me to",
   "take me into", "show me the", "let me see", "i want to go to",
-  "i need to go to", "can you take me to", "can you open",
+  "i need to go to", "i want to see",
+  "can you take me to", "can you open",
   "go to the", "take me", "bring me",
-  "i want", "i need", "i'd like", "i want to see",
   "can you show me", "can you take me",
 ];
 
@@ -93,10 +93,6 @@ function stripNavPrefix(text: string): string {
 }
 
 /* ── Helpers ── */
-
-function compactSpeech(text: string): string {
-  return text.toLowerCase().replace(/[^a-z0-9]/g, "");
-}
 
 function normalize(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim();
@@ -400,7 +396,7 @@ function registryMatchAction(text: string, pathname: string): LocalCommandAction
 function extractSearchTerms(text: string): string {
   let q = text.trim();
   q = q.replace(
-    /^(please\s+)?(can you\s+)?(find|search(?: for|ing)?|look(?:ing)?\s+for|show me|show|get me|i need|i want|hunt for|browse for)\s+(me\s+)?(a|an|some)?\s*/i,
+    /^(please\s+)?(can you\s+)?(find|search(?: for|ing)?|look(?:ing)?\s+for|show me|show|get me|i need|i want|i want to|i'd like|i'd like to|hunt for|browse for)\s+(me\s+)?(a|an|some)?\s*/i,
     ""
   );
   q = q.replace(UNDER_PRICE, "");
@@ -469,7 +465,6 @@ export function matchLocalCommand(text: string, pathname: string): LocalCommandA
   // 4. Short phrases (1-5 words) → aggressive nav matching
   if (nw <= 5) {
     const navTarget = hasNavPrefix(trimmed) ? stripNavPrefix(trimmed) : trimmed;
-    const compact = compactSpeech(navTarget);
 
     // Direct registry match on the raw/nav-stripped text
     const shortMatch = matchRouteFromRegistry(navTarget, nw <= 3 ? 5 : 4);

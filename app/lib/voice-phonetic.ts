@@ -5,7 +5,7 @@
 const PHONETIC_SUBSTITUTIONS: Record<string, string[]> = {
   // Sales common mishearings
   cells: ["sales"],
-  sells: ["sales"],
+  sells: ["sell", "sales"],
   sals: ["sales"],
   sails: ["sales"],
   sale: ["sales"],
