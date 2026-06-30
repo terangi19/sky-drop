@@ -34,16 +34,7 @@ export type MarketplaceListingCardProps = {
   loading?: boolean;
 };
 
-const BLUE_CARD =
-  "border-sky-500/20 bg-white/[0.02] hover:border-sky-400/40 hover:bg-white/[0.03] hover:shadow-[0_0_30px_rgba(56,189,248,0.22),0_0_60px_rgba(56,189,248,0.12)]";
-const NEON_BLUE_CARD =
-  "border-sky-400/50 bg-white/[0.02] hover:border-sky-300/70 hover:bg-sky-500/[0.06] hover:shadow-[0_0_30px_rgba(56,189,248,0.22),0_0_60px_rgba(56,189,248,0.12)]";
-const BLUE_CHIP =
-  "border-sky-500/30 bg-sky-500/10 text-sky-400";
-const BLUE_BTN =
-  "border-sky-500/30 bg-sky-500/10 text-sky-400 hover:border-sky-400/50 hover:bg-sky-500/20 hover:text-sky-300";
-const BLUE_BADGE =
-  "rounded-full bg-sky-500/20 px-2.5 py-0.5 text-[9px] font-bold text-sky-400 backdrop-blur-sm";
+const IMG_BADGE = "lc-img-badge rounded-full px-2.5 py-0.5 text-[9px] font-bold";
 
 function listingCardGlowStyle(
   saveGlow: number,
@@ -72,8 +63,6 @@ function listingCardGlowStyle(
 function watchlistBadgeStyle(saveGlow: number): CSSProperties {
   return {
     borderColor: `rgba(56, 189, 248, ${0.22 + saveGlow * 0.55})`,
-    backgroundColor: `rgba(0, 0, 0, ${0.45 + saveGlow * 0.2})`,
-    color: `rgba(56, 189, 248, ${0.8 + saveGlow * 0.2})`,
     boxShadow: `0 0 ${Math.round(6 + saveGlow * 20)}px rgba(56, 189, 248, ${0.18 + saveGlow * 0.5})`,
     textShadow: `0 0 ${Math.round(4 + saveGlow * 12)}px rgba(56, 189, 248, ${0.35 + saveGlow * 0.55})`,
   };
@@ -116,7 +105,7 @@ export default memo(function MarketplaceListingCard({
   return (
     <div className="relative h-full">
       <div
-        className={`listing-card group relative z-[1] flex h-full flex-col overflow-hidden rounded-2xl border transition-all duration-300 cursor-pointer animate-fade-in-up hover:-translate-y-1 text-white ${neonGlow ? NEON_BLUE_CARD : BLUE_CARD}`}
+        className={`listing-card group relative z-[1] flex h-full flex-col overflow-hidden rounded-2xl border cursor-pointer animate-fade-in-up hover:-translate-y-1 ${neonGlow ? "listing-card--neon" : ""}`}
         style={{
           animationDelay: `${Math.min(cardIndex, 10) * 40}ms`,
           ...cardGlowStyle,
@@ -155,34 +144,34 @@ export default memo(function MarketplaceListingCard({
             )}
             <div className="absolute top-3 left-3 flex flex-col gap-1.5">
               {isVisible && isPopular && (
-                <span className={BLUE_BADGE}>🔥 Hot</span>
+                <span className={IMG_BADGE}>🔥 Hot</span>
               )}
               {isVisible && themed && saves >= 2 && (
-                <span className={BLUE_BADGE}>⭐ Popular</span>
+                <span className={IMG_BADGE}>⭐ Popular</span>
               )}
               {item.promotedUntil?.toMillis?.() > Date.now() && (
-                <span className={BLUE_BADGE}>📈 Promoted</span>
+                <span className={IMG_BADGE}>📈 Promoted</span>
               )}
               {isVisible &&
                 item.createdAt?.seconds &&
                 Date.now() / 1000 - item.createdAt.seconds < 86400 && (
-                  <span className={BLUE_BADGE}>New</span>
+                  <span className={IMG_BADGE}>New</span>
                 )}
               {isVisible &&
                 item.saleType &&
                 String(item.saleType).includes("auction") && (
-                  <span className={BLUE_BADGE}>⏰ Auction</span>
+                  <span className={IMG_BADGE}>⏰ Auction</span>
                 )}
               {item.type === "digital" && isVisible && (
-                <span className={BLUE_BADGE}>📥 Digital</span>
+                <span className={IMG_BADGE}>📥 Digital</span>
               )}
               {item.type === "vehicle" && isVisible && (
-                <span className={BLUE_BADGE}>🚗 Vehicle</span>
+                <span className={IMG_BADGE}>🚗 Vehicle</span>
               )}
             </div>
             {themed && isVisible && (
               <div
-                className="absolute bottom-3 right-3 rounded-full border px-2.5 py-1 text-[10px] font-bold backdrop-blur-md"
+                className="lc-saves-badge absolute bottom-3 right-3 rounded-full px-2.5 py-1 text-[10px] font-bold"
                 style={watchlistBadgeStyle(saveGlow)}
               >
                 ⭐ {saves.toLocaleString()} {saves === 1 ? "save" : "saves"}
@@ -190,14 +179,14 @@ export default memo(function MarketplaceListingCard({
             )}
             {isVisible && item.images?.length > 1 && (
               <div className="absolute top-3 right-3">
-                <span className="rounded-full bg-black/60 px-2 py-0.5 text-[9px] font-medium text-white backdrop-blur-sm">
+                <span className="lc-img-overlay-badge lc-on-image rounded-full px-2 py-0.5 text-[9px] font-medium">
                   📷 {item.images.length}
                 </span>
               </div>
             )}
             {isVisible && item.expiresAt?.toMillis?.() < Date.now() && (
               <div className="absolute top-3 right-3">
-                <span className="rounded-full bg-zinc-800/90 px-2.5 py-0.5 text-[9px] font-bold text-white backdrop-blur-sm">
+                <span className="lc-img-overlay-badge lc-on-image rounded-full px-2.5 py-0.5 text-[9px] font-bold">
                   Expired
                 </span>
               </div>
@@ -217,11 +206,11 @@ export default memo(function MarketplaceListingCard({
           </div>
         </>
       ) : (
-        <div className="relative aspect-[4/3] shrink-0 flex items-center justify-center bg-gradient-to-br from-zinc-800/50 via-zinc-800/30 to-zinc-800/50">
-          <div className="absolute inset-0 flex items-center justify-center text-white">
+        <div className="lc-placeholder relative aspect-[4/3] shrink-0 flex items-center justify-center">
+          <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-center">
-              <div className="text-3xl font-black tracking-tighter mb-1">SD</div>
-              <div className="text-[10px] uppercase tracking-widest opacity-50">Sky Drop</div>
+              <div className="lc-title text-3xl font-black tracking-tighter mb-1">SD</div>
+              <div className="lc-meta text-[10px] uppercase tracking-widest">Sky Drop</div>
             </div>
           </div>
           {!isVisible && (
@@ -235,12 +224,12 @@ export default memo(function MarketplaceListingCard({
             {isVisible &&
               item.createdAt?.seconds &&
               Date.now() / 1000 - item.createdAt.seconds < 86400 && (
-                <span className={BLUE_BADGE}>New</span>
+                <span className={IMG_BADGE}>New</span>
               )}
             {isVisible &&
               item.saleType &&
               String(item.saleType).includes("auction") && (
-                <span className={BLUE_BADGE}>⏰ Auction</span>
+                <span className={IMG_BADGE}>⏰ Auction</span>
               )}
           </div>
         </div>
@@ -249,25 +238,25 @@ export default memo(function MarketplaceListingCard({
       <div className="flex flex-1 flex-col p-4">
         <div className="flex min-h-7 items-center justify-between gap-2">
           <div className="flex gap-1.5 flex-wrap">
-            <span className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold text-always-white ${BLUE_CHIP}`}>
+            <span className={`lc-chip rounded-md px-2 py-0.5 text-[10px] font-semibold`}>
               {categoryLabel}
             </span>
             {item.promotedUntil?.toMillis?.() > Date.now() && (
-              <span className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold ${BLUE_CHIP}`}>
+              <span className="lc-chip rounded-md px-2 py-0.5 text-[10px] font-semibold">
                 📈 Promoted
               </span>
             )}
             {item.condition && (
               <span
-                className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold ${
-                  item.condition === "New" ? BLUE_CHIP : "border-zinc-700/30 bg-zinc-800/60 text-white"
+                className={`rounded-md px-2 py-0.5 text-[10px] font-semibold ${
+                  item.condition === "New" ? "lc-chip" : "lc-chip-neutral"
                 }`}
               >
                 {item.condition === "New" ? "🆕 New" : item.condition}
               </span>
             )}
             {item.type === "vehicle" && (item.vehicleYear || item.year) && (
-              <span className="rounded-md bg-zinc-800/60 px-2 py-0.5 text-[10px] font-semibold text-white border border-zinc-700/30">
+              <span className="lc-chip-neutral rounded-md px-2 py-0.5 text-[10px] font-semibold">
                 {item.vehicleYear || item.year}
               </span>
             )}
@@ -279,8 +268,8 @@ export default memo(function MarketplaceListingCard({
               e.stopPropagation();
               onToggleWatchlist(item);
             }}
-            className={`relative text-base transition-all duration-200 hover:scale-110 active:scale-95 ${
-              isInWatchlist(item.id) ? "text-white" : "text-white hover:text-white"
+            className={`lc-watchlist relative text-base transition-all duration-200 hover:scale-110 active:scale-95 ${
+              isInWatchlist(item.id) ? "lc-watchlist--active" : ""
             }`}
           >
             {isInWatchlist(item.id) ? "❤️" : "♡"}
@@ -288,12 +277,12 @@ export default memo(function MarketplaceListingCard({
         </div>
 
         <div className="flex items-center gap-2 mt-2.5">
-          <h2 className="flex-1 line-clamp-1 text-[17px] font-black tracking-tight text-always-white">
+          <h2 className="lc-title flex-1 line-clamp-1 text-[17px] font-black tracking-tight">
             {item.title}
           </h2>
         </div>
 
-        <p className="mt-1.5 line-clamp-2 text-[12px] leading-relaxed text-always-white">
+        <p className="lc-desc mt-1.5 line-clamp-2 text-[12px] leading-relaxed">
           {item.description ||
             [
               item.vehicleMake && item.vehicleModel
@@ -316,20 +305,20 @@ export default memo(function MarketplaceListingCard({
         <div className="mt-3 flex items-baseline gap-2">
           {item.pricingType === "quote" ? (
             <>
-              <p className="text-2xl font-black tracking-tight text-white">Contact Seller for Quote</p>
-              <span className="rounded-full border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 text-[9px] font-bold text-amber-400">Quote Required</span>
+              <p className="lc-price text-2xl font-black tracking-tight">Contact Seller for Quote</p>
+              <span className="lc-quote-badge rounded-full px-2 py-0.5 text-[9px] font-bold">Quote Required</span>
             </>
           ) : (
-            <p className="text-2xl font-black tracking-tight text-white">${item.price}</p>
+            <p className="lc-price text-2xl font-black tracking-tight">${item.price}</p>
           )}
           {(item.saleType === "auction" || item.saleType === "auction_buy_now") && (
-            <span className="text-sm font-bold text-white">
+            <span className="lc-bid rounded-md px-2 py-0.5 text-sm font-bold">
               Bid: ${item.currentBid || item.startingBid || 0}
             </span>
           )}
         </div>
 
-        <div className="mt-3 flex min-h-5 items-center gap-3 text-[11px] text-white">
+        <div className="lc-meta mt-3 flex min-h-5 items-center gap-3 text-[11px]">
           {item.location && (
             <span className="flex items-center gap-1">📍 {item.location}</span>
           )}
@@ -338,9 +327,7 @@ export default memo(function MarketplaceListingCard({
           {item.shippingAvailable && <span>📦 Shipping</span>}
           {themed ? (
             <span
-              className={`ml-auto flex items-center gap-1 font-semibold ${
-                saveGlow > 0.1 ? "text-white" : "text-white"
-              }`}
+              className={`lc-accent ml-auto flex items-center gap-1 font-semibold`}
               style={
                 saveGlow > 0.2
                   ? { textShadow: `0 0 ${Math.round(4 + saveGlow * 10)}px rgba(56, 189, 248, ${saveGlow * 0.55})` }
@@ -369,7 +356,7 @@ export default memo(function MarketplaceListingCard({
                       onMakeOffer(item);
                     }}
                     disabled={loading}
-                    className={`flex-1 rounded-md border py-2.5 text-[12px] font-semibold transition-all duration-150 active:scale-95 ${BLUE_BTN} ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    className={`lc-btn flex-1 rounded-md py-2.5 text-[12px] font-semibold active:scale-95 ${loading ? "opacity-70 cursor-not-allowed" : ""}`}
                   >
                     {loading ? (
                       <span className="flex items-center justify-center gap-2">
@@ -384,7 +371,7 @@ export default memo(function MarketplaceListingCard({
                     <Link
                       href={`/post/listing/${item.id}`}
                       onClick={(e) => e.stopPropagation()}
-                      className={`flex flex-1 items-center justify-center rounded-md border py-2.5 text-[12px] font-semibold transition-all duration-150 active:scale-95 ${BLUE_BTN}`}
+                      className={`lc-btn flex flex-1 items-center justify-center rounded-md py-2.5 text-[12px] font-semibold active:scale-95`}
                     >
                       Bid Now
                     </Link>
@@ -395,7 +382,7 @@ export default memo(function MarketplaceListingCard({
                   <Link
                     href={`/post/listing/${item.id}`}
                     onClick={(e) => e.stopPropagation()}
-                    className={`flex flex-1 items-center justify-center rounded-md border py-2.5 text-[12px] font-semibold transition-all duration-150 active:scale-95 ${BLUE_BTN}`}
+                    className="lc-btn flex flex-1 items-center justify-center rounded-md py-2.5 text-[12px] font-semibold active:scale-95"
                   >
                     Request Quote
                   </Link>
@@ -409,7 +396,7 @@ export default memo(function MarketplaceListingCard({
                       onBuyNow(item);
                     }}
                     disabled={loading}
-                    className={`flex-1 rounded-md border py-2.5 text-[12px] font-semibold transition-all duration-150 active:scale-95 ${BLUE_BTN} ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    className={`lc-btn flex-1 rounded-md py-2.5 text-[12px] font-semibold active:scale-95 ${loading ? "opacity-70 cursor-not-allowed" : ""}`}
                     title={item.paymentType === "contact" ? "Arrange payment directly with seller (bank transfer, cash, etc.)" : "Pay instantly with credit card via Stripe"}
                   >
                     {loading ? (
@@ -425,7 +412,7 @@ export default memo(function MarketplaceListingCard({
                     <Link
                       href={`/post/listing/${item.id}`}
                       onClick={(e) => e.stopPropagation()}
-                      className={`flex flex-1 items-center justify-center rounded-md border py-2.5 text-[12px] font-semibold transition-all duration-150 active:scale-95 ${BLUE_BTN}`}
+                      className={`lc-btn flex flex-1 items-center justify-center rounded-md py-2.5 text-[12px] font-semibold active:scale-95`}
                     >
                       Bid Now
                     </Link>
@@ -438,7 +425,7 @@ export default memo(function MarketplaceListingCard({
                         e.stopPropagation();
                         onMakeOffer(item);
                       }}
-                      className="ml-1 text-[11px] text-white underline underline-offset-2 hover:text-white"
+                      className="lc-link ml-1 text-[11px]"
                     >
                       Offer
                     </button>
@@ -449,7 +436,7 @@ export default memo(function MarketplaceListingCard({
               <Link
                 href={`/post/listing/${item.id}#contact`}
                 onClick={(e) => e.stopPropagation()}
-                className="flex flex-1 items-center justify-center rounded-md border border-zinc-700/30 py-2.5 text-[12px] font-semibold text-white transition-all duration-150 hover:border-zinc-600/50 hover:text-white active:scale-95"
+                className="lc-btn-ghost flex flex-1 items-center justify-center rounded-md py-2.5 text-[12px] font-semibold active:scale-95"
               >
                 Message
               </Link>
@@ -463,14 +450,14 @@ export default memo(function MarketplaceListingCard({
                   e.stopPropagation();
                   onPromote(item);
                 }}
-                className={`rounded-md border px-4 py-2.5 text-[12px] font-semibold transition-all duration-150 active:scale-95 ${BLUE_BTN}`}
+                className="lc-btn rounded-md px-4 py-2.5 text-[12px] font-semibold active:scale-95"
               >
                 📈 Boost
               </button>
               <Link
                 href={`/post/ai?edit=${item.id}`}
                 onClick={(e) => e.stopPropagation()}
-                className={`rounded-md border px-4 py-2.5 text-[12px] font-semibold transition-all duration-150 active:scale-95 ${BLUE_BTN}`}
+                className="lc-btn rounded-md px-4 py-2.5 text-[12px] font-semibold active:scale-95"
               >
                 Edit
               </Link>
@@ -480,7 +467,7 @@ export default memo(function MarketplaceListingCard({
                   e.stopPropagation();
                   setShowDeleteConfirm(true);
                 }}
-                className="rounded-md bg-zinc-800/60 px-4 py-2.5 text-[12px] font-semibold text-white transition-all duration-150 hover:bg-zinc-700 active:scale-95"
+                className="lc-btn-ghost rounded-md px-4 py-2.5 text-[12px] font-semibold active:scale-95"
               >
                 Remove
               </button>
@@ -505,38 +492,38 @@ export default memo(function MarketplaceListingCard({
             const avgRating = stats ? stats.avg : 0;
             const reviewCount = stats ? stats.count : 0;
             return (
-              <div className="group rounded-lg border border-sky-500/10 bg-zinc-800/20 p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-sky-500/20 hover:bg-zinc-800/30">
+              <div className="lc-seller group rounded-lg p-3 hover:-translate-y-0.5">
                 <div className="flex items-center gap-2">
-                  <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-500/10 text-[13px] font-bold text-sky-400 ring-1 ring-sky-500/20">
+                  <div className="lc-avatar relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[13px] font-bold ring-1">
                     {initial}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1">
-                      <span className="truncate text-[14px] font-semibold text-white">
+                      <span className="lc-seller-name truncate text-[14px] font-semibold">
                         {username}
                       </span>
                       {sellerFullyVerified?.[email || ""] && (
-                        <span className={`rounded border px-1.5 py-0.5 text-[9px] font-bold border-sky-500/30 bg-sky-500/10 text-sky-400`}>
+                        <span className="lc-chip rounded px-1.5 py-0.5 text-[9px] font-bold">
                           ✓ Verified
                         </span>
                       )}
                       {sellerBadges[email || ""] === "legendary" && (
-                        <span className={`rounded border px-1.5 py-0.5 text-[9px] font-bold animate-pulse ${BLUE_CHIP}`}>
+                        <span className="lc-chip rounded border px-1.5 py-0.5 text-[9px] font-bold animate-pulse">
                           👑 The Five
                         </span>
                       )}
                       {sellerBadges[email || ""] === "epic" && (
-                        <span className={`rounded border px-1.5 py-0.5 text-[9px] font-bold ${BLUE_CHIP}`}>
+                        <span className="lc-chip rounded border px-1.5 py-0.5 text-[9px] font-bold">
                           💎 Epic
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-1 text-[11px] text-white">
-                      <SellerReviewSummary avg={avgRating} count={reviewCount} starSize="xs" ratingClassName="text-white" countClassName="text-white" emptyLabel="No reviews yet" />
+                    <div className="lc-seller-meta flex items-center gap-1 text-[11px]">
+                      <SellerReviewSummary avg={avgRating} count={reviewCount} starSize="xs" ratingClassName="lc-seller-meta" countClassName="lc-seller-meta" emptyLabel="No reviews yet" />
                     </div>
                   </div>
                   <div className="shrink-0 text-right">
-                    <p className="text-[10px] text-white">View profile</p>
+                    <p className="lc-seller-link text-[10px]">View profile</p>
                   </div>
                 </div>
               </div>

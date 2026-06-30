@@ -44,10 +44,7 @@ interface HotThisWeekProps {
   sellerFullyVerified?: Record<string, boolean>;
 }
 
-const NEON_CARD =
-  "border-sky-400/40 bg-white/[0.01] hover:border-sky-300/60 hover:bg-sky-500/[0.04] hover:shadow-[0_0_24px_rgba(56,189,248,0.2),0_0_48px_rgba(14,165,233,0.1)]";
-const BLUE_BADGE =
-  "rounded-full bg-sky-500/20 px-2 py-0.5 text-[8px] font-bold text-sky-400 backdrop-blur-sm";
+const IMG_BADGE = "lc-img-badge rounded-full px-2 py-0.5 text-[8px] font-bold";
 
 export default function HotThisWeek({
   items,
@@ -153,7 +150,7 @@ function HotWeekCard({
 
   return (
     <div
-      className={`hot-week-card group relative w-56 shrink-0 cursor-pointer rounded-2xl border p-2 text-white transition-all duration-300 ease-out hover:-translate-y-0.5 hover:scale-[1.02] sm:w-60 ${NEON_CARD}`}
+      className="hot-week-card listing-card--neon group relative w-56 shrink-0 cursor-pointer rounded-2xl border p-2 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:scale-[1.02] sm:w-60"
               style={
                 hotGlow > 0
                   ? {
@@ -172,17 +169,17 @@ function HotWeekCard({
                     className="h-32 w-full rounded-xl object-cover transition-transform duration-500 group-hover:scale-[1.03] sm:h-36"
                   />
                 ) : (
-                  <div className="flex h-32 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/10 via-sky-500/5 to-sky-500/10 sm:h-36">
-                    <span className="text-[10px] font-medium text-white/30">No image</span>
+                  <div className="lc-placeholder flex h-32 items-center justify-center rounded-xl sm:h-36">
+                    <span className="lc-meta text-[10px] font-medium">No image</span>
                   </div>
                 )}
                 <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none" />
                 <div className="absolute top-2 left-2">
-                  <span className={BLUE_BADGE}>🔥 Trending</span>
+                  <span className={IMG_BADGE}>🔥 Trending</span>
                 </div>
                 {hotSaves > 0 && (
                   <div className="absolute top-2 right-2">
-                    <span className="inline-flex items-center gap-0.5 rounded-full border border-sky-500/20 bg-black/60 px-1.5 py-0.5 text-[8px] font-bold text-white backdrop-blur-md">
+                    <span className="lc-saves-badge lc-on-image inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[8px] font-bold">
                       ⭐ {hotSaves.toLocaleString()}
                     </span>
                   </div>
@@ -191,12 +188,12 @@ function HotWeekCard({
 
               <div className="mt-2 space-y-1 px-0.5">
                 <div className="flex items-start justify-between gap-2">
-                  <p className="line-clamp-1 flex-1 text-[13px] font-bold leading-snug text-always-white">
+                  <p className="lc-title line-clamp-1 flex-1 text-[13px] font-bold leading-snug">
                     {item.title}
                   </p>
-                  <p className="shrink-0 text-sm font-black tabular-nums text-white">${item.price}</p>
+                  <p className="lc-price shrink-0 text-sm font-black tabular-nums">${item.price}</p>
                 </div>
-                <div className="flex items-center gap-2 text-[10px] text-zinc-400">
+                <div className="lc-meta flex items-center gap-2 text-[10px]">
                   {item.location && <span className="truncate">📍 {item.location}</span>}
                   {item.createdAt?.seconds != null && (
                     <span className="shrink-0">{timeAgo(item.createdAt.seconds)}</span>
@@ -206,24 +203,25 @@ function HotWeekCard({
 
               {sellerEmail && (
                 <div
-                  className="mt-2 flex items-center gap-1.5 border-t border-white/[0.06] pt-2"
+                  className="lc-seller mt-2 flex items-center gap-1.5 rounded-lg border-t pt-2"
+                  style={{ borderTopColor: "var(--lc-divider)" }}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <Link
                     href={profileHref}
-                    className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1 py-0.5 transition hover:bg-white/[0.04]"
+                    className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1 py-0.5 transition hover:bg-[var(--lc-seller-hover-bg)]"
                   >
-                    <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sky-500/10 text-[9px] font-bold text-sky-400">
+                    <div className="lc-avatar flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold">
                       {username.charAt(0).toUpperCase()}
                     </div>
-                    <span className="truncate text-[10px] font-semibold text-white">
+                    <span className="lc-seller-name truncate text-[10px] font-semibold">
                       {username}
                     </span>
                   </Link>
                   {!isOwnListing && (
                     <Link
                       href={messageHref}
-                      className="shrink-0 rounded-md border border-zinc-700/40 px-2 py-1 text-[9px] font-semibold text-white transition hover:border-sky-400/40 hover:bg-sky-500/10"
+                      className="lc-btn shrink-0 rounded-md px-2 py-1 text-[9px] font-semibold"
                     >
                       Message
                     </Link>

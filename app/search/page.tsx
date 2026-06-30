@@ -11,12 +11,17 @@ import { useProfile } from "../contexts/ProfileContext";
 import { cdnUrl } from "../lib/cdn";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
 import { listingWatchlistCount, listingWatchlistGlowIntensity } from "../lib/listing-watchlist-count";
+import { fuzzyFilterListings, rankListingsBySearch } from "../lib/marketplace-fuzzy-search";
+import { normalizeMarketplaceSearchQuery, processVoiceSearchTranscript } from "../lib/voice-search-pipeline";
+import { logVoiceSearch } from "../lib/voice-search-logger";
 import { SellerReviewSummary } from "../components/SellerReviewStars";
 
 export default function SearchPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const query = searchParams.get("q") || "";
+  const heardRaw = searchParams.get("heard") || "";
+  const categoryFilter = searchParams.get("category") || "";
   const { user } = useAuth();
   const { username } = useProfile();
   const { listings, loading } = useListings();
@@ -117,24 +122,48 @@ export default function SearchPage() {
   };
 
   const filteredListings = useMemo(() => {
-    const filtered = listings.filter((listing) => {
-    const searchLower = query.toLowerCase();
-    const matchesSearch =
-      !query ||
-      listing.title?.toLowerCase().includes(searchLower) ||
-      listing.description?.toLowerCase().includes(searchLower) ||
-      listing.category?.toLowerCase().includes(searchLower);
+    const normalizedQuery = query ? normalizeMarketplaceSearchQuery(query) : "";
+    const searchIntent = query ? processVoiceSearchTranscript(heardRaw || query) : null;
 
-    const price = Number(listing.price) || 0;
-    const matchesMinPrice = !minPrice || price >= Number(minPrice);
-    const matchesMaxPrice = !maxPrice || price <= Number(maxPrice);
-    const matchesCondition = condition === "all" || listing.condition === condition;
-    const matchesLocation = location === "all" || listing.location?.toLowerCase().includes(location.toLowerCase());
+    let base = listings.filter((listing) => {
+      const price = Number(listing.price) || 0;
+      const matchesMinPrice = !minPrice || price >= Number(minPrice);
+      const matchesMaxPrice = !maxPrice || price <= Number(maxPrice);
+      const matchesCondition = condition === "all" || listing.condition === condition;
+      const matchesLocation =
+        location === "all" || listing.location?.toLowerCase().includes(location.toLowerCase());
+      const matchesCategory =
+        !categoryFilter ||
+        categoryFilter === "all" ||
+        listing.category?.toLowerCase() === categoryFilter.toLowerCase();
 
-    return matchesSearch && matchesMinPrice && matchesMaxPrice && matchesCondition && matchesLocation;
-  });
+      return (
+        matchesMinPrice &&
+        matchesMaxPrice &&
+        matchesCondition &&
+        matchesLocation &&
+        matchesCategory &&
+        isListingVisibleInMarketplace(listing)
+      );
+    });
 
-    const sorted = [...filtered];
+    if (normalizedQuery) {
+      const ranked = rankListingsBySearch(base, searchIntent ?? normalizedQuery, { minScore: 1.6 });
+      if (ranked.length > 0) {
+        if (searchIntent && heardRaw) {
+          logVoiceSearch(searchIntent, {
+            source: "search_page",
+            resultCount: ranked.length,
+            topMatchTitle: String(ranked[0]?.listing.title ?? ""),
+          });
+        }
+        base = ranked.map((r) => r.listing) as typeof listings;
+      } else {
+        base = fuzzyFilterListings(base, normalizedQuery, { minScore: 1.2 }) as typeof listings;
+      }
+    }
+
+    const sorted = [...base];
     if (sortBy === "price-low") {
       sorted.sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
     } else if (sortBy === "price-high") {
@@ -149,7 +178,7 @@ export default function SearchPage() {
       });
     }
     return sorted;
-  }, [listings, query, minPrice, maxPrice, condition, location, sortBy]);
+  }, [listings, query, heardRaw, categoryFilter, minPrice, maxPrice, condition, location, sortBy]);
 
   const sellerReviewStats: Record<string, { avg: number; count: number }> = {};
   const sellerBadges: Record<string, string> = {};
@@ -164,8 +193,13 @@ export default function SearchPage() {
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-black text-white sm:text-3xl">
-              {query ? `Search results for "${query}"` : "All Listings"}
+              {query ? `Results for "${normalizeMarketplaceSearchQuery(query)}"` : "All Listings"}
             </h1>
+            {heardRaw && heardRaw.toLowerCase() !== normalizeMarketplaceSearchQuery(query) && (
+              <p className="mt-1 text-xs text-sky-400/90">
+                Heard: &ldquo;{heardRaw}&rdquo;
+              </p>
+            )}
             <p className="mt-2 text-sm text-[var(--muted)]">
               {loading ? "Loading..." : `${filteredListings.length} listing${filteredListings.length !== 1 ? "s" : ""} found`}
             </p>

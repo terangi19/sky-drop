@@ -30,6 +30,48 @@
   --text-secondary: #8b8d9a;
   --accent-star: #38bdf8;
   --accent-star-hover: #0ea5e9;
+
+  /* Listing card semantic tokens — dark */
+  --lc-bg: rgba(16, 18, 26, 0.96);
+  --lc-surface: rgba(255, 255, 255, 0.03);
+  --lc-border: rgba(56, 189, 248, 0.2);
+  --lc-border-hover: rgba(56, 189, 248, 0.48);
+  --lc-shadow: 0 4px 20px rgba(0, 0, 0, 0.32);
+  --lc-shadow-hover: 0 0 28px rgba(56, 189, 248, 0.2), 0 12px 36px rgba(0, 0, 0, 0.38);
+  --lc-text-primary: #ffffff;
+  --lc-text-secondary: rgba(255, 255, 255, 0.88);
+  --lc-text-muted: rgba(255, 255, 255, 0.62);
+  --lc-price: #ffffff;
+  --lc-accent: #38bdf8;
+  --lc-accent-strong: #0ea5e9;
+  --lc-badge-bg: rgba(14, 165, 233, 0.18);
+  --lc-badge-text: #7dd3fc;
+  --lc-badge-border: rgba(56, 189, 248, 0.38);
+  --lc-chip-bg: rgba(14, 165, 233, 0.12);
+  --lc-chip-text: #38bdf8;
+  --lc-chip-border: rgba(56, 189, 248, 0.3);
+  --lc-neutral-chip-bg: rgba(39, 39, 42, 0.72);
+  --lc-neutral-chip-text: rgba(255, 255, 255, 0.92);
+  --lc-neutral-chip-border: rgba(82, 82, 91, 0.5);
+  --lc-seller-bg: rgba(24, 26, 36, 0.65);
+  --lc-seller-border: rgba(56, 189, 248, 0.16);
+  --lc-seller-hover-bg: rgba(30, 34, 48, 0.82);
+  --lc-seller-hover-border: rgba(56, 189, 248, 0.32);
+  --lc-btn-bg: rgba(14, 165, 233, 0.12);
+  --lc-btn-text: #38bdf8;
+  --lc-btn-border: rgba(56, 189, 248, 0.34);
+  --lc-btn-hover-bg: rgba(14, 165, 233, 0.24);
+  --lc-btn-hover-text: #bae6fd;
+  --lc-btn-ghost-border: rgba(82, 82, 91, 0.45);
+  --lc-btn-ghost-text: rgba(255, 255, 255, 0.88);
+  --lc-btn-ghost-hover-bg: rgba(255, 255, 255, 0.05);
+  --lc-placeholder-bg: rgba(39, 39, 42, 0.55);
+  --lc-img-badge-bg: rgba(0, 0, 0, 0.58);
+  --lc-img-badge-text: #ffffff;
+  --lc-saves-bg: rgba(0, 0, 0, 0.55);
+  --lc-saves-text: #7dd3fc;
+  --lc-saves-border: rgba(56, 189, 248, 0.35);
+  --lc-divider: rgba(255, 255, 255, 0.07);
 }
 
 :root.light {
@@ -55,6 +97,48 @@
   --accent-hover: #0284c7;
   --accent-star: #0ea5e9;
   --accent-star-hover: #0284c7;
+
+  /* Listing card semantic tokens — light */
+  --lc-bg: #ffffff;
+  --lc-surface: #f8fafc;
+  --lc-border: rgba(14, 165, 233, 0.18);
+  --lc-border-hover: rgba(14, 165, 233, 0.44);
+  --lc-shadow: 0 2px 8px rgba(10, 22, 40, 0.06), 0 4px 16px rgba(14, 165, 233, 0.05);
+  --lc-shadow-hover: 0 4px 16px rgba(10, 22, 40, 0.08), 0 10px 36px rgba(14, 165, 233, 0.14);
+  --lc-text-primary: #0a0a0a;
+  --lc-text-secondary: #374151;
+  --lc-text-muted: #6b7280;
+  --lc-price: #020617;
+  --lc-accent: #0284c7;
+  --lc-accent-strong: #0369a1;
+  --lc-badge-bg: rgba(14, 165, 233, 0.14);
+  --lc-badge-text: #0369a1;
+  --lc-badge-border: rgba(14, 165, 233, 0.32);
+  --lc-chip-bg: #e0f2fe;
+  --lc-chip-text: #0369a1;
+  --lc-chip-border: rgba(14, 165, 233, 0.28);
+  --lc-neutral-chip-bg: #f3f4f6;
+  --lc-neutral-chip-text: #374151;
+  --lc-neutral-chip-border: rgba(0, 0, 0, 0.1);
+  --lc-seller-bg: #f0f9ff;
+  --lc-seller-border: rgba(14, 165, 233, 0.22);
+  --lc-seller-hover-bg: #e0f2fe;
+  --lc-seller-hover-border: rgba(14, 165, 233, 0.38);
+  --lc-btn-bg: #e0f2fe;
+  --lc-btn-text: #0369a1;
+  --lc-btn-border: rgba(14, 165, 233, 0.35);
+  --lc-btn-hover-bg: #bae6fd;
+  --lc-btn-hover-text: #0c4a6e;
+  --lc-btn-ghost-border: rgba(0, 0, 0, 0.12);
+  --lc-btn-ghost-text: #374151;
+  --lc-btn-ghost-hover-bg: #f3f4f6;
+  --lc-placeholder-bg: #f3f4f6;
+  --lc-img-badge-bg: rgba(15, 23, 42, 0.72);
+  --lc-img-badge-text: #ffffff;
+  --lc-saves-bg: rgba(15, 23, 42, 0.72);
+  --lc-saves-text: #0369a1;
+  --lc-saves-border: rgba(14, 165, 233, 0.35);
+  --lc-divider: rgba(0, 0, 0, 0.08);
 }
 
 html {
@@ -81,6 +165,203 @@ body {
   transition: background 0.3s ease, color 0.3s ease;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Listing card design system (theme-aware) ── */
+.listing-card,
+.hot-week-card {
+  background: var(--lc-bg) !important;
+  border-color: var(--lc-border) !important;
+  color: var(--lc-text-primary);
+  box-shadow: var(--lc-shadow);
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease,
+    border-color 0.3s ease,
+    background 0.3s ease;
+}
+
+.listing-card:hover,
+.hot-week-card:hover {
+  border-color: var(--lc-border-hover) !important;
+  box-shadow: var(--lc-shadow-hover) !important;
+}
+
+.listing-card--neon {
+  border-color: var(--lc-border-hover);
+}
+
+.lc-title {
+  color: var(--lc-text-primary);
+}
+
+.lc-desc {
+  color: var(--lc-text-secondary);
+}
+
+.lc-meta {
+  color: var(--lc-text-muted);
+}
+
+.lc-price {
+  color: var(--lc-price);
+}
+
+.lc-accent {
+  color: var(--lc-accent);
+}
+
+.lc-chip {
+  border: 1px solid var(--lc-chip-border);
+  background: var(--lc-chip-bg);
+  color: var(--lc-chip-text);
+}
+
+.lc-chip-neutral {
+  border: 1px solid var(--lc-neutral-chip-border);
+  background: var(--lc-neutral-chip-bg);
+  color: var(--lc-neutral-chip-text);
+}
+
+.lc-img-badge {
+  border: 1px solid var(--lc-badge-border);
+  background: var(--lc-badge-bg);
+  color: var(--lc-badge-text);
+  backdrop-filter: blur(8px);
+}
+
+.lc-img-overlay-badge {
+  background: var(--lc-img-badge-bg);
+  color: var(--lc-img-badge-text);
+  backdrop-filter: blur(6px);
+}
+
+.lc-saves-badge {
+  border: 1px solid var(--lc-saves-border);
+  background: var(--lc-saves-bg);
+  color: var(--lc-saves-text);
+  backdrop-filter: blur(8px);
+}
+
+.lc-seller {
+  border: 1px solid var(--lc-seller-border);
+  background: var(--lc-seller-bg);
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.lc-seller:hover {
+  border-color: var(--lc-seller-hover-border);
+  background: var(--lc-seller-hover-bg);
+  box-shadow: 0 4px 14px rgba(14, 165, 233, 0.1);
+}
+
+.lc-seller-name {
+  color: var(--lc-text-primary);
+}
+
+.lc-seller-meta {
+  color: var(--lc-text-muted);
+}
+
+.lc-seller-link {
+  color: var(--lc-text-muted);
+}
+
+.lc-avatar {
+  background: var(--lc-chip-bg);
+  color: var(--lc-chip-text);
+  border: 1px solid var(--lc-chip-border);
+}
+
+.lc-btn {
+  border: 1px solid var(--lc-btn-border);
+  background: var(--lc-btn-bg);
+  color: var(--lc-btn-text);
+  transition: all 0.15s ease;
+}
+
+.lc-btn:hover:not(:disabled) {
+  border-color: var(--lc-border-hover);
+  background: var(--lc-btn-hover-bg);
+  color: var(--lc-btn-hover-text);
+}
+
+.lc-btn-primary {
+  border: 1px solid transparent;
+  background: linear-gradient(to right, var(--lc-accent-strong), var(--lc-accent));
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(14, 165, 233, 0.22);
+  transition: all 0.2s ease;
+}
+
+.lc-btn-primary:hover {
+  filter: brightness(1.06);
+  box-shadow: 0 6px 20px rgba(14, 165, 233, 0.32);
+}
+
+.lc-btn-ghost {
+  border: 1px solid var(--lc-btn-ghost-border);
+  background: transparent;
+  color: var(--lc-btn-ghost-text);
+  transition: all 0.15s ease;
+}
+
+.lc-btn-ghost:hover {
+  background: var(--lc-btn-ghost-hover-bg);
+  border-color: var(--lc-border-hover);
+  color: var(--lc-text-primary);
+}
+
+.lc-placeholder {
+  background: var(--lc-placeholder-bg);
+  color: var(--lc-text-muted);
+}
+
+.lc-watchlist {
+  color: var(--lc-text-muted);
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.lc-watchlist:hover,
+.lc-watchlist--active {
+  color: var(--lc-accent);
+}
+
+.lc-link {
+  color: var(--lc-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.lc-link:hover {
+  color: var(--lc-accent-strong);
+}
+
+.lc-quote-badge {
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+}
+
+:root:not(.light) .lc-quote-badge {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.14);
+}
+
+.lc-bid {
+  color: var(--lc-accent);
+  border: 1px solid var(--lc-chip-border);
+  background: var(--lc-chip-bg);
+}
+
+/* Image-area elements stay on dark overlays — not flipped in light mode */
+.listing-card .lc-on-image,
+.hot-week-card .lc-on-image {
+  color: #ffffff !important;
 }
 
 /* Mobile performance optimizations */
@@ -139,13 +420,9 @@ body {
 :root:not(.light) .text-\[\#1e4976\] { color: rgba(255, 255, 255, 0.8) !important; }
 :root.light .text-white { color: #000000 !important; }
 :root.light header .text-white { color: #ffffff !important; }
-/* Listing / trending cards — white copy on dark card surfaces (light mode too) */
+/* Always-white utility — for dark surfaces only (nav, image overlays, chat) */
 .text-always-white { color: #ffffff !important; }
 :root.light .text-always-white { color: #ffffff !important; }
-:root.light .listing-card .text-always-white,
-:root.light .hot-week-card .text-always-white { color: #ffffff !important; }
-:root.light .listing-card .hover\:text-always-white:hover,
-:root.light .listing-card .group-hover\:text-always-white { color: #ffffff !important; }
 .text-always-white\/90 { color: rgba(255, 255, 255, 0.9) !important; }
 .text-always-white\/80 { color: rgba(255, 255, 255, 0.8) !important; }
 :root.light .text-always-white\/90 { color: rgba(255, 255, 255, 0.9) !important; }
@@ -699,19 +976,7 @@ body {
   box-shadow: 0 2px 12px rgba(10, 22, 40, 0.06) !important;
 }
 
-/* ── PREMIUM CARD STYLING FOR LIGHT MODE ── */
-:root.light .listing-card,
-:root.light .hot-week-card {
-  background: #ffffff !important;
-  border-color: rgba(14, 165, 233, 0.14) !important;
-  box-shadow: 0 2px 8px rgba(10, 22, 40, 0.05), 0 4px 16px rgba(14, 165, 233, 0.04) !important;
-}
-
-:root.light .listing-card:hover,
-:root.light .hot-week-card:hover {
-  box-shadow: 0 4px 16px rgba(10, 22, 40, 0.06), 0 8px 32px rgba(14, 165, 233, 0.16) !important;
-  border-color: rgba(14, 165, 233, 0.42) !important;
-}
+/* ── PREMIUM CARD STYLING — uses --lc-* tokens (see listing card design system) ── */
 
 /* ── SELLER TRUST CARDS ── */
 :root.light .bg-zinc-800\/20 {

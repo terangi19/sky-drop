@@ -17,6 +17,8 @@ import { matchRouteFromRegistry, ROUTE_REGISTRY } from "./command-registry";
 import { openListingByIndex, messageSellerOnPage, scrollDown, scrollToBottom, scrollToTop, scrollUp, switchTab } from "./awhina-voice-page-actions";
 import { phoneticNormalize, resolvePhonetic } from "./voice-phonetic";
 import { logCommand } from "./command-logger";
+import { processVoiceSearchTranscript, isProductSearchPhrase } from "./voice-search-pipeline";
+import { logVoiceSearch } from "./voice-search-logger";
 
 /* ── Types ── */
 
@@ -53,7 +55,7 @@ const MESSAGE_SELLER_INTENT =
   /\b(message|contact|chat with|talk to)\s+(the\s+)?(seller|owner|them|vendor)\b/i;
 
 const SEARCH_INTENT =
-  /\b(find|search(?:ing)?|look(?:ing)?\s+for|show me|show|get me|need a|want a|where can i find|i need a|i want a|i want to|i'd like|i'd like to|need to|looking for|hunt for|browse for)\b/i;
+  /\b(find|search(?:ing)?|look(?:ing)?\s+for|show me|show|get me|need a|want a|where can i find|i need a|i want a|i want to|i'd like|i'd like to|need to|looking for|hunt for|browse for|i(?:'m| am)\s+looking for)\b/i;
 
 const UNDER_PRICE = /\b(?:under|below|less than|max|maximum|up to)\s*\$?\s*([\d,]+(?:\.\d{2})?)/i;
 const OVER_PRICE = /\b(?:over|above|more than|min|minimum|at least)\s*\$?\s*([\d,]+(?:\.\d{2})?)/i;
@@ -401,28 +403,23 @@ function registryMatchAction(text: string, pathname: string): LocalCommandAction
 
 /* ── Search Intent ── */
 
-function extractSearchTerms(text: string): string {
-  let q = text.trim();
-  q = q.replace(
-    /^(please\s+)?(can you\s+)?(find|search(?: for|ing)?|look(?:ing)?\s+for|show me|show|get me|i need|i want|i want to|i'd like|i'd like to|hunt for|browse for)\s+(me\s+)?(a|an|some)?\s*/i,
-    ""
-  );
-  q = q.replace(UNDER_PRICE, "");
-  q = q.replace(OVER_PRICE, "");
-  q = q.replace(IN_LOCATION, "");
-  q = q.replace(/\b(in new zealand|on sky drop|on skydrop)\b/gi, "");
-  return q.replace(/\s+/g, " ").trim();
-}
-
 function buildSearchAction(text: string): LocalCommandAction | null {
   const t = text.trim();
   if (!SEARCH_INTENT.test(t)) return null;
 
-  const query = extractSearchTerms(t);
+  const intent = processVoiceSearchTranscript(t);
+  if (!intent) return null;
+
+  const query = intent.searchQuery;
   if (!query || query.length < 2) return null;
+
+  logVoiceSearch(intent, { source: "voice" });
 
   const params = new URLSearchParams();
   params.set("q", query);
+  if (intent.rawTranscript !== query) {
+    params.set("heard", intent.rawTranscript);
+  }
 
   const under = t.match(UNDER_PRICE);
   const over = t.match(OVER_PRICE);
@@ -431,6 +428,7 @@ function buildSearchAction(text: string): LocalCommandAction | null {
   if (under) params.set("maxPrice", String(parsePrice(under[1])));
   if (over) params.set("minPrice", String(parsePrice(over[1])));
   if (loc) params.set("location", loc[1]);
+  if (intent.categoryHint) params.set("category", intent.categoryHint);
 
   const locLabel = loc ? ` in ${loc[1][0].toUpperCase()}${loc[1].slice(1)}` : "";
   const priceLabel = under ? ` under $${under[1]}` : over ? ` over $${over[1]}` : "";
@@ -439,7 +437,7 @@ function buildSearchAction(text: string): LocalCommandAction | null {
     type: "search",
     path: `/search?${params.toString()}`,
     status: `Looking for ${query}${locLabel}${priceLabel}…`,
-    confidence: "high",
+    confidence: intent.confidence === "low" ? "medium" : "high",
     heard: t,
     targetTitle: `Search: ${query}`,
     query,
@@ -593,7 +591,13 @@ export function matchLocalCommand(text: string, pathname: string): LocalCommandA
   const searchAction = buildSearchAction(trimmed);
   if (searchAction) return searchAction;
 
-  // 7. "My X" phrases — short personalized navs
+  // 7. Bare product phrases — "BMW 335i", "iPhone 15 Pro" (no "find" prefix)
+  if (nw >= 2 && nw <= 10 && !hasNavPrefix(trimmed) && isProductSearchPhrase(trimmed)) {
+    const bareSearch = buildSearchAction(`find ${trimmed}`);
+    if (bareSearch) return bareSearch;
+  }
+
+  // 8. "My X" phrases — short personalized navs
   const myXMatch = trimmed.match(/^my\s+(.+)$/i);
   if (myXMatch && nw <= 4) {
     const myTarget = myXMatch[1];
