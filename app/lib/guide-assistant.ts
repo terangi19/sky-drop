@@ -512,6 +512,19 @@ export function getGuideReply(query: string, currentPath: string): GuideReply {
     };
   }
 
+  // Special case: if user says "payments" on profile, take them to /payments page, not payment-settings
+  // Match "payments" but not "payment settings" or "payment-settings"
+  if (/\bpayments?\b/i.test(normalized) && !/\b(payment\s*settings|payment-settings)\b/i.test(normalized) && currentPath === "/profile") {
+    const paymentsDest = GUIDE_DESTINATIONS.find((d) => d.id === "payments");
+    if (paymentsDest) {
+      return {
+        text: `Opening **${paymentsDest.title}** now…\n\n${paymentsDest.blurb}`,
+        navigateTo: paymentsDest.path,
+        destination: paymentsDest,
+      };
+    }
+  }
+
   const dest = findBestDestination(q);
   const wantsNav =
     NAVIGATE_PATTERNS.test(q) ||
@@ -543,18 +556,6 @@ export function getGuideReply(query: string, currentPath: string): GuideReply {
       navigateTo: dest.path,
       destination: dest,
     };
-  }
-
-  // Special case: if user says "payments" on profile, take them to /payments page, not payment-settings
-  if (/\bpayments?\b/i.test(normalized) && currentPath === "/profile") {
-    const paymentsDest = GUIDE_DESTINATIONS.find((d) => d.id === "payments");
-    if (paymentsDest) {
-      return {
-        text: `Opening **${paymentsDest.title}** now…\n\n${paymentsDest.blurb}`,
-        navigateTo: paymentsDest.path,
-        destination: paymentsDest,
-      };
-    }
   }
 
   if (/\b(events?|jobs?|property|real estate|tickets?|concert|employment|hiring)\b/.test(normalized) &&
