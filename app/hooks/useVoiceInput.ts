@@ -74,6 +74,8 @@ export function useVoiceInput({
   const startListeningRef = useRef<(() => Promise<void>) | null>(null);
   /** Bumped before abort/stop so stale recognition handlers cannot clobber a new session. */
   const recognitionGenerationRef = useRef(0);
+  /** Track total session count to detect potential memory leaks or limits */
+  const sessionCountRef = useRef(0);
 
   const isVoiceSession = useCallback(
     () => Boolean(sessionContinuousRef?.current ?? keepAliveRef.current),
@@ -397,10 +399,16 @@ export function useVoiceInput({
           clearActive();
         }
         if (keepSession) {
+          console.log(`[VoiceInput] Auto-restarting session (current count: ${sessionCountRef.current})`);
           window.setTimeout(() => {
-            if (isStale() || intentionalStopRef.current || !isVoiceSession()) return;
+            if (isStale() || intentionalStopRef.current || !isVoiceSession()) {
+              console.log(`[VoiceInput] Skipping restart - stale or stopped`);
+              return;
+            }
             void startListeningRef.current?.();
           }, 100);
+        } else {
+          console.log(`[VoiceInput] Session ended without restart (keepSession: ${keepSession})`);
         }
       };
     },
@@ -419,13 +427,18 @@ export function useVoiceInput({
     const recognition = createSpeechRecognition(config, { continuous: sessionContinuous });
     if (!recognition) return false;
 
+    // Increment session count for tracking
+    sessionCountRef.current++;
+    console.log(`[VoiceInput] Starting recognition session #${sessionCountRef.current}`);
+
     recognitionRef.current = recognition;
     attachRecognitionHandlers(recognition, true);
 
     try {
       recognition.start();
       return true;
-    } catch {
+    } catch (err) {
+      console.error(`[VoiceInput] Failed to start recognition session #${sessionCountRef.current}:`, err);
       recognitionRef.current = null;
       return false;
     }
@@ -443,6 +456,14 @@ export function useVoiceInput({
     if (permission.ok === false) {
       callbacksRef.current.onError?.(permission.message);
       return;
+    }
+
+    // Force clean up if we've had too many sessions (potential browser limit)
+    if (sessionCountRef.current > 50) {
+      console.warn(`[VoiceInput] Session count ${sessionCountRef.current} exceeds limit, forcing cleanup`);
+      invalidateRecognitionSession();
+      sessionCountRef.current = 0;
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 200));
     }
 
     if (isSpeechRecognitionSupported()) {
@@ -492,14 +513,22 @@ export function useVoiceInput({
         return;
       }
 
-      for (let attempt = 0; attempt < 3; attempt++) {
-        await new Promise<void>((resolve) => window.setTimeout(resolve, 80 + attempt * 60));
+      // Increase retry attempts and add delay for recovery
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const delay = 100 + attempt * 100;
+        await new Promise<void>((resolve) => window.setTimeout(resolve, delay));
         if (disabled || intentionalStopRef.current) return;
         if (listeningRef.current || recordingRef.current) return;
 
+        console.log(`[VoiceInput] Restart attempt ${attempt + 1}/5`);
         await startListening();
-        if (listeningRef.current || recordingRef.current) return;
+        if (listeningRef.current || recordingRef.current) {
+          console.log(`[VoiceInput] Restart succeeded on attempt ${attempt + 1}`);
+          return;
+        }
       }
+
+      console.error(`[VoiceInput] All restart attempts failed`);
     } finally {
       restartingRef.current = false;
     }
