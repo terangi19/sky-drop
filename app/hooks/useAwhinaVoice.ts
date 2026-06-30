@@ -22,6 +22,7 @@ import { getFreshIdToken } from "../lib/api-auth";
 import { readListingDraftFromSkyAi } from "../lib/sky-ai-listing-context";
 import { stripSkyAiMachineTags, type SkyAiListingFill } from "../lib/sky-ai-listing-fill";
 import { isSpeechRecognitionSupported } from "../lib/speech-recognition";
+import { showToast } from "../components/Toast";
 import { useVoiceInput, type UtteranceUpdateMeta } from "./useVoiceInput";
 
 export type AwhinaVoicePhase =
@@ -113,6 +114,7 @@ export function useAwhinaVoice() {
   const startListeningRef = useRef<(() => Promise<void>) | null>(null);
   const restartListeningRef = useRef<((options?: { force?: boolean }) => Promise<void>) | null>(null);
   const micListeningRef = useRef(false);
+  const previousPathRef = useRef<string>(pathname);
 
   /* ── Confirmation state for medium-confidence commands ── */
   const pendingConfirmationRef = useRef<VoiceCommandAction | null>(null);
@@ -277,6 +279,16 @@ export function useAwhinaVoice() {
         setHeardText(action.heard);
       }
 
+      // Show toast for navigation actions
+      if (
+        action.type === "navigate" ||
+        action.type === "search" ||
+        action.type === "page" ||
+        action.type === "listing"
+      ) {
+        showToast(action.status || "Opening…", "info");
+      }
+
       if (action.type === "page") {
         const result = action.run();
         if (!result.ok) {
@@ -423,6 +435,7 @@ export function useAwhinaVoice() {
         busyRef.current = true;
         lastInstantExecRef.current = execKey;
         lastInstantAtRef.current = now;
+        showToast(cmd.status || "Opening…", "info");
         const result = cmd.run!();
         if (!result.ok) {
           busyRef.current = false;
@@ -442,6 +455,7 @@ export function useAwhinaVoice() {
         busyRef.current = true;
         lastInstantExecRef.current = execKey;
         lastInstantAtRef.current = now;
+        showToast(cmd.status || "Opening…", "info");
         if (cmd.type === "listing") {
           dispatchSkyAiOpen(cmd.message);
         }
@@ -906,6 +920,11 @@ export function useAwhinaVoice() {
       window.clearTimeout(t);
     };
   }, [clearEndOfSpeechTimers, keepVoiceModeOn, pathname, voiceMode]);
+
+  // Track previous path for "go back" command
+  useEffect(() => {
+    previousPathRef.current = pathname;
+  }, [pathname]);
 
   useEffect(() => {
     if (!voiceMode) return;

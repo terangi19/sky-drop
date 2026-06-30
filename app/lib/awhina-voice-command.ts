@@ -1,6 +1,8 @@
 import { findByCompactPrefix, findBestDestination, getGuideReply, scoreDestination, type GuideDestination } from "./guide-assistant";
 import { dispatchListingFill, type SkyAiListingFill } from "./sky-ai-listing-fill";
-import { messageSellerOnPage, openListingByIndex, switchTab } from "./awhina-voice-page-actions";
+import { messageSellerOnPage, openListingByIndex, scrollDown, scrollToBottom, scrollToTop, scrollUp, switchTab } from "./awhina-voice-page-actions";
+import { matchRoute, matchRouteStrict } from "./voice-route-registry";
+import { resolvePhonetic } from "./voice-phonetic";
 
 export type VoiceConfidence = "high" | "medium" | "low";
 
@@ -59,7 +61,7 @@ const RESUME_INTENT = /\b(resume( listening)?|continue listening|i'?m back|keep 
 const VOICE_OFF_INTENT = /\b(stop listening|turn off voice|disable voice|exit voice( mode)?|stop voice|voice off|turn voice off)\b/i;
 
 const OPEN_LISTING_INTENT =
-  /\b(open|show|go to|view)\s+(the\s+)?(first|1st|second|2nd|third|3rd|top)\s+(listing|result|one|item)\b/i;
+  /\b(open|show|go to|view)\s+(the\s+)?(first|1st|second|2nd|third|3rd|top)\s+(listing|result|one|item|post)\b/i;
 
 const MESSAGE_SELLER_INTENT =
   /\b(message|contact|chat with|talk to)\s+(the\s+)?(seller|owner|them|vendor)\b/i;
@@ -74,6 +76,20 @@ const UNDER_PRICE = /\b(?:under|below|less than|max|maximum|up to)\s*\$?\s*([\d,
 const OVER_PRICE = /\b(?:over|above|more than|min|minimum|at least)\s*\$?\s*([\d,]+(?:\.\d{2})?)/i;
 const IN_LOCATION =
   /\b(?:in|near|around|from)\s+(auckland|wellington|christchurch|hamilton|tauranga|dunedin|palmerston north|napier|rotorua|nelson|invercargill|queenstown|new plymouth|whangarei|gisborne|timaru|taupo|north shore|manukau|waitakere|canterbury|waikato|otago|hawke'?s bay)\b/i;
+
+/* ── Context-aware command intents ── */
+
+const GO_BACK_INTENT = /\b(go back|back|previous|go previous|go back a page|go back one|navigate back)\b/i;
+const GO_HOME_INTENT = /\b(go home|home page|back to home|go to home)\b/i;
+const SCROLL_DOWN_INTENT = /\b(scroll down|page down|move down|go down|scroll down a bit)\b/i;
+const SCROLL_UP_INTENT = /\b(scroll up|page up|move up|go up|scroll up a bit)\b/i;
+const SCROLL_TOP_INTENT = /\b(scroll to top|go to top|top of page|back to top)\b/i;
+const SCROLL_BOTTOM_INTENT = /\b(scroll to bottom|go to bottom|bottom of page)\b/i;
+const CLOSE_INTENT = /\b(close this|close|dismiss|close page|go away|exit)\b/i;
+const CANCEL_INTENT = /\b(cancel|never mind|forget it|scratch that|stop|abort)\b/i;
+const REFRESH_INTENT = /\b(refresh|reload|refresh page|reload page)\b/i;
+
+/* ── Parse helpers ── */
 
 function parsePrice(raw: string): number | undefined {
   const n = Number(raw.replace(/,/g, ""));
@@ -94,7 +110,7 @@ function extractSearchTerms(text: string): string {
 }
 
 function buildSearchPath(text: string): { path: string; query: string; status: string; targetTitle: string } | null {
-  if (!SEARCH_INTENT.test(text) && !/\bshow\b/i.test(text)) return null;
+  if (!SEARCH_INTENT.test(text)) return null;
 
   const query = extractSearchTerms(text);
   if (!query || query.length < 2) return null;
@@ -148,6 +164,49 @@ function listingIndexFromText(text: string): number {
   return 0;
 }
 
+/* ── Nav Prefix Stripping ── */
+
+const NAV_PREFIXES = [
+  "take me to", "go to", "open", "show me", "show",
+  "navigate to", "bring me to", "send me to", "guide me to",
+  "bring up", "go into", "view", "head to", "get me to",
+  "take me into", "show me the", "let me see", "i want to go to",
+  "i need to go to", "can you take me to", "can you open",
+  "go to the", "take me", "bring me",
+];
+
+const NAV_PREFIX_REGEX = new RegExp(
+  `^(?:please\\s+)?(?:can you\\s+)?(?:${NAV_PREFIXES.map((p) =>
+    p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  ).join("|")})\\s+`,
+  "i"
+);
+
+/* ── Display Helpers ── */
+
+function compactSpeech(text: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function stripNavPrefix(text: string): string {
+  return text.replace(NAV_PREFIX_REGEX, "").trim();
+}
+
+function hasNavPrefix(text: string): boolean {
+  return NAV_PREFIX_REGEX.test(text);
+}
+
+/* ── Confidence Scoring ── */
+
+function computeConfidence(text: string, dest: GuideDestination | null, destScore: number): VoiceConfidence {
+  if (!dest || destScore < 2) return "low";
+  if (destScore >= 5) return "high";
+  if (destScore >= 3) return "medium";
+  return "low";
+}
+
+/* ── Page-Level Actions ── */
+
 function buildPageAction(text: string, pathname: string): VoiceCommandAction | null {
   if (VOICE_OFF_INTENT.test(text)) {
     return { type: "voice_off", status: "Turning off Voice Mode…", confidence: "high", heard: text };
@@ -184,15 +243,14 @@ function buildPageAction(text: string, pathname: string): VoiceCommandAction | n
         if (result.ok) return { ok: true, path: result.path };
         if (pathname.startsWith("/search") || pathname === "/") {
           const opened = openListingByIndex(0);
-          if (opened.ok) {
-            return { ok: true, path: opened.path };
-          }
+          if (opened.ok) return { ok: true, path: opened.path };
         }
         return { ok: false };
       },
     };
   }
 
+  // In-page tab navigation
   const TAB_PAGES: Array<{ prefix: string; aliases: Record<string, string> }> = [
     {
       prefix: "/profile",
@@ -225,45 +283,188 @@ function buildPageAction(text: string, pathname: string): VoiceCommandAction | n
   return null;
 }
 
-/* ── Nav Prefix Stripping ── */
+/* ── Context-aware page actions ── */
 
-const NAV_PREFIXES = [
-  "take me to", "go to", "open", "show me", "show",
-  "navigate to", "bring me to", "send me to", "guide me to",
-  "bring up", "go into", "view", "head to", "get me to",
-  "take me into", "show me the", "let me see", "i want to go to",
-  "i need to go to", "can you take me to", "can you open",
-  "go to the",
-];
+function buildContextAction(text: string): VoiceCommandAction | null {
+  const trimmed = text.trim();
 
-const NAV_PREFIX_REGEX = new RegExp(
-  `^(?:please\\s+)?(?:can you\\s+)?(?:${NAV_PREFIXES.map((p) =>
-    p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-  ).join("|")})\\s+`,
-  "i"
-);
+  if (GO_BACK_INTENT.test(trimmed)) {
+    return {
+      type: "page",
+      status: "Going back…",
+      confidence: "high",
+      heard: trimmed,
+      targetTitle: "previous page",
+      run: () => {
+        window.history.back();
+        return { ok: true, path: document.referrer || undefined };
+      },
+    };
+  }
 
-/* ── Confidence Scoring ── */
+  if (GO_HOME_INTENT.test(trimmed)) {
+    return {
+      type: "navigate",
+      path: "/",
+      status: "Going home…",
+      confidence: "high",
+      heard: trimmed,
+      targetTitle: "Home",
+    };
+  }
 
-function computeConfidence(text: string, dest: GuideDestination | null, destScore: number): VoiceConfidence {
-  if (!dest || destScore < 2) return "low";
-  if (destScore >= 5) return "high";
-  if (destScore >= 3) return "medium";
-  return "low";
+  if (SCROLL_DOWN_INTENT.test(trimmed)) {
+    return {
+      type: "page",
+      status: "Scrolling down…",
+      confidence: "high",
+      heard: trimmed,
+      targetTitle: "scroll down",
+      run: scrollDown,
+    };
+  }
+
+  if (SCROLL_UP_INTENT.test(trimmed)) {
+    return {
+      type: "page",
+      status: "Scrolling up…",
+      confidence: "high",
+      heard: trimmed,
+      targetTitle: "scroll up",
+      run: scrollUp,
+    };
+  }
+
+  if (SCROLL_TOP_INTENT.test(trimmed)) {
+    return {
+      type: "page",
+      status: "Going to top…",
+      confidence: "high",
+      heard: trimmed,
+      targetTitle: "top of page",
+      run: scrollToTop,
+    };
+  }
+
+  if (SCROLL_BOTTOM_INTENT.test(trimmed)) {
+    return {
+      type: "page",
+      status: "Going to bottom…",
+      confidence: "high",
+      heard: trimmed,
+      targetTitle: "bottom of page",
+      run: scrollToBottom,
+    };
+  }
+
+  if (REFRESH_INTENT.test(trimmed)) {
+    return {
+      type: "page",
+      status: "Refreshing…",
+      confidence: "high",
+      heard: trimmed,
+      targetTitle: "refresh",
+      run: () => {
+        window.location.reload();
+        return { ok: true };
+      },
+    };
+  }
+
+  return null;
 }
 
-/* ── Display Helpers ── */
+/* ── Route Registry Integration ── */
 
-function compactSpeech(text: string): string {
-  return text.toLowerCase().replace(/[^a-z0-9]/g, "");
-}
+/**
+ * Fast match from the central route registry.
+ * Returns a navigate action if a route is matched with high confidence.
+ */
+function matchFromRegistry(text: string, pathname: string): VoiceCommandAction | null {
+  const trimmed = text.trim();
+  if (!trimmed || trimmed.length < 2) return null;
 
-function stripNavPrefix(text: string): string {
-  return text.replace(NAV_PREFIX_REGEX, "").trim();
-}
+  // Try strict match first (score >= 5)
+  const strict = matchRouteStrict(trimmed);
+  if (strict) {
+    if (pathname === strict.path || (strict.path.includes("#") && pathname === strict.path.split("#")[0])) {
+      return {
+        type: "reply",
+        status: `You're already on ${strict.title}.`,
+        confidence: "medium",
+        heard: trimmed,
+        targetTitle: strict.title,
+        message: `You're already on **${strict.title}**. What else can I help with?`,
+      };
+    }
+    return {
+      type: "navigate",
+      path: strict.path,
+      status: `Opening ${strict.title}…`,
+      confidence: "high",
+      heard: trimmed,
+      targetTitle: strict.title,
+    };
+  }
 
-function hasNavPrefix(text: string): boolean {
-  return NAV_PREFIX_REGEX.test(text);
+  // Try fuzzy match (score >= 3) — requires nav prefix for medium confidence
+  const fuzzy = matchRoute(trimmed);
+  if (fuzzy && fuzzy.score >= 4 && hasNavPrefix(trimmed)) {
+    if (pathname === fuzzy.path || (fuzzy.path.includes("#") && pathname === fuzzy.path.split("#")[0])) {
+      return {
+        type: "reply",
+        status: `You're already on ${fuzzy.title}.`,
+        confidence: "medium",
+        heard: trimmed,
+        targetTitle: fuzzy.title,
+        message: `You're already on **${fuzzy.title}**. What else can I help with?`,
+      };
+    }
+    return {
+      type: "navigate",
+      path: fuzzy.path,
+      status: `Opening ${fuzzy.title}…`,
+      confidence: "medium",
+      heard: trimmed,
+      targetTitle: fuzzy.title,
+    };
+  }
+
+  // Try phonetic match on the text to see if it corrects to a known route
+  const corrected = resolvePhonetic(trimmed);
+  if (corrected !== trimmed) {
+    const phoneticMatch = matchRouteStrict(corrected);
+    if (phoneticMatch) {
+      return {
+        type: "navigate",
+        path: phoneticMatch.path,
+        status: `Opening ${phoneticMatch.title}…`,
+        confidence: "high",
+        heard: trimmed,
+        targetTitle: phoneticMatch.title,
+      };
+    }
+  }
+
+  // Try prefix-stripped version for nav phrases
+  if (hasNavPrefix(trimmed)) {
+    const navTarget = stripNavPrefix(trimmed);
+    if (navTarget && navTarget !== trimmed) {
+      const strippedMatch = matchRouteStrict(navTarget);
+      if (strippedMatch) {
+        return {
+          type: "navigate",
+          path: strippedMatch.path,
+          status: `Opening ${strippedMatch.title}…`,
+          confidence: "high",
+          heard: trimmed,
+          targetTitle: strippedMatch.title,
+        };
+      }
+    }
+  }
+
+  return null;
 }
 
 /* ── Main Command Resolver ── */
@@ -272,14 +473,21 @@ export function resolveVoiceCommand(text: string, pathname: string): VoiceComman
   const trimmed = text.trim();
   if (!trimmed) return null;
 
-  // 1. Page actions (highest priority — voice_off, resume, open listing, message seller, tab switch)
+  // 1. Context-aware page actions (go back, go home, scroll, refresh)
+  const contextAction = buildContextAction(trimmed);
+  if (contextAction) {
+    voiceLog(trimmed, contextAction);
+    return contextAction;
+  }
+
+  // 2. Page actions (highest priority — voice_off, resume, open listing, message seller, tab switch)
   const pageAction = buildPageAction(trimmed, pathname);
   if (pageAction) {
     voiceLog(trimmed, pageAction);
     return pageAction;
   }
 
-  // 2. Compact prefix match — fast path for short nav phrases
+  // 3. Compact prefix match — fast path for short nav phrases
   if (trimmed.split(/\s+/).length <= 5) {
     const navTarget = stripNavPrefix(trimmed);
     const compact = compactSpeech(navTarget);
@@ -310,8 +518,15 @@ export function resolveVoiceCommand(text: string, pathname: string): VoiceComman
     }
   }
 
-  // 3. Search intent — "search BMW 335i", "find iphone under $500"
-  if (SEARCH_INTENT.test(trimmed) || /\bshow\b/i.test(trimmed)) {
+  // 4. Route registry match — central phrase → route mapping
+  const registryMatch = matchFromRegistry(trimmed, pathname);
+  if (registryMatch) {
+    voiceLog(trimmed, registryMatch);
+    return registryMatch;
+  }
+
+  // 5. Search intent — "search BMW 335i", "find iphone under $500"
+  if (SEARCH_INTENT.test(trimmed)) {
     const search = buildSearchPath(trimmed);
     if (search) {
       const action: VoiceCommandAction = {
@@ -328,14 +543,14 @@ export function resolveVoiceCommand(text: string, pathname: string): VoiceComman
     }
   }
 
-  // 4. Selling intent — "sell my ps5", "create a listing"
+  // 6. Selling intent — "sell my ps5", "create a listing"
   const listing = buildListingAction(trimmed);
   if (listing) {
     voiceLog(trimmed, listing);
     return listing;
   }
 
-  // 5. Destination matching with confidence
+  // 7. Destination matching with confidence (legacy guide-assistant fallback)
   const navTarget = stripNavPrefix(trimmed);
   const hasNav = hasNavPrefix(trimmed);
   const dest = findBestDestination(trimmed) ?? (navTarget !== trimmed ? findBestDestination(navTarget) : null);
@@ -356,7 +571,6 @@ export function resolveVoiceCommand(text: string, pathname: string): VoiceComman
     trimmed.split(/\s+/).length <= 5 &&
     matchesDestination(dest);
 
-  // Plain "my X" phrases like "my listings", "my sales", "my orders"
   const myXPhrase = /^my\s+\w+/i.test(trimmed) && trimmed.split(/\s+/).length <= 3;
 
   const wantsNav =
@@ -385,9 +599,6 @@ export function resolveVoiceCommand(text: string, pathname: string): VoiceComman
     }
 
     const confidence = computeConfidence(trimmed, dest, destScore);
-
-    // For medium confidence, create a navigate action with medium confidence
-    // The caller will decide whether to ask for confirmation
     const action: VoiceCommandAction = {
       type: "navigate",
       path: dest.path,
@@ -400,7 +611,7 @@ export function resolveVoiceCommand(text: string, pathname: string): VoiceComman
     return action;
   }
 
-  // 6. Guide assistant fallback
+  // 8. Guide assistant fallback
   const guide = getGuideReply(trimmed, pathname);
   if (guide.navigateTo) {
     const destTitle = guide.destination?.title ?? "that page";

@@ -1,95 +1,105 @@
-/** DOM actions for contextual voice commands (search results, listing pages). */
+/** DOM-based page actions for Āwhina Voice — open listings, message seller, scroll, switch tabs. */
 
-export function findListingCards(): HTMLElement[] {
-  if (typeof document === "undefined") return [];
-  return Array.from(document.querySelectorAll<HTMLElement>(".listing-card"));
+export type PageActionResult = { ok: boolean; path?: string };
+
+export function findListingCards(): NodeListOf<Element> {
+  return document.querySelectorAll(".listing-card");
 }
 
-export function findListingLinks(): HTMLAnchorElement[] {
-  if (typeof document === "undefined") return [];
-  const anchors = Array.from(
-    document.querySelectorAll<HTMLAnchorElement>('a[href*="/post/listing/"]')
-  );
+export function findListingLinks(): { href: string; el: HTMLAnchorElement }[] {
   const seen = new Set<string>();
-  return anchors.filter((a) => {
-    const href = a.getAttribute("href") || "";
-    if (!href.includes("/post/listing/") || seen.has(href)) return false;
-    seen.add(href);
-    return true;
-  });
+  const links: { href: string; el: HTMLAnchorElement }[] = [];
+  for (const a of document.querySelectorAll<HTMLAnchorElement>("a[href*='/post/listing/']")) {
+    if (!seen.has(a.href)) {
+      seen.add(a.href);
+      links.push({ href: a.href, el: a });
+    }
+  }
+  return links;
 }
 
-function listingPathFromElement(el: HTMLElement): string | null {
-  const link = el.querySelector<HTMLAnchorElement>('a[href*="/post/listing/"]');
-  const href = link?.getAttribute("href");
-  return href ? href.split("?")[0] : null;
-}
-
-export function openListingByIndex(index: number): { ok: true; path: string } | { ok: false } {
+export function openListingByIndex(index: number): PageActionResult {
   const cards = findListingCards();
-  if (cards[index]) {
-    cards[index].click();
-    const path = listingPathFromElement(cards[index]);
-    if (path) return { ok: true, path };
+  if (cards.length > index) {
+    const card = cards[index] as HTMLElement;
+    const link = card.querySelector<HTMLAnchorElement>("a[href*='/post/listing/']");
+    if (link) {
+      link.click();
+      return { ok: true, path: link.href };
+    }
+    card.click();
+    return { ok: true };
   }
-
   const links = findListingLinks();
-  const link = links[index];
-  if (!link) return { ok: false };
-  const href = link.getAttribute("href");
-  if (!href) return { ok: false };
-  link.click();
-  return { ok: true, path: href.split("?")[0] };
-}
-
-export function messageSellerOnPage(): { ok: true; path?: string } | { ok: false } {
-  if (typeof document === "undefined") return { ok: false };
-
-  const messageBtn = document.querySelector<HTMLElement>(
-    'a[href*="/messages"], button[data-voice="message-seller"], [aria-label*="message" i], [aria-label*="Message seller" i]'
-  );
-  if (messageBtn) {
-    messageBtn.click();
-    const href = messageBtn instanceof HTMLAnchorElement ? messageBtn.href : undefined;
-    return { ok: true, path: href };
+  if (links.length > index) {
+    links[index].el.click();
+    return { ok: true, path: links[index].href };
   }
-
-  const contact = document.querySelector<HTMLAnchorElement>('a[href*="#contact"], a[href*="/messages/"]');
-  if (contact) {
-    contact.click();
-    return { ok: true, path: contact.getAttribute("href") || undefined };
-  }
-
   return { ok: false };
 }
 
-/**
- * Switch to a tab on the current page by finding the tab button with
- * matching role="tab" and aria-selected or text content.
- */
-export function switchTab(tabId: string): { ok: true; path?: string } | { ok: false } {
-  if (typeof document === "undefined") return { ok: false };
-
-  const tabs = document.querySelectorAll<HTMLElement>('[role="tab"]');
-  for (const tab of tabs) {
-    const match =
-      tab.getAttribute("data-tab") === tabId ||
-      tab.textContent?.toLowerCase().trim() === tabId.toLowerCase() ||
-      tab.getAttribute("aria-controls") === tabId;
-    if (match) {
-      tab.click();
-      return { ok: true, path: `#${tabId}` };
-    }
+export function messageSellerOnPage(): PageActionResult {
+  const sel =
+    document.querySelector<HTMLAnchorElement>('a[href*="/messages"]') ??
+    document.querySelector<HTMLButtonElement>('button[data-voice="message-seller"]') ??
+    document.querySelector<HTMLElement>('[aria-label*="message"]') ??
+    document.querySelector<HTMLElement>('[aria-label*="Message seller"]');
+  if (sel) {
+    sel.click();
+    const path = sel.getAttribute("href") ?? undefined;
+    return { ok: true, path };
   }
-
-  const buttons = document.querySelectorAll<HTMLButtonElement>("button");
-  for (const btn of buttons) {
-    const text = btn.textContent?.toLowerCase().trim();
-    if (text === tabId.toLowerCase()) {
-      btn.click();
-      return { ok: true, path: `#${tabId}` };
-    }
+  const fallback =
+    document.querySelector<HTMLAnchorElement>('a[href*="#contact"]') ??
+    document.querySelector<HTMLAnchorElement>('a[href*="/messages/"]');
+  if (fallback) {
+    fallback.click();
+    return { ok: true, path: fallback.href };
   }
-
   return { ok: false };
+}
+
+export function switchTab(tabId: string): PageActionResult {
+  const tab =
+    document.querySelector<HTMLElement>(`[role="tab"][data-tab="${tabId}"]`) ??
+    document.querySelector<HTMLElement>(`[role="tab"][aria-controls="${tabId.toLowerCase()}"]`) ??
+    findTabByText(tabId);
+  if (tab) {
+    tab.click();
+    return { ok: true, path: `#${tabId}` };
+  }
+  return { ok: false };
+}
+
+function findTabByText(text: string): HTMLElement | null {
+  const lower = text.toLowerCase();
+  for (const el of document.querySelectorAll<HTMLElement>('[role="tab"]')) {
+    if (el.textContent?.trim().toLowerCase() === lower) return el;
+  }
+  for (const el of document.querySelectorAll<HTMLButtonElement>("button")) {
+    if (el.textContent?.trim().toLowerCase() === lower) return el;
+  }
+  return null;
+}
+
+/* ── Scroll Actions ── */
+
+export function scrollDown(): PageActionResult {
+  window.scrollBy({ top: window.innerHeight * 0.7, behavior: "smooth" });
+  return { ok: true };
+}
+
+export function scrollUp(): PageActionResult {
+  window.scrollBy({ top: -window.innerHeight * 0.7, behavior: "smooth" });
+  return { ok: true };
+}
+
+export function scrollToTop(): PageActionResult {
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  return { ok: true };
+}
+
+export function scrollToBottom(): PageActionResult {
+  window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+  return { ok: true };
 }

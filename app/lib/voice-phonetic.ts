@@ -1,0 +1,176 @@
+/** Phonetic matching for voice commands — handles common STT mishearings. */
+
+/* ── Direct phonetic substitution map ── */
+// Maps what STT often hears → what the user likely meant
+const PHONETIC_SUBSTITUTIONS: Record<string, string[]> = {
+  // Sales common mishearings
+  cells: ["sales"],
+  sells: ["sales"],
+  sals: ["sales"],
+  sails: ["sales"],
+  sale: ["sales"],
+
+  // Profile
+  profiel: ["profile"],
+  profil: ["profile"],
+  prophile: ["profile"],
+
+  // Messages
+  massages: ["messages"],
+  messags: ["messages"],
+  mesages: ["messages"],
+  inboxs: ["messages"],
+
+  // Payments
+  paymants: ["payments"],
+  paymints: ["payments"],
+
+  // Purchases
+  purchas: ["purchases"],
+  purches: ["purchases"],
+
+  // Watchlist
+  watchlit: ["watchlist"],
+  favourits: ["favorites", "favourites"],
+  favorits: ["favorites", "favourites"],
+
+  // Listings
+  listins: ["listings"],
+  listngs: ["listings"],
+
+  // Vehicles
+  vihicles: ["vehicles"],
+  vehicls: ["vehicles"],
+  vecals: ["vehicles"],
+
+  // Services
+  servises: ["services"],
+  servics: ["services"],
+  survices: ["services"],
+
+  // Rentals
+  rentls: ["rentals"],
+  rintals: ["rentals"],
+
+  // Notifications
+  notifcations: ["notifications"],
+  notificashuns: ["notifications"],
+
+  // Dashboard
+  dashbord: ["dashboard"],
+  dashbard: ["dashboard"],
+
+  // Admin
+  admen: ["admin"],
+  admine: ["admin"],
+
+  // Digital
+  digitl: ["digital"],
+  dijital: ["digital"],
+
+  // Reviews
+  revews: ["reviews"],
+  revues: ["reviews"],
+
+  // Search
+  serch: ["search"],
+  brous: ["browse"],
+  surch: ["search"],
+
+  // Home
+  hoam: ["home"],
+  hom: ["home"],
+
+  // Awhina / Sky Drop
+  athena: ["awhina"],
+  awina: ["awhina"],
+  ahina: ["awhina"],
+};
+
+/* ── Character-level normalization ── */
+// Collapse common STT character confusions
+const PHONETIC_PATTERNS: [RegExp, string][] = [
+  [/\bc\b/g, "s"],          // isolated 'c' → 's' (e.g., "cells" → "sells")
+  [/ck/g, "k"],              // 'ck' → 'k'
+  [/ph/g, "f"],              // 'ph' → 'f'
+  [/kn/g, "n"],              // 'kn' → 'n'
+  [/gh/g, ""],               // silent 'gh'
+  [/(.)\1+/g, "$1"],         // collapse repeated chars ("sss" → "s")
+  [/[aeiou]{2,}/g, "a"],     // collapse vowel clusters to single 'a'
+  [/[^a-z0-9]/g, ""],        // strip non-alpha
+];
+
+/**
+ * Normalize text phonetically — strips vowels, collapses repeats,
+ * so "cells" and "sales" become more similar.
+ */
+export function phoneticNormalize(text: string): string {
+  let t = text.toLowerCase().trim();
+  for (const [pattern, replacement] of PHONETIC_PATTERNS) {
+    t = t.replace(pattern, replacement as string);
+  }
+  return t.trim();
+}
+
+/**
+ * Compute a simple phonetic similarity score (0–1).
+ * 1.0 = exact match after phonetic normalization.
+ */
+export function phoneticSimilarity(a: string, b: string): number {
+  const na = phoneticNormalize(a);
+  const nb = phoneticNormalize(b);
+  if (na === nb) return 1.0;
+  if (na.includes(nb) || nb.includes(na)) return 0.8;
+  // Levenshtein distance ratio
+  const dist = levenshtein(na, nb);
+  const maxLen = Math.max(na.length, nb.length);
+  return maxLen > 0 ? 1 - dist / maxLen : 0;
+}
+
+/** Basic Levenshtein distance. */
+function levenshtein(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[m][n];
+}
+
+/**
+ * Resolve a potentially misheard phrase to what the user likely meant.
+ * Returns the corrected phrase, or the original if no correction found.
+ */
+export function resolvePhonetic(text: string): string {
+  const normalized = text.toLowerCase().trim();
+  const compact = normalized.replace(/[^a-z0-9]/g, "");
+
+  // Direct substitution lookup
+  const substitution = PHONETIC_SUBSTITUTIONS[compact];
+  if (substitution && substitution.length > 0) {
+    return substitution[0];
+  }
+
+  // Try partial match against phonetic substitution keys
+  for (const [key, corrections] of Object.entries(PHONETIC_SUBSTITUTIONS)) {
+    if (compact.includes(key) || key.includes(compact)) {
+      return corrections[0];
+    }
+  }
+
+  return text;
+}
+
+/**
+ * Check if two phrases are likely the same despite STT differences.
+ */
+export function isPhoneticMatch(a: string, b: string): boolean {
+  return phoneticSimilarity(a, b) >= 0.7;
+}
