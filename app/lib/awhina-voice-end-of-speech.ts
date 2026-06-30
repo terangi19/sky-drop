@@ -4,7 +4,7 @@
  * Conversational and listing speech get generous patience.
  */
 
-import { isInstantLocalCommand } from "./local-command-engine";
+import { isInstantLocalCommand, isLikelyNavCommand } from "./local-command-engine";
 import { resolveVoiceCommand } from "./awhina-voice-command";
 
 export type VoiceUtteranceKind = "navigation" | "search" | "listing" | "conversation";
@@ -122,8 +122,8 @@ export function endOfSpeechDelayMs(text: string, options?: EndOfSpeechOptions): 
   const t = text.trim();
   if (!t) return SILENCE_MS.conversation;
 
-  // Quick check: if this is an instant local command, return 0
-  if (options?.pathname && isInstantLocalCommand(t, options.pathname)) {
+  // Lightweight check: if this looks like a nav command, skip the full pipeline
+  if (isLikelyNavCommand(t) && options?.pathname && isInstantLocalCommand(t, options.pathname)) {
     return 0;
   }
 

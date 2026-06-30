@@ -468,6 +468,12 @@ export function useAwhinaVoice() {
         busyRef.current = true;
         lastInstantExecRef.current = execKey;
         lastInstantAtRef.current = now;
+        if (cmd.heard && cmd.targetTitle) {
+          setHeardText(cmd.heard);
+          setActionText(cmd.targetTitle);
+        } else if (cmd.heard) {
+          setHeardText(cmd.heard);
+        }
         showToast(cmd.status || "Opening…", "info");
         const result = cmd.run!();
         if (!result.ok) {
@@ -488,6 +494,12 @@ export function useAwhinaVoice() {
         busyRef.current = true;
         lastInstantExecRef.current = execKey;
         lastInstantAtRef.current = now;
+        if (cmd.heard && cmd.targetTitle) {
+          setHeardText(cmd.heard);
+          setActionText(cmd.targetTitle);
+        } else if (cmd.heard) {
+          setHeardText(cmd.heard);
+        }
         showToast(cmd.status || "Opening…", "info");
         if (cmd.type === "listing") {
           dispatchSkyAiOpen(cmd.message);

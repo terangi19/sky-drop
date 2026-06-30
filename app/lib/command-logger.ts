@@ -8,7 +8,7 @@ export type CommandLogEntry = {
   confidence: "high" | "medium" | "low" | "none";
   targetPath: string | null;
   targetTitle: string | null;
-  executedAction: "navigate" | "search" | "page" | "reply" | "resume" | "voice_off" | "listing" | "ai_conversation" | "none";
+  executedAction: "navigate" | "search" | "page" | "reply" | "resume" | "voice_off" | "listing" | "chat" | "ai_conversation" | "none";
   route: string;
   executionTimeMs: number;
   aiBypassed: boolean;

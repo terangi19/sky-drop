@@ -13,7 +13,7 @@
  *   9. Return null → send to AI
  */
 
-import { matchRouteFromRegistry } from "./command-registry";
+import { matchRouteFromRegistry, ROUTE_REGISTRY } from "./command-registry";
 import { openListingByIndex, messageSellerOnPage, scrollDown, scrollToBottom, scrollToTop, scrollUp, switchTab } from "./awhina-voice-page-actions";
 import { phoneticNormalize, resolvePhonetic } from "./voice-phonetic";
 import { logCommand } from "./command-logger";
@@ -436,6 +436,52 @@ function buildSearchAction(text: string): LocalCommandAction | null {
     targetTitle: `Search: ${query}`,
     query,
   };
+}
+
+/* ── Lightweight nav command check (avoids full pipeline on every utterance update) ── */
+
+let _navCompacts: Set<string> | null = null;
+
+function buildNavCompacts(): Set<string> {
+  if (_navCompacts) return _navCompacts;
+  const s = new Set<string>();
+  for (const entry of ROUTE_REGISTRY) {
+    for (const alias of entry.aliases) {
+      const c = alias.toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (c.length <= 25) s.add(c);
+    }
+    for (const alias of entry.phoneticAliases ?? []) {
+      const c = alias.toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (c.length <= 25) s.add(c);
+    }
+  }
+  // Add common context/nav prefixes
+  for (const p of ["goback", "gohome", "scrollup", "scrolldown", "scrolltotop", "scrolltobottom", "refresh", "reload", "stoplistening", "resumelistening", "close", "cancel", "back", "home"]) {
+    s.add(p);
+  }
+  _navCompacts = s;
+  return s;
+}
+
+/**
+ * Fast check if text looks like a navigation command without running the
+ * full 7-step matching pipeline. Uses compact-form Set lookup.
+ */
+export function isLikelyNavCommand(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  if (!t || t.length < 2) return false;
+  const compact = t.replace(/[^a-z0-9]/g, "");
+  if (compact.length > 30) return false;
+
+  const navs = buildNavCompacts();
+  if (navs.has(compact)) return true;
+
+  // Check if compact is a prefix of any known nav or vice versa
+  for (const n of navs) {
+    if (compact.startsWith(n) || n.startsWith(compact)) return true;
+  }
+
+  return false;
 }
 
 /* ── Main Public API ── */

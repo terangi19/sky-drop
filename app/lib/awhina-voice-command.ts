@@ -12,6 +12,7 @@
 
 import { dispatchListingFill, type SkyAiListingFill } from "./sky-ai-listing-fill";
 import { matchLocalCommand, resolveLocalCommand, type LocalCommandAction } from "./local-command-engine";
+import { logCommand } from "./command-logger";
 
 export type VoiceConfidence = "high" | "medium" | "low";
 
@@ -88,6 +89,10 @@ const HAS_DETAIL =
 
 /* ── Main Resolver ── */
 
+function normalizeCmd(text: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim();
+}
+
 export function resolveVoiceCommand(text: string, pathname: string): VoiceCommandAction | null {
   const trimmed = text.trim();
   if (!trimmed) return null;
@@ -98,6 +103,20 @@ export function resolveVoiceCommand(text: string, pathname: string): VoiceComman
   if (local) {
     const action = localToVoiceAction(local);
     voiceLog(trimmed, action);
+    logCommand({
+      rawTranscript: trimmed,
+      normalizedTranscript: normalizeCmd(trimmed),
+      matchedCommand: action.type,
+      confidence: action.confidence,
+      targetPath: action.path ?? null,
+      targetTitle: action.targetTitle ?? null,
+      executedAction: action.type,
+      route: pathname,
+      executionTimeMs: 0,
+      aiBypassed: true,
+      phoneticCorrected: false,
+      originalTranscript: trimmed,
+    });
     return action;
   }
 
