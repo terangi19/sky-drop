@@ -17,6 +17,7 @@ import DigitalAssetUpload from "../../components/DigitalAssetUpload";
 import { detectScam } from "../../lib/scamdetection";
 import { detectSuspiciousPrice } from "../../lib/pricedetection";
 import { getListingBlockReason } from "../../lib/seller-eligibility";
+import { resolveListingType } from "../../lib/listing-types";
 import { hasActiveListingDraft, mergeListingFillWithDraft } from "../../lib/sky-ai-draft-merge";
 import { readListingDraftFromSkyAi, syncListingDraftToSkyAi } from "../../lib/sky-ai-listing-context";
 import {
@@ -875,12 +876,17 @@ export default function AIPostPage() {
 
     setLoading(true);
 
+    const publishType = resolveListingType({
+      listingType,
+      category,
+    }) as typeof listingType;
+
     try {
       let images: string[] = existingImages;
       let thumbnails: string[] = existingImages && existingImages.length > 0 ? 
         (typeof existingImages[0] === 'object' ? existingImages.map((img: any) => img.thumbnail) : []) : [];
       
-      if (listingType !== "digital" && listingType !== "wanted" && imageFiles.length > 0) {
+      if (publishType !== "digital" && publishType !== "wanted" && imageFiles.length > 0) {
         images = [];
         thumbnails = [];
         
@@ -941,14 +947,14 @@ export default function AIPostPage() {
         baseData.expiresAt = new Date(Date.now() + Number(expiresIn) * 86400000);
       }
 
-      const listingData: any = listingType === "digital" ? {
+      const listingData: any = publishType === "digital" ? {
         ...baseData,
         price: pricingType === "quote" ? "" : String(price),
         condition: "Digital",
         type: "digital", digitalStoragePath, digitalFileName,
         pricingType,
         saleType: "buy_now", ...(editId ? {} : { expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000), status: "live" }),
-      } : listingType === "service" ? {
+      } : publishType === "service" ? {
         ...baseData,
         type: "service",
         serviceDuration,
@@ -957,7 +963,7 @@ export default function AIPostPage() {
         acceptOffers: offersDisabledForService(servicePricingType) ? false : acceptOffers,
         saleType: "buy_now",
         ...(editId ? {} : { expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000), status: "live" }),
-      } : listingType === "rental" ? {
+      } : publishType === "rental" ? {
         ...baseData, condition, location,
         type: "rental", pickupAvailable: true, shippingAvailable: false,
         rentalSubType,
@@ -983,7 +989,7 @@ export default function AIPostPage() {
           rentalVehicleSeats: stockQuantity || null,
         } : {}),
         ...(editId ? {} : { expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000), status: "live" }),
-      } : listingType === "event" ? {
+      } : publishType === "event" ? {
         ...baseData, category,
         type: "event", acceptOffers: false,
         eventDate, eventTime, venue,
@@ -991,14 +997,14 @@ export default function AIPostPage() {
         stockQuantity: ticketQuantity ? Number(ticketQuantity) : null,
         ticketType,
         ...(editId ? {} : { expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000), status: "live" }),
-      } : listingType === "job" ? {
+      } : publishType === "job" ? {
         ...baseData, category, location,
         type: "job", acceptOffers: false,
         jobCompany, jobEmploymentType,
         salaryMin: salaryMin ? Number(salaryMin) : null,
         salaryMax: salaryMax ? Number(salaryMax) : null,
         ...(editId ? {} : { expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000), status: "live" }),
-      } : listingType === "property" ? {
+      } : publishType === "property" ? {
         ...baseData, condition, location,
         pickupAvailable: true, shippingAvailable: false,
         saleType,
@@ -1016,7 +1022,7 @@ export default function AIPostPage() {
         landArea: landArea ? Number(landArea) : null,
         floorArea: floorArea ? Number(floorArea) : null,
         parking: parking ? Number(parking) : null,
-      } : listingType === "vehicle" ? {
+      } : publishType === "vehicle" ? {
         ...baseData, condition, location,
         pickupAvailable, shippingAvailable, pickupArea,
         shippingFee: shippingAvailable && shippingFee ? Number(shippingFee) : null,
@@ -1036,7 +1042,7 @@ export default function AIPostPage() {
         vehicleYear: vehicleYear ? Number(vehicleYear) : null,
         vehicleOdometer: vehicleOdometer ? Number(vehicleOdometer) : null,
         vehicleBodyType, vehicleFuelType, vehicleTransmission, vehicleColour,
-      } : listingType === "wanted" ? {
+      } : publishType === "wanted" ? {
         ...baseData, condition: "New", location,
         type: "wanted",
         pickupAvailable: false,
@@ -1115,7 +1121,7 @@ export default function AIPostPage() {
             Authorization: `Bearer ${token}`,
             ...(csrfToken && { "x-csrf-token": csrfToken })
           },
-          body: JSON.stringify({ ...listingData, expiresInDays: expiresIn, listingType }),
+          body: JSON.stringify({ ...listingData, expiresInDays: expiresIn, listingType: publishType }),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.success) {
@@ -1127,7 +1133,7 @@ export default function AIPostPage() {
           return;
         }
         newId = data.listingId;
-        if (listingType !== "digital") {
+        if (publishType !== "digital") {
           createPendingXP(user.uid, "listing", data.listingId, data.listingId);
           trackListingCreated(user.uid, title);
         }
@@ -1135,7 +1141,7 @@ export default function AIPostPage() {
           event: "listing_form_completed",
           userId: user.uid,
           listingId: data.listingId,
-          listingType,
+          listingType: publishType,
         });
         showToast("Listing created!", "success");
       }
@@ -1151,14 +1157,14 @@ export default function AIPostPage() {
       // setListingType("physical"); setDigitalFileURL(""); setDigitalFileName(""); setDigitalStoragePath(""); setServiceDuration(""); setRentalSubType("equipment"); setRentalPriceWeekly(""); setRentalPriceMonthly(""); setRentalDeposit(""); setRentalBedrooms(""); setRentalBathrooms(""); setRentalParkingSpaces(""); setRentalFurnishedStatus("Unfurnished"); setRentalPetsPolicy("No Pets"); setRentalAvailableDate(""); setRentalMinTenancy("Flexible"); setRentalFeatures([]); setEventDate(""); setEventTime(""); setVenue(""); setTicketQuantity(""); setTicketType("General Admission"); setVehicleMake(""); setVehicleModel(""); setVehicleYear(""); setVehicleOdometer(""); setVehicleBodyType("SUV"); setVehicleFuelType("Petrol"); setVehicleTransmission("Automatic"); setVehicleColour(""); setJobCompany(""); setJobEmploymentType("Full-time"); setSalaryMin(""); setSalaryMax(""); setPropertyType("House"); setBedrooms(""); setBathrooms(""); setLandArea(""); setFloorArea(""); setParking(""); setAcceptOffers(false); setCondition("New");
       setEditId(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
-      if (listingType === "service") window.location.href = "/services";
-      else if (listingType === "digital") window.location.href = "/digital";
-      else if (listingType === "rental") window.location.href = `/post/listing/${newId}`;
-      else if (listingType === "event") window.location.href = `/events`;
-      else if (listingType === "vehicle") window.location.href = `/vehicles`;
-      else if (listingType === "job") window.location.href = `/jobs`;
-      else if (listingType === "property") window.location.href = `/property`;
-      else if (listingType === "wanted") window.location.href = "/wanted";
+      if (publishType === "service") window.location.href = "/services";
+      else if (publishType === "digital") window.location.href = "/digital";
+      else if (publishType === "rental") window.location.href = `/post/listing/${newId}`;
+      else if (publishType === "event") window.location.href = `/events`;
+      else if (publishType === "vehicle") window.location.href = `/vehicles`;
+      else if (publishType === "job") window.location.href = `/jobs`;
+      else if (publishType === "property") window.location.href = `/property`;
+      else if (publishType === "wanted") window.location.href = "/wanted";
       else window.location.href = `/post/listing/${newId}`;
     } catch (err) {
       console.error("Listing upload error:", err);

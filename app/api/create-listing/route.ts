@@ -13,6 +13,7 @@ import { kycRequiredBlockMessage } from "../../lib/seller-eligibility";
 import { verifyTurnstileToken, isTurnstileConfigured } from "../../lib/turnstile";
 import { trackAndCheckAbuse } from "../../lib/abuse-tracker";
 import { createSystemNotification } from "../../lib/system-notifications";
+import { resolveListingType } from "../../lib/listing-types";
 import { runMatchmaking } from "../../lib/sky-ai-matchmaking";
 
 const SCAM_KEYWORDS = [
@@ -122,6 +123,11 @@ export async function POST(req: NextRequest) {
     }
 
     let { title, description, price, category, listingType } = body;
+    listingType = resolveListingType({
+      listingType,
+      type: body.type,
+      category,
+    });
 
     const allowedFields: string[] = [
       "images", "sellerUsername", "expiresInDays",
@@ -317,7 +323,6 @@ export async function POST(req: NextRequest) {
       sellerEmail: token.email,
       sellerUsername: clientData.sellerUsername || token.email?.split("@")[0] || "",
       sellerId: token.uid,
-      type: listingType || "physical",
       status,
       views: 0,
       bidCount: 0,
@@ -327,6 +332,7 @@ export async function POST(req: NextRequest) {
       ...clientData,
       saleType,
       paymentType: String(clientData.paymentType || "contact"),
+      type: listingType,
     };
 
     if (clientData.stockQuantity != null) {

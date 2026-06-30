@@ -14,8 +14,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  limit,
-  orderBy,
   query,
   setDoc,
   where,
@@ -90,12 +88,16 @@ export default function ServicesPage() {
   }, []);
 
   useEffect(() => {
-    const q = query(collection(db, "listings"), where("type", "==", "service"), orderBy("createdAt", "desc"), limit(60));
+    const q = query(collection(db, "listings"), where("type", "==", "service"));
     getDocs(q).then((snap) => {
       const items: any[] = snap.docs
         .map((d) => ({ id: d.id, ...d.data() } as any))
         .filter((i: any) => isListingVisibleInMarketplace(i));
-      setListings(items);
+      items.sort(
+        (a: any, b: any) =>
+          (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0)
+      );
+      setListings(items.slice(0, 60));
     }).catch((err) => { console.error("Failed to load service listings:", err); });
   }, []);
 

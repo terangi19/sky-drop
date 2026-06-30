@@ -53,6 +53,7 @@ import { auth, db, storage, onAuthStateChanged } from "./lib/firebase";
 import { ref, deleteObject } from "firebase/storage";
 import { cdnUrl, cdnUrls } from "./lib/cdn";
 import { isListingVisibleInMarketplace } from "./lib/listing-availability";
+import { isHomeBrowseListing, isPhysicalHomeCategoryListing } from "./lib/listing-types";
 import { isDemoListing } from "./lib/marketplace-display";
 import { adjustListingWatchlistCount } from "./lib/listing-watchlist-count";
 import { HOME_MARKETPLACE_THEME as t } from "./lib/browse-category-config";
@@ -80,6 +81,7 @@ interface Listing {
   saleType?: string;
   currentBid?: number;
   startingBid?: number;
+  type?: string;
   [key: string]: unknown;
 }
 
@@ -207,6 +209,7 @@ export default function Home() {
     const counts: Record<string, number> = {};
     const top3 = new Set(["Cars", "Tech", "Gaming"]);
     for (const l of listings) {
+      if (!isPhysicalHomeCategoryListing(l)) continue;
       const cat = l.category;
       if (cat) counts[cat] = (counts[cat] || 0) + 1;
     }
@@ -567,7 +570,9 @@ export default function Home() {
               isVisible &&
               isListingVisibleInMarketplace(item) &&
               !isDemoListing(item) &&
-              item.type !== "wanted"
+              (selectedCategory === "All"
+                ? isHomeBrowseListing(item)
+                : isPhysicalHomeCategoryListing(item))
             );
 
           }
