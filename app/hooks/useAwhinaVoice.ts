@@ -30,7 +30,8 @@ export type AwhinaVoicePhase =
   | "processing"
   | "speaking"
   | "paused"
-  | "error";
+  | "error"
+  | "confirming";
 
 const VOICE_PREFETCH_PATHS = [
   "/watchlist",
@@ -41,6 +42,8 @@ const VOICE_PREFETCH_PATHS = [
   "/vehicles",
   "/rentals",
   "/post/ai",
+  "/sales",
+  "/purchases",
 ];
 
 const INACTIVITY_MS = 45_000;
@@ -54,6 +57,10 @@ const PAUSED_HINT =
   'Voice paused. Tap the mic or say "Resume listening" to continue.';
 const VOICE_MODE_ON_HINT = "Voice Mode on — speak anytime.";
 
+/* Confirmation intent detection */
+const CONFIRM_INTENT = /\b(yes|yeah|yep|sure|correct|that'?s right|right|go ahead|do it|okay|ok|confirm|that'?s it|exactly)\b/i;
+const DENY_INTENT = /\b(no|nah|nope|cancel|never mind|forget it|stop|not that|wrong|different|no way)\b/i;
+
 export type AwhinaVoiceState = {
   phase: AwhinaVoicePhase;
   voiceMode: boolean;
@@ -66,6 +73,10 @@ export type AwhinaVoiceState = {
   toggle: () => void;
   cancel: () => void;
   resume: () => void;
+  /** Visual feedback: what the user said */
+  heardText: string | null;
+  /** Visual feedback: what action is being taken */
+  actionText: string | null;
 };
 
 export function useAwhinaVoice() {
@@ -79,6 +90,8 @@ export function useAwhinaVoice() {
   const [headline, setHeadline] = useState("Listening…");
   const [transcript, setTranscript] = useState("");
   const [hint, setHint] = useState<string | null>(null);
+  const [heardText, setHeardText] = useState<string | null>(null);
+  const [actionText, setActionText] = useState<string | null>(null);
 
   const voiceModeRef = useRef(readVoiceModePersisted());
   const pausedRef = useRef(false);
@@ -94,12 +107,15 @@ export function useAwhinaVoice() {
   const lastInstantExecRef = useRef("");
   const lastInstantAtRef = useRef(0);
   const lastCommandAtRef = useRef(0);
-  const COMMAND_COOLDOWN_MS = 800;
+  const COMMAND_COOLDOWN_MS = 1200;
   const inactivityTimerRef = useRef<number | null>(null);
   const stopListeningRef = useRef<((options?: { preserveVoiceSession?: boolean }) => void) | null>(null);
   const startListeningRef = useRef<(() => Promise<void>) | null>(null);
   const restartListeningRef = useRef<((options?: { force?: boolean }) => Promise<void>) | null>(null);
   const micListeningRef = useRef(false);
+
+  /* ── Confirmation state for medium-confidence commands ── */
+  const pendingConfirmationRef = useRef<VoiceCommandAction | null>(null);
 
   const persistVoiceMode = useCallback((on: boolean) => {
     if (typeof window === "undefined") return;
@@ -136,6 +152,11 @@ export function useAwhinaVoice() {
     setPaused(value);
   }, []);
 
+  const clearVisualFeedback = useCallback(() => {
+    setHeardText(null);
+    setActionText(null);
+  }, []);
+
   const scheduleInactivityPause = useCallback(() => {
     clearInactivityTimer();
     if (!voiceModeRef.current || pausedRef.current) return;
@@ -148,6 +169,8 @@ export function useAwhinaVoice() {
       setHeadline("Voice paused");
       setHint(PAUSED_HINT);
       setTranscript("");
+      setHeardText(null);
+      setActionText(null);
       utteranceTextRef.current = "";
     }, INACTIVITY_MS);
   }, [clearEndOfSpeechTimers, clearInactivityTimer, setPausedState]);
@@ -162,10 +185,13 @@ export function useAwhinaVoice() {
     lastCommandAtRef.current = Date.now();
     busyRef.current = false;
     abortProcessingRef.current = false;
+    pendingConfirmationRef.current = null;
     if (!voiceModeRef.current) {
       setPhase("idle");
       setTranscript("");
       setHint(null);
+      setHeardText(null);
+      setActionText(null);
       utteranceTextRef.current = "";
       return;
     }
@@ -179,6 +205,8 @@ export function useAwhinaVoice() {
     setHeadline("Listening…");
     setTranscript("");
     setHint(VOICE_MODE_ON_HINT);
+    setHeardText(null);
+    setActionText(null);
     scheduleInactivityPause();
     if (navigatedByVoiceRef.current || !micListeningRef.current) {
       navigatedByVoiceRef.current = false;
@@ -201,6 +229,8 @@ export function useAwhinaVoice() {
     setHeadline("Listening…");
     setTranscript("");
     setHint(VOICE_MODE_ON_HINT);
+    setHeardText(null);
+    setActionText(null);
     scheduleInactivityPause();
     ensureListening();
   }, [clearEndOfSpeechTimers, ensureListening, scheduleInactivityPause, setPausedState]);
@@ -215,11 +245,14 @@ export function useAwhinaVoice() {
     busyRef.current = false;
     abortProcessingRef.current = false;
     processGenerationRef.current += 1;
+    pendingConfirmationRef.current = null;
     utteranceTextRef.current = "";
     stopListeningRef.current?.();
     setPhase("idle");
     setTranscript("");
     setHint(null);
+    setHeardText(null);
+    setActionText(null);
   }, [clearEndOfSpeechTimers, clearInactivityTimer, persistVoiceMode, setPausedState]);
 
   const runAction = useCallback(
@@ -236,6 +269,14 @@ export function useAwhinaVoice() {
         return;
       }
 
+      // Set visual feedback
+      if (action.heard && action.targetTitle) {
+        setHeardText(action.heard);
+        setActionText(action.targetTitle);
+      } else if (action.heard) {
+        setHeardText(action.heard);
+      }
+
       if (action.type === "page") {
         const result = action.run();
         if (!result.ok) {
@@ -246,6 +287,8 @@ export function useAwhinaVoice() {
         }
         if (result.path && !result.path.startsWith("#")) {
           navigatedByVoiceRef.current = true;
+          setPhase("speaking");
+          setHeadline(action.status || "Opening…");
           router.push(result.path);
         }
         afterCommandCycle();
@@ -261,6 +304,8 @@ export function useAwhinaVoice() {
           dispatchSkyAiOpen(action.message);
         }
         navigatedByVoiceRef.current = true;
+        setPhase("speaking");
+        setHeadline(action.status || "Opening…");
         router.push(action.path);
         afterCommandCycle();
         return;
@@ -290,6 +335,25 @@ export function useAwhinaVoice() {
     (trimmed: string): boolean => {
       if (busyRef.current) return false;
 
+      // Check if user is responding to a confirmation prompt
+      const pending = pendingConfirmationRef.current;
+      if (pending) {
+        if (CONFIRM_INTENT.test(trimmed)) {
+          pendingConfirmationRef.current = null;
+          busyRef.current = true;
+          void runAction(pending);
+          return true;
+        }
+        if (DENY_INTENT.test(trimmed)) {
+          pendingConfirmationRef.current = null;
+          setHint(`Cancelled. Try saying "go to ${pending.targetTitle}".`);
+          afterCommandCycle();
+          return true;
+        }
+        // User said something else — cancel confirmation, process new input
+        pendingConfirmationRef.current = null;
+      }
+
       const cmd = resolveVoiceCommand(trimmed, pathname);
       if (!cmd) return false;
 
@@ -305,6 +369,22 @@ export function useAwhinaVoice() {
         lastInstantExecRef.current === execKey &&
         now - lastInstantAtRef.current < 600
       ) {
+        return true;
+      }
+
+      // Medium confidence — ask user instead of navigating
+      if (cmd.confidence === "medium" && cmd.targetTitle && (cmd.type === "navigate" || cmd.type === "search")) {
+        lastInstantExecRef.current = execKey;
+        lastInstantAtRef.current = now;
+        pendingConfirmationRef.current = cmd;
+        keepVoiceModeOn();
+        setPhase("confirming" as AwhinaVoicePhase);
+        setHeadline("Did you mean…");
+        setTranscript(formatUtteranceDisplay(trimmed));
+        setHint(`Did you mean ${cmd.targetTitle}? Say "Yes" or "No".`);
+        clearEndOfSpeechTimers();
+        lastScheduledTextRef.current = "";
+        utteranceTextRef.current = "";
         return true;
       }
 
@@ -343,7 +423,7 @@ export function useAwhinaVoice() {
         busyRef.current = true;
         lastInstantExecRef.current = execKey;
         lastInstantAtRef.current = now;
-        const result = cmd.run();
+        const result = cmd.run!();
         if (!result.ok) {
           busyRef.current = false;
           setHint("Couldn't do that on this page — try another command.");
@@ -381,6 +461,7 @@ export function useAwhinaVoice() {
       pathname,
       resumeListening,
       router,
+      runAction,
     ]
   );
 
@@ -401,7 +482,7 @@ export function useAwhinaVoice() {
 
       busyRef.current = true;
 
-      if (!isInstant) {
+      if (!isInstant && local?.confidence === "high") {
         setPhase("processing");
         setHeadline("Processing…");
         setTranscript(formatUtteranceDisplay(trimmed));
@@ -467,6 +548,8 @@ export function useAwhinaVoice() {
             type: "listing",
             path: "/post/ai",
             status: "Listing draft ready on Sell…",
+            confidence: "high",
+            heard: trimmed,
             message: trimmed,
           });
           return;
@@ -477,6 +560,8 @@ export function useAwhinaVoice() {
             type: "navigate",
             path: data.navigateTo,
             status: stripSkyAiMachineTags(data.reply || "On my way…"),
+            confidence: "high",
+            heard: trimmed,
           });
           return;
         }
@@ -486,6 +571,8 @@ export function useAwhinaVoice() {
           await runAction({
             type: "reply",
             status: "Here's what I found…",
+            confidence: "high",
+            heard: trimmed,
             message: reply,
           });
           return;
@@ -494,6 +581,8 @@ export function useAwhinaVoice() {
         await runAction({
           type: "chat",
           status: "Opening chat for more help…",
+          confidence: "high",
+          heard: trimmed,
           message: trimmed,
         });
       } catch (err) {
@@ -575,7 +664,7 @@ export function useAwhinaVoice() {
       const quietStart = Date.now();
 
       if (silenceMs > 400) {
-        const stillListeningMs = Math.min(900, Math.max(350, silenceMs - 250));
+        const stillListeningMs = Math.min(1400, Math.max(500, silenceMs - 400));
         stillListeningTimerRef.current = window.setTimeout(() => {
           if (!utteranceTextRef.current.trim() || busyRef.current) return;
           const quietFor = Date.now() - quietStart;
@@ -603,16 +692,25 @@ export function useAwhinaVoice() {
   const handleUtteranceUpdate = useCallback(
     (display: string, meta: UtteranceUpdateMeta) => {
       if (busyRef.current) {
-        // Let the user's next utterance abort a stuck processing cycle.
         abortProcessingRef.current = true;
         processGenerationRef.current += 1;
-        return;
+        // If we're waiting for confirmation and user says something, process it
+        if (pendingConfirmationRef.current) {
+          const trimmed = display.trim();
+          if (trimmed) {
+            busyRef.current = false; // Temporarily un-busy to let runVoiceCommandNow handle it
+            abortProcessingRef.current = false;
+          } else {
+            return;
+          }
+        } else {
+          return;
+        }
       }
 
       const trimmed = display.trim();
       if (!trimmed) return;
 
-      // Cooldown after a command — reject stale/noise STT during mic restart.
       if (Date.now() - lastCommandAtRef.current < COMMAND_COOLDOWN_MS) return;
 
       const textChanged = trimmed !== utteranceTextRef.current.trim();
@@ -712,11 +810,13 @@ export function useAwhinaVoice() {
     },
     onStatus: (message) => {
       if (message && voiceModeRef.current && !busyRef.current) {
-        setPhase("listening");
-        if (!utteranceTextRef.current.trim()) {
-          setHeadline("Listening…");
+        if (!pendingConfirmationRef.current) {
+          setPhase("listening");
+          if (!utteranceTextRef.current.trim()) {
+            setHeadline("Listening…");
+          }
+          setHint(message);
         }
-        setHint(message);
       }
     },
     onActivity: () => {
@@ -738,6 +838,8 @@ export function useAwhinaVoice() {
     setHeadline("Listening…");
     setTranscript("");
     setHint(VOICE_MODE_ON_HINT);
+    setHeardText(null);
+    setActionText(null);
     scheduleInactivityPause();
     for (const path of VOICE_PREFETCH_PATHS) {
       router.prefetch(path);
@@ -842,14 +944,16 @@ export function useAwhinaVoice() {
     [clearEndOfSpeechTimers, clearInactivityTimer]
   );
 
-  const showCard = voiceMode || phase === "error";
+  const showCard = voiceMode || phase === "error" || phase === "confirming";
   const activePhase: AwhinaVoicePhase = !showCard
     ? "idle"
     : phase === "idle" && voiceMode
       ? paused
         ? "paused"
         : "listening"
-      : phase;
+      : phase === "confirming"
+        ? "confirming"
+        : phase;
 
   return {
     phase: activePhase,
@@ -866,5 +970,7 @@ export function useAwhinaVoice() {
     toggle,
     cancel,
     resume,
+    heardText,
+    actionText,
   };
 }

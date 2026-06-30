@@ -9,6 +9,8 @@ type Props = {
   headline: string;
   transcript: string;
   hint: string | null;
+  heardText: string | null;
+  actionText: string | null;
   onDismiss?: () => void;
   onResume?: () => void;
 };
@@ -20,6 +22,8 @@ export default function AwhinaVoiceStatusCard({
   headline,
   transcript,
   hint,
+  heardText,
+  actionText,
   onDismiss,
   onResume,
 }: Props) {
@@ -30,10 +34,13 @@ export default function AwhinaVoiceStatusCard({
   const isPaused = phase === "paused" || paused;
   const isProcessing = phase === "processing" || phase === "speaking";
   const isError = phase === "error";
+  const isConfirming = phase === "confirming";
+
+  const hasHeardAction = heardText && actionText;
 
   return (
     <div
-      className="awhina-voice-card pointer-events-auto mb-3 w-[min(320px,calc(100vw-2rem))] animate-fade-in-panel"
+      className="awhina-voice-card pointer-events-auto mb-3 w-[min(340px,calc(100vw-2rem))] animate-fade-in-panel"
       role="status"
       aria-live="polite"
     >
@@ -43,7 +50,9 @@ export default function AwhinaVoiceStatusCard({
             ? "border-amber-500/30 bg-[#121018]/95"
             : isPaused
               ? "border-zinc-500/30 bg-[#101018]/95"
-              : "border-violet-400/25 bg-[#0c0e16]/95"
+              : isConfirming
+                ? "border-amber-400/30 bg-[#121018]/95"
+                : "border-violet-400/25 bg-[#0c0e16]/95"
         }`}
       >
         {!isError && !isPaused && (
@@ -70,12 +79,14 @@ export default function AwhinaVoiceStatusCard({
                     ? "bg-amber-500/15 text-amber-300"
                     : isPaused
                       ? "bg-zinc-500/15 text-zinc-300"
-                      : isListening
-                        ? "bg-violet-500/20 text-violet-200"
-                        : "bg-sky-500/20 text-sky-200"
+                      : isConfirming
+                        ? "bg-amber-400/15 text-amber-200"
+                        : isListening
+                          ? "bg-violet-500/20 text-violet-200"
+                          : "bg-sky-500/20 text-sky-200"
                 }`}
               >
-                🎤
+                {isConfirming ? "?" : isError ? "!" : "🎤"}
               </span>
             </div>
 
@@ -87,14 +98,17 @@ export default function AwhinaVoiceStatusCard({
                     className={`rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider ${
                       isPaused
                         ? "bg-zinc-500/20 text-zinc-400"
-                        : "bg-violet-500/25 text-violet-300 awhina-voice-mode-pill"
+                        : isConfirming
+                          ? "bg-amber-400/20 text-amber-300"
+                          : "bg-violet-500/25 text-violet-300 awhina-voice-mode-pill"
                     }`}
                   >
-                    {isPaused ? "Paused" : "On"}
+                    {isPaused ? "Paused" : isConfirming ? "Confirm" : "On"}
                   </span>
                 )}
               </div>
 
+              {/* Waveform bars when listening */}
               {isListening && (
                 <div className="mt-2 flex h-5 items-end gap-0.5" aria-hidden>
                   {[0, 1, 2, 3, 4].map((i) => (
@@ -107,26 +121,43 @@ export default function AwhinaVoiceStatusCard({
                 </div>
               )}
 
+              {/* Progress bar when processing */}
               {isProcessing && !isListening && (
                 <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/[0.06]">
                   <div className="awhina-voice-progress h-full rounded-full bg-gradient-to-r from-violet-500 via-sky-400 to-violet-500" />
                 </div>
               )}
 
-              {transcript && (
+              {/* Visual feedback: Heard → Action */}
+              {hasHeardAction && (
+                <div className="mt-2 space-y-0.5">
+                  <p className="text-[10px] text-zinc-400">
+                    <span className="text-zinc-500">Heard:</span>{" "}
+                    <span className="text-zinc-200">&ldquo;{heardText}&rdquo;</span>
+                  </p>
+                  <p className="text-[11px] font-medium text-violet-300">
+                    <span className="text-zinc-500">→</span> Opening {actionText}…
+                  </p>
+                </div>
+              )}
+
+              {/* Transcript display */}
+              {transcript && !hasHeardAction && (
                 <p className="mt-2 text-[11px] leading-relaxed text-zinc-300/90 line-clamp-3">{transcript}</p>
               )}
 
+              {/* Hint / error / confirmation prompt */}
               {hint && (
                 <p
                   className={`mt-1.5 text-[10px] leading-snug ${
-                    isError ? "text-amber-300/90" : "text-zinc-500"
+                    isError ? "text-amber-300/90" : isConfirming ? "text-amber-200/90" : "text-zinc-500"
                   }`}
                 >
                   {hint}
                 </p>
               )}
 
+              {/* Resume button when paused */}
               {isPaused && onResume && (
                 <button
                   type="button"

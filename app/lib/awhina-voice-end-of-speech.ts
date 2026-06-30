@@ -5,10 +5,10 @@ import { resolveInstantCommand, resolveVoiceCommand } from "./awhina-voice-comma
 export type VoiceUtteranceKind = "navigation" | "search" | "listing" | "conversation";
 
 const NAV_INTENT =
-  /\b(go to|take me|open|navigate|bring me|send me|guide me|my messages|my purchases|my sales|my profile|show me messages)\b/i;
+  /\b(go to|take me|open|navigate|bring me|send me|guide me|show me|show|bring up|go into|view|head to|my messages|my purchases|my sales|my profile|show me messages)\b/i;
 
 const SEARCH_INTENT =
-  /\b(find|search(?:ing)?|look(?:ing)?\s+for|show me|get me|hunt for|browse for|need a|want a)\b/i;
+  /\b(find|search(?:ing)?|look(?:ing)?\s+for|show me|show|get me|hunt for|browse for|need a|want a|i need|i want)\b/i;
 
 const LISTING_INTENT =
   /\b(sell|selling|list(?:ing)?|post|create a listing|for sale|i('m| am) selling|bmw|toyota|honda|mazda|ford|iphone|laptop|ps5|vehicle|odometer|km|condition|description|price|twin turbo|upgraded)\b/i;
@@ -21,21 +21,21 @@ const NOISE_ONLY =
 const INCOMPLETE_TRAIL =
   /\b(my|a|an|the|with|for|and|or|about|selling|it's|its|this|that|in|on|at)\s*$/i;
 
-const NAV_TO_INCOMPLETE = /\b(?:go|take me|navigate|open|bring me)\s+to\s*$/i;
+const NAV_TO_INCOMPLETE = /\b(?:go|take me|navigate|open|bring me|bring up|head|show)\s+to\s*$/i;
 
 export const SILENCE_MS: Record<VoiceUtteranceKind, number> = {
-  navigation: 500,
-  search: 900,
-  listing: 11_000,
-  conversation: 5_000,
+  navigation: 1200,
+  search: 1800,
+  listing: 12_000,
+  conversation: 6_000,
 };
 
 /** Short pause after the browser commits a complete phrase (user already stopped). */
 const POST_FINAL_MS: Record<VoiceUtteranceKind, number> = {
-  navigation: 0,
-  search: 120,
-  listing: 2_000,
-  conversation: 1_400,
+  navigation: 600,
+  search: 1000,
+  listing: 2_500,
+  conversation: 2_000,
 };
 
 export function isIncompleteUtterance(text: string): boolean {
@@ -133,7 +133,9 @@ export function endOfSpeechDelayMs(text: string, options?: EndOfSpeechOptions): 
       cmd?.type === "resume" ||
       cmd?.type === "voice_off"
     ) {
-      return 0;
+      // Brief buffer so user isn't cut off — 600ms for nav, 1000ms for search
+      if (cmd.type === "search") return POST_FINAL_MS.search;
+      return POST_FINAL_MS.navigation;
     }
   }
 
@@ -155,7 +157,8 @@ export function silenceMsForText(text: string): number {
 /** UI label while waiting for more speech. */
 export function listeningHeadline(text: string, quietForMs: number): string {
   if (!text.trim()) return "Listening…";
-  if (quietForMs >= 800) return "Still listening…";
+  if (quietForMs >= 1200) return "Still listening…";
+  if (quietForMs >= 600) return "Waiting…";
   return "Listening…";
 }
 

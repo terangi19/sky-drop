@@ -7,6 +7,7 @@ import { auth, onAuthStateChanged } from "../lib/firebase";
 import { useAwhinaVoice } from "../hooks/useAwhinaVoice";
 import AwhinaFabStack from "./AwhinaFabStack";
 import AwhinaVoiceBar from "./AwhinaVoiceBar";
+import AwhinaVoiceStatusCard from "./AwhinaVoiceStatusCard";
 import SkyAiChatPanel from "./SkyAiChatPanel";
 
 const AUTH_ONLY_PATHS = ["/login", "/forgot-password", "/create-account"];
@@ -65,6 +66,22 @@ export default function AwhinaGlobalAssistant() {
         paused={voice.paused}
         toggle={voice.toggle}
       />
+
+      {/* Floating status card — bottom-left of viewport */}
+      <div className="fixed bottom-6 left-6 z-[10002] max-md:bottom-28 max-md:left-4">
+        <AwhinaVoiceStatusCard
+          phase={voice.phase}
+          voiceMode={voice.voiceMode}
+          paused={voice.paused}
+          headline={voice.headline}
+          transcript={voice.transcript}
+          hint={voice.hint}
+          heardText={voice.heardText}
+          actionText={voice.actionText}
+          onDismiss={voice.cancel}
+          onResume={voice.resume}
+        />
+      </div>
 
       <AwhinaFabStack
         voice={voice}

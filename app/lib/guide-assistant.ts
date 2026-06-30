@@ -66,6 +66,9 @@ export const GUIDE_DESTINATIONS: GuideDestination[] = [
       "i want to sell",
       "create a listing",
       "post a listing",
+      "create a new listing",
+      "list something",
+      "sell something",
     ],
     blurb: "Upload photos and create your listing (Sell tab).",
   },
@@ -94,28 +97,28 @@ export const GUIDE_DESTINATIONS: GuideDestination[] = [
     id: "messages",
     title: "Messages",
     path: "/messages",
-    keywords: ["message", "messages", "chat", "inbox", "talk to seller", "talk to buyer", "my messages", "open messages"],
+    keywords: ["message", "messages", "chat", "inbox", "talk to seller", "talk to buyer", "my messages", "open messages", "conversations", "dm", "direct messages"],
     blurb: "Chat with buyers and sellers.",
   },
   {
     id: "purchases",
     title: "Purchases",
     path: "/purchases",
-    keywords: ["purchase", "purchases", "orders", "bought", "my orders", "dispute", "open dispute", "my purchases", "what i bought"],
+    keywords: ["purchase", "purchases", "orders", "bought", "my orders", "dispute", "open dispute", "my purchases", "what i bought", "buying", "items bought", "order history", "my buying"],
     blurb: "Track orders, confirm delivery, and open disputes.",
   },
   {
     id: "sales",
     title: "Sales",
     path: "/sales",
-    keywords: ["sales", "my sales", "sold", "seller orders", "what i sold", "my sales page"],
+    keywords: ["sales", "my sales", "sold", "seller orders", "what i sold", "my sales page", "sold items", "orders received", "items sold", "my sold"],
     blurb: "Manage orders from buyers.",
   },
   {
     id: "list-list",
     title: "My listings",
     path: "/list-list",
-    keywords: ["my listings", "listings", "manage listings", "edit listing", "my items", "what im selling"],
+    keywords: ["my listings", "listings", "manage listings", "edit listing", "my items", "what im selling", "my posts", "my postings", "active listings", "seller dashboard", "my ads"],
     blurb: "View and manage your active listings.",
   },
   {
@@ -129,7 +132,7 @@ export const GUIDE_DESTINATIONS: GuideDestination[] = [
     id: "watchlist",
     title: "Watchlist",
     path: "/watchlist",
-    keywords: ["watchlist", "saved", "saved items", "favourites", "favorites", "my saved items", "what i saved"],
+    keywords: ["watchlist", "saved", "saved items", "favourites", "favorites", "my saved items", "what i saved", "watch list", "bookmarks", "my watchlist", "saved listings"],
     blurb: "Items you are watching.",
   },
   {
@@ -401,7 +404,7 @@ export const GUIDE_DESTINATIONS: GuideDestination[] = [
 ];
 
 const NAVIGATE_PATTERNS =
-  /\b(take me|go to|open|show me|navigate|bring me|send me|guide me|where is|where's|how do i get to|i need)\b/i;
+  /\b(take me|go to|open|show me|show|navigate|bring me|send me|guide me|where is|where's|how do i get to|i need|bring up|go into|go to the|head to|get me to|view|let me see|take me into|show me the)\b/i;
 
 /* ── Prefix map for instant partial-match navigation ── */
 
@@ -512,7 +515,7 @@ export function getGuideReply(query: string, currentPath: string): GuideReply {
   const dest = findBestDestination(q);
   const wantsNav =
     NAVIGATE_PATTERNS.test(q) ||
-    /\b(how do i get to|how do i open|take me|go to|open)\b/i.test(q) ||
+    /\b(how do i get to|how do i open|take me|go to|open|show me|show|bring up|go into|view|head to)\b/i.test(q) ||
     (dest !== null && scoreDestination(q, dest) >= 4 && /\b(how do i|how to|setup|set up|where)\b/i.test(q));
 
   if (dest && wantsNav) {
