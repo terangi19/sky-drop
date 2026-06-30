@@ -243,7 +243,6 @@ const [activeTab, setActiveTab] = useState("profile");
 
 const tabGroups = [
   { id: "account", label: "Account" },
-  { id: "selling", label: "Selling" },
 ] as const;
 
   const bannerRef = useRef<HTMLInputElement>(null);
@@ -623,8 +622,6 @@ const tabGroups = [
     // Full tabs for established users
     return [
       { id: "profile", label: "Profile", group: "account" },
-      { id: "listings", label: "Listings", group: "selling" },
-      { id: "reviews", label: "Reviews", group: "selling" },
       { id: "verification", label: "Verification", group: "account" },
       { id: "payments", label: "Payments", group: "account" },
       { id: "notifications", label: "Notifications", group: "account" },
@@ -1717,109 +1714,6 @@ const tabGroups = [
                   <ToggleRow label="Daily digest (summary email)" val={notifDigest} set={setNotifDigest} />
                 </div>
               </div>
-            </div>
-          )}
-
-          {activeTab === "listings" && (
-            <div className={settingsSection}>
-              <div className="flex items-center justify-between mb-5">
-                <div>
-                  <h2 className="text-lg font-bold text-white">Your listings</h2>
-                  <p className="mt-0.5 text-sm text-zinc-500">{activeListings.length} active listing{activeListings.length === 1 ? "" : "s"}</p>
-                </div>
-                {activeListings.length > 0 && (
-                  <Link href="/post/ai" className="rounded-xl bg-sky-500 px-4 py-2 text-xs font-bold text-white hover:bg-sky-400 transition-all active:scale-[0.97]">
-                    + New
-                  </Link>
-                )}
-              </div>
-              {listingsLoading ? (
-                <div className="flex gap-3 overflow-x-auto pb-1">
-                  {[1,2,3].map((i) => (
-                    <div key={i} className="shrink-0 w-40 animate-pulse">
-                      <div className="h-24 rounded-xl bg-zinc-800/50" />
-                      <div className="mt-2 h-3 w-24 rounded bg-zinc-800/50" />
-                      <div className="mt-1 h-3 w-16 rounded bg-zinc-800/50" />
-                    </div>
-                  ))}
-                </div>
-              ) : activeListings.length === 0 ? (
-                <div className="py-10 text-center">
-                  <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-500/10">
-                    <svg className="h-6 w-6 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 10.5v6m3-3H9m4.06-7.19l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" /></svg>
-                  </div>
-                  <p className="text-sm text-zinc-400 mb-4">No active listings yet.</p>
-                  <Link href="/post/ai" className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:brightness-110 active:scale-[0.97]">
-                    Create Your First Listing
-                  </Link>
-                </div>
-              ) : (
-                <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
-                  {activeListings.map((item) => (
-                    <div key={item.id}
-                      className="group/card shrink-0 w-44 overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.02] transition-all duration-300 hover:border-sky-500/20 hover:shadow-[0_0_20px_rgba(14,165,233,0.06)] hover:-translate-y-0.5"
-                    >
-                      <Link href={item.type === "service" ? "/services" : `/post/listing/${item.id}`}>
-                        {item.images?.[0] || item.imageUrl || item.image ? (
-                          <div className="relative overflow-hidden">
-                            <img src={item.images?.[0] || item.imageUrl || item.image || ""} alt="" className="h-28 w-full object-cover transition-transform duration-500 group-hover/card:scale-105" />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity" />
-                          </div>
-                        ) : (
-                          <div className="flex h-28 items-center justify-center bg-white/[0.03] text-xs text-zinc-600">No image</div>
-                        )}
-                        <div className="p-3">
-                          <p className="truncate text-xs font-bold text-white">{item.title}</p>
-                          <p className="mt-1 text-sm font-black text-white">${item.price}</p>
-                        </div>
-                      </Link>
-                      <div className="flex gap-1.5 border-t border-white/[0.04] px-2.5 py-2">
-                        <Link href={`/post/ai?edit=${item.id}`} className="flex-1 rounded-lg bg-sky-500/10 py-1.5 text-center text-[10px] font-bold text-sky-400 transition hover:bg-sky-500/20 active:scale-[0.97]">Edit</Link>
-                        <button onClick={() => setListingToDelete(item)} className="flex-1 rounded-lg bg-white/[0.04] py-1.5 text-[10px] font-bold text-[var(--foreground)] transition hover:bg-white/[0.06] active:scale-[0.97]">Remove</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {soldListings.length > 0 && (
-                <div className="mt-6 border-t border-white/[0.04] pt-6">
-                  <p className="mb-3 text-sm font-medium text-zinc-500">Sold ({soldListings.length})</p>
-                  <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
-                    {soldListings.map((item) => (
-                      <div key={item.id} className="relative w-36 shrink-0 overflow-hidden rounded-xl border border-white/[0.04] bg-white/[0.02] opacity-70">
-                        {item.images?.[0] || item.imageUrl || item.image ? (
-                          <img src={item.images?.[0] || item.imageUrl || item.image || ""} alt="" className="h-24 w-full object-cover" />
-                        ) : (
-                          <div className="flex h-24 items-center justify-center bg-white/[0.03] text-xs text-zinc-600">No image</div>
-                        )}
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                          <span className="rounded-lg bg-zinc-900/90 px-3 py-1 text-[10px] font-semibold text-zinc-300 border border-white/[0.06]">Sold</span>
-                        </div>
-                        <div className="p-2.5">
-                          <p className="truncate text-xs font-medium text-[var(--foreground)]">{item.title}</p>
-                          <p className="text-xs text-zinc-500">${item.price}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {activity.length > 0 && (
-                <div className="mt-6 border-t border-white/[0.04] pt-6">
-                  <h3 className="mb-3 text-sm font-medium text-zinc-500">Recent activity</h3>
-                  <ul className="divide-y divide-white/[0.04] text-sm rounded-xl border border-white/[0.04] bg-white/[0.02]">
-                    {activity.map((a, i) => (
-                      <li key={i} className="flex items-center gap-3 px-4 py-3 first:rounded-t-xl last:rounded-b-xl hover:bg-white/[0.02]">
-                        <span className="text-zinc-500">{a.icon}</span>
-                        <span className="flex-1 text-[var(--foreground)]">{a.text}</span>
-                        <span className="text-xs text-zinc-600">{a.time}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
             </div>
           )}
 
