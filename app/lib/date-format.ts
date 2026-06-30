@@ -2,20 +2,34 @@
  * Comprehensive date/time formatting utilities for consistent display across the app
  */
 
-export function formatTime(timestamp: { toDate?: () => Date } | Date | string | number): string {
-  let date: Date;
-  
-  if (timestamp instanceof Date) {
-    date = timestamp;
-  } else if (typeof timestamp === "string") {
-    date = new Date(timestamp);
-  } else if (typeof timestamp === "number") {
-    date = new Date(timestamp);
-  } else if (timestamp?.toDate) {
-    date = timestamp.toDate();
-  } else {
-    return "Now";
+type FirestoreDateLike = {
+  toDate?: () => Date;
+  toMillis?: () => number;
+  seconds?: number;
+  _seconds?: number;
+};
+
+/** Parse Firestore Timestamp, Admin JSON, ISO string, or epoch ms. */
+export function parseFirestoreDate(value: unknown): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  if (typeof value === "string" || typeof value === "number") {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
   }
+  if (typeof value !== "object") return null;
+
+  const raw = value as FirestoreDateLike;
+  if (typeof raw.toDate === "function") return raw.toDate();
+  if (typeof raw.toMillis === "function") return new Date(raw.toMillis());
+  const seconds = raw.seconds ?? raw._seconds;
+  if (typeof seconds === "number") return new Date(seconds * 1000);
+  return null;
+}
+
+export function formatTime(timestamp: { toDate?: () => Date } | Date | string | number): string {
+  const date = parseFirestoreDate(timestamp);
+  if (!date) return "Now";
 
   return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }

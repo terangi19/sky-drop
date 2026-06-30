@@ -43,6 +43,7 @@ import {
   profileKycApproved,
   profilePhoneVerified,
 } from "../../lib/seller-verified";
+import { parseFirestoreDate } from "../../lib/date-format";
 
 interface ProfileData {
   username?: string;
@@ -297,16 +298,10 @@ export default function SellerPage() {
 
   const memberDate = useMemo(() => {
     if (!profile?.memberSince) return "";
-    // Handle both Timestamp objects and plain strings/numbers
-    if (typeof profile.memberSince === "object" && "toDate" in profile.memberSince) {
-      return profile.memberSince.toDate().toLocaleDateString("en-NZ", { year: "numeric", month: "short" });
-    }
-    // If it's a string or number, try to parse it
-    const date = new Date(profile.memberSince);
-    if (!isNaN(date.getTime())) {
-      return date.toLocaleDateString("en-NZ", { year: "numeric", month: "short" });
-    }
-    return "";
+    const date = parseFirestoreDate(profile.memberSince);
+    return date
+      ? date.toLocaleDateString("en-NZ", { year: "numeric", month: "short" })
+      : "";
   }, [profile?.memberSince]);
   const sellerEmail = profile?.email || "";
   const displayName = sellerProfileDisplayName(profile, "Seller");
@@ -314,17 +309,7 @@ export default function SellerPage() {
   const initial = displayName.charAt(0).toUpperCase();
 
   const trustScore = useMemo(() => {
-    let memberDate = null;
-    if (profile?.memberSince) {
-      if (typeof profile.memberSince === "object" && "toDate" in profile.memberSince) {
-        memberDate = profile.memberSince.toDate();
-      } else {
-        const date = new Date(profile.memberSince);
-        if (!isNaN(date.getTime())) {
-          memberDate = date;
-        }
-      }
-    }
+    const memberDate = parseFirestoreDate(profile?.memberSince);
     return calculateTrustScore({
       emailVerified: profileEmailVerified(profile),
       hasProfile: true,

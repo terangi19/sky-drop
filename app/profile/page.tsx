@@ -61,6 +61,7 @@ import {
   type SkyAiProfileFill,
 } from "../lib/sky-ai-profile-fill";
 import { HOME_MARKETPLACE_THEME as t } from "../lib/browse-category-config";
+import { parseFirestoreDate } from "../lib/date-format";
 
 interface ProfileData {
   username?: string;
@@ -606,7 +607,7 @@ const tabGroups = [
 
   // Check if user is new (less than 7 days old, no listings)
   const isNewUser = useMemo(() => {
-    const memberSince = profile.memberSince?.toDate?.() || new Date();
+    const memberSince = parseFirestoreDate(profile.memberSince) || new Date();
     const daysSinceJoined = (Date.now() - memberSince.getTime()) / (1000 * 60 * 60 * 24);
     return daysSinceJoined < 7 && activeListings.length === 0;
   }, [profile.memberSince, activeListings.length]);
@@ -641,8 +642,9 @@ const tabGroups = [
   // Activity feed
   const activity = useMemo(() => {
     const items: { icon: string; text: string; time: string }[] = [];
-    if (profile.memberSince) {
-      items.push({ icon: "👋", text: "Joined Sky Drop", time: profile.memberSince.toDate().toLocaleDateString() });
+    const joinedAt = parseFirestoreDate(profile.memberSince);
+    if (joinedAt) {
+      items.push({ icon: "👋", text: "Joined Sky Drop", time: joinedAt.toLocaleDateString() });
     }
     if (soldListings.length > 0) {
       items.push({ icon: "💰", text: `Sold ${soldListings[0]?.title || "an item"}`, time: "Recently" });
@@ -1181,7 +1183,11 @@ const tabGroups = [
   );
 
   const initial = (contextUsername || username || "U").charAt(0).toUpperCase();
-  const memberDate = profile.memberSince?.toDate().toLocaleDateString("en-NZ", { year: "numeric", month: "short" }) || "2026";
+  const memberDate =
+    parseFirestoreDate(profile.memberSince)?.toLocaleDateString("en-NZ", {
+      year: "numeric",
+      month: "short",
+    }) || "2026";
   const avatarUrl = profile.photoURL;
   const bannerUrl = profile.bannerURL;
 

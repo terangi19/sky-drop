@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken, getServerDb } from "../../../lib/firebase-admin";
+import { serializeProfileForClient } from "../../../lib/firestore-serialize";
 
 /** Load the signed-in user's profile via Admin SDK (avoids client Firestore rule races). */
 export async function GET(req: NextRequest) {
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest) {
 
     void ref.set({ lastActive: new Date() }, { merge: true }).catch(() => {});
 
-    return NextResponse.json({ profile: snap.data() });
+    return NextResponse.json({ profile: serializeProfileForClient(snap.data()!) });
   } catch (err) {
     console.error("[me/profile] GET failed:", err);
     return NextResponse.json({ error: "Failed to load profile" }, { status: 500 });
