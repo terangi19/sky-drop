@@ -72,21 +72,21 @@ function tokenSimilarity(a: string, b: string): number {
 function fieldWeight(field: string): number {
   switch (field) {
     case "title":
-      return 3.2;
+      return 5.0; // Increased from 3.2 to prioritize exact title matches
     case "vehicleMake":
     case "vehicleModel":
     case "make":
     case "model":
-      return 2.8;
+      return 4.0; // Increased from 2.8
     case "category":
-      return 2.2;
+      return 3.0; // Increased from 2.2
     case "tags":
     case "keywords":
     case "searchKeywords":
     case "aiKeywords":
-      return 2;
+      return 2.5; // Increased from 2
     case "description":
-      return 1.4;
+      return 1.0; // Decreased from 1.4 to reduce weight of description matches
     case "type":
       return 1.2;
     default:
@@ -125,9 +125,9 @@ export function buildListingSearchBlob(listing: ListingSearchRecord): string {
 }
 
 function matchTypeFromScore(score: number): RankedListing["matchType"] {
-  if (score >= 8) return "exact";
-  if (score >= 5) return "close";
-  if (score >= 2.5) return "similar";
+  if (score >= 10) return "exact";
+  if (score >= 6) return "close";
+  if (score >= 3.5) return "similar";
   return "partial";
 }
 
@@ -181,7 +181,41 @@ export function scoreListingMatch(
 
   // Category hint boost
   if (intent?.categoryHint && listing.category?.toLowerCase() === intent.categoryHint.toLowerCase()) {
-    score += 1.5;
+    score += 3.0; // Increased from 1.5 to prioritize category matches
+  }
+
+  // Auto-detect category from query and boost matching listings
+  if (!intent?.categoryHint) {
+    const queryLower = query.toLowerCase();
+    const categoryLower = (listing.category ?? "").toLowerCase();
+    
+    // Vehicle-related terms
+    if (queryLower.match(/\b(bmw|toyota|honda|ford|audi|mercedes|car|vehicle|suv|truck|van|ute|sedan|hatchback|coupe|convertible|wagon)\b/)) {
+      if (categoryLower.includes("vehicle") || categoryLower.includes("car")) {
+        score += 2.5;
+      }
+    }
+    
+    // Electronics-related terms
+    if (queryLower.match(/\b(iphone|samsung|phone|laptop|macbook|ipad|ps5|playstation|xbox|tv|television|camera|gaming|console)\b/)) {
+      if (categoryLower.includes("electronics") || categoryLower.includes("tech") || categoryLower.includes("computers")) {
+        score += 2.5;
+      }
+    }
+    
+    // Home-related terms
+    if (queryLower.match(/\b(sofa|couch|table|chair|bed|desk|furniture|dining|kitchen|appliance)\b/)) {
+      if (categoryLower.includes("home") || categoryLower.includes("furniture") || categoryLower.includes("living")) {
+        score += 2.5;
+      }
+    }
+    
+    // Service-related terms
+    if (queryLower.match(/\b(service|design|cleaning|mowing|repair|install|consult|freelance)\b/)) {
+      if (categoryLower.includes("service") || categoryLower.includes("services")) {
+        score += 2.5;
+      }
+    }
   }
 
   // Brand + model combo boost (e.g. BMW + 335i)

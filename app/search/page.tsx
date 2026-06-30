@@ -148,7 +148,8 @@ export default function SearchPage() {
     });
 
     if (normalizedQuery) {
-      const ranked = rankListingsBySearch(base, searchIntent ?? normalizedQuery, { minScore: 1.6 });
+      // Use higher relevance threshold to exclude unrelated listings
+      const ranked = rankListingsBySearch(base, searchIntent ?? normalizedQuery, { minScore: 3.0 });
       if (ranked.length > 0) {
         if (searchIntent && heardRaw) {
           logVoiceSearch(searchIntent, {
@@ -159,7 +160,8 @@ export default function SearchPage() {
         }
         base = ranked.map((r) => r.listing) as typeof listings;
       } else {
-        base = fuzzyFilterListings(base, normalizedQuery, { minScore: 1.2 }) as typeof listings;
+        // No relevant results - return empty instead of showing unrelated listings
+        base = [];
       }
     }
 
