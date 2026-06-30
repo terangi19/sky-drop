@@ -38,8 +38,8 @@ export type LocalCommandAction = {
 /* ── Direct shortcut commands ── */
 // These bypass the entire pipeline for reliability.
 const EXACT_NAV: Record<string, { path: string; title: string; aliases: string[] }> = {
-  sell:    { path: "/post/ai", title: "Sell",  aliases: ["sell", "sells", "i want to sell", "create a listing", "new listing", "post something", "list something"] },
-  sales:   { path: "/sales",   title: "Sales", aliases: ["sales", "sells", "sails", "my sales", "sold items"] },
+  sell:    { path: "/post/ai", title: "Sell",  aliases: ["sell", "sells", "i want to sell", "create a listing", "new listing", "post something", "list something", "sell page", "selling page"] },
+  sales:   { path: "/sales",   title: "Sales", aliases: ["sales", "sails", "my sales", "sold items"] },
   home:    { path: "/",        title: "Home",  aliases: ["home", "go home", "home page", "main", "marketplace"] },
 };
 
@@ -110,6 +110,22 @@ function normalize(text: string): string {
 
 function wordCount(text: string): number {
   return text.split(/\s+/).filter(Boolean).length;
+}
+
+/** True when the utterance is a bare shortcut like "sell", "home", or "sales". */
+export function isExactNavShortcut(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  if (wordCount(trimmed) > 4) return false;
+  const compact = trimmed.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (!compact) return false;
+  for (const entry of Object.values(EXACT_NAV)) {
+    for (const alias of entry.aliases) {
+      const a = alias.toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (compact === a) return true;
+    }
+  }
+  return false;
 }
 
 function parsePrice(raw: string): number | undefined {

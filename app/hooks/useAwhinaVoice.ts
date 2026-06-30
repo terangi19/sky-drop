@@ -17,6 +17,7 @@ import {
   resolveVoiceCommand,
   type VoiceCommandAction,
 } from "../lib/awhina-voice-command";
+import { isExactNavShortcut } from "../lib/local-command-engine";
 import { dispatchSkyAiOpen } from "../lib/sky-ai-events";
 import { getFreshIdToken } from "../lib/api-auth";
 import { readListingDraftFromSkyAi } from "../lib/sky-ai-listing-context";
@@ -786,7 +787,7 @@ export function useAwhinaVoice() {
 
       if (!trimmed) return;
 
-      if (Date.now() - lastCommandAtRef.current < COMMAND_COOLDOWN_MS) return;
+      if (Date.now() - lastCommandAtRef.current < COMMAND_COOLDOWN_MS && !isExactNavShortcut(trimmed)) return;
 
       const textChanged = trimmed !== utteranceTextRef.current.trim();
       utteranceTextRef.current = display;
@@ -801,10 +802,9 @@ export function useAwhinaVoice() {
       setTranscript(formatUtteranceDisplay(display));
       if (voiceModeRef.current) setHint(VOICE_MODE_ON_HINT);
 
-      // Only run urgent commands (voice_off, resume) on interim STT.
-      // Navigation waits for a final chunk to avoid acting on
-      // partial matches like "sell" (interim for "sales").
-      if (meta.hadFinalChunk) {
+      // Exact shortcuts ("sell", "home") run instantly — even on interim STT.
+      // Other navigation waits for a final chunk to avoid partial matches.
+      if (isExactNavShortcut(trimmed) || meta.hadFinalChunk) {
         if (runVoiceCommandNow(trimmed)) return;
       } else {
         const urgent = resolveVoiceCommand(trimmed, pathname);

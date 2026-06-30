@@ -4,7 +4,7 @@
  * Conversational and listing speech get generous patience.
  */
 
-import { isInstantLocalCommand, isLikelyNavCommand } from "./local-command-engine";
+import { isInstantLocalCommand, isLikelyNavCommand, isExactNavShortcut } from "./local-command-engine";
 import { resolveVoiceCommand } from "./awhina-voice-command";
 
 export type VoiceUtteranceKind = "navigation" | "search" | "listing" | "conversation";
@@ -53,10 +53,16 @@ export function isIncompleteUtterance(text: string): boolean {
 export function isListingSpeech(text: string): boolean {
   const t = text.trim();
   if (!t) return false;
-  if (LISTING_INTENT.test(t) && /\b(sell|selling|list|listing|post|for sale)\b/i.test(t)) {
-    return true;
-  }
+
+  // Bare "sell", "post", etc. are navigation — not a listing description
+  if (isExactNavShortcut(t)) return false;
+
   const words = t.split(/\s+/).length;
+  if (words <= 2 && /\b(sell|selling|post|list)\b/i.test(t)) return false;
+
+  if (LISTING_INTENT.test(t) && /\b(sell|selling|list|listing|post|for sale)\b/i.test(t)) {
+    return words >= 3;
+  }
   if (words >= 8 && (LISTING_INTENT.test(t) || /\$[\d,]+/.test(t))) return true;
   return false;
 }
@@ -78,14 +84,18 @@ export function isActionableTranscript(text: string, pathname?: string): boolean
 }
 
 /** Classify accumulated speech to pick a patient or fast end-of-speech window. */
-export function classifyVoiceUtterance(text: string): VoiceUtteranceKind {
+export function classifyVoiceUtterance(text: string, pathname = "/"): VoiceUtteranceKind {
   const t = text.trim();
   if (!t) return "conversation";
+
+  if (isExactNavShortcut(t) || isInstantLocalCommand(t, pathname)) {
+    return "navigation";
+  }
 
   const words = t.split(/\s+/).length;
   const looksIncomplete = isIncompleteUtterance(t);
 
-  if (LISTING_INTENT.test(t) || looksIncomplete || words >= 12) {
+  if (isListingSpeech(t) || looksIncomplete || words >= 12) {
     return "listing";
   }
 
@@ -121,6 +131,8 @@ export function isInstantVoiceCommand(text: string, pathname: string): boolean {
 export function endOfSpeechDelayMs(text: string, options?: EndOfSpeechOptions): number {
   const t = text.trim();
   if (!t) return SILENCE_MS.conversation;
+
+  if (isExactNavShortcut(t)) return 0;
 
   // Lightweight check: if this looks like a nav command, skip the full pipeline
   if (isLikelyNavCommand(t) && options?.pathname && isInstantLocalCommand(t, options.pathname)) {
