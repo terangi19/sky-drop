@@ -983,7 +983,9 @@ export default function Home() {
 
             {/* Category pills */}
             <div className="mt-5 flex justify-center">
-              <div className="flex max-w-full gap-2 overflow-x-auto px-1 pb-0.5 scrollbar-none">
+              <div className="relative flex max-w-full gap-2 overflow-x-auto px-1 pb-0.5 scrollbar-none">
+                <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-[var(--background)] to-transparent pointer-events-none" />
+                <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[var(--background)] to-transparent pointer-events-none" />
                 <button
                   onClick={() => setSelectedCategory("All")}
                   className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-2.5 text-xs font-medium transition-all duration-200 active:scale-95 ${

@@ -1920,19 +1920,34 @@ Service Status: 🟢 Inquiry Active`;
                         {user?.email === listing.sellerEmail ? "You" : sellerName}
                       </span>
                       {isFullyVerified && (
-                        <span className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-sky-500/20 px-1.5 py-0.5 text-[10px] font-bold text-sky-400 border border-sky-500/30">
-                          ✓ Verified
-                        </span>
+                        <div className="group relative">
+                          <span className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-sky-500/20 px-1.5 py-0.5 text-[10px] font-bold text-sky-400 border border-sky-500/30 cursor-help">
+                            ✓ Verified
+                          </span>
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 rounded-lg bg-[var(--card)] border border-white/[0.1] px-3 py-2 text-[10px] text-[var(--muted)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
+                            Identity verified with ID
+                          </div>
+                        </div>
                       )}
                       {sellerProfile?.trustedSeller && !isFullyVerified && (
-                        <span className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-sky-500/20 px-1.5 py-0.5 text-[10px] font-bold text-sky-400 border border-sky-500/30">
-                          ✓ Trusted
-                        </span>
+                        <div className="group relative">
+                          <span className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-sky-500/20 px-1.5 py-0.5 text-[10px] font-bold text-sky-400 border border-sky-500/30 cursor-help">
+                            ✓ Trusted
+                          </span>
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 rounded-lg bg-[var(--card)] border border-white/[0.1] px-3 py-2 text-[10px] text-[var(--muted)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
+                            Positive seller history
+                          </div>
+                        </div>
                       )}
                       {isNewSeller && !isFullyVerified && !sellerProfile?.trustedSeller && (
-                        <span className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-sky-500/20 px-1.5 py-0.5 text-[10px] font-bold text-sky-400 border border-sky-500/30">
-                          New Seller
-                        </span>
+                        <div className="group relative">
+                          <span className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-sky-500/20 px-1.5 py-0.5 text-[10px] font-bold text-sky-400 border border-sky-500/30 cursor-help">
+                            New Seller
+                          </span>
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 rounded-lg bg-[var(--card)] border border-white/[0.1] px-3 py-2 text-[10px] text-[var(--muted)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
+                            Recently joined Sky Drop
+                          </div>
+                        </div>
                       )}
                       {sellerProfile?.profileBadge === "epic" && (
                         <span className="shrink-0 text-[10px] text-sky-400 font-bold">💎 Epic</span>
