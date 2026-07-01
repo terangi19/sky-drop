@@ -184,20 +184,30 @@ export default function TradeFeedPage() {
     return () => unsub();
   }, []);
 
-  // Fetch seller review stats
+  // Fetch seller review stats - optimized to batch fetch
   useEffect(() => {
     const uniqueEmails = [...new Set(posts.map((p: any) => p.sellerEmail).filter(Boolean))] as string[];
     if (uniqueEmails.length === 0) return;
     const fetchStats = async () => {
       const stats: Record<string, { avg: number; count: number }> = {};
-      for (const email of uniqueEmails) {
-        try {
-          const snap = await getDocs(query(collection(db, "reviews"), where("sellerEmail", "==", email), limit(50)));
-          const ratings: number[] = [];
-          snap.docs.forEach((d) => { const r = d.data().rating; if (r) ratings.push(Number(r)); });
-          if (ratings.length > 0) stats[email] = { avg: ratings.reduce((a, b) => a + b, 0) / ratings.length, count: ratings.length };
-        } catch {}
-      }
+      // Batch fetch - get all reviews at once instead of per-seller queries
+      try {
+        const snap = await getDocs(query(collection(db, "reviews"), where("sellerEmail", "in", uniqueEmails)));
+        const reviewsByEmail: Record<string, number[]> = {};
+        snap.docs.forEach((d) => {
+          const email = d.data().sellerEmail;
+          const rating = d.data().rating;
+          if (email && rating) {
+            if (!reviewsByEmail[email]) reviewsByEmail[email] = [];
+            reviewsByEmail[email].push(Number(rating));
+          }
+        });
+        for (const [email, ratings] of Object.entries(reviewsByEmail)) {
+          if (ratings.length > 0) {
+            stats[email] = { avg: ratings.reduce((a, b) => a + b, 0) / ratings.length, count: ratings.length };
+          }
+        }
+      } catch {}
       setSellerReviewStats(stats);
     };
     fetchStats();

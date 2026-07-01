@@ -185,12 +185,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Duplicate wanted post detection
+    // Duplicate wanted post detection - optimized to limit results
     if (listingType === "wanted" && isAdminInitialized()) {
       const similarWantedPosts = await getAdminDb().collection("listings")
         .where("sellerEmail", "==", token.email)
         .where("type", "==", "wanted")
         .where("status", "==", "live")
+        .limit(10)  // Limit to last 10 wanted posts to reduce cost
         .get();
       
       const normalizedTitle = title.toLowerCase().trim();
@@ -267,14 +268,16 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      const activeListings = await getAdminDb().collection("listings")
+      // Optimized: Use count query instead of fetching all documents
+      const activeListingsCount = (await getAdminDb().collection("listings")
         .where("sellerEmail", "==", token.email)
         .where("status", "==", "live")
-        .get();
+        .count()
+        .get()).data().count;
 
       // KYC requirement paused - unlimited listings for all users
       const maxListings = 9999;
-      if (activeListings.size >= maxListings) {
+      if (activeListingsCount >= maxListings) {
         return NextResponse.json({
           error: `You can only have ${maxListings} active listings.`,
         }, { status: 400 });
