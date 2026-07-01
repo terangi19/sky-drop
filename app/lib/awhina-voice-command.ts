@@ -231,7 +231,18 @@ export function resolveInstantCommand(
 
   const cmd = resolveVoiceCommand(trimmed, pathname);
   if (!cmd) return null;
-  if (cmd.type === "listing" || cmd.type === "chat") return null;
+  
+  // Allow simple "sell" navigation to be instant, but block detailed listing fills
+  if (cmd.type === "listing") {
+    const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
+    // Only instant if it's a simple sell command (≤3 words and no specific details)
+    if (wordCount <= 3 && !/\$|price|dollars|nzd/i.test(trimmed)) {
+      return cmd;
+    }
+    return null;
+  }
+  
+  if (cmd.type === "chat") return null;
   if (cmd.type === "search" && trimmed.split(/\s+/).filter(Boolean).length < 2) return null;
   return cmd;
 }
