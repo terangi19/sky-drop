@@ -457,6 +457,13 @@ const tabGroups = [
     if (loading) return;
     const hash = typeof window !== "undefined" ? window.location.hash.slice(1) : "";
     if (!hash) return;
+    const tabFromHash: Record<string, string> = {
+      settings: "settings",
+      "payment-settings": "payments",
+      verification: "verification",
+      notifications: "notifications",
+    };
+    if (tabFromHash[hash]) setActiveTab(tabFromHash[hash]);
     const el = document.getElementById(hash);
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [loading]);

@@ -40,6 +40,8 @@ export type UseVoiceInputOptions = {
   onUtteranceFlushedRef?: MutableRefObject<(() => void) | null>;
   /** Mirrors whether the mic pipeline is actively listening. */
   micListeningRef?: MutableRefObject<boolean>;
+  /** When true, browser STT onend will not auto-restart (parent coordinates restart). */
+  suppressAutoRestartRef?: MutableRefObject<boolean>;
   continuous?: boolean;
   keepAlive?: boolean;
 };
@@ -57,6 +59,7 @@ export function useVoiceInput({
   utteranceTextRef,
   onUtteranceFlushedRef,
   micListeningRef,
+  suppressAutoRestartRef,
   continuous = false,
   keepAlive = false,
 }: UseVoiceInputOptions) {
@@ -147,7 +150,7 @@ export function useVoiceInput({
         const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (Ctor) {
           const warm = new Ctor();
-          warm.lang = "en-US";
+          warm.lang = lang || "en-NZ";
           warm.start();
           warm.abort();
         }
@@ -409,6 +412,10 @@ export function useVoiceInput({
               voiceDebug(`[VoiceInput] Skipping restart - stale or stopped`);
               return;
             }
+            if (suppressAutoRestartRef?.current) {
+              voiceDebug(`[VoiceInput] Skipping restart - parent owns mic lifecycle`);
+              return;
+            }
             void startListeningRef.current?.();
           }, 100);
         } else {
@@ -416,7 +423,7 @@ export function useVoiceInput({
         }
       };
     },
-    [beginServerRecording, clearActive, clearSessionBuffer, emitUtterance, invalidateRecognitionSession, isVoiceSession, micListeningRef, syncMicListening, utteranceTextRef]
+    [beginServerRecording, clearActive, clearSessionBuffer, emitUtterance, invalidateRecognitionSession, isVoiceSession, micListeningRef, suppressAutoRestartRef, syncMicListening, utteranceTextRef]
   );
 
   const startBrowserRecognition = useCallback(async () => {

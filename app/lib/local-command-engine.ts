@@ -38,15 +38,17 @@ export type LocalCommandAction = {
 /* ── Direct shortcut commands ── */
 // These bypass the entire pipeline for reliability.
 const EXACT_NAV: Record<string, { path: string; title: string; aliases: string[] }> = {
-  sell:    { path: "/post/ai", title: "Sell",  aliases: ["sell", "sells", "i want to sell", "create a listing", "new listing", "post something", "list something", "sell page", "selling page"] },
-  sales:   { path: "/sales",   title: "Sales", aliases: ["sales", "sails", "my sales", "sold items"] },
+  sell:    { path: "/post/ai", title: "Sell",  aliases: ["sell", "i want to sell", "create a listing", "new listing", "post something", "list something", "sell page", "selling page"] },
+  sales:   { path: "/sales",   title: "Sales", aliases: ["sales", "sails", "sells", "my sales", "sold items"] },
   home:    { path: "/",        title: "Browse", aliases: ["home", "go home", "home page", "main", "marketplace", "browse", "browse page", "shop", "explore"] },
 };
 
 /* ── Intent Regexes ── */
 
 const RESUME_INTENT = /\b(resume( listening)?|continue listening|i'?m back|keep listening|unpause)\b/i;
-const VOICE_OFF_INTENT = /\b(stop listening|turn off voice|disable voice|exit voice( mode)?|stop voice|voice off|turn voice off)\b/i;
+const VOICE_OFF_INTENT =
+  /\b(stop listening|turn off voice|disable voice|exit voice( mode)?|stop voice|voice off|turn voice off)\b/i;
+const BARE_VOICE_OFF = /^(stop|quit|exit)$/i;
 
 const OPEN_LISTING_INTENT =
   /\b(open|show|go to|view)\s+(the\s+)?(first|1st|second|2nd|third|3rd|top)\s+(listing|result|one|item|post)\b/i;
@@ -71,7 +73,7 @@ const SCROLL_UP_INTENT = /\b(scroll up|page up|move up|go up|scroll up a bit|scr
 const SCROLL_TOP_INTENT = /\b(scroll to top|go to top|top of page|back to top)\b/i;
 const SCROLL_BOTTOM_INTENT = /\b(scroll to bottom|go to bottom|bottom of page)\b/i;
 const CLOSE_INTENT = /\b(close this|close|dismiss|close page|go away|exit)\b/i;
-const CANCEL_INTENT = /\b(cancel|never mind|forget it|scratch that|stop|abort)\b/i;
+const CANCEL_INTENT = /\b(cancel|never mind|forget it|scratch that|abort)\b/i;
 const REFRESH_INTENT = /\b(refresh|reload|refresh page|reload page)\b/i;
 
 /* ── Nav Prefix Stripping ── */
@@ -227,7 +229,7 @@ function buildContextAction(text: string): LocalCommandAction | null {
 function buildVoiceToggleAction(text: string): LocalCommandAction | null {
   const t = text.trim();
 
-  if (VOICE_OFF_INTENT.test(t)) {
+  if (BARE_VOICE_OFF.test(t.trim().toLowerCase()) || VOICE_OFF_INTENT.test(t)) {
     return { type: "voice_off", status: "Turning off Voice Mode…", confidence: "high", heard: t };
   }
 
@@ -505,9 +507,11 @@ export function isLikelyNavCommand(text: string): boolean {
   const navs = buildNavCompacts();
   if (navs.has(compact)) return true;
 
-  // Check if compact is a prefix of any known nav or vice versa
-  for (const n of navs) {
-    if (compact.startsWith(n) || n.startsWith(compact)) return true;
+  // Prefix match only for longer tokens — avoids "rent"/"car" firing early
+  if (compact.length >= 4) {
+    for (const n of navs) {
+      if (n.length >= 4 && compact.startsWith(n)) return true;
+    }
   }
 
   return false;
@@ -542,13 +546,13 @@ export function matchLocalCommand(text: string, pathname: string): LocalCommandA
     }
   }
 
-  // 1. Context actions (highest priority — go back, go home, scroll, refresh, close)
-  const contextAction = buildContextAction(trimmed);
-  if (contextAction) return contextAction;
-
-  // 2. Voice toggle (stop listening, resume)
+  // 1. Voice toggle (stop / resume) — before context so bare "stop" turns voice off
   const toggleAction = buildVoiceToggleAction(trimmed);
   if (toggleAction) return toggleAction;
+
+  // 2. Context actions (go back, go home, scroll, refresh, close)
+  const contextAction = buildContextAction(trimmed);
+  if (contextAction) return contextAction;
 
   // 3. Page actions (open listing, message seller, tab switch)
   const pageAction = buildPageAction(trimmed, pathname);

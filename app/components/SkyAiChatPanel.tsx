@@ -28,6 +28,8 @@ import {
   SKY_AI_MAX_IMAGES_PER_MESSAGE,
 } from "../lib/sky-ai-images";
 import { getFreshIdToken } from "../lib/api-auth";
+import { resolveVoiceCommand } from "../lib/awhina-voice-command";
+import { showToast } from "./Toast";
 import { useVoiceInput } from "../hooks/useVoiceInput";
 import type { SkyAiConversationSummary } from "../lib/sky-ai-types";
 
@@ -61,6 +63,8 @@ export type SkyAiChatPanelProps = {
   quickPrompts?: QuickPrompt[];
   /** First assistant message (defaults to global welcome) */
   welcomeText?: string;
+  /** When global Voice Mode is on, chat mic is disabled to avoid dual-mic conflicts. */
+  globalVoiceActive?: boolean;
   className?: string;
 };
 
@@ -116,6 +120,7 @@ export default function SkyAiChatPanel({
   onFill,
   quickPrompts = SKY_AI_QUICK_PROMPTS,
   welcomeText = SKY_AI_WELCOME,
+  globalVoiceActive = false,
   className = "",
   floatingFab = true,
 }: SkyAiChatPanelProps) {
@@ -646,13 +651,36 @@ export default function SkyAiChatPanel({
       setVoiceHint(null);
       setVoiceStatus(null);
       setInput("");
+
+      const cmd = resolveVoiceCommand(trimmed, pathname);
+      if (cmd) {
+        if (cmd.type === "page" && cmd.run) {
+          showToast(cmd.status || "Opening…", "info");
+          const result = cmd.run();
+          if (result.ok && result.path && !result.path.startsWith("#")) {
+            router.push(result.path);
+          } else if (!result.ok) {
+            setVoiceHint("Couldn't do that on this page — try another command.");
+          }
+          return;
+        }
+        if (
+          (cmd.type === "navigate" || cmd.type === "search" || cmd.type === "listing") &&
+          cmd.path
+        ) {
+          showToast(cmd.status || "Opening…", "info");
+          router.push(cmd.path);
+          return;
+        }
+      }
+
       respond(trimmed);
     },
-    [respond]
+    [pathname, respond, router]
   );
 
   const { supported: voiceSupported, listening, toggleListening, stopListening } = useVoiceInput({
-    disabled: busy || imageBusy,
+    disabled: busy || imageBusy || globalVoiceActive,
     keepAlive: true,
     onInterimTranscript: (text) => {
       setVoiceHint(null);

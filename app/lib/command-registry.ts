@@ -71,7 +71,7 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
     ],
     phoneticAliases: [
       "cells", "sells", "sails", "sale", "sals",
-      "my sells", "my cells", "sails page", "sold page",
+      "my sells", "my cells", "sails page", "sold page", "sellz",
     ],
   },
 
@@ -151,10 +151,10 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
 
   // ── Settings ──
   {
-    path: "/profile",
+    path: "/profile#settings",
     title: "Settings",
     aliases: [
-      "settings", "preferences", "my settings", "account settings",
+      "settings", "preferences", "my settings",
       "configuration", "app settings", "my preferences",
     ],
     phoneticAliases: ["settins", "settngs", "setings", "prefrences"],
@@ -216,28 +216,6 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
       "manage analytics",
     ],
     phoneticAliases: ["analitics", "analytix", "insites", "statistics"],
-  },
-
-  // ── Offers ──
-  {
-    path: "/",
-    title: "Offers",
-    aliases: [
-      "offers", "my offers", "buy offers", "sell offers",
-      "offers received", "offers sent", "make an offer",
-    ],
-    phoneticAliases: ["offrs", "offas", "offers page"],
-  },
-
-  // ── Auctions ──
-  {
-    path: "/",
-    title: "Auctions",
-    aliases: [
-      "auctions", "auction", "bidding", "bid", "my auctions",
-      "auction page", "live auctions",
-    ],
-    phoneticAliases: ["awkshuns", "ocshuns", "auktion"],
   },
 
   // ── Rentals ──

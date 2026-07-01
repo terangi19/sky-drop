@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { User } from "firebase/auth";
 import { auth, onAuthStateChanged } from "../lib/firebase";
 import { useAwhinaVoice } from "../hooks/useAwhinaVoice";
+import { SKY_AI_OPEN_EVENT } from "../lib/sky-ai-events";
 import AwhinaFabStack from "./AwhinaFabStack";
 import AwhinaVoiceBar from "./AwhinaVoiceBar";
 import AwhinaVoiceStatusCard from "./AwhinaVoiceStatusCard";
@@ -43,6 +44,12 @@ export default function AwhinaGlobalAssistant() {
     return () => unsub();
   }, [voice.cancel]);
 
+  useEffect(() => {
+    const onOpen = () => setChatOpen(true);
+    window.addEventListener(SKY_AI_OPEN_EVENT, onOpen);
+    return () => window.removeEventListener(SKY_AI_OPEN_EVENT, onOpen);
+  }, []);
+
   if (!user || isAuthPath(pathname) || pathname.startsWith(ADMIN_PREFIX)) {
     return null;
   }
@@ -51,12 +58,13 @@ export default function AwhinaGlobalAssistant() {
 
   return (
     <>
-      {showChatSheet && (
+      {(showChatSheet || chatOpen) && (
         <SkyAiChatPanel
           mode="sheet"
           open={chatOpen}
           onOpenChange={setChatOpen}
           floatingFab={false}
+          globalVoiceActive={voice.voiceMode}
         />
       )}
 
