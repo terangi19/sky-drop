@@ -183,7 +183,7 @@ export function useAwhinaVoice() {
     }
     restartDebounceRef.current = window.setTimeout(() => {
       restartDebounceRef.current = null;
-      if (!voiceModeRef.current || pausedRef.current) return;
+      if (!voiceModeRef.current || pausedRef.current || busyRef.current) return;
       suppressMicAutoRestartRef.current = true;
       const restart = restartListeningRef.current?.({ force: true });
       if (restart && typeof restart.finally === "function") {
@@ -295,11 +295,41 @@ export function useAwhinaVoice() {
 
     const queued = pendingUtteranceRef.current.trim();
     pendingUtteranceRef.current = "";
-    scheduleMicRestart();
+    
+    // Force mic restart with multiple fallback attempts
+    const attemptMicRestart = (attempt = 0) => {
+      if (!voiceModeRef.current || pausedRef.current) return;
+      if (attempt >= 3) {
+        console.warn("[voice] Mic restart failed after 3 attempts");
+        setHint("Tap the mic to resume listening.");
+        setPhase("paused");
+        setHeadline("Voice paused");
+        setPausedState(true);
+        return;
+      }
+      
+      const restart = restartListeningRef.current?.({ force: true });
+      if (restart) {
+        restart.finally(() => {
+          // Verify mic is actually listening after restart
+          window.setTimeout(() => {
+            if (!micListeningRef.current && voiceModeRef.current && !pausedRef.current) {
+              console.warn(`[voice] Mic not listening after restart, retrying (attempt ${attempt + 1})`);
+              window.setTimeout(() => attemptMicRestart(attempt + 1), 200);
+            }
+          }, 300);
+        });
+      } else {
+        window.setTimeout(() => attemptMicRestart(attempt + 1), 200);
+      }
+    };
+    
+    window.setTimeout(() => attemptMicRestart(0), 100);
+    
     if (queued) {
       window.setTimeout(() => flushUtteranceRef.current?.(queued), 120);
     }
-  }, [clearBusy, clearConfirmationTimer, keepVoiceModeOn, scheduleInactivityPause, scheduleMicRestart]);
+  }, [clearBusy, clearConfirmationTimer, keepVoiceModeOn, scheduleInactivityPause, setPausedState]);
 
   const startConfirmationTimer = useCallback(() => {
     clearConfirmationTimer();
