@@ -65,11 +65,11 @@ export const links = () => [
 
 export const metadata: Metadata = {
   title: {
-    default: "Sky Drop — NZ Marketplace | Buy & Sell Cars, Tech, Fashion & More",
+    default: "Sky Drop – New Zealand Marketplace | Buy, Sell, Rent & Hire",
     template: "%s — Sky Drop",
   },
-  description: "New Zealand's community marketplace. Buy and sell cars, tech, gaming, fashion, furniture and more. Free to list, secure Stripe payments, built for Kiwis. Local buying & selling made easy.",
-  keywords: "New Zealand marketplace, buy and sell NZ, NZ classifieds, online marketplace NZ, sell cars NZ, buy tech NZ, local marketplace, free listings NZ, Sky Drop",
+  description: "New Zealand's community marketplace. Buy and sell cars, tech, furniture, fashion and more. Free to list, secure payments, rentals, services and jobs. Built for Kiwis.",
+  keywords: "New Zealand marketplace, NZ marketplace, buy and sell NZ, NZ classifieds, online marketplace NZ, sell cars NZ, buy tech NZ, local marketplace, free listings NZ, Sky Drop, NZ buy and sell",
   metadataBase: new URL(process.env.NEXT_PUBLIC_URL || "https://skydrop.co.nz"),
   alternates: {
     canonical: "/",
@@ -77,19 +77,19 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: "Sky Drop",
-    title: "Sky Drop — NZ Marketplace | Buy & Sell Cars, Tech, Fashion & More",
-    description: "New Zealand's community marketplace. Buy and sell cars, tech, gaming, fashion and more. Free to list, secure payments.",
+    title: "Sky Drop – New Zealand Marketplace | Buy, Sell, Rent & Hire",
+    description: "New Zealand's community marketplace. Buy, sell, rent and hire cars, tech, furniture, fashion, services and more. Free to list, secure payments.",
     images: [{
       url: "/og-image.svg",
       width: 1200,
       height: 630,
-      alt: "Sky Drop — NZ Marketplace",
+      alt: "Sky Drop – New Zealand Marketplace",
     }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Sky Drop — NZ Marketplace | Buy & Sell Cars, Tech, Fashion & More",
-    description: "New Zealand's community marketplace. Free to list, secure payments, built for Kiwis.",
+    title: "Sky Drop – New Zealand Marketplace | Buy, Sell, Rent & Hire",
+    description: "New Zealand's community marketplace. Free to list, secure payments, rentals, services and jobs. Built for Kiwis.",
     images: ["/og-image.svg"],
   },
   icons: [
@@ -159,6 +159,27 @@ export default function RootLayout({
     },
     sameAs: []
   };
+  const localBusinessLd = {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    name: "Sky Drop",
+    alternateName: "Sky Drop NZ",
+    description: "New Zealand's community marketplace. Buy, sell, rent and hire cars, tech, furniture, fashion, services and more.",
+    url: baseUrl,
+    address: {
+      "@type": "PostalAddress",
+      addressCountry: "NZ",
+      addressRegion: "New Zealand"
+    },
+    areaServed: "New Zealand",
+    priceRange: "$$",
+    openingHoursSpecification: {
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+      opens: "00:00",
+      closes: "23:59"
+    }
+  };
   return (
     <html
       lang="en"
@@ -173,6 +194,10 @@ export default function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessLd) }}
         />
       </head>
       <body className="min-h-full flex flex-col bg-[var(--background)] text-[var(--foreground)]">
