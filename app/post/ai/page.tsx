@@ -592,7 +592,10 @@ export default function AIPostPage() {
           const snap = await getDoc(doc(db, "profiles", u.uid));
           if (snap.exists()) {
             const d = snap.data();
-
+            // Smart default: pre-fill location from user profile if not already set
+            if (d.location && !location) {
+              setLocation(d.location);
+            }
           }
         } catch {}
       }
@@ -1549,7 +1552,8 @@ export default function AIPostPage() {
             {(listingType === "physical" || listingType === "wanted") && (
             <div className="space-y-1.5">
               <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Location</label>
-              <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g., Auckland, Wellington" className="w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-white/[0.04]" />
+              <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g., Auckland, Wellington, Christchurch" className="w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-white/[0.04]" />
+              <p className="text-[10px] text-[var(--muted)]">City or region helps buyers find your item</p>
             </div>
             )}
           </div>
