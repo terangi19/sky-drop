@@ -1116,11 +1116,16 @@ export default function Home() {
             <h2 className="text-base font-semibold tracking-tight text-white sm:text-lg">
               {selectedCategory !== "All" ? selectedCategory : "Latest listings"}
             </h2>
-            <p className="mt-0.5 text-[11px] text-white">
-              {animatedCount} listing{animatedCount !== 1 ? "s" : ""}
-              {selectedCategory !== "All" && ` in ${selectedCategory}`}
-              {selectedRegion !== "All" && ` · ${selectedRegion}`}
-            </p>
+            {(selectedCategory !== "All" || selectedCondition !== "All" || selectedRegion !== "All" || search) ? (
+              <div className="flex items-center gap-2 rounded-full bg-sky-500/10 px-3 py-1 border border-sky-500/20">
+                <span className="text-[10px] font-bold text-sky-400 uppercase tracking-wider">Results</span>
+                <span className="text-sm font-bold text-white">{animatedCount}</span>
+              </div>
+            ) : (
+              <p className="mt-0.5 text-[11px] text-white">
+                {animatedCount} listing{animatedCount !== 1 ? "s" : ""}
+              </p>
+            )}
           </div>
 
           {/* Filters */}
