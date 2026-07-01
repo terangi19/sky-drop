@@ -22,7 +22,7 @@ import {
   isSellNavigationPhrase,
   isSalesNavigationPhrase,
 } from "../lib/local-command-engine";
-import { dispatchSkyAiOpen } from "../lib/sky-ai-events";
+import { dispatchSkyAiOpen, markVoiceSellNavigation } from "../lib/sky-ai-events";
 import { getFreshIdToken } from "../lib/api-auth";
 import { readListingDraftFromSkyAi } from "../lib/sky-ai-listing-context";
 import { stripSkyAiMachineTags, type SkyAiListingFill } from "../lib/sky-ai-listing-fill";
@@ -68,6 +68,15 @@ const INACTIVITY_MS = 45_000;
 const BUSY_RECOVERY_MS = 15_000;
 const CONFIRMATION_TIMEOUT_MS = 30_000;
 const VOICE_MODE_STORAGE_KEY = "awhina-voice-mode-on";
+
+function isSellVoiceDestination(path?: string): boolean {
+  return path === "/post/ai";
+}
+
+function openSellFromVoice(message?: string) {
+  markVoiceSellNavigation();
+  dispatchSkyAiOpen(message);
+}
 
 function readVoiceModePersisted(): boolean {
   if (typeof window === "undefined") return false;
@@ -449,7 +458,9 @@ export function useAwhinaVoice() {
         action.type === "listing"
       ) {
         if (action.type === "listing") {
-          dispatchSkyAiOpen(action.message);
+          openSellFromVoice(action.message);
+        } else if (isSellVoiceDestination(action.path)) {
+          openSellFromVoice();
         }
         navigatedByVoiceRef.current = true;
         setPhase("speaking");
@@ -483,8 +494,6 @@ export function useAwhinaVoice() {
 
   const runVoiceCommandNow = useCallback(
     (trimmed: string): boolean => {
-      if (busyRef.current) return false;
-
       // Check if user is responding to a confirmation prompt
       const pending = pendingConfirmationRef.current;
       if (pending) {
@@ -518,6 +527,8 @@ export function useAwhinaVoice() {
       const cmd = resolveVoiceCommand(trimmed, pathname);
       if (!cmd) return false;
 
+      if (busyRef.current && !isPriorityNav(cmd)) return false;
+
       if (cmd.type === "listing" && isListingSpeech(trimmed)) return false;
       if (cmd.type === "chat") return false;
 
@@ -526,9 +537,12 @@ export function useAwhinaVoice() {
           ? `${cmd.type}:${cmd.path}`
           : cmd.type;
       const now = Date.now();
+      const targetsPath =
+        cmd.type === "navigate" || cmd.type === "search" || cmd.type === "listing";
       if (
         lastInstantExecRef.current === execKey &&
-        now - lastInstantAtRef.current < 600
+        now - lastInstantAtRef.current < 600 &&
+        (!targetsPath || pathname === cmd.path)
       ) {
         return true;
       }
@@ -617,7 +631,9 @@ export function useAwhinaVoice() {
         }
         showToast(cmd.status || "Opening…", "info");
         if (cmd.type === "listing") {
-          dispatchSkyAiOpen(cmd.message);
+          openSellFromVoice(cmd.message);
+        } else if (isSellVoiceDestination(cmd.path)) {
+          openSellFromVoice();
         }
         navigatedByVoiceRef.current = true;
         router.push(cmd.path);
@@ -677,7 +693,7 @@ export function useAwhinaVoice() {
         setHeardText(trimmed);
         setActionText("Opening Awhina…");
         showToast("Opening Awhina to create your listing…", "info");
-        dispatchSkyAiOpen(trimmed);
+        openSellFromVoice(trimmed);
         navigatedByVoiceRef.current = true;
         router.push("/post/ai");
         afterCommandCycle();

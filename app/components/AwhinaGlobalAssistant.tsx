@@ -7,7 +7,7 @@ import { auth, onAuthStateChanged } from "../lib/firebase";
 import { useAwhinaVoice } from "../hooks/useAwhinaVoice";
 import { dismissAwhinaIntro, shouldShowAwhinaIntro } from "../lib/awhina-intro";
 import { dismissVoiceModeIntro, shouldShowVoiceModeIntro } from "../lib/voice-mode-intro";
-import { SKY_AI_OPEN_EVENT, dispatchSkyAiOpen, type SkyAiOpenDetail } from "../lib/sky-ai-events";
+import { SKY_AI_OPEN_EVENT, consumeVoiceSellNavigation, dispatchSkyAiOpen, isVoiceSellNavigationPending, type SkyAiOpenDetail } from "../lib/sky-ai-events";
 import AwhinaFabStack from "./AwhinaFabStack";
 import AwhinaIntroModal from "./AwhinaIntroModal";
 import AwhinaVoiceBar from "./AwhinaVoiceBar";
@@ -46,7 +46,7 @@ export default function AwhinaGlobalAssistant() {
   const voice = useAwhinaVoice();
 
   const openChat = useCallback((query?: string) => {
-    if (shouldShowAwhinaIntro()) {
+    if (shouldShowAwhinaIntro() && !isVoiceSellNavigationPending()) {
       pendingChatQueryRef.current = query;
       setAwhinaIntroOpen(true);
       return;
@@ -117,6 +117,7 @@ export default function AwhinaGlobalAssistant() {
 
   useEffect(() => {
     if (!user || !pathname.startsWith("/post/ai")) return;
+    if (consumeVoiceSellNavigation()) return;
     if (!shouldShowAwhinaIntro() || awhinaIntroOnSellPageRef.current) return;
     awhinaIntroOnSellPageRef.current = true;
     setAwhinaIntroOpen(true);

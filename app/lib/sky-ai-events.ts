@@ -12,3 +12,23 @@ export function dispatchSkyAiOpen(query?: string) {
     })
   );
 }
+
+const VOICE_SELL_NAV_KEY = "awhina-voice-sell-nav";
+
+/** Set before voice navigation to Sell — skips first-visit intro overlay. */
+export function markVoiceSellNavigation() {
+  if (typeof window === "undefined") return;
+  sessionStorage.setItem(VOICE_SELL_NAV_KEY, "1");
+}
+
+export function consumeVoiceSellNavigation(): boolean {
+  if (typeof window === "undefined") return false;
+  if (sessionStorage.getItem(VOICE_SELL_NAV_KEY) !== "1") return false;
+  sessionStorage.removeItem(VOICE_SELL_NAV_KEY);
+  return true;
+}
+
+export function isVoiceSellNavigationPending(): boolean {
+  if (typeof window === "undefined") return false;
+  return sessionStorage.getItem(VOICE_SELL_NAV_KEY) === "1";
+}

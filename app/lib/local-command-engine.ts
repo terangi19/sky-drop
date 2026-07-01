@@ -141,6 +141,11 @@ export function isSellNavigationPhrase(text: string): boolean {
     }
   }
 
+  const bare = t.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (["sell", "sells", "sel", "selling", "cells", "cell"].includes(bare)) {
+    return true;
+  }
+
   return matchesExactNavEntry(t, "sell");
 }
 
@@ -777,20 +782,11 @@ function sellOrSalesShortcutAction(
   }
 
   if (isSellNavigationPhrase(trimmed)) {
-    if (pathname === "/post/ai") {
-      return {
-        type: "page",
-        status: "You're already on Sell.",
-        confidence: "high",
-        heard: trimmed,
-        targetTitle: "Sell",
-        run: () => ({ ok: true }),
-      };
-    }
     return {
       type: "navigate",
       path: "/post/ai",
-      status: "Opening Sell…",
+      status:
+        pathname === "/post/ai" ? "Opening Āwhina on Sell…" : "Opening Sell…",
       confidence: "high",
       heard: trimmed,
       targetTitle: "Sell",
@@ -840,20 +836,11 @@ function sellOrSalesShortcutAction(
     }
 
     if (SELL_COMPACTS.has(compact)) {
-      if (pathname === "/post/ai") {
-        return {
-          type: "page",
-          status: "You're already on Sell.",
-          confidence: "high",
-          heard: trimmed,
-          targetTitle: "Sell",
-          run: () => ({ ok: true }),
-        };
-      }
       return {
         type: "navigate",
         path: "/post/ai",
-        status: "Opening Sell…",
+        status:
+          pathname === "/post/ai" ? "Opening Āwhina on Sell…" : "Opening Sell…",
         confidence: "high",
         heard: trimmed,
         targetTitle: "Sell",
