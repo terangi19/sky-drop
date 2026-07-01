@@ -17,7 +17,11 @@ import {
   resolveVoiceCommand,
   type VoiceCommandAction,
 } from "../lib/awhina-voice-command";
-import { isExactNavShortcut, isSellNavigationPhrase } from "../lib/local-command-engine";
+import {
+  isExactNavShortcut,
+  isSellNavigationPhrase,
+  isSalesNavigationPhrase,
+} from "../lib/local-command-engine";
 import { dispatchSkyAiOpen } from "../lib/sky-ai-events";
 import { getFreshIdToken } from "../lib/api-auth";
 import { readListingDraftFromSkyAi } from "../lib/sky-ai-listing-context";
@@ -714,10 +718,10 @@ export function useAwhinaVoice() {
           return;
         }
 
-        if (isSellNavigationPhrase(trimmed)) {
-          const sellCmd = resolveVoiceCommand(trimmed, pathname);
-          if (sellCmd) {
-            await runAction(sellCmd);
+        if (isSellNavigationPhrase(trimmed) || isSalesNavigationPhrase(trimmed)) {
+          const navCmd = resolveVoiceCommand(trimmed, pathname);
+          if (navCmd) {
+            await runAction(navCmd);
             return;
           }
         }
@@ -991,7 +995,12 @@ export function useAwhinaVoice() {
       if (voiceModeRef.current) setHint(VOICE_MODE_ON_HINT);
 
       // Exact shortcuts and "go to sell" run instantly — even on interim STT.
-      if (isExactNavShortcut(trimmed) || isSellNavigationPhrase(trimmed) || meta.hadFinalChunk) {
+      if (
+        isExactNavShortcut(trimmed) ||
+        isSellNavigationPhrase(trimmed) ||
+        isSalesNavigationPhrase(trimmed) ||
+        meta.hadFinalChunk
+      ) {
         if (runVoiceCommandNow(trimmed)) return;
       } else {
         const urgent = resolveVoiceCommand(trimmed, pathname);

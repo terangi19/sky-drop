@@ -2,8 +2,19 @@
 
 /* ── Direct phonetic substitution map ── */
 // Maps what STT often hears → what the user likely meant
+/** Never phonetically rewrite these — "sales" contains "sale" but means Sales page. */
+const PROTECTED_COMPACTS = new Set([
+  "sales",
+  "sails",
+  "sals",
+  "mysales",
+  "salespage",
+  "solditems",
+  "mysold",
+]);
+
 const PHONETIC_SUBSTITUTIONS: Record<string, string[]> = {
-  // Sales common mishearings — "cells"/"sells" usually mean Sell page, not Sales
+  // Sell page — STT often hears "sells" or "cells" for "sell" (not Sales)
   cells: ["sell"],
   sells: ["sell"],
   sals: ["sales"],
@@ -239,17 +250,13 @@ export function resolvePhonetic(text: string): string {
   const normalized = text.toLowerCase().trim();
   const compact = normalized.replace(/[^a-z0-9]/g, "");
 
-  // Direct substitution lookup
+  if (PROTECTED_COMPACTS.has(compact)) {
+    return text;
+  }
+
   const substitution = PHONETIC_SUBSTITUTIONS[compact];
   if (substitution && substitution.length > 0) {
     return substitution[0];
-  }
-
-  // Try partial match against phonetic substitution keys
-  for (const [key, corrections] of Object.entries(PHONETIC_SUBSTITUTIONS)) {
-    if (compact.includes(key) || key.includes(compact)) {
-      return corrections[0];
-    }
   }
 
   return text;

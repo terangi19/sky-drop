@@ -83,8 +83,48 @@ const RESERVED_PROFILE_USERNAMES = new Set([
 const SELL_NAV_PHRASE =
   /\b(?:go|take me|open|navigate|head|show|bring me|send me|guide me)\s+(?:to\s+)?(?:the\s+)?(?:sell(?:ing)?(?:\s+(?:page|tab))?|post(?:\s+(?:a|an)?\s+listing)?|create(?:\s+a)?\s+listing|list(?:\s+something)?)\b/i;
 
+const SALES_NAV_PHRASE =
+  /\b(?:go|take me|open|navigate|head|show|bring me|send me|guide me)\s+(?:to\s+)?(?:the\s+)?(?:(?:my\s+)?sales|sold\s+items|orders\s+received)\b/i;
+
+type ExactNavKey = keyof typeof EXACT_NAV;
+
+function matchesExactNavEntry(text: string, entryKey: ExactNavKey): boolean {
+  const trimmed = text.trim();
+  if (!trimmed || wordCount(trimmed) > 4) return false;
+  const compact = trimmed.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (!compact) return false;
+  for (const alias of EXACT_NAV[entryKey].aliases) {
+    const a = alias.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (compact === a) return true;
+  }
+  return false;
+}
+
+/** True when the user is asking to open Sales (/sales) — sold orders, not create listing. */
+export function isSalesNavigationPhrase(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  if (SALES_NAV_PHRASE.test(t)) return true;
+
+  const stripped = stripNavPrefix(t);
+  if (stripped !== t) {
+    const compact = stripped.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (
+      ["sales", "sails", "sals", "mysales", "solditems", "sold", "mysold", "salespage"].includes(
+        compact
+      )
+    ) {
+      return true;
+    }
+  }
+
+  return matchesExactNavEntry(t, "sales");
+}
+
 /** True when the user is asking to open the Sell page — not describing a listing or a profile. */
 export function isSellNavigationPhrase(text: string): boolean {
+  if (isSalesNavigationPhrase(text)) return false;
+
   const t = text.trim();
   if (!t) return false;
   if (SELL_NAV_PHRASE.test(t)) return true;
@@ -101,7 +141,7 @@ export function isSellNavigationPhrase(text: string): boolean {
     }
   }
 
-  return isExactNavShortcut(t);
+  return matchesExactNavEntry(t, "sell");
 }
 
 const USER_PROFILE_INTENT =
@@ -179,18 +219,11 @@ function wordCount(text: string): number {
 
 /** True when the utterance is a bare shortcut like "sell", "home", or "sales". */
 export function isExactNavShortcut(text: string): boolean {
-  const trimmed = text.trim();
-  if (!trimmed) return false;
-  if (wordCount(trimmed) > 4) return false;
-  const compact = trimmed.toLowerCase().replace(/[^a-z0-9]/g, "");
-  if (!compact) return false;
-  for (const entry of Object.values(EXACT_NAV)) {
-    for (const alias of entry.aliases) {
-      const a = alias.toLowerCase().replace(/[^a-z0-9]/g, "");
-      if (compact === a) return true;
-    }
-  }
-  return false;
+  return (
+    isSalesNavigationPhrase(text) ||
+    isSellNavigationPhrase(text) ||
+    matchesExactNavEntry(text, "home")
+  );
 }
 
 function parsePrice(raw: string): number | undefined {
@@ -721,6 +754,28 @@ function sellOrSalesShortcutAction(
   const trimmed = text.trim();
   if (!trimmed) return null;
 
+  // Sales FIRST — "sales" must never be swallowed by sell shortcuts or phonetics.
+  if (isSalesNavigationPhrase(trimmed)) {
+    if (pathname === "/sales") {
+      return {
+        type: "page",
+        status: "You're already on Sales.",
+        confidence: "high",
+        heard: trimmed,
+        targetTitle: "Sales",
+        run: () => ({ ok: true }),
+      };
+    }
+    return {
+      type: "navigate",
+      path: "/sales",
+      status: "Opening Sales…",
+      confidence: "high",
+      heard: trimmed,
+      targetTitle: "Sales",
+    };
+  }
+
   if (isSellNavigationPhrase(trimmed)) {
     if (pathname === "/post/ai") {
       return {
@@ -748,11 +803,11 @@ function sellOrSalesShortcutAction(
 
   const SALES_COMPACTS = new Set([
     "sales", "sails", "sals", "mysales", "solditems", "sold", "mysold",
-    "salespage", "salepage", "whatisold", "ordersreceived",
+    "salespage", "whatisold", "ordersreceived",
   ]);
 
   const SELL_COMPACTS = new Set([
-    "sell", "sells", "sel", "selling", "cells", "cell", "sale",
+    "sell", "sells", "sel", "selling", "cells", "cell",
     "post", "list", "listing", "sellpage", "sellingpage", "selltab",
     "sellsomething", "postsomething", "listsomething", "iwanttosell",
     "createalisting", "newlisting", "createlisting", "startselling",

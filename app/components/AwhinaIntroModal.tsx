@@ -9,25 +9,6 @@ type Props = {
   onDismiss: (neverAgain: boolean) => void;
 };
 
-const AWHINA_EXAMPLES = [
-  {
-    phrase: "2015 Mazda Axela blue 128000km Auckland $11500",
-    hint: "Create a vehicle listing",
-  },
-  {
-    phrase: "How do I boost my listing?",
-    hint: "Get seller help",
-  },
-  {
-    phrase: "Looking for a drill under $80",
-    hint: "Post a wanted ad",
-  },
-  {
-    phrase: "Improve my description",
-    hint: "Polish your listing",
-  },
-] as const;
-
 export default function AwhinaIntroModal({ open, onGetStarted, onDismiss }: Props) {
   const [neverAgain, setNeverAgain] = useState(false);
   const [visible, setVisible] = useState(false);
@@ -86,25 +67,6 @@ export default function AwhinaIntroModal({ open, onGetStarted, onDismiss }: Prop
               Your Sky Drop AI assistant. Describe what you&apos;re selling and {AWHINA_NAME} fills
               your listing — or ask for help buying, pricing, and navigating the marketplace.
             </p>
-          </div>
-
-          <div className="mt-8 text-left">
-            <p className="mb-3 text-center text-[11px] font-bold uppercase tracking-widest text-zinc-500">
-              Try asking
-            </p>
-            <ul className="space-y-2">
-              {AWHINA_EXAMPLES.map((ex) => (
-                <li
-                  key={ex.phrase}
-                  className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3"
-                >
-                  <p className="text-sm font-semibold leading-snug text-white">
-                    &ldquo;{ex.phrase}&rdquo;
-                  </p>
-                  <p className="mt-1 text-[10px] text-zinc-500">{ex.hint}</p>
-                </li>
-              ))}
-            </ul>
           </div>
 
           <div className="mt-8 space-y-3">

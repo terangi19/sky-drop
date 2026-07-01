@@ -9,6 +9,7 @@ import {
   isLikelyNavCommand,
   isExactNavShortcut,
   isSellNavigationPhrase,
+  isSalesNavigationPhrase,
 } from "./local-command-engine";
 import { resolveVoiceCommand } from "./awhina-voice-command";
 
@@ -60,7 +61,9 @@ export function isListingSpeech(text: string): boolean {
   if (!t) return false;
 
   // Bare "sell", "post", "go to sell", etc. are navigation — not a listing description
-  if (isExactNavShortcut(t) || isSellNavigationPhrase(t)) return false;
+  if (isExactNavShortcut(t) || isSellNavigationPhrase(t) || isSalesNavigationPhrase(t)) {
+    return false;
+  }
 
   const words = t.split(/\s+/).length;
   if (words <= 3 && /\b(sell|selling|post|list)\b/i.test(t)) return false;
@@ -94,7 +97,12 @@ export function classifyVoiceUtterance(text: string, pathname = "/"): VoiceUtter
   const t = text.trim();
   if (!t) return "conversation";
 
-  if (isExactNavShortcut(t) || isSellNavigationPhrase(t) || isInstantLocalCommand(t, pathname)) {
+  if (
+    isExactNavShortcut(t) ||
+    isSellNavigationPhrase(t) ||
+    isSalesNavigationPhrase(t) ||
+    isInstantLocalCommand(t, pathname)
+  ) {
     return "navigation";
   }
 
