@@ -217,6 +217,7 @@ export default function Home() {
   }, [listings]);
   const [animatedCount, setAnimatedCount] = useState(0);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
+  const [showAttentionModal, setShowAttentionModal] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
@@ -770,6 +771,49 @@ export default function Home() {
         </Suspense>
       )}
 
+      {/* ATTENTION USERS MODAL */}
+      {showAttentionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in-backdrop" onClick={() => setShowAttentionModal(false)}>
+          <div className="relative mx-4 w-full max-w-md overflow-hidden rounded-3xl border border-amber-500/30 bg-[var(--card)] p-6 shadow-2xl shadow-black/40 backdrop-blur-xl animate-fade-in-scale" onClick={(e) => e.stopPropagation()}>
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-400/30 to-transparent" />
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/20 ring-1 ring-amber-500/30">
+              <svg className="h-6 w-6 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-black text-white">Attention Users</h3>
+            <p className="mt-3 text-sm leading-relaxed text-[var(--foreground)]">
+              Sky Drop is actively being developed. Some features may still be in beta, undergoing testing, or temporarily unavailable.
+            </p>
+            <p className="mt-3 text-sm leading-relaxed text-[var(--foreground)]">
+              If you notice anything unusual, broken, or have ideas on how we can improve, please let us know. Your feedback helps us build a better marketplace for Aotearoa.
+            </p>
+            <div className="mt-4 rounded-xl bg-amber-500/10 p-4">
+              <p className="text-xs font-bold text-amber-400 uppercase tracking-wider">Report bugs or feedback</p>
+              <a
+                href="https://mail.google.com/mail/?view=cm&fs=1&to=support@skydrop.co.nz"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 inline-flex items-center gap-2 text-sm font-semibold text-amber-300 transition hover:text-amber-200 hover:underline"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                </svg>
+                support@skydrop.co.nz
+              </a>
+            </div>
+            <div className="mt-6">
+              <button
+                onClick={() => setShowAttentionModal(false)}
+                className="w-full rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 py-3 text-sm font-bold text-white shadow-lg shadow-amber-500/20 transition hover:shadow-xl hover:brightness-110 active:scale-[0.98]"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* HERO / SEARCH SECTION */}
       <section className={`${PAGE_SHELL_WIDE} pt-3 sm:pt-4`}>
         <div className="relative overflow-hidden rounded-[2rem] bg-[var(--card)]">
@@ -923,6 +967,20 @@ export default function Home() {
             )}
           </div>
         </div>
+      </section>
+
+      {/* Attention Users banner */}
+      <section className={`${PAGE_SHELL_WIDE} pt-3 pb-2`}>
+        <button
+          onClick={() => setShowAttentionModal(true)}
+          className="group flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/15 to-amber-400/10 px-4 py-3 text-sm font-bold text-amber-300 transition-all duration-200 hover:from-amber-500/25 hover:to-amber-400/20 hover:shadow-[0_0_24px_rgba(245,158,11,0.12)] active:scale-[0.99]"
+        >
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500/30 text-[10px]">!</span>
+          <span>Attention Users — Some features are still in development</span>
+          <svg className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+          </svg>
+        </button>
       </section>
 
       {/* Trust strip */}
