@@ -138,7 +138,7 @@ export default function AIPostPage() {
   const [showAwhinaGuide, setShowAwhinaGuide] = useState(false);
   const [showAutoPublishConfirm, setShowAutoPublishConfirm] = useState(false);
   const [autoPublishCountdown, setAutoPublishCountdown] = useState(3);
-  const [priceSuggestion, setPriceSuggestion] = useState<{ suggestedMin: number; suggestedMax: number; reasoning: string; marketFactors: string[]; confidence: string } | null>(null);
+  const [priceSuggestion, setPriceSuggestion] = useState<{ suggestedMin: number; suggestedMax: number; reasoning: string; marketFactors: string[]; confidence: string; missingDetails?: string[]; marketResearch?: boolean } | null>(null);
   const [showPriceModal, setShowPriceModal] = useState(false);
   const [loadingPriceSuggestion, setLoadingPriceSuggestion] = useState(false);
 
@@ -443,7 +443,33 @@ export default function AIPostPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ title, category, condition, price }),
+        body: JSON.stringify({
+          title,
+          description,
+          category,
+          listingType,
+          condition,
+          price,
+          location,
+          vehicleMake,
+          vehicleModel,
+          vehicleYear,
+          vehicleOdometer,
+          vehicleBodyType,
+          vehicleFuelType,
+          vehicleTransmission,
+          vehicleColour,
+          bedrooms,
+          bathrooms,
+          landArea,
+          floorArea,
+          rentalSubType,
+          rentalPriceWeekly,
+          salaryMin,
+          salaryMax,
+          serviceDuration,
+          stockQuantity,
+        }),
       });
 
       const data = await res.json();
@@ -2369,6 +2395,26 @@ export default function AIPostPage() {
                   ))}
                 </ul>
               </div>
+            )}
+            {priceSuggestion.missingDetails && priceSuggestion.missingDetails.length > 0 && (
+              <div className="mt-4 rounded-xl bg-amber-500/10 p-4">
+                <p className="text-xs font-bold text-amber-400 uppercase tracking-wider">
+                  {priceSuggestion.confidence === "high" ? "For an even better price" : "Need more details for an accurate price"}
+                </p>
+                <ul className="mt-2 space-y-1">
+                  {priceSuggestion.missingDetails.map((detail, i) => (
+                    <li key={i} className="text-xs text-[var(--foreground)] flex gap-2">
+                      <span className="text-amber-400">•</span>
+                      {detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {priceSuggestion.marketResearch && (
+              <p className="mt-4 text-[10px] text-sky-400/80">
+                Based on live NZ market research.
+              </p>
             )}
             <div className="mt-6 flex gap-3">
               <button onClick={() => setShowPriceModal(false)} className="flex-1 rounded-xl border border-[var(--card-border)] bg-[var(--card)] py-3 text-sm font-bold text-[var(--foreground)] hover:bg-[var(--card-hover)] active:scale-[0.98]">
