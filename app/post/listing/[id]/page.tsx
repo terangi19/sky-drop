@@ -1012,6 +1012,29 @@ export default function ListingPage() {
               )}
             </div>
 
+            {/* Total cost display for non-quote, non-auction listings */}
+            {listing.price && 
+             listing.type !== "service" && 
+             listing.pricingType !== "quote" && 
+             listing.saleType !== "auction" && 
+             listing.saleType !== "auction_buy_now" &&
+             isListingVisibleInMarketplace(listing) && (
+              <div className="mt-2 rounded-lg border border-sky-500/20 bg-sky-500/5 px-3 py-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[var(--muted)]">Item price</span>
+                  <span className="font-semibold">${listing.price}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[var(--muted)]">Platform fee</span>
+                  <span className="font-semibold">$1.00</span>
+                </div>
+                <div className="mt-1.5 flex items-center justify-between border-t border-sky-500/20 pt-1.5">
+                  <span className="text-xs font-bold text-[var(--foreground)]">Total you'll pay</span>
+                  <span className="text-lg font-black text-sky-400">${(Number(listing.price) + 1).toFixed(2)}</span>
+                </div>
+              </div>
+            )}
+
             {purchaseUi.showPurchasedBanner && purchaseUi.bannerText && (
               <div className="mt-2 flex items-center gap-1.5 rounded-lg border border-sky-500/20 bg-sky-500/10 px-3 py-1.5">
                 <span className="text-sky-400 text-[11px]">✓ {purchaseUi.bannerText}</span>
