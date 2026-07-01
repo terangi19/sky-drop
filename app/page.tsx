@@ -233,6 +233,14 @@ export default function Home() {
       const dismissed = localStorage.getItem("attentionBannerDismissed");
       if (dismissed === "true") setShowAttentionBanner(false);
     } catch {}
+
+    const handleShowAnnouncement = () => {
+      try { localStorage.removeItem("attentionBannerDismissed"); } catch {}
+      setShowAttentionBanner(true);
+      setShowAttentionModal(true);
+    };
+    window.addEventListener("show-sky-drop-announcement", handleShowAnnouncement);
+    return () => window.removeEventListener("show-sky-drop-announcement", handleShowAnnouncement);
   }, []);
 
   // Recently viewed cleanup — remove deleted/expired items
