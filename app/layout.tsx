@@ -138,27 +138,6 @@ export default function RootLayout({
       "query-input": "required name=search_term_string"
     }
   };
-  const organizationLd = {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    name: "Sky Drop",
-    alternateName: "Sky Drop NZ",
-    url: baseUrl,
-    logo: `${baseUrl}/favicon.svg`,
-    description: "New Zealand's community marketplace. Buy and sell cars, tech, gaming, fashion and more with secure payments.",
-    address: {
-      "@type": "PostalAddress",
-      addressCountry: "NZ",
-      addressRegion: "New Zealand"
-    },
-    contactPoint: {
-      "@type": "ContactPoint",
-      contactType: "customer support",
-      email: "support@skydrop.co.nz",
-      availableLanguage: ["English"]
-    },
-    sameAs: []
-  };
   return (
     <html
       lang="en"
@@ -169,10 +148,6 @@ export default function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-        />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationLd) }}
         />
       </head>
       <body className="min-h-full flex flex-col bg-[var(--background)] text-[var(--foreground)]">
