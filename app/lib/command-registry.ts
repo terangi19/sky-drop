@@ -11,12 +11,14 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
   // ── Home ──
   {
     path: "/",
-    title: "Home",
+    title: "Browse",
     aliases: [
       "home", "main", "marketplace", "go home", "home page",
       "landing", "homepage", "back to home", "main page",
+      "browse", "browse page", "shop", "explore", "discover",
+      "browse marketplace", "marketplace home",
     ],
-    phoneticAliases: ["hoam", "hom", "hompage", "mainpage"],
+    phoneticAliases: ["hoam", "hom", "hompage", "mainpage", "brous", "brwose"],
   },
 
   // ── Sell / Create Listing ──
@@ -90,10 +92,10 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
     path: "/search",
     title: "Search",
     aliases: [
-      "search", "browse", "find", "shop", "explore",
-      "search page", "browse page", "discover",
+      "search", "search page", "search listings", "search bar",
+      "open search", "go to search",
     ],
-    phoneticAliases: ["serch", "brous", "surch", "sarch", "brwose"],
+    phoneticAliases: ["serch", "surch", "sarch"],
   },
 
   // ── Messages ──

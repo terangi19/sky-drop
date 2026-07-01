@@ -40,7 +40,7 @@ export type LocalCommandAction = {
 const EXACT_NAV: Record<string, { path: string; title: string; aliases: string[] }> = {
   sell:    { path: "/post/ai", title: "Sell",  aliases: ["sell", "sells", "i want to sell", "create a listing", "new listing", "post something", "list something", "sell page", "selling page"] },
   sales:   { path: "/sales",   title: "Sales", aliases: ["sales", "sails", "my sales", "sold items"] },
-  home:    { path: "/",        title: "Home",  aliases: ["home", "go home", "home page", "main", "marketplace"] },
+  home:    { path: "/",        title: "Browse", aliases: ["home", "go home", "home page", "main", "marketplace", "browse", "browse page", "shop", "explore"] },
 };
 
 /* ── Intent Regexes ── */
