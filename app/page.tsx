@@ -218,6 +218,7 @@ export default function Home() {
   const [animatedCount, setAnimatedCount] = useState(0);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [showAttentionModal, setShowAttentionModal] = useState(false);
+  const [showAttentionBanner, setShowAttentionBanner] = useState(true);
   const searchRef = useRef<HTMLInputElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
@@ -227,6 +228,10 @@ export default function Home() {
     try {
       const saved = JSON.parse(localStorage.getItem("savedSearches") || "[]");
       setSavedSearches(saved.slice(0, 6));
+    } catch {}
+    try {
+      const dismissed = localStorage.getItem("attentionBannerDismissed");
+      if (dismissed === "true") setShowAttentionBanner(false);
     } catch {}
   }, []);
 
@@ -970,18 +975,35 @@ export default function Home() {
       </section>
 
       {/* Attention Users banner */}
-      <section className={`${PAGE_SHELL_WIDE} pt-3 pb-2`}>
-        <button
-          onClick={() => setShowAttentionModal(true)}
-          className="group flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/15 to-amber-400/10 px-4 py-3 text-sm font-bold text-amber-300 transition-all duration-200 hover:from-amber-500/25 hover:to-amber-400/20 hover:shadow-[0_0_24px_rgba(245,158,11,0.12)] active:scale-[0.99]"
-        >
-          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500/30 text-[10px]">!</span>
-          <span>Attention Users — Some features are still in development</span>
-          <svg className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-          </svg>
-        </button>
-      </section>
+      {showAttentionBanner && (
+        <section className={`${PAGE_SHELL_WIDE} pt-3 pb-2`}>
+          <div className="group flex w-full items-center justify-between gap-2 rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/15 to-amber-400/10 px-4 py-3 text-sm font-bold text-amber-300 transition-all duration-200 hover:from-amber-500/25 hover:to-amber-400/20 hover:shadow-[0_0_24px_rgba(245,158,11,0.12)] active:scale-[0.99]">
+            <button
+              onClick={() => setShowAttentionModal(true)}
+              className="flex flex-1 items-center justify-center gap-2 text-amber-300"
+            >
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500/30 text-[10px]">!</span>
+              <span>Attention Users — Some features are still in development</span>
+              <svg className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+              </svg>
+            </button>
+            <button
+              onClick={() => {
+                setShowAttentionBanner(false);
+                try { localStorage.setItem("attentionBannerDismissed", "true"); } catch {}
+              }}
+              className="ml-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-amber-300/70 transition hover:bg-amber-500/20 hover:text-amber-300"
+              aria-label="Dismiss attention banner"
+              title="Dismiss"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </section>
+      )}
 
       {/* Trust strip */}
       <section className={`${PAGE_SHELL_WIDE} py-3`}>
