@@ -26,6 +26,8 @@ export type MarketplaceListingCardProps = {
   sellerReviewStats: Record<string, { avg: number; count: number }>;
   sellerBadges: Record<string, string>;
   sellerFullyVerified?: Record<string, boolean>;
+  sellerJoinedDate?: Record<string, string>;
+  sellerListingCount?: Record<string, number>;
   onPromote?: (item: Record<string, any>) => void;
   onDelete?: (item: Record<string, any>) => void;
   accent?: "sky" | "sky" | "sky";
@@ -80,6 +82,8 @@ export default memo(function MarketplaceListingCard({
   sellerReviewStats,
   sellerBadges,
   sellerFullyVerified = {},
+  sellerJoinedDate = {},
+  sellerListingCount = {},
   onPromote,
   onDelete,
   accent = "sky",
@@ -491,6 +495,21 @@ export default memo(function MarketplaceListingCard({
             const stats = sellerReviewStats[email || ""];
             const avgRating = stats ? stats.avg : 0;
             const reviewCount = stats ? stats.count : 0;
+            const joinedDate = sellerJoinedDate[email || ""] || "";
+            const listingCount = sellerListingCount[email || ""] || 0;
+            const isVerified = sellerFullyVerified?.[email || ""];
+            
+            // Format joined date to "Jan 2024" format
+            const formatDate = (dateStr: string) => {
+              if (!dateStr) return "";
+              try {
+                const date = new Date(dateStr);
+                return date.toLocaleDateString('en-NZ', { month: 'short', year: 'numeric' });
+              } catch {
+                return "";
+              }
+            };
+            
             return (
               <div className="lc-seller group rounded-lg p-3 hover:-translate-y-0.5">
                 <div className="flex items-center gap-2">
@@ -502,9 +521,14 @@ export default memo(function MarketplaceListingCard({
                       <span className="lc-seller-name truncate text-[14px] font-semibold">
                         {username}
                       </span>
-                      {sellerFullyVerified?.[email || ""] && (
+                      {isVerified && (
                         <span className="lc-chip rounded px-1.5 py-0.5 text-[9px] font-bold">
                           ✓ Verified
+                        </span>
+                      )}
+                      {!isVerified && (
+                        <span className="lc-chip-neutral rounded px-1.5 py-0.5 text-[9px] font-medium">
+                          ✓ Email verified
                         </span>
                       )}
                       {sellerBadges[email || ""] === "legendary" && (
@@ -518,8 +542,10 @@ export default memo(function MarketplaceListingCard({
                         </span>
                       )}
                     </div>
-                    <div className="lc-seller-meta flex items-center gap-1 text-[11px]">
-                      <SellerReviewSummary avg={avgRating} count={reviewCount} starSize="xs" ratingClassName="lc-seller-meta" countClassName="lc-seller-meta" emptyLabel="No reviews yet" />
+                    <div className="lc-seller-meta flex items-center gap-2 text-[11px] mt-0.5">
+                      {formatDate(joinedDate) && <span>Joined {formatDate(joinedDate)}</span>}
+                      {listingCount > 0 && <span>• {listingCount} {listingCount === 1 ? 'listing' : 'listings'}</span>}
+                      {reviewCount > 0 && <span>• {avgRating.toFixed(1)}★ ({reviewCount})</span>}
                     </div>
                   </div>
                   <div className="shrink-0 text-right">

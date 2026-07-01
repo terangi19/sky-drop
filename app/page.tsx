@@ -198,7 +198,7 @@ export default function Home() {
   const lastOfferTime = useRef(0);
   const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
   const [authReady, setAuthReady] = useState(false);
-  const { sellerReviewStats, sellerBadges, sellerFullyVerified } = useSellerListingMeta(listings);
+  const { sellerReviewStats, sellerBadges, sellerFullyVerified, sellerJoinedDate, sellerListingCount } = useSellerListingMeta(listings);
   const [savedSearches, setSavedSearches] = useState<Array<{query: string; category: string; label: string}>>([]);
   const [showSaveSearch, setShowSaveSearch] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<Listing | null>(null);
@@ -1292,6 +1292,8 @@ export default function Home() {
                 sellerReviewStats={sellerReviewStats}
                 sellerBadges={sellerBadges}
                 sellerFullyVerified={sellerFullyVerified}
+                sellerJoinedDate={sellerJoinedDate}
+                sellerListingCount={sellerListingCount}
                 onPromote={(listing) => setPromoteItem(listing)}
                 onDelete={(listing) => setDeleteConfirm(listing as Listing)}
               />

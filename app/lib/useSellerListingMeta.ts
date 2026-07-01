@@ -16,6 +16,8 @@ export function useSellerListingMeta(
   const [sellerBadges, setSellerBadges] = useState<Record<string, string>>({});
   const [sellerHandles, setSellerHandles] = useState<Record<string, string>>({});
   const [sellerFullyVerified, setSellerFullyVerified] = useState<Record<string, boolean>>({});
+  const [sellerJoinedDate, setSellerJoinedDate] = useState<Record<string, string>>({});
+  const [sellerListingCount, setSellerListingCount] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (listings.length === 0) return;
@@ -73,6 +75,9 @@ export function useSellerListingMeta(
       const badges: Record<string, string> = {};
       const handles: Record<string, string> = {};
       const verifiedMap: Record<string, boolean> = {};
+      const joinedDates: Record<string, string> = {};
+      const listingCounts: Record<string, number> = {};
+
       try {
         const profiles = await fetchSellerProfilesByListing(listings);
         if (cancelled) return;
@@ -80,13 +85,26 @@ export function useSellerListingMeta(
           if (data.profileBadge) badges[email] = data.profileBadge as string;
           if (data.username) handles[email] = data.username as string;
           if (isFullyVerifiedSeller(data)) verifiedMap[email] = true;
+          if (data.createdAt) joinedDates[email] = data.createdAt as string;
         });
       } catch {
         /* badges are optional — skip on permission/offline errors */
       }
+
+      // Calculate listing count per seller from the listings array
+      const counts: Record<string, number> = {};
+      listings.forEach((listing) => {
+        const email = listing.sellerEmail;
+        if (email) {
+          counts[email] = (counts[email] || 0) + 1;
+        }
+      });
+
       if (!cancelled) setSellerBadges(badges);
       if (!cancelled) setSellerHandles(handles);
       if (!cancelled) setSellerFullyVerified(verifiedMap);
+      if (!cancelled) setSellerJoinedDate(joinedDates);
+      if (!cancelled) setSellerListingCount(counts);
     })();
 
     return () => {
@@ -94,5 +112,5 @@ export function useSellerListingMeta(
     };
   }, [listings]);
 
-  return { sellerReviewStats, sellerBadges, sellerHandles, sellerFullyVerified };
+  return { sellerReviewStats, sellerBadges, sellerHandles, sellerFullyVerified, sellerJoinedDate, sellerListingCount };
 }
