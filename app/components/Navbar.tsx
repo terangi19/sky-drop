@@ -302,7 +302,7 @@ export default function Navbar() {
               ref={hamburgerRef}
               onClick={toggleMobileMenu}
               aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-              className="lg:hidden relative flex h-9 w-9 items-center justify-center rounded-lg text-[var(--nav-ice)] active:scale-90 transition-all duration-200 hover:bg-white/[0.06] light:text-gray-700 light:hover:bg-black/[0.06]"
+              className="lg:hidden relative flex h-10 w-10 items-center justify-center rounded-lg border border-white/[0.1] bg-white/[0.05] text-[var(--nav-ice)] active:scale-95 transition-all duration-200 hover:bg-white/[0.1] hover:border-white/[0.15]"
             >
               <div className="relative h-5 w-5">
                 <svg

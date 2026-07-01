@@ -1288,9 +1288,12 @@ export default function AIPostPage() {
                     ✦
                   </span>
                   <div className="min-w-0">
-                    <h2 className="text-base font-bold text-white">Āwhina</h2>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-base font-bold text-white">Āwhina</h2>
+                      <span className="text-[10px] font-medium text-sky-400/70 bg-sky-500/10 px-2 py-0.5 rounded-full">Optional</span>
+                    </div>
                     <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
-                      Tell me what you&apos;re selling and I&apos;ll help fill the listing for you
+                      Let Āwhina fill out your listing for you, or complete it manually
                     </p>
                   </div>
                 </div>

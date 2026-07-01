@@ -1921,9 +1921,9 @@ Service Status: 🟢 Inquiry Active`;
                       </span>
                       {isFullyVerified && (
                         <div className="group relative">
-                          <span className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-sky-500/20 px-1.5 py-0.5 text-[10px] font-bold text-sky-400 border border-sky-500/30 cursor-help" title="Identity verified with ID">
+                          <button type="button" className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-sky-500/20 px-1.5 py-0.5 text-[10px] font-bold text-sky-400 border border-sky-500/30 cursor-pointer hover:bg-sky-500/30 transition-colors" title="Identity verified with ID">
                             ✓ Verified
-                          </span>
+                          </button>
                           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 rounded-lg bg-[var(--card)] border border-white/[0.1] px-3 py-2 text-[10px] text-[var(--muted)] opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all duration-200 z-50 pointer-events-none">
                             Identity verified with ID
                           </div>
@@ -1931,9 +1931,9 @@ Service Status: 🟢 Inquiry Active`;
                       )}
                       {sellerProfile?.trustedSeller && !isFullyVerified && (
                         <div className="group relative">
-                          <span className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-sky-500/20 px-1.5 py-0.5 text-[10px] font-bold text-sky-400 border border-sky-500/30 cursor-help" title="Positive seller history">
+                          <button type="button" className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-sky-500/20 px-1.5 py-0.5 text-[10px] font-bold text-sky-400 border border-sky-500/30 cursor-pointer hover:bg-sky-500/30 transition-colors" title="Positive seller history">
                             ✓ Trusted
-                          </span>
+                          </button>
                           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 rounded-lg bg-[var(--card)] border border-white/[0.1] px-3 py-2 text-[10px] text-[var(--muted)] opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all duration-200 z-50 pointer-events-none">
                             Positive seller history
                           </div>
@@ -1941,9 +1941,9 @@ Service Status: 🟢 Inquiry Active`;
                       )}
                       {isNewSeller && !isFullyVerified && !sellerProfile?.trustedSeller && (
                         <div className="group relative">
-                          <span className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-sky-500/20 px-1.5 py-0.5 text-[10px] font-bold text-sky-400 border border-sky-500/30 cursor-help" title="Recently joined Sky Drop">
+                          <button type="button" className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-sky-500/20 px-1.5 py-0.5 text-[10px] font-bold text-sky-400 border border-sky-500/30 cursor-pointer hover:bg-sky-500/30 transition-colors" title="Recently joined Sky Drop">
                             New Seller
-                          </span>
+                          </button>
                           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 rounded-lg bg-[var(--card)] border border-white/[0.1] px-3 py-2 text-[10px] text-[var(--muted)] opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all duration-200 z-50 pointer-events-none">
                             Recently joined Sky Drop
                           </div>
