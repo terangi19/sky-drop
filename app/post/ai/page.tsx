@@ -146,7 +146,7 @@ export default function AIPostPage() {
   const [skyAutoQuery, setSkyAutoQuery] = useState<string | undefined>();
   const [draftExtras, setDraftExtras] = useState<string[]>([]);
   const [formStep, setFormStep] = useState(1);
-  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(true);
   const [showEventDetails, setShowEventDetails] = useState(false);
   const [showJobDetails, setShowJobDetails] = useState(false);
   const [showAcceptOffers, setShowAcceptOffers] = useState(false);
@@ -1448,24 +1448,27 @@ export default function AIPostPage() {
           <div className="space-y-1.5 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150">
             <label htmlFor="listing-title" className="text-sm font-bold text-white tracking-wide">Title</label>
             <div className="relative">
-              <input id="listing-title" type="text" value={title} onChange={(e) => handleTitleChange(e.target.value)} aria-label="Listing title" aria-describedby={validationErrors.title ? "title-error" : undefined} className={`w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:bg-white/[0.05] focus:ring-2 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-white/[0.04] focus:border-sky-500/60 placeholder="What are you selling?" ${validationErrors.title ? 'bg-red-500/10 focus:ring-red-500/20' : 'focus:ring-sky-500/20'}`} placeholder="What are you selling?" />
+              <input id="listing-title" type="text" value={title} onChange={(e) => handleTitleChange(e.target.value)} aria-label="Listing title" aria-describedby={validationErrors.title ? "title-error" : "title-count"} className={`w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:bg-white/[0.05] focus:ring-2 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-white/[0.04] focus:border-sky-500/60 placeholder="What are you selling?" ${validationErrors.title ? 'bg-red-500/10 focus:ring-red-500/20' : 'focus:ring-sky-500/20'}`} placeholder="What are you selling?" />
               {isFieldValid(title, validateTitle) && (
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400" aria-hidden="true">
+                <div className="absolute right-12 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400" aria-hidden="true">
                   <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
               )}
             </div>
-            {validationErrors.title && (
-              <p id="title-error" className="mt-1 text-[10px] text-red-400 animate-in fade-in slide-in-from-top-2" role="alert">{validationErrors.title}</p>
-            )}
+            <div className="flex items-center justify-between">
+              <p id="title-count" className="text-[10px] text-[var(--muted)]">{title.length}/100 characters</p>
+              {validationErrors.title && (
+                <p id="title-error" className="text-[10px] text-red-400 animate-in fade-in slide-in-from-top-2" role="alert">{validationErrors.title}</p>
+              )}
+            </div>
           </div>
 
           <div className="space-y-1.5 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150">
             <label htmlFor="listing-description" className="text-sm font-bold text-white tracking-wide">Description</label>
             <div className="relative">
-              <textarea id="listing-description" value={description} onChange={(e) => handleDescriptionChange(e.target.value)} rows={4} aria-label="Listing description" aria-describedby={validationErrors.description ? "description-error" : undefined} className={`w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:bg-white/[0.05] focus:ring-2 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-white/[0.04] focus:border-sky-500/60 resize-none placeholder="Describe your item in detail..." ${validationErrors.description ? 'bg-red-500/10 focus:ring-red-500/20' : 'focus:ring-sky-500/20'}`} placeholder="Describe your item in detail..." />
+              <textarea id="listing-description" value={description} onChange={(e) => handleDescriptionChange(e.target.value)} rows={4} aria-label="Listing description" aria-describedby={validationErrors.description ? "description-error" : "description-count"} className={`w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:bg-white/[0.05] focus:ring-2 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-white/[0.04] focus:border-sky-500/60 resize-none placeholder="Describe your item in detail..." ${validationErrors.description ? 'bg-red-500/10 focus:ring-red-500/20' : 'focus:ring-sky-500/20'}`} placeholder="Describe your item in detail..." />
               {isFieldValid(description, validateDescription) && (
                 <div className="absolute right-4 top-4 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400" aria-hidden="true">
                   <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -1474,9 +1477,12 @@ export default function AIPostPage() {
                 </div>
               )}
             </div>
-            {validationErrors.description && (
-              <p id="description-error" className="mt-1 text-[10px] text-red-400 animate-in fade-in slide-in-from-top-2" role="alert">{validationErrors.description}</p>
-            )}
+            <div className="flex items-center justify-between">
+              <p id="description-count" className="text-[10px] text-[var(--muted)]">{description.length} characters</p>
+              {validationErrors.description && (
+                <p id="description-error" className="text-[10px] text-red-400 animate-in fade-in slide-in-from-top-2" role="alert">{validationErrors.description}</p>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-200">
@@ -1542,6 +1548,7 @@ export default function AIPostPage() {
                     onClick={fetchPriceSuggestion}
                     disabled={loadingPriceSuggestion}
                     className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-sky-500/10 px-2 py-1 text-[10px] font-bold text-sky-400 hover:bg-sky-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title="Get AI-powered price suggestion based on market data"
                   >
                     {loadingPriceSuggestion ? "..." : "AI Suggest"}
                   </button>
@@ -1577,7 +1584,7 @@ export default function AIPostPage() {
             {(listingType === "physical" || listingType === "wanted") && (
             <div className="space-y-1.5">
               <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Location</label>
-              <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="City" className="w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-white/[0.04]" />
+              <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g., Auckland, Wellington" className="w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-white/[0.04]" />
             </div>
             )}
           </div>
@@ -2145,6 +2152,7 @@ export default function AIPostPage() {
                 className="h-4 w-4 rounded border-[var(--border)] bg-[var(--card)] text-sky-500 focus:ring-sky-500/30" />
               <span className="text-xs text-[var(--muted)]">Auto-publish after AI fills form</span>
             </label>
+            <span className="text-[9px] text-sky-400/70">• Save time, but review before it goes live</span>
           </div>
 
           <button
