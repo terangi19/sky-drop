@@ -1,13 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { User } from "firebase/auth";
 import { auth, onAuthStateChanged } from "../lib/firebase";
 import { useAwhinaVoice } from "../hooks/useAwhinaVoice";
-import { SKY_AI_OPEN_EVENT } from "../lib/sky-ai-events";
+import { dismissAwhinaIntro, shouldShowAwhinaIntro } from "../lib/awhina-intro";
 import { dismissVoiceModeIntro, shouldShowVoiceModeIntro } from "../lib/voice-mode-intro";
+import { SKY_AI_OPEN_EVENT, dispatchSkyAiOpen, type SkyAiOpenDetail } from "../lib/sky-ai-events";
 import AwhinaFabStack from "./AwhinaFabStack";
+import AwhinaIntroModal from "./AwhinaIntroModal";
 import AwhinaVoiceBar from "./AwhinaVoiceBar";
 import AwhinaVoiceStatusCard from "./AwhinaVoiceStatusCard";
 import SkyAiChatPanel from "./SkyAiChatPanel";
@@ -37,7 +39,43 @@ export default function AwhinaGlobalAssistant() {
   const [user, setUser] = useState<User | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [voiceIntroOpen, setVoiceIntroOpen] = useState(false);
+  const [awhinaIntroOpen, setAwhinaIntroOpen] = useState(false);
+  const [pendingChatQuery, setPendingChatQuery] = useState<string | undefined>();
+  const pendingChatQueryRef = useRef<string | undefined>();
+  const awhinaIntroOnSellPageRef = useRef(false);
   const voice = useAwhinaVoice();
+
+  const openChat = useCallback((query?: string) => {
+    if (shouldShowAwhinaIntro()) {
+      pendingChatQueryRef.current = query;
+      setAwhinaIntroOpen(true);
+      return;
+    }
+    setChatOpen(true);
+    if (query) setPendingChatQuery(query);
+  }, []);
+
+  const closeAwhinaIntro = useCallback((neverAgain: boolean) => {
+    dismissAwhinaIntro(neverAgain);
+    setAwhinaIntroOpen(false);
+    pendingChatQueryRef.current = undefined;
+  }, []);
+
+  const handleAwhinaIntroGetStarted = useCallback(
+    (neverAgain: boolean) => {
+      const query = pendingChatQueryRef.current;
+      dismissAwhinaIntro(neverAgain);
+      setAwhinaIntroOpen(false);
+      pendingChatQueryRef.current = undefined;
+      if (!pathname.startsWith("/post/ai")) {
+        setChatOpen(true);
+        if (query) setPendingChatQuery(query);
+      } else if (query) {
+        dispatchSkyAiOpen(query);
+      }
+    },
+    [pathname]
+  );
 
   const handleVoiceToggle = useCallback(() => {
     if (!voice.voiceMode && !voice.paused && shouldShowVoiceModeIntro()) {
@@ -69,10 +107,20 @@ export default function AwhinaGlobalAssistant() {
   }, [voice.cancel]);
 
   useEffect(() => {
-    const onOpen = () => setChatOpen(true);
+    const onOpen = (e: Event) => {
+      const query = (e as CustomEvent<SkyAiOpenDetail>).detail?.query?.trim();
+      openChat(query || undefined);
+    };
     window.addEventListener(SKY_AI_OPEN_EVENT, onOpen);
     return () => window.removeEventListener(SKY_AI_OPEN_EVENT, onOpen);
-  }, []);
+  }, [openChat]);
+
+  useEffect(() => {
+    if (!user || !pathname.startsWith("/post/ai")) return;
+    if (!shouldShowAwhinaIntro() || awhinaIntroOnSellPageRef.current) return;
+    awhinaIntroOnSellPageRef.current = true;
+    setAwhinaIntroOpen(true);
+  }, [user, pathname]);
 
   if (!user || isAuthPath(pathname) || pathname.startsWith(ADMIN_PREFIX)) {
     return null;
@@ -87,6 +135,8 @@ export default function AwhinaGlobalAssistant() {
           mode="sheet"
           open={chatOpen}
           onOpenChange={setChatOpen}
+          autoQuery={pendingChatQuery}
+          onAutoQueryConsumed={() => setPendingChatQuery(undefined)}
           floatingFab={false}
           globalVoiceActive={voice.voiceMode}
         />
@@ -103,6 +153,12 @@ export default function AwhinaGlobalAssistant() {
         open={voiceIntroOpen}
         onGetStarted={handleVoiceIntroGetStarted}
         onDismiss={closeVoiceIntro}
+      />
+
+      <AwhinaIntroModal
+        open={awhinaIntroOpen}
+        onGetStarted={handleAwhinaIntroGetStarted}
+        onDismiss={closeAwhinaIntro}
       />
 
       {/* Floating status card — bottom-left of viewport */}
@@ -125,7 +181,7 @@ export default function AwhinaGlobalAssistant() {
       <AwhinaFabStack
         voice={voice}
         onToggle={handleVoiceToggle}
-        onOpenChat={() => setChatOpen(true)}
+        onOpenChat={() => openChat()}
         chatHidden={!showChatSheet}
       />
     </>
