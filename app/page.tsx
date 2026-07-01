@@ -1218,10 +1218,19 @@ export default function Home() {
                   </svg>
                 </div>
                 <h2 className="text-2xl font-black tracking-tight text-white mb-2">No listings found</h2>
-                <p className="text-sm text-[var(--muted)] mb-2">
-                  {search ? <>Nothing matched <span className="font-semibold text-white">&ldquo;{search}&rdquo;</span> in the current filters.</> : "No listings match the current filters."}
+                <p className="text-sm text-[var(--muted)] mb-4">
+                  {search ? <>Nothing matched <span className="font-semibold text-white">&ldquo;{search}&rdquo;</span> with the current filters.</> : "No listings match your current filters."}
                 </p>
-                <p className="text-xs text-[var(--muted)] mb-6">Clear your filters to see all listings, or post a Wanted ad so sellers can find you.</p>
+                <div className="mb-6 rounded-xl border border-sky-500/20 bg-sky-500/5 p-4 text-left">
+                  <p className="text-xs font-bold text-sky-400 mb-2">Try these:</p>
+                  <ul className="space-y-1.5 text-xs text-[var(--muted)]">
+                    {selectedCategory !== "All" && <li>• Browse <button onClick={() => setSelectedCategory("All")} className="text-sky-400 hover:underline">all categories</button> instead of "{selectedCategory}"</li>}
+                    {selectedRegion !== "All" && <li>• Expand search to <button onClick={() => setSelectedRegion("All")} className="text-sky-400 hover:underline">all of New Zealand</button></li>}
+                    {selectedCondition !== "All" && <li>• Include <button onClick={() => setSelectedCondition("All")} className="text-sky-400 hover:underline">all conditions</button></li>}
+                    {search && <li>• Try <button onClick={() => setSearch("")} className="text-sky-400 hover:underline">clearing your search</button> and browsing</li>}
+                    <li>• <Link href="/post/ai?type=wanted" className="text-sky-400 hover:underline">Post a Wanted ad</Link> so sellers can find you</li>
+                  </ul>
+                </div>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
                   <button onClick={() => { setSelectedCategory("All"); setSelectedCondition("All"); setSelectedRegion("All"); setSearch(""); }}
                     className="rounded-xl border border-sky-500/30 bg-sky-500/10 px-6 py-3.5 text-sm font-bold text-sky-400 transition-all duration-200 hover:bg-sky-500/15 hover:border-sky-500/40 active:scale-[0.97]">
