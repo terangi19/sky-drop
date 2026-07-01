@@ -16,9 +16,22 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
       "home", "main", "marketplace", "go home", "home page",
       "landing", "homepage", "back to home", "main page",
       "browse", "browse page", "shop", "explore", "discover",
-      "browse marketplace", "marketplace home",
+      "browse marketplace", "marketplace home", "all items", "marketplace",
+      "view all", "see all", "all listings", "browse all",
     ],
     phoneticAliases: ["hoam", "hom", "hompage", "mainpage", "brous", "brwose"],
+  },
+
+  // ── Awhina AI Chat ──
+  {
+    path: "/post/ai",
+    title: "Awhina",
+    aliases: [
+      "awhina", "ai", "ai chat", "artificial intelligence", "sky ai",
+      "assistant", "helper", "chat with ai", "talk to ai", "ask awhina",
+      "open awhina", "start awhina", "ai assistant", "voice assistant",
+    ],
+    phoneticAliases: ["awhina", "ai chat", "sky ai", "asistent", "helper"],
   },
 
   // ── Sell / Create Listing ──
@@ -43,7 +56,8 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
       "my listings", "my listing", "my posts", "my ads", "my items",
       "manage listings", "seller dashboard", "active listings",
       "my postings", "what i am selling", "my listings page",
-      "listings", "my products", "my inventory",
+      "listings", "my products", "my inventory", "view my listings",
+      "show my listings", "my items for sale", "my active items",
     ],
     phoneticAliases: ["my listins", "my listngs", "my listing", "listings", "listings page"],
   },
@@ -55,7 +69,8 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
     aliases: [
       "purchases", "purchase", "buying", "my orders", "bought items",
       "order history", "my purchases", "what i bought", "items bought",
-      "orders", "my orders page", "recent purchases",
+      "orders", "my orders page", "recent purchases", "view purchases",
+      "my bought items", "order status", "track orders",
     ],
     phoneticAliases: ["purchas", "purches", "my order", "purchase history", "purchis"],
   },
@@ -67,7 +82,8 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
     aliases: [
       "sales", "sold items", "orders", "seller orders",
       "my sales", "sold", "items sold", "orders received",
-      "my sold items", "sales page",
+      "my sold items", "sales page", "view sales", "my sold",
+      "seller dashboard", "my orders received", "what i sold",
     ],
     phoneticAliases: [
       "cells", "sells", "sails", "sale", "sals",
@@ -82,7 +98,8 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
     aliases: [
       "watchlist", "watch list", "favorites", "favourites", "saved items",
       "saved", "bookmarks", "my saved items", "saved listings",
-      "wishlist", "my watchlist",
+      "wishlist", "my watchlist", "view watchlist", "my favorites",
+      "my saved", "saved for later",
     ],
     phoneticAliases: ["watchlit", "favourits", "favorits", "watch list", "wichlist"],
   },
@@ -93,7 +110,8 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
     title: "Search",
     aliases: [
       "search", "search page", "search listings", "search bar",
-      "open search", "go to search",
+      "open search", "go to search", "find", "look for", "browse",
+      "search items", "search products", "find items", "look up",
     ],
     phoneticAliases: ["serch", "surch", "sarch"],
   },
@@ -105,7 +123,8 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
     aliases: [
       "messages", "message", "inbox", "chats", "chat",
       "conversations", "conversation", "my messages", "direct messages",
-      "open messages", "dm", "dms", "message inbox",
+      "open messages", "dm", "dms", "message inbox", "view messages",
+      "check messages", "my chats", "my inbox", "go to messages",
     ],
     phoneticAliases: [
       "massages", "messags", "mesages", "inboxs",
@@ -119,7 +138,9 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
     title: "Notifications",
     aliases: [
       "notifications", "notification", "alerts", "alert",
-      "notif", "bell", "my notifications",
+      "notif", "bell", "my notifications", "view notifications",
+      "check notifications", "see notifications", "notification center",
+      "my alerts", "activity notifications",
     ],
     phoneticAliases: ["notifcations", "notificashuns", "notif", "notificashon"],
   },
@@ -131,6 +152,7 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
     aliases: [
       "profile", "my profile", "my account", "account", "user profile",
       "profile page", "my account page", "account settings",
+      "edit profile", "view profile", "my settings", "account info",
     ],
     phoneticAliases: ["profiel", "profil", "prophile", "prophile page"],
   },
@@ -299,7 +321,8 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
     aliases: [
       "dashboard", "stats", "earnings", "seller hub",
       "my dashboard", "seller dashboard", "dashboard page",
-      "seller stats",
+      "seller stats", "my stats", "view dashboard", "open dashboard",
+      "analytics", "performance", "my earnings", "seller analytics",
     ],
     phoneticAliases: ["dashbord", "dashbard", "dash", "dashboad"],
   },
@@ -310,7 +333,8 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
     title: "Trade Feed",
     aliases: [
       "trade feed", "live feed", "activity", "feed",
-      "market activity", "trade activity",
+      "market activity", "trade activity", "social feed",
+      "community feed", "recent activity", "what's happening",
     ],
     phoneticAliases: ["trade feed", "trad feed", "feed page"],
   },

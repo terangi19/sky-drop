@@ -51,10 +51,28 @@ const VOICE_OFF_INTENT =
 const BARE_VOICE_OFF = /^(stop|quit|exit)$/i;
 
 const OPEN_LISTING_INTENT =
-  /\b(open|show|go to|view)\s+(the\s+)?(first|1st|second|2nd|third|3rd|top)\s+(listing|result|one|item|post)\b/i;
+  /\b(open|show|go to|view)\s+(the\s+)?(first|1st|second|2nd|third|3rd|top|fourth|4th|fifth|5th)\s+(listing|result|one|item|post)\b/i;
 
 const MESSAGE_SELLER_INTENT =
   /\b(message|contact|chat with|talk to)\s+(the\s+)?(seller|owner|them|vendor)\b/i;
+
+const PROFILE_INTENT =
+  /\b(go to|open|show|view|take me to|navigate to|visit)\s+(?:the\s+)?(?:profile\s+(?:of|for)\s+)?([a-zA-Z0-9_]+)\b/i;
+
+const USER_PROFILE_INTENT =
+  /\b([a-zA-Z0-9_]+)(?:'s)?\s+(?:profile|page|account)\b/i;
+
+const SAVE_LISTING_INTENT =
+  /\b(save|add|watch|bookmark|favorite)\s+(?:this\s+)?(?:listing|item|post)\b/i;
+
+const REMOVE_SAVED_INTENT =
+  /\b(remove|delete|unsave|unwatch|unbookmark|unfavorite)\s+(?:this\s+)?(?:listing|item|post)\b/i;
+
+const FOLLOW_SELLER_INTENT =
+  /\b(follow)\s+(?:this\s+)?(?:seller|user|vendor)\b/i;
+
+const UNFOLLOW_SELLER_INTENT =
+  /\b(unfollow)\s+(?:this\s+)?(?:seller|user|vendor)\b/i;
 
 const SEARCH_INTENT =
   /\b(find|search(?:ing)?|look(?:ing)?\s+for|show me|show|get me|need a|want a|where can i find|i need a|i want a|i want to|i'd like|i'd like to|need to|looking for|hunt for|browse for|i(?:'m| am)\s+looking for)\b/i;
@@ -138,6 +156,8 @@ function parsePrice(raw: string): number | undefined {
 function listingIndexFromText(text: string): number {
   if (/\b(second|2nd)\b/i.test(text)) return 1;
   if (/\b(third|3rd)\b/i.test(text)) return 2;
+  if (/\b(fourth|4th)\b/i.test(text)) return 3;
+  if (/\b(fifth|5th)\b/i.test(text)) return 4;
   return 0;
 }
 
@@ -219,6 +239,127 @@ function buildContextAction(text: string): LocalCommandAction | null {
         return { ok: true, path: document.referrer || undefined };
       },
     };
+  }
+
+  return null;
+}
+
+/* ── Listing Page Actions ── */
+
+function buildListingPageAction(text: string): LocalCommandAction | null {
+  const t = text.trim();
+
+  if (SAVE_LISTING_INTENT.test(t)) {
+    return {
+      type: "page",
+      status: "Saving to watchlist…",
+      confidence: "high",
+      heard: t,
+      targetTitle: "save listing",
+      run: () => {
+        // Try to find and click the save/watchlist button
+        const saveBtn = document.querySelector('button[aria-label*="save"], button[aria-label*="watch"], button[aria-label*="favorite"], button[title*="Save"], button[title*="Watch"]') as HTMLButtonElement;
+        if (saveBtn) {
+          saveBtn.click();
+          return { ok: true };
+        }
+        return { ok: false };
+      },
+    };
+  }
+
+  if (REMOVE_SAVED_INTENT.test(t)) {
+    return {
+      type: "page",
+      status: "Removing from watchlist…",
+      confidence: "high",
+      heard: t,
+      targetTitle: "remove saved",
+      run: () => {
+        const removeBtn = document.querySelector('button[aria-label*="remove"], button[aria-label*="unsave"], button[aria-label*="unwatch"], button[title*="Remove"]') as HTMLButtonElement;
+        if (removeBtn) {
+          removeBtn.click();
+          return { ok: true };
+        }
+        return { ok: false };
+      },
+    };
+  }
+
+  if (FOLLOW_SELLER_INTENT.test(t)) {
+    return {
+      type: "page",
+      status: "Following seller…",
+      confidence: "high",
+      heard: t,
+      targetTitle: "follow seller",
+      run: () => {
+        const followBtn = document.querySelector('button[aria-label*="follow"], button[title*="Follow"]') as HTMLButtonElement;
+        if (followBtn) {
+          followBtn.click();
+          return { ok: true };
+        }
+        return { ok: false };
+      },
+    };
+  }
+
+  if (UNFOLLOW_SELLER_INTENT.test(t)) {
+    return {
+      type: "page",
+      status: "Unfollowing seller…",
+      confidence: "high",
+      heard: t,
+      targetTitle: "unfollow seller",
+      run: () => {
+        const unfollowBtn = document.querySelector('button[aria-label*="unfollow"], button[title*="Unfollow"]') as HTMLButtonElement;
+        if (unfollowBtn) {
+          unfollowBtn.click();
+          return { ok: true };
+        }
+        return { ok: false };
+      },
+    };
+  }
+
+  return null;
+}
+
+/* ── Profile Navigation Actions ── */
+
+function buildProfileAction(text: string): LocalCommandAction | null {
+  const t = text.trim();
+
+  // Match "go to profile of username" or "open username's profile"
+  const profileMatch = t.match(PROFILE_INTENT);
+  if (profileMatch) {
+    const username = profileMatch[1];
+    if (username && username.length >= 2) {
+      return {
+        type: "navigate",
+        path: `/seller/${username}`,
+        status: `Opening ${username}'s profile…`,
+        confidence: "high",
+        heard: t,
+        targetTitle: `${username}'s profile`,
+      };
+    }
+  }
+
+  // Match "username's profile" or "username page"
+  const userMatch = t.match(USER_PROFILE_INTENT);
+  if (userMatch) {
+    const username = userMatch[1];
+    if (username && username.length >= 2 && !/\b(my|the|a|an)\b/i.test(username)) {
+      return {
+        type: "navigate",
+        path: `/seller/${username}`,
+        status: `Opening ${username}'s profile…`,
+        confidence: "high",
+        heard: t,
+        targetTitle: `${username}'s profile`,
+      };
+    }
   }
 
   return null;
@@ -554,11 +695,19 @@ export function matchLocalCommand(text: string, pathname: string): LocalCommandA
   const contextAction = buildContextAction(trimmed);
   if (contextAction) return contextAction;
 
-  // 3. Page actions (open listing, message seller, tab switch)
+  // 3. Profile navigation (go to username's profile)
+  const profileAction = buildProfileAction(trimmed);
+  if (profileAction) return profileAction;
+
+  // 4. Listing page actions (save, follow, etc)
+  const listingAction = buildListingPageAction(trimmed);
+  if (listingAction) return listingAction;
+
+  // 5. Page actions (open listing, message seller, tab switch)
   const pageAction = buildPageAction(trimmed, pathname);
   if (pageAction) return pageAction;
 
-  // 4. Short phrases (1-5 words) → aggressive nav matching
+  // 6. Short phrases (1-5 words) → aggressive nav matching
   if (nw <= 5) {
     const navTarget = hasNavPrefix(trimmed) ? stripNavPrefix(trimmed) : trimmed;
 
@@ -603,21 +752,21 @@ export function matchLocalCommand(text: string, pathname: string): LocalCommandA
     }
   }
 
-  // 5. Full registry match with prefix stripping
+  // 7. Full registry match with prefix stripping
   const registryAction = registryMatchAction(trimmed, pathname);
   if (registryAction) return registryAction;
 
-  // 6. Search intent — "find BMW 335i", "look for iPhone"
+  // 8. Search intent — "find BMW 335i", "look for iPhone"
   const searchAction = buildSearchAction(trimmed);
   if (searchAction) return searchAction;
 
-  // 7. Bare product phrases — "BMW 335i", "iPhone 15 Pro" (no "find" prefix)
+  // 9. Bare product phrases — "BMW 335i", "iPhone 15 Pro" (no "find" prefix)
   if (nw >= 2 && nw <= 10 && !hasNavPrefix(trimmed) && isProductSearchPhrase(trimmed)) {
     const bareSearch = buildSearchAction(`find ${trimmed}`);
     if (bareSearch) return bareSearch;
   }
 
-  // 8. "My X" phrases — short personalized navs
+  // 10. "My X" phrases — short personalized navs
   const myXMatch = trimmed.match(/^my\s+(.+)$/i);
   if (myXMatch && nw <= 4) {
     const myTarget = myXMatch[1];
