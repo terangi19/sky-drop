@@ -786,12 +786,15 @@ export default function Home() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
               </svg>
             </div>
-            <h3 className="text-xl font-black text-white">Attention Users</h3>
+            <h3 className="text-xl font-black text-white">Welcome to Sky Drop</h3>
             <p className="mt-3 text-sm leading-relaxed text-[var(--foreground)]">
-              Sky Drop is actively being developed. Some features may still be in beta, undergoing testing, or temporarily unavailable.
+              We're building the quickest, easiest marketplace for Aotearoa. Buy, sell, and connect with Kiwis in just a few taps.
             </p>
             <p className="mt-3 text-sm leading-relaxed text-[var(--foreground)]">
-              If you notice anything unusual, broken, or have ideas on how we can improve, please let us know. Your feedback helps us build a better marketplace for Aotearoa.
+              This is just the beginning — loads more features are on the way to make Sky Drop even better for New Zealand.
+            </p>
+            <p className="mt-3 text-sm leading-relaxed text-[var(--foreground)]">
+              Spotted something off or have an idea? We'd love to hear from you.
             </p>
             <div className="mt-4 rounded-xl bg-amber-500/10 p-4">
               <p className="text-xs font-bold text-amber-400 uppercase tracking-wider">Report bugs or feedback</p>
@@ -983,7 +986,7 @@ export default function Home() {
               className="flex flex-1 items-center justify-center gap-2 text-amber-300"
             >
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500/30 text-[10px]">!</span>
-              <span>Attention Users — Some features are still in development</span>
+              <span>Welcome to Sky Drop — More features coming soon</span>
               <svg className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
               </svg>
