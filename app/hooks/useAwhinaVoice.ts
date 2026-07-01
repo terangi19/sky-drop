@@ -126,6 +126,8 @@ export function useAwhinaVoice() {
   const voiceModeRef = useRef(readVoiceModePersisted());
   const pausedRef = useRef(false);
   const busyRef = useRef(false);
+  const busySinceRef = useRef(0);
+  const phaseRef = useRef<AwhinaVoicePhase>("idle");
   const navigatedByVoiceRef = useRef(false);
   const utteranceTextRef = useRef("");
   const onUtteranceFlushedRef = useRef<(() => void) | null>(null);
@@ -142,6 +144,20 @@ export function useAwhinaVoice() {
   const restartListeningRef = useRef<((options?: { force?: boolean }) => Promise<void>) | null>(null);
   const micListeningRef = useRef(false);
   const previousPathRef = useRef<string>(pathname);
+
+  useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
+
+  const markBusy = useCallback(() => {
+    busyRef.current = true;
+    busySinceRef.current = Date.now();
+  }, []);
+
+  const clearBusy = useCallback(() => {
+    busyRef.current = false;
+    busySinceRef.current = 0;
+  }, []);
 
   /* ── Confirmation state for medium-confidence commands ── */
   const pendingConfirmationRef = useRef<VoiceCommandAction | null>(null);
@@ -212,7 +228,7 @@ export function useAwhinaVoice() {
   }, [scheduleInactivityPause]);
 
   const afterCommandCycle = useCallback(() => {
-    busyRef.current = false;
+    clearBusy();
     abortProcessingRef.current = false;
     pendingConfirmationRef.current = null;
     if (!voiceModeRef.current) {
@@ -238,7 +254,7 @@ export function useAwhinaVoice() {
     setActionText(null);
     scheduleInactivityPause();
     void restartListeningRef.current?.({ force: true });
-  }, [keepVoiceModeOn, scheduleInactivityPause]);
+  }, [clearBusy, keepVoiceModeOn, scheduleInactivityPause]);
 
   const ensureListening = useCallback(() => {
     if (!voiceModeRef.current || pausedRef.current || busyRef.current) return;
@@ -268,7 +284,7 @@ export function useAwhinaVoice() {
     persistVoiceMode(false);
     clearInactivityTimer();
     clearEndOfSpeechTimers();
-    busyRef.current = false;
+    clearBusy();
     abortProcessingRef.current = false;
     processGenerationRef.current += 1;
     pendingConfirmationRef.current = null;
@@ -286,7 +302,7 @@ export function useAwhinaVoice() {
       keepVoiceModeOn();
       if (action.type === "resume") {
         resumeListening();
-        busyRef.current = false;
+        clearBusy();
         return;
       }
 
@@ -317,7 +333,7 @@ export function useAwhinaVoice() {
         const result = action.run();
         if (!result.ok) {
           setHint("Couldn't do that on this page — try another command.");
-          busyRef.current = false;
+          clearBusy();
           afterCommandCycle();
           return;
         }
@@ -358,13 +374,14 @@ export function useAwhinaVoice() {
         setHeadline(`${AWHINA_NAME}`);
         setHint(action.status);
         setTranscript(action.message);
+        clearBusy();
         window.setTimeout(() => afterCommandCycle(), 1800);
         return;
       }
 
       afterCommandCycle();
     },
-    [afterCommandCycle, disableVoiceMode, keepVoiceModeOn, resumeListening, router]
+    [afterCommandCycle, clearBusy, disableVoiceMode, keepVoiceModeOn, resumeListening, router]
   );
 
   const runVoiceCommandNow = useCallback(
@@ -376,7 +393,7 @@ export function useAwhinaVoice() {
       if (pending) {
         if (CONFIRM_INTENT.test(trimmed)) {
           pendingConfirmationRef.current = null;
-          busyRef.current = true;
+          markBusy();
           void runAction(pending);
           return true;
         }
@@ -391,7 +408,7 @@ export function useAwhinaVoice() {
         const saidNorm = trimmed.toLowerCase().replace(/[^a-z0-9]/g, "");
         if (targetNorm && (saidNorm === targetNorm || saidNorm.includes(targetNorm) || targetNorm.includes(saidNorm))) {
           pendingConfirmationRef.current = null;
-          busyRef.current = true;
+          markBusy();
           void runAction(pending);
           return true;
         }
@@ -430,6 +447,7 @@ export function useAwhinaVoice() {
         clearEndOfSpeechTimers();
         lastScheduledTextRef.current = "";
         utteranceTextRef.current = "";
+        void restartListeningRef.current?.({ force: true });
         return true;
       }
 
@@ -442,7 +460,7 @@ export function useAwhinaVoice() {
       if (cmd.type === "resume") {
         lastInstantExecRef.current = execKey;
         lastInstantAtRef.current = now;
-        busyRef.current = false;
+        clearBusy();
         resumeListening();
         return true;
       }
@@ -457,15 +475,16 @@ export function useAwhinaVoice() {
       if (cmd.type === "reply") {
         lastInstantExecRef.current = execKey;
         lastInstantAtRef.current = now;
-        busyRef.current = true;
+        markBusy();
         setTranscript(formatUtteranceDisplay(trimmed));
         setHint(cmd.message.replace(/\*\*([^*]+)\*\*/g, "$1"));
+        clearBusy();
         afterCommandCycle();
         return true;
       }
 
       if (cmd.type === "page") {
-        busyRef.current = true;
+        markBusy();
         lastInstantExecRef.current = execKey;
         lastInstantAtRef.current = now;
         if (cmd.heard && cmd.targetTitle) {
@@ -477,7 +496,7 @@ export function useAwhinaVoice() {
         showToast(cmd.status || "Opening…", "info");
         const result = cmd.run!();
         if (!result.ok) {
-          busyRef.current = false;
+          clearBusy();
           setHint("Couldn't do that on this page — try another command.");
           afterCommandCycle();
           return false;
@@ -491,7 +510,7 @@ export function useAwhinaVoice() {
       }
 
       if (cmd.type === "navigate" || cmd.type === "search" || cmd.type === "listing") {
-        busyRef.current = true;
+        markBusy();
         lastInstantExecRef.current = execKey;
         lastInstantAtRef.current = now;
         if (cmd.heard && cmd.targetTitle) {
@@ -517,6 +536,8 @@ export function useAwhinaVoice() {
       clearEndOfSpeechTimers,
       disableVoiceMode,
       keepVoiceModeOn,
+      markBusy,
+      clearBusy,
       pathname,
       resumeListening,
       router,
@@ -539,7 +560,7 @@ export function useAwhinaVoice() {
         local?.type === "search" ||
         local?.type === "page";
 
-      busyRef.current = true;
+      markBusy();
 
       if (!isInstant && local?.confidence === "high") {
         setPhase("processing");
@@ -551,135 +572,142 @@ export function useAwhinaVoice() {
       const abortIfSuperseded = () =>
         abortProcessingRef.current || generation !== processGenerationRef.current;
 
-      if (local) {
-        if (abortIfSuperseded()) {
-          busyRef.current = false;
-          return;
-        }
-        await runAction(local);
-        return;
-      }
-
-      setPhase("processing");
-      setHeadline("Asking Āwhina…");
-      setTranscript(formatUtteranceDisplay(trimmed));
-      setHint("One moment…");
-
-      if (abortIfSuperseded()) {
-        busyRef.current = false;
-        return;
-      }
-
-      const controller = new AbortController();
-      const fetchTimeout = window.setTimeout(() => controller.abort(), 8_000);
-
       try {
-        const token = await getFreshIdToken();
-        if (abortIfSuperseded()) {
-          busyRef.current = false;
-          return;
-        }
-        const res = await fetch("/api/sky-ai", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({
-            message: trimmed,
-            pathname,
-            listingContext: readListingDraftFromSkyAi(),
-            stream: false,
-          }),
-          signal: controller.signal,
-        });
-
-        if (abortIfSuperseded()) {
-          busyRef.current = false;
-          return;
-        }
-
-        const data = (await res.json().catch(() => ({}))) as {
-          reply?: string;
-          navigateTo?: string;
-          listingFill?: Record<string, unknown>;
-          error?: string;
-        };
-
-        if (!res.ok) {
-          throw new Error(data.error || "Voice request failed");
-        }
-
-        if (data.listingFill) {
-          listingFillFromVoiceApi(data.listingFill as SkyAiListingFill);
-          await runAction({
-            type: "listing",
-            path: "/post/ai",
-            status: "Listing draft ready on Sell…",
-            confidence: "high",
-            heard: trimmed,
-            message: trimmed,
-          });
-          return;
-        }
-
-        if (data.navigateTo) {
-          await runAction({
-            type: "navigate",
-            path: data.navigateTo,
-            status: stripSkyAiMachineTags(data.reply || "On my way…"),
-            confidence: "high",
-            heard: trimmed,
-          });
-          return;
-        }
-
-        const reply = stripSkyAiMachineTags(data.reply || "").trim();
-        if (reply) {
-          await runAction({
-            type: "reply",
-            status: "Here's what I found…",
-            confidence: "high",
-            heard: trimmed,
-            message: reply,
-          });
-          return;
-        }
-
-        await runAction({
-          type: "chat",
-          status: "Opening chat for more help…",
-          confidence: "high",
-          heard: trimmed,
-          message: trimmed,
-        });
-      } catch (err) {
-        if (abortIfSuperseded()) {
-          busyRef.current = false;
-          return;
-        }
-        setPhase("error");
-        setHeadline("Voice unavailable");
-        setHint(
-          err instanceof Error
-            ? err.message
-            : `Try typing in ${AWHINA_NAME} chat instead.`
-        );
-        busyRef.current = false;
-        window.setTimeout(() => {
-          if (voiceModeRef.current) {
-            resumeListening();
-          } else {
-            setPhase("idle");
-            setTranscript("");
-            setHint(null);
+        if (local) {
+          if (abortIfSuperseded()) {
+            clearBusy();
+            return;
           }
-        }, 3500);
-      } finally {
-        window.clearTimeout(fetchTimeout);
+          await runAction(local);
+          return;
+        }
+
+        setPhase("processing");
+        setHeadline("Asking Āwhina…");
+        setTranscript(formatUtteranceDisplay(trimmed));
+        setHint("One moment…");
+
+        if (abortIfSuperseded()) {
+          clearBusy();
+          return;
+        }
+
+        const controller = new AbortController();
+        const fetchTimeout = window.setTimeout(() => controller.abort(), 8_000);
+
+        try {
+          const token = await getFreshIdToken();
+          if (abortIfSuperseded()) {
+            clearBusy();
+            return;
+          }
+          const res = await fetch("/api/sky-ai", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({
+              message: trimmed,
+              pathname,
+              listingContext: readListingDraftFromSkyAi(),
+              stream: false,
+            }),
+            signal: controller.signal,
+          });
+
+          if (abortIfSuperseded()) {
+            clearBusy();
+            return;
+          }
+
+          const data = (await res.json().catch(() => ({}))) as {
+            reply?: string;
+            navigateTo?: string;
+            listingFill?: Record<string, unknown>;
+            error?: string;
+          };
+
+          if (!res.ok) {
+            throw new Error(data.error || "Voice request failed");
+          }
+
+          if (data.listingFill) {
+            listingFillFromVoiceApi(data.listingFill as SkyAiListingFill);
+            await runAction({
+              type: "listing",
+              path: "/post/ai",
+              status: "Listing draft ready on Sell…",
+              confidence: "high",
+              heard: trimmed,
+              message: trimmed,
+            });
+            return;
+          }
+
+          if (data.navigateTo) {
+            await runAction({
+              type: "navigate",
+              path: data.navigateTo,
+              status: stripSkyAiMachineTags(data.reply || "On my way…"),
+              confidence: "high",
+              heard: trimmed,
+            });
+            return;
+          }
+
+          const reply = stripSkyAiMachineTags(data.reply || "").trim();
+          if (reply) {
+            await runAction({
+              type: "reply",
+              status: "Here's what I found…",
+              confidence: "high",
+              heard: trimmed,
+              message: reply,
+            });
+            return;
+          }
+
+          await runAction({
+            type: "chat",
+            status: "Opening chat for more help…",
+            confidence: "high",
+            heard: trimmed,
+            message: trimmed,
+          });
+        } catch (err) {
+          if (abortIfSuperseded()) {
+            clearBusy();
+            return;
+          }
+          setPhase("error");
+          setHeadline("Voice unavailable");
+          setHint(
+            err instanceof Error
+              ? err.message
+              : `Try typing in ${AWHINA_NAME} chat instead.`
+          );
+          clearBusy();
+          window.setTimeout(() => {
+            if (voiceModeRef.current) {
+              resumeListening();
+            } else {
+              setPhase("idle");
+              setTranscript("");
+              setHint(null);
+            }
+          }, 3500);
+        } finally {
+          window.clearTimeout(fetchTimeout);
+        }
+      } catch {
+        if (!abortIfSuperseded()) {
+          clearBusy();
+          afterCommandCycle();
+        }
       }
     },
-    [clearInactivityTimer, pathname, resumeListening, runAction]
+    [afterCommandCycle, clearBusy, clearInactivityTimer, markBusy, pathname, resumeListening, runAction]
   );
 
   const flushUtterance = useCallback(
@@ -767,7 +795,7 @@ export function useAwhinaVoice() {
         if (isPriorityNav(navCmd)) {
           abortProcessingRef.current = true;
           processGenerationRef.current += 1;
-          busyRef.current = false;
+          clearBusy();
           clearEndOfSpeechTimers();
           clearInactivityTimer();
           setPhase("listening");
@@ -777,7 +805,7 @@ export function useAwhinaVoice() {
         } else if (pendingConfirmationRef.current) {
           abortProcessingRef.current = true;
           processGenerationRef.current += 1;
-          busyRef.current = false;
+          clearBusy();
           abortProcessingRef.current = false;
         } else {
           return;
@@ -867,7 +895,7 @@ export function useAwhinaVoice() {
     onUtteranceUpdate: handleUtteranceUpdate,
     onError: (message) => {
       if (!voiceModeRef.current) {
-        busyRef.current = false;
+        clearBusy();
         setPhase("error");
         setHeadline("Voice unavailable");
         setHint(message);
@@ -1036,13 +1064,49 @@ export function useAwhinaVoice() {
     if (!voiceMode) return;
 
     const id = window.setInterval(() => {
-      if (!voiceModeRef.current || pausedRef.current || busyRef.current) return;
-      if (!micListeningRef.current) {
+      if (!voiceModeRef.current || pausedRef.current) return;
+
+      if (
+        busyRef.current &&
+        busySinceRef.current > 0 &&
+        Date.now() - busySinceRef.current > 10_000
+      ) {
+        afterCommandCycle();
+        return;
+      }
+
+      const stuckPhase =
+        phaseRef.current === "processing" || phaseRef.current === "speaking";
+      if (!busyRef.current && stuckPhase) {
+        setPhase("listening");
+        setHeadline("Listening…");
+        setHint(VOICE_MODE_ON_HINT);
+        void restartListeningRef.current?.({ force: true });
+        return;
+      }
+
+      if (!busyRef.current && !micListeningRef.current) {
         void restartListeningRef.current?.({ force: true });
       }
     }, 1_500);
 
     return () => window.clearInterval(id);
+  }, [afterCommandCycle, voiceMode]);
+
+  useEffect(() => {
+    if (!voiceMode) return;
+    const onVisible = () => {
+      if (
+        document.visibilityState === "visible" &&
+        voiceModeRef.current &&
+        !pausedRef.current &&
+        !busyRef.current
+      ) {
+        void restartListeningRef.current?.({ force: true });
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, [voiceMode]);
 
   useEffect(() => {

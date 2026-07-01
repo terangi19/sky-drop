@@ -513,7 +513,19 @@ export function useVoiceInput({
       intentionalStopRef.current = false;
 
       if (options?.force) {
-        await startListening();
+        for (let attempt = 0; attempt < 5; attempt++) {
+          const delay = attempt === 0 ? 0 : 100 + attempt * 100;
+          if (delay) await new Promise<void>((resolve) => window.setTimeout(resolve, delay));
+          if (disabled || intentionalStopRef.current) return;
+          if (listeningRef.current || recordingRef.current) return;
+
+          voiceDebug(`[VoiceInput] Force restart attempt ${attempt + 1}/5`);
+          await startListening();
+          if (listeningRef.current || recordingRef.current) {
+            voiceDebug(`[VoiceInput] Force restart succeeded on attempt ${attempt + 1}`);
+            return;
+          }
+        }
         return;
       }
 
