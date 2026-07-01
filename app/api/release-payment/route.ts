@@ -209,7 +209,7 @@ export async function POST(req: NextRequest) {
       actorEmail: decodedToken.email || "",
       purchaseId,
       amount: Math.round(amount / 100),
-      metadata: { transferId: transfer.id, strikerTransferId: transfer.id, adminOverride: isAdmin },
+      metadata: { transferId: transfer.id, stripeTransferId: transfer.id, adminOverride: isAdmin },
     });
 
     return NextResponse.json({ success: true, transferId: transfer.id });
