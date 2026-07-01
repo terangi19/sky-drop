@@ -32,7 +32,8 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { action, accountId, email, amount } = body;
+    const { action, accountId, amount } = body;
+    const email = decodedToken.email; // Use authenticated user's email, not request body
     const s = getStripe();
 
     logStripeKeyInfo();
