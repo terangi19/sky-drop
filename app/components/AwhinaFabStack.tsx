@@ -6,11 +6,12 @@ import type { AwhinaVoiceState } from "../hooks/useAwhinaVoice";
 type Props = {
   voice: AwhinaVoiceState;
   onOpenChat: () => void;
+  onToggle?: () => void;
   chatHidden?: boolean;
   className?: string;
 };
 
-export default function AwhinaFabStack({ voice, onOpenChat, chatHidden, className = "" }: Props) {
+export default function AwhinaFabStack({ voice, onOpenChat, onToggle, chatHidden, className = "" }: Props) {
   const {
     phase,
     voiceMode,
@@ -18,6 +19,7 @@ export default function AwhinaFabStack({ voice, onOpenChat, chatHidden, classNam
     toggle,
     supported,
   } = voice;
+  const handleToggle = onToggle ?? toggle;
 
   const voiceActive = voiceMode && !paused;
   const micGlow = voiceMode || phase === "listening" || phase === "processing";
@@ -34,7 +36,7 @@ export default function AwhinaFabStack({ voice, onOpenChat, chatHidden, classNam
           </span>
           <button
             type="button"
-            onClick={toggle}
+            onClick={handleToggle}
             disabled={!supported && !voiceMode}
             aria-label={
               voiceMode

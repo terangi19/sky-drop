@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { User } from "firebase/auth";
 import { auth, onAuthStateChanged } from "../lib/firebase";
 import { useAwhinaVoice } from "../hooks/useAwhinaVoice";
 import { SKY_AI_OPEN_EVENT } from "../lib/sky-ai-events";
+import { dismissVoiceModeIntro, shouldShowVoiceModeIntro } from "../lib/voice-mode-intro";
 import AwhinaFabStack from "./AwhinaFabStack";
 import AwhinaVoiceBar from "./AwhinaVoiceBar";
 import AwhinaVoiceStatusCard from "./AwhinaVoiceStatusCard";
 import SkyAiChatPanel from "./SkyAiChatPanel";
+import VoiceModeIntroModal from "./VoiceModeIntroModal";
 
 const AUTH_ONLY_PATHS = ["/login", "/forgot-password", "/create-account"];
 const ADMIN_PREFIX = "/admin";
@@ -34,7 +36,29 @@ export default function AwhinaGlobalAssistant() {
   const pathname = usePathname() || "/";
   const [user, setUser] = useState<User | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
+  const [voiceIntroOpen, setVoiceIntroOpen] = useState(false);
   const voice = useAwhinaVoice();
+
+  const handleVoiceToggle = useCallback(() => {
+    if (!voice.voiceMode && !voice.paused && shouldShowVoiceModeIntro()) {
+      setVoiceIntroOpen(true);
+      return;
+    }
+    voice.toggle();
+  }, [voice]);
+
+  const closeVoiceIntro = useCallback((neverAgain: boolean) => {
+    dismissVoiceModeIntro(neverAgain);
+    setVoiceIntroOpen(false);
+  }, []);
+
+  const handleVoiceIntroGetStarted = useCallback(
+    (neverAgain: boolean) => {
+      closeVoiceIntro(neverAgain);
+      voice.toggle();
+    },
+    [closeVoiceIntro, voice]
+  );
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -72,7 +96,13 @@ export default function AwhinaGlobalAssistant() {
         phase={voice.phase}
         voiceMode={voice.voiceMode}
         paused={voice.paused}
-        toggle={voice.toggle}
+        toggle={handleVoiceToggle}
+      />
+
+      <VoiceModeIntroModal
+        open={voiceIntroOpen}
+        onGetStarted={handleVoiceIntroGetStarted}
+        onDismiss={closeVoiceIntro}
       />
 
       {/* Floating status card — bottom-left of viewport */}
@@ -94,6 +124,7 @@ export default function AwhinaGlobalAssistant() {
 
       <AwhinaFabStack
         voice={voice}
+        onToggle={handleVoiceToggle}
         onOpenChat={() => setChatOpen(true)}
         chatHidden={!showChatSheet}
       />
