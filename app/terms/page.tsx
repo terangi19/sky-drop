@@ -4,6 +4,13 @@ import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import ThemeToggle from "../components/ThemeToggle";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Terms of Service — Sky Drop NZ",
+  description: "Sky Drop terms of service and user agreement. Learn about your rights and responsibilities when buying and selling on New Zealand's community marketplace.",
+  keywords: "Sky Drop terms, terms of service, user agreement, NZ marketplace terms, Sky Drop policies",
+};
 
 const sections = [
   {
