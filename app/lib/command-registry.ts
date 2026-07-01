@@ -39,13 +39,13 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
     path: "/post/ai",
     title: "Sell",
     aliases: [
-      "sell", "sells", "create listing", "new listing", "post", "list item",
+      "sell", "create listing", "new listing", "post", "list item",
       "sell tab", "ai post", "create a listing", "create a new listing",
       "list something", "sell something", "i want to sell", "make a listing",
       "post something", "start selling", "post an ad", "place an ad",
       "list an item", "sell an item", "add listing", "add a listing",
     ],
-    phoneticAliases: ["sel", "sale page", "selling page", "creat listing", "new listng"],
+    phoneticAliases: ["sel", "sells", "cells", "cell", "sale page", "selling page", "creat listing", "new listng"],
   },
 
   // ── My Listings ──
@@ -86,7 +86,7 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
       "seller dashboard", "my orders received", "what i sold",
     ],
     phoneticAliases: [
-      "cells", "sells", "sails", "sale", "sals",
+      "sails", "sals", "sale page", "sales page",
       "my sells", "my cells", "sails page", "sold page", "sellz",
     ],
   },

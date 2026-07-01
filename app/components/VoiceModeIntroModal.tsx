@@ -9,6 +9,7 @@ type Props = {
 };
 
 const VOICE_EXAMPLES = [
+  { phrase: "Sell", hint: "Open the create listing page" },
   { phrase: "My listings", hint: "Open your seller hub" },
   { phrase: "Find a Toyota Hilux", hint: "Search the marketplace" },
   { phrase: "Take me to messages", hint: "Check your inbox" },

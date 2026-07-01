@@ -38,8 +38,21 @@ export type LocalCommandAction = {
 /* ── Direct shortcut commands ── */
 // These bypass the entire pipeline for reliability.
 const EXACT_NAV: Record<string, { path: string; title: string; aliases: string[] }> = {
-  sell:    { path: "/post/ai", title: "Sell",  aliases: ["sell", "i want to sell", "create a listing", "new listing", "post something", "list something", "sell page", "selling page"] },
-  sales:   { path: "/sales",   title: "Sales", aliases: ["sales", "sails", "sells", "my sales", "sold items"] },
+  sell: {
+    path: "/post/ai",
+    title: "Sell",
+    aliases: [
+      "sell", "sells", "sel", "selling", "cells", "cell", "sale",
+      "i want to sell", "create a listing", "new listing", "post something",
+      "list something", "sell page", "selling page", "sell tab", "go sell",
+      "post", "list", "listing",
+    ],
+  },
+  sales: {
+    path: "/sales",
+    title: "Sales",
+    aliases: ["sales", "sails", "sals", "my sales", "sold items", "sales page"],
+  },
   home:    { path: "/",        title: "Browse", aliases: ["home", "go home", "home page", "main", "marketplace", "browse", "browse page", "shop", "explore"] },
 };
 
@@ -664,24 +677,107 @@ export function isLikelyNavCommand(text: string): boolean {
  * Try to match and execute a voice command locally.
  * Returns an action if matched, or null if it should go to the AI.
  */
+function sellOrSalesShortcutAction(
+  text: string,
+  pathname: string
+): LocalCommandAction | null {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+
+  const variants = [trimmed];
+  const stripped = stripNavPrefix(trimmed);
+  if (stripped !== trimmed) variants.push(stripped);
+
+  const SALES_COMPACTS = new Set([
+    "sales", "sails", "sals", "mysales", "solditems", "sold", "mysold",
+    "salespage", "salepage", "whatisold", "ordersreceived",
+  ]);
+
+  const SELL_COMPACTS = new Set([
+    "sell", "sells", "sel", "selling", "cells", "cell", "sale",
+    "post", "list", "listing", "sellpage", "sellingpage", "selltab",
+    "sellsomething", "postsomething", "listsomething", "iwanttosell",
+    "createalisting", "newlisting", "createlisting", "startselling",
+    "gotsell", "opensell",
+  ]);
+
+  for (const variant of variants) {
+    const compact = variant.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (!compact) continue;
+
+    if (SALES_COMPACTS.has(compact)) {
+      if (pathname === "/sales") {
+        return {
+          type: "page",
+          status: "You're already on Sales.",
+          confidence: "high",
+          heard: trimmed,
+          targetTitle: "Sales",
+          run: () => ({ ok: true }),
+        };
+      }
+      return {
+        type: "navigate",
+        path: "/sales",
+        status: "Opening Sales…",
+        confidence: "high",
+        heard: trimmed,
+        targetTitle: "Sales",
+      };
+    }
+
+    if (SELL_COMPACTS.has(compact)) {
+      if (pathname === "/post/ai") {
+        return {
+          type: "page",
+          status: "You're already on Sell.",
+          confidence: "high",
+          heard: trimmed,
+          targetTitle: "Sell",
+          run: () => ({ ok: true }),
+        };
+      }
+      return {
+        type: "navigate",
+        path: "/post/ai",
+        status: "Opening Sell…",
+        confidence: "high",
+        heard: trimmed,
+        targetTitle: "Sell",
+      };
+    }
+  }
+
+  return null;
+}
+
 export function matchLocalCommand(text: string, pathname: string): LocalCommandAction | null {
   const trimmed = text.trim();
   if (!trimmed) return null;
 
   const nw = wordCount(trimmed);
 
+  // Sell vs Sales — STT often hears "sells" or "cells" for "sell".
+  const sellNav = sellOrSalesShortcutAction(trimmed, pathname);
+  if (sellNav) return sellNav;
+
   // 0. Direct shortcut commands — bypass all pipeline logic for reliability.
-  // These handle the most common nav commands that users expect to just work.
-  if (nw <= 4) {
-    const compact = trimmed.toLowerCase().replace(/[^a-z0-9]/g, "");
-    for (const entry of Object.values(EXACT_NAV)) {
-      for (const alias of entry.aliases) {
-        const a = alias.toLowerCase().replace(/[^a-z0-9]/g, "");
-        if (compact === a) {
-          const samePath = pathname === entry.path;
-          return samePath
-            ? { type: "page", status: `You're already on ${entry.title}.`, confidence: "high", heard: trimmed, targetTitle: entry.title, run: () => ({ ok: true }) }
-            : { type: "navigate", path: entry.path, status: `Opening ${entry.title}…`, confidence: "high", heard: trimmed, targetTitle: entry.title };
+  if (nw <= 5) {
+    const variants = [trimmed];
+    const stripped = stripNavPrefix(trimmed);
+    if (stripped !== trimmed) variants.push(stripped);
+
+    for (const variant of variants) {
+      const compact = variant.toLowerCase().replace(/[^a-z0-9]/g, "");
+      for (const entry of Object.values(EXACT_NAV)) {
+        for (const alias of entry.aliases) {
+          const a = alias.toLowerCase().replace(/[^a-z0-9]/g, "");
+          if (compact === a) {
+            const samePath = pathname === entry.path;
+            return samePath
+              ? { type: "page", status: `You're already on ${entry.title}.`, confidence: "high", heard: trimmed, targetTitle: entry.title, run: () => ({ ok: true }) }
+              : { type: "navigate", path: entry.path, status: `Opening ${entry.title}…`, confidence: "high", heard: trimmed, targetTitle: entry.title };
+          }
         }
       }
     }

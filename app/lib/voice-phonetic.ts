@@ -3,12 +3,12 @@
 /* ── Direct phonetic substitution map ── */
 // Maps what STT often hears → what the user likely meant
 const PHONETIC_SUBSTITUTIONS: Record<string, string[]> = {
-  // Sales common mishearings
-  cells: ["sales"],
+  // Sales common mishearings — "cells"/"sells" usually mean Sell page, not Sales
+  cells: ["sell"],
   sells: ["sell"],
   sals: ["sales"],
   sails: ["sales"],
-  sale: ["sales"],
+  sale: ["sell"],
 
   // Profile
   profiel: ["profile"],

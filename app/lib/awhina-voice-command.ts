@@ -10,6 +10,7 @@
  *   Examples: "How much is my BMW worth?", "Write a listing description."
  */
 
+import { isListingSpeech } from "./awhina-voice-end-of-speech";
 import { dispatchListingFill, type SkyAiListingFill } from "./sky-ai-listing-fill";
 import { matchLocalCommand, resolveLocalCommand, type LocalCommandAction } from "./local-command-engine";
 import { logCommand } from "./command-logger";
@@ -143,7 +144,7 @@ export function resolveVoiceCommand(text: string, pathname: string): VoiceComman
     return null;
   }
 
-  // Check for selling intent with enough detail
+  // Check for selling intent with enough detail — simple "sell" is handled by local engine
   if (SELL_INTENT.test(trimmed) || HAS_DETAIL.test(trimmed)) {
     const wordCount = trimmed.split(/\s+/).length;
     if (wordCount >= 3 && (SELL_INTENT.test(trimmed) || /\$/.test(trimmed) || wordCount >= 5)) {
@@ -234,8 +235,8 @@ export function resolveInstantCommand(
   
   // Allow simple "sell" navigation to be instant, but block detailed listing fills
   if (cmd.type === "listing") {
+    if (cmd.path === "/post/ai" && !isListingSpeech(trimmed)) return cmd;
     const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
-    // Only instant if it's a simple sell command (≤3 words and no specific details)
     if (wordCount <= 3 && !/\$|price|dollars|nzd/i.test(trimmed)) {
       return cmd;
     }
@@ -260,7 +261,8 @@ export function isCompleteNavPhrase(text: string, pathname: string): boolean {
     cmd.type === "search" ||
     cmd.type === "page" ||
     cmd.type === "resume" ||
-    cmd.type === "voice_off"
+    cmd.type === "voice_off" ||
+    (cmd.type === "listing" && cmd.path === "/post/ai" && !isListingSpeech(text))
   );
 }
 

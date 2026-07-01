@@ -78,7 +78,8 @@ function isPriorityNav(cmd: VoiceCommandAction | null): boolean {
     cmd.type === "search" ||
     cmd.type === "page" ||
     cmd.type === "resume" ||
-    cmd.type === "voice_off"
+    cmd.type === "voice_off" ||
+    (cmd.type === "listing" && cmd.path === "/post/ai")
   );
 }
 const PAUSED_HINT =
@@ -651,7 +652,8 @@ export function useAwhinaVoice() {
       const isInstant =
         local?.type === "navigate" ||
         local?.type === "search" ||
-        local?.type === "page";
+        local?.type === "page" ||
+        (local?.type === "listing" && local.path === "/post/ai");
 
       markBusy();
 
