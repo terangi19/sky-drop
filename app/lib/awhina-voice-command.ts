@@ -12,7 +12,12 @@
 
 import { isListingSpeech } from "./awhina-voice-end-of-speech";
 import { dispatchListingFill, type SkyAiListingFill } from "./sky-ai-listing-fill";
-import { matchLocalCommand, resolveLocalCommand, type LocalCommandAction } from "./local-command-engine";
+import {
+  isSellNavigationPhrase,
+  matchLocalCommand,
+  resolveLocalCommand,
+  type LocalCommandAction,
+} from "./local-command-engine";
 import { logCommand } from "./command-logger";
 
 export type VoiceConfidence = "high" | "medium" | "low";
@@ -144,8 +149,8 @@ export function resolveVoiceCommand(text: string, pathname: string): VoiceComman
     return null;
   }
 
-  // Check for selling intent with enough detail — simple "sell" is handled by local engine
-  if (SELL_INTENT.test(trimmed) || HAS_DETAIL.test(trimmed)) {
+  // Check for selling intent with enough detail — nav phrases like "go to sell" stay local
+  if (!isSellNavigationPhrase(trimmed) && (SELL_INTENT.test(trimmed) || HAS_DETAIL.test(trimmed))) {
     const wordCount = trimmed.split(/\s+/).length;
     if (wordCount >= 3 && (SELL_INTENT.test(trimmed) || /\$/.test(trimmed) || wordCount >= 5)) {
       const action: VoiceCommandAction = {

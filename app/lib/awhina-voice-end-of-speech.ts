@@ -4,7 +4,12 @@
  * Conversational and listing speech get generous patience.
  */
 
-import { isInstantLocalCommand, isLikelyNavCommand, isExactNavShortcut } from "./local-command-engine";
+import {
+  isInstantLocalCommand,
+  isLikelyNavCommand,
+  isExactNavShortcut,
+  isSellNavigationPhrase,
+} from "./local-command-engine";
 import { resolveVoiceCommand } from "./awhina-voice-command";
 
 export type VoiceUtteranceKind = "navigation" | "search" | "listing" | "conversation";
@@ -54,11 +59,11 @@ export function isListingSpeech(text: string): boolean {
   const t = text.trim();
   if (!t) return false;
 
-  // Bare "sell", "post", etc. are navigation — not a listing description
-  if (isExactNavShortcut(t)) return false;
+  // Bare "sell", "post", "go to sell", etc. are navigation — not a listing description
+  if (isExactNavShortcut(t) || isSellNavigationPhrase(t)) return false;
 
   const words = t.split(/\s+/).length;
-  if (words <= 2 && /\b(sell|selling|post|list)\b/i.test(t)) return false;
+  if (words <= 3 && /\b(sell|selling|post|list)\b/i.test(t)) return false;
 
   if (LISTING_INTENT.test(t) && /\b(sell|selling|list|listing|post|for sale)\b/i.test(t)) {
     return words >= 3;
@@ -72,6 +77,7 @@ export function isActionableTranscript(text: string, pathname?: string): boolean
   const t = text.trim();
   if (t.length < 3) return false;
   if (NOISE_ONLY.test(t)) return false;
+  if (isIncompleteUtterance(t)) return false;
 
   if (pathname) {
     const cmd = resolveVoiceCommand(t, pathname);
@@ -88,7 +94,7 @@ export function classifyVoiceUtterance(text: string, pathname = "/"): VoiceUtter
   const t = text.trim();
   if (!t) return "conversation";
 
-  if (isExactNavShortcut(t) || isInstantLocalCommand(t, pathname)) {
+  if (isExactNavShortcut(t) || isSellNavigationPhrase(t) || isInstantLocalCommand(t, pathname)) {
     return "navigation";
   }
 

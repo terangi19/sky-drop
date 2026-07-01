@@ -8,6 +8,7 @@ const PHONETIC_SUBSTITUTIONS: Record<string, string[]> = {
   sells: ["sell"],
   sals: ["sales"],
   sails: ["sales"],
+  sail: ["sell"],
   sale: ["sell"],
 
   // Profile

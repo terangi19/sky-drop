@@ -72,6 +72,38 @@ const MESSAGE_SELLER_INTENT =
 const PROFILE_INTENT =
   /\b(go to|open|show|view|take me to|navigate to|visit)\s+(?:the\s+)?(?:profile\s+(?:of|for)\s+)?([a-zA-Z0-9_]+)\b/i;
 
+/** Route targets — never treat as seller usernames ("go to sell" → Sell, not /seller/sell). */
+const RESERVED_PROFILE_USERNAMES = new Set([
+  "sell", "sales", "sails", "sals", "post", "listing", "listings", "list",
+  "home", "browse", "messages", "profile", "settings", "search", "watchlist",
+  "purchases", "wanted", "notifications", "help", "faqs", "sales", "shop",
+  "explore", "marketplace", "inbox", "wallet", "payments", "verification",
+]);
+
+const SELL_NAV_PHRASE =
+  /\b(?:go|take me|open|navigate|head|show|bring me|send me|guide me)\s+(?:to\s+)?(?:the\s+)?(?:sell(?:ing)?(?:\s+(?:page|tab))?|post(?:\s+(?:a|an)?\s+listing)?|create(?:\s+a)?\s+listing|list(?:\s+something)?)\b/i;
+
+/** True when the user is asking to open the Sell page — not describing a listing or a profile. */
+export function isSellNavigationPhrase(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  if (SELL_NAV_PHRASE.test(t)) return true;
+
+  const stripped = stripNavPrefix(t);
+  if (stripped !== t) {
+    const compact = stripped.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (
+      ["sell", "sells", "sel", "selling", "cells", "cell", "post", "listing", "list"].includes(
+        compact
+      )
+    ) {
+      return true;
+    }
+  }
+
+  return isExactNavShortcut(t);
+}
+
 const USER_PROFILE_INTENT =
   /\b([a-zA-Z0-9_]+)(?:'s)?\s+(?:profile|page|account)\b/i;
 
@@ -347,7 +379,12 @@ function buildProfileAction(text: string): LocalCommandAction | null {
   const profileMatch = t.match(PROFILE_INTENT);
   if (profileMatch) {
     const username = profileMatch[1];
-    if (username && username.length >= 2) {
+    if (
+      username &&
+      username.length >= 2 &&
+      !RESERVED_PROFILE_USERNAMES.has(username.toLowerCase()) &&
+      !isSellNavigationPhrase(t)
+    ) {
       return {
         type: "navigate",
         path: `/seller/${username}`,
@@ -684,6 +721,27 @@ function sellOrSalesShortcutAction(
   const trimmed = text.trim();
   if (!trimmed) return null;
 
+  if (isSellNavigationPhrase(trimmed)) {
+    if (pathname === "/post/ai") {
+      return {
+        type: "page",
+        status: "You're already on Sell.",
+        confidence: "high",
+        heard: trimmed,
+        targetTitle: "Sell",
+        run: () => ({ ok: true }),
+      };
+    }
+    return {
+      type: "navigate",
+      path: "/post/ai",
+      status: "Opening Sell…",
+      confidence: "high",
+      heard: trimmed,
+      targetTitle: "Sell",
+    };
+  }
+
   const variants = [trimmed];
   const stripped = stripNavPrefix(trimmed);
   if (stripped !== trimmed) variants.push(stripped);
@@ -698,7 +756,7 @@ function sellOrSalesShortcutAction(
     "post", "list", "listing", "sellpage", "sellingpage", "selltab",
     "sellsomething", "postsomething", "listsomething", "iwanttosell",
     "createalisting", "newlisting", "createlisting", "startselling",
-    "gotsell", "opensell",
+    "gotsell", "gotosell", "opensell", "takemetosell", "gosell",
   ]);
 
   for (const variant of variants) {

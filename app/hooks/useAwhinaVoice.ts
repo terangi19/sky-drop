@@ -17,7 +17,7 @@ import {
   resolveVoiceCommand,
   type VoiceCommandAction,
 } from "../lib/awhina-voice-command";
-import { isExactNavShortcut } from "../lib/local-command-engine";
+import { isExactNavShortcut, isSellNavigationPhrase } from "../lib/local-command-engine";
 import { dispatchSkyAiOpen } from "../lib/sky-ai-events";
 import { getFreshIdToken } from "../lib/api-auth";
 import { readListingDraftFromSkyAi } from "../lib/sky-ai-listing-context";
@@ -644,6 +644,12 @@ export function useAwhinaVoice() {
       const trimmed = text.trim();
       if (!trimmed) return;
 
+      if (isIncompleteUtterance(trimmed)) {
+        clearBusy();
+        scheduleMicRestart();
+        return;
+      }
+
       const generation = ++processGenerationRef.current;
       abortProcessingRef.current = false;
       clearInactivityTimer();
@@ -655,10 +661,14 @@ export function useAwhinaVoice() {
         local?.type === "page" ||
         (local?.type === "listing" && local.path === "/post/ai");
 
-      // Direct route to Awhina: when voice mode is on and the user is describing
-      // a listing, jump straight to the Sell chat with the transcript so they
-      // don't have to click the mic inside Awhina's chat.
-      if (voiceModeRef.current && (local?.type === "listing" || isListingSpeech(trimmed))) {
+      // Direct route to Awhina for listing descriptions — not bare "go to sell" navigation.
+      if (
+        voiceModeRef.current &&
+        local?.type !== "navigate" &&
+        local?.type !== "search" &&
+        local?.type !== "page" &&
+        (local?.type === "listing" || (!local && isListingSpeech(trimmed)))
+      ) {
         markBusy();
         setHeardText(trimmed);
         setActionText("Opening Awhina…");
@@ -704,11 +714,26 @@ export function useAwhinaVoice() {
           return;
         }
 
+        if (isSellNavigationPhrase(trimmed)) {
+          const sellCmd = resolveVoiceCommand(trimmed, pathname);
+          if (sellCmd) {
+            await runAction(sellCmd);
+            return;
+          }
+        }
+
+        const token = await getFreshIdToken();
+        if (!token) {
+          showToast("Sign in to ask Āwhina by voice.", "info");
+          clearBusy();
+          afterCommandCycle();
+          return;
+        }
+
         const controller = new AbortController();
         const fetchTimeout = window.setTimeout(() => controller.abort(), 8_000);
 
         try {
-          const token = await getFreshIdToken();
           if (abortIfSuperseded()) {
             clearBusy();
             scheduleMicRestart();
@@ -718,7 +743,7 @@ export function useAwhinaVoice() {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({
               message: trimmed,
@@ -965,9 +990,8 @@ export function useAwhinaVoice() {
       setTranscript(formatUtteranceDisplay(display));
       if (voiceModeRef.current) setHint(VOICE_MODE_ON_HINT);
 
-      // Exact shortcuts ("sell", "home") run instantly — even on interim STT.
-      // Other navigation waits for a final chunk to avoid partial matches.
-      if (isExactNavShortcut(trimmed) || meta.hadFinalChunk) {
+      // Exact shortcuts and "go to sell" run instantly — even on interim STT.
+      if (isExactNavShortcut(trimmed) || isSellNavigationPhrase(trimmed) || meta.hadFinalChunk) {
         if (runVoiceCommandNow(trimmed)) return;
       } else {
         const urgent = resolveVoiceCommand(trimmed, pathname);

@@ -299,8 +299,8 @@ export const GUIDE_DESTINATIONS: GuideDestination[] = [
   {
     id: "post",
     title: "Sell",
-    path: "/post",
-    keywords: ["sell", "create listing", "new listing", "post a listing", "sell page", "list an item", "selling hub"],
+    path: "/post/ai",
+    keywords: ["sell page", "selling hub", "list an item"],
     blurb: "Create a new listing.",
   },
   {
