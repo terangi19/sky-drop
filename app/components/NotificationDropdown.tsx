@@ -190,6 +190,13 @@ export default function NotificationDropdown({
             <p className="mt-1 text-[11px] text-[var(--muted)]">
               Messages, offers, and updates will appear here.
             </p>
+            <Link
+              href="/notifications"
+              onClick={() => onClose?.()}
+              className="mt-4 rounded-lg bg-sky-500/10 px-4 py-2 text-[12px] font-bold text-sky-400 transition hover:bg-sky-500/20"
+            >
+              View all notifications
+            </Link>
           </div>
         ) : (
           <div className="py-1.5">
@@ -330,12 +337,13 @@ export default function NotificationDropdown({
           </div>
         )}
       </div>
-      {notifications.length > 0 && (
-        <Link href="/notifications"
-          className="block border-t border-white/[0.04] px-4 py-2.5 text-center text-[11px] font-bold text-sky-400 transition hover:bg-white/[0.02]">
-          View All →
-        </Link>
-      )}
+      <Link
+        href="/notifications"
+        onClick={() => onClose?.()}
+        className="block border-t border-white/[0.04] px-4 py-2.5 text-center text-[11px] font-bold text-sky-400 transition hover:bg-white/[0.02]"
+      >
+        View all notifications →
+      </Link>
     </div>
   );
 }

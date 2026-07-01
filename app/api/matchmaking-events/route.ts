@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { getAdminApp } from "../../lib/firebase-admin";
+import { isSameMarketplaceUser } from "../../lib/sky-ai-matchmaking";
+
+function isSelfMatchRecord(data: {
+  sourceListingSellerEmail?: string;
+  matchedSellerEmail?: string;
+}): boolean {
+  return isSameMarketplaceUser(
+    { email: data.sourceListingSellerEmail },
+    { email: data.matchedSellerEmail },
+  );
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -32,6 +43,7 @@ export async function GET(req: NextRequest) {
     
     for (const doc of matchesSnap.docs) {
       const data = doc.data();
+      if (isSelfMatchRecord(data)) continue;
       
       // Get listing details
       let listingTitle = "Unknown listing";
@@ -70,6 +82,7 @@ export async function GET(req: NextRequest) {
 
     for (const doc of receivedMatchesSnap.docs) {
       const data = doc.data();
+      if (isSelfMatchRecord(data)) continue;
       
       // Skip if already added
       if (events.find(e => e.id === doc.id)) continue;

@@ -9,6 +9,7 @@ interface MatchmakingListing {
   type?: string;
   price?: string;
   sellerEmail?: string;
+  sellerId?: string;
   vehicleMake?: string;
   vehicleModel?: string;
   images?: string[];
@@ -16,7 +17,32 @@ interface MatchmakingListing {
   [key: string]: unknown;
 }
 
+interface MatchmakingOwner {
+  email?: string;
+  sellerId?: string;
+}
+
 const MIN_KEYWORD_LENGTH = 3;
+
+export function normalizeMarketplaceEmail(email: string | undefined | null): string {
+  return String(email || "").trim().toLowerCase();
+}
+
+/** True when two listings belong to the same marketplace user. */
+export function isSameMarketplaceUser(
+  a: MatchmakingOwner,
+  b: MatchmakingOwner,
+): boolean {
+  const emailA = normalizeMarketplaceEmail(a.email);
+  const emailB = normalizeMarketplaceEmail(b.email);
+  if (emailA && emailB && emailA === emailB) return true;
+
+  const idA = String(a.sellerId || "").trim();
+  const idB = String(b.sellerId || "").trim();
+  if (idA && idB && idA === idB) return true;
+
+  return false;
+}
 
 /** Extract meaningful search keywords from a listing. */
 function extractKeywords(listing: MatchmakingListing): string[] {
@@ -52,10 +78,10 @@ function extractKeywords(listing: MatchmakingListing): string[] {
   return [...words];
 }
 
-/** Search active listings matching given keywords, excluding a seller email. */
+/** Search active listings matching given keywords, excluding the poster's own listings. */
 async function searchMatchingListings(
   keywords: string[],
-  excludeEmail: string,
+  exclude: MatchmakingOwner,
 ): Promise<MatchmakingListing[]> {
   const db = getAdminDb();
   const matched = new Map<string, MatchmakingListing>();
@@ -74,7 +100,7 @@ async function searchMatchingListings(
 
     for (const doc of snap.docs) {
       const data = doc.data() as MatchmakingListing;
-      if (data.sellerEmail === excludeEmail) continue;
+      if (isSameMarketplaceUser(data, exclude)) continue;
       if (data.status === "sold") continue;
       if (seen.has(doc.id)) continue;
 
@@ -97,10 +123,10 @@ async function searchMatchingListings(
   return [...matched.values()].slice(0, 10);
 }
 
-/** Search wanted posts matching given keywords, excluding the poster. */
+/** Search wanted posts matching given keywords, excluding the poster's own wanted posts. */
 async function searchMatchingWanted(
   keywords: string[],
-  excludeEmail: string,
+  exclude: MatchmakingOwner,
 ): Promise<MatchmakingListing[]> {
   const db = getAdminDb();
   const matched = new Map<string, MatchmakingListing>();
@@ -119,7 +145,7 @@ async function searchMatchingWanted(
 
     for (const doc of snap.docs) {
       const data = doc.data() as MatchmakingListing;
-      if (data.sellerEmail === excludeEmail) continue;
+      if (isSameMarketplaceUser(data, exclude)) continue;
       if (data.status === "sold") continue;
       if (seen.has(doc.id)) continue;
 
@@ -223,13 +249,20 @@ export async function runMatchmaking(listing: MatchmakingListing): Promise<void>
 
   console.log(`[matchmaking] Listing ${listing.id} (${listing.type}): keywords=${keywords.join(", ")}`);
 
+  const owner: MatchmakingOwner = {
+    email: listing.sellerEmail,
+    sellerId: String(listing.sellerId || ""),
+  };
+
   if (listing.type === "wanted") {
     // Wanted → find matching active listings
     console.log("[matchmaking] Searching for matching active listings for wanted post:", listing.id);
-    const matches = await searchMatchingListings(keywords, listing.sellerEmail);
+    const matches = await searchMatchingListings(keywords, owner);
     console.log(`[matchmaking] Found ${matches.length} matching listings for wanted post ${listing.id}`);
 
     for (const match of matches) {
+      if (isSameMarketplaceUser(match, owner)) continue;
+
       console.log("[matchmaking] Sending notification to seller:", match.sellerEmail, "for listing:", match.id);
       await sendMatchNotification({
         targetEmail: match.sellerEmail || "",
@@ -254,10 +287,12 @@ export async function runMatchmaking(listing: MatchmakingListing): Promise<void>
   } else {
     // Regular listing → find matching wanted posts
     console.log("[matchmaking] Searching for matching wanted posts for listing:", listing.id);
-    const matches = await searchMatchingWanted(keywords, listing.sellerEmail);
+    const matches = await searchMatchingWanted(keywords, owner);
     console.log(`[matchmaking] Found ${matches.length} matching wanted posts for listing ${listing.id}`);
 
     for (const match of matches) {
+      if (isSameMarketplaceUser(match, owner)) continue;
+
       console.log("[matchmaking] Sending notification to buyer:", match.sellerEmail, "for wanted post:", match.id);
       await sendMatchNotification({
         targetEmail: match.sellerEmail || "",

@@ -3,19 +3,19 @@
 type NotificationBellProps = {
   count?: number;
   onClick?: () => void;
+  className?: string;
 };
 
 export default function NotificationBell({
   count = 0,
   onClick,
+  className = "",
 }: NotificationBellProps) {
   const hasNotifications = count > 0;
+  const sharedClassName = `relative flex h-9 w-9 items-center justify-center rounded-lg transition ${hasNotifications ? "bg-[var(--soft-card)] animate-breathe-glow" : "bg-[var(--soft-card)] hover:bg-[var(--card-hover)]"} ${className}`;
 
-  return (
-    <button
-      onClick={onClick}
-      className={`relative flex h-9 w-9 items-center justify-center rounded-lg transition ${hasNotifications ? "bg-[var(--soft-card)] animate-breathe-glow" : "bg-[var(--soft-card)] hover:bg-[var(--card-hover)]"}`}
-    >
+  const icon = (
+    <>
       <svg
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 24 24"
@@ -24,7 +24,7 @@ export default function NotificationBell({
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="h-4 w-4 text-white"
+        className="h-4 w-4"
       >
         <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
         <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
@@ -35,6 +35,16 @@ export default function NotificationBell({
           {count > 9 ? "9+" : count}
         </span>
       )}
-    </button>
+    </>
   );
+
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={sharedClassName}>
+        {icon}
+      </button>
+    );
+  }
+
+  return <span className={sharedClassName}>{icon}</span>;
 }

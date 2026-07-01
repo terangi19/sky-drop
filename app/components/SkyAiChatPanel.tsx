@@ -242,16 +242,13 @@ export default function SkyAiChatPanel({
     setMessages((prev) => prev.map((m) => {
       if (m.id === id) {
         const updated = { ...m, ...patch };
-        console.log('[Awhina] updateAssistant called with patch.text:', patch.text);
         // Always filter out welcome messages - AI should never show them after interaction
         if (patch.text && /\b(Tell me what you need|create a listing, price help|safety tips|take me to seller guidelines|Tap a quick button below)\b/i.test(patch.text)) {
-          console.log('[Awhina] Filtering welcome message');
           return {
             ...updated,
             text: `Done! I've filled your listing. What would you like to do next? You can edit the details, improve the description, generate keywords, check the price, or create listings for Facebook Marketplace or Trade Me.`,
           };
         }
-        console.log('[Awhina] Not filtering - no match');
         return updated;
       }
       return m;
@@ -262,7 +259,6 @@ export default function SkyAiChatPanel({
     setMessages((prev) => {
       // Always filter out welcome messages - AI should never show them after interaction
       if (msg.text && /\b(Tell me what you need|create a listing, price help|safety tips|take me to seller guidelines|Tap a quick button below)\b/i.test(msg.text)) {
-        console.log('[Awhina] Filtering welcome message on add');
         return [...prev, { ...msg, text: `Done! I've filled your listing. What would you like to do next? You can edit the details, improve the description, generate keywords, check the price, or create listings for Facebook Marketplace or Trade Me.` }];
       }
       return [...prev, msg];
@@ -499,13 +495,11 @@ export default function SkyAiChatPanel({
                   responseHandled = true;
                   if (isSellPage && navigateTo === "/post/ai") navigateTo = undefined;
                   if (evt.listingFill) {
-                    console.log('[Awhina] Listing fill detected, setting listingFillOccurred = true');
                     setListingFillOccurred(true);
                     if (isSellPage) {
                       setListingPreviewFill(evt.listingFill);
                       const merged = mergeListingFillWithDraft(readListingDraftFromSkyAi(), evt.listingFill);
                       onFill?.(merged);
-                      dispatchListingFill(merged);
                       navigateTo = undefined;
                       const aiReply = evt.reply || stripSkyAiMachineTags(accumulated);
                       const cleanReply = aiReply && aiReply.length > 10
@@ -561,7 +555,6 @@ export default function SkyAiChatPanel({
               setListingPreviewFill(data.listingFill);
               const merged = mergeListingFillWithDraft(readListingDraftFromSkyAi(), data.listingFill);
               onFill?.(merged);
-              dispatchListingFill(merged);
               navigateTo = undefined;
               const aiReply = data.reply || "";
               const cleanReply = aiReply && aiReply.length > 10

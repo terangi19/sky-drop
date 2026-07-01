@@ -16,8 +16,6 @@ import {
 } from "firebase/auth";
 
 import {
-  doc,
-  updateDoc,
   collection,
   query,
   where,
@@ -33,16 +31,12 @@ import {
 } from "../lib/firebase";
 
 import NotificationBell from "./NotificationBell";
-import NotificationDropdown from "./NotificationDropdown";
 import SkyDropLogo from "./SkyDropLogo";
 import { useProfile } from "../contexts/ProfileContext";
-import { NotificationItem } from "../../types/firestore";
 import { isAdminEmail } from "../lib/admin-check";
 import {
   blockedEmailsFromDocs,
   countInboxUnreadMessages,
-  isUnreadMessageForUser,
-  messageInInboxList,
 } from "../lib/messages-unread";
 
 const MOBILE_NAV_ITEMS = [
@@ -70,22 +64,6 @@ export default function Navbar() {
     useState<User | null>(
       null
     );
-
-  const [
-    notificationCount,
-    setNotificationCount,
-  ] = useState(0);
-
-  const [
-    showNotifications,
-    setShowNotifications,
-  ] = useState(false);
-
-  const [notifications, setNotifications] =
-    useState<NotificationItem[]>([]);
-
-  const [dismissedIds, setDismissedIds] =
-    useState<Set<string>>(new Set());
 
   const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
   const [activityUnreadCount, setActivityUnreadCount] = useState(0);
@@ -122,28 +100,7 @@ export default function Navbar() {
     } catch { return new Set<string>(); }
   }
 
-  function markSeen(id: string, type?: string) {
-    const next = new Set(dismissedIds);
-    next.add(id);
-    setDismissedIds(next);
-    try {
-      try { localStorage.setItem("dismissedNotifications", JSON.stringify([...next])); } catch (e) { console.error("Failed to save dismissed notifications:", e); }
-    } catch {}
-    if (type === "message" || type === "offer") {
-      auth.currentUser?.getIdToken().then((token) => {
-        fetch("/api/mark-messages-read", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ messageIds: [id] }),
-        }).catch((e) => console.error("Failed to mark message read:", e));
-      }).catch((e) => console.error("Failed to get token:", e));
-    } else {
-      updateDoc(doc(db, "notifications", id), { read: true }).catch((e) => console.error("Failed to mark notification read:", e));
-    }
-  }
-
   useEffect(() => {
-    setDismissedIds(loadDismissed());
     try {
       setBlockedUsers(JSON.parse(localStorage.getItem("blockedUsers") || "[]"));
     } catch {}
@@ -194,30 +151,6 @@ export default function Navbar() {
   useEffect(() => {
     if (!user?.email) return;
 
-    const msgItems: NotificationItem[] = [];
-    const purchaseItems: NotificationItem[] = [];
-
-    function merge() {
-      const dismissed = loadDismissed();
-      const combined = [...msgItems, ...purchaseItems];
-      const seen = new Set<string>();
-      const deduped = combined.filter((n) => {
-        const key = `${n.listingId}|${n.senderEmail}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-      const filtered = deduped.filter((n) => !dismissed.has(n.id));
-      filtered.sort((a, b) => {
-        const ta = a.time === "Now" ? Date.now() : new Date(a.time).getTime();
-        const tb = b.time === "Now" ? Date.now() : new Date(b.time).getTime();
-        return tb - ta;
-      });
-      const merged = filtered.slice(0, 10);
-      setNotifications(merged);
-      setNotificationCount(merged.filter((n) => n.unread).length);
-    }
-
     const dismissed = loadDismissed();
     const msgQ = query(
       collection(db, "messages"),
@@ -226,39 +159,10 @@ export default function Navbar() {
       limit(100)
     );
     const unsub1 = onSnapshot(msgQ, (snap) => {
-      msgItems.length = 0;
       const allMsgs = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Array<
         Record<string, unknown> & { id: string }
       >;
-      const unreadCount = countInboxUnreadMessages(allMsgs, user.email!, blockedUsers, dismissed);
-      setInboxUnreadCount(unreadCount);
-      const items = allMsgs.filter((msg) => {
-        return (
-          messageInInboxList(msg as Parameters<typeof messageInInboxList>[0], user.email!, blockedUsers) &&
-          isUnreadMessageForUser(msg as Parameters<typeof isUnreadMessageForUser>[0], user.email) &&
-          !dismissed.has(msg.id)
-        );
-      });
-      for (const msg of items.slice(0, 5)) {
-        const sender = msg.sender as string | undefined;
-        const listingId = msg.listingId as string | undefined;
-        const offer = msg.offer as boolean | undefined;
-        const offerStatus = msg.offerStatus as string | undefined;
-        const createdAt = msg.createdAt as { toDate?: () => Date } | undefined;
-
-        msgItems.push({
-          id: msg.id as string,
-          sender: sender || "",
-          senderEmail: sender || "",
-          listingTitle: (msg.listingTitle as string) || "",
-          listingId: listingId || "",
-          type: offer ? (offerStatus === "accepted" ? "sold" : "offer") : "message",
-          time: createdAt?.toDate ? createdAt.toDate().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Now",
-          href: `/messages?user=${encodeURIComponent(sender || "")}&listing=${encodeURIComponent(listingId || "")}`,
-          unread: !(msg.read as boolean),
-        });
-      }
-      merge();
+      setInboxUnreadCount(countInboxUnreadMessages(allMsgs, user.email!, blockedUsers, dismissed));
     }, (err) => {
       const code = firestoreErrorCode(err);
       if (code === "failed-precondition") {
@@ -267,8 +171,6 @@ export default function Navbar() {
         console.error("Msg notification error:", err);
       }
       setInboxUnreadCount(0);
-      msgItems.length = 0;
-      merge();
     });
 
     const purchaseQ = query(
@@ -278,42 +180,15 @@ export default function Navbar() {
       limit(50)
     );
     const unsub2 = onSnapshot(purchaseQ, (snap) => {
-      purchaseItems.length = 0;
       let unreadActivity = 0;
-      const items = snap.docs
-        .filter((d) => d.data().read === false)
-        .map((d) => ({ id: d.id, ...d.data() }) as Record<string, unknown>);
-      for (const n of items) {
-        const nType = (n.type as string) || "purchase";
-        // Chat duplicates live in messages collection — inbox badge/list use that source of truth.
+      for (const d of snap.docs) {
+        const data = d.data();
+        if (data.read !== false) continue;
+        const nType = (data.type as string) || "purchase";
         if (nType === "message" || nType === "offer") continue;
-
         unreadActivity += 1;
-
-        if (purchaseItems.length >= 5) continue;
-        const fromName = n.fromName as string | undefined;
-        const fromEmail = n.fromEmail as string | undefined;
-        const listingId = n.listingId as string | undefined;
-        const createdAt = n.createdAt as { toDate?: () => Date } | undefined;
-
-        const title = (n.title as string) || "Purchase update";
-        const href = (nType === "price_drop" || nType === "saved_search_match")
-          ? `/post/listing/${encodeURIComponent(listingId || "")}`
-          : `/messages?user=${encodeURIComponent(fromEmail || "")}&listing=${encodeURIComponent(listingId || "")}`;
-        purchaseItems.push({
-          id: n.id as string,
-          sender: title,
-          senderEmail: fromEmail || "",
-          listingTitle: (n.listingTitle as string) || "",
-          listingId: listingId || "",
-          type: nType,
-          time: createdAt?.toDate ? createdAt.toDate().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "Now",
-          href,
-          unread: true,
-        });
       }
       setActivityUnreadCount(unreadActivity);
-      merge();
     }, (err) => {
       const code = firestoreErrorCode(err);
       if (code === "failed-precondition") {
@@ -322,8 +197,6 @@ export default function Navbar() {
         console.error("Purchase notification error:", err);
       }
       setActivityUnreadCount(0);
-      purchaseItems.length = 0;
-      merge();
     });
 
     return () => { unsub1(); unsub2(); };
@@ -498,6 +371,20 @@ export default function Navbar() {
                     <Link href="/messages" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/messages") ? "text-sky-300 bg-sky-500/10 light:text-sky-600 light:bg-sky-500/10" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>
                       <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm light:bg-sky-500/10">💬</span>
                       Messages
+                      {msgCount > 0 && (
+                        <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-sky-500 px-1.5 text-[10px] font-bold text-white">
+                          {msgCount > 9 ? "9+" : msgCount}
+                        </span>
+                      )}
+                    </Link>
+                    <Link href="/notifications" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/notifications") ? "text-sky-300 bg-sky-500/10 light:text-sky-600 light:bg-sky-500/10" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm light:bg-sky-500/10">🔔</span>
+                      Notifications
+                      {activityCount > 0 && (
+                        <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+                          {activityCount > 9 ? "9+" : activityCount}
+                        </span>
+                      )}
                     </Link>
                     <Link href="/profile" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/profile") ? "text-sky-300 bg-sky-500/10 light:text-sky-600 light:bg-sky-500/10" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>
                       <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm light:bg-sky-500/10">👤</span>
@@ -559,27 +446,13 @@ export default function Navbar() {
             </button>
 
             {user && (
-              <div className="relative">
-                <div
-                  onClick={() => setShowNotifications(!showNotifications)}
-                  className={`cursor-pointer transition-all duration-200 hover:scale-105 rounded-xl p-1.5 ${showNotifications ? "bg-white/[0.08] text-[var(--nav-ice)]" : "text-[var(--nav-ice-muted)] hover:text-[var(--nav-ice)]"}`}
-                >
-                  <NotificationBell count={activityCount} />
-                </div>
-
-                {showNotifications && (
-                  <NotificationDropdown
-                    notifications={notifications}
-                    onClose={() => setShowNotifications(false)}
-                    onMarkSeen={markSeen}
-                    onClearAll={() => {
-                      notifications.forEach((n) => markSeen(n.id, n.type));
-                      setNotifications([]);
-                      setNotificationCount(0);
-                    }}
-                  />
-                )}
-              </div>
+              <Link
+                href="/notifications"
+                aria-label="Notifications"
+                className={`relative h-9 w-9 items-center justify-center rounded-xl transition-all duration-200 flex group ${isActive("/notifications") ? "bg-white/[0.08] text-[var(--nav-ice)]" : "hover:bg-white/[0.06] text-[var(--nav-ice-muted)] hover:text-[var(--nav-ice)]"}`}
+              >
+                <NotificationBell count={activityCount} className="h-full w-full bg-transparent hover:bg-transparent" />
+              </Link>
             )}
           </div>
 
@@ -603,6 +476,15 @@ export default function Navbar() {
                   <Link href="/profile" className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition-colors ${isActive("/profile") ? "text-sky-300 bg-sky-500/10" : "text-gray-200 hover:text-white hover:bg-white/[0.06]"}`}>
                     <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm">👤</span>
                     Profile
+                  </Link>
+                  <Link href="/notifications" className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition-colors ${isActive("/notifications") ? "text-sky-300 bg-sky-500/10" : "text-gray-200 hover:text-white hover:bg-white/[0.06]"}`}>
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm">🔔</span>
+                    Notifications
+                    {activityCount > 0 && (
+                      <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+                        {activityCount > 9 ? "9+" : activityCount}
+                      </span>
+                    )}
                   </Link>
                   {isAdmin && (
                     <Link href="/manage" className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition-colors ${isActive("/manage") ? "text-red-400 bg-red-500/10" : "text-red-400/60 hover:text-red-400 hover:bg-red-500/10"}`}>

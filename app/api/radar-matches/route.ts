@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { getAdminApp } from "../../lib/firebase-admin";
+import { isSameMarketplaceUser } from "../../lib/sky-ai-matchmaking";
 
 export async function GET(req: NextRequest) {
   try {
@@ -88,7 +89,14 @@ export async function GET(req: NextRequest) {
       const listingId = doc.id;
 
       // Skip user's own listings and already viewed/watched
-      if (data.sellerEmail === userEmail) continue;
+      if (
+        isSameMarketplaceUser(
+          { email: data.sellerEmail, sellerId: data.sellerId },
+          { email: userEmail, sellerId: decoded.uid },
+        )
+      ) {
+        continue;
+      }
       if (watchlist.includes(listingId)) continue;
       if (viewedListings.some((v: any) => v.id === listingId)) continue;
       if (seen.has(listingId)) continue;

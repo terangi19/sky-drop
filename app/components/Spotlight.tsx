@@ -11,6 +11,7 @@ const STATIC_PAGES = [
   { label: "My Listings", path: "/list-list", icon: "📋" },
   { label: "Dashboard", path: "/dashboard", icon: "📈" },
   { label: "Messages", path: "/messages", icon: "💬" },
+  { label: "Notifications", path: "/notifications", icon: "🔔" },
   { label: "Profile", path: "/profile", icon: "👤" },
   { label: "Purchases", path: "/purchases", icon: "🛒" },
   { label: "Sales", path: "/sales", icon: "💰" },

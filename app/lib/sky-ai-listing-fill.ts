@@ -418,9 +418,7 @@ function normalizeRentalPetsPolicy(raw: string): string {
 }
 
 export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | null {
-  console.log('[Awhina normalizeSkyAiListingFill] Input:', input);
   if (!input || typeof input !== "object") {
-    console.error('[Awhina normalizeSkyAiListingFill] Input is not an object:', input);
     return null;
   }
   const o = input as Record<string, unknown>;
@@ -491,9 +489,7 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
     !!raw.vehicleColour ||
     !!raw.vehicleOdometer;
   const hasExtras = !!(raw.extras && raw.extras.length > 0);
-  console.log('[Awhina normalizeSkyAiListingFill] Validation check:', { title: raw.title, description: raw.description, hasPrice, hasVehicle, hasExtras });
   if (!raw.title && !raw.description && !hasPrice && !hasVehicle && !hasExtras) {
-    console.error('[Awhina normalizeSkyAiListingFill] Validation failed - no data');
     return null;
   }
 

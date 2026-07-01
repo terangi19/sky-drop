@@ -328,11 +328,8 @@ export default function AIPostPage() {
   ]);
 
   const applyFill = useCallback((fill: SkyAiListingFill) => {
-    console.log('[Awhina Form] applyFill called with fill:', fill);
     const prior = readListingDraftFromSkyAi();
-    console.log('[Awhina Form] prior draft:', prior);
     const merged = mergeListingFillWithDraft(prior, fill);
-    console.log('[Awhina Form] merged fill:', merged);
     const isUpdate = hasActiveListingDraft(prior);
 
     const beforeSnapshot = { title, description, category, condition, price, listingType, location };
@@ -386,7 +383,6 @@ export default function AIPostPage() {
       setStockQuantity,
       setServiceDuration,
     });
-    console.log('[Awhina Form] applySkyAiListingFill returned:', ok, 'fieldsChanged:', fieldsChanged);
     if (ok && fieldsChanged > 0) {
       const msg =
         fill.listingType === "digital"
@@ -422,8 +418,7 @@ export default function AIPostPage() {
         }, 1000);
       }
     } else if (!ok) {
-      console.error('[Awhina Form] applySkyAiListingFill returned false - form not updated');
-      showToast("Āwhina couldn't fill your form - please check the console for details", "error");
+      showToast("Āwhina couldn't fill your form — try describing the item again", "error");
     }
   }, [imagePreviews.length, title, description, category, condition, price, listingType, location, autoPublish]);
 
