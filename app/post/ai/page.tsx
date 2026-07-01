@@ -142,7 +142,7 @@ export default function AIPostPage() {
   const [skyAutoQuery, setSkyAutoQuery] = useState<string | undefined>();
   const [draftExtras, setDraftExtras] = useState<string[]>([]);
   const [formStep, setFormStep] = useState(1);
-  const [showAdvancedOptions, setShowAdvancedOptions] = useState(true);
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [showEventDetails, setShowEventDetails] = useState(false);
   const [showJobDetails, setShowJobDetails] = useState(false);
   const [showAcceptOffers, setShowAcceptOffers] = useState(false);
@@ -195,7 +195,7 @@ export default function AIPostPage() {
   };
 
   const validateDescription = (value: string) => {
-    if (!value.trim()) return "Description is required";
+    if (!value.trim()) return "Description is required - helps buyers understand your item";
     if (value.trim().length < 10) return "Description must be at least 10 characters";
     return "";
   };
