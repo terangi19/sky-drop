@@ -655,6 +655,21 @@ export function useAwhinaVoice() {
         local?.type === "page" ||
         (local?.type === "listing" && local.path === "/post/ai");
 
+      // Direct route to Awhina: when voice mode is on and the user is describing
+      // a listing, jump straight to the Sell chat with the transcript so they
+      // don't have to click the mic inside Awhina's chat.
+      if (voiceModeRef.current && (local?.type === "listing" || isListingSpeech(trimmed))) {
+        markBusy();
+        setHeardText(trimmed);
+        setActionText("Opening Awhina…");
+        showToast("Opening Awhina to create your listing…", "info");
+        dispatchSkyAiOpen(trimmed);
+        navigatedByVoiceRef.current = true;
+        router.push("/post/ai");
+        afterCommandCycle();
+        return;
+      }
+
       markBusy();
 
       if (!isInstant && local?.confidence === "high") {
