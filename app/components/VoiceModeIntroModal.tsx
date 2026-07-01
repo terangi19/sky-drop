@@ -8,6 +8,13 @@ type Props = {
   onDismiss: (neverAgain: boolean) => void;
 };
 
+const VOICE_EXAMPLES = [
+  { phrase: "My listings", hint: "Open your seller hub" },
+  { phrase: "Find a Toyota Hilux", hint: "Search the marketplace" },
+  { phrase: "Take me to messages", hint: "Check your inbox" },
+  { phrase: "Watchlist", hint: "View saved items" },
+] as const;
+
 export default function VoiceModeIntroModal({ open, onGetStarted, onDismiss }: Props) {
   const [neverAgain, setNeverAgain] = useState(false);
   const [visible, setVisible] = useState(false);
@@ -44,7 +51,7 @@ export default function VoiceModeIntroModal({ open, onGetStarted, onDismiss }: P
       onClick={() => onDismiss(neverAgain)}
     >
       <div
-        className={`relative w-full max-w-md overflow-hidden rounded-3xl border border-white/[0.08] bg-[#0a0c12]/95 shadow-[0_24px_80px_rgba(0,0,0,0.55),0_0_60px_rgba(139,92,246,0.12)] transition-all duration-500 ease-out ${
+        className={`relative w-full max-w-md max-h-[min(90vh,640px)] overflow-y-auto overflow-x-hidden rounded-3xl border border-white/[0.08] bg-[#0a0c12]/95 shadow-[0_24px_80px_rgba(0,0,0,0.55),0_0_60px_rgba(139,92,246,0.12)] transition-all duration-500 ease-out ${
           visible ? "translate-y-0 scale-100 opacity-100" : "translate-y-4 scale-[0.97] opacity-0"
         }`}
         onClick={(e) => e.stopPropagation()}
@@ -68,7 +75,26 @@ export default function VoiceModeIntroModal({ open, onGetStarted, onDismiss }: P
             </p>
           </div>
 
-          <div className="mt-10 space-y-3">
+          <div className="mt-8 text-left">
+            <p className="mb-3 text-center text-[11px] font-bold uppercase tracking-widest text-zinc-500">
+              Try saying
+            </p>
+            <ul className="space-y-2">
+              {VOICE_EXAMPLES.map((ex) => (
+                <li
+                  key={ex.phrase}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3"
+                >
+                  <span className="text-sm font-semibold text-white">
+                    &ldquo;{ex.phrase}&rdquo;
+                  </span>
+                  <span className="shrink-0 text-[10px] text-zinc-500">{ex.hint}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="mt-8 space-y-3">
             <button
               type="button"
               onClick={() => onGetStarted(neverAgain)}
