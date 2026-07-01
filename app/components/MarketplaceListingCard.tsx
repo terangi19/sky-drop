@@ -526,11 +526,6 @@ export default memo(function MarketplaceListingCard({
                           ✓ Verified
                         </span>
                       )}
-                      {!isVerified && (
-                        <span className="lc-chip-neutral rounded px-1.5 py-0.5 text-[9px] font-medium">
-                          ✓ Email verified
-                        </span>
-                      )}
                       {sellerBadges[email || ""] === "legendary" && (
                         <span className="lc-chip rounded border px-1.5 py-0.5 text-[9px] font-bold animate-pulse">
                           👑 The Five
@@ -544,8 +539,17 @@ export default memo(function MarketplaceListingCard({
                     </div>
                     <div className="lc-seller-meta flex items-center gap-2 text-[11px] mt-0.5">
                       {formatDate(joinedDate) && <span>Joined {formatDate(joinedDate)}</span>}
-                      {listingCount > 0 && <span>• {listingCount} {listingCount === 1 ? 'listing' : 'listings'}</span>}
+                      {listingCount > 0 && (
+                        <Link
+                          href={`/seller/${username}?listings`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="hover:underline hover:text-[var(--lc-accent)] transition-colors"
+                        >
+                          • {listingCount} {listingCount === 1 ? 'listing' : 'listings'}
+                        </Link>
+                      )}
                       {reviewCount > 0 && <span>• {avgRating.toFixed(1)}★ ({reviewCount})</span>}
+                      {reviewCount === 0 && <span>• New to Sky Drop</span>}
                     </div>
                   </div>
                   <div className="shrink-0 text-right">
