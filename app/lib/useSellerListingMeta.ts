@@ -85,7 +85,16 @@ export function useSellerListingMeta(
           if (data.profileBadge) badges[email] = data.profileBadge as string;
           if (data.username) handles[email] = data.username as string;
           if (isFullyVerifiedSeller(data)) verifiedMap[email] = true;
-          if (data.createdAt) joinedDates[email] = data.createdAt as string;
+          if (data.createdAt) {
+            const val = data.createdAt as any;
+            if (typeof val?.toDate === "function") {
+              joinedDates[email] = val.toDate().toISOString();
+            } else if (typeof val === "string") {
+              joinedDates[email] = val;
+            } else if (val?.seconds != null) {
+              joinedDates[email] = new Date(val.seconds * 1000).toISOString();
+            }
+          }
         });
       } catch {
         /* badges are optional — skip on permission/offline errors */

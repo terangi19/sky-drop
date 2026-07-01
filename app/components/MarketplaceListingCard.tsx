@@ -496,15 +496,23 @@ export default memo(function MarketplaceListingCard({
             const avgRating = stats ? stats.avg : 0;
             const reviewCount = stats ? stats.count : 0;
             const joinedDate = sellerJoinedDate[email || ""] || "";
-            const listingCount = sellerListingCount[email || ""] || 0;
+            const listingCount = Math.max(0, sellerListingCount[email || ""] || 0);
             const isVerified = sellerFullyVerified?.[email || ""];
             
-            // Format joined date to "Jan 2024" format
-            const formatDate = (dateStr: string) => {
-              if (!dateStr) return "";
+            const formatDate = (dateVal: unknown) => {
+              if (!dateVal) return "";
               try {
-                const date = new Date(dateStr);
-                return date.toLocaleDateString('en-NZ', { month: 'short', year: 'numeric' });
+                if (typeof dateVal === "object" && dateVal !== null) {
+                  if (typeof (dateVal as any).toDate === "function") {
+                    return (dateVal as any).toDate().toLocaleDateString("en-NZ", { month: "short", year: "numeric" });
+                  }
+                  if ((dateVal as any).seconds != null) {
+                    return new Date((dateVal as any).seconds * 1000).toLocaleDateString("en-NZ", { month: "short", year: "numeric" });
+                  }
+                }
+                const date = new Date(dateVal as any);
+                if (isNaN(date.getTime())) return "";
+                return date.toLocaleDateString("en-NZ", { month: "short", year: "numeric" });
               } catch {
                 return "";
               }
@@ -537,19 +545,19 @@ export default memo(function MarketplaceListingCard({
                         </span>
                       )}
                     </div>
-                    <div className="lc-seller-meta flex items-center gap-2 text-[11px] mt-0.5">
-                      {formatDate(joinedDate) && <span>Joined {formatDate(joinedDate)}</span>}
+                    <div className="lc-seller-meta flex items-center gap-x-2.5 gap-y-0.5 text-[11px] mt-0.5 flex-wrap">
+                      {formatDate(joinedDate) && <span className="whitespace-nowrap">Joined {formatDate(joinedDate)}</span>}
                       {listingCount > 0 && (
                         <Link
                           href={`/seller/${username}?listings`}
                           onClick={(e) => e.stopPropagation()}
-                          className="hover:underline hover:text-[var(--lc-accent)] transition-colors"
+                          className="whitespace-nowrap hover:underline hover:text-[var(--lc-accent)] transition-colors"
                         >
                           • {listingCount} {listingCount === 1 ? 'listing' : 'listings'}
                         </Link>
                       )}
-                      {reviewCount > 0 && <span>• {avgRating.toFixed(1)}★ ({reviewCount})</span>}
-                      {reviewCount === 0 && <span>• New to Sky Drop</span>}
+                      {reviewCount > 0 && <span className="whitespace-nowrap">• {avgRating.toFixed(1)}★ ({reviewCount})</span>}
+                      {reviewCount === 0 && <span className="whitespace-nowrap">• New to Sky Drop</span>}
                     </div>
                   </div>
                   <div className="shrink-0 text-right">
