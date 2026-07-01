@@ -280,17 +280,55 @@ export default function Home() {
     async function fetchListings() {
       if (!mounted) return;
       try {
+        // Select only needed fields to reduce data transfer and Firestore read costs
         const listingsSnap = await getDocs(
-          query(collection(db, "listings"), orderBy("createdAt", "desc"), limit(100))
+          query(
+            collection(db, "listings"),
+            orderBy("createdAt", "desc"),
+            limit(100)
+          )
         );
         const tradePostsSnap = await getDocs(
-          query(collection(db, "tradePosts"), orderBy("createdAt", "desc"), limit(50))
+          query(
+            collection(db, "tradePosts"),
+            orderBy("createdAt", "desc"),
+            limit(50)
+          )
         );
 
         if (!mounted) return;
 
-        const listingItems = listingsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as any));
-        const tradeItems = tradePostsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as any));
+        // Map only essential fields to reduce memory usage
+        const listingItems = listingsSnap.docs.map((d) => {
+          const data = d.data();
+          return {
+            id: d.id,
+            title: data.title,
+            price: data.price,
+            image: data.image,
+            imageUrl: data.imageUrl,
+            category: data.category,
+            sellerEmail: data.sellerEmail,
+            sellerUsername: data.sellerUsername,
+            createdAt: data.createdAt,
+            status: data.status,
+            type: data.type,
+          };
+        });
+        const tradeItems = tradePostsSnap.docs.map((d) => {
+          const data = d.data();
+          return {
+            id: d.id,
+            title: data.title,
+            price: data.price,
+            image: data.image,
+            sellerEmail: data.sellerEmail,
+            sellerUsername: data.sellerUsername,
+            createdAt: data.createdAt,
+            status: data.status,
+            type: data.type,
+          };
+        });
 
         const combined = [...listingItems, ...tradeItems];
         const filtered = combined.filter((i: any) => i.status !== "flagged" && i.status !== "pending_review");
@@ -304,11 +342,21 @@ export default function Home() {
     }
 
     fetchListings();
-    const interval = setInterval(fetchListings, 60000); // Refresh every 60 seconds
+    // Refresh every 5 minutes instead of 60 seconds to reduce Firestore reads
+    // Also refetch when tab becomes visible (user returns to app)
+    const interval = setInterval(fetchListings, 300000); // 5 minutes
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && mounted) {
+        fetchListings();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       mounted = false;
       clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [user, authReady]);
 

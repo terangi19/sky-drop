@@ -409,6 +409,17 @@ export async function checkSpendingLimits(
   return { allowed: true };
 }
 
+// Batch spending updates to reduce Firestore writes
+let spendingBatch: {
+  uid: string | null;
+  ip: string;
+  inputTokens: number;
+  outputTokens: number;
+  model: string;
+}[] = [];
+
+let batchTimeout: NodeJS.Timeout | null = null;
+
 export async function recordSpending(
   uid: string | null,
   ip: string,
@@ -416,11 +427,63 @@ export async function recordSpending(
   outputTokens: number,
   model: string
 ): Promise<void> {
-  await updateSpendingRecord(inputTokens, outputTokens, model);
-  if (uid) {
-    await updateUserSpending(uid, inputTokens, outputTokens);
+  // Add to batch
+  spendingBatch.push({ uid, ip, inputTokens, outputTokens, model });
+
+  // Flush batch after 5 seconds or when it reaches 10 items
+  if (spendingBatch.length >= 10) {
+    await flushSpendingBatch();
+  } else if (!batchTimeout) {
+    batchTimeout = setTimeout(flushSpendingBatch, 5000);
   }
-  await updateIPSpending(ip);
+}
+
+async function flushSpendingBatch(): Promise<void> {
+  if (spendingBatch.length === 0) return;
+
+  if (batchTimeout) {
+    clearTimeout(batchTimeout);
+    batchTimeout = null;
+  }
+
+  const batch = spendingBatch;
+  spendingBatch = [];
+
+  // Aggregate totals
+  const totalInput = batch.reduce((sum, item) => sum + item.inputTokens, 0);
+  const totalOutput = batch.reduce((sum, item) => sum + item.outputTokens, 0);
+  const model = batch[0]?.model || "gpt-4o-mini";
+
+  // Write aggregated totals once instead of per-request
+  await updateSpendingRecord(totalInput, totalOutput, model);
+
+  // Update user spending (aggregate per user)
+  const userBatches = new Map<string, { inputTokens: number; outputTokens: number }>();
+  for (const item of batch) {
+    if (item.uid) {
+      const existing = userBatches.get(item.uid) || { inputTokens: 0, outputTokens: 0 };
+      userBatches.set(item.uid, {
+        inputTokens: existing.inputTokens + item.inputTokens,
+        outputTokens: existing.outputTokens + item.outputTokens,
+      });
+    }
+  }
+
+  for (const [uid, totals] of userBatches.entries()) {
+    await updateUserSpending(uid, totals.inputTokens, totals.outputTokens);
+  }
+
+  // Update IP spending (count requests)
+  const ipBatches = new Map<string, number>();
+  for (const item of batch) {
+    ipBatches.set(item.ip, (ipBatches.get(item.ip) || 0) + 1);
+  }
+
+  for (const [ip, count] of ipBatches.entries()) {
+    for (let i = 0; i < count; i++) {
+      await updateIPSpending(ip);
+    }
+  }
 }
 
 export async function checkAndSendAlerts(): Promise<SpendingAlertResult> {
