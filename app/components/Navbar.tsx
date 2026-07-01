@@ -250,7 +250,7 @@ export default function Navbar() {
         <SkyDropLogo size="md" href="/" />
 
         {/* RIGHT SIDE */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
 
           {/* NAV */}
           <nav className="hidden lg:flex items-center gap-1 text-sm font-medium">
@@ -413,7 +413,7 @@ export default function Navbar() {
             </div>
 
           {/* RIGHT ICONS */}
-          <div className="flex items-center gap-1">
+          <div className="hidden md:flex items-center gap-1">
             {user && (
               <Link
                 href="/messages"
