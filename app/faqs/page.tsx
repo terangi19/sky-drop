@@ -5,14 +5,7 @@ import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import ThemeToggle from "../components/ThemeToggle";
-import { Metadata } from "next";
 import { useEffect } from "react";
-
-export const metadata: Metadata = {
-  title: "FAQs — Sky Drop NZ",
-  description: "Frequently asked questions about Sky Drop, New Zealand's community marketplace. Learn about buying, selling, payments, buyer protection, and how to use the platform.",
-  keywords: "Sky Drop FAQs, NZ marketplace questions, how to sell on Sky Drop, how to buy on Sky Drop, Stripe payments, Arrange Purchase, buyer protection NZ",
-};
 
 const faqs = [
   {

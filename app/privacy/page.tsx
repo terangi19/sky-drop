@@ -4,13 +4,6 @@ import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import ThemeToggle from "../components/ThemeToggle";
-import { Metadata } from "next";
-
-export const metadata: Metadata = {
-  title: "Privacy Policy — Sky Drop NZ",
-  description: "Sky Drop privacy policy. Learn how we collect, use, and protect your data on New Zealand's community marketplace. Your privacy is important to us.",
-  keywords: "Sky Drop privacy, privacy policy, data protection, NZ marketplace privacy, how Sky Drop uses data",
-};
 
 const sections = [
   {
