@@ -950,8 +950,8 @@ export default function Home() {
                   />
                   <div className="mr-2 flex items-center gap-2">
                     {search && (
-                      <button onClick={() => setSearch("")} className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--muted)] transition-all duration-200 hover:bg-[var(--card-hover)] hover:text-[var(--foreground)] hover:scale-110 active:scale-95" aria-label="Clear search">
-                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                      <button onClick={() => setSearch("")} className="flex h-11 w-11 items-center justify-center rounded-lg text-[var(--muted)] transition-all duration-200 hover:bg-[var(--card-hover)] hover:text-[var(--foreground)] hover:scale-110 active:scale-95" aria-label="Clear search">
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                       </button>
                     )}
                     <button
@@ -961,17 +961,17 @@ export default function Home() {
                         }
                       }}
                       disabled={!search.trim()}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-sky-400 transition-all duration-200 hover:bg-sky-500/20 hover:text-sky-300 hover:scale-110 active:scale-95 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-sky-400 disabled:hover:scale-100"
+                      className="flex h-11 w-11 items-center justify-center rounded-lg text-sky-400 transition-all duration-200 hover:bg-sky-500/20 hover:text-sky-300 hover:scale-110 active:scale-95 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-sky-400 disabled:hover:scale-100"
                       title="Search"
                       aria-label="Search"
                     >
-                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                       </svg>
                     </button>
                     {(search || selectedCategory !== "All") && (
-                      <button onClick={saveSearch} className="flex h-8 w-8 items-center justify-center rounded-lg text-sky-400 transition-all duration-200 hover:bg-sky-500/20 hover:text-sky-300 hover:scale-110 active:scale-95" title="Save search" aria-label="Save search">
-                        <svg className="h-3.5 w-3.5 transition-transform duration-200 group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <button onClick={saveSearch} className="flex h-11 w-11 items-center justify-center rounded-lg text-sky-400 transition-all duration-200 hover:bg-sky-500/20 hover:text-sky-300 hover:scale-110 active:scale-95" title="Save search" aria-label="Save search">
+                        <svg className="h-4 w-4 transition-transform duration-200 group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                         </svg>
                       </button>
@@ -986,7 +986,7 @@ export default function Home() {
               <div className="flex max-w-full gap-2 overflow-x-auto px-1 pb-0.5 scrollbar-none">
                 <button
                   onClick={() => setSelectedCategory("All")}
-                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-medium transition-all duration-200 active:scale-95 ${
+                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-2.5 text-xs font-medium transition-all duration-200 active:scale-95 ${
                     selectedCategory === "All"
                       ? "border-sky-400/30 bg-sky-500/10 text-white shadow-[0_0_24px_rgba(14,165,233,0.1)] hover:shadow-[0_0_32px_rgba(14,165,233,0.15)]"
                       : "bg-[var(--card)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-hover)]"
@@ -999,7 +999,7 @@ export default function Home() {
                   <button
                     key={cat.name}
                     onClick={() => setSelectedCategory(cat.name)}
-                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-medium transition-all duration-200 active:scale-95 ${
+                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-2.5 text-xs font-medium transition-all duration-200 active:scale-95 ${
                       selectedCategory === cat.name
                         ? "border-sky-400/30 bg-sky-500/10 text-white shadow-[0_0_24px_rgba(14,165,233,0.1)] hover:shadow-[0_0_32px_rgba(14,165,233,0.15)]"
                         : "bg-[var(--card)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-hover)]"
@@ -1024,7 +1024,9 @@ export default function Home() {
                       <span className="font-medium">{s.label || s.query}</span>
                       {(() => { const m = savedSearchMatchCounts.find(m => m.label === s.label); if (m && m.count > 0) return <span className="ml-1 rounded-full bg-sky-500/30 px-2 py-0.5 text-[9px] font-bold text-sky-300 border border-sky-500/30">{m.count}</span>; return null; })()}
                     </button>
-                    <button onClick={() => removeSavedSearch(s.label)} className="text-sky-400/60 hover:text-red-400 ml-0.5 transition-colors" title="Remove saved search">&times;</button>
+                    <button onClick={() => removeSavedSearch(s.label)} className="flex h-5 w-5 items-center justify-center text-sky-400/60 hover:text-red-400 ml-0.5 transition-colors rounded hover:bg-sky-500/10" title="Remove saved search">
+                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
                   </div>
                 ))}
               </div>
@@ -1052,7 +1054,7 @@ export default function Home() {
                 setShowAttentionBanner(false);
                 try { localStorage.setItem("attentionBannerDismissed", "true"); } catch {}
               }}
-              className="ml-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-amber-300/70 transition hover:bg-amber-500/20 hover:text-amber-300"
+              className="ml-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-amber-300/70 transition hover:bg-amber-500/20 hover:text-amber-300"
               aria-label="Dismiss attention banner"
               title="Dismiss"
             >
@@ -1132,7 +1134,7 @@ export default function Home() {
           <div className="flex flex-wrap items-center gap-1.5">
             <div className="relative">
               <select value={selectedCondition} onChange={(e) => setSelectedCondition(e.target.value)}
-                className="appearance-none rounded-full border border-[var(--border)] bg-[var(--card)] px-3.5 py-1.5 pr-7 text-[11px] text-[var(--foreground)] outline-none transition hover:border-[var(--border-hover)] focus:border-sky-500/30 cursor-pointer">
+                className="appearance-none rounded-full border border-[var(--border)] bg-[var(--card)] px-4 py-2 pr-8 text-xs text-[var(--foreground)] outline-none transition hover:border-[var(--border-hover)] focus:border-sky-500/30 cursor-pointer">
                 <option value="All" className="bg-[var(--card)]">Condition</option>
                 {["New", "Used - Like New", "Used - Good", "Used - Fair"].map((c) => (
                   <option key={c} value={c} className="bg-[var(--card)]">{c}</option>
@@ -1142,7 +1144,7 @@ export default function Home() {
             </div>
             <div className="relative">
               <select value={selectedRegion} onChange={(e) => setSelectedRegion(e.target.value)}
-                className="appearance-none rounded-full border border-[var(--border)] bg-[var(--card)] px-3.5 py-1.5 pr-7 text-[11px] text-[var(--foreground)] outline-none transition hover:border-[var(--border-hover)] focus:border-sky-500/30 cursor-pointer">
+                className="appearance-none rounded-full border border-[var(--border)] bg-[var(--card)] px-4 py-2 pr-8 text-xs text-[var(--foreground)] outline-none transition hover:border-[var(--border-hover)] focus:border-sky-500/30 cursor-pointer">
                 <option value="All" className="bg-[var(--card)]">Region</option>
                 {["Northland","Auckland","Waikato","Bay of Plenty","Gisborne","Hawke's Bay","Taranaki","Manawatu","Wellington","Nelson","Marlborough","West Coast","Canterbury","Otago","Southland"].map((r) => (
                   <option key={r} value={r} className="bg-[var(--card)]">{r}</option>
@@ -1152,7 +1154,7 @@ export default function Home() {
             </div>
             <div className="relative">
               <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
-                className="appearance-none rounded-full border border-[var(--border)] bg-[var(--card)] px-3.5 py-1.5 pr-7 text-[11px] text-[var(--foreground)] outline-none transition hover:border-[var(--border-hover)] focus:border-sky-500/30 cursor-pointer">
+                className="appearance-none rounded-full border border-[var(--border)] bg-[var(--card)] px-4 py-2 pr-8 text-xs text-[var(--foreground)] outline-none transition hover:border-[var(--border-hover)] focus:border-sky-500/30 cursor-pointer">
                 <option value="newest" className="bg-[var(--card)]">Newest</option>
                 <option value="oldest" className="bg-[var(--card)]">Oldest</option>
                 <option value="low-high" className="bg-[var(--card)]">Price Low → High</option>
@@ -1163,7 +1165,7 @@ export default function Home() {
             </div>
             {(selectedCategory !== "All" || selectedCondition !== "All" || selectedRegion !== "All" || search) && (
               <button onClick={() => { setSelectedCategory("All"); setSelectedCondition("All"); setSelectedRegion("All"); setSearch(""); setSortBy("newest"); }}
-                className="rounded-full border border-sky-500/30 bg-sky-500/10 px-3.5 py-1.5 text-[11px] font-medium text-sky-400 transition hover:border-sky-500/40 hover:text-sky-300">
+                className="rounded-full border border-sky-500/30 bg-sky-500/10 px-4 py-2 text-xs font-medium text-sky-400 transition hover:border-sky-500/40 hover:text-sky-300">
                 Clear
               </button>
             )}

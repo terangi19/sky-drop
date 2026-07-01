@@ -1968,9 +1968,9 @@ Service Status: 🟢 Inquiry Active`;
               {user && user.email !== listing.sellerEmail && (
                 <button
                   onClick={() => setShowReportModal(true)}
-                  className="mt-1.5 flex items-center gap-1 text-[11px] text-[var(--muted)] transition hover:text-sky-400"
+                  className="mt-2 flex items-center gap-1.5 text-xs text-[var(--muted)] transition hover:text-sky-400"
                 >
-                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0l2.77-.693a9 9 0 016.208.682l.108.054a9 9 0 006.086.71l3.114-.732a48.524 48.524 0 01-.005-10.499l-3.11.732a9 9 0 01-6.085-.711l-.108-.054a9 9 0 00-6.208-.682L3 4.5M3 15V4.5" />
                   </svg>
                   Report listing
@@ -1991,9 +1991,9 @@ Service Status: 🟢 Inquiry Active`;
                     showToast("Link copied to clipboard!", "success");
                   }
                 }}
-                className="mt-1.5 flex items-center gap-1 text-[11px] text-[var(--muted)] transition hover:text-sky-400"
+                className="mt-2 flex items-center gap-1.5 text-xs text-[var(--muted)] transition hover:text-sky-400"
               >
-                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                 </svg>
                 Share listing
