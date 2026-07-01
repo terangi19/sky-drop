@@ -1,15 +1,15 @@
 "use client";
 
-import * as tf from "@tensorflow/tfjs";
-import * as nsfwjs from "nsfwjs";
+let model: any = null;
+let loading: Promise<any> | null = null;
 
-let model: nsfwjs.NSFWJS | null = null;
-let loading: Promise<nsfwjs.NSFWJS> | null = null;
-
-async function getModel(): Promise<nsfwjs.NSFWJS> {
+async function getModel() {
   if (model) return model;
   if (!loading) {
     loading = (async () => {
+      // Lazy load heavy TensorFlow libraries only when needed
+      const tf = await import("@tensorflow/tfjs");
+      const nsfwjs = await import("nsfwjs");
       await tf.ready();
       const m = await nsfwjs.load();
       model = m;
