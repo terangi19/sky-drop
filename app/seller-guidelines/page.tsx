@@ -19,7 +19,7 @@ export default function SellerGuidelinesPage() {
 
         <h1 className="text-4xl sm:text-5xl font-black tracking-tight">Seller Guidelines</h1>
         <p className="mt-4 text-lg text-[var(--muted)] leading-relaxed">
-          Start selling on Sky Drop — New Zealand's safest marketplace. Here's everything you need to know about listing items, getting paid, and providing a great experience.
+          Start selling on Sky Drop — New Zealand's community marketplace. Here's everything you need to know about listing items, getting paid, and providing a great experience.
         </p>
 
         <Section title="Getting Started" icon="🚀">

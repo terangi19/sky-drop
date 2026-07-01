@@ -167,6 +167,31 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Seller has not set up payouts" }, { status: 400 });
       }
 
+      // Destination charges already transfer funds to the seller automatically.
+      // Do not create a second transfer here or the seller gets paid twice.
+      if (purchaseData.destinationCharge) {
+        await db.collection("purchases").doc(purchaseId).update({
+          fundsReleased: true,
+          fundsReleasedAt: new Date(),
+          status: "completed",
+          disputeStatus: "resolved_seller",
+          disputeResolvedAt: new Date(),
+          disputeResolvedBy: decodedToken.email,
+        });
+
+        await writeAuditLog({
+          action: "admin_dispute_release_payment",
+          actorEmail: decodedToken.email || "",
+          purchaseId,
+          metadata: { disputeResolution: "seller_wins", destinationCharge: true },
+        });
+
+        return NextResponse.json({
+          success: true,
+          message: "Funds already transferred to seller via Stripe",
+        });
+      }
+
       const amount = sellerPayoutCents(purchaseData);
       if (amount <= 0) {
         return NextResponse.json({ error: "No funds to release" }, { status: 400 });

@@ -238,7 +238,6 @@ export async function POST(req: NextRequest) {
         transfer_data: {
           destination: sellerStripeAccountId,
         },
-        on_behalf_of: sellerStripeAccountId,
         application_fee_amount: applicationFeeAmount,
       },
       { idempotencyKey: `payment-${listingId}-${decodedToken.uid}` }

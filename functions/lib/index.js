@@ -206,8 +206,8 @@ exports.onReportCreated = (0, firestore_1.onDocumentCreated)({ document: "report
         console.error("[onReportCreated] Auto-moderation failed:", e);
     }
 });
-// Auto-release escrow 14 days after delivery if no dispute
-exports.autoReleaseEscrow = (0, scheduler_1.onSchedule)({ schedule: "every 24 hours", region: "asia-southeast1" }, async () => {
+// Auto-release funds 14 days after delivery if no dispute
+exports.autoReleaseFunds = (0, scheduler_1.onSchedule)({ schedule: "every 24 hours", region: "asia-southeast1" }, async () => {
     const cutoff = admin.firestore.Timestamp.fromMillis(Date.now() - 14 * 24 * 60 * 60 * 1000);
     try {
         const snapshot = await db
@@ -227,17 +227,11 @@ exports.autoReleaseEscrow = (0, scheduler_1.onSchedule)({ schedule: "every 24 ho
                 status: "completed",
                 autoReleased: true,
             });
-            await createNotification({
-                targetEmail: purchase.sellerEmail || "",
-                fromEmail: "system@skydrop.nz",
-                type: "system",
-                title: "Escrow funds released",
-                message: `Funds for "${purchase.listingTitle || "your sale"}" have been automatically released after the buyer did not dispute within 14 days.`,
-            });
+            console.log("[autoReleaseFunds] Released funds for purchase:", doc.id);
         }
     }
     catch (e) {
-        console.error("[autoReleaseEscrow] Failed:", e);
+        console.error("[autoReleaseFunds] Failed:", e);
     }
 });
 //# sourceMappingURL=index.js.map

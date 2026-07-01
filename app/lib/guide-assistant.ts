@@ -255,11 +255,11 @@ export const GUIDE_DESTINATIONS: GuideDestination[] = [
     blurb: "Your purchase was successful.",
   },
   {
-    id: "escrow",
-    title: "Escrow",
-    path: "/escrow",
-    keywords: ["escrow", "secure payment", "held payment"],
-    blurb: "Learn about escrow-protected payments.",
+    id: "payments",
+    title: "Payments",
+    path: "/payments",
+    keywords: ["payments", "payment methods", "how to pay", "escrow", "secure payment", "held payment"],
+    blurb: "Learn how Stripe Checkout and Arrange Purchase work.",
   },
   {
     id: "reports",

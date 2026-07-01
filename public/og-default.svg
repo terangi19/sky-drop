@@ -29,5 +29,5 @@
   
   <line x1="320" y1="380" x2="720" y2="380" stroke="#38bdf8" stroke-width="2" stroke-opacity="0.3"/>
   
-  <text x="320" y="420" font-family="system-ui, -apple-system, sans-serif" font-size="20" fill="#6b7280">Free to list · Escrow protected · Secure payments</text>
+  <text x="320" y="420" font-family="system-ui, -apple-system, sans-serif" font-size="20" fill="#6b7280">Free to list · Stripe Checkout · Secure payments</text>
 </svg>

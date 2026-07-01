@@ -350,11 +350,12 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
     phoneticAliases: ["oportunities", "oppertunities", "oportinities"],
   },
 
-  // ── Escrow ──
+  // ── Payments ──
   {
-    path: "/escrow",
-    title: "Escrow",
+    path: "/payments",
+    title: "Payments",
     aliases: [
+      "payments", "payment methods", "how to pay",
       "escrow", "secure payment", "held payment",
       "escrow service", "payment protection",
     ],
