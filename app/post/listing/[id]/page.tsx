@@ -1920,13 +1920,19 @@ Service Status: 🟢 Inquiry Active`;
                         {user?.email === listing.sellerEmail ? "You" : sellerName}
                       </span>
                       {isFullyVerified && (
-                        <span className="shrink-0 text-[10px] text-sky-400">Verified</span>
+                        <span className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-sky-500/20 px-1.5 py-0.5 text-[10px] font-bold text-sky-400 border border-sky-500/30">
+                          ✓ Verified
+                        </span>
                       )}
-                      {sellerProfile?.trustedSeller && (
-                        <span className="shrink-0 text-[10px] text-sky-400">Trusted</span>
+                      {sellerProfile?.trustedSeller && !isFullyVerified && (
+                        <span className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-sky-500/20 px-1.5 py-0.5 text-[10px] font-bold text-sky-400 border border-sky-500/30">
+                          ✓ Trusted
+                        </span>
                       )}
-                      {isNewSeller && (
-                        <span className="shrink-0 text-[10px] text-sky-400">New</span>
+                      {isNewSeller && !isFullyVerified && !sellerProfile?.trustedSeller && (
+                        <span className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-sky-500/20 px-1.5 py-0.5 text-[10px] font-bold text-sky-400 border border-sky-500/30">
+                          New Seller
+                        </span>
                       )}
                       {sellerProfile?.profileBadge === "epic" && (
                         <span className="shrink-0 text-[10px] text-sky-400 font-bold">💎 Epic</span>
@@ -1935,11 +1941,13 @@ Service Status: 🟢 Inquiry Active`;
                         <span className="shrink-0 text-[10px] text-sky-400 font-bold animate-pulse">👑 The Five</span>
                       )}
                     </div>
-                    <div className="mt-0.5 flex items-center gap-2 text-[11px]">
+                    <div className="mt-1 flex items-center gap-2 text-[11px]">
                       {sellerStatsData && sellerStatsData.count > 0 ? (
                         <>
-                          <ReviewStars rating={sellerStatsData.avg} />
-                          <span className="text-white">{sellerStatsData.avg.toFixed(1)}</span>
+                          <div className="flex items-center gap-1">
+                            <ReviewStars rating={sellerStatsData.avg} />
+                            <span className="font-semibold text-white">{sellerStatsData.avg.toFixed(1)}</span>
+                          </div>
                           <span className="text-zinc-500">{sellerStatsData.count} review{sellerStatsData.count !== 1 ? "s" : ""}</span>
                         </>
                       ) : (
