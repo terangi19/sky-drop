@@ -13,7 +13,6 @@ import { createPendingXP, trackListingCreated } from "../../lib/xpValidation";
 import { trackFunnelEvent } from "../../lib/funnel-events";
 import { checkImage } from "../../lib/nsfw";
 import { showToast } from "../../components/Toast";
-import DigitalAssetUpload from "../../components/DigitalAssetUpload";
 import { detectScam } from "../../lib/scamdetection";
 import { detectSuspiciousPrice } from "../../lib/pricedetection";
 import { getListingBlockReason } from "../../lib/seller-eligibility";
@@ -80,10 +79,7 @@ export default function AIPostPage() {
   const [auctionDuration, setAuctionDuration] = useState("3");
   const [stockQuantity, setStockQuantity] = useState("");
   const [expiresIn, setExpiresIn] = useState("14");
-  const [listingType, setListingType] = useState<"physical" | "digital" | "service" | "rental" | "event" | "vehicle" | "job" | "property" | "wanted">("physical");
-  const [digitalFileURL, setDigitalFileURL] = useState("");
-  const [digitalFileName, setDigitalFileName] = useState("");
-  const [digitalStoragePath, setDigitalStoragePath] = useState("");
+  const [listingType, setListingType] = useState<"physical" | "service" | "rental" | "event" | "vehicle" | "job" | "property" | "wanted">("physical");
   const [serviceDuration, setServiceDuration] = useState("");
   const [rentalSubType, setRentalSubType] = useState<"property" | "equipment" | "vehicle">("equipment");
   const [rentalPropertyType, setRentalPropertyType] = useState("House");
@@ -150,14 +146,11 @@ export default function AIPostPage() {
   const [showEventDetails, setShowEventDetails] = useState(false);
   const [showJobDetails, setShowJobDetails] = useState(false);
   const [showAcceptOffers, setShowAcceptOffers] = useState(false);
-  const [showDigitalPricing, setShowDigitalPricing] = useState(false);
-  const [showServiceDetails, setShowServiceDetails] = useState(false);
+    const [showServiceDetails, setShowServiceDetails] = useState(false);
   const [showRentalDetails, setShowRentalDetails] = useState(false);
   const [showStockSettings, setShowStockSettings] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [autoPublish, setAutoPublish] = useState(false);
-
-  const isDigital = listingType === "digital";
 
   // Form completion progress (honest, field-based — not a fake stepper)
   const formProgress = useMemo(() => {
@@ -177,10 +170,9 @@ export default function AIPostPage() {
     add(listingType === "physical" || listingType === "vehicle" || listingType === "property", condition);
     add(listingType !== "rental", saleType === "buy_now" ? price : startingBid);
     add(listingType === "physical" || listingType === "vehicle" || listingType === "property" || listingType === "wanted", location);
-    add(listingType === "digital" || listingType === "service", digitalFileURL);
     add(true, imageFiles.length > 0 || imagePreviews.length > 0 || existingImages.length > 0);
     return total === 0 ? 0 : Math.round((filled / total) * 100);
-  }, [title, description, category, condition, listingType, saleType, price, startingBid, location, digitalFileURL, imageFiles.length, imagePreviews.length, existingImages.length]);
+  }, [title, description, category, condition, listingType, saleType, price, startingBid, location, imageFiles.length, imagePreviews.length, existingImages.length]);
   const classifierRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -340,7 +332,7 @@ export default function AIPostPage() {
     const trackingSetCategory = (v: string) => { if (v !== beforeSnapshot.category) fieldsChanged++; setCategory(v); };
     const trackingSetCondition = (v: string) => { if (v !== beforeSnapshot.condition) fieldsChanged++; setCondition(v); };
     const trackingSetPrice = (v: string) => { if (v !== beforeSnapshot.price) fieldsChanged++; setPrice(v); };
-    const trackingSetListingType = (v: "physical" | "digital" | "service" | "rental" | "event" | "vehicle" | "job" | "property" | "wanted") => { if (v !== beforeSnapshot.listingType) fieldsChanged++; setListingType(v); };
+    const trackingSetListingType = (v: "physical" | "service" | "rental" | "event" | "vehicle" | "job" | "property" | "wanted") => { if (v !== beforeSnapshot.listingType) fieldsChanged++; setListingType(v); };
     const trackingSetLocation = (v: string) => { if (v !== beforeSnapshot.location) fieldsChanged++; setLocation(v); };
 
     if (merged.extras?.length) setDraftExtras(merged.extras);
@@ -660,9 +652,6 @@ export default function AIPostPage() {
       } else {
         setExpiresIn(data.expiresIn || "14");
       }
-      setDigitalFileURL(data.digitalFileURL || "");
-      setDigitalFileName(data.digitalFileName || "");
-      setDigitalStoragePath(data.digitalStoragePath || "");
       setServiceDuration(data.serviceDuration || "");
       setEventDate(data.eventDate || "");
       setEventTime(data.eventTime || "");
@@ -797,11 +786,9 @@ export default function AIPostPage() {
   const createListing = async () => {
     if (loading) return;
     const needsPrice =
-      listingType === "digital"
-        ? pricingType !== "quote"
-        : listingType === "service"
-          ? servicePriceRequired(servicePricingType)
-          : listingType !== "rental";
+      listingType === "service"
+        ? servicePriceRequired(servicePricingType)
+        : listingType !== "rental";
     const requiredPrice =
       (saleType === "auction" || saleType === "auction_buy_now") ? startingBid : needsPrice ? price : true;
     if (!user?.email || !title || !requiredPrice) {
@@ -840,10 +827,6 @@ export default function AIPostPage() {
     }
     if (listingType === "physical" && !pickupAvailable && !shippingAvailable) {
       showToast("Select at least one delivery method (pickup or shipping).", "error");
-      return;
-    }
-    if (listingType === "digital" && pricingType === "fixed" && !digitalFileURL && !editId) {
-      showToast("Upload the digital file you're selling.", "error");
       return;
     }
     if (listingType === "rental" && !location) {
@@ -907,7 +890,7 @@ export default function AIPostPage() {
       let thumbnails: string[] = existingImages && existingImages.length > 0 ? 
         (typeof existingImages[0] === 'object' ? existingImages.map((img: any) => img.thumbnail) : []) : [];
       
-      if (publishType !== "digital" && publishType !== "wanted" && imageFiles.length > 0) {
+      if (publishType !== "wanted" && imageFiles.length > 0) {
         images = [];
         thumbnails = [];
         
@@ -968,14 +951,7 @@ export default function AIPostPage() {
         baseData.expiresAt = new Date(Date.now() + Number(expiresIn) * 86400000);
       }
 
-      const listingData: any = publishType === "digital" ? {
-        ...baseData,
-        price: pricingType === "quote" ? "" : String(price),
-        condition: "Digital",
-        type: "digital", digitalStoragePath, digitalFileName,
-        pricingType,
-        saleType: "buy_now", ...(editId ? {} : { expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000), status: "live" }),
-      } : publishType === "service" ? {
+      const listingData: any = publishType === "service" ? {
         ...baseData,
         type: "service",
         serviceDuration,
@@ -1154,10 +1130,8 @@ export default function AIPostPage() {
           return;
         }
         newId = data.listingId;
-        if (publishType !== "digital") {
-          createPendingXP(user.uid, "listing", data.listingId, data.listingId);
-          trackListingCreated(user.uid, title);
-        }
+        createPendingXP(user.uid, "listing", data.listingId, data.listingId);
+        trackListingCreated(user.uid, title);
         trackFunnelEvent({
           event: "listing_form_completed",
           userId: user.uid,
@@ -1175,11 +1149,10 @@ export default function AIPostPage() {
       // setStockQuantity("");
       // setSaleType("buy_now"); setBuyNowPrice(""); setStartingBid(""); setReservePrice(""); setAuctionDuration("3"); setExpiresIn("14");
       // setPaymentType("contact");
-      // setListingType("physical"); setDigitalFileURL(""); setDigitalFileName(""); setDigitalStoragePath(""); setServiceDuration(""); setRentalSubType("equipment"); setRentalPriceWeekly(""); setRentalPriceMonthly(""); setRentalDeposit(""); setRentalBedrooms(""); setRentalBathrooms(""); setRentalParkingSpaces(""); setRentalFurnishedStatus("Unfurnished"); setRentalPetsPolicy("No Pets"); setRentalAvailableDate(""); setRentalMinTenancy("Flexible"); setRentalFeatures([]); setEventDate(""); setEventTime(""); setVenue(""); setTicketQuantity(""); setTicketType("General Admission"); setVehicleMake(""); setVehicleModel(""); setVehicleYear(""); setVehicleOdometer(""); setVehicleBodyType("SUV"); setVehicleFuelType("Petrol"); setVehicleTransmission("Automatic"); setVehicleColour(""); setJobCompany(""); setJobEmploymentType("Full-time"); setSalaryMin(""); setSalaryMax(""); setPropertyType("House"); setBedrooms(""); setBathrooms(""); setLandArea(""); setFloorArea(""); setParking(""); setAcceptOffers(false); setCondition("New");
+      // setListingType("physical"); setServiceDuration(""); setRentalSubType("equipment"); setRentalPriceWeekly(""); setRentalPriceMonthly(""); setRentalDeposit(""); setRentalBedrooms(""); setRentalBathrooms(""); setRentalParkingSpaces(""); setRentalFurnishedStatus("Unfurnished"); setRentalPetsPolicy("No Pets"); setRentalAvailableDate(""); setRentalMinTenancy("Flexible"); setRentalFeatures([]); setEventDate(""); setEventTime(""); setVenue(""); setTicketQuantity(""); setTicketType("General Admission"); setVehicleMake(""); setVehicleModel(""); setVehicleYear(""); setVehicleOdometer(""); setVehicleBodyType("SUV"); setVehicleFuelType("Petrol"); setVehicleTransmission("Automatic"); setVehicleColour(""); setJobCompany(""); setJobEmploymentType("Full-time"); setSalaryMin(""); setSalaryMax(""); setPropertyType("House"); setBedrooms(""); setBathrooms(""); setLandArea(""); setFloorArea(""); setParking(""); setAcceptOffers(false); setCondition("New");
       setEditId(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
       if (publishType === "service") window.location.href = "/services";
-      else if (publishType === "digital") window.location.href = "/digital";
       else if (publishType === "rental") window.location.href = `/post/listing/${newId}`;
       else if (publishType === "event") window.location.href = `/events`;
       else if (publishType === "vehicle") window.location.href = `/vehicles`;
@@ -1489,9 +1462,7 @@ export default function AIPostPage() {
             <div className="space-y-1.5">
               <label className="text-sm font-semibold text-white">Category</label>
               <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-[var(--card-hover)] focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-[var(--card-hover)] appearance-none cursor-pointer">
-                {listingType === "digital" ? (
-                  <><option className="bg-[var(--card)] text-[var(--foreground)]">Templates & Assets</option><option className="bg-[var(--card)] text-[var(--foreground)]">E-books & Guides</option><option className="bg-[var(--card)] text-[var(--foreground)]">Art & Photography</option><option className="bg-[var(--card)] text-[var(--foreground)]">Software & Audio</option><option className="bg-[var(--card)] text-[var(--foreground)]">Gaming & 3D</option><option className="bg-[var(--card)] text-[var(--foreground)]">Web & App Development</option><option className="bg-[var(--card)] text-[var(--foreground)]">Graphic Design</option><option className="bg-[var(--card)] text-[var(--foreground)]">SEO & Digital Marketing</option><option className="bg-[var(--card)] text-[var(--foreground)]">Other Digital Services</option></>
-                ) : listingType === "service" ? (
+                {listingType === "service" ? (
                   <><option className="bg-[var(--card)] text-[var(--foreground)]">Trades & Repairs</option><option className="bg-[var(--card)] text-[var(--foreground)]">Cleaning & Maintenance</option><option className="bg-[var(--card)] text-[var(--foreground)]">Tutoring & Lessons</option><option className="bg-[var(--card)] text-[var(--foreground)]">Photography</option><option className="bg-[var(--card)] text-[var(--foreground)]">Personal Training</option><option className="bg-[var(--card)] text-[var(--foreground)]">Events & Catering</option><option className="bg-[var(--card)] text-[var(--foreground)]">Other Services</option></>
                 ) : listingType === "rental" ? (
                   <><option className="bg-[var(--card)] text-[var(--foreground)]">Other</option><option className="bg-[var(--card)] text-[var(--foreground)]">Vehicles</option><option className="bg-[var(--card)] text-[var(--foreground)]">Equipment</option></>
@@ -1527,12 +1498,6 @@ export default function AIPostPage() {
               <div className="space-y-1.5">
                 <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 px-4 py-3 text-center">
                   <p className="text-xs font-medium text-sky-400">Quote Required — buyers will contact you for a quote</p>
-                </div>
-              </div>
-            ) : saleType === "buy_now" && listingType === "digital" && pricingType === "quote" ? (
-              <div className="space-y-1.5">
-                <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 px-4 py-3 text-center">
-                  <p className="text-xs font-medium text-sky-400">Quote Required — buyers will contact you for pricing</p>
                 </div>
               </div>
             ) : saleType === "buy_now" ? (
@@ -1764,7 +1729,7 @@ export default function AIPostPage() {
           )}
 
           {/* Accept Offers — physical, service only */}
-          {listingType !== "digital" && listingType !== "event" && listingType !== "job" && listingType !== "wanted" && !(listingType === "service" && offersDisabledForService(servicePricingType)) && (
+          {listingType !== "event" && listingType !== "job" && listingType !== "wanted" && !(listingType === "service" && offersDisabledForService(servicePricingType)) && (
             <div className="flex items-start gap-3">
               <div className="flex h-5 items-center pt-0.5">
                 <input id="acceptOffers" type="checkbox" checked={acceptOffers}
@@ -1775,58 +1740,6 @@ export default function AIPostPage() {
                 <label htmlFor="acceptOffers" className="text-sm font-bold text-[var(--foreground)]">Allow buyers to make offers</label>
                 <p className="text-[10px] text-[var(--muted)]">Buyers can send offers below your asking price</p>
               </div>
-            </div>
-          )}
-
-          {/* Digital Pricing Type */}
-          {listingType === "digital" && (
-            <div className="space-y-3">
-              <label className="text-sm font-bold text-[var(--foreground)]">Pricing Type</label>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPricingType("fixed")}
-                  className={`flex-1 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
-                    pricingType === "fixed"
-                      ? "border-sky-500 bg-sky-500/10 text-sky-400"
-                      : "border-[var(--border)] bg-[var(--card)] text-[var(--muted)] hover:border-[var(--border-hover)]"
-                  }`}
-                >
-                  Fixed Price
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPricingType("quote")}
-                  className={`flex-1 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
-                    pricingType === "quote"
-                      ? "border-sky-500 bg-sky-500/10 text-sky-400"
-                      : "border-[var(--border)] bg-[var(--card)] text-[var(--muted)] hover:border-[var(--border-hover)]"
-                  }`}
-                >
-                  Quote Required
-                </button>
-              </div>
-              <p className="text-[10px] text-[var(--muted)]">
-                {pricingType === "fixed"
-                  ? "Buyers see the exact price and can purchase immediately."
-                  : "Buyers contact you to request a custom quote."}
-              </p>
-            </div>
-          )}
-
-          {/* Digital File Upload */}
-          {listingType === "digital" && pricingType === "fixed" && (
-            <div className="rounded-xl bg-white/[0.03] p-4">
-              <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Digital File</label>
-              <p className="mb-3 text-[11px] font-medium tracking-wide bg-gradient-to-r from-sky-400 to-sky-400 bg-clip-text text-transparent">Upload your digital asset file</p>
-              {digitalFileURL ? (
-                <div className="flex items-center justify-between rounded-lg bg-sky-500/10 px-4 py-3">
-                  <span className="text-xs text-sky-400">✓ {digitalFileName}</span>
-                  <button onClick={() => { setDigitalFileURL(""); setDigitalFileName(""); setDigitalStoragePath(""); }} className="text-[10px] text-red-400 hover:text-red-300">Remove</button>
-                </div>
-              ) : (
-                <DigitalAssetUpload onUpload={(url, name, path) => { setDigitalFileURL(url); setDigitalFileName(name); setDigitalStoragePath(path); }} />
-              )}
             </div>
           )}
 

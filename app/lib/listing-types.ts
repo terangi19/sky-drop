@@ -11,7 +11,6 @@ export const SERVICE_LISTING_CATEGORIES = new Set([
 
 const VALID_LISTING_TYPES = new Set([
   "physical",
-  "digital",
   "service",
   "rental",
   "event",

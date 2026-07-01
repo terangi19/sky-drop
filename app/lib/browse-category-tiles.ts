@@ -8,7 +8,6 @@ export type BrowseCategoryTile = {
 
 export const BROWSE_CATEGORY_TILES: BrowseCategoryTile[] = [
   { key: "vehicles", emoji: "🚗", label: "Vehicles", href: "/vehicles" },
-  { key: "digital", emoji: "📥", label: "Digital", href: "/digital" },
   { key: "services", emoji: "🛠️", label: "Services", href: "/services" },
   { key: "rentals", emoji: "🔑", label: "Rentals", href: "/rentals" },
   { key: "tech", emoji: "💻", label: "Tech", filter: "Tech" },
