@@ -2,6 +2,13 @@ import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import Link from "next/link";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "How Payments Work — Sky Drop NZ",
+  description: "Sky Drop payment methods: Stripe Checkout and Arrange Purchase. Direct payments to sellers, no marketplace wallet. Secure, transparent, and built for New Zealand buyers and sellers.",
+  keywords: "Sky Drop payments, Stripe Checkout NZ, Arrange Purchase, marketplace payments, how to get paid, secure payments NZ",
+};
 
 export default function PaymentsPage() {
   return (

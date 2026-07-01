@@ -1,6 +1,13 @@
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import Link from "next/link";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Seller Guidelines — Sky Drop NZ",
+  description: "Learn how to sell on Sky Drop, New Zealand's community marketplace. Free to list, secure Stripe payments, AI-powered listings. Start selling cars, tech, fashion and more today.",
+  keywords: "seller guidelines, how to sell on Sky Drop, sell online NZ, free listings NZ, NZ marketplace selling, sell cars NZ, sell tech NZ",
+};
 
 export default function SellerGuidelinesPage() {
   return (

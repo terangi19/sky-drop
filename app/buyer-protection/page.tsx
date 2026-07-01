@@ -1,6 +1,13 @@
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import Link from "next/link";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Buyer Protection — Sky Drop NZ",
+  description: "Sky Drop buyer protection for secure online shopping in New Zealand. Stripe Checkout with dispute resolution, identity verification, and fraud protection. Shop safely on NZ's community marketplace.",
+  keywords: "buyer protection, safe online shopping NZ, secure payments, dispute resolution, Sky Drop protection, NZ marketplace safety",
+};
 
 export default function BuyerProtectionPage() {
   return (

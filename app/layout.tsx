@@ -65,16 +65,20 @@ export const links = () => [
 
 export const metadata: Metadata = {
   title: {
-    default: "Sky Drop — NZ Marketplace",
+    default: "Sky Drop — NZ Marketplace | Buy & Sell Cars, Tech, Fashion & More",
     template: "%s — Sky Drop",
   },
-  description: "New Zealand's community marketplace. Buy and sell cars, tech, gaming, fashion and more. Free to list, secure payments, built for Kiwis.",
+  description: "New Zealand's community marketplace. Buy and sell cars, tech, gaming, fashion, furniture and more. Free to list, secure Stripe payments, built for Kiwis. Local buying & selling made easy.",
+  keywords: "New Zealand marketplace, buy and sell NZ, NZ classifieds, online marketplace NZ, sell cars NZ, buy tech NZ, local marketplace, free listings NZ, Sky Drop",
   metadataBase: new URL(process.env.NEXT_PUBLIC_URL || "https://skydrop.co.nz"),
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
     type: "website",
     siteName: "Sky Drop",
-    title: "Sky Drop — NZ Marketplace",
-    description: "New Zealand's community marketplace. Buy and sell cars, tech, gaming, fashion and more.",
+    title: "Sky Drop — NZ Marketplace | Buy & Sell Cars, Tech, Fashion & More",
+    description: "New Zealand's community marketplace. Buy and sell cars, tech, gaming, fashion and more. Free to list, secure payments.",
     images: [{
       url: "/og-image.svg",
       width: 1200,
@@ -84,8 +88,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Sky Drop — NZ Marketplace",
-    description: "New Zealand's community marketplace.",
+    title: "Sky Drop — NZ Marketplace | Buy & Sell Cars, Tech, Fashion & More",
+    description: "New Zealand's community marketplace. Free to list, secure payments, built for Kiwis.",
     images: ["/og-image.svg"],
   },
   icons: [
@@ -120,12 +124,32 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const baseUrl = process.env.NEXT_PUBLIC_URL || "https://skydrop.co.nz";
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "Sky Drop",
+    alternateName: "Sky Drop NZ",
+    url: baseUrl,
+    description: "New Zealand's community marketplace. Buy and sell cars, tech, gaming, fashion and more.",
+    potentialAction: {
+      "@type": "SearchAction",
+      target: `${baseUrl}/browse?q={search_term_string}`,
+      "query-input": "required name=search_term_string"
+    }
+  };
   return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      </head>
       <body className="min-h-full flex flex-col bg-[var(--background)] text-[var(--foreground)]">
         <script
           dangerouslySetInnerHTML={{

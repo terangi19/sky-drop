@@ -4,6 +4,13 @@ import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import ThemeToggle from "../components/ThemeToggle";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "About Sky Drop — NZ Community Marketplace",
+  description: "Learn about Sky Drop, New Zealand's community marketplace. Built for Kiwis with AI-powered listings, secure payments, and transparent fees. Buy and sell with confidence.",
+  keywords: "about Sky Drop, NZ marketplace, Sky Drop mission, how Sky Drop works, New Zealand trading platform",
+};
 
 export default function AboutPage() {
   return (
