@@ -49,6 +49,7 @@ export const viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: "#0a0a0a",
+  colorScheme: "dark light",
 };
 
 export const links = () => [
@@ -180,6 +181,18 @@ export default function RootLayout({
       closes: "23:59"
     }
   };
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: baseUrl
+      }
+    ]
+  };
   return (
     <html
       lang="en"
@@ -198,6 +211,10 @@ export default function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }}
         />
       </head>
       <body className="min-h-full flex flex-col bg-[var(--background)] text-[var(--foreground)]">
