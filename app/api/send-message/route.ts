@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     const ip = parseIpFromRequest(req.headers);
     
     // Rate limit: 30 messages per minute per user
-    const { allowed } = await rateLimit(`send-message:${ip}`, 30, 60_000);
+    const { allowed } = await rateLimit(`send-message:${ip}`, 25, 60_000);
     if (!allowed) {
       return NextResponse.json({ error: "Too many messages. Please slow down." }, { status: 429 });
     }

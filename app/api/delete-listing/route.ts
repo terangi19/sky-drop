@@ -8,7 +8,7 @@ const ALLOWED_COLLECTIONS = new Set(["listings", "tradePosts"]);
 export async function POST(req: NextRequest) {
   try {
     const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const { allowed } = await rateLimit(`delete-listing:${ip}`, 15, 60_000);
+    const { allowed } = await rateLimit(`delete-listing:${ip}`, 10, 60_000);
     if (!allowed) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }

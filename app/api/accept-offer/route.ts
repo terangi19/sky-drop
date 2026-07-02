@@ -9,7 +9,7 @@ import { requireKycApproved } from "../../lib/require-kyc";
 export async function POST(req: NextRequest) {
   try {
     const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const { allowed } = await rateLimit(`accept-offer:${ip}`, 10, 60_000);
+    const { allowed } = await rateLimit(`accept-offer:${ip}`, 8, 60_000);
     if (!allowed) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }

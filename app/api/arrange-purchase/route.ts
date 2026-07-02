@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     requireAdminForCheckout();
 
     const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const { allowed } = await rateLimit(`arrange-purchase:${ip}`, 15, 60_000);
+    const { allowed } = await rateLimit(`arrange-purchase:${ip}`, 10, 60_000);
     if (!allowed) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }
