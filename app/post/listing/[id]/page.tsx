@@ -1923,8 +1923,8 @@ Service Status: 🟢 Inquiry Active`;
 
             {/* Unverified Seller Notice */}
             {isNotVerified && user && user.email !== listing.sellerEmail && (
-              <p className="text-[11px] text-red-400/60">
-                Trade carefully — this seller is not verified.
+              <p className="text-[11px] text-[var(--muted)]">
+                New to Sky Drop — This seller recently joined. Keep all communication and payment within Sky Drop for protection. <Link href="#" className="text-sky-400/70 underline hover:text-sky-400/100">Learn about seller verification →</Link>
               </p>
             )}
 
