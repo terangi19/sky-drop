@@ -916,7 +916,6 @@ export default function Home() {
       {/* HERO / SEARCH SECTION */}
       <section className={`${PAGE_SHELL_WIDE} pt-2 sm:pt-3`}>
         <div className="relative overflow-hidden rounded-[2rem] bg-[var(--card)]">
-          <div className="absolute inset-0 bg-gradient-to-br from-sky-500/[0.04] via-sky-500/[0.01] to-transparent opacity-30" />
           <div className="absolute inset-0 backdrop-blur-[2px]" />
           <div className="relative z-10 px-5 py-4 sm:px-6 sm:py-5">
             <div className="mx-auto max-w-2xl text-center">
@@ -1038,8 +1037,6 @@ export default function Home() {
               {/* Category pills - inside solid background for uniform contrast */}
               <div className="mt-3 flex justify-center">
                 <div className="relative flex max-w-full gap-2 overflow-x-auto px-1 pb-0.5 scrollbar-none">
-                  <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-[var(--background)] to-transparent pointer-events-none" />
-                  <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[var(--background)] to-transparent pointer-events-none" />
                   <button
                     onClick={() => setSelectedCategory("All")}
                     className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-2.5 text-xs font-medium transition-all duration-200 active:scale-95 ${
