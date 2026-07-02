@@ -38,6 +38,7 @@ import {
   blockedEmailsFromDocs,
   countInboxUnreadMessages,
 } from "../lib/messages-unread";
+import { useFeedback } from "../contexts/FeedbackContext";
 
 const MOBILE_NAV_ITEMS = [
   { href: "/", label: "Browse", icon: "🏠" },
@@ -59,6 +60,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const { username } = useProfile();
+  const { openFeedback } = useFeedback();
   const [user, setUser] =
     useState<User | null>(
       null
@@ -392,6 +394,10 @@ export default function Navbar() {
                       <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm light:bg-sky-500/10">❓</span>
                       Help
                     </Link>
+                    <button onClick={() => { openFeedback(); setMobileMenuOpen(false); }} className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] transition-colors w-full text-left light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm light:bg-sky-500/10">💬</span>
+                      Feedback
+                    </button>
                     <button onClick={() => { handleLogout(); setMobileMenuOpen(false); }} className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold text-red-400 hover:bg-red-500/10 active:bg-red-500/15 transition-colors w-full text-left light:text-red-600 light:hover:bg-red-500/10 light:active:bg-red-500/15">
                       <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10 text-sm light:bg-red-500/10">🚪</span>
                       Logout

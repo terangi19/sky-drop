@@ -16,7 +16,8 @@ export type FunnelEventName =
   | "search_used"
   | "search_abandoned"
   | "signup_started"
-  | "signup_verified";
+  | "signup_verified"
+  | "feedback_submitted";
 
 export interface FunnelEventPayload {
   event: FunnelEventName;
@@ -136,4 +137,7 @@ export const funnel = {
   
   signupVerified: (userId: string) =>
     trackFunnelEvent({ event: "signup_verified", userId }),
+
+  feedbackSubmitted: (userId: string, feedbackType?: string, page?: string) =>
+    trackFunnelEvent({ event: "feedback_submitted", userId, metadata: { feedbackType, page } }),
 };
