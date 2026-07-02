@@ -172,6 +172,9 @@ export default function Home() {
   const [search, setSearch] =
     useState("");
 
+  const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
+  const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
+
   const [visibleCount, setVisibleCount] = useState(20);
 
   const [selectedCategory, setSelectedCategory] =
@@ -222,6 +225,37 @@ export default function Home() {
   const searchRef = useRef<HTMLInputElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
+  // Debounced search suggestions
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (search.trim().length >= 2) {
+        // Generate simple suggestions from saved searches and categories
+        const suggestions: string[] = [];
+        
+        // Add matching saved searches
+        savedSearches.forEach((saved) => {
+          if (saved.query.toLowerCase().includes(search.toLowerCase()) && suggestions.length < 5) {
+            suggestions.push(saved.query);
+          }
+        });
+        
+        // Add matching categories
+        categories.forEach((cat) => {
+          if (cat.toLowerCase().includes(search.toLowerCase()) && cat !== "All" && suggestions.length < 8) {
+            suggestions.push(cat);
+          }
+        });
+        
+        setSearchSuggestions(suggestions);
+        setShowSearchSuggestions(suggestions.length > 0);
+      } else {
+        setShowSearchSuggestions(false);
+        setSearchSuggestions([]);
+      }
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timer);
+  }, [search, savedSearches]);
 
   useEffect(() => {
     setRecentlyViewed(getRecentlyViewed());
@@ -888,16 +922,12 @@ export default function Home() {
           <div className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-sky-500/[0.1] blur-3xl" />
           <div className="relative z-10 px-5 py-8 sm:px-8 sm:py-10">
             <div className="mx-auto max-w-2xl text-center">
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-sky-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white/90">
-                <span className="h-1.5 w-1.5 rounded-full bg-sky-400 animate-pulse" />
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/[0.05] px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-[var(--muted)]">
                 NZ Marketplace
               </div>
               <h1 className="text-2xl font-black tracking-tight text-white sm:text-4xl lg:text-5xl">
                 Buy & Sell in New Zealand
               </h1>
-              <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-[var(--foreground)] sm:text-base">
-                A New Zealand marketplace for everything. List items, connect with local sellers, and find great deals. Join the community today.
-              </p>
               {user ? (
                 <div className="mt-6 flex justify-center">
                   <Link
@@ -978,6 +1008,23 @@ export default function Home() {
                     )}
                   </div>
                 </div>
+                {showSearchSuggestions && (
+                  <div className="absolute top-full left-0 right-0 z-50 mt-2 overflow-hidden rounded-xl border border-white/[0.08] bg-[var(--card)] shadow-xl">
+                    {searchSuggestions.map((suggestion, index) => (
+                      <button
+                        key={index}
+                        onClick={() => {
+                          setSearch(suggestion);
+                          setShowSearchSuggestions(false);
+                          router.push(`/search?q=${encodeURIComponent(suggestion)}`);
+                        }}
+                        className="w-full px-4 py-3 text-left text-sm text-[var(--foreground)] transition-colors hover:bg-sky-500/10 hover:text-sky-300"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
