@@ -14,7 +14,7 @@ import { getTurnstileSiteKey } from "../lib/turnstile";
 import { sanitizeRedirectPath } from "../lib/safe-redirect";
 
 const INPUT =
-  "login-page-input w-full rounded-lg px-4 py-3 text-sm bg-white/[0.03] text-white placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10";
+  "w-full rounded-xl bg-white/[0.03] px-4 py-3.5 text-sm text-white placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10";
 
 function loginAuthError(error: unknown): string {
   const code =
@@ -105,18 +105,32 @@ export default function LoginPage() {
       <Background />
 
       <section className="relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] max-w-md flex-col justify-center px-6 py-12">
-        <div className="login-page-card rounded-2xl border border-white/[0.08] bg-[var(--card)] p-8 shadow-xl backdrop-blur-sm">
-          <h1 className="login-page-title text-2xl font-bold">Log in</h1>
-          <p className="login-page-body mt-1 text-sm text-[var(--muted)]">Welcome back to Sky Drop.</p>
+        <div className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-[var(--card)] p-8 shadow-2xl shadow-black/40 backdrop-blur-xl">
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
+          <div className="absolute -inset-20 -z-10 bg-gradient-to-br from-sky-500/10 via-sky-500/5 to-sky-500/10 blur-3xl opacity-50" />
+          
+          <div className="relative">
+            <h1 className="text-3xl font-black text-white tracking-tight">Log in</h1>
+            <p className="mt-2 text-sm text-[var(--muted)]">Welcome back to Sky Drop.</p>
+          </div>
 
           {user ? (
-            <p className="login-page-body mt-6 text-sm">
-              Signed in as <span className="font-semibold">{user.email}</span>
-            </p>
+            <div className="mt-6 space-y-4">
+              <p className="text-sm text-[var(--muted)]">
+                Signed in as <span className="font-medium text-white">{user.email}</span>
+              </p>
+              <button
+                type="button"
+                onClick={() => router.push(redirectTo || "/")}
+                className="w-full rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3.5 font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 active:scale-[0.99]"
+              >
+                Continue
+              </button>
+            </div>
           ) : (
             <form onSubmit={handleLogin} className="mt-6 space-y-4">
               <div>
-                <label htmlFor="login-email" className="login-page-body mb-1.5 block text-xs font-medium">
+                <label htmlFor="login-email" className="mb-1.5 block text-xs font-semibold text-[var(--muted)]">
                   Email
                 </label>
                 <input
@@ -133,7 +147,7 @@ export default function LoginPage() {
               </div>
 
               <div>
-                <label htmlFor="login-password" className="login-page-body mb-1.5 block text-xs font-medium">
+                <label htmlFor="login-password" className="mb-1.5 block text-xs font-semibold text-[var(--muted)]">
                   Password
                 </label>
                 <input
@@ -157,25 +171,25 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="login-page-btn-primary w-full rounded-lg py-3 text-sm font-bold disabled:opacity-50"
+                className="w-full rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3.5 font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? "Logging in…" : "Log in"}
               </button>
 
               <div className="flex justify-between text-xs">
-                <Link href="/forgot-password" className="login-page-link font-medium">
+                <Link href="/forgot-password" className="text-sky-400 font-medium hover:text-sky-300">
                   Forgot password?
                 </Link>
-                <Link href="/" className="login-page-link font-medium">
+                <Link href="/" className="text-[var(--muted)] font-medium hover:text-[var(--foreground)]">
                   Browse listings
                 </Link>
               </div>
             </form>
           )}
 
-          <p className="login-page-body mt-6 text-center text-sm">
+          <p className="mt-6 text-center text-sm text-[var(--muted)]">
             Not a member?{" "}
-            <Link href={signupHref} className="login-page-link font-semibold hover:underline">
+            <Link href={signupHref} className="text-sky-400 font-semibold hover:text-sky-300">
               Join free
             </Link>
           </p>
