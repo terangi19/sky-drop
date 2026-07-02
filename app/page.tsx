@@ -914,26 +914,26 @@ export default function Home() {
       )}
 
       {/* HERO / SEARCH SECTION */}
-      <section className={`${PAGE_SHELL_WIDE} pt-3 sm:pt-4`}>
+      <section className={`${PAGE_SHELL_WIDE} pt-2 sm:pt-3`}>
         <div className="relative overflow-hidden rounded-[2rem] bg-[var(--card)]">
           <div className="absolute inset-0 bg-gradient-to-br from-sky-500/[0.08] via-sky-500/[0.02] to-transparent opacity-60" />
           <div className="absolute inset-0 bg-gradient-to-t from-[var(--background)] via-transparent to-transparent" />
           <div className="absolute inset-0 backdrop-blur-[2px]" />
           <div className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-sky-500/[0.15] blur-3xl" />
           <div className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-sky-500/[0.1] blur-3xl" />
-          <div className="relative z-10 px-5 py-8 sm:px-8 sm:py-10">
+          <div className="relative z-10 px-5 py-4 sm:px-6 sm:py-5">
             <div className="mx-auto max-w-2xl text-center">
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/[0.05] px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-[var(--muted)]">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/[0.05] px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-[var(--muted)]">
                 NZ Marketplace
               </div>
-              <h1 className="text-2xl font-black tracking-tight text-white sm:text-4xl lg:text-5xl">
+              <h1 className="text-xl font-black tracking-tight text-white sm:text-3xl lg:text-4xl">
                 Buy & Sell in New Zealand
               </h1>
               {user ? (
-                <div className="mt-6 flex justify-center">
+                <div className="mt-4 flex justify-center">
                   <Link
                     href="/post/ai"
-                    className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-400 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.98]"
+                    className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.98]"
                   >
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -942,16 +942,16 @@ export default function Home() {
                   </Link>
                 </div>
               ) : (
-                <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+                <div className="mt-4 flex flex-col items-center justify-center gap-2 sm:flex-row">
                   <Link
                     href="/signup"
-                    className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-400 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.98]"
+                    className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.98]"
                   >
                     Join Free
                   </Link>
                   <Link
                     href="/#listings"
-                    className="inline-flex items-center gap-2 rounded-2xl bg-white/[0.04] px-6 py-3.5 text-sm font-bold text-white transition-all duration-300 hover:bg-white/[0.06]"
+                    className="inline-flex items-center gap-2 rounded-2xl bg-white/[0.04] px-5 py-2.5 text-sm font-bold text-white transition-all duration-300 hover:bg-white/[0.06]"
                   >
                     Browse Items
                   </Link>
@@ -960,10 +960,10 @@ export default function Home() {
             </div>
 
             {/* Search */}
-            <div className="mx-auto mt-8 max-w-xl">
+            <div className="mx-auto mt-4 max-w-2xl">
               <div className="relative">
-                <div className="relative flex items-center rounded-xl bg-[var(--card)] shadow-lg backdrop-blur-md transition-all duration-300 group-focus-within:bg-[var(--card-hover)]">
-                  <svg className="ml-4 h-4 w-4 shrink-0 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <div className="relative flex items-center rounded-xl bg-[var(--card)] shadow-xl backdrop-blur-md transition-all duration-300 group-focus-within:bg-[var(--card-hover)] ring-1 ring-sky-500/20">
+                  <svg className="ml-4 h-5 w-5 shrink-0 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                   <input
@@ -980,7 +980,7 @@ export default function Home() {
                         router.push(`/search?q=${encodeURIComponent(search.trim())}`);
                       }
                     }}
-                    className="flex-1 bg-transparent px-3 py-3 text-[15px] text-[var(--foreground)] outline-none placeholder:text-[var(--muted)] transition-colors"
+                    className="flex-1 bg-transparent px-3 py-3.5 text-[16px] text-[var(--foreground)] outline-none placeholder:text-[var(--muted)] transition-colors"
                   />
                   <div className="mr-2 flex items-center gap-2">
                     {search && (
@@ -1036,7 +1036,7 @@ export default function Home() {
             </div>
 
             {/* Category pills */}
-            <div className="mt-5 flex justify-center">
+            <div className="mt-3 flex justify-center">
               <div className="relative flex max-w-full gap-2 overflow-x-auto px-1 pb-0.5 scrollbar-none">
                 <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-[var(--background)] to-transparent pointer-events-none" />
                 <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[var(--background)] to-transparent pointer-events-none" />
@@ -1070,7 +1070,7 @@ export default function Home() {
 
             {/* SAVED SEARCHES */}
             {savedSearches.length > 0 && (
-              <div className="mt-5 flex flex-wrap justify-center gap-2">
+              <div className="mt-3 flex flex-wrap justify-center gap-2">
                 {savedSearches.map((s) => (
                   <div key={s.label} className="group flex items-center gap-1.5 rounded-full bg-gradient-to-r from-sky-500/10 to-sky-500/5 px-3.5 py-1.5 text-[11px] text-white transition-all duration-200 hover:bg-sky-500/15 hover:shadow-lg hover:shadow-sky-500/10">
                     <button onClick={() => applySavedSearch(s)} className="flex items-center gap-1.5">
@@ -1093,8 +1093,8 @@ export default function Home() {
 
       {/* Attention Users banner */}
       {showAttentionBanner && (
-        <section className={`${PAGE_SHELL_WIDE} pt-3 pb-2`}>
-          <div className="group flex w-full items-center justify-between gap-2 rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/15 to-amber-400/10 px-4 py-3 text-sm font-bold text-amber-300 transition-all duration-200 hover:from-amber-500/25 hover:to-amber-400/20 hover:shadow-[0_0_24px_rgba(245,158,11,0.12)] active:scale-[0.99]">
+        <section className={`${PAGE_SHELL_WIDE} pt-2 pb-1`}>
+          <div className="group flex w-full items-center justify-between gap-2 rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/15 to-amber-400/10 px-4 py-2 text-sm font-bold text-amber-300 transition-all duration-200 hover:from-amber-500/25 hover:to-amber-400/20 hover:shadow-[0_0_24px_rgba(245,158,11,0.12)] active:scale-[0.99]">
             <button
               onClick={() => setShowAttentionModal(true)}
               className="flex flex-1 items-center justify-center gap-2 text-amber-300"
@@ -1123,8 +1123,8 @@ export default function Home() {
       )}
 
       {/* Trust strip */}
-      <section className={`${PAGE_SHELL_WIDE} py-3`}>
-        <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4 rounded-2xl bg-gradient-to-br from-sky-500/[0.03] via-sky-500/[0.01] to-transparent px-6 py-4 sm:gap-x-14 lg:gap-x-20 backdrop-blur-md relative overflow-hidden">
+      <section className={`${PAGE_SHELL_WIDE} py-2`}>
+        <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 rounded-2xl bg-gradient-to-br from-sky-500/[0.03] via-sky-500/[0.01] to-transparent px-5 py-3 sm:gap-x-12 lg:gap-x-16 backdrop-blur-md relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-sky-400/[0.02] to-transparent" />
           <div className="absolute inset-0 backdrop-blur-sm" />
           {[
@@ -1147,7 +1147,7 @@ export default function Home() {
       </section>
 
       <Suspense fallback={
-        <div className={`${PAGE_SHELL_WIDE} py-8`}>
+        <div className={`${PAGE_SHELL_WIDE} py-4`}>
           <div className="flex gap-4 overflow-x-auto pb-2">
             {[1,2,3].map((i) => (
               <div key={i} className="shrink-0 w-72 h-40 rounded-2xl bg-white/[0.03] border border-white/[0.06] animate-pulse" />

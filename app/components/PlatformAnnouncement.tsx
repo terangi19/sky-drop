@@ -34,7 +34,7 @@ export default function PlatformAnnouncement() {
 
   return (
     <div className={`fixed top-16 left-0 right-0 z-[9999] border-b ${typeStyles[announcement.type as string] || typeStyles.info} backdrop-blur-md`}>
-      <div className="mx-auto max-w-7xl px-6 py-2.5 text-center text-sm font-medium">
+      <div className="mx-auto max-w-7xl px-6 py-1.5 text-center text-xs font-medium">
         {announcement.message}
       </div>
     </div>
