@@ -1443,6 +1443,33 @@ Property Status: 🟢 Inquiry Active`;
             <div ref={nativeActionsRef} className="flex flex-col gap-3">
               {user && user.email !== listing.sellerEmail ? (
                 <>
+                  {/* Trust Summary */}
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] text-[var(--muted)]">
+                    {isFullyVerified && (
+                      <span className="flex items-center gap-1">
+                        <span className="text-sky-400">✓</span> Verified
+                      </span>
+                    )}
+                    {sellerProfile?.trustedSeller && !isFullyVerified && (
+                      <span className="flex items-center gap-1">
+                        <span className="text-sky-400">✓</span> Trusted
+                      </span>
+                    )}
+                    {sellerProfile?.reviewCount && typeof sellerProfile.reviewCount === 'number' && sellerProfile.reviewCount > 0 && (
+                      <span className="flex items-center gap-1">
+                        ★ {typeof sellerProfile.reviewAverage === 'number' ? sellerProfile.reviewAverage.toFixed(1) : "5.0"} ({sellerProfile.reviewCount} reviews)
+                      </span>
+                    )}
+                    {sellerProfile?.createdAt && typeof sellerProfile.createdAt === 'object' && 'seconds' in sellerProfile.createdAt && (
+                      <span>Member since {new Date((sellerProfile.createdAt as any).seconds * 1000).toLocaleDateString("en-NZ", { month: "short", year: "numeric" })}</span>
+                    )}
+                  </div>
+
+                  {/* Payment Helper Row */}
+                  <div className="text-[11px] font-medium text-[var(--muted)]">
+                    Payment: {(listing as any).paymentType === "contact" ? "Arrange with seller" : "Secure checkout"}
+                  </div>
+
                   {/* PRIMARY CTA - Full width Buy Now */}
                   <div className="w-full">
                     {(listing as any).paymentType === "contact" ? (
@@ -1465,7 +1492,7 @@ Property Status: 🟢 Inquiry Active`;
                             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                             </svg>
-                            Request Purchase — ${listing.price}
+                            Continue to Purchase
                           </>
                         )}
                       </button>
@@ -1488,7 +1515,7 @@ Property Status: 🟢 Inquiry Active`;
                           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 13.574 12c0-4.418 4.03 8 9 8s9 3.582 9 8z" />
                           </svg>
-                          Arrange Purchase — ${listing.currentBid || listing.startingBid || 0}
+                          Continue to Purchase
                         </button>
                       </>
                     ) : (
@@ -1510,7 +1537,7 @@ Property Status: 🟢 Inquiry Active`;
                           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 13.574 12c0-4.418 4.03 8 9 8s9 3.582 9 8z" />
                           </svg>
-                          Arrange Purchase — ${listing.price}
+                          Continue to Purchase
                         </button>
                       </>
                     )}
