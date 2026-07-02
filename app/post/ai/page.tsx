@@ -1799,21 +1799,21 @@ export default function AIPostPage() {
             <div className="space-y-4">
               {/* Rental Sub-Type Selector */}
               <div>
-                <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">Rental Type</label>
-                <div className="grid grid-cols-2 gap-2">
+                <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">What are you renting out?</label>
+                <div className="grid grid-cols-2 gap-3">
                   {([
                     { id: "equipment", icon: "🔧", label: "Equipment" },
                     { id: "vehicle", icon: "🚗", label: "Vehicle" },
                   ] as const).map((opt) => (
                     <button key={opt.id} type="button"
                       onClick={() => setRentalSubType(opt.id)}
-                      className={`flex flex-col items-center gap-1.5 rounded-xl border px-3 py-3 text-center transition-all active:scale-[0.97] ${
+                      className={`flex flex-col items-center gap-2 rounded-xl border px-4 py-4 text-center transition-all duration-200 active:scale-[0.98] ${
                         rentalSubType === opt.id
-                          ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.06)]"
-                          : "bg-white/[0.02] text-[var(--muted)] hover:bg-white/[0.04]"
+                          ? "border-sky-400/60 bg-gradient-to-b from-sky-500/[0.15] to-sky-500/[0.08] text-sky-400 shadow-[0_0_25px_rgba(14,165,233,0.2)] scale-[1.02]"
+                          : "border-white/[0.08] bg-white/[0.02] text-[var(--muted)] hover:border-white/[0.15] hover:bg-white/[0.05] hover:-translate-y-0.5"
                     }`}>
-                      <span className="text-xl">{opt.icon}</span>
-                      <span className="text-xs font-bold">{opt.label}</span>
+                      <span className="text-2xl transition-transform duration-200 group-hover:scale-110">{opt.icon}</span>
+                      <span className="text-sm font-bold">{opt.label}</span>
                     </button>
                   ))}
                 </div>
@@ -1830,11 +1830,11 @@ export default function AIPostPage() {
               {/* EQUIPMENT RENTAL */}
               {rentalSubType === "equipment" && (
                 <div className="rounded-xl bg-white/[0.03] p-4 space-y-4">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--muted)]">Equipment Rental</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--muted)]">Rental Pricing</p>
 
                       <div className="grid grid-cols-3 gap-3">
                         <div>
-                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Daily Rate *</label>
+                          <label className="mb-1 block text-[10px] font-medium text-[var(--foreground)]">Daily Rate *</label>
                           <div className="relative">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
                             <input type="number" value={price} onChange={(e) => {
@@ -1869,11 +1869,11 @@ export default function AIPostPage() {
                           </div>
                         </div>
                       </div>
-                      <p className="text-[10px] text-[var(--muted)]">Weekly and monthly auto-calculated — edit manually to override.</p>
+                      <p className="text-[10px] text-[var(--muted)]">Weekly and monthly rates can be entered manually or calculated automatically.</p>
 
-                      <div className="grid grid-cols-1 gap-3">
+                      <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="mb-1 block text-[10px] font-medium text-sky-400">Refundable Deposit</label>
+                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Security Deposit (optional)</label>
                           <div className="relative">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
                             <input type="number" value={rentalDeposit} onChange={(e) => setRentalDeposit(e.target.value)}
@@ -1881,14 +1881,13 @@ export default function AIPostPage() {
                               className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
                           </div>
                         </div>
-                      </div>
-
-                      <div>
-                        <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Condition</label>
-                        <select value={condition} onChange={(e) => setCondition(e.target.value)}
-                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
-                          <option className="bg-[var(--card)] text-[var(--foreground)]">New</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Like New</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Good</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Fair</option>
-                        </select>
+                        <div>
+                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Condition</label>
+                          <select value={condition} onChange={(e) => setCondition(e.target.value)}
+                            className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                            <option className="bg-[var(--card)] text-[var(--foreground)]">New</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Like New</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Good</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Fair</option>
+                          </select>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -1896,11 +1895,11 @@ export default function AIPostPage() {
                   {/* VEHICLE RENTAL */}
                   {rentalSubType === "vehicle" && (
                     <div className="rounded-xl bg-white/[0.03] p-4 space-y-4">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--muted)]">Vehicle Rental</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--muted)]">Rental Pricing</p>
 
                       <div className="grid grid-cols-3 gap-3">
                         <div>
-                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Daily Rate *</label>
+                          <label className="mb-1 block text-[10px] font-medium text-[var(--foreground)]">Daily Rate *</label>
                           <div className="relative">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
                             <input type="number" value={price} onChange={(e) => {
@@ -1935,10 +1934,11 @@ export default function AIPostPage() {
                           </div>
                         </div>
                       </div>
+                      <p className="text-[10px] text-[var(--muted)]">Weekly and monthly rates can be entered manually or calculated automatically.</p>
 
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="mb-1 block text-[10px] font-medium text-sky-400">Refundable Deposit</label>
+                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Security Deposit (optional)</label>
                           <div className="relative">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
                             <input type="number" value={rentalDeposit} onChange={(e) => setRentalDeposit(e.target.value)}
