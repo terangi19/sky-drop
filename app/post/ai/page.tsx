@@ -1796,7 +1796,7 @@ export default function AIPostPage() {
 
           {/* Rental Details */}
           {listingType === "rental" && (
-            <div className="space-y-5">
+            <div className="space-y-4">
               {/* Rental Sub-Type Selector */}
               <div>
                 <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">What are you renting out?</label>
@@ -1807,12 +1807,12 @@ export default function AIPostPage() {
                   ] as const).map((opt) => (
                     <button key={opt.id} type="button"
                       onClick={() => setRentalSubType(opt.id)}
-                      className={`flex flex-col items-center gap-2 rounded-xl border px-4 py-4 text-center transition-all duration-200 active:scale-[0.98] ${
+                      className={`flex flex-col items-center gap-2 rounded-xl border px-4 py-4 text-center transition-all duration-150 active:scale-[0.98] ${
                         rentalSubType === opt.id
                           ? "border-sky-400/60 bg-gradient-to-b from-sky-500/[0.15] to-sky-500/[0.08] text-sky-400 shadow-[0_0_25px_rgba(14,165,233,0.2)] scale-[1.02]"
                           : "border-white/[0.08] bg-white/[0.02] text-[var(--muted)] hover:border-white/[0.15] hover:bg-white/[0.05] hover:-translate-y-0.5"
                     }`}>
-                      <span className="text-2xl transition-transform duration-200 group-hover:scale-110">{opt.icon}</span>
+                      <span className="text-2xl transition-transform duration-150">{opt.icon}</span>
                       <span className="text-sm font-bold">{opt.label}</span>
                     </button>
                   ))}
@@ -1824,7 +1824,7 @@ export default function AIPostPage() {
                 <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Where can this be collected?</label>
                 <input type="text" value={location} onChange={(e) => setLocation(e.target.value)}
                   placeholder="City or suburb"
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition duration-200 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
+                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition duration-150 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
               </div>
 
               {/* Rental Pricing Section */}
@@ -1851,7 +1851,7 @@ export default function AIPostPage() {
                           }
                         }}
                           placeholder="Day"
-                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition duration-200 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
+                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition duration-150 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
                       </div>
                     </div>
                     <div className="col-span-1">
@@ -1860,7 +1860,7 @@ export default function AIPostPage() {
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
                         <input type="number" value={rentalPriceWeekly} onChange={(e) => { setRentalPriceWeekly(e.target.value); manualEdit.current.add("weekly"); }}
                           placeholder="Week"
-                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition duration-200 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
+                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition duration-150 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
                       </div>
                     </div>
                     <div className="col-span-1">
@@ -1869,11 +1869,10 @@ export default function AIPostPage() {
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
                         <input type="number" value={rentalPriceMonthly} onChange={(e) => { setRentalPriceMonthly(e.target.value); manualEdit.current.add("monthly"); }}
                           placeholder="Month"
-                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition duration-200 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
+                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition duration-150 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
                       </div>
                     </div>
                   </div>
-                  <p className="text-[10px] text-[var(--muted)]">Weekly and monthly rates can be entered manually or calculated automatically.</p>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -1882,13 +1881,13 @@ export default function AIPostPage() {
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
                         <input type="number" value={rentalDeposit} onChange={(e) => setRentalDeposit(e.target.value)}
                           placeholder={rentalSubType === "vehicle" ? "e.g. 500" : "e.g. 200"}
-                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition duration-200 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
+                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition duration-150 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
                       </div>
                     </div>
                     <div>
                       <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Condition</label>
                       <select value={condition} onChange={(e) => setCondition(e.target.value)}
-                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition duration-200 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]">
+                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition duration-150 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]">
                         <option className="bg-[var(--card)] text-[var(--foreground)]">New</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Like New</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Good</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Fair</option>
                       </select>
                     </div>
@@ -1896,18 +1895,18 @@ export default function AIPostPage() {
 
                   {/* Vehicle details - only for vehicle rental */}
                   {rentalSubType === "vehicle" && (
-                    <div className="grid grid-cols-2 gap-3 pt-2">
+                    <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Make</label>
                         <input type="text" value={vehicleMake} onChange={(e) => setVehicleMake(e.target.value)}
                           placeholder="e.g. Toyota"
-                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition duration-200 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
+                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition duration-150 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
                       </div>
                       <div>
                         <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Model</label>
                         <input type="text" value={vehicleModel} onChange={(e) => setVehicleModel(e.target.value)}
                           placeholder="e.g. HiAce"
-                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition duration-200 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
+                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition duration-150 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
                       </div>
                     </div>
                   )}
