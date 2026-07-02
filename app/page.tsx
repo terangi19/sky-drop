@@ -916,11 +916,8 @@ export default function Home() {
       {/* HERO / SEARCH SECTION */}
       <section className={`${PAGE_SHELL_WIDE} pt-2 sm:pt-3`}>
         <div className="relative overflow-hidden rounded-[2rem] bg-[var(--card)]">
-          <div className="absolute inset-0 bg-gradient-to-br from-sky-500/[0.08] via-sky-500/[0.02] to-transparent opacity-60" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[var(--background)] via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-br from-sky-500/[0.04] via-sky-500/[0.01] to-transparent opacity-30" />
           <div className="absolute inset-0 backdrop-blur-[2px]" />
-          <div className="absolute -top-40 -right-40 h-96 w-96 rounded-full bg-sky-500/[0.15] blur-3xl" />
-          <div className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-sky-500/[0.1] blur-3xl" />
           <div className="relative z-10 px-5 py-4 sm:px-6 sm:py-5">
             <div className="mx-auto max-w-2xl text-center">
               <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/[0.05] px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-[var(--muted)] shadow-[0_0_24px_rgba(14,165,233,0.1)]">
@@ -963,7 +960,7 @@ export default function Home() {
             </div>
 
             {/* Search and Category Pills - solid background to block gradient */}
-            <div className="relative mx-auto mt-4 max-w-2xl rounded-2xl bg-[var(--card)] px-4 py-4 shadow-xl">
+            <div className="relative mx-auto mt-4 max-w-2xl rounded-2xl bg-[var(--background)] px-4 py-4 shadow-xl border border-white/[0.08]">
               {/* Search */}
               <div className="relative">
                 <div className="relative flex items-center rounded-xl bg-[var(--card)] shadow-xl backdrop-blur-md transition-all duration-300 group-focus-within:bg-[var(--card-hover)] ring-1 ring-sky-500/20">
