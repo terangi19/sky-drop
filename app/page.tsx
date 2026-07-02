@@ -961,9 +961,13 @@ export default function Home() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
 
-            {/* Search */}
-            <div className="mx-auto mt-4 max-w-2xl">
+        {/* Search and Category Pills - Clean uniform background */}
+        <div className="mt-3 rounded-[2rem] bg-[var(--card)] px-5 py-4 sm:px-6 sm:py-5">
+          {/* Search */}
+          <div className="mx-auto max-w-2xl">
               <div className="relative">
                 <div className="relative flex items-center rounded-xl bg-[var(--card)] shadow-xl backdrop-blur-md transition-all duration-300 group-focus-within:bg-[var(--card-hover)] ring-1 ring-sky-500/20">
                   <svg className="ml-4 h-5 w-5 shrink-0 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1090,7 +1094,6 @@ export default function Home() {
                 ))}
               </div>
             )}
-          </div>
         </div>
       </section>
 
