@@ -1365,56 +1365,85 @@ export default function AIPostPage() {
             </p>
           </div>
 
-          {/* Listing Type - Moved to top for better UX */}
-          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
+          {/* Listing Type - Premium Redesign */}
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
             <div className="flex items-center justify-between">
               <div>
-                <label className="text-base font-bold text-white">What are you selling?</label>
-                <p className="mt-1 text-xs text-[var(--muted)]">Choose the option that best matches what you're offering.</p>
+                <label className="text-lg font-black text-white tracking-tight">What are you selling?</label>
+                <p className="mt-1 text-sm text-[var(--muted)]">Choose the option that best matches what you're offering.</p>
               </div>
-              <button type="button" onClick={() => setShowTypeGuideModal(true)} className="text-xs text-sky-400 hover:text-sky-300 underline">
-                Not sure?
+              <button type="button" onClick={() => setShowTypeGuideModal(true)} className="group relative inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-sky-500/10 to-sky-400/10 px-4 py-2 text-sm font-bold text-sky-400 border border-sky-500/20 hover:border-sky-500/40 hover:bg-gradient-to-r hover:from-sky-500/20 hover:to-sky-400/20 transition-all duration-300 shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:shadow-[0_0_30px_rgba(14,165,233,0.2)]">
+                <span className="text-lg">✨</span>
+                <span>Help me choose</span>
               </button>
             </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {[
-                { key: "physical", icon: "📦", label: "Physical", desc: "Real items including vehicles that can be picked up or shipped.", examples: "Phones, furniture, tools, clothing, cars, collectibles.", action: () => setAcceptOffers(false) },
-                { key: "service", icon: "🛠️", label: "Service", desc: "Local services performed in person.", examples: "Lawn mowing, cleaning, tutoring, photography, trades, handyman work, personal training.", action: () => { setCategory("Other Services"); setServicePricingType("fixed"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(true); setSaleType("buy_now"); } },
-                { key: "rental", icon: "🔑", label: "Rental", desc: "Something people can hire or rent temporarily.", examples: "Equipment, vehicles, party gear.", action: () => { setCategory("Other"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); setLocation(""); setCondition("New"); } },
-                { key: "wanted", icon: "📋", label: "Wanted", desc: "Post what you're looking for and let sellers come to you.", examples: "Looking for a car, need a service, want to rent something.", action: () => { setCategory("Items"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); } },
+                { key: "physical", icon: "📦", label: "Physical", desc: "Sell real items for pickup or shipping.", tags: ["Phones", "Furniture", "Tools"], action: () => setAcceptOffers(false) },
+                { key: "service", icon: "🛠️", label: "Service", desc: "Offer your skills or in-person services.", tags: ["Cleaning", "Tutoring", "Photography"], action: () => { setCategory("Other Services"); setServicePricingType("fixed"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(true); setSaleType("buy_now"); } },
+                { key: "rental", icon: "🔑", label: "Rental", desc: "Rent out equipment, vehicles, or other items.", tags: ["Equipment", "Vehicles", "Party gear"], action: () => { setCategory("Other"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); setLocation(""); setCondition("New"); } },
+                { key: "wanted", icon: "📋", label: "Wanted", desc: "Tell sellers what you're looking for.", tags: ["Cars", "Services", "Rentals"], action: () => { setCategory("Items"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); } },
               ].map((t) => (
                 <button key={t.key} type="button" onClick={() => handleTypeChange(t.key, t.action)}
-                  className={`group relative rounded-2xl border p-4 text-left transition-all duration-200 active:scale-[0.97] ${
+                  className={`group relative overflow-hidden rounded-2xl border p-6 text-left transition-all duration-300 ${
                     listingType === t.key
-                      ? "border-sky-400/40 bg-gradient-to-b from-sky-500/[0.08] to-sky-500/[0.03] shadow-[0_0_30px_rgba(14,165,233,0.1)] ring-1 ring-sky-400/20"
-                      : "bg-white/[0.02] hover:bg-white/[0.04]"
+                      ? "border-sky-400/50 bg-gradient-to-br from-sky-500/[0.12] to-sky-400/[0.06] shadow-[0_0_40px_rgba(14,165,233,0.15)] hover:shadow-[0_0_50px_rgba(14,165,233,0.2)] hover:-translate-y-1"
+                      : "border-white/[0.08] bg-white/[0.02] hover:border-white/[0.12] hover:bg-white/[0.04] hover:-translate-y-1 hover:shadow-[0_0_30px_rgba(0,0,0,0.3)]"
                   }`}>
-                  <div className="flex items-start gap-3 sm:flex-col sm:gap-0">
-                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg transition-all duration-200 sm:h-12 sm:w-12 sm:text-2xl ${
+                  <div className="flex flex-col items-center text-center sm:items-start sm:text-left">
+                    <div className={`relative mb-4 flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-3xl transition-all duration-300 ${
                       listingType === t.key
-                        ? "bg-sky-500/20 shadow-[0_0_15px_rgba(14,165,233,0.15)]"
-                        : "bg-white/[0.04] group-hover:bg-white/[0.06]"
-                    }`}>{t.icon}</span>
-                    <div className="min-w-0 flex-1 sm:mt-2">
-                      <div className="flex items-center gap-2">
-                        <p className={`text-sm font-bold transition-colors ${listingType === t.key ? "text-sky-400" : "text-white"}`}>{t.label}</p>
-                        {listingType === t.key && (
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-sky-500/20">
-                            <svg className="h-3 w-3 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                          </span>
-                        )}
-                      </div>
-                      <p className="mt-1 text-[11px] leading-snug text-white">{t.desc}</p>
-                      <p className="mt-1 text-[10px] leading-snug text-[var(--muted)]"><span className="font-medium text-[var(--foreground)]">Best for: </span>{t.examples}</p>
+                        ? "bg-sky-500/20 shadow-[0_0_25px_rgba(14,165,233,0.3)] scale-110"
+                        : "bg-white/[0.05] group-hover:bg-white/[0.08] group-hover:scale-105"
+                    }`}>
+                      {t.icon}
+                      {listingType === t.key && (
+                        <div className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-sky-500 shadow-lg animate-in zoom-in duration-300">
+                          <svg className="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                        </div>
+                      )}
+                    </div>
+                    <h3 className={`text-lg font-bold tracking-tight transition-colors ${listingType === t.key ? "text-sky-400" : "text-white"}`}>{t.label}</h3>
+                    <p className="mt-2 text-sm text-[var(--muted)] leading-relaxed">{t.desc}</p>
+                    <div className="mt-4 flex flex-wrap gap-1.5 justify-center sm:justify-start">
+                      {t.tags.map((tag, i) => (
+                        <span key={i} className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold transition-colors ${
+                          listingType === t.key
+                            ? "bg-sky-500/20 text-sky-300"
+                            : "bg-white/[0.05] text-[var(--muted)]"
+                        }`}>
+                          {tag}
+                        </span>
+                      ))}
                     </div>
                   </div>
                 </button>
               ))}
             </div>
-            <div className="rounded-2xl border border-white/[0.04] bg-white/[0.015] px-4 py-3">
-              <p className="text-[11px] leading-relaxed text-[var(--muted)]">
-                <span className="font-semibold text-[var(--muted)]">Not sure which option to choose?</span> Pick the option that best describes what you're offering. Āwhina will automatically adjust the listing form based on your selection.
-              </p>
+            
+            {/* Value Proposition Section */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 text-lg">🛡</span>
+                <div>
+                  <h4 className="text-sm font-bold text-white">Safe & Secure</h4>
+                  <p className="text-[10px] text-[var(--muted)]">Your listing is protected and reviewed</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/10 text-sky-400 text-lg">👥</span>
+                <div>
+                  <h4 className="text-sm font-bold text-white">Reach More Buyers</h4>
+                  <p className="text-[10px] text-[var(--muted)]">Get discovered by thousands of local users</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400 text-lg">⚡</span>
+                <div>
+                  <h4 className="text-sm font-bold text-white">Quick & Easy</h4>
+                  <p className="text-[10px] text-[var(--muted)]">List in minutes with help from Āwhina</p>
+                </div>
+              </div>
             </div>
           </div>
 
