@@ -923,12 +923,15 @@ export default function Home() {
           <div className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-sky-500/[0.1] blur-3xl" />
           <div className="relative z-10 px-5 py-4 sm:px-6 sm:py-5">
             <div className="mx-auto max-w-2xl text-center">
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/[0.05] px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-[var(--muted)]">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/[0.05] px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-[var(--muted)] shadow-[0_0_24px_rgba(14,165,233,0.1)]">
                 NZ Marketplace
               </div>
               <h1 className="text-xl font-black tracking-tight text-white sm:text-3xl lg:text-4xl">
-                Buy & Sell in New Zealand
+                Welcome to Sky Drop
               </h1>
+              <p className="mt-2 text-sm text-[var(--muted)] sm:text-base">
+                Buy & Sell in New Zealand
+              </p>
               {user ? (
                 <div className="mt-4 flex justify-center">
                   <Link
