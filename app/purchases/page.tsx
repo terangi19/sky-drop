@@ -81,6 +81,7 @@ const STATUS_LABELS: Record<string, string> = {
   rented: "Rented",
   returned: "Returned",
   arrange_requested: "Arrangement Requested",
+  awaiting_payment: "Awaiting Payment",
 };
 
 const STATUS_DESCRIPTIONS: Record<string, string> = {
@@ -94,6 +95,7 @@ const STATUS_DESCRIPTIONS: Record<string, string> = {
   rented: "Item is rented",
   returned: "Item has been returned",
   arrange_requested: "Waiting for seller to arrange payment",
+  awaiting_payment: "Contact seller to arrange payment",
 };
 
 const STATUS_STYLES: Record<string, string> = {
@@ -107,6 +109,7 @@ const STATUS_STYLES: Record<string, string> = {
   rented: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   returned: "bg-blue-500/10 text-blue-400 border-blue-500/20",
   arrange_requested: "bg-sky-500/10 text-sky-400",
+  awaiting_payment: "bg-amber-500/10 text-amber-400 border-amber-500/20",
 };
 
 const TIMELINE_STEPS = [

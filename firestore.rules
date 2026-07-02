@@ -269,6 +269,7 @@ service cloud.firestore {
         && request.auth.token.email in resource.data.participants;
 
       // Sender MUST match the authenticated user. System messages are server-only (Admin SDK).
+      // Note: Admin SDK bypasses these rules, so server can create system messages.
 
       allow create: if request.auth != null
 

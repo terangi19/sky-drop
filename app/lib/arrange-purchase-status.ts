@@ -8,6 +8,7 @@ export const ARRANGE_SALE_COUNT_STATUSES = new Set([
   "in_progress",
   "rented",
   "returned",
+  "awaiting_payment",
 ]);
 
 export function countsAsBuyerPurchase(status: string, paymentType?: string): boolean {
