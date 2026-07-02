@@ -32,6 +32,7 @@ const ArrangePurchaseModal = lazy(() => import("./components/ArrangePurchaseModa
 const HotThisWeek = lazy(() => import("./components/HotThisWeek"));
 import { LISTING_GRID, LISTING_GRID_MT, PAGE_SHELL_MARKETPLACE, PAGE_SHELL_WIDE } from "./lib/page-layout";
 import { sellerHasStripeConfigured } from "./lib/seller-payments";
+import { funnel } from "./lib/funnel-events";
 import {
   addDoc,
   collection,
@@ -973,6 +974,9 @@ export default function Home() {
                     onChange={(e) => setSearch(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && search.trim()) {
+                        if (user?.uid) {
+                          funnel.searchUsed(user.uid, search.trim(), selectedCategory);
+                        }
                         router.push(`/search?q=${encodeURIComponent(search.trim())}`);
                       }
                     }}
@@ -987,6 +991,9 @@ export default function Home() {
                     <button
                       onClick={() => {
                         if (search.trim()) {
+                          if (user?.uid) {
+                            funnel.searchUsed(user.uid, search.trim(), selectedCategory);
+                          }
                           router.push(`/search?q=${encodeURIComponent(search.trim())}`);
                         }
                       }}
