@@ -12,7 +12,7 @@ export default function FeedbackButton() {
       {/* Floating feedback button - desktop only */}
       <button
         onClick={openFeedback}
-        className="hidden md:flex fixed bottom-6 right-6 items-center gap-2 bg-sky-500 hover:bg-sky-600 text-white px-4 py-3 rounded-full shadow-lg transition-all duration-200 hover:scale-105 active:scale-95 z-[60]"
+        className="hidden md:flex fixed bottom-[calc(6rem+8rem)] right-6 items-center gap-2 bg-sky-500 hover:bg-sky-600 text-white px-4 py-3 rounded-full shadow-lg transition-all duration-200 hover:scale-105 active:scale-95 z-[10003]"
         aria-label="Send feedback"
       >
         <MessageSquare className="h-5 w-5" />
