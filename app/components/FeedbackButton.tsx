@@ -2,10 +2,16 @@
 
 import { MessageSquare } from "lucide-react";
 import { useFeedback } from "../contexts/FeedbackContext";
+import { useAuth } from "../contexts/AuthContext";
 import FeedbackModal from "./FeedbackModal";
 
 export default function FeedbackButton() {
   const { openFeedback } = useFeedback();
+  const { user } = useAuth();
+
+  if (!user) {
+    return <FeedbackModal />;
+  }
 
   return (
     <>
