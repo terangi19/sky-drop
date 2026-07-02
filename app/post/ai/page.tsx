@@ -1490,7 +1490,7 @@ export default function AIPostPage() {
           </div>
 
           {listingType !== "rental" && (
-          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+          <div className="space-y-4">
             {listingType === "job" ? (
               <div className="space-y-1.5">
                 <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Salary / Price *</label>
@@ -1532,23 +1532,31 @@ export default function AIPostPage() {
                 {(listingType === "physical" || listingType === "vehicle" || listingType === "property") && <p className="text-[10px] text-[var(--muted)]">Set the fixed price for this item.</p>}
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Starting Bid *</label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                    <input type="number" value={startingBid} onChange={(e) => setStartingBid(e.target.value)} placeholder="0" className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] pl-8 pr-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
-                  </div>
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <div className="h-px flex-1 bg-white/[0.08]" />
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--muted)]">Auction Details</p>
+                  <div className="h-px flex-1 bg-white/[0.08]" />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Duration *</label>
-                  <select value={auctionDuration} onChange={(e) => setAuctionDuration(e.target.value)}
-                    className="w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-sm text-[var(--foreground)] outline-none focus:border-sky-500">
-                    <option value="1" className="bg-[var(--card)] text-[var(--foreground)]">24 hours</option>
-                    <option value="3" className="bg-[var(--card)] text-[var(--foreground)]">3 days</option>
-                    <option value="7" className="bg-[var(--card)] text-[var(--foreground)]">7 days</option>
-                    <option value="14" className="bg-[var(--card)] text-[var(--foreground)]">14 days</option>
-                  </select>
+                <p className="text-[10px] text-[var(--muted)]">Buyers place bids until the auction ends. The highest bid wins.</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--foreground)]">Starting Bid *</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                      <input type="number" value={startingBid} onChange={(e) => setStartingBid(e.target.value)} placeholder="0" className="w-full rounded-xl border border-[var(--border)] bg-[var(--card)] pl-8 pr-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-150 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--foreground)]">Duration *</label>
+                    <select value={auctionDuration} onChange={(e) => setAuctionDuration(e.target.value)}
+                      className="w-full rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-sm text-[var(--foreground)] outline-none transition-all duration-150 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]">
+                      <option value="1" className="bg-[var(--card)] text-[var(--foreground)]">24 hours</option>
+                      <option value="3" className="bg-[var(--card)] text-[var(--foreground)]">3 days</option>
+                      <option value="7" className="bg-[var(--card)] text-[var(--foreground)]">7 days</option>
+                      <option value="14" className="bg-[var(--card)] text-[var(--foreground)]">14 days</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             )}
@@ -1564,18 +1572,19 @@ export default function AIPostPage() {
 
 
           {listingType === "physical" && (
-          <div className="space-y-3">
-            <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Sale Type</label>
-            <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-4">
+            <label className="text-sm font-bold text-[var(--foreground)]">How would you like to sell this?</label>
+            <div className="grid grid-cols-2 gap-3">
               {[
-                { id: "buy_now", label: "Buy Now" },
-                { id: "auction", label: "Auction" },
+                { id: "buy_now", label: "Buy Now", desc: "Sell for a fixed price." },
+                { id: "auction", label: "Auction", desc: "Let buyers compete by bidding." },
               ].map((opt) => (
                 <button key={opt.id} type="button" onClick={() => setSaleType(opt.id)}
-                  className={`rounded-xl border px-4 py-3 text-xs font-bold text-left transition-all duration-200 active:scale-[0.97] ${
-                    saleType === opt.id ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.06)]" : "bg-white/[0.02] text-[var(--muted)] hover:bg-white/[0.04]"
+                  className={`rounded-xl border px-4 py-4 text-left transition-all duration-150 active:scale-[0.98] ${
+                    saleType === opt.id ? "border-sky-400/60 bg-gradient-to-b from-sky-500/[0.15] to-sky-500/[0.08] text-sky-400 shadow-[0_0_25px_rgba(14,165,233,0.2)] scale-[1.02]" : "border-white/[0.08] bg-white/[0.02] text-[var(--muted)] hover:border-white/[0.15] hover:bg-white/[0.05] hover:-translate-y-0.5"
                   }`}>
-                  {opt.label}
+                  <div className="font-bold text-sm">{opt.label}</div>
+                  <div className="mt-1 text-[10px] leading-relaxed">{opt.desc}</div>
                 </button>
               ))}
             </div>
