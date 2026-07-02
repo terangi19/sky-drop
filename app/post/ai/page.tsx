@@ -1366,51 +1366,51 @@ export default function AIPostPage() {
           </div>
 
           {/* Listing Type - Premium Redesign */}
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
+          <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
             <div className="flex items-center justify-between">
               <div>
                 <label className="text-lg font-black text-white tracking-tight">What are you selling?</label>
                 <p className="mt-1 text-sm text-[var(--muted)]">Choose the option that best matches what you're offering.</p>
               </div>
-              <button type="button" onClick={() => setShowTypeGuideModal(true)} className="group relative inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-sky-500/10 to-sky-400/10 px-4 py-2 text-sm font-bold text-sky-400 border border-sky-500/20 hover:border-sky-500/40 hover:bg-gradient-to-r hover:from-sky-500/20 hover:to-sky-400/20 transition-all duration-300 shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:shadow-[0_0_30px_rgba(14,165,233,0.2)]">
+              <button type="button" onClick={() => setShowTypeGuideModal(true)} className="group relative inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-sky-500/10 to-sky-400/10 px-4 py-2 text-sm font-bold text-sky-400 border border-sky-500/20 hover:border-sky-500/40 hover:bg-gradient-to-r hover:from-sky-500/20 hover:to-sky-400/20 transition-all duration-200 shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:shadow-[0_0_30px_rgba(14,165,233,0.2)]">
                 <span className="text-lg">✨</span>
-                <span>Help me choose</span>
+                <span>Let Āwhina choose</span>
               </button>
             </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {[
-                { key: "physical", icon: "📦", label: "Physical", desc: "Sell real items for pickup or shipping.", tags: ["Phones", "Furniture", "Tools"], action: () => setAcceptOffers(false) },
-                { key: "service", icon: "🛠️", label: "Service", desc: "Offer your skills or in-person services.", tags: ["Cleaning", "Tutoring", "Photography"], action: () => { setCategory("Other Services"); setServicePricingType("fixed"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(true); setSaleType("buy_now"); } },
-                { key: "rental", icon: "🔑", label: "Rental", desc: "Rent out equipment, vehicles, or other items.", tags: ["Equipment", "Vehicles", "Party gear"], action: () => { setCategory("Other"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); setLocation(""); setCondition("New"); } },
-                { key: "wanted", icon: "📋", label: "Wanted", desc: "Tell sellers what you're looking for.", tags: ["Cars", "Services", "Rentals"], action: () => { setCategory("Items"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); } },
+                { key: "physical", icon: "📦", label: "Physical", desc: "Sell items for pickup or shipping.", tags: ["Phones", "Furniture", "Tools"], action: () => setAcceptOffers(false) },
+                { key: "service", icon: "🛠️", label: "Service", desc: "Offer local or online services.", tags: ["Cleaning", "Tutoring", "Photography"], action: () => { setCategory("Other Services"); setServicePricingType("fixed"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(true); setSaleType("buy_now"); } },
+                { key: "rental", icon: "🔑", label: "Rental", desc: "Rent equipment, vehicles or tools.", tags: ["Equipment", "Vehicles", "Tools"], action: () => { setCategory("Other"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); setLocation(""); setCondition("New"); } },
+                { key: "wanted", icon: "📋", label: "Wanted", desc: "Tell sellers what you're looking for.", tags: ["BMW 335i", "Lawn mowing", "House to rent"], action: () => { setCategory("Items"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); } },
               ].map((t) => (
                 <button key={t.key} type="button" onClick={() => handleTypeChange(t.key, t.action)}
-                  className={`group relative overflow-hidden rounded-2xl border p-6 text-left transition-all duration-300 ${
+                  className={`group relative overflow-hidden rounded-2xl border p-5 text-left transition-all duration-200 ${
                     listingType === t.key
-                      ? "border-sky-400/50 bg-gradient-to-br from-sky-500/[0.12] to-sky-400/[0.06] shadow-[0_0_40px_rgba(14,165,233,0.15)] hover:shadow-[0_0_50px_rgba(14,165,233,0.2)] hover:-translate-y-1"
-                      : "border-white/[0.08] bg-white/[0.02] hover:border-white/[0.12] hover:bg-white/[0.04] hover:-translate-y-1 hover:shadow-[0_0_30px_rgba(0,0,0,0.3)]"
+                      ? "border-sky-400/60 bg-gradient-to-br from-sky-500/[0.15] to-sky-400/[0.08] shadow-[0_0_50px_rgba(14,165,233,0.2)] scale-[1.02]"
+                      : "border-white/[0.08] bg-white/[0.02] hover:border-white/[0.15] hover:bg-white/[0.05] hover:-translate-y-1 hover:shadow-[0_0_30px_rgba(0,0,0,0.3)]"
                   }`}>
                   <div className="flex flex-col items-center text-center sm:items-start sm:text-left">
-                    <div className={`relative mb-4 flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-3xl transition-all duration-300 ${
+                    <div className={`relative mb-3 flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-3xl transition-all duration-200 ${
                       listingType === t.key
-                        ? "bg-sky-500/20 shadow-[0_0_25px_rgba(14,165,233,0.3)] scale-110"
+                        ? "bg-sky-500/30 shadow-[0_0_30px_rgba(14,165,233,0.4)] scale-110"
                         : "bg-white/[0.05] group-hover:bg-white/[0.08] group-hover:scale-105"
                     }`}>
                       {t.icon}
                       {listingType === t.key && (
-                        <div className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-sky-500 shadow-lg animate-in zoom-in duration-300">
+                        <div className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-sky-500 shadow-lg animate-in zoom-in duration-200">
                           <svg className="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                         </div>
                       )}
                     </div>
-                    <h3 className={`text-lg font-bold tracking-tight transition-colors ${listingType === t.key ? "text-sky-400" : "text-white"}`}>{t.label}</h3>
-                    <p className="mt-2 text-sm text-[var(--muted)] leading-relaxed">{t.desc}</p>
-                    <div className="mt-4 flex flex-wrap gap-1.5 justify-center sm:justify-start">
+                    <h3 className={`text-base font-bold tracking-tight transition-colors ${listingType === t.key ? "text-sky-400" : "text-white"}`}>{t.label}</h3>
+                    <p className="mt-1.5 text-sm text-[var(--muted)] leading-snug">{t.desc}</p>
+                    <div className="mt-3 flex flex-wrap gap-2 justify-center sm:justify-start">
                       {t.tags.map((tag, i) => (
-                        <span key={i} className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold transition-colors ${
+                        <span key={i} className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold transition-colors ${
                           listingType === t.key
-                            ? "bg-sky-500/20 text-sky-300"
-                            : "bg-white/[0.05] text-[var(--muted)]"
+                            ? "bg-sky-500/25 text-sky-300 border border-sky-500/30"
+                            : "bg-white/[0.08] text-[var(--muted)] border border-white/[0.05]"
                         }`}>
                           {tag}
                         </span>
