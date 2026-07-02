@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
 
     const frictionInput: FrictionInput = { ip, action: "login" };
-    const rl = await frictionLimit(`auth-session:${ip}`, 10, 60_000, frictionInput);
+    const rl = await frictionLimit(`auth-session:${ip}`, 8, 60_000, frictionInput);
 
     if (isTurnstileConfigured() && !shouldSkipCaptcha(rl.riskTier)) {
       const turnstileToken = typeof body.turnstileToken === "string" ? body.turnstileToken : "";
