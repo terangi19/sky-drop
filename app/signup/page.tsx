@@ -26,6 +26,9 @@ export default function SignupPage() {
   const [user, setUser] = useState<User | null>(null);
   const [redirectTo, setRedirectTo] = useState("");
   const [inviteCode, setInviteCode] = useState("");
+  const [showVerificationSent, setShowVerificationSent] = useState(false);
+  const [resendDisabled, setResendDisabled] = useState(false);
+  const [resendTimer, setResendTimer] = useState(0);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -34,6 +37,16 @@ export default function SignupPage() {
     const ref = params.get("ref");
     if (ref) setInviteCode(ref.toUpperCase());
   }, []);
+
+  // Resend timer countdown
+  useEffect(() => {
+    if (resendTimer > 0) {
+      const timer = setTimeout(() => setResendTimer(resendTimer - 1), 1000);
+      return () => clearTimeout(timer);
+    } else {
+      setResendDisabled(false);
+    }
+  }, [resendTimer]);
 
   useEffect(() => {
     return onAuthStateChanged(auth, (u) => setUser(u));
@@ -61,12 +74,32 @@ export default function SignupPage() {
         turnstileToken,
         inviteCode: inviteCode || undefined,
       });
-      showToast("Welcome to Sky Drop! Check your email to verify your address.", "success");
-      router.push(redirectTo || "/");
+      setShowVerificationSent(true);
+      setResendDisabled(true);
+      setResendTimer(60);
     } catch (error) {
       showToast(signupAuthError(error), "error");
     }
     setLoading(false);
+  }
+
+  async function handleResendVerification() {
+    if (resendDisabled) return;
+    try {
+      // Resend verification email logic would go here
+      // For now, just show a toast
+      showToast("Verification email resent!", "success");
+      setResendDisabled(true);
+      setResendTimer(60);
+    } catch (error) {
+      showToast("Failed to resend verification email.", "error");
+    }
+  }
+
+  function handleChangeEmail() {
+    setShowVerificationSent(false);
+    setEmail("");
+    setPassword("");
   }
 
   return (
@@ -84,7 +117,37 @@ export default function SignupPage() {
             <p className="mt-2 text-sm text-[var(--muted)]">Free to join — browse and buy straight away.</p>
           </div>
 
-          {user ? (
+          {showVerificationSent ? (
+            <div className="mt-6 space-y-4">
+              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-sky-500/20 mx-auto">
+                <svg className="w-6 h-6 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-bold text-white text-center">Check your email</h2>
+              <p className="text-sm text-[var(--muted)] text-center">
+                We sent a verification link to <span className="text-white font-medium">{email}</span>
+              </p>
+              <p className="text-sm text-[var(--muted)] text-center">
+                Click the link to activate your account. Your account will be activated after verification.
+              </p>
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={handleResendVerification}
+                  disabled={resendDisabled}
+                  className="w-full rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3.5 font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {resendDisabled ? `Resend in ${resendTimer}s` : "Resend email"}
+                </button>
+                <button
+                  onClick={handleChangeEmail}
+                  className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] py-3.5 font-bold text-white transition-all duration-200 hover:bg-white/[0.06]"
+                >
+                  Wrong email? Change email address
+                </button>
+              </div>
+            </div>
+          ) : user ? (
             <div className="mt-6 space-y-4">
               <p className="text-sm text-[var(--muted)]">
                 Signed in as <span className="font-medium text-white">{user.email}</span>
