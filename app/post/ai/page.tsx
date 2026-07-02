@@ -377,17 +377,13 @@ export default function AIPostPage() {
     });
     if (ok && fieldsChanged > 0) {
       const msg =
-        fill.listingType === "digital"
+        imagePreviews.length > 0
           ? isUpdate
-            ? "Āwhina updated your listing — upload your digital file, then publish"
-            : "Āwhina filled your listing — upload your digital file, then publish"
-          : imagePreviews.length > 0
-            ? isUpdate
-              ? "Āwhina updated your listing — review and publish"
-              : "Āwhina filled your listing — review and publish"
-            : isUpdate
-              ? "Āwhina updated your listing — add photos and publish"
-              : "Āwhina filled your listing — add photos and publish";
+            ? "Āwhina updated your listing — review and publish"
+            : "Āwhina filled your listing — review and publish"
+          : isUpdate
+            ? "Āwhina updated your listing — add photos and publish"
+            : "Āwhina filled your listing — add photos and publish";
       showToast(msg);
       setTimeout(() => {
         document.getElementById("listing-title")?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -617,7 +613,7 @@ export default function AIPostPage() {
   useEffect(() => {
     const typeParam = new URLSearchParams(window.location.search).get("type");
     if (!typeParam) return;
-    const valid = ["physical", "digital", "service", "rental", "event", "vehicle", "job", "property", "wanted"];
+    const valid = ["physical", "service", "rental", "event", "vehicle", "job", "property", "wanted"];
     if (valid.includes(typeParam)) {
       setListingType(typeParam as any);
     }
