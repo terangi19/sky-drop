@@ -8,7 +8,7 @@ import { useAwhinaVoice } from "../hooks/useAwhinaVoice";
 import { dismissAwhinaIntro, shouldShowAwhinaIntro } from "../lib/awhina-intro";
 import { dismissVoiceModeIntro, shouldShowVoiceModeIntro } from "../lib/voice-mode-intro";
 import { SKY_AI_OPEN_EVENT, consumeVoiceSellNavigation, dispatchSkyAiOpen, isVoiceSellNavigationPending, type SkyAiOpenDetail } from "../lib/sky-ai-events";
-import AwhinaFabStack from "./AwhinaFabStack";
+import FloatingActionDock from "./FloatingActionDock";
 import AwhinaIntroModal from "./AwhinaIntroModal";
 import AwhinaVoiceBar from "./AwhinaVoiceBar";
 import AwhinaVoiceStatusCard from "./AwhinaVoiceStatusCard";
@@ -179,10 +179,10 @@ export default function AwhinaGlobalAssistant() {
         />
       </div>
 
-      <AwhinaFabStack
+      <FloatingActionDock
         voice={voice}
-        onToggle={handleVoiceToggle}
         onOpenChat={() => openChat()}
+        onToggleVoice={handleVoiceToggle}
         chatHidden={!showChatSheet}
       />
     </>

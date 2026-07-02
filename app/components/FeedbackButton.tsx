@@ -5,7 +5,7 @@ import { useFeedback } from "../contexts/FeedbackContext";
 import { useAuth } from "../contexts/AuthContext";
 import FeedbackModal from "./FeedbackModal";
 
-export default function FeedbackButton() {
+export default function FeedbackButton({ className = "" }: { className?: string }) {
   const { openFeedback } = useFeedback();
   const { user } = useAuth();
 
@@ -15,17 +15,14 @@ export default function FeedbackButton() {
 
   return (
     <>
-      {/* Floating feedback button - desktop only */}
+      {/* Icon-only feedback button */}
       <button
         onClick={openFeedback}
-        className="hidden md:flex fixed bottom-[calc(6rem+8rem)] right-6 items-center gap-2 bg-sky-500 hover:bg-sky-600 text-white px-4 py-3 rounded-full shadow-lg transition-all duration-200 hover:scale-105 active:scale-95 z-[10003]"
+        className={`relative flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.08] bg-[#0c0e14]/80 backdrop-blur-xl shadow-lg transition-all duration-300 hover:scale-110 hover:shadow-[0_0_20px_rgba(14,165,233,0.15)] hover:border-sky-400/30 hover:bg-[#0c0e14]/90 active:scale-95 ${className}`}
         aria-label="Send feedback"
       >
-        <MessageSquare className="h-5 w-5" />
-        <span className="text-sm font-medium">Feedback</span>
+        <MessageSquare className="h-5 w-5 text-sky-400" />
       </button>
-
-      {/* Mobile feedback is in the profile menu */}
 
       <FeedbackModal />
     </>

@@ -35,7 +35,6 @@ const WantedLiveFeed = dynamic(() => import("./components/WantedLiveFeed"));
 const PlatformAnnouncement = dynamic(() => import("./components/PlatformAnnouncement"));
 const MarketplaceRadar = dynamic(() => import("./components/MarketplaceRadar"));
 const MatchmakingActivity = dynamic(() => import("./components/MatchmakingActivity"));
-const FeedbackButton = dynamic(() => import("./components/FeedbackButton"));
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -218,7 +217,7 @@ export default function RootLayout({
             })();
           `,
         }} />
-        <AuthProvider><ProfileProvider><AwhinaPageInsightProvider><FeedbackProvider><VerificationBanner /><RouteGuard><PageEnter>{children}</PageEnter><Footer /><Spotlight /><ScrollToTop /><MarketplaceRadar /><MatchmakingActivity /></RouteGuard><SkyAiChat /><ToastContainer /><LegendaryClaimNotification /><WantedLiveFeed /><PlatformAnnouncement /><PWAProvider /><FeedbackButton /></FeedbackProvider></AwhinaPageInsightProvider></ProfileProvider></AuthProvider>
+        <AuthProvider><ProfileProvider><AwhinaPageInsightProvider><FeedbackProvider><VerificationBanner /><RouteGuard><PageEnter>{children}</PageEnter><Footer /><Spotlight /><ScrollToTop /><MarketplaceRadar /><MatchmakingActivity /></RouteGuard><SkyAiChat /><ToastContainer /><LegendaryClaimNotification /><WantedLiveFeed /><PlatformAnnouncement /><PWAProvider /></FeedbackProvider></AwhinaPageInsightProvider></ProfileProvider></AuthProvider>
       </body>
     </html>
   );
