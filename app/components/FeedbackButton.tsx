@@ -5,7 +5,7 @@ import { useFeedback } from "../contexts/FeedbackContext";
 import FeedbackModal from "./FeedbackModal";
 
 export default function FeedbackButton() {
-  const { isOpen, openFeedback, closeFeedback } = useFeedback();
+  const { openFeedback } = useFeedback();
 
   return (
     <>
@@ -21,7 +21,7 @@ export default function FeedbackButton() {
 
       {/* Mobile feedback is in the profile menu */}
 
-      <FeedbackModal isOpen={isOpen} onClose={closeFeedback} />
+      <FeedbackModal />
     </>
   );
 }
