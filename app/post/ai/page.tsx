@@ -1465,7 +1465,9 @@ export default function AIPostPage() {
 
           <div className="grid grid-cols-2 gap-3 sm:gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-200">
             <div className="space-y-1.5">
-              <label className="text-sm font-semibold text-white">Category</label>
+              <label className="text-sm font-semibold text-white">
+                {listingType === "service" ? "Service Category" : "Category"}
+              </label>
               <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-[var(--card-hover)] focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-[var(--card-hover)] appearance-none cursor-pointer">
                 {listingType === "service" ? (
                   <><option className="bg-[var(--card)] text-[var(--foreground)]">Trades & Repairs</option><option className="bg-[var(--card)] text-[var(--foreground)]">Cleaning & Maintenance</option><option className="bg-[var(--card)] text-[var(--foreground)]">Tutoring & Lessons</option><option className="bg-[var(--card)] text-[var(--foreground)]">Photography</option><option className="bg-[var(--card)] text-[var(--foreground)]">Personal Training</option><option className="bg-[var(--card)] text-[var(--foreground)]">Events & Catering</option><option className="bg-[var(--card)] text-[var(--foreground)]">Other Services</option></>
@@ -1581,7 +1583,7 @@ export default function AIPostPage() {
           </div>
           )}
 
-          {(listingType !== "wanted" && listingType !== "job" && listingType !== "property") && (
+          {(listingType !== "wanted" && listingType !== "job" && listingType !== "property" && listingType !== "service") && (
           <div className="rounded-xl bg-white/[0.03] p-4">
             <button
               type="button"
@@ -1751,14 +1753,13 @@ export default function AIPostPage() {
 
           {/* Service Details */}
           {listingType === "service" && (
-            <div className="space-y-3">
-              <label className="text-sm font-bold text-[var(--foreground)]">Service Details</label>
+            <div className="space-y-4">
               <div>
-                <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Pricing Type</label>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <label className="text-sm font-bold text-[var(--foreground)]">Pricing</label>
+                <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {[
-                    { value: "fixed", label: "Fixed Price", hint: "Set a fixed price for your service" },
-                    { value: "request_quote", label: "Quote Required", hint: "Buyers contact you for a custom quote" },
+                    { value: "fixed", label: "Fixed Price" },
+                    { value: "request_quote", label: "Quote Required" },
                   ].map((opt) => (
                     <button
                       key={opt.value}
@@ -1780,22 +1781,16 @@ export default function AIPostPage() {
                     </button>
                   ))}
                 </div>
-                <p className="mt-2 text-[10px] text-[var(--muted)]">
-                  {servicePricingType === "fixed" ? "Set a fixed price for your service" : "Buyers contact you for a custom quote"}
-                </p>
               </div>
               <div>
-                <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Estimated turnaround</label>
+                <label className="mb-2 block text-sm font-bold text-[var(--foreground)]">Completion time</label>
                 <input
                   type="text"
                   value={serviceDuration}
                   onChange={(e) => setServiceDuration(e.target.value)}
-                  placeholder="e.g. 1 hour, same day, 3-5 days"
+                  placeholder="e.g. Same day, 1-2 days, 3-5 days, 1 week"
                   className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500"
                 />
-                <p className="mt-2 text-[10px] text-[var(--muted)]">
-                  Local, in-person services — buyers message you to agree scope and timing.
-                </p>
               </div>
             </div>
           )}
@@ -2054,17 +2049,6 @@ export default function AIPostPage() {
           </div>
           )}
 
-          {/* Expires in — all types */}
-          <div>
-            <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Listing expires in</label>
-            <select value={expiresIn} onChange={(e) => setExpiresIn(e.target.value)}
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
-              <option value="7" className="bg-[var(--card)] text-[var(--foreground)]">7 days</option>
-              <option value="14" className="bg-[var(--card)] text-[var(--foreground)]">14 days</option>
-              <option value="30" className="bg-[var(--card)] text-[var(--foreground)]">30 days</option>
-            </select>
-          </div>
-
           <div className="mt-4 flex items-center gap-2">
             <label className="flex cursor-pointer items-center gap-2">
               <input type="checkbox" checked={autoPublish} onChange={(e) => setAutoPublish(e.target.checked)}
@@ -2087,8 +2071,20 @@ export default function AIPostPage() {
                 </svg>
                 Saving...
               </span>
-            ) : editId ? "Save Changes" : "Post Now"}
+            ) : autoPublish && !editId ? "Generate with AI" : editId ? "Save Changes" : "Post Now"}
           </button>
+
+          <div className="mt-3 text-center">
+            <label className="inline-flex items-center gap-2 text-[10px] text-[var(--muted)]">
+              Listing expires in
+              <select value={expiresIn} onChange={(e) => setExpiresIn(e.target.value)}
+                className="rounded border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-[10px] text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                <option value="7" className="bg-[var(--card)] text-[var(--foreground)]">7 days</option>
+                <option value="14" className="bg-[var(--card)] text-[var(--foreground)]">14 days</option>
+                <option value="30" className="bg-[var(--card)] text-[var(--foreground)]">30 days</option>
+              </select>
+            </label>
+          </div>
         </div>
           </div>
         </div>
