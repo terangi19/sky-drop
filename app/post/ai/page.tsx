@@ -1420,31 +1420,6 @@ export default function AIPostPage() {
                 </button>
               ))}
             </div>
-            
-            {/* Value Proposition Section */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 text-lg">🛡</span>
-                <div>
-                  <h4 className="text-sm font-bold text-white">Safe & Secure</h4>
-                  <p className="text-[10px] text-[var(--muted)]">Your listing is protected and reviewed</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/10 text-sky-400 text-lg">👥</span>
-                <div>
-                  <h4 className="text-sm font-bold text-white">Reach More Buyers</h4>
-                  <p className="text-[10px] text-[var(--muted)]">Get discovered by thousands of local users</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400 text-lg">⚡</span>
-                <div>
-                  <h4 className="text-sm font-bold text-white">Quick & Easy</h4>
-                  <p className="text-[10px] text-[var(--muted)]">List in minutes with help from Āwhina</p>
-                </div>
-              </div>
-            </div>
           </div>
 
           <div className="space-y-1.5 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150">
