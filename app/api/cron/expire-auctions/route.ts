@@ -35,6 +35,52 @@ export async function GET(req: NextRequest) {
       const sellerEmail = listing.sellerEmail || "";
       const title = listing.title || "";
 
+      // Create purchase record for auction winner
+      if (listing.highestBidder) {
+        const purchaseRef = db.collection("purchases").doc();
+        batch.set(purchaseRef, {
+          listingId,
+          listingTitle: title,
+          listingImage: listing.images?.[0] || "",
+          listingPrice: String(bidAmount),
+          sellerEmail,
+          buyerEmail: listing.highestBidder,
+          buyerName: listing.highestBidder,
+          winningBid: bidAmount,
+          status: "awaiting_payment",
+          paymentDeadline: new Date(now.getTime() + 24 * 60 * 60 * 1000),
+          createdAt: now,
+          type: listing.listingType || "physical",
+          deliveryMethod: "pickup",
+          collectionName: "listings",
+        });
+
+        // Create conversation between buyer and seller
+        const conversationRef = db.collection("conversations").doc();
+        const conversationId = conversationRef.id;
+        batch.set(conversationRef, {
+          participants: [sellerEmail, listing.highestBidder],
+          listingId,
+          listingTitle: title,
+          createdAt: now,
+          updatedAt: now,
+          lastMessage: null,
+          lastMessageAt: now,
+          purchaseId: purchaseRef.id,
+        });
+
+        // Send initial message from system
+        const messageRef = db.collection("messages").doc();
+        batch.set(messageRef, {
+          conversationId,
+          sender: "system",
+          content: `🎉 Congratulations! You won the auction for "${title}" with a bid of $${bidAmount}.\n\nContact the seller to arrange payment and collection using their preferred payment method.`,
+          timestamp: now,
+          read: false,
+          type: "auction_won",
+        });
+      }
+
       // Notify the winner
       if (listing.highestBidder) {
         const notifRef = db.collection("notifications").doc();
@@ -61,7 +107,7 @@ export async function GET(req: NextRequest) {
           fromEmail: listing.highestBidder || "",
           title: "Auction Ended — Winner Found! 🎉",
           message: listing.highestBidder
-            ? `Your auction for "${title}" has ended with a winning bid of $${bidAmount} from ${listing.highestBidder}.`
+            ? `Your auction for "${title}" has ended with a winning bid of $${bidAmount} from ${listing.highestBidder}. Contact them to arrange payment.`
             : `Your auction for "${title}" has ended with no bids.`,
           listingId,
           listingTitle: title,
@@ -78,7 +124,7 @@ export async function GET(req: NextRequest) {
       await batch.commit();
     }
 
-    // Handle unpaid wins — flag auctions where winner hasn't paid within 24 hours
+    // Handle unpaid wins — flag auctions where winner hasn't completed purchase within 24 hours
     const unpaidDeadline = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const unpaidWins = await db.collection("listings")
       .where("saleType", "in", ["auction", "auction_buy_now"])
@@ -92,13 +138,22 @@ export async function GET(req: NextRequest) {
     for (const doc of unpaidWins.docs) {
       const listing = doc.data();
 
-      // Check if a purchase was actually made
+      // Check if a purchase was actually completed
       const purchaseSnap = await db.collection("purchases")
         .where("listingId", "==", doc.id)
-        .where("status", "in", ["paid", "confirmed", "delivered"])
+        .where("status", "not-in", ["cancelled", "failed"])
         .get();
 
-      if (purchaseSnap.empty) {
+      let hasCompletedPurchase = false;
+      for (const purchaseDoc of purchaseSnap.docs) {
+        const purchase = purchaseDoc.data();
+        if (purchase.status && purchase.status !== "awaiting_payment") {
+          hasCompletedPurchase = true;
+          break;
+        }
+      }
+
+      if (!hasCompletedPurchase) {
         unpaidBatch.update(doc.ref, {
           status: "unpaid",
           unpaidAt: now,
@@ -111,8 +166,8 @@ export async function GET(req: NextRequest) {
             type: "auction_unpaid",
             targetEmail: sellerEmail,
             fromEmail: "system",
-            title: "Auction Winner Didn't Pay ⏰",
-            message: `Your auction for "${listing.title || ""}" ended with a winning bid of $${listing.currentBid || 0} but the winner hasn't paid within 24 hours. The listing has been marked as unpaid. You can relist it.`,
+            title: "Auction Winner Didn't Complete Purchase ⏰",
+            message: `Your auction for "${listing.title || ""}" ended with a winning bid of $${listing.currentBid || 0} but the winner hasn't completed the purchase within 24 hours. You can relist the item or contact them directly.`,
             listingId: doc.id,
             listingTitle: listing.title || "",
             read: false,
