@@ -1796,7 +1796,7 @@ export default function AIPostPage() {
 
           {/* Rental Details */}
           {listingType === "rental" && (
-            <div className="space-y-4">
+            <div className="space-y-5">
               {/* Rental Sub-Type Selector */}
               <div>
                 <label className="mb-3 block text-sm font-bold text-[var(--foreground)]">What are you renting out?</label>
@@ -1821,178 +1821,98 @@ export default function AIPostPage() {
 
               {/* Location */}
               <div>
-                <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Pickup location *</label>
+                <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Where can this be collected?</label>
                 <input type="text" value={location} onChange={(e) => setLocation(e.target.value)}
                   placeholder="City or suburb"
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition duration-200 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
               </div>
 
-              {/* EQUIPMENT RENTAL */}
-              {rentalSubType === "equipment" && (
-                <div className="rounded-xl bg-white/[0.03] p-4 space-y-4">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--muted)]">Rental Pricing</p>
+              {/* Rental Pricing Section */}
+              {rentalSubType === "equipment" || rentalSubType === "vehicle" ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <div className="h-px flex-1 bg-white/[0.08]" />
+                    <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--muted)]">Rental Pricing</p>
+                    <div className="h-px flex-1 bg-white/[0.08]" />
+                  </div>
 
-                      <div className="grid grid-cols-3 gap-3">
-                        <div>
-                          <label className="mb-1 block text-[10px] font-medium text-[var(--foreground)]">Daily Rate *</label>
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                            <input type="number" value={price} onChange={(e) => {
-                              const v = e.target.value; setPrice(v);
-                              const d = Number(v);
-                              if (d > 0) {
-                                if (!manualEdit.current.has("weekly")) setRentalPriceWeekly(String(Math.round(d * 7)));
-                                const w = manualEdit.current.has("weekly") ? Number(rentalPriceWeekly) : Math.round(d * 7);
-                                if (!manualEdit.current.has("monthly") && w > 0) setRentalPriceMonthly(String(Math.round(w * 4)));
-                              }
-                            }}
-                              placeholder="Day"
-                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Weekly</label>
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                            <input type="number" value={rentalPriceWeekly} onChange={(e) => { setRentalPriceWeekly(e.target.value); manualEdit.current.add("weekly"); }}
-                              placeholder="Week"
-                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Monthly</label>
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                            <input type="number" value={rentalPriceMonthly} onChange={(e) => { setRentalPriceMonthly(e.target.value); manualEdit.current.add("monthly"); }}
-                              placeholder="Month"
-                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                          </div>
-                        </div>
-                      </div>
-                      <p className="text-[10px] text-[var(--muted)]">Weekly and monthly rates can be entered manually or calculated automatically.</p>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Security Deposit (optional)</label>
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                            <input type="number" value={rentalDeposit} onChange={(e) => setRentalDeposit(e.target.value)}
-                              placeholder="e.g. 200"
-                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Condition</label>
-                          <select value={condition} onChange={(e) => setCondition(e.target.value)}
-                            className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
-                            <option className="bg-[var(--card)] text-[var(--foreground)]">New</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Like New</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Good</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Fair</option>
-                          </select>
-                        </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="col-span-1">
+                      <label className="mb-1 block text-[10px] font-semibold text-[var(--foreground)]">Daily Rate *</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                        <input type="number" value={price} onChange={(e) => {
+                          const v = e.target.value; setPrice(v);
+                          const d = Number(v);
+                          if (d > 0) {
+                            if (!manualEdit.current.has("weekly")) setRentalPriceWeekly(String(Math.round(d * 7)));
+                            const w = manualEdit.current.has("weekly") ? Number(rentalPriceWeekly) : Math.round(d * 7);
+                            if (!manualEdit.current.has("monthly") && w > 0) setRentalPriceMonthly(String(Math.round(w * 4)));
+                          }
+                        }}
+                          placeholder="Day"
+                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition duration-200 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
                       </div>
                     </div>
-                  )}
+                    <div className="col-span-1">
+                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Weekly</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                        <input type="number" value={rentalPriceWeekly} onChange={(e) => { setRentalPriceWeekly(e.target.value); manualEdit.current.add("weekly"); }}
+                          placeholder="Week"
+                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition duration-200 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
+                      </div>
+                    </div>
+                    <div className="col-span-1">
+                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Monthly</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                        <input type="number" value={rentalPriceMonthly} onChange={(e) => { setRentalPriceMonthly(e.target.value); manualEdit.current.add("monthly"); }}
+                          placeholder="Month"
+                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition duration-200 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-[var(--muted)]">Weekly and monthly rates can be entered manually or calculated automatically.</p>
 
-                  {/* VEHICLE RENTAL */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Security Deposit (optional)</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
+                        <input type="number" value={rentalDeposit} onChange={(e) => setRentalDeposit(e.target.value)}
+                          placeholder={rentalSubType === "vehicle" ? "e.g. 500" : "e.g. 200"}
+                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition duration-200 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Condition</label>
+                      <select value={condition} onChange={(e) => setCondition(e.target.value)}
+                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition duration-200 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]">
+                        <option className="bg-[var(--card)] text-[var(--foreground)]">New</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Like New</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Good</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Fair</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Vehicle details - only for vehicle rental */}
                   {rentalSubType === "vehicle" && (
-                    <div className="rounded-xl bg-white/[0.03] p-4 space-y-4">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--muted)]">Rental Pricing</p>
-
-                      <div className="grid grid-cols-3 gap-3">
-                        <div>
-                          <label className="mb-1 block text-[10px] font-medium text-[var(--foreground)]">Daily Rate *</label>
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                            <input type="number" value={price} onChange={(e) => {
-                              const v = e.target.value; setPrice(v);
-                              const d = Number(v);
-                              if (d > 0) {
-                                if (!manualEdit.current.has("weekly")) setRentalPriceWeekly(String(Math.round(d * 7)));
-                                const w = manualEdit.current.has("weekly") ? Number(rentalPriceWeekly) : Math.round(d * 7);
-                                if (!manualEdit.current.has("monthly") && w > 0) setRentalPriceMonthly(String(Math.round(w * 4)));
-                              }
-                            }}
-                              placeholder="Day"
-                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Weekly</label>
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                            <input type="number" value={rentalPriceWeekly} onChange={(e) => { setRentalPriceWeekly(e.target.value); manualEdit.current.add("weekly"); }}
-                              placeholder="Week"
-                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Monthly</label>
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                            <input type="number" value={rentalPriceMonthly} onChange={(e) => { setRentalPriceMonthly(e.target.value); manualEdit.current.add("monthly"); }}
-                              placeholder="Month"
-                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                          </div>
-                        </div>
+                    <div className="grid grid-cols-2 gap-3 pt-2">
+                      <div>
+                        <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Make</label>
+                        <input type="text" value={vehicleMake} onChange={(e) => setVehicleMake(e.target.value)}
+                          placeholder="e.g. Toyota"
+                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition duration-200 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
                       </div>
-                      <p className="text-[10px] text-[var(--muted)]">Weekly and monthly rates can be entered manually or calculated automatically.</p>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Security Deposit (optional)</label>
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                            <input type="number" value={rentalDeposit} onChange={(e) => setRentalDeposit(e.target.value)}
-                              placeholder="e.g. 500"
-                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Condition</label>
-                          <select value={condition} onChange={(e) => setCondition(e.target.value)}
-                            className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
-                            <option className="bg-[var(--card)] text-[var(--foreground)]">New</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Like New</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Good</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Fair</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      {/* Vehicle details */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Make</label>
-                          <input type="text" value={vehicleMake} onChange={(e) => setVehicleMake(e.target.value)}
-                            placeholder="e.g. Toyota"
-                            className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Model</label>
-                          <input type="text" value={vehicleModel} onChange={(e) => setVehicleModel(e.target.value)}
-                            placeholder="e.g. HiAce"
-                            className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-3">
-                        <div>
-                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Year</label>
-                          <input type="number" value={vehicleYear} onChange={(e) => setVehicleYear(e.target.value)}
-                            placeholder="e.g. 2018"
-                            className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Transmission</label>
-                          <select value={vehicleTransmission} onChange={(e) => setVehicleTransmission(e.target.value)}
-                            className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
-                            <option className="bg-[var(--card)] text-[var(--foreground)]">Automatic</option><option className="bg-[var(--card)] text-[var(--foreground)]">Manual</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Seats</label>
-                          <input type="number" value={stockQuantity} onChange={(e) => setStockQuantity(e.target.value)}
-                            placeholder="e.g. 5"
-                            className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
-                        </div>
+                      <div>
+                        <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Model</label>
+                        <input type="text" value={vehicleModel} onChange={(e) => setVehicleModel(e.target.value)}
+                          placeholder="e.g. HiAce"
+                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition duration-200 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
                       </div>
                     </div>
                   )}
+                </div>
+              ) : null}
             </div>
           )}
 
