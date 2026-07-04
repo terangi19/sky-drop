@@ -874,19 +874,19 @@ export default function ListingPage() {
           {!loading && <Link href="/" className="mt-6 inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 px-3 py-1.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">Browse Marketplace</Link>}
         </div>
       ) : (<>
-      <section className="relative z-10 mx-auto max-w-5xl px-6 py-8">
+      <section className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 py-6 lg:py-8">
         {/* BREADCRUMB */}
-        <nav className="mb-4 flex items-center gap-2 text-xs text-[var(--muted)]">
+        <nav className="mb-6 flex items-center gap-2 text-xs font-medium text-[var(--muted)]">
           <Link href="/" className="transition-colors hover:text-sky-400">Home</Link>
           <span className="text-[var(--muted)]">/</span>
           <span className="text-[var(--muted)]">{listing.category || "Other"}</span>
           <span className="text-[var(--muted)]">/</span>
-          <span className="max-w-[200px] truncate text-[var(--foreground)]">{listing.title}</span>
+          <span className="max-w-[300px] truncate text-[var(--foreground)]">{listing.title}</span>
         </nav>
 
         {/* Scam Warning Banner */}
         {scamResult?.isScam && (
-          <div className="mb-3 rounded-xl border border-sky-500/20 bg-sky-500/5 px-3 py-2">
+          <div className="mb-4 rounded-xl border border-sky-500/20 bg-sky-500/5 px-4 py-3">
             <div className="flex items-start gap-3">
               <span className="mt-0.5 text-sky-400 text-sm">⚠️</span>
               <div>
@@ -901,7 +901,7 @@ export default function ListingPage() {
 
         {/* Price Warning */}
         {priceWarning && (
-          <div className="mb-3 rounded-xl border border-sky-500/15 bg-sky-500/5 px-3 py-2">
+          <div className="mb-4 rounded-xl border border-sky-500/15 bg-sky-500/5 px-4 py-3">
             <div className="flex items-start gap-2">
               <span className="mt-0.5 text-sky-400/80 text-sm">⚠️</span>
               <div>
@@ -912,52 +912,57 @@ export default function ListingPage() {
           </div>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* ── LEFT COLUMN: IMAGE ── */}
+        <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr] xl:grid-cols-[1.3fr_0.7fr]">
+          {/* ── LEFT COLUMN: IMAGE & DETAILS ── */}
           {(() => {
             const displayImages = listing.images && listing.images.length > 0 ? listing.images : listing.imageUrl ? [listing.imageUrl] : [];
             return (
-              <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[var(--card)] to-[var(--soft-card)] border border-white/[0.08] shadow-2xl shadow-black/30">
-                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
-                {displayImages.length > 0 ? (
-                  <div className="relative"
-                    onTouchStart={(e) => { (e.currentTarget as HTMLElement).dataset.touchX = String(e.touches[0].clientX); }}
-                    onTouchEnd={(e) => {
-                      const startX = Number((e.currentTarget as HTMLElement).dataset.touchX || 0);
-                      const endX = e.changedTouches[0].clientX;
-                      const diff = startX - endX;
-                      if (Math.abs(diff) > 50) {
-                        if (diff > 0 && selectedImageIndex < displayImages.length - 1) setSelectedImageIndex(selectedImageIndex + 1);
-                        if (diff < 0 && selectedImageIndex > 0) setSelectedImageIndex(selectedImageIndex - 1);
-                      }
-                    }}
-                  >
-                    <img
-                      src={displayImages[selectedImageIndex]}
-                      alt={listing.title}
-                      className="w-full max-h-[520px] object-cover fade-in cursor-pointer"
-                      onClick={() => setShowImageModal(true)}
-                    />
-                    {displayImages.length > 1 && (
-                      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-                        {displayImages.map((_, idx) => (
-                          <button
-                            key={idx}
-                            onClick={(e) => { e.stopPropagation(); setSelectedImageIndex(idx); }}
-                            className={`h-3 rounded-full transition-all duration-150 ${
-                              idx === selectedImageIndex ? "w-5 bg-sky-400" : "w-3 bg-white/50 hover:bg-white/80"
-                            }`}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex h-64 items-center justify-center bg-[var(--soft-card)] text-[var(--muted)] text-sm">No image</div>
-                )}
+              <div className="space-y-6">
+                {/* Image Gallery */}
+                <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[var(--card)] to-[var(--soft-card)] border border-white/[0.08] shadow-2xl shadow-black/30">
+                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
+                  {displayImages.length > 0 ? (
+                    <div className="relative"
+                      onTouchStart={(e) => { (e.currentTarget as HTMLElement).dataset.touchX = String(e.touches[0].clientX); }}
+                      onTouchEnd={(e) => {
+                        const startX = Number((e.currentTarget as HTMLElement).dataset.touchX || 0);
+                        const endX = e.changedTouches[0].clientX;
+                        const diff = startX - endX;
+                        if (Math.abs(diff) > 50) {
+                          if (diff > 0 && selectedImageIndex < displayImages.length - 1) setSelectedImageIndex(selectedImageIndex + 1);
+                          if (diff < 0 && selectedImageIndex > 0) setSelectedImageIndex(selectedImageIndex - 1);
+                        }
+                      }}
+                    >
+                      <img
+                        src={displayImages[selectedImageIndex]}
+                        alt={listing.title}
+                        className="w-full max-h-[600px] object-cover fade-in cursor-pointer"
+                        onClick={() => setShowImageModal(true)}
+                      />
+                      {displayImages.length > 1 && (
+                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+                          {displayImages.map((_, idx) => (
+                            <button
+                              key={idx}
+                              onClick={(e) => { e.stopPropagation(); setSelectedImageIndex(idx); }}
+                              className={`h-2 rounded-full transition-all duration-200 ${
+                                idx === selectedImageIndex ? "w-8 bg-sky-400" : "w-2 bg-white/40 hover:bg-white/70"
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex h-80 items-center justify-center bg-[var(--soft-card)] text-[var(--muted)] text-sm">No image</div>
+                  )}
+                </div>
+
+                {/* Description */}
                 {listing.description && (
-                  <div className="border-t border-white/[0.04] px-5 py-4">
-                    <h2 className="mb-2 text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Description</h2>
+                  <div className="rounded-xl border border-white/[0.06] bg-[var(--card)] p-6">
+                    <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-[var(--muted)]">Description</h2>
                     <div className="text-sm leading-relaxed text-[var(--foreground)] whitespace-pre-wrap">
                       {listing.description}
                     </div>
@@ -968,31 +973,32 @@ export default function ListingPage() {
           })()}
 
           {/* ── RIGHT COLUMN: PURCHASE CARD ── */}
-          <div className="relative flex flex-col gap-4 overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-5 shadow-2xl shadow-black/20">
+          <div className="relative flex flex-col gap-5 overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-6 shadow-2xl shadow-black/20">
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
+            
             {/* 1. PILLS: Category / Condition / Time */}
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-2.5 py-0.5 text-[10px] font-bold text-sky-400">{listing.category || "Other"}</span>
+              <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-[11px] font-bold text-sky-400">{listing.category || "Other"}</span>
               {listing.condition && (
-                <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${listing.condition === "New" ? "border-sky-500/20 bg-sky-500/10 text-sky-400" : "border-white/[0.08] bg-[var(--soft-card)] text-[var(--foreground)]"}`}>
+                <span className={`rounded-full border px-3 py-1 text-[11px] font-bold ${listing.condition === "New" ? "border-sky-500/20 bg-sky-500/10 text-sky-400" : "border-white/[0.08] bg-[var(--soft-card)] text-[var(--foreground)]"}`}>
                   {listing.condition}
                 </span>
               )}
               {listing.createdAt?.seconds != null && (
-                <span className="rounded-full border border-white/[0.08] bg-[var(--soft-card)] px-2.5 py-0.5 text-[10px] text-[var(--muted)]">{timeAgo(listing.createdAt.seconds)}</span>
+                <span className="rounded-full border border-white/[0.08] bg-[var(--soft-card)] px-3 py-1 text-[11px] text-[var(--muted)]">{timeAgo(listing.createdAt.seconds)}</span>
               )}
               {listing.location && (
-                <span className="rounded-full border border-white/[0.08] bg-[var(--soft-card)] px-2.5 py-0.5 text-[10px] text-[var(--muted)]">{listing.location}</span>
+                <span className="rounded-full border border-white/[0.08] bg-[var(--soft-card)] px-3 py-1 text-[11px] text-[var(--muted)]">{listing.location}</span>
               )}
             </div>
 
             {/* 2. TITLE */}
-            <h1 className="text-xl font-black tracking-tight text-[var(--foreground)]">{listing.title}</h1>
+            <h1 className="text-2xl font-black tracking-tight text-[var(--foreground)] leading-tight">{listing.title}</h1>
 
             {/* 3. PRICE */}
-            <div className="flex flex-wrap items-baseline gap-2">
+            <div className="flex flex-wrap items-baseline gap-3">
               {listing.type === "service" && <ServicePricingBadge listing={listing} />}
-              <span className="text-3xl font-black text-[var(--foreground)]">
+              <span className="text-4xl font-black text-[var(--foreground)] tracking-tight">
                 {listing.type === "service"
                   ? formatServicePriceDisplay(listing)
                   : listing.pricingType === "quote"
@@ -1002,13 +1008,13 @@ export default function ListingPage() {
                       : "Price on request"}
               </span>
               {!isListingVisibleInMarketplace(listing) && (
-                <span className="rounded bg-red-600/90 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[var(--foreground)]">Sold</span>
+                <span className="rounded-lg bg-red-600/90 px-3 py-1 text-xs font-black uppercase tracking-wider text-white">Sold</span>
               )}
               {isListingVisibleInMarketplace(listing) && listing.expiresAt?.toMillis?.() < Date.now() && (
-                <span className="rounded bg-[var(--soft-card)] px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[var(--muted)]">Expired</span>
+                <span className="rounded-lg bg-[var(--soft-card)] px-3 py-1 text-xs font-black uppercase tracking-wider text-[var(--muted)]">Expired</span>
               )}
               {(listing as any).promotedUntil?.toMillis?.() > Date.now() && (
-                <span className="rounded bg-sky-500/90 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">📈 Promoted</span>
+                <span className="rounded-lg bg-sky-500/90 px-3 py-1 text-xs font-black uppercase tracking-wider text-white">📈 Promoted</span>
               )}
             </div>
 
@@ -1019,18 +1025,18 @@ export default function ListingPage() {
              listing.saleType !== "auction" && 
              listing.saleType !== "auction_buy_now" &&
              isListingVisibleInMarketplace(listing) && (
-              <div className="mt-2 rounded-lg border border-sky-500/20 bg-sky-500/5 px-3 py-2">
-                <div className="flex items-center justify-between text-xs">
+              <div className="mt-3 rounded-xl border border-sky-500/20 bg-sky-500/5 px-4 py-3">
+                <div className="flex items-center justify-between text-sm">
                   <span className="text-[var(--muted)]">Item price</span>
                   <span className="font-semibold">${listing.price}</span>
                 </div>
-                <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center justify-between text-sm">
                   <span className="text-[var(--muted)]">Platform fee</span>
                   <span className="font-semibold">$1.00</span>
                 </div>
-                <div className="mt-1.5 flex items-center justify-between border-t border-sky-500/20 pt-1.5">
-                  <span className="text-xs font-bold text-[var(--foreground)]">Total you'll pay</span>
-                  <span className="text-lg font-black text-sky-400">${(Number(listing.price) + 1).toFixed(2)}</span>
+                <div className="mt-2 flex items-center justify-between border-t border-sky-500/20 pt-2">
+                  <span className="text-sm font-bold text-[var(--foreground)]">Total you'll pay</span>
+                  <span className="text-xl font-black text-sky-400">${(Number(listing.price) + 1).toFixed(2)}</span>
                 </div>
               </div>
             )}
@@ -1042,12 +1048,12 @@ export default function ListingPage() {
             )}
 
             {(listing.saleType === "auction" || listing.saleType === "auction_buy_now") && (
-              <div className="mt-3 space-y-1.5 rounded-lg border border-sky-500/20 bg-sky-500/5 p-3">
-                <div className="flex items-center justify-between text-xs">
+              <div className="mt-4 space-y-2 rounded-xl border border-sky-500/20 bg-sky-500/5 p-4">
+                <div className="flex items-center justify-between text-sm">
                   <span className="text-[var(--muted)]">Current Bid</span>
-                  <span className="font-black text-lg text-sky-400">${listing.currentBid || listing.startingBid || 0}</span>
+                  <span className="font-black text-2xl text-sky-400">${listing.currentBid || listing.startingBid || 0}</span>
                 </div>
-                <div className="flex items-center justify-between text-[10px] text-[var(--muted)]">
+                <div className="flex items-center justify-between text-xs text-[var(--muted)]">
                   <span>{listing.bidCount || 0} bids</span>
                   {listing.reservePrice && (
                     <span className={listing.currentBid >= listing.reservePrice ? "text-sky-400" : "text-sky-400"}>
@@ -1058,24 +1064,24 @@ export default function ListingPage() {
                 {auctionEnded ? (
                   <>
                     {user?.email === listing.highestBidder ? (
-                      <div className="text-[10px] text-sky-400 font-bold">🎉 You won this auction!</div>
+                      <div className="text-xs text-sky-400 font-bold">🎉 You won this auction!</div>
                     ) : user?.email !== listing.sellerEmail ? (
-                      <div className="text-[10px] text-red-400">Auction ended — you didn't win</div>
+                      <div className="text-xs text-red-400">Auction ended — you didn't win</div>
                     ) : (
-                      <div className="text-[10px] text-sky-400">Auction ended — winner: {listing.highestBidder || "unknown"}</div>
+                      <div className="text-xs text-sky-400">Auction ended — winner: {listing.highestBidder || "unknown"}</div>
                     )}
-                    <div className="text-[10px] text-[var(--muted)]">Auction ended</div>
+                    <div className="text-xs text-[var(--muted)]">Auction ended</div>
                   </>
                 ) : (
                   <>
                     {user?.email === listing.highestBidder && (
-                      <div className="text-[10px] text-sky-400">✓ You're winning</div>
+                      <div className="text-xs text-sky-400">✓ You're winning</div>
                     )}
                     {user && listing.bidCount > 0 && user.email !== listing.highestBidder && user.email !== listing.sellerEmail && (
-                      <div className="text-[10px] text-sky-400">You've been outbid</div>
+                      <div className="text-xs text-sky-400">You've been outbid</div>
                     )}
                     {listing.auctionEndsAt && (
-                      <div className="text-[10px] text-[var(--muted)]">
+                      <div className="text-xs text-[var(--muted)]">
                         {(() => {
                           const end = listing.auctionEndsAt?.seconds ? new Date(listing.auctionEndsAt.seconds * 1000).getTime() : 0;
                           const diff = Math.max(0, end - Date.now());
@@ -1478,7 +1484,7 @@ Property Status: 🟢 Inquiry Active`;
                           e.stopPropagation();
                           handleArrangePurchase();
                         }}
-                        className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-5 text-base font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98]"
+                        className="w-full h-16 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-5 text-base font-bold text-white shadow-xl shadow-sky-500/25 transition-all duration-200 hover:shadow-2xl hover:shadow-sky-500/35 hover:brightness-110 active:scale-[0.98]"
                       >
                         {buyerArrangeRequestCount > 0 ? (
                           <>
@@ -1547,7 +1553,7 @@ Property Status: 🟢 Inquiry Active`;
                   <div className="grid grid-cols-2 gap-3">
                     {!auctionEnded && (listing.saleType === "auction" || listing.saleType === "auction_buy_now") && (
                       <button onClick={() => { setShowBidModal(true); setBidAmount(String(getMinimumNextBid(listing.currentBid || listing.startingBid || 0))); }}
-                        className="h-11 flex items-center justify-center gap-2 rounded-lg border border-sky-500/30 bg-sky-500/10 px-4 text-sm font-bold text-sky-400 transition-all duration-200 hover:bg-sky-500/20 hover:border-sky-500/50"
+                        className="h-12 flex items-center justify-center gap-2 rounded-lg border border-sky-500/30 bg-sky-500/10 px-4 text-sm font-bold text-sky-400 transition-all duration-200 hover:bg-sky-500/20 hover:border-sky-500/50"
                       >
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1558,7 +1564,7 @@ Property Status: 🟢 Inquiry Active`;
                     {(listing as any).paymentType !== "contact" && listing.acceptOffers && (
                       <button
                         onClick={() => setShowOffer(true)}
-                        className="h-11 flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06]"
+                        className="h-12 flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06]"
                       >
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
@@ -1568,7 +1574,7 @@ Property Status: 🟢 Inquiry Active`;
                     )}
                     <button
                       onClick={() => router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`)}
-                      className="h-11 flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06]"
+                      className="h-12 flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06]"
                     >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03 8 9 8s9 3.582 9 8z" />
@@ -1929,26 +1935,26 @@ Service Status: 🟢 Inquiry Active`;
             )}
 
             {/* ── SEPARATOR ── */}
-            <div className="h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+            <div className="h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent my-4" />
 
             {/* 7. SELLER CARD */}
             <div>
               <Link
                 href={user?.email === listing.sellerEmail ? "#" : `/seller/${listing.sellerUsername || listing.sellerEmail}`}
-                className="block rounded-xl border border-sky-500/20 bg-sky-500/5 p-4 transition-all duration-200 hover:border-sky-500/30 hover:bg-sky-500/10"
+                className="block rounded-xl border border-sky-500/20 bg-sky-500/5 p-5 transition-all duration-200 hover:border-sky-500/30 hover:bg-sky-500/10 hover:shadow-lg hover:shadow-sky-500/5"
               >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-sm font-bold text-[var(--foreground)]">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-lg font-bold text-[var(--foreground)]">
                     {sellerInitial}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="truncate text-sm font-medium text-[var(--foreground)]">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate text-base font-semibold text-[var(--foreground)]">
                         {user?.email === listing.sellerEmail ? "You" : sellerName}
                       </span>
                       {isFullyVerified && (
                         <div className="group relative">
-                          <button type="button" className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-sky-500/20 px-1.5 py-0.5 text-[10px] font-bold text-sky-400 border border-sky-500/30 cursor-pointer hover:bg-sky-500/30 transition-colors" title="Identity verified with ID">
+                          <button type="button" className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-sky-500/20 px-2 py-0.5 text-[11px] font-bold text-sky-400 border border-sky-500/30 cursor-pointer hover:bg-sky-500/30 transition-colors" title="Identity verified with ID">
                             ✓ Verified
                           </button>
                           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 rounded-lg bg-[var(--card)] border border-white/[0.1] px-3 py-2 text-[10px] text-[var(--muted)] opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all duration-200 z-50 pointer-events-none">
@@ -1958,7 +1964,7 @@ Service Status: 🟢 Inquiry Active`;
                       )}
                       {sellerProfile?.trustedSeller && !isFullyVerified && (
                         <div className="group relative">
-                          <button type="button" className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-sky-500/20 px-1.5 py-0.5 text-[10px] font-bold text-sky-400 border border-sky-500/30 cursor-pointer hover:bg-sky-500/30 transition-colors" title="Positive seller history">
+                          <button type="button" className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-sky-500/20 px-2 py-0.5 text-[11px] font-bold text-sky-400 border border-sky-500/30 cursor-pointer hover:bg-sky-500/30 transition-colors" title="Positive seller history">
                             ✓ Trusted
                           </button>
                           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 rounded-lg bg-[var(--card)] border border-white/[0.1] px-3 py-2 text-[10px] text-[var(--muted)] opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all duration-200 z-50 pointer-events-none">
@@ -1968,7 +1974,7 @@ Service Status: 🟢 Inquiry Active`;
                       )}
                       {isNewSeller && !isFullyVerified && !sellerProfile?.trustedSeller && (
                         <div className="group relative">
-                          <button type="button" className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-sky-500/20 px-1.5 py-0.5 text-[10px] font-bold text-sky-400 border border-sky-500/30 cursor-pointer hover:bg-sky-500/30 transition-colors" title="Recently joined Sky Drop">
+                          <button type="button" className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-sky-500/20 px-2 py-0.5 text-[11px] font-bold text-sky-400 border border-sky-500/30 cursor-pointer hover:bg-sky-500/30 transition-colors" title="Recently joined Sky Drop">
                             New Seller
                           </button>
                           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 rounded-lg bg-[var(--card)] border border-white/[0.1] px-3 py-2 text-[10px] text-[var(--muted)] opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all duration-200 z-50 pointer-events-none">
@@ -1977,13 +1983,13 @@ Service Status: 🟢 Inquiry Active`;
                         </div>
                       )}
                       {sellerProfile?.profileBadge === "epic" && (
-                        <span className="shrink-0 text-[10px] text-sky-400 font-bold">💎 Epic</span>
+                        <span className="shrink-0 text-[11px] text-sky-400 font-bold">💎 Epic</span>
                       )}
                       {sellerProfile?.profileBadge === "legendary" && (
-                        <span className="shrink-0 text-[10px] text-sky-400 font-bold animate-pulse">👑 The Five</span>
+                        <span className="shrink-0 text-[11px] text-sky-400 font-bold animate-pulse">👑 The Five</span>
                       )}
                     </div>
-                    <div className="mt-1 flex items-center gap-2 text-[11px]">
+                    <div className="mt-2 flex items-center gap-2 text-xs">
                       {sellerStatsData && sellerStatsData.count > 0 ? (
                         <>
                           <div className="flex items-center gap-1">
@@ -1993,7 +1999,7 @@ Service Status: 🟢 Inquiry Active`;
                           <span className="text-zinc-500">{sellerStatsData.count} review{sellerStatsData.count !== 1 ? "s" : ""}</span>
                         </>
                       ) : (
-                        <span className="text-zinc-500 text-[10px]">No reviews yet</span>
+                        <span className="text-zinc-500 text-[11px]">No reviews yet</span>
                       )}
                       {sellerSalesCount !== null && sellerSalesCount > 0 && (
                         <span className="text-zinc-500">· {sellerSalesCount} sale{sellerSalesCount !== 1 ? "s" : ""}</span>
@@ -2076,30 +2082,30 @@ Service Status: 🟢 Inquiry Active`;
             </div>
 
             {/* 8. Q&A */}
-            <div className="border-t border-zinc-800 pt-4 pb-2">
-              <h3 className="mb-3 text-xs font-bold text-[var(--foreground)]">Questions & Answers</h3>
+            <div className="border-t border-zinc-800 pt-5 pb-2">
+              <h3 className="mb-4 text-sm font-bold text-[var(--foreground)]">Questions & Answers</h3>
 
               {questions.length === 0 && (
-                <p className="mb-3 text-[11px] text-[var(--muted)]">No questions yet. Be the first to ask.</p>
+                <p className="mb-4 text-xs text-[var(--muted)]">No questions yet. Be the first to ask.</p>
               )}
 
-              <div className="space-y-3 mb-3">
+              <div className="space-y-3 mb-4">
                 {questions.map((q: any) => (
-                  <div key={q.id} className="rounded-lg border border-zinc-800/60 bg-zinc-900/40 p-3">
-                    <div className="flex items-start gap-2">
-                      <span className="text-xs mt-0.5">❓</span>
+                  <div key={q.id} className="rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-4">
+                    <div className="flex items-start gap-3">
+                      <span className="text-sm mt-0.5">❓</span>
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs text-[var(--foreground)]">{q.question}</p>
-                        <p className="mt-0.5 text-[9px] text-[var(--muted)]">{q.askerName || q.askerEmail?.split("@")[0]} · {q.createdAt?.toDate?.() ? new Date(q.createdAt.toDate()).toLocaleDateString() : ""}</p>
+                        <p className="text-sm text-[var(--foreground)]">{q.question}</p>
+                        <p className="mt-1 text-xs text-[var(--muted)]">{q.askerName || q.askerEmail?.split("@")[0]} · {q.createdAt?.toDate?.() ? new Date(q.createdAt.toDate()).toLocaleDateString() : ""}</p>
                       </div>
                     </div>
 
                     {q.answer ? (
-                      <div className="mt-2 ml-6 flex items-start gap-2 border-l-2 border-sky-500/30 pl-3">
-                        <span className="text-xs mt-0.5">💬</span>
+                      <div className="mt-3 ml-7 flex items-start gap-3 border-l-2 border-sky-500/30 pl-4">
+                        <span className="text-sm mt-0.5">💬</span>
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs text-sky-300">{q.answer}</p>
-                          <p className="mt-0.5 text-[9px] text-[var(--muted)]">Seller · {q.answeredAt?.toDate?.() ? new Date(q.answeredAt.toDate()).toLocaleDateString() : ""}</p>
+                          <p className="text-sm text-sky-300">{q.answer}</p>
+                          <p className="mt-1 text-xs text-[var(--muted)]">Seller · {q.answeredAt?.toDate?.() ? new Date(q.answeredAt.toDate()).toLocaleDateString() : ""}</p>
                         </div>
                       </div>
                     ) : user?.email === listing.sellerEmail ? (
