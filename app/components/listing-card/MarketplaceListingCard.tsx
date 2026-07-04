@@ -4,14 +4,14 @@ import type { CSSProperties } from "react";
 import { useState, memo } from "react";
 import Link from "next/link";
 import type { User } from "firebase/auth";
-import { isListingVisibleInMarketplace } from "../lib/listing-availability";
-import { timeAgo } from "../lib/listing-card-utils";
+import { isListingVisibleInMarketplace } from "../../lib/listing-availability";
+import { timeAgo } from "../../lib/listing-card-utils";
 import {
   listingWatchlistCount,
   listingWatchlistGlowIntensity,
-} from "../lib/listing-watchlist-count";
-import { SellerReviewSummary } from "./SellerReviewStars";
-import ListingImage, { listingHasImage } from "./ListingImage";
+} from "../../lib/listing-watchlist-count";
+import { SellerReviewSummary } from "../SellerReviewStars";
+import ListingImage, { listingHasImage } from "../ListingImage";
 
 export type MarketplaceListingCardProps = {
   item: Record<string, any>;

@@ -27,7 +27,7 @@ import {
 
 
 const PromoteModal = lazy(() => import("./components/PromoteModal"));
-const MarketplaceListingCard = lazy(() => import("./components/MarketplaceListingCard"));
+const MarketplaceListingCard = lazy(() => import("./components/listing-card/MarketplaceListingCard"));
 const ArrangePurchaseModal = lazy(() => import("./components/ArrangePurchaseModal"));
 const HotThisWeek = lazy(() => import("./components/HotThisWeek"));
 import { LISTING_GRID, LISTING_GRID_MT, PAGE_SHELL_MARKETPLACE, PAGE_SHELL_WIDE } from "./lib/page-layout";
