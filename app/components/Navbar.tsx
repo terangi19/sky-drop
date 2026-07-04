@@ -41,18 +41,18 @@ import {
 import { useFeedback } from "../contexts/FeedbackContext";
 
 const MOBILE_NAV_ITEMS = [
-  { href: "/", label: "Browse", icon: "🏠" },
-  { href: "/purchases", label: "Purchases", icon: "🛒" },
-  { href: "/post/ai", label: "Sell", icon: "➕" },
-  { href: "/messages", label: "Messages", icon: "💬" },
+  { href: "/", label: "Browse" },
+  { href: "/purchases", label: "Purchases" },
+  { href: "/post/ai", label: "Sell" },
+  { href: "/messages", label: "Messages" },
 ];
 
 const BROWSE_LINKS = [
-  { href: "/", label: "All Items", desc: "Browse the full marketplace", icon: "🏪" },
-  { href: "/", label: "Physical Items", desc: "Cars, tech, fashion, home & more", icon: "📦" },
-  { href: "/services", label: "Services & Gigs", desc: "Freelance work, consulting, help", icon: "🤝" },
-  { href: "/rentals", label: "Rentals", desc: "Tools, equipment, cameras for rent", icon: "🔑" },
-  { href: "/wanted", label: "Wanted Ads", desc: "Items people are looking for", icon: "📋" },
+  { href: "/", label: "All Items", desc: "Browse the full marketplace" },
+  { href: "/", label: "Physical Items", desc: "Cars, tech, fashion, home & more" },
+  { href: "/services", label: "Services & Gigs", desc: "Freelance work, consulting, help" },
+  { href: "/rentals", label: "Rentals", desc: "Tools, equipment, cameras for rent" },
+  { href: "/wanted", label: "Wanted Ads", desc: "Items people are looking for" },
 ] as const;
 
 
@@ -271,7 +271,6 @@ export default function Navbar() {
                 <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 h-3 w-3 rotate-45 border-t border-l border-white/[0.08] bg-zinc-950/95 light:border-black/[0.12] light:bg-white/95" />
                 {BROWSE_LINKS.map((item) => (
                   <Link key={item.href} href={item.href} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-gray-200 hover:text-white hover:bg-white/[0.06] transition-all duration-200 group/dd light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-xs group-hover/dd:bg-white/[0.08] transition-colors light:bg-black/[0.04] light:group-hover/dd:bg-black/[0.08]">{item.icon}</span>
                     <div><div className="text-sm font-medium">{item.label}</div><div className="text-[10px] text-gray-400 light:text-gray-500">{item.desc}</div></div>
                   </Link>
                 ))}
@@ -535,7 +534,6 @@ export default function Navbar() {
                 <Link key={item.href} href={item.href}
                   className={`relative flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all duration-200 active:scale-90 ${active ? "text-sky-300 bg-white/[0.06]" : "text-[var(--nav-ice-faint)] hover:text-[var(--nav-ice-muted)]"}`}>
                   {active && <span className="absolute -top-1 left-1/2 -translate-x-1/2 h-[3px] w-6 rounded-full bg-gradient-to-r from-sky-400 to-sky-300 shadow-[0_0_6px_rgba(56,189,248,0.4)]" />}
-                  <span className="text-xl">{item.icon}</span>
                   <span className="text-[9px] font-semibold tracking-wide">{item.label}</span>
                 </Link>
               );
