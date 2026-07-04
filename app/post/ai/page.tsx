@@ -41,6 +41,7 @@ import {
   normalizeServicePricingType,
 } from "../../lib/service-pricing";
 import { compressImage, generateThumbnail, type CompressedImage, type Thumbnail } from "../../lib/image-optimization";
+import { withTimeout } from "../../lib/with-timeout";
 import { getClientCsrfToken } from "../../lib/csrf-client";
 
 const objectToCategory: Record<string, string> = {
@@ -124,6 +125,7 @@ export default function AIPostPage() {
 
   const [editId, setEditId] = useState<string | null>(null);
   const [existingImages, setExistingImages] = useState<string[]>([]);
+  const [existingThumbnails, setExistingThumbnails] = useState<string[]>([]);
   const [editLoading, setEditLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [scamAlert, setScamAlert] = useState<{ title: string; message: string; found: string[] } | null>(null);
@@ -682,6 +684,7 @@ export default function AIPostPage() {
         normalizeServicePricingType(data.servicePricingType, data.price, data.description)
       );
       setExistingImages(data.images || []);
+      setExistingThumbnails(Array.isArray(data.thumbnails) ? data.thumbnails : []);
       if (data.images?.length) setImagePreviews(data.images);
     }).catch(console.error).finally(() => setEditLoading(false));
   }, []);
@@ -735,6 +738,38 @@ export default function AIPostPage() {
   const MAX_IMAGE_SIZE_MB = 10;
   const MAX_IMAGE_SIZE_BYTES = MAX_IMAGE_SIZE_MB * 1024 * 1024;
   const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+
+  function isRemoteImageUrl(url: string): boolean {
+    return url.startsWith("http://") || url.startsWith("https://");
+  }
+
+  function isLocalImagePreview(url: string): boolean {
+    return url.startsWith("data:") || url.startsWith("blob:");
+  }
+
+  async function uploadListingImageFile(file: File, index: number): Promise<{ fullUrl: string; thumbUrl: string }> {
+    const timestamp = Date.now();
+    try {
+      const compressed: CompressedImage = await withTimeout(compressImage(file), 30_000, "Image compression");
+      const thumbnail: Thumbnail = await withTimeout(generateThumbnail(file), 20_000, "Thumbnail generation");
+
+      const fullStorageRef = ref(storage, `listings/${user!.uid}/${timestamp}_${index}_full.webp`);
+      const fullSnap = await withTimeout(uploadBytes(fullStorageRef, compressed.blob), 60_000, "Image upload");
+      const fullUrl = await getDownloadURL(fullSnap.ref);
+
+      const thumbStorageRef = ref(storage, `listings/${user!.uid}/${timestamp}_${index}_thumb.webp`);
+      const thumbSnap = await withTimeout(uploadBytes(thumbStorageRef, thumbnail.blob), 60_000, "Thumbnail upload");
+      const thumbUrl = await getDownloadURL(thumbSnap.ref);
+
+      return { fullUrl, thumbUrl };
+    } catch (error) {
+      console.error(`Failed to process image ${index}:`, error);
+      const storageRef = ref(storage, `listings/${user!.uid}/${timestamp}_${index}.jpg`);
+      const snap = await withTimeout(uploadBytes(storageRef, file), 60_000, "Image upload");
+      const url = await getDownloadURL(snap.ref);
+      return { fullUrl: url, thumbUrl: url };
+    }
+  }
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []).slice(0, 8);
@@ -885,56 +920,42 @@ export default function AIPostPage() {
     }) as typeof listingType;
 
     try {
-      let images: string[] = existingImages;
-      let thumbnails: string[] = existingImages && existingImages.length > 0 ? 
-        (typeof existingImages[0] === 'object' ? existingImages.map((img: any) => img.thumbnail) : []) : [];
-      
-      if (publishType !== "wanted" && imageFiles.length > 0) {
-        images = [];
-        thumbnails = [];
-        
-        for (let i = 0; i < imageFiles.length; i++) {
-          const file = imageFiles[i];
-          const timestamp = Date.now();
-          
-          try {
-            // Compress image to WebP (1920x1920 max, 85% quality)
-            const compressed: CompressedImage = await compressImage(file);
-            
-            // Generate thumbnail (300x300, 75% quality)
-            const thumbnail: Thumbnail = await generateThumbnail(file);
-            
-            // Upload compressed full-size image
-            const fullStorageRef = ref(storage, `listings/${user.uid}/${timestamp}_${i}_full.webp`);
-            const fullSnap = await uploadBytes(fullStorageRef, compressed.blob);
-            const fullUrl = await getDownloadURL(fullSnap.ref);
-            
-            // Upload thumbnail
-            const thumbStorageRef = ref(storage, `listings/${user.uid}/${timestamp}_${i}_thumb.webp`);
-            const thumbSnap = await uploadBytes(thumbStorageRef, thumbnail.blob);
-            const thumbUrl = await getDownloadURL(thumbSnap.ref);
-            
-            images.push(fullUrl);
-            thumbnails.push(thumbUrl);
-            
-            // Log compression stats
-            console.log(`Image ${i}:`, {
-              originalSize: (compressed.originalSize / 1024).toFixed(2) + 'KB',
-              compressedSize: (compressed.compressedSize / 1024).toFixed(2) + 'KB',
-              thumbnailSize: (thumbnail.blob.size / 1024).toFixed(2) + 'KB',
-              reduction: ((1 - compressed.compressedSize / compressed.originalSize) * 100).toFixed(1) + '%'
-            });
-          } catch (error) {
-            console.error(`Failed to process image ${i}:`, error);
-            // Fallback: upload original if compression fails
-            const blob = dataURLtoBlob(imagePreviews[i]);
-            const storageRef = ref(storage, `listings/${user.uid}/${timestamp}_${i}.jpg`);
-            const snap = await uploadBytes(storageRef, blob);
-            const url = await getDownloadURL(snap.ref);
-            images.push(url);
-            thumbnails.push(url); // Use same URL as fallback
+      let images: string[] = [];
+      let thumbnails: string[] = [];
+
+      if (publishType !== "wanted" && imagePreviews.length > 0) {
+        const pendingFiles = [...imageFiles];
+        let uploadIndex = 0;
+
+        for (const preview of imagePreviews) {
+          if (isRemoteImageUrl(preview)) {
+            images.push(preview);
+            const existingIdx = existingImages.indexOf(preview);
+            thumbnails.push(
+              existingIdx >= 0 && existingThumbnails[existingIdx]
+                ? existingThumbnails[existingIdx]
+                : preview
+            );
+            continue;
           }
+
+          if (!isLocalImagePreview(preview)) continue;
+
+          const file = pendingFiles.shift();
+          if (!file) {
+            showToast("Could not match a new photo to upload — remove it and add again.", "error");
+            setLoading(false);
+            setConfirmedSubmit(false);
+            return;
+          }
+
+          const uploaded = await uploadListingImageFile(file, uploadIndex++);
+          images.push(uploaded.fullUrl);
+          thumbnails.push(uploaded.thumbUrl);
         }
+      } else if (existingImages.length > 0) {
+        images = [...existingImages];
+        thumbnails = existingThumbnails.length ? [...existingThumbnails] : [...existingImages];
       }
 
       const baseData: Record<string, any> = {
@@ -1086,15 +1107,23 @@ export default function AIPostPage() {
       if (editId) {
         const token = await auth.currentUser?.getIdToken();
         const csrfToken = getClientCsrfToken();
-        const res = await fetch("/api/update-listing", {
-          method: "PUT",
-          headers: { 
-            "Content-Type": "application/json", 
-            ...(token ? { "Authorization": `Bearer ${token}` } : {}),
-            ...(csrfToken && { "x-csrf-token": csrfToken })
-          },
-          body: JSON.stringify({ listingId: editId, ...listingData, expiresInDays: expiresIn }),
-        });
+        const controller = new AbortController();
+        const fetchTimeout = window.setTimeout(() => controller.abort(), 30_000);
+        let res: Response;
+        try {
+          res = await fetch("/api/update-listing", {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              ...(csrfToken && { "x-csrf-token": csrfToken }),
+            },
+            body: JSON.stringify({ listingId: editId, ...listingData, expiresInDays: expiresIn }),
+            signal: controller.signal,
+          });
+        } finally {
+          window.clearTimeout(fetchTimeout);
+        }
         const data = await res.json();
         if (!data.success) {
           showToast(data.error || "Failed to update listing", "error");
@@ -1139,7 +1168,7 @@ export default function AIPostPage() {
         });
         showToast("Listing created!", "success");
       }
-      setImagePreviews([]); setImageFiles([]); setExistingImages([]);
+      setImagePreviews([]); setImageFiles([]); setExistingImages([]); setExistingThumbnails([]);
       // Preserve form state for easier duplicate listings
       // setTitle(""); setDescription(""); setPrice("");
       // setLocation(""); setCategory("Other"); setDetected("");
@@ -1251,8 +1280,22 @@ export default function AIPostPage() {
           fileInputRef={fileInputRef}
           onUpload={handleImageUpload}
           onRemove={(index) => {
+            const preview = imagePreviews[index];
             setImagePreviews((prev) => prev.filter((_, j) => j !== index));
-            setImageFiles((prev) => prev.filter((_, j) => j !== index));
+            if (preview && isRemoteImageUrl(preview)) {
+              setExistingImages((prev) => {
+                const idx = prev.indexOf(preview);
+                if (idx >= 0) {
+                  setExistingThumbnails((thumbs) => thumbs.filter((_, j) => j !== idx));
+                }
+                return prev.filter((url) => url !== preview);
+              });
+            } else if (preview && isLocalImagePreview(preview)) {
+              const newIndex = imagePreviews
+                .slice(0, index)
+                .filter((p) => isLocalImagePreview(p)).length;
+              setImageFiles((prev) => prev.filter((_, j) => j !== newIndex));
+            }
           }}
         />
 

@@ -740,7 +740,11 @@ const tabGroups = [
       const storageRef = ref(storage, path);
       const snap = await withTimeout(uploadBytes(storageRef, blob), 30000);
       const url = await getDownloadURL(snap.ref);
-      await setDoc(doc(db, "profiles", user!.uid), { [path.startsWith("avatars") ? "photoURL" : "bannerURL"]: url }, { merge: true });
+      await setDoc(
+        doc(db, "profiles", user!.uid),
+        { [path.startsWith("avatars/") ? "photoURL" : "bannerURL"]: url },
+        { merge: true }
+      );
       setProfileField(url);
       flashSaved();
     } catch (err: any) {
@@ -764,7 +768,7 @@ const tabGroups = [
       e.target.value = "";
       return;
     }
-    await uploadFileToStorage(file, `avatars/${user.uid}.jpg`, 400, 400, (url) => setProfile((p) => ({ ...p, photoURL: url })));
+    await uploadFileToStorage(file, `avatars/${user.uid}/avatar.jpg`, 400, 400, (url) => setProfile((p) => ({ ...p, photoURL: url })));
   }
 
   async function handleBannerUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -776,7 +780,7 @@ const tabGroups = [
       e.target.value = "";
       return;
     }
-    await uploadFileToStorage(file, `banners/${user.uid}.jpg`, 1200, 400, (url) => setProfile((p) => ({ ...p, bannerURL: url })));
+    await uploadFileToStorage(file, `banners/${user.uid}/banner.jpg`, 1200, 400, (url) => setProfile((p) => ({ ...p, bannerURL: url })));
   }
 
   function flashSaved() {

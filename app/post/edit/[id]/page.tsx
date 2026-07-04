@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 
 import { showToast } from "../../../components/Toast";
 import { sanitizeListingContent } from "../../../lib/sanitize";
+import { withTimeout } from "../../../lib/with-timeout";
 
 import { User } from "firebase/auth";
 
@@ -70,8 +71,8 @@ export default function EditListingPage({
   const [description, setDescription] =
     useState("");
 
-  const [sellerId, setSellerId] =
-    useState("");
+  const [sellerId, setSellerId] = useState("");
+  const [sellerEmail, setSellerEmail] = useState("");
 
   const [pickupAvailable, setPickupAvailable] = useState(false);
   const [shippingAvailable, setShippingAvailable] = useState(false);
@@ -148,9 +149,8 @@ export default function EditListingPage({
           data.description || ""
         );
 
-        setSellerId(
-          data.sellerId || ""
-        );
+        setSellerId(data.sellerId || "");
+        setSellerEmail(data.sellerEmail || "");
 
         setImages(
           data.images || (data.imageUrl ? [data.imageUrl] : [])
@@ -200,7 +200,11 @@ export default function EditListingPage({
       return;
     }
 
-    if (!sellerId || user.uid !== sellerId) {
+    const ownsListing =
+      (sellerId && user.uid === sellerId) ||
+      (sellerEmail && user.email && sellerEmail === user.email);
+
+    if (!ownsListing) {
       showToast("You don't have permission to edit this listing.", "error");
       return;
     }
@@ -209,59 +213,72 @@ export default function EditListingPage({
 
       setSaving(true);
 
-      // Upload any new images (blob URLs) to Firebase Storage
-      const uploadedImages = await Promise.all(images.map(async (img) => {
-        if (img.startsWith("blob:")) {
-          const response = await fetch(img);
-          const blob = await response.blob();
-          const storageRef = ref(storage, `listings/${user.uid}/${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`);
-          await uploadBytes(storageRef, blob);
-          return await getDownloadURL(storageRef);
-        }
-        return img;
-      }));
+      const uploadedImages = await Promise.all(
+        images.map(async (img, index) => {
+          if (img.startsWith("blob:")) {
+            const response = await fetch(img);
+            const blob = await response.blob();
+            const storageRef = ref(
+              storage,
+              `listings/${user.uid}/${Date.now()}_${index}_${Math.random().toString(36).slice(2)}.jpg`
+            );
+            await withTimeout(uploadBytes(storageRef, blob), 60_000, "Photo upload");
+            return await getDownloadURL(storageRef);
+          }
+          return img;
+        })
+      );
 
       const token = await auth.currentUser?.getIdToken();
-      const res = await fetch("/api/update-listing", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", ...(token ? { "Authorization": `Bearer ${token}` } : {}) },
-        body: JSON.stringify({
-          listingId: id,
-          title: sanitizeListingContent(title),
-          price,
-          location: sanitizeListingContent(location),
-          category,
-          description: sanitizeListingContent(description),
-          images: uploadedImages,
-          pickupAvailable,
-          shippingAvailable,
-          pickupArea,
-          shippingFee: shippingAvailable && shippingFee ? Number(shippingFee) : null,
-          freeShipping: shippingAvailable ? freeShipping : false,
-          shipsWithinDays: shipsWithinDays ? Number(shipsWithinDays) : null,
-          stockQuantity: stockQuantity ? Number(stockQuantity) : null,
-          saleType,
-          startingBid: saleType !== "buy_now" && startingBid ? Number(startingBid) : null,
-          reservePrice: (saleType === "auction" || saleType === "auction_buy_now") && reservePrice ? Number(reservePrice) : null,
-          expiresInDays: expiresIn,
-        }),
-      });
+      const controller = new AbortController();
+      const fetchTimeout = window.setTimeout(() => controller.abort(), 30_000);
+      let res: Response;
+      try {
+        res = await fetch("/api/update-listing", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({
+            listingId: id,
+            title: sanitizeListingContent(title),
+            price,
+            location: sanitizeListingContent(location),
+            category,
+            description: sanitizeListingContent(description),
+            images: uploadedImages,
+            pickupAvailable,
+            shippingAvailable,
+            pickupArea,
+            shippingFee: shippingAvailable && shippingFee ? Number(shippingFee) : null,
+            freeShipping: shippingAvailable ? freeShipping : false,
+            shipsWithinDays: shipsWithinDays ? Number(shipsWithinDays) : null,
+            stockQuantity: stockQuantity ? Number(stockQuantity) : null,
+            saleType,
+            startingBid: saleType !== "buy_now" && startingBid ? Number(startingBid) : null,
+            reservePrice: (saleType === "auction" || saleType === "auction_buy_now") && reservePrice ? Number(reservePrice) : null,
+            expiresInDays: expiresIn,
+          }),
+          signal: controller.signal,
+        });
+      } finally {
+        window.clearTimeout(fetchTimeout);
+      }
       const data = await res.json();
       if (!data.success) {
         showToast(data.error || "Failed to update listing", "error");
-        setSaving(false);
         return;
       }
       showToast("Listing updated.");
+      window.history.back();
 
     } catch (error) {
 
       console.error(error);
+      const message = error instanceof Error ? error.message : "Failed to update listing.";
+      showToast(message.includes("timed out") ? `${message} Try again.` : "Failed to update listing.", "error");
 
-      showToast("Failed to update listing.", "error");
+    } finally {
+      setSaving(false);
     }
-
-    setSaving(false);
   }
 
   if (checkingUser || loading) {
@@ -288,7 +305,11 @@ export default function EditListingPage({
     );
   }
 
-  if (sellerId && user.uid !== sellerId) {
+  const ownsListing =
+    (sellerId && user.uid === sellerId) ||
+    (sellerEmail && user.email && sellerEmail === user.email);
+
+  if (!ownsListing) {
     return (
       <main className="min-h-screen bg-zinc-950 flex items-center justify-center">
         <p className="text-[var(--muted)]">Access denied</p>

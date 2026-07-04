@@ -44,9 +44,15 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Listing not found" }, { status: 404 });
     }
 
-    // Ownership check: sellerId must match the authenticated user
+    // Ownership: sellerId (preferred) or sellerEmail for legacy listings
     const existingSellerId = existingData.sellerId as string | undefined;
-    if (!existingSellerId || existingSellerId !== token.uid) {
+    const existingSellerEmail = existingData.sellerEmail as string | undefined;
+    const ownsByUid = !!existingSellerId && existingSellerId === token.uid;
+    const ownsByEmail =
+      !!existingSellerEmail &&
+      !!token.email &&
+      existingSellerEmail.toLowerCase() === token.email.toLowerCase();
+    if (!ownsByUid && !ownsByEmail) {
       return NextResponse.json({ error: "You don't have permission to edit this listing" }, { status: 403 });
     }
 
