@@ -175,12 +175,12 @@ function HotWeekCard({
                 )}
                 <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none" />
                 <div className="absolute top-2 left-2">
-                  <span className={IMG_BADGE}>🔥 Trending</span>
+                  <span className={IMG_BADGE}>Trending</span>
                 </div>
                 {hotSaves > 0 && (
                   <div className="absolute top-2 right-2">
                     <span className="lc-saves-badge lc-on-image inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[8px] font-bold">
-                      ⭐ {hotSaves.toLocaleString()}
+                      {hotSaves.toLocaleString()}
                     </span>
                   </div>
                 )}
@@ -194,7 +194,7 @@ function HotWeekCard({
                   <p className="lc-price shrink-0 text-sm font-black tabular-nums">${item.price}</p>
                 </div>
                 <div className="lc-meta flex items-center gap-2 text-[10px]">
-                  {item.location && <span className="truncate">📍 {item.location}</span>}
+                  {item.location && <span className="truncate">{item.location}</span>}
                   {item.createdAt?.seconds != null && (
                     <span className="shrink-0">{timeAgo(item.createdAt.seconds)}</span>
                   )}
