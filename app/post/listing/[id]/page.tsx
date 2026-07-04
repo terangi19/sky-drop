@@ -901,7 +901,6 @@ export default function ListingPage() {
         {priceWarning && (
           <div className="mb-4 rounded-xl border border-sky-500/15 bg-sky-500/5 px-4 py-3">
             <div className="flex items-start gap-2">
-              <span className="mt-0.5 text-sky-400/80 text-sm">⚠️</span>
               <div>
                 <p className="text-xs font-bold text-sky-300/90">Price unusually low</p>
                 <p className="mt-0.5 text-[11px] text-[var(--muted)]">Trade carefully and verify the item before purchasing.</p>
