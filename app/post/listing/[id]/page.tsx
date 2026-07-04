@@ -1099,7 +1099,6 @@ export default function ListingPage() {
             {listing.type === "digital" ? (
               <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 p-3">
                 <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
-                  <span className="shrink-0 text-sky-400">📥</span>
                   <span>{listing.pricingType === "quote" ? "Service delivered remotely — Request a Quote" : (listing as { paymentType?: string }).paymentType === "contact" ? "Digital product — arrange payment & delivery in Messages" : "Digital Download — Instant Delivery"}</span>
                 </div>
                 {listing.pricingType === "quote" && (
@@ -1109,22 +1108,20 @@ export default function ListingPage() {
             ) : listing.type === "service" ? (
               <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 p-3 space-y-1.5">
                 <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
-                  <span className="shrink-0 text-sky-400">🤝</span>
                   <span>Service — Discuss scope in messages</span>
                 </div>
                 {listing.serviceDuration && (
                   <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
-                    <span>⏱ Estimated delivery: {listing.serviceDuration}</span>
+                    <span>Estimated delivery: {listing.serviceDuration}</span>
                   </div>
                 )}
                 <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
-                  <span>💰 {formatServicePriceDisplay(listing)}</span>
+                  <span>{formatServicePriceDisplay(listing)}</span>
                 </div>
               </div>
             ) : listing.type === "rental" ? (
               <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 p-3 space-y-1.5">
                 <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
-                  <span className="shrink-0 text-sky-400">🔑</span>
                   <span>Rental — Pickup from {listing.location || "seller's location"}</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-sky-400 font-bold">
@@ -1132,7 +1129,7 @@ export default function ListingPage() {
                 </div>
                 {listing.rentalDeposit && (
                   <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
-                    <span className="text-sky-400">🔒 $${(Number(listing.rentalDeposit) || 0).toFixed(2)} refundable deposit</span>
+                    <span className="text-sky-400">${(Number(listing.rentalDeposit) || 0).toFixed(2)} refundable deposit</span>
                   </div>
                 )}
                 {listing.condition && (
@@ -1142,45 +1139,43 @@ export default function ListingPage() {
                 )}
                 {listing.stockQuantity != null && listing.stockQuantity > 0 && (
                   <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
-                    <span>📦 {listing.stockQuantity} Available</span>
+                    <span>{listing.stockQuantity} Available</span>
                   </div>
                 )}
               </div>
             ) : listing.type === "event" ? (
               <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 p-3 space-y-1.5">
                 <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
-                  <span className="shrink-0 text-sky-400">🎟</span>
                   <span>Event Tickets — {listing.ticketType || "General Admission"}</span>
                 </div>
                 {listing.eventDate && (
                   <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
-                    <span>📅 {new Date(listing.eventDate).toLocaleDateString("en-NZ", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</span>
-                    {listing.eventTime && <span>⏰ {listing.eventTime}</span>}
+                    <span>{new Date(listing.eventDate).toLocaleDateString("en-NZ", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</span>
+                    {listing.eventTime && <span>{listing.eventTime}</span>}
                   </div>
                 )}
                 {listing.venue && (
                   <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
-                    <span>📍 {listing.venue}</span>
+                    <span>{listing.venue}</span>
                   </div>
                 )}
                 {listing.ticketQuantity !== undefined && listing.ticketQuantity !== null && (
                   <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
-                    <span>🎫 {listing.ticketQuantity} ticket{listing.ticketQuantity !== 1 ? "s" : ""} available</span>
+                    <span>{listing.ticketQuantity} ticket{listing.ticketQuantity !== 1 ? "s" : ""} available</span>
                   </div>
                 )}
               </div>
             ) : listing.type === "property" ? (
               <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 p-3 space-y-1.5">
                 <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
-                  <span className="shrink-0 text-sky-400">🏠</span>
                   <span>Property — {listing.propertyType || "House"}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-[var(--muted)]">
-                  {listing.bedrooms && <span>🛏 {listing.bedrooms} bed</span>}
-                  {listing.bathrooms && <span>🚿 {listing.bathrooms} bath</span>}
-                  {listing.landArea && <span>📐 {listing.landArea}m² land</span>}
-                  {listing.floorArea && <span>🏠 {listing.floorArea}m² floor</span>}
-                  {listing.parking && <span>🚗 {listing.parking} park</span>}
+                  {listing.bedrooms && <span>{listing.bedrooms} bed</span>}
+                  {listing.bathrooms && <span>{listing.bathrooms} bath</span>}
+                  {listing.landArea && <span>{listing.landArea}m² land</span>}
+                  {listing.floorArea && <span>{listing.floorArea}m² floor</span>}
+                  {listing.parking && <span>{listing.parking} park</span>}
                 </div>
                 {listing.condition && (
                   <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
@@ -1189,14 +1184,13 @@ export default function ListingPage() {
                 )}
                 {listing.location && (
                   <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
-                    <span>📍 {listing.location}</span>
+                    <span>{listing.location}</span>
                   </div>
                 )}
               </div>
             ) : listing.type === "vehicle" ? (
               <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 p-3 space-y-1.5">
                 <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
-                  <span className="shrink-0 text-sky-400">🚗</span>
                   <span>Vehicle</span>
                 </div>
                 {listing.vehicleMake && listing.vehicleModel && (
@@ -1206,11 +1200,11 @@ export default function ListingPage() {
                   </div>
                 )}
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-[var(--muted)]">
-                  {listing.vehicleOdometer && <span>📏 {Number(listing.vehicleOdometer).toLocaleString()} km</span>}
-                  {listing.vehicleFuelType && <span>⛽ {listing.vehicleFuelType}</span>}
-                  {listing.vehicleTransmission && <span>⚙ {listing.vehicleTransmission}</span>}
-                  {listing.vehicleBodyType && <span>🚘 {listing.vehicleBodyType}</span>}
-                  {listing.vehicleColour && <span>🎨 {listing.vehicleColour}</span>}
+                  {listing.vehicleOdometer && <span>{Number(listing.vehicleOdometer).toLocaleString()} km</span>}
+                  {listing.vehicleFuelType && <span>{listing.vehicleFuelType}</span>}
+                  {listing.vehicleTransmission && <span>{listing.vehicleTransmission}</span>}
+                  {listing.vehicleBodyType && <span>{listing.vehicleBodyType}</span>}
+                  {listing.vehicleColour && <span>{listing.vehicleColour}</span>}
                 </div>
                 {listing.condition && (
                   <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
@@ -1221,27 +1215,26 @@ export default function ListingPage() {
             ) : listing.type === "job" ? (
               <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 p-3 space-y-1.5">
                 <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
-                  <span className="shrink-0 text-sky-400">💼</span>
                   <span>Job — {listing.jobEmploymentType || "Full-time"}</span>
                 </div>
                 {listing.jobCompany && (
                   <div className="flex items-center gap-2 text-xs text-[var(--foreground)] font-bold">
-                    <span>🏢 {listing.jobCompany}</span>
+                    <span>{listing.jobCompany}</span>
                   </div>
                 )}
                 <div className="text-xs text-[var(--muted)]">
                   {listing.salaryMin && listing.salaryMax
-                    ? <span>💰 ${Number(listing.salaryMin).toLocaleString()} - ${Number(listing.salaryMax).toLocaleString()}</span>
+                    ? <span>${Number(listing.salaryMin).toLocaleString()} - ${Number(listing.salaryMax).toLocaleString()}</span>
                     : listing.salaryMin
-                    ? <span>💰 From ${Number(listing.salaryMin).toLocaleString()}</span>
+                    ? <span>From ${Number(listing.salaryMin).toLocaleString()}</span>
                     : listing.salaryMax
-                    ? <span>💰 Up to ${Number(listing.salaryMax).toLocaleString()}</span>
-                    : <span>💰 ${listing.price}</span>
+                    ? <span>Up to ${Number(listing.salaryMax).toLocaleString()}</span>
+                    : <span>${listing.price}</span>
                   }
                 </div>
                 {listing.location && (
                   <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
-                    <span>📍 {listing.location}</span>
+                    <span>{listing.location}</span>
                   </div>
                 )}
               </div>
@@ -1249,15 +1242,11 @@ export default function ListingPage() {
               <div className="rounded-lg border border-white/[0.06] bg-[var(--soft-card)] p-3 space-y-1.5">
                 {listing.pickupAvailable && (
                   <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
-                    <span className="shrink-0 text-sky-400">📍</span>
                     <span>Pickup Available{listing.pickupArea ? ` — ${listing.pickupArea}` : ""}</span>
                   </div>
                 )}
                 {listing.shippingAvailable && (
                   <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
-                    <span className="shrink-0 text-sky-400">
-                      {listing.freeShipping || listing.shippingFee === 0 ? "🚚" : "📦"}
-                    </span>
                     <span>
                       {listing.freeShipping || listing.shippingFee === 0
                         ? "Free Shipping"
