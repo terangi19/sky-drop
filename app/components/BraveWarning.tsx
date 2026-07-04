@@ -38,7 +38,7 @@ export default function BraveWarning() {
     <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-orange-600 to-orange-500 text-white px-4 py-3 shadow-lg">
       <div className="mx-auto max-w-7xl flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 flex-1">
-          <span className="text-2xl">🦁</span>
+          <div className="text-2xl">Brave</div>
           <div className="flex-1">
             <p className="text-sm font-bold">Brave Browser Detected</p>
             <p className="text-xs opacity-90">
