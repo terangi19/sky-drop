@@ -926,7 +926,7 @@ export default function Home() {
                 Buy & Sell Smarter in New Zealand
               </h1>
               <p className="mt-2 text-sm text-[var(--muted)] sm:text-base">
-                Create complete listings in seconds with <strong className="text-sky-300">Āwhina AI</strong>, then pay securely online or arrange purchase directly
+                Create listings in seconds with Āwhina AI.
               </p>
               {user ? (
                 <div className="mt-4 flex justify-center">
@@ -956,34 +956,6 @@ export default function Home() {
                   </Link>
                 </div>
               )}
-            </div>
-
-            {/* AI Feature Callout */}
-            <div className="relative mx-auto mt-4 max-w-2xl">
-              <div className="rounded-xl bg-gradient-to-r from-sky-500/10 to-sky-400/5 border border-sky-500/20 px-4 py-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-sm">✨</span>
-                  <span className="text-xs font-semibold text-sky-300 uppercase tracking-wider">Powered by Āwhina AI</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-xs text-[var(--muted)]">
-                  <div className="flex items-center gap-1.5">
-                    <span>📸</span>
-                    <span>Upload your photos</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span>✍️</span>
-                    <span>AI writes title & description</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span>💰</span>
-                    <span>AI suggests a price</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span>🏷️</span>
-                    <span>AI chooses the category</span>
-                  </div>
-                </div>
-              </div>
             </div>
 
             {/* Search and Category Pills - solid background to block gradient */}
