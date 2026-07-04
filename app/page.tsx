@@ -1045,7 +1045,6 @@ export default function Home() {
                         : "bg-[var(--card)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-hover)]"
                     }`}
                   >
-                    <span className="text-sm leading-none transition-transform duration-200 group-hover:scale-110">✨</span>
                     All
                   </button>
                   {activeCategories.map((cat) => (
@@ -1058,7 +1057,6 @@ export default function Home() {
                           : "bg-[var(--card)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-hover)]"
                       }`}
                     >
-                      <span className="text-sm leading-none transition-transform duration-200 hover:scale-110">{cat.emoji}</span>
                       {cat.name}
                     </button>
                   ))}
