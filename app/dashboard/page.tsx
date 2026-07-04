@@ -397,7 +397,6 @@ export default function DashboardPage() {
 
         {listings.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-white/[0.08] bg-gradient-to-br from-white/[0.03] to-transparent px-6 py-10 text-center">
-            <span className="text-4xl">📦</span>
             <p className="mt-3 text-base font-bold text-white">You haven&apos;t listed anything yet.</p>
             <p className="mt-1 text-sm text-zinc-400">Create your first listing and start selling on Sky Drop.</p>
             <Link
@@ -485,7 +484,7 @@ export default function DashboardPage() {
               <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent" />
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-500/10 text-lg ring-1 ring-sky-500/20">📋</div>
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-500/10 text-lg ring-1 ring-sky-500/20">Orders</div>
                   <div>
                     <h2 className="text-base font-black text-white">Recent orders</h2>
                     <p className="text-[11px] text-zinc-500">Your latest sales activity</p>
