@@ -249,7 +249,7 @@ export default function Navbar() {
       <div className="mx-auto flex h-16 items-center justify-between px-4 md:px-6 lg:max-w-7xl">
 
         {/* LEFT */}
-        <SkyDropLogo size="md" href="/" />
+        <SkyDropLogo size="lg" href="/" />
 
         {/* RIGHT SIDE */}
         <div className="flex items-center gap-2">

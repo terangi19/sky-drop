@@ -914,19 +914,19 @@ export default function Home() {
       )}
 
       {/* HERO / SEARCH SECTION */}
-      <section className={`${PAGE_SHELL_WIDE} pt-2 sm:pt-3`}>
+      <section className={`${PAGE_SHELL_WIDE} pt-1 sm:pt-2`}>
         <div className="relative overflow-hidden rounded-[2rem] bg-[var(--card)]">
           <div className="absolute inset-0 backdrop-blur-[2px]" />
-          <div className="relative z-10 px-5 py-4 sm:px-6 sm:py-5">
+          <div className="relative z-10 px-5 py-3 sm:px-6 sm:py-4">
             <div className="mx-auto max-w-2xl text-center">
               <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/[0.05] px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-[var(--muted)] shadow-[0_0_24px_rgba(14,165,233,0.1)]">
                 NZ Marketplace
               </div>
               <h1 className="text-xl font-black tracking-tight text-white sm:text-3xl lg:text-4xl">
-                Welcome to Sky Drop
+                New Zealand's Fastest Growing Marketplace
               </h1>
               <p className="mt-2 text-sm text-[var(--muted)] sm:text-base">
-                Buy & Sell in New Zealand
+                Buy & sell anything with secure payments and buyer protection
               </p>
               {user ? (
                 <div className="mt-4 flex justify-center">
@@ -959,7 +959,7 @@ export default function Home() {
             </div>
 
             {/* Search and Category Pills - solid background to block gradient */}
-            <div className="relative mx-auto mt-4 max-w-2xl rounded-2xl bg-[var(--background)] px-4 py-4 shadow-xl border border-white/[0.08]">
+            <div className="relative mx-auto mt-3 max-w-2xl rounded-2xl bg-[var(--background)] px-4 py-3 shadow-xl border border-white/[0.08]">
               {/* Search */}
               <div className="relative">
                 <div className="relative flex items-center rounded-xl bg-[var(--card)] shadow-xl backdrop-blur-md transition-all duration-300 group-focus-within:bg-[var(--card-hover)] ring-1 ring-sky-500/20">
@@ -1089,7 +1089,7 @@ export default function Home() {
 
       {/* Attention Users banner */}
       {showAttentionBanner && (
-        <section className={`${PAGE_SHELL_WIDE} pt-2 pb-1`}>
+        <section className={`${PAGE_SHELL_WIDE} pt-1 pb-0.5`}>
           <div className="group flex w-full items-center justify-between gap-2 rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/15 to-amber-400/10 px-4 py-2 text-sm font-bold text-amber-300 transition-all duration-200 hover:from-amber-500/25 hover:to-amber-400/20 hover:shadow-[0_0_24px_rgba(245,158,11,0.12)] active:scale-[0.99]">
             <button
               onClick={() => setShowAttentionModal(true)}
@@ -1119,7 +1119,7 @@ export default function Home() {
       )}
 
       {/* Trust strip */}
-      <section className={`${PAGE_SHELL_WIDE} py-2`}>
+      <section className={`${PAGE_SHELL_WIDE} py-1`}>
         <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 rounded-2xl bg-gradient-to-br from-sky-500/[0.03] via-sky-500/[0.01] to-transparent px-5 py-3 sm:gap-x-12 lg:gap-x-16 backdrop-blur-md relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-sky-400/[0.02] to-transparent" />
           <div className="absolute inset-0 backdrop-blur-sm" />
@@ -1143,7 +1143,7 @@ export default function Home() {
       </section>
 
       <Suspense fallback={
-        <div className={`${PAGE_SHELL_WIDE} py-4`}>
+        <div className={`${PAGE_SHELL_WIDE} py-2`}>
           <div className="flex gap-4 overflow-x-auto pb-2">
             {[1,2,3].map((i) => (
               <div key={i} className="shrink-0 w-72 h-40 rounded-2xl bg-white/[0.03] border border-white/[0.06] animate-pulse" />
