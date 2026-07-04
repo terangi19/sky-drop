@@ -225,9 +225,10 @@ export default memo(function MarketplaceListingCard({
                 <span className={IMG_BADGE}>New</span>
               )}
             {isVisible &&
-              item.saleType &&
-              String(item.saleType).includes("auction") && (
-                <span className={IMG_BADGE}>⏰ Auction</span>
+              item.promoted &&
+              !(item.createdAt?.seconds &&
+              Date.now() / 1000 - item.createdAt.seconds < 86400) && (
+                <span className={IMG_BADGE}>Promoted</span>
               )}
           </div>
         </div>
@@ -246,11 +247,6 @@ export default memo(function MarketplaceListingCard({
                 }`}
               >
                 {item.condition}
-              </span>
-            )}
-            {item.type === "vehicle" && (item.vehicleYear || item.year) && (
-              <span className="lc-chip-neutral rounded-md px-2 py-0.5 text-[10px] font-semibold">
-                {item.vehicleYear || item.year}
               </span>
             )}
           </div>
@@ -306,11 +302,11 @@ export default memo(function MarketplaceListingCard({
         <div className="mt-3 flex items-baseline gap-2">
           {item.pricingType === "quote" ? (
             <>
-              <p className="lc-price text-2xl font-black tracking-tight">Contact Seller for Quote</p>
+              <p className="lc-price text-3xl font-black tracking-tight">Contact Seller for Quote</p>
               <span className="lc-quote-badge rounded-full px-2 py-0.5 text-[9px] font-bold">Quote Required</span>
             </>
           ) : (
-            <p className="lc-price text-2xl font-black tracking-tight">${item.price}</p>
+            <p className="lc-price text-3xl font-black tracking-tight">${item.price}</p>
           )}
           {(item.saleType === "auction" || item.saleType === "auction_buy_now") && (
             <span className="lc-bid rounded-md px-2 py-0.5 text-sm font-bold">
@@ -319,7 +315,7 @@ export default memo(function MarketplaceListingCard({
           )}
         </div>
 
-        <div className="lc-meta mt-3 flex min-h-5 items-center gap-3 text-[11px]">
+        <div className="lc-meta mt-3 flex min-h-5 items-center gap-3 text-[10px] opacity-70">
           {item.location && (
             <span className="flex items-center gap-1">{item.location}</span>
           )}
@@ -516,49 +512,26 @@ export default memo(function MarketplaceListingCard({
             };
             
             return (
-              <div className="lc-seller group rounded-lg p-3 hover:-translate-y-0.5">
+              <div className="lc-seller group rounded-lg p-2 hover:-translate-y-0.5">
                 <div className="flex items-center gap-2">
-                  <div className="lc-avatar relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[13px] font-bold ring-1">
+                  <div className="lc-avatar relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[12px] font-bold ring-1">
                     {initial}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1">
-                      <span className="lc-seller-name truncate text-[14px] font-semibold">
+                      <span className="lc-seller-name truncate text-[13px] font-semibold">
                         {username}
                       </span>
                       {isVerified && (
-                        <span className="lc-chip rounded px-1.5 py-0.5 text-[9px] font-bold">
-                          ✓ Verified
-                        </span>
-                      )}
-                      {sellerBadges[email || ""] === "legendary" && (
-                        <span className="lc-chip rounded border px-1.5 py-0.5 text-[9px] font-bold animate-pulse">
-                          The Five
-                        </span>
-                      )}
-                      {sellerBadges[email || ""] === "epic" && (
-                        <span className="lc-chip rounded border px-1.5 py-0.5 text-[9px] font-bold">
-                          Epic
+                        <span className="lc-chip rounded px-1 py-0.5 text-[8px] font-bold">
+                          ✓
                         </span>
                       )}
                     </div>
-                    <div className="lc-seller-meta flex items-center gap-x-2.5 gap-y-0.5 text-[11px] mt-0.5 flex-wrap">
-                      {formatDate(joinedDate) && <span className="whitespace-nowrap">Joined {formatDate(joinedDate)}</span>}
-                      {listingCount > 0 && (
-                        <Link
-                          href={`/seller/${username}?listings`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="whitespace-nowrap hover:underline hover:text-[var(--lc-accent)] transition-colors"
-                        >
-                          • {listingCount} {listingCount === 1 ? 'listing' : 'listings'}
-                        </Link>
-                      )}
-                      {reviewCount > 0 && <span className="whitespace-nowrap">• {avgRating.toFixed(1)}★ ({reviewCount})</span>}
-                      {reviewCount === 0 && <span className="whitespace-nowrap">• New to Sky Drop</span>}
+                    <div className="lc-seller-meta flex items-center gap-x-2 gap-y-0.5 text-[10px] mt-0.5 opacity-70">
+                      {reviewCount > 0 && <span className="whitespace-nowrap">{avgRating.toFixed(1)}★ ({reviewCount})</span>}
+                      {reviewCount === 0 && <span className="whitespace-nowrap">New seller</span>}
                     </div>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="lc-seller-link text-[10px]">View profile</p>
                   </div>
                 </div>
               </div>
