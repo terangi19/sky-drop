@@ -1,7 +1,7 @@
 const CHUNK_RELOAD_KEY = "skydrop-chunk-reload-count";
 const MAX_CHUNK_RELOADS = 2;
 
-/** Detect Next.js / Turbopack chunk load failures after a deploy. */
+/** Detect Next.js / Turbopack chunk load failures after a deploy or HMR drift. */
 export function isChunkLoadError(error: unknown): boolean {
   if (!error) return false;
 
@@ -15,12 +15,12 @@ export function isChunkLoadError(error: unknown): boolean {
 
   if (name === "ChunkLoadError") return true;
 
-  return /Failed to load chunk|Loading chunk \d+ failed|ChunkLoadError|Importing a module script failed|dynamically imported module/i.test(
+  return /Failed to load chunk|Loading chunk \d+ failed|ChunkLoadError|Importing a module script failed|dynamically imported module|module factory is not available|was instantiated because it was required from module/i.test(
     message
   );
 }
 
-/** Hard-reload once or twice so users pick up fresh HTML + chunk hashes. */
+/** Hard-reload with cache-bust so users pick up fresh HTML + chunk hashes. */
 export function reloadOnceForChunkError(): boolean {
   if (typeof window === "undefined") return false;
 
@@ -32,7 +32,13 @@ export function reloadOnceForChunkError(): boolean {
     /* sessionStorage blocked — still try one reload */
   }
 
-  window.location.reload();
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set("_cb", String(Date.now()));
+    window.location.replace(url.toString());
+  } catch {
+    window.location.reload();
+  }
   return true;
 }
 
