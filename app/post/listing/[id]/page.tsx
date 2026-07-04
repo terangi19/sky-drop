@@ -1261,7 +1261,7 @@ export default function ListingPage() {
                 )}
                 {listing.stockQuantity != null && listing.stockQuantity > 0 && (
                   <div className="flex items-center gap-2 text-xs text-[var(--foreground)]">
-                    <span className="shrink-0 text-sky-400">📦</span>
+                    <span className="shrink-0 text-sky-400">Stock</span>
                     <span>{listing.stockQuantity} Available</span>
                   </div>
                 )}
