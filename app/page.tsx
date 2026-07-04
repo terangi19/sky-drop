@@ -1118,27 +1118,6 @@ export default function Home() {
         </section>
       )}
 
-      <Suspense fallback={
-        <div className={`${PAGE_SHELL_WIDE} py-2`}>
-          <div className="flex gap-4 overflow-x-auto pb-2">
-            {[1,2,3].map((i) => (
-              <div key={i} className="shrink-0 w-72 h-40 rounded-2xl bg-white/[0.03] border border-white/[0.06] animate-pulse" />
-            ))}
-          </div>
-        </div>
-      }>
-        <HotThisWeek
-          items={hotItems}
-          timeAgo={timeAgo}
-          saveRecentlyViewed={saveRecentlyViewed}
-          cdnUrl={cdnUrl}
-          user={user}
-          sellerReviewStats={sellerReviewStats}
-          sellerBadges={sellerBadges}
-          sellerFullyVerified={sellerFullyVerified}
-        />
-      </Suspense>
-
       {/* LISTINGS */}
       <section id="listings" className={`${PAGE_SHELL_MARKETPLACE} pb-10`}>
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
