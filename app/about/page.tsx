@@ -127,7 +127,7 @@ export default function AboutPage() {
           {/* Contact */}
           <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-6 text-center">
             <h2 className="text-sm font-bold text-[var(--foreground)]">Questions?</h2>
-            <p className="mt-2 text-xs text-[var(--muted)]">Check our <Link href="/faqs" className="text-sky-400 underline">FAQs</Link> or send us a message through the platform. You can also reach us at <a href="https://mail.google.com/mail/?view=cm&fs=1&to=support@skydrop.co.nz" target="_blank" rel="noopener noreferrer" className="text-sky-400 underline">support@skydrop.co.nz</a>.</p>
+            <p className="mt-2 text-xs text-[var(--muted)]">Check our <Link href="/faqs" className="text-sky-400 underline">FAQs</Link> or send us a message through the platform. You can also reach us at <a href="mailto:support@skydrop.co.nz" className="text-sky-400 underline">support@skydrop.co.nz</a>.</p>
           </div>
         </div>
 
