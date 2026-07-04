@@ -1437,7 +1437,6 @@ export default function Home() {
               className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3 transition hover:border-amber-500/30 hover:bg-amber-500/[0.09]"
             >
               <div className="flex items-center gap-2.5">
-                <span className="text-lg">🔍</span>
                 <div>
                   <p className="text-sm font-bold text-amber-300">{wantedCount} buyer{wantedCount !== 1 ? "s" : ""} looking for items</p>
                   <p className="text-[11px] text-amber-400/70">Browse Wanted Ads — you might have what they need</p>
