@@ -3,6 +3,9 @@ import { verifyIdToken, getAdminDb } from "../../lib/firebase-admin";
 import { isAdminEmail } from "../../lib/admin-check";
 
 export async function POST(req: NextRequest) {
+  // Disabled - demo listings no longer needed
+  return NextResponse.json({ error: "Demo listing creation has been disabled" }, { status: 403 });
+
   try {
     const authHeader = req.headers.get("authorization");
     if (!authHeader?.startsWith("Bearer ")) {
