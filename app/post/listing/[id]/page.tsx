@@ -873,9 +873,9 @@ export default function ListingPage() {
           {!loading && <Link href="/" className="mt-6 inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 px-3 py-1.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">Browse Marketplace</Link>}
         </div>
       ) : (<>
-      <section className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 py-6 lg:py-8">
+      <section className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 py-4 lg:py-6">
         {/* BREADCRUMB */}
-        <nav className="mb-6 flex items-center gap-2 text-xs font-medium text-[var(--muted)]">
+        <nav className="mb-4 flex items-center gap-2 text-xs font-medium text-[var(--muted)]">
           <Link href="/" className="transition-colors hover:text-sky-400">Home</Link>
           <span className="text-[var(--muted)]">/</span>
           <span className="text-[var(--muted)]">{listing.category || "Other"}</span>
@@ -885,7 +885,7 @@ export default function ListingPage() {
 
         {/* Scam Warning Banner */}
         {scamResult?.isScam && (
-          <div className="mb-4 rounded-xl border border-sky-500/20 bg-sky-500/5 px-4 py-3">
+          <div className="mb-3 rounded-xl border border-sky-500/20 bg-sky-500/5 px-4 py-3">
             <div className="flex items-start gap-3">
               <div>
                 <p className="text-sm font-bold text-sky-300">Safety Notice</p>
@@ -899,7 +899,7 @@ export default function ListingPage() {
 
         {/* Price Warning */}
         {priceWarning && (
-          <div className="mb-4 rounded-xl border border-sky-500/15 bg-sky-500/5 px-4 py-3">
+          <div className="mb-3 rounded-xl border border-sky-500/15 bg-sky-500/5 px-4 py-3">
             <div className="flex items-start gap-2">
               <div>
                 <p className="text-xs font-bold text-sky-300/90">Price unusually low</p>
@@ -909,12 +909,12 @@ export default function ListingPage() {
           </div>
         )}
 
-        <div className="grid gap-8 lg:grid-cols-2 xl:grid-cols-[1.1fr_0.9fr]">
+        <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-[1.1fr_0.9fr]">
           {/* ── LEFT COLUMN: IMAGE & DETAILS ── */}
           {(() => {
             const displayImages = listing.images && listing.images.length > 0 ? listing.images : listing.imageUrl ? [listing.imageUrl] : [];
             return (
-              <div className="space-y-6">
+              <div className="space-y-4">
                 {/* Image Gallery */}
                 <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[var(--card)] to-[var(--soft-card)] border border-white/[0.08] shadow-2xl shadow-black/30">
                   <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
@@ -958,7 +958,7 @@ export default function ListingPage() {
 
                 {/* Description */}
                 {listing.description && (
-                  <div className="rounded-xl border border-white/[0.06] bg-[var(--card)] p-6">
+                  <div className="rounded-xl border border-white/[0.06] bg-[var(--card)] p-5">
                     <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-[var(--muted)]">Description</h2>
                     <div className="text-sm leading-relaxed text-[var(--foreground)] whitespace-pre-wrap">
                       {listing.description}
@@ -970,7 +970,7 @@ export default function ListingPage() {
           })()}
 
           {/* ── RIGHT COLUMN: PURCHASE CARD ── */}
-          <div className="relative flex flex-col gap-5 overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-6 shadow-2xl shadow-black/20">
+          <div className="relative flex flex-col gap-4 overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-6 shadow-2xl shadow-black/20">
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
             
             {/* 1. PILLS: Category / Condition / Time */}
@@ -1045,7 +1045,7 @@ export default function ListingPage() {
             )}
 
             {(listing.saleType === "auction" || listing.saleType === "auction_buy_now") && (
-              <div className="mt-4 space-y-2 rounded-xl border border-sky-500/20 bg-sky-500/5 p-4">
+              <div className="mt-3 space-y-2 rounded-xl border border-sky-500/20 bg-sky-500/5 p-4">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-[var(--muted)]">Current Bid</span>
                   <span className="font-black text-2xl text-sky-400">${listing.currentBid || listing.startingBid || 0}</span>
@@ -1432,7 +1432,7 @@ Property Status: 🟢 Inquiry Active`;
 
             {/* 5. BUY BUTTONS */}
             {isListingAvailableForPurchase(listing) && !isExpired && listing.type !== "service" && listing.type !== "job" && listing.type !== "property" && listing.type !== "rental" && !(listing.type === "digital" && listing.pricingType === "quote") && (purchaseUi.canPurchaseMore || (isContactListing && buyerArrangeRequestCount > 0)) && (
-            <div ref={nativeActionsRef} className="flex flex-col gap-3">
+            <div ref={nativeActionsRef} className="flex flex-col gap-2">
               {user && user.email !== listing.sellerEmail ? (
                 <>
                   {/* Trust Summary */}
@@ -1536,7 +1536,7 @@ Property Status: 🟢 Inquiry Active`;
                   </div>
 
                   {/* SECONDARY BUTTONS - Responsive grid */}
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2">
                     {!auctionEnded && (listing.saleType === "auction" || listing.saleType === "auction_buy_now") && (
                       <button onClick={() => { setShowBidModal(true); setBidAmount(String(getMinimumNextBid(listing.currentBid || listing.startingBid || 0))); }}
                         className="h-12 flex items-center justify-center gap-2 rounded-lg border border-sky-500/30 bg-sky-500/10 px-4 text-sm font-bold text-sky-400 transition-all duration-200 hover:bg-sky-500/20 hover:border-sky-500/50"
@@ -1921,13 +1921,13 @@ Service Status: 🟢 Inquiry Active`;
             )}
 
             {/* ── SEPARATOR ── */}
-            <div className="h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent my-4" />
+            <div className="h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent my-3" />
 
             {/* 7. SELLER CARD */}
             <div>
               <Link
                 href={user?.email === listing.sellerEmail ? "#" : `/seller/${listing.sellerUsername || listing.sellerEmail}`}
-                className="block rounded-xl border border-sky-500/20 bg-sky-500/5 p-5 transition-all duration-200 hover:border-sky-500/30 hover:bg-sky-500/10 hover:shadow-lg hover:shadow-sky-500/5"
+                className="block rounded-xl border border-sky-500/20 bg-sky-500/5 p-4 transition-all duration-200 hover:border-sky-500/30 hover:bg-sky-500/10 hover:shadow-lg hover:shadow-sky-500/5"
               >
                 <div className="flex items-center gap-4">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-lg font-bold text-[var(--foreground)]">
