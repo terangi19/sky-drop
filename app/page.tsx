@@ -923,7 +923,7 @@ export default function Home() {
                 NZ Marketplace
               </div>
               <h1 className="text-xl font-black tracking-tight text-white sm:text-3xl lg:text-4xl">
-                New Zealand's Fastest Growing Marketplace
+                Buy & Sell Smarter in New Zealand
               </h1>
               <p className="mt-2 text-sm text-[var(--muted)] sm:text-base">
                 Buy & sell your way — pay securely online or arrange purchase directly
