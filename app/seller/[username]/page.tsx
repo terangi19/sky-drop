@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "../../components/Navbar";
@@ -140,8 +141,10 @@ export default function SellerPage() {
     async function load() {
       try {
         const resolved = await resolveSellerBySlug(routeSlug);
-        if (!resolved || cancelled) {
-          if (!cancelled) setLoading(false);
+        if (!resolved) {
+          if (!cancelled) {
+            setLoading(false);
+          }
           return;
         }
 
@@ -150,7 +153,10 @@ export default function SellerPage() {
         setSellerUid(resolved.uid);
 
         const email = data.email;
-        if (!email) { setLoading(false); return; }
+        if (!email) {
+          setLoading(false);
+          return;
+        }
 
         // Listings
         const listingsSnap = await getDocs(query(collection(db, "listings"), where("sellerEmail", "==", email)));
@@ -161,7 +167,9 @@ export default function SellerPage() {
           return tb - ta;
         });
         if (!cancelled) setListings(items);
-      } catch (e) { console.error(e); }
+      } catch (e) {
+        console.error("Error loading seller profile:", e);
+      }
       if (!cancelled) setLoading(false);
     }
 
@@ -350,7 +358,16 @@ export default function SellerPage() {
         <Background /><Navbar /><ThemeToggle />
         <div className="relative z-10 mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
           <div className="rounded-2xl border border-zinc-700/50 bg-zinc-900/70 p-12 text-center shadow-[0_2px_12px_rgba(0,0,0,0.3)]">
-            <p className="text-[var(--foreground)]">Seller not found.</p>
+            <h2 className="text-xl font-bold text-[var(--foreground)] mb-2">Seller not found</h2>
+            <p className="text-[var(--muted)] mb-6">
+              The seller profile you're looking for doesn't exist or has been removed.
+            </p>
+            <Link
+              href="/browse"
+              className="inline-flex items-center gap-2 rounded-xl bg-sky-500 px-5 py-2.5 text-sm font-bold text-white transition-all duration-200 hover:bg-sky-600 hover:scale-105 active:scale-95"
+            >
+              Browse Listings
+            </Link>
           </div>
         </div>
       </main>
