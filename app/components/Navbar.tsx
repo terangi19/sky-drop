@@ -39,6 +39,8 @@ import {
   countInboxUnreadMessages,
 } from "../lib/messages-unread";
 import { useFeedback } from "../contexts/FeedbackContext";
+import AccountMenuContent from "./AccountMenu";
+import { AppMenuPanel } from "./ui/AppMenu";
 
 const MOBILE_NAV_ITEMS = [
   { href: "/", label: "Browse" },
@@ -382,49 +384,31 @@ export default function Navbar() {
                 {user ? (
                   <>
                     <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400 light:text-gray-500">Account</div>
-                    <Link href="/dashboard" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/dashboard") ? "text-sky-300 bg-sky-500/10 light:text-sky-600 light:bg-sky-500/10" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm light:bg-sky-500/10">Dash</span>
-                      Dashboard
-                    </Link>
-                    {isAdmin && (
-                      <Link href="/manage" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/manage") ? "text-red-400 bg-red-500/10 light:text-red-600 light:bg-red-500/10" : "text-red-400/60 hover:bg-red-500/10 active:bg-red-500/15 light:text-red-600/60 light:hover:bg-red-500/10 light:active:bg-red-500/15"}`} onClick={() => setMobileMenuOpen(false)}>
-                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10 text-sm light:bg-red-500/10">Manage</span>
-                        Manage
-                      </Link>
-                    )}
-                    <Link href="/messages" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/messages") ? "text-sky-300 bg-sky-500/10 light:text-sky-600 light:bg-sky-500/10" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm light:bg-sky-500/10">Msg</span>
+                    <div className="px-1">
+                      <AccountMenuContent
+                        pathname={pathname}
+                        username={username}
+                        userEmail={user.email}
+                        activityCount={activityCount}
+                        isAdmin={isAdmin}
+                        onLogout={handleLogout}
+                        onNavigate={closeMobileMenu}
+                      />
+                    </div>
+                    <div className="my-1.5 mx-3 border-t border-white/[0.04] light:border-black/[0.08]" />
+                    <Link href="/messages" className={`rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/messages") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>
                       Messages
                       {msgCount > 0 && (
-                        <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-sky-500 px-1.5 text-[10px] font-bold text-white">
+                        <span className="ml-2 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-sky-500 px-1.5 text-[10px] font-bold text-white">
                           {msgCount > 9 ? "9+" : msgCount}
                         </span>
                       )}
                     </Link>
-                    <Link href="/notifications" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/notifications") ? "text-sky-300 bg-sky-500/10 light:text-sky-600 light:bg-sky-500/10" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm light:bg-sky-500/10">Bell</span>
-                      Notifications
-                      {activityCount > 0 && (
-                        <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
-                          {activityCount > 9 ? "9+" : activityCount}
-                        </span>
-                      )}
-                    </Link>
-                    <Link href="/profile" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/profile") ? "text-sky-300 bg-sky-500/10 light:text-sky-600 light:bg-sky-500/10" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm light:bg-sky-500/10">User</span>
-                      Profile
-                    </Link>
-                    <Link href="/faqs" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/faqs") ? "text-sky-300 bg-sky-500/10 light:text-sky-600 light:bg-sky-500/10" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm light:bg-sky-500/10">Help</span>
+                    <Link href="/faqs" className={`rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/faqs") ? "text-sky-300 bg-sky-500/10 light:text-sky-600 light:bg-sky-500/10" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>
                       Help
                     </Link>
-                    <button onClick={() => { openFeedback(); setMobileMenuOpen(false); }} className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] transition-colors w-full text-left light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm light:bg-sky-500/10">Msg</span>
+                    <button onClick={() => { openFeedback(); setMobileMenuOpen(false); }} className="flex w-full rounded-xl px-3 py-3 text-left text-sm font-bold text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] transition-colors light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]">
                       Feedback
-                    </button>
-                    <button onClick={() => { handleLogout(); setMobileMenuOpen(false); }} className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold text-red-400 hover:bg-red-500/10 active:bg-red-500/15 transition-colors w-full text-left light:text-red-600 light:hover:bg-red-500/10 light:active:bg-red-500/15">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10 text-sm light:bg-red-500/10">Exit</span>
-                      Logout
                     </button>
                   </>
                 ) : (
@@ -488,43 +472,28 @@ export default function Navbar() {
           <div className="hidden md:flex items-center gap-2">
             {user ? (
               <div className="relative group">
-                <button className={`inline-flex items-center gap-2 rounded-xl border border-white/[0.06] px-3 py-2 text-sm font-bold transition-all duration-200 active:scale-[0.97] ${isActive("/profile") ? "text-white border-sky-500/30 bg-sky-500/10" : "text-gray-200 hover:border-sky-500/30 hover:bg-sky-500/10 hover:text-white"}`}>
+                <button
+                  type="button"
+                  aria-haspopup="menu"
+                  className={`inline-flex items-center gap-2 rounded-xl border border-white/[0.06] px-3 py-2 text-sm font-bold transition-all duration-200 active:scale-[0.97] ${isActive("/profile") || isActive("/dashboard") ? "text-white border-sky-500/30 bg-sky-500/10" : "text-gray-200 hover:border-sky-500/30 hover:bg-sky-500/10 hover:text-white"}`}
+                >
                   <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
                   </svg>
                   {username || "Profile"}
                   <svg className="h-3 w-3 transition-transform duration-300 group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
                 </button>
-                <div className="absolute top-full right-0 mt-2 w-56 rounded-2xl border border-white/[0.08] bg-zinc-950/95 backdrop-blur-xl p-2 shadow-2xl shadow-black/40 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 translate-y-2 group-hover:translate-y-0 z-50">
-                  <div className="absolute -top-1.5 right-4 h-3 w-3 rotate-45 border-t border-l border-white/[0.08] bg-zinc-950/95" />
-                  <Link href="/dashboard" className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition-colors ${isActive("/dashboard") ? "text-sky-300 bg-sky-500/10" : "text-gray-200 hover:text-white hover:bg-white/[0.06]"}`}>
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm">Dash</span>
-                    Dashboard
-                  </Link>
-                  <Link href="/profile" className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition-colors ${isActive("/profile") ? "text-sky-300 bg-sky-500/10" : "text-gray-200 hover:text-white hover:bg-white/[0.06]"}`}>
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm">User</span>
-                    Profile
-                  </Link>
-                  <Link href="/notifications" className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition-colors ${isActive("/notifications") ? "text-sky-300 bg-sky-500/10" : "text-gray-200 hover:text-white hover:bg-white/[0.06]"}`}>
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm">Bell</span>
-                    Notifications
-                    {activityCount > 0 && (
-                      <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
-                        {activityCount > 9 ? "9+" : activityCount}
-                      </span>
-                    )}
-                  </Link>
-                  {isAdmin && (
-                    <Link href="/manage" className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition-colors ${isActive("/manage") ? "text-red-400 bg-red-500/10" : "text-red-400/60 hover:text-red-400 hover:bg-red-500/10"}`}>
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10 text-sm">Manage</span>
-                      Manage
-                    </Link>
-                  )}
-                  <div className="my-1.5 border-t border-white/[0.04]" />
-                  <button onClick={handleLogout} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-red-500 dark:text-red-400 hover:bg-red-500/10 transition-colors w-full text-left">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10 text-sm">Exit</span>
-                    Logout
-                  </button>
+                <div className="absolute top-full right-0 z-50 mt-2 w-[220px] opacity-0 invisible translate-y-2 transition-all duration-200 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:translate-y-0">
+                  <AppMenuPanel arrow="top-right">
+                    <AccountMenuContent
+                      pathname={pathname}
+                      username={username}
+                      userEmail={user.email}
+                      activityCount={activityCount}
+                      isAdmin={isAdmin}
+                      onLogout={handleLogout}
+                    />
+                  </AppMenuPanel>
                 </div>
               </div>
             ) : (

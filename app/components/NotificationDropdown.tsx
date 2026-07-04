@@ -15,6 +15,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { isEmailLike, publicHandleFromProfile } from "../lib/public-display";
+import { MENU_PANEL_CLASS } from "./ui/AppMenu";
 
 type NotificationItem = {
   id: string;
@@ -142,7 +143,7 @@ export default function NotificationDropdown({
   }
 
   return (
-    <div className="absolute right-0 top-[58px] z-50 w-[340px] overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[#111318]/95 shadow-2xl backdrop-blur-xl animate-slide-down">
+    <div className={`absolute right-0 top-[58px] z-50 w-[340px] animate-slide-down ${MENU_PANEL_CLASS}`}>
       {/* HEADER */}
       <div className="flex items-center justify-between border-b border-[var(--card-border)] px-4 py-3">
         <div>
