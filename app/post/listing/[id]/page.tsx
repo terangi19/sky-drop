@@ -909,7 +909,7 @@ export default function ListingPage() {
           </div>
         )}
 
-        <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr] xl:grid-cols-[1.3fr_0.7fr]">
+        <div className="grid gap-8 lg:grid-cols-2 xl:grid-cols-[1.1fr_0.9fr]">
           {/* ── LEFT COLUMN: IMAGE & DETAILS ── */}
           {(() => {
             const displayImages = listing.images && listing.images.length > 0 ? listing.images : listing.imageUrl ? [listing.imageUrl] : [];
