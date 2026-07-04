@@ -1124,7 +1124,7 @@ function MessagesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => { setScamWarning(false); setPendingMessage(""); }}>
           <div className="mx-4 w-full max-w-md rounded-2xl border border-white/[0.08] bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-black text-[var(--foreground)]">&#9888;&#65039; Safety Warning</h3>
+              <h3 className="text-lg font-black text-[var(--foreground)]">Safety Warning</h3>
               <button onClick={() => { setScamWarning(false); setPendingMessage(""); }} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
             </div>
             <p className="mt-2 text-sm text-[var(--foreground)]">
@@ -1142,7 +1142,7 @@ function MessagesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setShowSafetyWarning(false)}>
           <div className="mx-4 w-full max-w-md rounded-2xl border border-sky-500/20 bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-black text-sky-400">&#9888;&#65039; Payment Safety</h3>
+              <h3 className="text-lg font-black text-sky-400">Payment Safety</h3>
               <button onClick={() => setShowSafetyWarning(false)} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
             </div>
             <p className="mt-2 text-sm text-[var(--foreground)]">
