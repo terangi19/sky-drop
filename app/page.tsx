@@ -926,7 +926,7 @@ export default function Home() {
                 New Zealand's Fastest Growing Marketplace
               </h1>
               <p className="mt-2 text-sm text-[var(--muted)] sm:text-base">
-                Buy & sell anything with secure payments and buyer protection
+                Buy & sell your way — pay securely online or arrange purchase directly
               </p>
               {user ? (
                 <div className="mt-4 flex justify-center">
