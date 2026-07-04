@@ -6,9 +6,9 @@ import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
 import { User } from "firebase/auth";
 import { doc, getDoc, serverTimestamp } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { auth, db, storage, onAuthStateChanged } from "../../lib/firebase";
+import { auth, db, onAuthStateChanged } from "../../lib/firebase";
 import { getFreshIdToken } from "../../lib/api-auth";
+import { uploadListingImagesViaApi } from "../../lib/upload-listing-image.client";
 import { createPendingXP, trackListingCreated } from "../../lib/xpValidation";
 import { trackFunnelEvent } from "../../lib/funnel-events";
 import { checkImage } from "../../lib/nsfw";
@@ -748,26 +748,13 @@ export default function AIPostPage() {
   }
 
   async function uploadListingImageFile(file: File, index: number): Promise<{ fullUrl: string; thumbUrl: string }> {
-    const timestamp = Date.now();
     try {
       const compressed: CompressedImage = await withTimeout(compressImage(file), 30_000, "Image compression");
       const thumbnail: Thumbnail = await withTimeout(generateThumbnail(file), 20_000, "Thumbnail generation");
-
-      const fullStorageRef = ref(storage, `listings/${user!.uid}/${timestamp}_${index}_full.webp`);
-      const fullSnap = await withTimeout(uploadBytes(fullStorageRef, compressed.blob), 60_000, "Image upload");
-      const fullUrl = await getDownloadURL(fullSnap.ref);
-
-      const thumbStorageRef = ref(storage, `listings/${user!.uid}/${timestamp}_${index}_thumb.webp`);
-      const thumbSnap = await withTimeout(uploadBytes(thumbStorageRef, thumbnail.blob), 60_000, "Thumbnail upload");
-      const thumbUrl = await getDownloadURL(thumbSnap.ref);
-
-      return { fullUrl, thumbUrl };
+      return await uploadListingImagesViaApi(compressed.blob, thumbnail.blob, index);
     } catch (error) {
       console.error(`Failed to process image ${index}:`, error);
-      const storageRef = ref(storage, `listings/${user!.uid}/${timestamp}_${index}.jpg`);
-      const snap = await withTimeout(uploadBytes(storageRef, file), 60_000, "Image upload");
-      const url = await getDownloadURL(snap.ref);
-      return { fullUrl: url, thumbUrl: url };
+      return await uploadListingImagesViaApi(file, file, index);
     }
   }
 

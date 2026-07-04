@@ -4,7 +4,6 @@ import { useEffect, useState, useRef } from "react";
 
 import { showToast } from "../../../components/Toast";
 import { sanitizeListingContent } from "../../../lib/sanitize";
-import { withTimeout } from "../../../lib/with-timeout";
 
 import { User } from "firebase/auth";
 
@@ -17,11 +16,10 @@ import Navbar from "../../../components/Navbar";
 import { AwhinaUnderHeader } from "../../../components/AwhinaOnlineBadge";
 import ThemeToggle from "../../../components/ThemeToggle";
 
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { uploadListingImagesViaApi } from "../../../lib/upload-listing-image.client";
 import {
   auth,
   db,
-  storage,
   onAuthStateChanged,
 } from "../../../lib/firebase";
 
@@ -218,12 +216,8 @@ export default function EditListingPage({
           if (img.startsWith("blob:")) {
             const response = await fetch(img);
             const blob = await response.blob();
-            const storageRef = ref(
-              storage,
-              `listings/${user.uid}/${Date.now()}_${index}_${Math.random().toString(36).slice(2)}.jpg`
-            );
-            await withTimeout(uploadBytes(storageRef, blob), 60_000, "Photo upload");
-            return await getDownloadURL(storageRef);
+            const uploaded = await uploadListingImagesViaApi(blob, blob, index);
+            return uploaded.fullUrl;
           }
           return img;
         })

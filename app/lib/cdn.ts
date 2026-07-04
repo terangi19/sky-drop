@@ -1,12 +1,15 @@
+import { FIREBASE_STORAGE_URL_PREFIXES } from "./firebase-storage-config";
+
 const CDN_DOMAIN = "https://cdn.skydrop.nz";
-const STORAGE_PREFIX = "https://firebasestorage.googleapis.com/v0/b/sky-drop-de459.appspot.com/o/";
 
 export function cdnUrl(url: string | undefined | null): string {
   if (!url) return "";
-  if (url.startsWith(STORAGE_PREFIX)) {
-    const path = url.replace(STORAGE_PREFIX, "");
-    const decoded = decodeURIComponent(path.split("?")[0]);
-    return `${CDN_DOMAIN}/${decoded}`;
+  for (const prefix of FIREBASE_STORAGE_URL_PREFIXES) {
+    if (url.startsWith(prefix)) {
+      const path = url.replace(prefix, "");
+      const decoded = decodeURIComponent(path.split("?")[0]);
+      return `${CDN_DOMAIN}/${decoded}`;
+    }
   }
   return url;
 }

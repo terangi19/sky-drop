@@ -80,7 +80,7 @@ export async function PUT(req: NextRequest) {
     }
 
     const allowedFields: string[] = [
-      "images", "location", "condition",
+      "images", "thumbnails", "location", "condition",
       "pickupAvailable", "shippingAvailable", "pickupArea",
       "shippingFee", "freeShipping", "shipsWithinDays", "stockQuantity",
       "saleType", "startingBid", "reservePrice", "expiresInDays",
