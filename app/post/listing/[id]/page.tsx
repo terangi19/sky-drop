@@ -831,7 +831,7 @@ export default function ListingPage() {
                 </div>
               </>
               )}
-              <span className="text-[10px] text-[var(--muted)] ml-auto">👁 {(listing as any).views || 0} views</span>
+              <span className="text-[10px] text-[var(--muted)] ml-auto">{(listing as any).views || 0} views</span>
             </div>
         </div>
       )}
@@ -869,7 +869,6 @@ export default function ListingPage() {
 
       {!listing ? (
         <div className="flex flex-col items-center justify-center py-24">
-          <span className="text-5xl mb-4">🔍</span>
           <p className="text-lg font-bold text-[var(--foreground)]">{loading ? "Loading..." : "Listing not found"}</p>
           {!loading && <Link href="/" className="mt-6 inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 px-3 py-1.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">Browse Marketplace</Link>}
         </div>
@@ -888,7 +887,6 @@ export default function ListingPage() {
         {scamResult?.isScam && (
           <div className="mb-4 rounded-xl border border-sky-500/20 bg-sky-500/5 px-4 py-3">
             <div className="flex items-start gap-3">
-              <span className="mt-0.5 text-sky-400 text-sm">⚠️</span>
               <div>
                 <p className="text-sm font-bold text-sky-300">Safety Notice</p>
                 <p className="mt-0.5 text-xs text-[var(--muted)]">
