@@ -2196,9 +2196,9 @@ Service Status: 🟢 Inquiry Active`;
             </div>
 
             {/* 9. WATCHLIST & SHARE */}
-            <div className="flex gap-2 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-1">
-              <button onClick={saveToWatchlist} className="flex items-center justify-center gap-1.5 rounded-xl py-2 text-[11px] font-semibold text-[var(--muted)] transition hover:bg-white/[0.04] hover:text-[var(--foreground)] flex-1">
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <div className="flex gap-2 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-1.5">
+              <button onClick={saveToWatchlist} className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-[11px] font-semibold text-[var(--muted)] transition hover:bg-white/[0.04] hover:text-[var(--foreground)] flex-1">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                 </svg>
                 Save to Watchlist
@@ -2209,8 +2209,8 @@ Service Status: 🟢 Inquiry Active`;
                 } catch {
                   navigator.clipboard?.writeText(window.location.href).then(() => showToast("Link copied!", "success")).catch(() => {});
                 }
-              }} className="flex items-center justify-center gap-1.5 rounded-xl py-2 text-[11px] font-semibold text-[var(--muted)] transition hover:bg-white/[0.04] hover:text-[var(--foreground)] flex-1">
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              }} className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-[11px] font-semibold text-[var(--muted)] transition hover:bg-white/[0.04] hover:text-[var(--foreground)] flex-1">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
                 </svg>
                 Share
@@ -2222,24 +2222,24 @@ Service Status: 🟢 Inquiry Active`;
       </section>
 
       {sellerListings.length > 0 && (
-        <section className="relative z-10 mx-auto max-w-5xl px-6 pb-10">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="h-4 w-0.5 rounded-full bg-gradient-to-b from-sky-500 to-sky-500" />
-            <h2 className="text-sm font-bold text-white">More from {listing.sellerUsername || listing.sellerEmail?.split("@")[0] || "this seller"}</h2>
+        <section className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 pb-12">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="h-5 w-0.5 rounded-full bg-gradient-to-b from-sky-500 to-sky-500" />
+            <h2 className="text-base font-bold text-white">More from {listing.sellerUsername || listing.sellerEmail?.split("@")[0] || "this seller"}</h2>
           </div>
-          <div className="mt-3 flex gap-3 overflow-x-auto pb-1 scrollbar-none">
+          <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
             {sellerListings.map((l: any) => (
               <Link key={l.id} href={`/post/listing/${l.id}`}
-                className="group shrink-0 w-44 rounded-xl border border-white/[0.06] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-3 transition-all duration-200 hover:bg-white/[0.07] hover:border-sky-500/30 hover:-translate-y-1 hover:shadow-[0_8px_30px_-8px_rgba(14,165,233,0.12)]">
+                className="group shrink-0 w-48 rounded-xl border border-white/[0.06] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-4 transition-all duration-200 hover:bg-white/[0.07] hover:border-sky-500/30 hover:-translate-y-1 hover:shadow-[0_8px_30px_-8px_rgba(14,165,233,0.12)]">
                 <div className="overflow-hidden rounded-lg">
                   {l.images?.[0] || l.imageUrl || l.image ? (
-                    <img src={l.images?.[0] || l.imageUrl || l.image || ""} alt="" loading="lazy" className="h-20 w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                    <img src={l.images?.[0] || l.imageUrl || l.image || ""} alt="" loading="lazy" className="h-24 w-full object-cover transition-transform duration-300 group-hover:scale-105" />
                   ) : (
-                    <div className="h-20 w-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center text-xs text-[var(--muted)]">SD</div>
+                    <div className="h-24 w-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center text-xs text-[var(--muted)]">SD</div>
                   )}
                 </div>
-                <p className="mt-2 truncate text-xs font-bold text-[var(--foreground)] group-hover:text-sky-300 transition-colors">{l.title}</p>
-                <p className="text-xs font-black text-sky-400">${l.price}</p>
+                <p className="mt-3 truncate text-sm font-bold text-[var(--foreground)] group-hover:text-sky-300 transition-colors">{l.title}</p>
+                <p className="text-sm font-black text-sky-400">${l.price}</p>
               </Link>
             ))}
           </div>
