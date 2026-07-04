@@ -1902,12 +1902,12 @@ Service Status: 🟢 Inquiry Active`;
             {user && user.email !== listing.sellerEmail && listing.pricingType !== "quote" && (
               (listing as any).paymentType === "contact" ? (
                 <a href="/payments#arrange" target="_blank" rel="noopener noreferrer" className="rounded-lg border border-sky-500/10 bg-sky-500/[0.03] px-3.5 py-2.5 block transition hover:bg-sky-500/[0.06]">
-                  <p className="text-xs font-bold text-sky-400">🤝 Continue to Purchase — ${(listing as any).price}</p>
+                  <p className="text-xs font-bold text-sky-400">Continue to Purchase — ${(listing as any).price}</p>
                   <p className="mt-0.5 text-[10px] leading-relaxed text-zinc-500">Payment arranged with seller after purchase. Keep communication on Sky Drop for protection. <span className="text-sky-400/70 underline">How it works →</span></p>
                 </a>
               ) : (
                 <a href="/payments#arrange" target="_blank" rel="noopener noreferrer" className="rounded-lg border border-sky-500/10 bg-sky-500/[0.03] px-3.5 py-2.5 block transition hover:bg-sky-500/[0.06]">
-                  <p className="text-xs font-bold text-sky-400">🤝 Continue to Purchase — ${(listing as any).price}</p>
+                  <p className="text-xs font-bold text-sky-400">Continue to Purchase — ${(listing as any).price}</p>
                   <p className="mt-0.5 text-[10px] leading-relaxed text-zinc-500">Payment arranged with seller after purchase. Keep communication on Sky Drop for protection. <span className="text-sky-400/70 underline">How it works →</span></p>
                 </a>
               )
@@ -1969,10 +1969,10 @@ Service Status: 🟢 Inquiry Active`;
                         </div>
                       )}
                       {sellerProfile?.profileBadge === "epic" && (
-                        <span className="shrink-0 text-[11px] text-sky-400 font-bold">💎 Epic</span>
+                        <span className="shrink-0 text-[11px] text-sky-400 font-bold">Epic</span>
                       )}
                       {sellerProfile?.profileBadge === "legendary" && (
-                        <span className="shrink-0 text-[11px] text-sky-400 font-bold animate-pulse">👑 The Five</span>
+                        <span className="shrink-0 text-[11px] text-sky-400 font-bold animate-pulse">The Five</span>
                       )}
                     </div>
                     <div className="mt-2 flex items-center gap-2 text-xs">
