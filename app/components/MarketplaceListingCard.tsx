@@ -260,6 +260,7 @@ export default memo(function MarketplaceListingCard({
             className={`lc-watchlist relative text-base transition-all duration-200 hover:scale-110 active:scale-95 ${
               isInWatchlist(item.id) ? "lc-watchlist--active" : ""
             }`}
+            aria-label={isInWatchlist(item.id) ? "Remove from watchlist" : "Add to watchlist"}
           >
             {isInWatchlist(item.id) ? (
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -344,99 +345,35 @@ export default memo(function MarketplaceListingCard({
         <div className="flex min-h-10 gap-2">
           {user && user.email !== item.sellerEmail && (
             <>
-              {offerCategory && item.acceptOffers ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onMakeOffer(item);
-                    }}
-                    disabled={loading}
-                    className={`lc-btn flex-1 rounded-md py-2.5 text-[12px] font-semibold active:scale-95 ${loading ? "opacity-70 cursor-not-allowed" : ""}`}
-                  >
-                    {loading ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <div className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" />
-                        Processing...
-                      </span>
-                    ) : (
-                      "Make Offer"
-                    )}
-                  </button>
-                  {(item.saleType === "auction" || item.saleType === "auction_buy_now") && (
-                    <Link
-                      href={`/post/listing/${item.id}`}
-                      onClick={(e) => e.stopPropagation()}
-                      className={`lc-btn flex flex-1 items-center justify-center rounded-md py-2.5 text-[12px] font-semibold active:scale-95`}
-                    >
-                      Bid Now
-                    </Link>
-                  )}
-                </>
-              ) : item.pricingType === "quote" ? (
-                <>
-                  <Link
-                    href={`/post/listing/${item.id}`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="lc-btn flex flex-1 items-center justify-center rounded-md py-2.5 text-[12px] font-semibold active:scale-95"
-                  >
-                    Request Quote
-                  </Link>
-                </>
+              {item.pricingType === "quote" ? (
+                <Link
+                  href={`/post/listing/${item.id}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="lc-btn-primary flex flex-1 items-center justify-center rounded-md py-2.5 text-[12px] font-semibold active:scale-95"
+                >
+                  Request Quote
+                </Link>
               ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onBuyNow(item);
-                    }}
-                    disabled={loading}
-                    className={`lc-btn flex-1 rounded-md py-2.5 text-[12px] font-semibold active:scale-95 ${loading ? "opacity-70 cursor-not-allowed" : ""}`}
-                    title={item.paymentType === "contact" ? "Arrange payment directly with seller (bank transfer, cash, etc.)" : "Pay instantly with credit card via Stripe"}
-                  >
-                    {loading ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <div className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" />
-                        Processing...
-                      </span>
-                    ) : (
-                      item.paymentType === "contact" ? "Arrange Purchase" : "Buy Now"
-                    )}
-                  </button>
-                  {(item.saleType === "auction" || item.saleType === "auction_buy_now") && (
-                    <Link
-                      href={`/post/listing/${item.id}`}
-                      onClick={(e) => e.stopPropagation()}
-                      className={`lc-btn flex flex-1 items-center justify-center rounded-md py-2.5 text-[12px] font-semibold active:scale-95`}
-                    >
-                      Bid Now
-                    </Link>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onBuyNow(item);
+                  }}
+                  disabled={loading}
+                  className={`lc-btn-primary flex-1 rounded-md py-2.5 text-[12px] font-semibold active:scale-95 ${loading ? "opacity-70 cursor-not-allowed" : ""}`}
+                  title={item.paymentType === "contact" ? "Arrange payment directly with seller (bank transfer, cash, etc.)" : "Pay instantly with credit card via Stripe"}
+                >
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" />
+                      Processing...
+                    </span>
+                  ) : (
+                    item.paymentType === "contact" ? "Arrange Purchase" : "Buy Now"
                   )}
-                  {item.acceptOffers && item.paymentType !== "contact" && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        onMakeOffer(item);
-                      }}
-                      className="lc-link ml-1 text-[11px]"
-                    >
-                      Offer
-                    </button>
-                  )}
-                </>
+                </button>
               )}
-
-              <Link
-                href={`/post/listing/${item.id}#contact`}
-                onClick={(e) => e.stopPropagation()}
-                className="lc-btn-ghost flex flex-1 items-center justify-center rounded-md py-2.5 text-[12px] font-semibold active:scale-95"
-              >
-                Message
-              </Link>
             </>
           )}
           {user && user.email === item.sellerEmail && onPromote && onDelete && (

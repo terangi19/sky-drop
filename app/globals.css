@@ -409,6 +409,21 @@ body {
   }
 }
 
+/* Accessibility - Focus visible styles */
+:focus-visible {
+  outline: 2px solid var(--lc-accent);
+  outline-offset: 2px;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--lc-accent);
+  outline-offset: 2px;
+}
+
 /* ── LIGHT MODE GLOBAL OVERRIDES (navy + white + sky blue) ── */
 :root.light .bg-zinc-950 { background-color: #ffffff !important; }
 :root.light .bg-zinc-900 { background-color: #ffffff !important; }
