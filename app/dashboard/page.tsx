@@ -203,14 +203,12 @@ export default function DashboardPage() {
         value: String(stats.totalSales),
         hint: `${stats.completedSales} completed · ${stats.pendingOrders} pending`,
         accent: "from-sky-500 to-sky-400",
-        icon: "📊",
       },
       {
         label: "Active listings",
         value: String(stats.activeListings),
         hint: `${listings.length} total posted`,
         accent: "from-violet-500 to-violet-400",
-        icon: "📦",
       },
       {
         label: "Seller rating",
@@ -218,7 +216,6 @@ export default function DashboardPage() {
         hint: stats.reviewCount > 0 ? `${stats.reviewCount} review${stats.reviewCount > 1 ? "s" : ""}` : "No reviews yet",
         accent: "from-amber-500 to-amber-400",
         star: stats.reviewCount > 0,
-        icon: "⭐",
       },
     ],
     [stats, listings.length]
@@ -427,7 +424,6 @@ export default function DashboardPage() {
                     </p>
                     <p className="mt-1 text-[11px] text-zinc-500">{card.hint}</p>
                   </div>
-                  <span className="text-3xl opacity-80">{card.icon}</span>
                 </div>
               </div>
             ))}
@@ -440,7 +436,7 @@ export default function DashboardPage() {
                 <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent" />
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-500/10 text-lg ring-1 ring-sky-500/20">💡</div>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-500/10 text-lg ring-1 ring-sky-500/20">Insights</div>
                     <div>
                       <h2 className="text-base font-black text-white">Top Insights</h2>
                       <p className="text-[11px] text-zinc-500">AI-powered recommendations</p>
