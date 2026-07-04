@@ -260,7 +260,11 @@ export async function POST(req: NextRequest) {
       }
 
       if (numericPrice > 0 && isPriceSuspicious(numericPrice, category)) {
-        if (salesCount < 3 || reportsCount > 0) {
+        // Only apply strict Cars threshold for actual vehicles (listingType === "vehicle")
+        // Car parts categorized as "Cars" should not trigger this validation
+        if (category === "Cars" && listingType !== "vehicle") {
+          // Skip validation for car parts - they can have lower prices
+        } else if (salesCount < 3 || reportsCount > 0) {
           return NextResponse.json({
             error: `Price seems unusually low for "${category}". Please set a realistic price or contact support.`,
             priceFlagged: true,
