@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { getAdminStorage } from "./firebase-admin";
-import { buildStorageDownloadUrl } from "./firebase-storage-config";
+import { buildStorageDownloadUrl, getFirebaseStorageBucket } from "./firebase-storage-config";
 
 export async function uploadBufferToStorage(
   objectPath: string,
@@ -8,7 +8,8 @@ export async function uploadBufferToStorage(
   contentType: string
 ): Promise<string> {
   const downloadToken = randomUUID();
-  const bucket = getAdminStorage().bucket();
+  const bucketName = getFirebaseStorageBucket();
+  const bucket = getAdminStorage().bucket(bucketName);
 
   await bucket.file(objectPath).save(buffer, {
     resumable: false,

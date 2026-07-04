@@ -3,7 +3,9 @@ export const DEFAULT_FIREBASE_STORAGE_BUCKET = "sky-drop-de459.firebasestorage.a
 
 export function getFirebaseStorageBucket(): string {
   return (
-    process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET?.trim() || DEFAULT_FIREBASE_STORAGE_BUCKET
+    process.env.FIREBASE_STORAGE_BUCKET?.trim() ||
+    process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET?.trim() ||
+    DEFAULT_FIREBASE_STORAGE_BUCKET
   );
 }
 

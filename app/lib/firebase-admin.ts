@@ -2,6 +2,7 @@ import { initializeApp, getApps, cert, applicationDefault, type App } from "fire
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
+import { getFirebaseStorageBucket } from "./firebase-storage-config";
 
 let app: App | null = null;
 
@@ -29,6 +30,13 @@ function parseServiceAccountJson(): Record<string, unknown> {
   throw new Error("FIREBASE_SERVICE_ACCOUNT is invalid JSON");
 }
 
+function adminAppOptions(credential: ReturnType<typeof cert> | ReturnType<typeof applicationDefault>) {
+  return {
+    credential,
+    storageBucket: getFirebaseStorageBucket(),
+  };
+}
+
 function getAdminApp(): App {
   if (app) return app;
   const existing = getApps();
@@ -37,12 +45,12 @@ function getAdminApp(): App {
     return app;
   }
   if (process.env.FIREBASE_SERVICE_ACCOUNT?.trim()) {
-    app = initializeApp({ credential: cert(parseServiceAccountJson()) });
+    app = initializeApp(adminAppOptions(cert(parseServiceAccountJson())));
     return app;
   }
   if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
     try {
-      app = initializeApp({ credential: applicationDefault() });
+      app = initializeApp(adminAppOptions(applicationDefault()));
       return app;
     } catch {
       throw new Error(
