@@ -1011,7 +1011,7 @@ export default function ListingPage() {
                 <span className="rounded-lg bg-[var(--soft-card)] px-3 py-1 text-xs font-black uppercase tracking-wider text-[var(--muted)]">Expired</span>
               )}
               {(listing as any).promotedUntil?.toMillis?.() > Date.now() && (
-                <span className="rounded-lg bg-sky-500/90 px-3 py-1 text-xs font-black uppercase tracking-wider text-white">📈 Promoted</span>
+                <span className="rounded-lg bg-sky-500/90 px-3 py-1 text-xs font-black uppercase tracking-wider text-white">Promoted</span>
               )}
             </div>
 
@@ -1310,7 +1310,7 @@ Property Status: 🟢 Inquiry Active`;
 
                           await sendMessage({
                             type: "text",
-                            text: `🟢 A user is interested in your property listing.\n\nUse this chat to discuss:\n• viewing arrangements\n• price/negotiation\n• property details\n• settlement or tenancy\n\nKeep all communication inside Sky Drop for protection.`,
+                            text: `A user is interested in your property listing.\n\nUse this chat to discuss:\n• viewing arrangements\n• price/negotiation\n• property details\n• settlement or tenancy\n\nKeep all communication inside Sky Drop for protection.`,
                             receiver: listing.sellerEmail,
                             listingId,
                             listingTitle: listing.title,
@@ -1354,11 +1354,11 @@ Property Status: 🟢 Inquiry Active`;
               ) : user?.email === listing.sellerEmail ? (
                 <div className="flex gap-3 w-full">
                   <Link href={`/post/ai?edit=${listingId}`} className="flex-1 h-11 flex items-center justify-center rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:brightness-110 active:scale-[0.98]">
-                    ✏️ Edit Listing
+                    Edit Listing
                   </Link>
                   <button onClick={() => setShowPromote(true)}
                     className="h-11 px-4 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sm font-bold text-sky-400 transition hover:bg-sky-500/20 hover:border-sky-500/50">
-                    📈 Promote
+                    Promote
                   </button>
                 </div>
               ) : (
@@ -1416,10 +1416,10 @@ Property Status: 🟢 Inquiry Active`;
               ) : user?.email === listing.sellerEmail ? (
                 <div className="flex gap-3 w-full">
                   <Link href={`/post/ai?edit=${listingId}`} className="flex-1 h-11 flex items-center justify-center rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:brightness-110 active:scale-[0.98]">
-                    ✏️ Edit Listing
+                    Edit Listing
                   </Link>
                   <button onClick={() => setShowPromote(true)} className="h-11 px-4 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sm font-bold text-sky-400 transition hover:bg-sky-500/20 hover:border-sky-500/50">
-                    📈 Promote
+                    Promote
                   </button>
                 </div>
               ) : (
@@ -1610,11 +1610,11 @@ Property Status: 🟢 Inquiry Active`;
               ) : user?.email === listing.sellerEmail ? (
                 <div className="flex gap-3 w-full">
                   <Link href={`/post/ai?edit=${listingId}`} className="flex-1 h-11 flex items-center justify-center rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:brightness-110 active:scale-[0.98]">
-                    ✏️ Edit Listing
+                    Edit Listing
                   </Link>
                   <button onClick={() => setShowPromote(true)}
                     className="h-11 px-4 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sm font-bold text-sky-400 transition hover:bg-sky-500/20 hover:border-sky-500/50">
-                    📈 Promote
+                    Promote
                   </button>
                 </div>
               ) : (
@@ -1699,10 +1699,10 @@ Application Status: 🟢 Active`;
               ) : user?.email === listing.sellerEmail ? (
                 <div className="flex gap-3 w-full">
                   <Link href={`/post/ai?edit=${listingId}`} className="flex-1 h-11 flex items-center justify-center rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:brightness-110 active:scale-[0.98]">
-                    ✏️ Edit Listing
+                    Edit Listing
                   </Link>
                   <button onClick={() => setShowPromote(true)} className="h-11 px-4 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sm font-bold text-sky-400 transition hover:bg-sky-500/20 hover:border-sky-500/50">
-                    📈 Promote
+                    Promote
                   </button>
                 </div>
               ) : (
@@ -1786,10 +1786,10 @@ Service Status: 🟢 Inquiry Active`;
               ) : user?.email === listing.sellerEmail ? (
                 <div className="flex gap-3 w-full">
                   <Link href={`/post/ai?edit=${listingId}`} className="flex-1 h-11 flex items-center justify-center rounded-lg bg-gradient-to-r from-sky-500 to-fuchsia-500 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:brightness-110 active:scale-[0.98]">
-                    ✏️ Edit Listing
+                    Edit Listing
                   </Link>
                   <button onClick={() => setShowPromote(true)} className="h-11 px-4 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sm font-bold text-sky-400 transition hover:bg-sky-500/20 hover:border-sky-500/50">
-                    📈 Promote
+                    Promote
                   </button>
                 </div>
               ) : (
@@ -1884,10 +1884,10 @@ Service Status: 🟢 Inquiry Active`;
               ) : user?.email === listing.sellerEmail ? (
                 <div className="flex gap-3 w-full">
                   <Link href={`/post/ai?edit=${listingId}`} className="flex-1 h-11 flex items-center justify-center rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:brightness-110 active:scale-[0.98]">
-                    ✏️ Edit Listing
+                    Edit Listing
                   </Link>
                   <button onClick={() => setShowPromote(true)} className="h-11 px-4 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sm font-bold text-sky-400 transition hover:bg-sky-500/20 hover:border-sky-500/50">
-                    📈 Promote
+                    Promote
                   </button>
                 </div>
               ) : (
