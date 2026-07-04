@@ -52,8 +52,8 @@ import {
 
 import { auth, db, storage, onAuthStateChanged } from "./lib/firebase";
 import { ref, deleteObject } from "firebase/storage";
-import { cdnUrl, cdnUrls } from "./lib/cdn";
 import { isListingVisibleInMarketplace } from "./lib/listing-availability";
+import ListingImage, { listingHasImage } from "./components/ListingImage";
 import { isHomeBrowseListing, isPhysicalHomeCategoryListing } from "./lib/listing-types";
 import { isDemoListing } from "./lib/marketplace-display";
 import { adjustListingWatchlistCount } from "./lib/listing-watchlist-count";
@@ -1346,8 +1346,13 @@ export default function Home() {
                 onClick={() => router.push(`/post/listing/${item.id}`)}
                 className="group shrink-0 w-48 cursor-pointer rounded-xl border border-white/[0.04] bg-[var(--card)] p-2.5 transition hover:border-white/[0.10] hover:bg-[var(--card-hover)]"
               >
-                {item.images?.[0] || item.imageUrl || item.image ? (
-                  <img src={cdnUrl(item.images?.[0] || item.imageUrl || item.image || "")} alt={item.title} loading="lazy" onError={(e) => { (e.target as HTMLImageElement).src = ""; (e.target as HTMLImageElement).classList.add("hidden"); }} className="h-20 w-full rounded-lg object-cover" />
+                {listingHasImage(item) ? (
+                  <ListingImage
+                    listing={item}
+                    alt={item.title}
+                    context={`HomeRecentlyViewed:${item.id}`}
+                    className="h-20 w-full rounded-lg object-cover"
+                  />
                 ) : (
                   <div className="flex h-20 w-full items-center justify-center rounded-lg bg-[var(--card)] text-[10px] text-[var(--muted)]">No image</div>
                 )}
@@ -1366,8 +1371,13 @@ export default function Home() {
           <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
             {listings.filter((l) => !isListingVisibleInMarketplace(l)).slice(0, 6).map((item) => (
               <div key={item.id} className="relative shrink-0 w-40 rounded-xl border border-white/[0.04] bg-[var(--card)] p-2.5 opacity-75">
-                {item.images?.[0] || item.imageUrl || item.image ? (
-                  <img src={cdnUrl(item.images?.[0] || item.imageUrl || item.image || "")} alt={item.title} loading="lazy" className="h-16 w-full rounded-lg object-cover grayscale-[30%]" />
+                {listingHasImage(item) ? (
+                  <ListingImage
+                    listing={item}
+                    alt={item.title}
+                    context={`HomeRecentlySold:${item.id}`}
+                    className="h-16 w-full rounded-lg object-cover grayscale-[30%]"
+                  />
                 ) : (
                   <div className="flex h-16 w-full items-center justify-center rounded-lg bg-[var(--card)] text-[10px] text-[var(--muted)]">No image</div>
                 )}

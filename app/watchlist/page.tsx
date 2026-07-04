@@ -11,6 +11,7 @@ import BrowseAwhinaAssistantPanel from "../components/BrowseAwhinaAssistantPanel
 import { useAwhinaInsightEffect } from "../contexts/AwhinaPageInsightContext";
 import { buildWatchlistInsight } from "../lib/awhina-insights";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
+import ListingImage, { listingHasImage } from "../components/ListingImage";
 
 interface WatchlistItem {
   id: string;
@@ -361,7 +362,7 @@ export default function WatchlistPage() {
 
             <div className="grid gap-4 sm:gap-5 grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
               {filteredWatchlist.map((item) => {
-                const imgSrc = (item as any).images?.[0] || item.imageUrl || item.image || "";
+                const hasImage = listingHasImage(item);
                 const isExpired = item.expiresAt?.toMillis?.() < currentTime;
                 const isHot = popularIds.has(item.id);
                 const priceDrop = item.savedPrice && item.price && Number(item.savedPrice) > Number(item.price);
@@ -393,10 +394,14 @@ export default function WatchlistPage() {
                       </label>
                       <Link href={`/post/listing/${item.id}`} className="block">
                     <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-sky-500/5 via-sky-500/5 to-sky-600/5">
-                      {imgSrc ? (
-                        <img src={imgSrc} alt={item.title} loading="lazy"
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                      {hasImage ? (
+                        <ListingImage
+                          listing={item}
+                          alt={item.title}
+                          fill
+                          context={`Watchlist:${item.id}`}
+                          className="transition-transform duration-500 group-hover:scale-105"
+                        />
                       ) : (
                         <div className="flex h-full items-center justify-center">
                           <div className="text-center">

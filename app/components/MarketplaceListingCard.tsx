@@ -3,9 +3,7 @@
 import type { CSSProperties } from "react";
 import { useState, memo } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import type { User } from "firebase/auth";
-import { cdnUrl } from "../lib/cdn";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
 import { timeAgo } from "../lib/listing-card-utils";
 import {
@@ -13,6 +11,7 @@ import {
   listingWatchlistGlowIntensity,
 } from "../lib/listing-watchlist-count";
 import { SellerReviewSummary } from "./SellerReviewStars";
+import ListingImage, { listingHasImage } from "./ListingImage";
 
 export type MarketplaceListingCardProps = {
   item: Record<string, any>;
@@ -96,7 +95,7 @@ export default memo(function MarketplaceListingCard({
   const saves = themed ? listingWatchlistCount(item) : 0;
   const saveGlow = listingWatchlistGlowIntensity(saves);
   const isPopular = isVisible && (item.views || 0) > 3;
-  const imageSrc = item.thumbnails?.[0] || item.images?.[0]?.thumbnail || item.images?.[0] || item.imageUrl || item.image;
+  const hasImage = listingHasImage(item);
 
   const cardGlowStyle = listingCardGlowStyle(saveGlow, isPopular, isVisible, neonGlow);
   const categoryLabel =
@@ -122,21 +121,15 @@ export default memo(function MarketplaceListingCard({
         }`}
       />
 
-      {imageSrc ? (
+      {hasImage ? (
         <>
           <div className="relative shrink-0 overflow-hidden aspect-[4/3]">
-            <Image
-              src={cdnUrl(imageSrc)}
+            <ListingImage
+              listing={item}
               alt={item.title}
               fill
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              className="object-cover transition-all duration-500 group-hover:scale-105 opacity-0"
-              onLoad={(e) => {
-                (e.target as HTMLImageElement).style.opacity = "1";
-              }}
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = "none";
-              }}
+              context={`MarketplaceListingCard:${item.id}`}
+              className="transition-all duration-500 group-hover:scale-105"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             {!isVisible && (

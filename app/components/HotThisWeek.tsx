@@ -13,6 +13,7 @@ import {
 } from "../lib/listing-watchlist-count";
 import { PAGE_SHELL_MARKETPLACE } from "../lib/page-layout";
 import DragScrollCarousel, { useDragGuardClick } from "./DragScrollCarousel";
+import ListingImage, { listingHasImage } from "./ListingImage";
 
 interface HotItem {
   id: string;
@@ -35,7 +36,8 @@ interface HotThisWeekProps {
   accent?: "sky" | "sky" | "sky" | "sky";
   timeAgo: (seconds: number) => string;
   saveRecentlyViewed: (item: HotItem) => void;
-  cdnUrl: (url: string) => string;
+  /** @deprecated Listing images use ListingImage directly */
+  cdnUrl?: (url: string) => string;
   listingWatchlistCount?: (item: HotItem) => number;
   listingWatchlistGlowIntensity?: (count: number) => number;
   user?: User | null;
@@ -50,7 +52,6 @@ export default function HotThisWeek({
   items,
   timeAgo,
   saveRecentlyViewed,
-  cdnUrl,
   listingWatchlistCount: watchlistCountFn = listingWatchlistCount,
   listingWatchlistGlowIntensity: watchlistGlowFn = listingWatchlistGlowIntensity,
   user: userProp,
@@ -83,7 +84,7 @@ export default function HotThisWeek({
         {items.map((item) => {
           const hotSaves = watchlistCountFn(item);
           const hotGlow = watchlistGlowFn(hotSaves);
-          const imageSrc = item.images?.[0] || item.imageUrl || item.image;
+          const hasImage = listingHasImage(item);
           const sellerEmail = item.sellerEmail || "";
           const username = item.sellerUsername || sellerEmail.split("@")[0] || "Seller";
           const isOwnListing = Boolean(user?.email && user.email === sellerEmail);
@@ -95,7 +96,7 @@ export default function HotThisWeek({
               key={item.id}
               item={item}
               hotGlow={hotGlow}
-              imageSrc={imageSrc}
+              hasImage={hasImage}
               username={username}
               sellerEmail={sellerEmail}
               isOwnListing={isOwnListing}
@@ -103,7 +104,6 @@ export default function HotThisWeek({
               messageHref={messageHref}
               hotSaves={hotSaves}
               timeAgo={timeAgo}
-              cdnUrl={cdnUrl}
               saveRecentlyViewed={saveRecentlyViewed}
               router={router}
             />
@@ -117,7 +117,7 @@ export default function HotThisWeek({
 function HotWeekCard({
   item,
   hotGlow,
-  imageSrc,
+  hasImage,
   username,
   sellerEmail,
   isOwnListing,
@@ -125,13 +125,12 @@ function HotWeekCard({
   messageHref,
   hotSaves,
   timeAgo,
-  cdnUrl,
   saveRecentlyViewed,
   router,
 }: {
   item: HotItem;
   hotGlow: number;
-  imageSrc: string | undefined;
+  hasImage: boolean;
   username: string;
   sellerEmail: string;
   isOwnListing: boolean;
@@ -139,7 +138,6 @@ function HotWeekCard({
   messageHref: string;
   hotSaves: number;
   timeAgo: (seconds: number) => string;
-  cdnUrl: (url: string) => string;
   saveRecentlyViewed: (item: HotItem) => void;
   router: ReturnType<typeof useRouter>;
 }) {
@@ -161,11 +159,11 @@ function HotWeekCard({
       onClick={openListing}
     >
       <div className="relative overflow-hidden rounded-xl">
-                {imageSrc ? (
-                  <img
-                    src={cdnUrl(imageSrc)}
+                {hasImage ? (
+                  <ListingImage
+                    listing={item}
                     alt={item.title}
-                    loading="lazy"
+                    context={`HotThisWeek:${item.id}`}
                     className="h-32 w-full rounded-xl object-cover transition-transform duration-500 group-hover:scale-[1.03] sm:h-36"
                   />
                 ) : (

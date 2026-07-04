@@ -7,6 +7,7 @@ import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
 import { AwhinaUnderHeader } from "../../components/AwhinaOnlineBadge";
 import ThemeToggle from "../../components/ThemeToggle";
+import ListingImage, { listingHasImage } from "../../components/ListingImage";
 import {
   collection,
   deleteDoc,
@@ -554,8 +555,13 @@ export default function SellerPage() {
                     {pinnedListings.map((item) => (
                       <div key={item.id} onClick={() => router.push(`/post/listing/${item.id}`)}
                         className="group/card shrink-0 w-44 cursor-pointer overflow-hidden rounded-xl border border-white/[0.06] bg-gradient-to-br from-white/[0.05] to-white/[0.01] transition-all duration-300 hover:border-sky-500/40 hover:shadow-[0_0_20px_rgba(14,165,233,0.15)] hover:-translate-y-1">
-                        {item.images?.[0] || item.imageUrl || item.image ? (
-                          <img src={item.images?.[0] || item.imageUrl || item.image || ""} alt="" className="h-28 w-full object-cover transition-transform duration-500 group-hover/card:scale-105" />
+                        {listingHasImage(item) ? (
+                          <ListingImage
+                            listing={item}
+                            alt={item.title}
+                            context={`SellerPinned:${item.id}`}
+                            className="h-28 w-full object-cover transition-transform duration-500 group-hover/card:scale-105"
+                          />
                         ) : (
                           <div className="flex h-28 items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-900 text-xs font-medium text-[var(--muted)]">No image</div>
                         )}
@@ -588,8 +594,13 @@ export default function SellerPage() {
                     {activeListings.map((item) => (
                       <div key={item.id} onClick={() => router.push(`/post/listing/${item.id}`)}
                         className="group/card cursor-pointer overflow-hidden rounded-xl border border-white/[0.06] bg-gradient-to-br from-white/[0.05] to-white/[0.01] transition-all duration-300 hover:border-sky-500/40 hover:shadow-[0_0_20px_rgba(14,165,233,0.15)] hover:-translate-y-1">
-                        {item.images?.[0] || item.imageUrl || item.image ? (
-                          <img src={item.images?.[0] || item.imageUrl || item.image || ""} alt="" className="h-28 w-full object-cover transition-transform duration-500 group-hover/card:scale-105" />
+                        {listingHasImage(item) ? (
+                          <ListingImage
+                            listing={item}
+                            alt={item.title}
+                            context={`SellerPinned:${item.id}`}
+                            className="h-28 w-full object-cover transition-transform duration-500 group-hover/card:scale-105"
+                          />
                         ) : (
                           <div className="flex h-28 items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-900 text-xs font-medium text-[var(--muted)]">No image</div>
                         )}
@@ -618,8 +629,13 @@ export default function SellerPage() {
                   <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
                     {soldListings.map((item) => (
                       <div key={item.id} className="relative shrink-0 w-40 overflow-hidden rounded-xl border border-white/[0.06] bg-gradient-to-br from-white/[0.05] to-white/[0.01] opacity-75 hover:opacity-100 transition-opacity">
-                        {item.images?.[0] || item.imageUrl || item.image ? (
-                          <img src={item.images?.[0] || item.imageUrl || item.image || ""} alt="" className="h-24 w-full object-cover" />
+                        {listingHasImage(item) ? (
+                          <ListingImage
+                            listing={item}
+                            alt={item.title}
+                            context={`SellerSold:${item.id}`}
+                            className="h-24 w-full object-cover"
+                          />
                         ) : (
                           <div className="flex h-24 items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-900 text-xs font-medium text-[var(--muted)]">No image</div>
                         )}

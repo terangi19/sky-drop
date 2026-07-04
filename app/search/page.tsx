@@ -8,7 +8,6 @@ import MarketplaceListingCard from "../components/MarketplaceListingCard";
 import { useListings } from "../useListings";
 import { useAuth } from "../contexts/AuthContext";
 import { useProfile } from "../contexts/ProfileContext";
-import { cdnUrl } from "../lib/cdn";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
 import { listingWatchlistCount, listingWatchlistGlowIntensity } from "../lib/listing-watchlist-count";
 import { fuzzyFilterListings, rankListingsBySearch } from "../lib/marketplace-fuzzy-search";

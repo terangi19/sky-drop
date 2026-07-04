@@ -16,6 +16,7 @@ import { isListingVisibleInMarketplace } from "../lib/listing-availability";
 import PromoteModal from "../components/PromoteModal";
 import { LISTING_GRID, PAGE_SHELL_CHAT } from "../lib/page-layout";
 import { timeAgo } from "../lib/listing-utils";
+import ListingImage, { listingHasImage } from "../components/ListingImage";
 
 interface Listing {
   id: string;
@@ -259,7 +260,7 @@ export default function ListListPage() {
         <div className={LISTING_GRID}>
           {filteredListings.map((item) => {
             const isOwner = user && item.sellerEmail === user.email;
-            const imgSrc = item.images?.[0] || item.imageUrl || item.image || "";
+            const hasImage = listingHasImage(item);
             const isExpired = item.expiresAt?.toMillis?.() < Date.now();
             const isSold = !isListingVisibleInMarketplace(item);
             return (
@@ -269,10 +270,13 @@ export default function ListListPage() {
               >
                 {/* Image */}
                 <div className="relative shrink-0 overflow-hidden">
-                  {imgSrc ? (
-                    <img src={imgSrc} alt={item.title} loading="lazy"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                      className="aspect-[4/3] w-full object-cover transition-all duration-500 group-hover:scale-105" />
+                  {hasImage ? (
+                    <ListingImage
+                      listing={item}
+                      alt={item.title}
+                      context={`MyListings:${item.id}`}
+                      className="aspect-[4/3] w-full object-cover transition-all duration-500 group-hover:scale-105"
+                    />
                   ) : (
                     <div className="aspect-[4/3] flex items-center justify-center bg-gradient-to-br from-sky-500/5 via-sky-500/5 to-sky-600/5">
                       <div className="text-center">

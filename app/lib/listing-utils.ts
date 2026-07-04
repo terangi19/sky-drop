@@ -18,9 +18,7 @@ export function formatPrice(price: string | number): string {
   return price;
 }
 
-export function getListingImage(listing: { images?: string[]; imageUrl?: string; image?: string }): string {
-  return listing.images?.[0] || listing.imageUrl || listing.image || "";
-}
+export { getListingImage, pickListingImageUrl } from "./listing-image-url";
 
 export function isListingExpired(expiresAt?: { toMillis?: () => number }): boolean {
   if (!expiresAt?.toMillis) return false;

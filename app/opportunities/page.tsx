@@ -37,7 +37,7 @@ import {
   listingMatchesRegion,
   NZ_REGIONS,
 } from "../lib/nz-region-cities";
-import { cdnUrl } from "../lib/cdn";
+import ListingImage, { listingHasImage } from "../components/ListingImage";
 import { useSellerListingMeta } from "../lib/useSellerListingMeta";
 import HotThisWeek from "../components/HotThisWeek";
 import BrowseMarketplaceHero from "../components/BrowseMarketplaceHero";
@@ -367,7 +367,6 @@ export default function OpportunitiesPage() {
           items={hotItems}
           timeAgo={timeAgo}
           saveRecentlyViewed={saveRecentlyViewed}
-          cdnUrl={cdnUrl}
           user={user}
           sellerReviewStats={sellerReviewStats}
           sellerBadges={sellerBadges}
@@ -466,7 +465,7 @@ export default function OpportunitiesPage() {
               {opportunityRecentlyViewed.map((item: any) => {
                 const live = listings.find((l) => l.id === item.id);
                 const card = live ? { ...item, ...live } : item;
-                const imageSrc = card.images?.[0] || card.imageUrl || card.image;
+                const hasImage = listingHasImage(card);
                 return (
                   <div
                     key={item.id}
@@ -476,14 +475,11 @@ export default function OpportunitiesPage() {
                     }}
                     className="group w-56 shrink-0 cursor-pointer rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 transition-all duration-300 hover:-translate-y-0.5 hover:border-sky-500/40 hover:shadow-[0_8px_25px_rgba(234,179,8,0.15)]"
                   >
-                    {imageSrc ? (
-                      <img
-                        src={cdnUrl(imageSrc)}
+                    {hasImage ? (
+                      <ListingImage
+                        listing={card}
                         alt={card.title}
-                        loading="lazy"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = "none";
-                        }}
+                        context={`OpportunitiesRecentlyViewed:${item.id}`}
                         className="h-20 w-full rounded-lg object-cover"
                       />
                     ) : (

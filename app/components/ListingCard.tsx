@@ -2,9 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import type { User } from "firebase/auth";
-import { cdnUrl } from "../lib/cdn";
 import { ARRANGE_PURCHASE_CARD_LABEL } from "../lib/arrange-purchase-copy";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
 import { timeAgo } from "../lib/listing-card-utils";
@@ -12,6 +10,7 @@ import { sellerProfileDisplayName, sellerProfileSlug } from "../lib/public-displ
 import { SellerReviewSummary } from "./SellerReviewStars";
 import ServicePricingBadge from "./ServicePricingBadge";
 import { formatServicePriceDisplay } from "../lib/service-pricing";
+import ListingImage, { listingHasImage } from "./ListingImage";
 
 export type ListingCardProps = {
   item: Record<string, any>;
@@ -50,7 +49,7 @@ export default function ListingCard({
   onDelete,
 }: ListingCardProps) {
   const isVisible = isListingVisibleInMarketplace(item);
-  const imageSrc = item.images?.[0] || item.imageUrl || item.image;
+  const hasImage = listingHasImage(item);
   const isOwner = user?.email === item.sellerEmail;
   const [showTrustLegend, setShowTrustLegend] = useState(false);
 
@@ -77,20 +76,14 @@ export default function ListingCard({
           }
         }}
       >
-        {imageSrc ? (
+        {hasImage ? (
           <div className="relative aspect-[4/3] shrink-0 overflow-hidden bg-zinc-900">
-            <Image
-              src={cdnUrl(imageSrc)}
+            <ListingImage
+              listing={item}
               alt={item.title}
               fill
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              className="object-cover opacity-0 transition-all duration-700 ease-out group-hover:scale-110"
-              onLoad={(e) => {
-                (e.target as HTMLImageElement).style.opacity = "1";
-              }}
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = "none";
-              }}
+              context={`ListingCard:${item.id}`}
+              className="transition-all duration-700 ease-out group-hover:scale-110"
             />
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
             {!isVisible && (

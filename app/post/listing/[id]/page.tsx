@@ -35,6 +35,7 @@ import { ReviewStars } from "../../../components/SellerReviewStars";
 import ServicePricingBadge from "../../../components/ServicePricingBadge";
 import { formatServicePriceDisplay } from "../../../lib/service-pricing";
 import { sendMessage } from "../../../lib/api-send-message";
+import ListingImage from "../../../components/ListingImage";
 
 function getBidIncrement(price: number): number {
   if (price < 50) return 1;
@@ -931,12 +932,26 @@ export default function ListingPage() {
                         }
                       }}
                     >
-                      <img
-                        src={displayImages[selectedImageIndex]}
-                        alt={listing.title}
-                        className="w-full max-h-[600px] object-cover fade-in cursor-pointer"
+                      <div
+                        className="cursor-pointer"
                         onClick={() => setShowImageModal(true)}
-                      />
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setShowImageModal(true);
+                          }
+                        }}
+                        role="button"
+                        tabIndex={0}
+                      >
+                        <ListingImage
+                          listing={listing}
+                          src={displayImages[selectedImageIndex]}
+                          alt={listing.title}
+                          context={`ListingDetail:${listing.id}`}
+                          className="w-full max-h-[600px] object-cover fade-in"
+                        />
+                      </div>
                       {displayImages.length > 1 && (
                         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
                           {displayImages.map((_, idx) => (
