@@ -74,42 +74,37 @@ export default function LegendaryClaimNotification() {
             >
               {claim.allClaimed ? (
                 <>
-                  <div className="text-3xl mb-3 select-none" style={{ animation: "legendary-glow 1.5s ease-in-out infinite" }}>👑</div>
+                  <div className="text-3xl mb-3 select-none" style={{ animation: "legendary-glow 1.5s ease-in-out infinite" }}>The Five</div>
                   <h2 className="text-lg font-black text-sky-300 tracking-wide">
-                    👑 THE FIVE
+                    THE FIVE
                   </h2>
                   <h2 className="text-lg font-black text-sky-300 tracking-wide">
                     HAVE BEEN CLAIMED
                   </h2>
-                  <div className="mt-3 flex items-center justify-center gap-2">
-                    {[1,2,3,4,5].map((i) => (
-                      <span key={i} className="text-lg text-sky-400/60">👑</span>
-                    ))}
-                  </div>
-                  <p className="mt-4 text-xs text-[var(--muted)] leading-relaxed">
-                    👑 The Five are gone forever.<br />
+                  <div className="mt-4 text-xs text-[var(--muted)] leading-relaxed">
+                    The Five are gone forever.<br />
                     Those who hold one are now part of Sky Drop history.
-                  </p>
+                  </div>
                   <div className="mt-4 h-px bg-gradient-to-r from-transparent via-sky-500/30 to-transparent" />
                 </>
               ) : (
                 <>
-                  <div className="text-2xl mb-2 select-none">⚡</div>
+                  <div className="text-2xl mb-2 select-none">Lightning</div>
                   <h2 className="text-sm font-black text-sky-300 tracking-widest uppercase">
-                    👑 The Five Has Been Obtained
+                    The Five Has Been Obtained
                   </h2>
                   <p className="mt-4 text-xl font-black text-[var(--foreground)]">
                     @{claim.username}
                   </p>
                   <p className="mt-2 text-xs text-[var(--muted)]">
-                    claimed 👑 The Five
+                    claimed The Five
                   </p>
                   <div className="mt-5 flex items-center justify-center gap-3">
                     {[1,2,3,4,5].map((i) => (
                       <span key={i} className={`text-base transition-all duration-300 ${
                         i <= claim.count ? "text-sky-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.5)]" : "text-zinc-700"
                       }`}>
-                        👑
+                        ●
                       </span>
                     ))}
                   </div>
