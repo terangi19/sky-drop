@@ -71,17 +71,17 @@ export default function DailyChallenges({ userId }: { userId: string }) {
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-bold text-[var(--foreground)]">📋 Daily Challenges</h2>
+        <h2 className="text-sm font-bold text-[var(--foreground)]">Daily Challenges</h2>
         <div className="flex items-center gap-2">
           {data.streak > 0 && (
-            <span className="text-[10px] text-sky-400 font-bold">🔥 {data.streak}-day streak</span>
+            <span className="text-[10px] text-sky-400 font-bold">{data.streak}-day streak</span>
           )}
           <span className="text-[10px] text-[var(--muted)]">{data.challenges.filter((c) => c.claimed).length}/{data.challenges.length}</span>
         </div>
       </div>
 
       {allDone ? (
-        <p className="text-xs text-sky-400 font-bold text-center py-3">✅ All challenges complete for today!</p>
+        <p className="text-xs text-sky-400 font-bold text-center py-3">All challenges complete for today!</p>
       ) : (
         <div className="space-y-2.5">
           {challenges.map((c) => {
