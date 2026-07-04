@@ -1258,19 +1258,19 @@ function MessagesPage() {
                             {getDisplayName(convo.participant)}
                           </span>
                           <span className="shrink-0 text-[10px] text-[var(--muted)]">{formatTime(convo.msg.createdAt)}</span>
-                          {hasOffer && <span className="ml-1 shrink-0 text-[10px]">💰</span>}
+                          {hasOffer && <span className="ml-1 shrink-0 text-[10px] text-amber-400">Offer</span>}
                         </div>
                         <p className={`mt-1 truncate text-[12px] leading-relaxed ${unreadCount > 0 ? "font-medium text-[var(--foreground)]" : "text-[var(--muted)]"}`}>
                           {convo.msg.text
                             ? formatMessageText(convo.msg.text)
                             : convo.msg.type === "image"
-                              ? "📷 Photo"
+                              ? "Photo"
                               : convo.msg.type === "file"
-                                ? `📎 ${convo.msg.fileName || "File"}`
+                                ? `${convo.msg.fileName || "File"}`
                                 : convo.msg.type === "offer"
-                                  ? `💰 Offer: $${convo.msg.offerAmount || ""}`
+                                  ? `Offer: $${convo.msg.offerAmount || ""}`
                                   : convo.msg.type === "purchase"
-                                    ? "🛒 Purchase request"
+                                    ? "Purchase request"
                                     : ""}
                         </p>
                         {convo.listingTitle && (
