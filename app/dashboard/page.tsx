@@ -338,7 +338,7 @@ export default function DashboardPage() {
                   levelInfo.level >= 10 ? "text-amber-400" : "text-white"
                 }`}>
                   Level {levelInfo.level}
-                  {levelInfo.level >= 10 && <span className="ml-1">👑</span>}
+                  {levelInfo.level >= 10 && <span className="ml-1 text-amber-400">Premium</span>}
                 </span>
               </div>
               {isAdminEmail(user.email) && (
@@ -346,7 +346,6 @@ export default function DashboardPage() {
                   href="/admin"
                   className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-400 transition hover:bg-red-500/20"
                 >
-                  <span>🛡️</span>
                   Admin
                 </Link>
               )}
@@ -384,7 +383,7 @@ export default function DashboardPage() {
           <div className="mb-5 rounded-2xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-4 sm:px-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-sm font-bold text-amber-400">💳 Set up Stripe for instant payments</p>
+                <p className="text-sm font-bold text-amber-400">Set up Stripe for instant payments</p>
                 <p className="mt-1 text-xs text-amber-400/80">
                   Enable Pay Now to receive instant card payments. Without Stripe, buyers can only use Arrange Purchase.
                 </p>
