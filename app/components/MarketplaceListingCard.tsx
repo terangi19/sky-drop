@@ -147,14 +147,8 @@ export default memo(function MarketplaceListingCard({
               </div>
             )}
             <div className="absolute top-3 left-3 flex flex-col gap-1.5">
-              {isVisible && isPopular && (
-                <span className={IMG_BADGE}>🔥 Hot</span>
-              )}
-              {isVisible && themed && saves >= 2 && (
-                <span className={IMG_BADGE}>⭐ Popular</span>
-              )}
               {item.promotedUntil?.toMillis?.() > Date.now() && (
-                <span className={IMG_BADGE}>📈 Promoted</span>
+                <span className={IMG_BADGE}>Promoted</span>
               )}
               {isVisible &&
                 item.createdAt?.seconds &&
@@ -164,13 +158,13 @@ export default memo(function MarketplaceListingCard({
               {isVisible &&
                 item.saleType &&
                 String(item.saleType).includes("auction") && (
-                  <span className={IMG_BADGE}>⏰ Auction</span>
+                  <span className={IMG_BADGE}>Auction</span>
                 )}
               {item.type === "digital" && isVisible && (
-                <span className={IMG_BADGE}>📥 Digital</span>
+                <span className={IMG_BADGE}>Digital</span>
               )}
               {item.type === "vehicle" && isVisible && (
-                <span className={IMG_BADGE}>🚗 Vehicle</span>
+                <span className={IMG_BADGE}>Vehicle</span>
               )}
             </div>
             {themed && isVisible && (
@@ -178,13 +172,13 @@ export default memo(function MarketplaceListingCard({
                 className="lc-saves-badge absolute bottom-3 right-3 rounded-full px-2.5 py-1 text-[10px] font-bold"
                 style={watchlistBadgeStyle(saveGlow)}
               >
-                ⭐ {saves.toLocaleString()} {saves === 1 ? "save" : "saves"}
+                {saves.toLocaleString()} {saves === 1 ? "save" : "saves"}
               </div>
             )}
             {isVisible && item.images?.length > 1 && (
               <div className="absolute top-3 right-3">
                 <span className="lc-img-overlay-badge lc-on-image rounded-full px-2 py-0.5 text-[9px] font-medium">
-                  📷 {item.images.length}
+                  {item.images.length}
                 </span>
               </div>
             )}
@@ -245,18 +239,13 @@ export default memo(function MarketplaceListingCard({
             <span className={`lc-chip rounded-md px-2 py-0.5 text-[10px] font-semibold`}>
               {categoryLabel}
             </span>
-            {item.promotedUntil?.toMillis?.() > Date.now() && (
-              <span className="lc-chip rounded-md px-2 py-0.5 text-[10px] font-semibold">
-                📈 Promoted
-              </span>
-            )}
             {item.condition && (
               <span
                 className={`rounded-md px-2 py-0.5 text-[10px] font-semibold ${
                   item.condition === "New" ? "lc-chip" : "lc-chip-neutral"
                 }`}
               >
-                {item.condition === "New" ? "🆕 New" : item.condition}
+                {item.condition}
               </span>
             )}
             {item.type === "vehicle" && (item.vehicleYear || item.year) && (
@@ -276,7 +265,15 @@ export default memo(function MarketplaceListingCard({
               isInWatchlist(item.id) ? "lc-watchlist--active" : ""
             }`}
           >
-            {isInWatchlist(item.id) ? "❤️" : "♡"}
+            {isInWatchlist(item.id) ? (
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+              </svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+            )}
           </button>
         </div>
 
@@ -324,11 +321,11 @@ export default memo(function MarketplaceListingCard({
 
         <div className="lc-meta mt-3 flex min-h-5 items-center gap-3 text-[11px]">
           {item.location && (
-            <span className="flex items-center gap-1">📍 {item.location}</span>
+            <span className="flex items-center gap-1">{item.location}</span>
           )}
           {item.createdAt?.seconds != null && <span>{timeAgo(item.createdAt.seconds)}</span>}
-          {item.pickupAvailable && <span>📍 Pickup</span>}
-          {item.shippingAvailable && <span>📦 Shipping</span>}
+          {item.pickupAvailable && <span>Pickup</span>}
+          {item.shippingAvailable && <span>Shipping</span>}
           {themed ? (
             <span
               className={`lc-accent ml-auto flex items-center gap-1 font-semibold`}
@@ -338,11 +335,11 @@ export default memo(function MarketplaceListingCard({
                   : undefined
               }
             >
-              ⭐ {saves.toLocaleString()} {saves === 1 ? "save" : "saves"}
+              {saves.toLocaleString()} {saves === 1 ? "save" : "saves"}
             </span>
           ) : (
             <span className="ml-auto flex items-center gap-1">
-              👁 {(item.views as number) || 0}
+              {(item.views as number) || 0}
             </span>
           )}
         </div>
@@ -456,7 +453,7 @@ export default memo(function MarketplaceListingCard({
                 }}
                 className="lc-btn rounded-md px-4 py-2.5 text-[12px] font-semibold active:scale-95"
               >
-                📈 Boost
+                Boost
               </button>
               <Link
                 href={`/post/ai?edit=${item.id}`}
