@@ -910,7 +910,7 @@ export default function ListingPage() {
           </div>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-[1.1fr_0.9fr]">
+        <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-[1.2fr_1fr] 2xl:grid-cols-[1.3fr_1fr] max-w-7xl mx-auto">
           {/* ── LEFT COLUMN: IMAGE & DETAILS ── */}
           {(() => {
             const displayImages = listing.images && listing.images.length > 0 ? listing.images : listing.imageUrl ? [listing.imageUrl] : [];
@@ -949,7 +949,7 @@ export default function ListingPage() {
                           src={displayImages[selectedImageIndex]}
                           alt={listing.title}
                           context={`ListingDetail:${listing.id}`}
-                          className="w-full max-h-[600px] object-cover fade-in"
+                          className="w-full max-h-[500px] lg:max-h-[600px] xl:max-h-[650px] 2xl:max-h-[700px] object-cover fade-in"
                         />
                       </div>
                       {displayImages.length > 1 && (
@@ -973,9 +973,9 @@ export default function ListingPage() {
 
                 {/* Description */}
                 {listing.description && (
-                  <div className="rounded-xl border border-white/[0.06] bg-[var(--card)] p-5">
-                    <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-[var(--muted)]">Description</h2>
-                    <div className="text-sm leading-relaxed text-[var(--foreground)] whitespace-pre-wrap">
+                  <div className="rounded-xl border border-white/[0.06] bg-[var(--card)] p-6">
+                    <h2 className="mb-4 text-sm font-bold uppercase tracking-wider text-[var(--muted)]">Description</h2>
+                    <div className="text-sm leading-relaxed text-[var(--foreground)] whitespace-pre-wrap space-y-4">
                       {listing.description}
                     </div>
                   </div>
@@ -1038,18 +1038,27 @@ export default function ListingPage() {
              listing.saleType !== "auction_buy_now" &&
              isListingVisibleInMarketplace(listing) && (
               <div className="mt-3 rounded-xl border border-sky-500/20 bg-sky-500/5 px-4 py-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-[var(--muted)]">Item price</span>
-                  <span className="font-semibold">${listing.price}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-[var(--muted)]">Platform fee</span>
-                  <span className="font-semibold">$1.00</span>
-                </div>
-                <div className="mt-2 flex items-center justify-between border-t border-sky-500/20 pt-2">
-                  <span className="text-sm font-bold text-[var(--foreground)]">Total you'll pay</span>
-                  <span className="text-xl font-black text-sky-400">${(Number(listing.price) + 1).toFixed(2)}</span>
-                </div>
+                {(listing as any).paymentType !== "contact" ? (
+                  <>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-[var(--muted)]">Item price</span>
+                      <span className="font-semibold">${listing.price}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-[var(--muted)]">Platform fee</span>
+                      <span className="font-semibold">$1.00</span>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between border-t border-sky-500/20 pt-2">
+                      <span className="text-sm font-bold text-[var(--foreground)]">Total you'll pay</span>
+                      <span className="text-xl font-black text-sky-400">${(Number(listing.price) + 1).toFixed(2)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-[var(--muted)]">Item price</span>
+                    <span className="font-bold text-[var(--foreground)]">${listing.price}</span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1942,10 +1951,10 @@ Service Status: 🟢 Inquiry Active`;
             <div>
               <Link
                 href={user?.email === listing.sellerEmail ? "#" : `/seller/${listing.sellerUsername || listing.sellerEmail}`}
-                className="block rounded-xl border border-sky-500/20 bg-sky-500/5 p-4 transition-all duration-200 hover:border-sky-500/30 hover:bg-sky-500/10 hover:shadow-lg hover:shadow-sky-500/5"
+                className="block rounded-xl border border-sky-500/20 bg-sky-500/5 p-5 transition-all duration-200 hover:border-sky-500/30 hover:bg-sky-500/10 hover:shadow-lg hover:shadow-sky-500/5"
               >
                 <div className="flex items-center gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-lg font-bold text-[var(--foreground)]">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-xl font-bold text-[var(--foreground)]">
                     {sellerInitial}
                   </div>
                   <div className="min-w-0 flex-1">
