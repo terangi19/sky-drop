@@ -1,10 +1,41 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
+import { isChunkLoadError, reloadOnceForChunkError } from "./lib/chunk-load-recovery";
 
 export default function Error({ error, reset }: { error: Error; reset: () => void }) {
-  console.error("[ErrorBoundary]", error);
-  try { if (typeof window !== "undefined") { const Sentry = (window as any).Sentry; if (Sentry) Sentry.captureException(error); } } catch {}
+  const chunkError = isChunkLoadError(error);
+
+  useEffect(() => {
+    console.error("[ErrorBoundary]", error);
+    try {
+      if (typeof window !== "undefined") {
+        const Sentry = (window as Window & { Sentry?: { captureException: (e: Error) => void } }).Sentry;
+        if (Sentry) Sentry.captureException(error);
+      }
+    } catch {
+      /* ignore */
+    }
+
+    if (chunkError) {
+      reloadOnceForChunkError();
+    }
+  }, [chunkError, error]);
+
+  if (chunkError) {
+    return (
+      <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)] flex items-center justify-center">
+        <div className="mx-auto max-w-md text-center px-6">
+          <h1 className="text-xl font-black text-[var(--foreground)]">Updating Sky Drop…</h1>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            A new version was deployed. Refreshing to load the latest files.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)] flex items-center justify-center">
       <div className="mx-auto max-w-md text-center px-6">

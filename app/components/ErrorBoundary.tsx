@@ -1,6 +1,7 @@
 "use client";
 
 import React, { Component, ErrorInfo, ReactNode } from "react";
+import { isChunkLoadError, reloadOnceForChunkError } from "../lib/chunk-load-recovery";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -27,6 +28,9 @@ export default class ErrorBoundary extends Component<
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("ErrorBoundary caught an error:", error, errorInfo);
+    if (isChunkLoadError(error)) {
+      reloadOnceForChunkError();
+    }
   }
 
   handleReset = () => {
@@ -37,6 +41,27 @@ export default class ErrorBoundary extends Component<
     if (this.state.hasError) {
       if (this.props.fallback) {
         return this.props.fallback;
+      }
+
+      const chunkError = isChunkLoadError(this.state.error);
+
+      if (chunkError) {
+        return (
+          <div className="flex min-h-screen items-center justify-center bg-[var(--background)] p-4">
+            <div className="max-w-md w-full text-center">
+              <h2 className="text-2xl font-black tracking-tight text-white mb-2">Updating Sky Drop…</h2>
+              <p className="text-sm text-zinc-400 mb-6">
+                A new version was deployed. Refreshing to load the latest files.
+              </p>
+              <button
+                onClick={() => window.location.reload()}
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-6 py-3.5 text-sm font-bold text-white"
+              >
+                Refresh now
+              </button>
+            </div>
+          </div>
+        );
       }
 
       return (

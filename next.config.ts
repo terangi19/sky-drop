@@ -131,7 +131,25 @@ const nextConfig = {
 
         headers: [
 
-          { key: "Cache-Control", value: "public, max-age=3600, stale-while-revalidate=86400" },
+          {
+
+            key: "Cache-Control",
+
+            value: "private, no-cache, no-store, max-age=0, must-revalidate",
+
+          },
+
+        ],
+
+      },
+
+      {
+
+        source: "/_next/static/(.*)",
+
+        headers: [
+
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
 
         ],
 

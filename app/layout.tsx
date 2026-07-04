@@ -13,6 +13,7 @@ import Footer from "./components/Footer";
 import ScrollToTop from "./components/ScrollToTop";
 import PageEnter from "./components/PageEnter";
 import PWAProvider from "./components/PWAProvider";
+import ChunkLoadRecovery from "./components/ChunkLoadRecovery";
 import { validateEnv } from "./lib/env-validation";
 
 // Validate environment variables on startup
@@ -217,6 +218,7 @@ export default function RootLayout({
             })();
           `,
         }} />
+        <ChunkLoadRecovery />
         <AuthProvider><ProfileProvider><AwhinaPageInsightProvider><FeedbackProvider><VerificationBanner /><RouteGuard><PageEnter>{children}</PageEnter><Footer /><Spotlight /><ScrollToTop /><MarketplaceRadar /><MatchmakingActivity /></RouteGuard><SkyAiChat /><ToastContainer /><LegendaryClaimNotification /><WantedLiveFeed /><PlatformAnnouncement /><PWAProvider /></FeedbackProvider></AwhinaPageInsightProvider></ProfileProvider></AuthProvider>
       </body>
     </html>
