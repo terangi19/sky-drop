@@ -46,7 +46,7 @@ export default function TrendingTrades({
 
             <div
               key={post.id}
-              className="group flex items-center gap-3 rounded-xl p-2 transition hover:bg-white/[0.04]"
+              className="group flex items-center gap-3 rounded-xl p-2 transition-all duration-200 hover:bg-white/[0.04] cursor-pointer"
             >
 
               {/* IMAGE */}
@@ -56,7 +56,7 @@ export default function TrendingTrades({
                   <img
                     src={post.image}
                     alt={post.title}
-                    className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+                    className="h-full w-full object-cover transition-transform duration-200 ease-out group-hover:scale-[1.05]"
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center">
