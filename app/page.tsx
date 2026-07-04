@@ -1118,30 +1118,6 @@ export default function Home() {
         </section>
       )}
 
-      {/* Trust strip */}
-      <section className={`${PAGE_SHELL_WIDE} py-1`}>
-        <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 rounded-2xl bg-gradient-to-br from-sky-500/[0.03] via-sky-500/[0.01] to-transparent px-5 py-3 sm:gap-x-12 lg:gap-x-16 backdrop-blur-md relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-sky-400/[0.02] to-transparent" />
-          <div className="absolute inset-0 backdrop-blur-sm" />
-          {[
-            { label: "Flexible payments", sub: "Stripe or Arrange Purchase", icon: <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /> },
-            { label: "Dispute protection", sub: "7-day window", icon: <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" /> },
-            { label: "Verified sellers", sub: "Profiles & reviews", icon: <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /> },
-            { label: "NZ community", sub: "Built for Aotearoa", icon: <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /> },
-          ].map((item) => (
-            <div key={item.label} className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-sky-500/20 ring-1 ring-sky-500/20">
-                <svg className="h-4 w-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>{item.icon}</svg>
-              </div>
-              <div className="space-y-0.5">
-                <p className="text-[11px] font-bold text-white">{item.label}</p>
-                <p className="text-[10px] text-[var(--muted)]">{item.sub}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
       <Suspense fallback={
         <div className={`${PAGE_SHELL_WIDE} py-2`}>
           <div className="flex gap-4 overflow-x-auto pb-2">
