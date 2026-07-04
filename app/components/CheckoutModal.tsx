@@ -12,6 +12,7 @@ import { createNotification } from "../lib/notifications";
 import { showToast } from "./Toast";
 
 import AnimatedCheckmark from "./AnimatedCheckmark";
+import ListingImage from "./ListingImage";
 import { playConfetti, playSuccess } from "../lib/sounds";
 import { isListingAvailableForPurchase } from "../lib/listing-availability";
 
@@ -669,8 +670,6 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
     setStep("success");
   }
 
-  const imageSrc = listing.images?.[0] || listing.imageUrl || listing.image || "";
-
   return (
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-3 sm:p-6 animate-fade-in-backdrop"
@@ -901,11 +900,9 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
             </div>
 
             <div className="flex items-center gap-3 border-b border-white/[0.06] px-4 py-3">
-              {imageSrc && (
-                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-white/[0.06] bg-gradient-to-br from-white/[0.05] to-white/[0.01]">
-                  <img src={imageSrc} alt="" className="h-full w-full object-cover" />
-                </div>
-              )}
+              <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-white/[0.06] bg-gradient-to-br from-white/[0.05] to-white/[0.01]">
+                <ListingImage listing={listing} alt={listing.title} fill context="checkout" />
+              </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold text-[var(--foreground)]">{listing.title}</p>
                 <p className="text-xs text-white">${listing.price}</p>

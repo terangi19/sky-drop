@@ -7,6 +7,7 @@ import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
 import { AwhinaUnderHeader } from "../../components/AwhinaOnlineBadge";
 import { showToast } from "../../components/Toast";
+import ListingImage from "../../components/ListingImage";
 
 import {
   collection,
@@ -406,21 +407,12 @@ export default function ListingPage() {
                 </button>
 
                 {/* IMAGE */}
-                {item.images?.[0] || item.imageUrl || item.image ? (
-
-                  <img
-                    src={item.images?.[0] || item.imageUrl || item.image || ""}
-                    alt={item.title}
-                    className="h-52 w-full rounded-2xl object-cover"
-                  />
-
-                ) : (
-
-                  <div className="flex h-52 items-center justify-center rounded-2xl bg-zinc-900 text-[var(--muted)]">
-                    No Image Yet
-                  </div>
-
-                )}
+                <ListingImage
+                  listing={item}
+                  alt={item.title}
+                  className="h-52 w-full rounded-2xl object-cover"
+                  context="listing-browse"
+                />
 
                 <div className="mt-5 flex items-center justify-between gap-3">
 

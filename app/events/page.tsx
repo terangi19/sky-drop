@@ -8,6 +8,7 @@ import Background from "../components/Background";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { LISTING_GRID, PAGE_SHELL_WIDE } from "../lib/page-layout";
+import ListingImage from "../components/ListingImage";
 
 const CATEGORIES = ["All", "Concerts & Gigs", "Festivals", "Sports", "Workshops & Classes", "Community", "Food & Drink", "Other"];
 
@@ -119,11 +120,13 @@ export default function EventsPage() {
             {filtered.map((item) => (
               <Link key={item.id} href={`/post/listing/${item.id}`} className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-white/[0.04] bg-white/[0.02] transition-all duration-300 hover:bg-white/[0.04] hover:border-sky-500/30 hover:-translate-y-1 hover:shadow-[0_10px_40px_-10px_rgba(234,179,8,0.15)]">
                 <div className="relative aspect-[4/3] shrink-0 overflow-hidden bg-gradient-to-br from-sky-900/20 to-sky-900/20">
-                  {item.images?.[0] || item.imageUrl || item.image ? (
-                    <img src={item.images?.[0] || item.imageUrl || item.image} alt={item.title} className="h-full w-full object-cover transition-all duration-500 group-hover:scale-110" />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-5xl opacity-30">🎟</div>
-                  )}
+                  <ListingImage
+                    listing={item}
+                    alt={item.title}
+                    fill
+                    className="transition-all duration-500 group-hover:scale-110"
+                    context="events-card"
+                  />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                   <div className="absolute top-3 left-3 rounded-full border border-sky-500/20 bg-sky-500/10 px-2 py-0.5 text-[9px] font-bold text-sky-400 backdrop-blur-sm">Event</div>
                 </div>

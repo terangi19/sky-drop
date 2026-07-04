@@ -2233,11 +2233,12 @@ Service Status: 🟢 Inquiry Active`;
               <Link key={l.id} href={`/post/listing/${l.id}`}
                 className="group shrink-0 w-48 rounded-xl border border-white/[0.06] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-4 transition-all duration-200 hover:bg-white/[0.07] hover:border-sky-500/30 hover:-translate-y-1 hover:shadow-[0_8px_30px_-8px_rgba(14,165,233,0.12)]">
                 <div className="overflow-hidden rounded-lg">
-                  {l.images?.[0] || l.imageUrl || l.image ? (
-                    <img src={l.images?.[0] || l.imageUrl || l.image || ""} alt="" loading="lazy" className="h-24 w-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                  ) : (
-                    <div className="h-24 w-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center text-xs text-[var(--muted)]">SD</div>
-                  )}
+                  <ListingImage
+                    listing={l}
+                    alt={l.title || "Listing"}
+                    className="h-24 w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    context="seller-related"
+                  />
                 </div>
                 <p className="mt-3 truncate text-sm font-bold text-[var(--foreground)] group-hover:text-sky-300 transition-colors">{l.title}</p>
                 <p className="text-sm font-black text-sky-400">${l.price}</p>
