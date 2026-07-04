@@ -8,7 +8,7 @@ const firebaseConfig = {
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "sky-drop-de459.firebaseapp.com",
   databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL || "https://sky-drop-de459-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "sky-drop-de459",
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "sky-drop-de459.firebasestorage.app",
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "sky-drop-de459.appspot.com",
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "564551137643",
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:564551137643:web:8d64159394b148fc09b42e",
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-24M12L6HFB",

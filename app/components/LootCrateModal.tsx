@@ -117,13 +117,13 @@ export default function LootCrateModal({ userId, userEmail, onClose, inline }: {
   function buildReward(rarity: Rarity): RewardDef {
     switch (rarity) {
       case "common":
-        return { rarity, label: "+15 XP", emoji: "⚡", description: "15 XP added to your account." };
+        return { rarity, label: "+15 XP", emoji: "", description: "15 XP added to your account." };
       case "rare":
-        return { rarity, label: "+40 XP", emoji: "🔥", description: "40 XP added to your account!" };
+        return { rarity, label: "+40 XP", emoji: "", description: "40 XP added to your account!" };
       case "epic":
-        return { rarity, label: "+100 XP", emoji: "💥", description: "100 XP added to your account!" };
+        return { rarity, label: "+100 XP", emoji: "", description: "100 XP added to your account!" };
       case "legendary":
-        return { rarity, label: "👑 The Five", emoji: "👑", description: "You earned 👑 The Five! Only 5 exist on Sky Drop." };
+        return { rarity, label: "The Five", emoji: "", description: "You earned The Five! Only 5 exist on Sky Drop." };
     }
   }
 
