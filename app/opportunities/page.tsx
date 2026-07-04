@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import type { User } from "firebase/auth";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
-import MarketplaceListingCard from "../components/listing-card/MarketplaceListingCard";
+import MarketplaceListingCard from "../components/MarketplaceListingCard";
 import { showToast } from "../components/Toast";
 import {
   collection,

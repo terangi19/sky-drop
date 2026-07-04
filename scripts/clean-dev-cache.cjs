@@ -6,7 +6,11 @@ const fs = require("fs");
 const path = require("path");
 
 const root = path.join(__dirname, "..");
-const targets = [".next", path.join("node_modules", ".cache")];
+const targets = [
+  ".next",
+  path.join("node_modules", ".cache"),
+  ".turbo",
+];
 
 console.log("[clean-dev-cache] Stop the dev server (Ctrl+C) before cleaning.\n");
 

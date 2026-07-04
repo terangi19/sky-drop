@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
-import MarketplaceListingCard from "../components/listing-card/MarketplaceListingCard";
+import MarketplaceListingCard from "../components/MarketplaceListingCard";
 import { useListings } from "../useListings";
 import { useAuth } from "../contexts/AuthContext";
 import { useProfile } from "../contexts/ProfileContext";
