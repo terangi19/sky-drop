@@ -533,12 +533,12 @@ export default memo(function MarketplaceListingCard({
                       )}
                       {sellerBadges[email || ""] === "legendary" && (
                         <span className="lc-chip rounded border px-1.5 py-0.5 text-[9px] font-bold animate-pulse">
-                          👑 The Five
+                          The Five
                         </span>
                       )}
                       {sellerBadges[email || ""] === "epic" && (
                         <span className="lc-chip rounded border px-1.5 py-0.5 text-[9px] font-bold">
-                          💎 Epic
+                          Epic
                         </span>
                       )}
                     </div>
