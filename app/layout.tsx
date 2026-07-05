@@ -36,7 +36,7 @@ const WantedLiveFeed = dynamic(() => import("./components/WantedLiveFeed"));
 const PlatformAnnouncement = dynamic(() => import("./components/PlatformAnnouncement"));
 const MarketplaceRadar = dynamic(() => import("./components/MarketplaceRadar"));
 const MatchmakingActivity = dynamic(() => import("./components/MatchmakingActivity"));
-const TourGuide = dynamic(() => import("./components/TourGuide"), { ssr: false });
+const TourGuide = dynamic(() => import("./components/TourGuide"));
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

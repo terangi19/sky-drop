@@ -84,7 +84,7 @@ const TOUR_STEPS: Record<string, TourStep[]> = {
       position: "bottom",
     },
     {
-      id": "listings",
+      id: "listings",
       title: "Your Listings",
       description: "Manage all your listings from here. Edit, delete, or view performance.",
       position: "bottom",
