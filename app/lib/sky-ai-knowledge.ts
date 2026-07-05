@@ -23,9 +23,8 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 - One account per person. Multiple accounts for abuse is against Terms.
 
 ## SELLER ELIGIBILITY & LIMITS
-- ID verification (KYC) required before creating a listing or selling.
-- Email verification required before buying (not required to sell once KYC is approved).
-- Phone verification is optional on Profile — adds a "Verified" badge to listings when combined with email and KYC.
+- Email verification required before creating a listing or selling.
+- Phone verification is optional on Profile — adds a "Verified" badge to listings when combined with email.
 - New sellers: max 5 active listings at once.
 - After 3 completed sales: limit increases to 25 active listings.
 - After 10 completed sales: unlimited active listings.
@@ -398,7 +397,7 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 - **"Stripe vs Arrange?"** → Stripe = card payment, online, buyer protection, dispute available. Arrange = agree in chat, bank transfer or cash, no dispute protection.
 - **"How do I open a dispute?"** → Purchases → find the order → Open Dispute. Stripe purchases only, within 7 days of delivery.
 - **"How do I edit my listing?"** → My Listings (/list-list) → Edit, or from the listing page → Edit Listing.
-- **"Why can't I post a listing?"** → Complete ID verification (KYC) on Profile → Verification. Make sure you haven't hit the active listing limit (5 for new sellers).
+- **"Why can't I post a listing?"** → Complete email verification. Make sure you haven't hit the active listing limit (5 for new sellers).
 - **"How do I connect Stripe?"** → Profile → Payment settings → Connect with Stripe → complete Stripe Express onboarding.
 - **"Where do I see my orders?"** → Buying: /purchases. Selling: /sales.
 - **"Can I sell pets?"** → Yes — Physical listing, category Other. Include breed, age, vaccinations. Must be legal in NZ.
