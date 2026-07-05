@@ -65,7 +65,7 @@ const faqs = [
       { q: "Can I trust seller reviews?", a: "Only buyers who completed a transaction through Sky Drop can leave a review. This helps ensure reviews reflect genuine marketplace experiences and reduces fake or manipulated ratings." },
       { q: "Can I block another user?", a: "Yes — go to their seller profile and click 'Block'. Blocked users can't message you. View and manage blocked users at /blocked." },
       { q: "Messages or verification not working? Ad blockers", a: "Some browser extensions (uBlock Origin, AdGuard, Brave Shields, etc.) block Firebase requests and show ERR_BLOCKED_BY_CLIENT in the console. Sky Drop then cannot load messages, notifications, or save seller verification. Fix: disable the blocker for skydrop.co.nz, or whitelist firestore.googleapis.com, firebasestorage.googleapis.com, and identitytoolkit.googleapis.com. Seller verification uploads through our server when possible, so whitelisting skydrop.co.nz alone is usually enough." },
-      { q: "What happens if someone commits fraud?", a: "Fraudulent activity is not tolerated. Accounts involved in scams, deception, or illegal activity may be permanently removed from the platform and may be referred to law enforcement agencies or other appropriate authorities where legally required." },
+      { q: "What happens if someone commits fraud?", a: "Fraudulent activity is not tolerated. Accounts involved in scams, deception, or illegal activity may be permanently removed from the platform." },
     ],
   },
 ];

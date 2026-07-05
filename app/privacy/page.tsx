@@ -22,7 +22,7 @@ const sections = [
     id: "fraud",
     title: "Fraud & Law Enforcement",
     content:
-      "Sky Drop has a zero-tolerance policy for scams, fraud, and illegal activity. Accounts involved in fraudulent behaviour may be permanently removed from the platform, have listings removed, and may be referred to law enforcement agencies or other appropriate authorities where legally required. We reserve the right to share account information, transaction history, messages, and identity details with authorised parties in connection with investigations into fraudulent or illegal activity. By using Sky Drop, you agree that fraudulent behaviour may result in permanent account removal and referral to relevant authorities.",
+      "Sky Drop has a zero-tolerance policy for scams, fraud, and illegal activity. Accounts involved in fraudulent behaviour may be permanently removed from the platform, have listings removed.",
   },
   {
     id: "sharing",

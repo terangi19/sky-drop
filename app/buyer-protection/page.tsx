@@ -38,7 +38,7 @@ export default function BuyerProtectionPage() {
           <FeatureCard icon="📋" title="Verified seller profiles" description="Sellers are required to verify their identity before listing. New sellers have listing limits until they build a sales history. Suspicious or unverified accounts are restricted." />
           <FeatureCard icon="🤖" title="Content monitoring" description="Listings may be reviewed for prohibited items, suspicious activity, and marketplace policy violations. Attempting to list prohibited or fraudulent items may result in account removal." />
           <FeatureCard icon="💬" title="Safe messaging" description="Our messaging system warns you if someone tries to take the conversation off-platform. Keeping all communication on Sky Drop helps maintain a clear record if a dispute occurs." />
-          <FeatureCard icon="👮" title="Fraud reporting" description="Fraudulent activity is not tolerated on Sky Drop. Accounts involved in scams, deception, chargeback abuse, impersonation, or other dishonest behaviour may be permanently removed from the platform, have listings removed, and may be referred to law enforcement agencies or other appropriate authorities where legally required." />
+          <FeatureCard icon="👮" title="Fraud reporting" description="Fraudulent activity is not tolerated on Sky Drop. Accounts involved in scams, deception, chargeback abuse, impersonation, or other dishonest behaviour may be permanently removed from the platform." />
         </div>
 
         <div className="mt-12 space-y-4">
@@ -46,7 +46,7 @@ export default function BuyerProtectionPage() {
 
           <ProtectionStep number="1" title="You confirm or dispute" description="When the item or service is delivered, inspect it. If everything looks good, confirm to complete the order. If something's wrong, open a dispute within 7 days." />
           <ProtectionStep number="2" title="Dispute is reviewed" description="An admin reviews evidence from both sides — messages, photos, tracking info, and any other relevant records. All communication on Sky Drop is logged." />
-          <ProtectionStep number="3" title="Refund issued if at fault" description="If the seller is at fault, a full refund is issued back to your original payment method through Stripe. Fraudulent accounts may also be referred to appropriate authorities where legally required." />
+          <ProtectionStep number="3" title="Refund issued if at fault" description="If the seller is at fault, a full refund is issued back to your original payment method through Stripe." />
         </div>
 
         <div className="mt-12 space-y-4">
@@ -117,7 +117,7 @@ function TrustCard() {
             Sellers can complete identity verification to unlock immediate selling access. Accounts that do not complete verification may be subject to seller restrictions and waiting periods. Verification helps ensure users are dealing with real, accountable people and creates a safer marketplace for everyone.
           </p>
           <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
-            Sky Drop takes fraud, scams, and deceptive activity seriously. Accounts found to be involved in fraudulent behaviour may be permanently removed from the platform, have listings removed, and may be subject to further action where required by law.
+            Sky Drop takes fraud, scams, and deceptive activity seriously. Accounts found to be involved in fraudulent behaviour may be permanently removed from the platform and have listings removed.
           </p>
           <p className="mt-2 text-sm font-semibold text-sky-400">
             Honest sellers have nothing to worry about. If you&apos;re here to scam people, Sky Drop is not the platform for you.

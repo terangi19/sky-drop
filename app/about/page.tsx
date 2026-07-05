@@ -112,7 +112,7 @@ export default function AboutPage() {
 
               <div className="rounded-lg bg-zinc-900/40 px-4 py-3">
                 <p className="text-sm font-bold text-sky-400">👮 Fraud Prevention</p>
-                <p className="mt-1 text-xs text-[var(--muted)]">Accounts involved in scams, deception, or illegal activity may be permanently removed from the platform and may be referred to law enforcement agencies or other appropriate authorities where legally required.</p>
+                <p className="mt-1 text-xs text-[var(--muted)]">Accounts involved in scams, deception, or illegal activity may be permanently removed from the platform.</p>
               </div>
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
