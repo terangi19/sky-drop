@@ -1,5 +1,3 @@
-import { kycRequiredBlockMessage } from "./seller-eligibility";
-
 export type SellerProfileRecord = Record<string, unknown> | null;
 
 export async function assertSellerCanCreateOrPublishListing(opts: {
@@ -18,11 +16,6 @@ export async function assertSellerCanCreateOrPublishListing(opts: {
     return sellerProfile.suspended
       ? "Your account is suspended. Contact support."
       : "Your account is restricted. Contact support.";
-  }
-
-  const kycApproved = sellerProfile.kycStatus === "approved";
-  if (!kycApproved) {
-    return kycRequiredBlockMessage();
   }
 
   return null;
