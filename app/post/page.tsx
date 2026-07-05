@@ -20,12 +20,8 @@ export default function PostPage() {
   const handleSelect = (method: "awhina" | "manual") => {
     // Save preference
     localStorage.setItem("listingMethodPreference", method);
-    // Redirect to the appropriate page
-    if (method === "awhina") {
-      window.location.href = "/post/ai";
-    } else {
-      window.location.href = "/post/listing";
-    }
+    // Both methods use the AI page which supports both AI and manual editing
+    window.location.href = "/post/ai";
   };
 
   return (

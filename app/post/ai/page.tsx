@@ -179,6 +179,8 @@ export default function AIPostPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const manualEdit = useRef<Set<string>>(new Set());
+  const [showHelpPrompt, setShowHelpPrompt] = useState(false);
+  const [timeOnPage, setTimeOnPage] = useState(0);
 
   // Validation functions
   const validateTitle = (value: string) => {
@@ -600,6 +602,20 @@ export default function AIPostPage() {
     });
     return () => unsub();
   }, []);
+
+  // Track time on page and show help prompt for stuck users
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimeOnPage((prev) => prev + 1);
+      
+      // Show help prompt after 2 minutes if completion is low (<30%)
+      if (timeOnPage === 120 && formProgress < 30 && !showHelpPrompt) {
+        setShowHelpPrompt(true);
+      }
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [timeOnPage, formProgress, showHelpPrompt]);
 
   // Funnel: listing_form_started — once per session, only for new listings (not edits)
   const formStartedRef = useRef(false);
@@ -1261,6 +1277,44 @@ export default function AIPostPage() {
             <p className="relative mt-3 max-w-xl mx-auto text-sm leading-relaxed text-[var(--muted)]">Describe your item or upload photos, and Āwhina will help you create a professional listing in minutes.</p>
           </div>
         </div>
+
+        {showHelpPrompt && (
+          <div className="mb-6 rounded-xl border border-sky-500/30 bg-gradient-to-r from-sky-500/10 to-sky-500/5 p-4 shadow-[0_0_30px_rgba(14,165,233,0.15)]">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/20 text-2xl">
+                🤖
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-bold text-sky-300">Need help finishing your listing?</h3>
+                <p className="mt-1 text-xs text-[var(--muted)] leading-relaxed">
+                  Let Āwhina fill in the details for you. Just describe your item in the chat box below and Āwhina will generate the title, description, and other listing details.
+                </p>
+                <div className="mt-3 flex items-center gap-2">
+                  <button
+                    onClick={() => setShowHelpPrompt(false)}
+                    className="rounded-lg border border-sky-500/30 bg-sky-500/20 px-3 py-1.5 text-[11px] font-bold text-sky-300 transition hover:bg-sky-500/30 active:scale-[0.97]"
+                  >
+                    I'll try Āwhina
+                  </button>
+                  <button
+                    onClick={() => setShowHelpPrompt(false)}
+                    className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-[11px] font-bold text-[var(--muted)] transition hover:bg-white/[0.06] active:scale-[0.97]"
+                  >
+                    Continue manually
+                  </button>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowHelpPrompt(false)}
+                className="shrink-0 text-zinc-500 hover:text-zinc-300 transition"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
 
         <SellPhotoUpload
           imagePreviews={imagePreviews}
