@@ -1278,6 +1278,26 @@ export default function AIPostPage() {
           </div>
         </div>
 
+        {/* Progress Indicator */}
+        <div className="mb-6 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">Listing Progress</span>
+            <span className="text-[11px] font-bold text-sky-400">{formProgress}%</span>
+          </div>
+          <div className="h-2 w-full rounded-full bg-zinc-800 overflow-hidden">
+            <div 
+              className="h-full rounded-full bg-gradient-to-r from-sky-500 to-sky-400 transition-all duration-500 ease-out"
+              style={{ width: `${formProgress}%` }}
+            />
+          </div>
+          <p className="mt-2 text-[10px] text-[var(--muted)]">
+            {formProgress < 30 ? "Get started by adding a title, description, and photo" : 
+             formProgress < 60 ? "Good progress! Add more details to complete your listing" :
+             formProgress < 100 ? "Almost there! Finish the remaining fields" :
+             "Your listing is complete and ready to publish"}
+          </p>
+        </div>
+
         {showHelpPrompt && (
           <div className="mb-6 rounded-xl border border-sky-500/30 bg-gradient-to-r from-sky-500/10 to-sky-500/5 p-4 shadow-[0_0_30px_rgba(14,165,233,0.15)]">
             <div className="flex items-start gap-3">
