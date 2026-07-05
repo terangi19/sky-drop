@@ -36,6 +36,7 @@ const WantedLiveFeed = dynamic(() => import("./components/WantedLiveFeed"));
 const PlatformAnnouncement = dynamic(() => import("./components/PlatformAnnouncement"));
 const MarketplaceRadar = dynamic(() => import("./components/MarketplaceRadar"));
 const MatchmakingActivity = dynamic(() => import("./components/MatchmakingActivity"));
+const TourGuide = dynamic(() => import("./components/TourGuide"), { ssr: false });
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -219,7 +220,7 @@ export default function RootLayout({
           `,
         }} />
         <ChunkLoadRecovery />
-        <AuthProvider><ProfileProvider><AwhinaPageInsightProvider><FeedbackProvider><VerificationBanner /><RouteGuard><PageEnter>{children}</PageEnter><Footer /><Spotlight /><ScrollToTop /><MarketplaceRadar /><MatchmakingActivity /></RouteGuard><SkyAiChat /><ToastContainer /><LegendaryClaimNotification /><WantedLiveFeed /><PlatformAnnouncement /><PWAProvider /></FeedbackProvider></AwhinaPageInsightProvider></ProfileProvider></AuthProvider>
+        <AuthProvider><ProfileProvider><AwhinaPageInsightProvider><FeedbackProvider><VerificationBanner /><RouteGuard><PageEnter>{children}</PageEnter><Footer /><Spotlight /><ScrollToTop /><MarketplaceRadar /><MatchmakingActivity /></RouteGuard><SkyAiChat /><ToastContainer /><LegendaryClaimNotification /><WantedLiveFeed /><PlatformAnnouncement /><TourGuide /><PWAProvider /></FeedbackProvider></AwhinaPageInsightProvider></ProfileProvider></AuthProvider>
       </body>
     </html>
   );
