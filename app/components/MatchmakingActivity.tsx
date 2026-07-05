@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { auth } from "../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import { FLOATING_MATCHMAKING_POSITION } from "../lib/floating-ui-layout";
 
 interface MatchmakingEvent {
   id: string;
@@ -56,7 +57,7 @@ export default function MatchmakingActivity() {
   }
 
   return (
-    <div className="fixed bottom-20 left-4 z-50 md:bottom-4">
+    <div className={FLOATING_MATCHMAKING_POSITION}>
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}

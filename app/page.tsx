@@ -220,7 +220,6 @@ export default function Home() {
     return trendingCategories.filter((c) => top3.has(c.name) || (counts[c.name] || 0) > 0);
   }, [listings]);
   const [animatedCount, setAnimatedCount] = useState(0);
-  const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [showAttentionModal, setShowAttentionModal] = useState(false);
   const [showAttentionBanner, setShowAttentionBanner] = useState(true);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -394,13 +393,6 @@ export default function Home() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [user, authReady]);
-
-  // Scroll-to-top visibility
-  useEffect(() => {
-    const onScroll = () => setShowScrollBtn(window.scrollY > 600 || visibleCount > 20);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [visibleCount]);
 
   // Infinite scroll via IntersectionObserver
   useEffect(() => {
@@ -1410,21 +1402,6 @@ export default function Home() {
           </section>
         );
       })()}
-
-      {/* Scroll-to-top */}
-      {showScrollBtn && (
-        <button
-          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          className="fixed bottom-24 right-4 z-40 flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.08] bg-[var(--card)] text-[var(--foreground)] shadow-[0_0_20px_rgba(14,165,233,0.2)] backdrop-blur-md transition hover:bg-[var(--card-hover)] hover:shadow-[0_0_25px_rgba(14,165,233,0.3)] active:scale-95 md:bottom-8"
-          aria-label="Scroll to top"
-        >
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-          </svg>
-        </button>
-      )}
-
-
 
     </main>
   );

@@ -11,6 +11,8 @@ import VerificationBanner from "./components/VerificationBanner";
 import ToastContainer from "./components/Toast";
 import Footer from "./components/Footer";
 import ScrollToTop from "./components/ScrollToTop";
+import { TourGuideProvider } from "./contexts/TourGuideContext";
+import GuestTourFab from "./components/GuestTourFab";
 import PageEnter from "./components/PageEnter";
 import PWAProvider from "./components/PWAProvider";
 import ChunkLoadRecovery from "./components/ChunkLoadRecovery";
@@ -36,7 +38,6 @@ const WantedLiveFeed = dynamic(() => import("./components/WantedLiveFeed"));
 const PlatformAnnouncement = dynamic(() => import("./components/PlatformAnnouncement"));
 const MarketplaceRadar = dynamic(() => import("./components/MarketplaceRadar"));
 const MatchmakingActivity = dynamic(() => import("./components/MatchmakingActivity"));
-const TourGuide = dynamic(() => import("./components/TourGuide"));
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -220,7 +221,7 @@ export default function RootLayout({
           `,
         }} />
         <ChunkLoadRecovery />
-        <AuthProvider><ProfileProvider><AwhinaPageInsightProvider><FeedbackProvider><VerificationBanner /><RouteGuard><PageEnter>{children}</PageEnter><Footer /><Spotlight /><ScrollToTop /><MarketplaceRadar /><MatchmakingActivity /></RouteGuard><SkyAiChat /><ToastContainer /><LegendaryClaimNotification /><WantedLiveFeed /><PlatformAnnouncement /><TourGuide /><PWAProvider /></FeedbackProvider></AwhinaPageInsightProvider></ProfileProvider></AuthProvider>
+        <AuthProvider><ProfileProvider><AwhinaPageInsightProvider><FeedbackProvider><TourGuideProvider><VerificationBanner /><RouteGuard><PageEnter>{children}</PageEnter><Footer /><Spotlight /><ScrollToTop /><MarketplaceRadar /><MatchmakingActivity /></RouteGuard><SkyAiChat /><GuestTourFab /><ToastContainer /><LegendaryClaimNotification /><WantedLiveFeed /><PlatformAnnouncement /><PWAProvider /></TourGuideProvider></FeedbackProvider></AwhinaPageInsightProvider></ProfileProvider></AuthProvider>
       </body>
     </html>
   );

@@ -8,6 +8,7 @@ import { useAwhinaVoice } from "../hooks/useAwhinaVoice";
 import { dismissAwhinaIntro, shouldShowAwhinaIntro } from "../lib/awhina-intro";
 import { dismissVoiceModeIntro, shouldShowVoiceModeIntro } from "../lib/voice-mode-intro";
 import { SKY_AI_OPEN_EVENT, consumeVoiceSellNavigation, dispatchSkyAiOpen, isVoiceSellNavigationPending, type SkyAiOpenDetail } from "../lib/sky-ai-events";
+import { FLOATING_LEFT_STACK } from "../lib/floating-ui-layout";
 import FloatingActionDock from "./FloatingActionDock";
 import AwhinaIntroModal from "./AwhinaIntroModal";
 import AwhinaVoiceBar from "./AwhinaVoiceBar";
@@ -163,7 +164,7 @@ export default function AwhinaGlobalAssistant() {
       />
 
       {/* Floating status card — bottom-left of viewport */}
-      <div className="fixed bottom-6 left-6 z-[10002] max-md:bottom-28 max-md:left-4">
+      <div className={`${FLOATING_LEFT_STACK} bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))] max-md:bottom-[calc(11rem+env(safe-area-inset-bottom,0px))] z-[10002]`}>
         <AwhinaVoiceStatusCard
           phase={voice.phase}
           voiceMode={voice.voiceMode}

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth } from "../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import { FLOATING_RADAR_POSITION } from "../lib/floating-ui-layout";
 
 interface RadarMatch {
   id: string;
@@ -64,7 +65,7 @@ export default function MarketplaceRadar({ userId }: MarketplaceRadarProps) {
   }
 
   return (
-    <div className="fixed bottom-20 right-4 z-50 md:bottom-4">
+    <div className={FLOATING_RADAR_POSITION}>
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}

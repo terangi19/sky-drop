@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { TOAST_STACK_POSITION } from "../lib/floating-ui-layout";
 
 interface ToastItem {
   id: number;
@@ -39,7 +40,7 @@ export default function ToastContainer() {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed bottom-24 md:bottom-6 right-6 z-[99999] flex flex-col gap-2 pointer-events-none">
+    <div className={`${TOAST_STACK_POSITION} flex flex-col gap-2 pointer-events-none`}>
       {toasts.map((t) => (
         <div
           key={t.id}

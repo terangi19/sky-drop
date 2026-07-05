@@ -16,7 +16,7 @@ export default function LivePopup({
     trades[0];
 
   return (
-    <div className="fixed bottom-5 right-5 z-50 hidden md:block">
+    <div className="fixed bottom-5 left-5 z-50 hidden md:block">
 
       <div className="flex items-center gap-3 rounded-2xl border border-white/[0.05] bg-[#111318]/95 px-3 py-3 shadow-xl backdrop-blur-xl">
 
