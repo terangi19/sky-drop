@@ -128,7 +128,6 @@ export interface Profile {
   phone?: string;
   phoneVerified?: boolean;
   verified?: boolean;
-  kycStatus?: "pending" | "approved" | "rejected";
   followers?: number;
   location?: string;
   createdAt?: Timestamp;
