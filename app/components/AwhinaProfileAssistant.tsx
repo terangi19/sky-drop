@@ -228,7 +228,7 @@ export default function AwhinaProfileAssistant({ draft, onApplyFill, className =
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
-              ? { ...m, text: "Something went wrong. Try again.", streaming: false }
+              ? { ...m, text: "Āwhina couldn't process your request. Please try again or rephrase your message.", streaming: false }
               : m
           )
         );

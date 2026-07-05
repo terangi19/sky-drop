@@ -32,7 +32,7 @@ function loginAuthError(error: unknown): string {
     case "auth/too-many-requests":
       return "Too many attempts. Please wait a few minutes and try again.";
     default:
-      return error instanceof Error ? error.message : "Something went wrong";
+      return error instanceof Error ? error.message : "Unable to sign in. Please check your email and password, then try again.";
   }
 }
 
