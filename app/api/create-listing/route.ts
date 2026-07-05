@@ -9,7 +9,6 @@ import {
 } from "../../lib/abuse-decision-engine";
 import { DEFAULT_MAX_JSON_BYTES, isContentLengthOverLimit, payloadTooLargeResponse } from "../../lib/request-body";
 import { sanitizeListingContent } from "../../lib/sanitize";
-import { kycRequiredBlockMessage } from "../../lib/seller-eligibility";
 import { verifyTurnstileToken, isTurnstileConfigured } from "../../lib/turnstile";
 import { trackAndCheckAbuse } from "../../lib/abuse-tracker";
 import { createSystemNotification } from "../../lib/system-notifications";

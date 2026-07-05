@@ -131,7 +131,6 @@ export default function AIPostPage() {
   const [scamAlert, setScamAlert] = useState<{ title: string; message: string; found: string[] } | null>(null);
   const [priceAlert, setPriceAlert] = useState(false);
   const [confirmedSubmit, setConfirmedSubmit] = useState(false);
-  const [showKycModal, setShowKycModal] = useState(false);
   const [showTypeGuideModal, setShowTypeGuideModal] = useState(false);
   const [showAwhinaGuide, setShowAwhinaGuide] = useState(false);
   const [showAutoPublishConfirm, setShowAutoPublishConfirm] = useState(false);
@@ -847,17 +846,14 @@ export default function AIPostPage() {
       }
       const profileSnap = user?.uid ? await getDoc(doc(db, "profiles", user.uid)) : null;
       const profileData = profileSnap?.exists() ? profileSnap.data() : null;
-      const kycApproved = profileData?.kycStatus === "approved";
       const blockReason = getListingBlockReason({
         authEmailVerified: auth.currentUser?.emailVerified ?? user.emailVerified,
         phone: profileData ? String(profileData.phone || profileData.phoneNumber || "") : "",
         phoneVerified: !!profileData?.phoneVerified || !!profileData?.verified,
         authPhoneNumber: auth.currentUser?.phoneNumber,
         profileExists: profileSnap?.exists(),
-        kycApproved,
       });
       if (blockReason) {
-        setShowKycModal(true);
         window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
       }
@@ -2165,28 +2161,6 @@ export default function AIPostPage() {
               <button onClick={bypassPriceAlert} className="flex-1 rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-sky-400 active:scale-[0.98]">
                 Submit Anyway
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* KYC Verification Required Modal */}
-      {showKycModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setShowKycModal(false)}>
-          <div className="mx-4 w-full max-w-md rounded-2xl bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-black text-sky-400">Verification Required</h3>
-              <button onClick={() => setShowKycModal(false)} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
-            </div>
-            <p className="mt-4 text-sm text-[var(--foreground)]">
-              You must verify your ID (KYC) before you can list items for sale on Sky Drop.
-            </p>
-            <p className="mt-2 text-xs text-[var(--muted)]">
-              This helps protect our community and prevents fraudulent listings.
-            </p>
-            <div className="mt-6 flex gap-3">
-              <button onClick={() => setShowKycModal(false)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-[var(--card-hover)]">Cancel</button>
-              <button onClick={() => { setShowKycModal(false); window.location.href = "/profile"; }} className="flex-1 rounded-xl bg-sky-500 py-3 text-sm font-bold text-white hover:bg-sky-400">Verify Now</button>
             </div>
           </div>
         </div>

@@ -151,7 +151,6 @@ export async function POST(req: NextRequest) {
       verified: verifiedFlagAfterUpdate(existingData, {
         phoneVerified: nextPhoneVerified,
         emailVerified: nextEmailVerified,
-        kycStatus: existingData?.kycStatus,
       }),
       email: decodedToken.email || "",
       emailVerified: nextEmailVerified,

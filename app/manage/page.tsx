@@ -45,14 +45,12 @@ export default function ManageDashboardPage() {
     { label: "Total Sales", value: data.totalSales ?? 0, href: "/manage/analytics", icon: "💰", color: "from-pink-500 to-pink-400" },
     { label: "Open Disputes", value: data.openDisputes ?? 0, href: "/manage/disputes", icon: "⚠️", color: "from-red-500 to-red-400" },
     { label: "Pending Reports", value: data.pendingReports ?? 0, href: "/manage/reports", icon: "📋", color: "from-orange-500 to-orange-400" },
-    { label: "KYC Verifications", value: data.pendingVerifications ?? 0, href: "/admin/verification", icon: "🔐", color: "from-cyan-500 to-cyan-400" },
-  ];
+      ];
 
   const quickLinks = [
     { href: "/manage/users", label: "Manage Users", icon: "👥", desc: "View and manage user accounts" },
     { href: "/manage/reports", label: "Review Reports", icon: "📋", desc: "Handle user reports" },
     { href: "/manage/disputes", label: "Open Disputes", icon: "⚠️", desc: "Resolve transaction disputes" },
-    { href: "/admin/verification", label: "KYC Verification", icon: "🔐", desc: "Review ID verifications" },
     { href: "/manage/settings", label: "Site Settings", icon: "⚙️", desc: "Configure platform settings" },
     { href: "/manage/analytics", label: "Analytics", icon: "📊", desc: "View platform analytics" },
   ];

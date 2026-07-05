@@ -130,7 +130,9 @@ export async function POST(req: NextRequest) {
     const displayName = profile?.displayName || profile?.username || "";
 
     if (action === "approve") {
-      const fullyVerified = verifiedFlagAfterUpdate(profile, { kycStatus: "approved" });
+      const fullyVerified = verifiedFlagAfterUpdate(profile, {
+        emailVerified: profile?.emailVerified === true,
+      });
 
       await kycRef.set(
         { status: "approved", reviewedAt: now, reviewedBy: reviewer },
