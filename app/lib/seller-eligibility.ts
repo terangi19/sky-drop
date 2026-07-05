@@ -48,14 +48,6 @@ export function profileHasVerifiedPhone(
 
 
 
-export function isKycApprovedProfile(profile: Record<string, unknown> | null | undefined): boolean {
-
-  return profile?.kycStatus === "approved";
-
-}
-
-
-
 /** Parse memberSince / createdAt from a Firestore profile document. */
 
 export function memberSinceFromProfile(profile: Record<string, unknown> | null | undefined): Date | null {
@@ -86,7 +78,7 @@ export const SELL_WAIT_DAYS = 30;
 
 
 
-/** @deprecated Selling no longer unlocks via account age — KYC approval is required. Kept for legacy UI helpers. */
+/** @deprecated Selling no longer requires wait period — users can sell immediately after email verification. */
 
 export function hasWaited30Days(memberSince: Date | null | undefined): boolean {
 
@@ -144,40 +136,9 @@ export function sellUnlockDaysLeft(memberSince: Date | null | undefined): number
 
 
 
-export function kycRequiredBlockMessage(): string {
-
-  return "Complete verification in Profile → Verification to start selling.";
-
-}
-
-
-
-/** @deprecated Use kycRequiredBlockMessage — selling requires KYC, not a wait period. */
-
-export function sellUnlockBlockMessage(_memberSince?: Date | null | undefined): string {
-
-  return kycRequiredBlockMessage();
-
-}
-
-
-
-export type SellerAccessState = "kyc_unlocked" | "needs_kyc";
-
-
-
-export function getSellerAccessState(kycApproved: boolean): SellerAccessState {
-
-  return kycApproved ? "kyc_unlocked" : "needs_kyc";
-
-}
-
-
-
-/** Why a user cannot create a listing (null = OK). Selling requires approved KYC only. Phone is optional (badge only). */
+/** Why a user cannot create a listing (null = OK). Email verification is required to sell. */
 
 export function getListingBlockReason(opts: {
-
   /** @deprecated Not used for listing gates — kept for call-site compatibility. */
   authEmailVerified?: boolean;
 
@@ -190,8 +151,6 @@ export function getListingBlockReason(opts: {
   restricted?: boolean;
 
   profileExists?: boolean;
-
-  kycApproved?: boolean;
 
   memberSince?: Date | null;
 
@@ -208,11 +167,6 @@ export function getListingBlockReason(opts: {
     return "Please complete your profile first.";
 
   }
-
-  // KYC requirement paused - users can post without verification
-  // if (!opts.kycApproved) {
-  //   return kycRequiredBlockMessage();
-  // }
 
   return null;
 
