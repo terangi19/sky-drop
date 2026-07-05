@@ -41,7 +41,6 @@ import { auth, db, storage, onAuthStateChanged } from "../lib/firebase";
 import { sendPhoneCode, verifyPhoneCode, maskPhone, isPhoneDevMode, formatNZPhone } from "../lib/phone-auth";
 import { claimVerifiedPhoneOnServer } from "../lib/phone-verification-client";
 import { checkImage } from "../lib/nsfw";
-import { kycSubmitErrorMessage, notifyKycSubmitted, submitKycPhoto } from "../lib/kyc-submit.client";
 import { showToast } from "../components/Toast";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
 import { countSellerSales } from "../lib/arrange-purchase-status";
@@ -135,7 +134,6 @@ interface ProfileData {
   bankAccountName?: string;
   bankAccountNumber?: string;
   bankReference?: string;
-  kycStatus?: string;
   restricted?: boolean;
 }
 
@@ -236,7 +234,6 @@ const [poaRejectionReason, setPoaRejectionReason] = useState("");
 const [poaFile, setPoaFile] = useState<File | null>(null);
 const [poaFile2, setPoaFile2] = useState<File | null>(null);
 const [poaUploading, setPoaUploading] = useState(false);
-const [kycIdType, setKycIdType] = useState<"driver_licence" | "passport">("driver_licence");
 const [sellBadge, setSellBadge] = useState<string | null>(null);
 const [sellBadgePrice, setSellBadgePrice] = useState("50");
 const [authRefreshing, setAuthRefreshing] = useState(false);
@@ -300,11 +297,11 @@ const tabGroups = [
     setBankReference(data.bankReference || "");
     setReferralCode(data.referralCode || "");
     setReferredBy(data.referredBy || "");
-    // KYC status is stored as flat fields on profiles (image URLs are in kycSubmissions collection only)
-    const kycStatus = (data as any).kycStatus || data.proofOfAddress?.status || "unsubmitted";
-    setPoaStatus(kycStatus);
+    // POA status is stored as flat fields on profiles (image URLs are in separate collection only)
+    const poaStatusValue = (data as any).proofOfAddress?.status || "unsubmitted";
+    setPoaStatus(poaStatusValue);
     setPoaDocumentURL(""); // image URLs never stored on profiles
-    setPoaRejectionReason((data as any).kycRejectReason || data.proofOfAddress?.rejectionReason || "");
+    setPoaRejectionReason((data as any).proofOfAddress?.rejectionReason || "");
   }, [setContextUsername]);
 
   const listingBlockReason = user
@@ -312,7 +309,6 @@ const tabGroups = [
         authEmailVerified: !!user.emailVerified,
         restricted: !!profile.restricted,
         profileExists: !!(profile.username || profile.email || user.uid),
-        kycApproved: (profile.kycStatus || poaStatus) === "approved",
       })
     : null;
   const readyToList = listingBlockReason === null;
@@ -324,14 +320,13 @@ const tabGroups = [
       await user.reload();
       setUser(auth.currentUser);
       if (auth.currentUser?.emailVerified) {
-        showToast("Email verified — complete ID verification to start selling.", "success");
+        showToast("Email verified — you can now start selling.", "success");
         await setDoc(
           doc(db, "profiles", user.uid),
           {
             emailVerified: true,
             verified: verifiedFlagAfterUpdate(
               {
-                kycStatus: profile.kycStatus,
                 phoneVerified: profile.phoneVerified,
                 emailVerified: profile.emailVerified,
               },
@@ -624,13 +619,11 @@ const tabGroups = [
     if (isNewUser) {
       return [
         { id: "profile", label: "Profile", group: "account" },
-        { id: "verification", label: "Verification", group: "account" },
       ] as const;
     }
     // Full tabs for established users
     return [
       { id: "profile", label: "Profile", group: "account" },
-      { id: "verification", label: "Verification", group: "account" },
       { id: "payments", label: "Payments", group: "account" },
       { id: "notifications", label: "Notifications", group: "account" },
       { id: "settings", label: "Settings", group: "account" },
@@ -1531,7 +1524,7 @@ const tabGroups = [
 
               {!readyToList && (
                 <div className="mb-5 rounded-xl border border-sky-500/20 bg-sky-500/[0.04] px-4 py-3 text-sm text-sky-400/90">
-                  {listingBlockReason || "Complete ID verification to create listings."}
+                  {listingBlockReason || "Complete email verification to create listings."}
                 </div>
               )}
 
