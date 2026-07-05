@@ -1,28 +1,24 @@
 import { getAdminDb } from "./firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
+import {
+  extractMatchKeywords,
+  isWantedListingMatch,
+  type MatchmakingListingLike,
+} from "./wanted-listing-match";
 
-interface MatchmakingListing {
+interface MatchmakingListing extends MatchmakingListingLike {
   id: string;
-  title?: string;
-  description?: string;
-  category?: string;
-  type?: string;
-  price?: string;
   sellerEmail?: string;
   sellerId?: string;
-  vehicleMake?: string;
-  vehicleModel?: string;
+  status?: string;
   images?: string[];
   imageUrl?: string;
-  [key: string]: unknown;
 }
 
 interface MatchmakingOwner {
   email?: string;
   sellerId?: string;
 }
-
-const MIN_KEYWORD_LENGTH = 3;
 
 export function normalizeMarketplaceEmail(email: string | undefined | null): string {
   return String(email || "").trim().toLowerCase();
@@ -44,51 +40,15 @@ export function isSameMarketplaceUser(
   return false;
 }
 
-/** Extract meaningful search keywords from a listing. */
-function extractKeywords(listing: MatchmakingListing): string[] {
-  const words = new Set<string>();
-
-  const sources = [
-    listing.title,
-    listing.description,
-    listing.category,
-    listing.vehicleMake,
-    listing.vehicleModel,
-  ];
-
-  for (const source of sources) {
-    if (!source) continue;
-    const tokens = String(source)
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, "")
-      .split(/\s+/)
-      .filter((w) => w.length >= MIN_KEYWORD_LENGTH);
-
-    for (const token of tokens) {
-      words.add(token);
-    }
-  }
-
-  // Add vehicle combinations for better matching
-  if (listing.vehicleMake && listing.vehicleModel) {
-    words.add(`${listing.vehicleMake} ${listing.vehicleModel}`);
-    words.add(listing.vehicleModel);
-  }
-
-  return [...words];
-}
-
-/** Search active listings matching given keywords, excluding the poster's own listings. */
+/** Search active listings matching a wanted post. */
 async function searchMatchingListings(
-  keywords: string[],
+  wanted: MatchmakingListing,
   exclude: MatchmakingOwner,
 ): Promise<MatchmakingListing[]> {
   const db = getAdminDb();
   const matched = new Map<string, MatchmakingListing>();
-  const seen = new Set<string>();
 
   try {
-    // Fetch all active listings of relevant types (no composite index needed for single where clause)
     const snap = await db
       .collection("listings")
       .where("type", "in", ["physical", "vehicle", "service", "rental", "digital"])
@@ -96,24 +56,14 @@ async function searchMatchingListings(
       .limit(100)
       .get();
 
-    const keywordSet = new Set(keywords.map(k => k.toLowerCase()));
-
     for (const doc of snap.docs) {
       const data = doc.data() as MatchmakingListing;
       if (isSameMarketplaceUser(data, exclude)) continue;
       if (data.status === "sold") continue;
-      if (seen.has(doc.id)) continue;
 
-      // Check if title contains any keyword
-      const titleLower = (data.title || "").toLowerCase();
-      const descriptionLower = (data.description || "").toLowerCase();
-      const hasMatch = Array.from(keywordSet).some(keyword => 
-        titleLower.includes(keyword) || descriptionLower.includes(keyword)
-      );
-
-      if (hasMatch) {
-        seen.add(doc.id);
-        matched.set(doc.id, { id: doc.id, ...data });
+      const listing = { id: doc.id, ...data };
+      if (isWantedListingMatch(wanted, listing)) {
+        matched.set(doc.id, listing);
       }
     }
   } catch (e) {
@@ -123,17 +73,15 @@ async function searchMatchingListings(
   return [...matched.values()].slice(0, 10);
 }
 
-/** Search wanted posts matching given keywords, excluding the poster's own wanted posts. */
+/** Search wanted posts matching a supply listing. */
 async function searchMatchingWanted(
-  keywords: string[],
+  listing: MatchmakingListing,
   exclude: MatchmakingOwner,
 ): Promise<MatchmakingListing[]> {
   const db = getAdminDb();
   const matched = new Map<string, MatchmakingListing>();
-  const seen = new Set<string>();
 
   try {
-    // Fetch all wanted posts (no composite index needed for single where clause)
     const snap = await db
       .collection("listings")
       .where("type", "==", "wanted")
@@ -141,24 +89,14 @@ async function searchMatchingWanted(
       .limit(100)
       .get();
 
-    const keywordSet = new Set(keywords.map(k => k.toLowerCase()));
-
     for (const doc of snap.docs) {
       const data = doc.data() as MatchmakingListing;
       if (isSameMarketplaceUser(data, exclude)) continue;
       if (data.status === "sold") continue;
-      if (seen.has(doc.id)) continue;
 
-      // Check if title contains any keyword
-      const titleLower = (data.title || "").toLowerCase();
-      const descriptionLower = (data.description || "").toLowerCase();
-      const hasMatch = Array.from(keywordSet).some(keyword => 
-        titleLower.includes(keyword) || descriptionLower.includes(keyword)
-      );
-
-      if (hasMatch) {
-        seen.add(doc.id);
-        matched.set(doc.id, { id: doc.id, ...data });
+      const wanted = { id: doc.id, ...data, type: "wanted" };
+      if (isWantedListingMatch(wanted, listing)) {
+        matched.set(doc.id, wanted);
       }
     }
   } catch (e) {
@@ -241,7 +179,7 @@ export async function runMatchmaking(listing: MatchmakingListing): Promise<void>
     return;
   }
 
-  const keywords = extractKeywords(listing);
+  const keywords = extractMatchKeywords(listing);
   if (keywords.length === 0) {
     console.warn("[matchmaking] No keywords extracted for listing:", listing.id);
     return;
@@ -255,9 +193,9 @@ export async function runMatchmaking(listing: MatchmakingListing): Promise<void>
   };
 
   if (listing.type === "wanted") {
-    // Wanted → find matching active listings
+    const wanted = { ...listing, type: "wanted" as const };
     console.log("[matchmaking] Searching for matching active listings for wanted post:", listing.id);
-    const matches = await searchMatchingListings(keywords, owner);
+    const matches = await searchMatchingListings(wanted, owner);
     console.log(`[matchmaking] Found ${matches.length} matching listings for wanted post ${listing.id}`);
 
     for (const match of matches) {
@@ -285,9 +223,8 @@ export async function runMatchmaking(listing: MatchmakingListing): Promise<void>
       });
     }
   } else {
-    // Regular listing → find matching wanted posts
     console.log("[matchmaking] Searching for matching wanted posts for listing:", listing.id);
-    const matches = await searchMatchingWanted(keywords, owner);
+    const matches = await searchMatchingWanted(listing, owner);
     console.log(`[matchmaking] Found ${matches.length} matching wanted posts for listing ${listing.id}`);
 
     for (const match of matches) {
