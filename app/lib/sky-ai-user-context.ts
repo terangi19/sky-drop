@@ -10,7 +10,6 @@ export type SkyAiUserContext = {
   emailVerified: boolean;
   sellerVerified: boolean;
   stripeConnected: boolean;
-  kycStatus: string;
   accountAgeDays: number;
   todos: SkyAiUserTodo[];
 };

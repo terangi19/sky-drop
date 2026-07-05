@@ -46,12 +46,11 @@ export async function loadSkyAiUserContext(
   let emailVerified = authEmailVerified;
   let sellerVerified = false;
   let stripeConnected = false;
-  let kycStatus = "none";
   let accountAgeDays = 0;
   const todos: SkyAiUserTodo[] = [];
 
   if (!isAdminInitialized()) {
-    return { signedIn: true, emailVerified, sellerVerified, stripeConnected, kycStatus, accountAgeDays, todos };
+    return { signedIn: true, emailVerified, sellerVerified, stripeConnected, accountAgeDays, todos };
   }
 
   const db = getAdminDb();
@@ -63,7 +62,6 @@ export async function loadSkyAiUserContext(
       if (data.emailVerified) emailVerified = true;
       sellerVerified = isFullyVerifiedSeller(data);
       stripeConnected = !!data.stripeAccountId;
-      kycStatus = String(data.kycStatus || "none");
       const memberSince = data.memberSince || data.createdAt;
       if (memberSince) {
         let ms = 0;
@@ -78,7 +76,7 @@ export async function loadSkyAiUserContext(
   }
 
   if (!email) {
-    return { signedIn: true, emailVerified, sellerVerified, stripeConnected, kycStatus, accountAgeDays, todos };
+    return { signedIn: true, emailVerified, sellerVerified, stripeConnected, accountAgeDays, todos };
   }
 
   try {
@@ -145,5 +143,5 @@ export async function loadSkyAiUserContext(
     /* snapshot optional */
   }
 
-  return { signedIn: true, emailVerified, sellerVerified, stripeConnected, kycStatus, accountAgeDays, todos };
+  return { signedIn: true, emailVerified, sellerVerified, stripeConnected, accountAgeDays, todos };
 }
