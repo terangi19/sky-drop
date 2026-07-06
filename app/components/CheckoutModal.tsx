@@ -672,7 +672,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-3 sm:p-6 animate-fade-in-backdrop"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-md p-3 sm:p-6 animate-fade-in-backdrop"
       onClick={safeClose}
     >
       <div

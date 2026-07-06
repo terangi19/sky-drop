@@ -15,11 +15,11 @@ export function primaryPurchaseLabel(opts: {
   if (isContactPayment(opts.paymentType)) {
     return price ? `Contact Seller — ${price}` : "Contact Seller";
   }
-  return price ? `Buy Now (Card) — ${price}` : "Buy Now (Card)";
+  return price ? `Buy Now — ${price}` : "Buy Now";
 }
 
 export function shortPurchaseLabel(paymentType?: string | null): string {
-  return isContactPayment(paymentType) ? "Contact Seller" : "Buy Now (Card)";
+  return isContactPayment(paymentType) ? "Contact Seller" : "Buy Now";
 }
 
 export function purchaseButtonTitle(paymentType?: string | null): string {
