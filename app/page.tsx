@@ -906,9 +906,9 @@ export default function Home() {
       )}
 
       {/* HERO / SEARCH SECTION */}
-      <section className={`${PAGE_SHELL_WIDE} pt-0 pb-2`}>
+      <section className={`${PAGE_SHELL_WIDE} pt-0 pb-1`}>
         <div className="relative overflow-hidden rounded-2xl bg-[var(--card)]">
-          <div className="relative z-10 px-5 py-3 sm:px-6 sm:py-4">
+          <div className="relative z-10 px-5 py-2 sm:px-6 sm:py-3">
             <div className="mx-auto max-w-2xl text-center">
               <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl lg:text-4xl">
                 Buy & Sell in New Zealand
@@ -1050,61 +1050,10 @@ export default function Home() {
                   ))}
                 </div>
               </div>
-
-              {/* SAVED SEARCHES */}
-              {savedSearches.length > 0 && (
-                <div className="mt-3 flex flex-wrap justify-center gap-2">
-                  {savedSearches.map((s) => (
-                    <div key={s.label} className="group flex items-center gap-1.5 rounded-full bg-gradient-to-r from-sky-500/10 to-sky-500/5 px-3.5 py-1.5 text-[11px] text-white transition-all duration-200 hover:bg-sky-500/15 hover:shadow-lg hover:shadow-sky-500/10">
-                      <button onClick={() => applySavedSearch(s)} className="flex items-center gap-1.5">
-                        <svg className="h-3 w-3 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                        </svg>
-                        <span className="font-medium">{s.label || s.query}</span>
-                        {(() => { const m = savedSearchMatchCounts.find(m => m.label === s.label); if (m && m.count > 0) return <span className="ml-1 rounded-full bg-sky-500/30 px-2 py-0.5 text-[9px] font-bold text-sky-300 border border-sky-500/30">{m.count}</span>; return null; })()}
-                      </button>
-                      <button onClick={() => removeSavedSearch(s.label)} className="flex h-5 w-5 items-center justify-center text-sky-400/60 hover:text-red-400 ml-0.5 transition-colors rounded hover:bg-sky-500/10" title="Remove saved search">
-                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
         </div>
       </section>
-
-      {/* Attention Users banner */}
-      {showAttentionBanner && (
-        <section className={`${PAGE_SHELL_WIDE} pt-1 pb-0.5`}>
-          <div className="group flex w-full items-center justify-between gap-2 rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/15 to-amber-400/10 px-4 py-2 text-sm font-bold text-amber-300 transition-all duration-200 hover:from-amber-500/25 hover:to-amber-400/20 hover:shadow-[0_0_24px_rgba(245,158,11,0.12)] active:scale-[0.99]">
-            <button
-              onClick={() => setShowAttentionModal(true)}
-              className="flex flex-1 items-center justify-center gap-2 text-amber-300"
-            >
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500/30 text-[10px]">!</span>
-              <span>Welcome to Sky Drop — More features coming soon</span>
-              <svg className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-              </svg>
-            </button>
-            <button
-              onClick={() => {
-                setShowAttentionBanner(false);
-                try { localStorage.setItem("attentionBannerDismissed", "true"); } catch {}
-              }}
-              className="ml-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-amber-300/70 transition hover:bg-amber-500/20 hover:text-amber-300"
-              aria-label="Dismiss attention banner"
-              title="Dismiss"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </section>
-      )}
 
       {/* LISTINGS */}
       <section id="listings" className={`${PAGE_SHELL_MARKETPLACE} pb-10`}>
