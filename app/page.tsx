@@ -911,10 +911,10 @@ export default function Home() {
           <div className="relative z-10 px-5 py-2 sm:px-6 sm:py-3">
             <div className="mx-auto max-w-2xl text-center">
               <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl lg:text-4xl">
-                Buy & Sell in New Zealand
+                Buy & Sell Smarter in New Zealand
               </h1>
               <p className="mt-3 text-base text-[var(--muted)] sm:text-lg">
-                Simple marketplace. Real people. No fees.
+                Create listings in seconds with Āwhina AI.
               </p>
               {user ? (
                 <div className="mt-5 flex justify-center">
