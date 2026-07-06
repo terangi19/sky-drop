@@ -152,7 +152,12 @@ export default function SkyAiChatPanel({
   const [showHistory, setShowHistory] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>(() => welcomeMessages(welcomeText));
   const [conversations, setConversations] = useState<SkyAiConversationSummary[]>([]);
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('skyAiConversationId') || null;
+    }
+    return null;
+  });
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
@@ -196,6 +201,16 @@ export default function SkyAiChatPanel({
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, open]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (conversationId) {
+        localStorage.setItem('skyAiConversationId', conversationId);
+      } else {
+        localStorage.removeItem('skyAiConversationId');
+      }
+    }
+  }, [conversationId]);
 
   useEffect(() => {
     return () => {
