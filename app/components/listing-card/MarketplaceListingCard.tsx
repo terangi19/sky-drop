@@ -12,6 +12,7 @@ import {
 } from "../../lib/listing-watchlist-count";
 import { SellerReviewSummary } from "../SellerReviewStars";
 import ListingImage, { listingHasImage } from "../ListingImage";
+import { purchaseButtonTitle, shortPurchaseLabel } from "../../lib/purchase-button-labels";
 
 export type MarketplaceListingCardProps = {
   item: Record<string, any>;
@@ -355,7 +356,7 @@ export default memo(function MarketplaceListingCard({
                   }}
                   disabled={loading}
                   className={`lc-btn-primary flex-1 rounded-md py-2.5 text-[12px] font-semibold active:scale-95 ${loading ? "opacity-70 cursor-not-allowed" : ""}`}
-                  title={item.paymentType === "contact" ? "Arrange payment directly with seller (bank transfer, cash, etc.)" : "Pay instantly with credit card via Stripe"}
+                  title={purchaseButtonTitle(item.paymentType)}
                 >
                   {loading ? (
                     <span className="flex items-center justify-center gap-2">
@@ -363,7 +364,7 @@ export default memo(function MarketplaceListingCard({
                       Processing...
                     </span>
                   ) : (
-                    item.paymentType === "contact" ? "Arrange Purchase" : "Buy Now"
+                    shortPurchaseLabel(item.paymentType)
                   )}
                 </button>
               )}

@@ -36,6 +36,12 @@ import ServicePricingBadge from "../../../components/ServicePricingBadge";
 import { formatServicePriceDisplay } from "../../../lib/service-pricing";
 import { sendMessage } from "../../../lib/api-send-message";
 import ListingImage from "../../../components/ListingImage";
+import {
+  paymentMethodSummary,
+  primaryPurchaseLabel,
+  purchaseButtonTitle,
+  shortPurchaseLabel,
+} from "../../../lib/purchase-button-labels";
 
 function getBidIncrement(price: number): number {
   if (price < 50) return 1;
@@ -874,7 +880,7 @@ export default function ListingPage() {
           {!loading && <Link href="/" className="mt-6 inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 px-3 py-1.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">Browse Marketplace</Link>}
         </div>
       ) : (<>
-      <section className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 py-4 lg:py-6">
+      <section className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 py-3 lg:py-4">
         {/* BREADCRUMB */}
         <nav className="mb-4 flex items-center gap-2 text-xs font-medium text-[var(--muted)]">
           <Link href="/" className="transition-colors hover:text-sky-400">Home</Link>
@@ -910,12 +916,12 @@ export default function ListingPage() {
           </div>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-[1.2fr_1fr] 2xl:grid-cols-[1.3fr_1fr] max-w-7xl mx-auto">
+        <div className="grid items-start gap-4 lg:grid-cols-2 lg:gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)]">
           {/* ── LEFT COLUMN: IMAGE & DETAILS ── */}
           {(() => {
             const displayImages = listing.images && listing.images.length > 0 ? listing.images : listing.imageUrl ? [listing.imageUrl] : [];
             return (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {/* Image Gallery */}
                 <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[var(--card)] to-[var(--soft-card)] border border-white/[0.08] shadow-2xl shadow-black/30">
                   <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
@@ -949,7 +955,7 @@ export default function ListingPage() {
                           src={displayImages[selectedImageIndex]}
                           alt={listing.title}
                           context={`ListingDetail:${listing.id}`}
-                          className="w-full max-h-[500px] lg:max-h-[600px] xl:max-h-[650px] 2xl:max-h-[700px] object-cover fade-in"
+                          className="w-full aspect-[4/3] sm:aspect-[5/4] lg:aspect-[4/3] object-cover fade-in"
                         />
                       </div>
                       {displayImages.length > 1 && (
@@ -970,22 +976,12 @@ export default function ListingPage() {
                     <div className="flex h-80 items-center justify-center bg-[var(--soft-card)] text-[var(--muted)] text-sm">No image</div>
                   )}
                 </div>
-
-                {/* Description */}
-                {listing.description && (
-                  <div className="rounded-xl border border-white/[0.06] bg-[var(--card)] p-6">
-                    <h2 className="mb-4 text-sm font-bold uppercase tracking-wider text-[var(--muted)]">Description</h2>
-                    <div className="text-sm leading-relaxed text-[var(--foreground)] whitespace-pre-wrap space-y-4">
-                      {listing.description}
-                    </div>
-                  </div>
-                )}
               </div>
             );
           })()}
 
           {/* ── RIGHT COLUMN: PURCHASE CARD ── */}
-          <div className="relative flex flex-col gap-4 overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-6 shadow-2xl shadow-black/20">
+          <div className="relative flex flex-col gap-3 overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-4 sm:p-5 shadow-2xl shadow-black/20 lg:sticky lg:top-[4.5rem] lg:max-h-[calc(100vh-5.5rem)] lg:overflow-y-auto lg:overscroll-contain">
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
             
             {/* 1. PILLS: Category / Condition / Time */}
@@ -1483,80 +1479,36 @@ Property Status: 🟢 Inquiry Active`;
 
                   {/* Payment Helper Row */}
                   <div className="text-[11px] font-medium text-[var(--muted)]">
-                    Payment: {(listing as any).paymentType === "contact" ? "Arrange with seller" : "Secure checkout"}
+                    Payment: {paymentMethodSummary((listing as { paymentType?: string }).paymentType)}
                   </div>
 
-                  {/* PRIMARY CTA - Full width Buy Now */}
+                  {/* PRIMARY CTA */}
                   <div className="w-full">
-                    {(listing as any).paymentType === "contact" ? (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleArrangePurchase();
-                        }}
-                        className="w-full h-16 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-5 text-base font-bold text-white shadow-xl shadow-sky-500/25 transition-all duration-200 hover:shadow-2xl hover:shadow-sky-500/35 hover:brightness-110 active:scale-[0.98]"
-                      >
-                        {buyerArrangeRequestCount > 0 ? (
-                          <>
-                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03 8 9 8s9 3.582 9 8z" />
-                            </svg>
-                            Open Chat
-                          </>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleArrangePurchase();
+                      }}
+                      title={purchaseButtonTitle((listing as { paymentType?: string }).paymentType)}
+                      className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-5 text-base font-bold text-white shadow-xl shadow-sky-500/25 transition-all duration-200 hover:shadow-2xl hover:shadow-sky-500/35 hover:brightness-110 active:scale-[0.98]"
+                    >
+                      <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        {(listing as { paymentType?: string }).paymentType === "contact" ? (
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                         ) : (
-                          <>
-                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                            </svg>
-                            Continue to Purchase
-                          </>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                         )}
-                      </button>
-                    ) : isAuctionWinner ? (
-                      <>
-                        {/* Stripe checkout hidden for testing */}
-                        {/* <button
-                          onClick={() => { setWinningBid(listing.currentBid || listing.startingBid || 0); openStripeCheckout(); }}
-                          className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 text-base font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-200 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:brightness-110 active:scale-[0.98]"
-                        >
-                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                          </svg>
-                          Pay Now — ${listing.currentBid || listing.startingBid || 0}
-                        </button> */}
-                        <button
-                          onClick={() => handleArrangePurchase()}
-                          className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-5 text-base font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98]"
-                        >
-                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 13.574 12c0-4.418 4.03 8 9 8s9 3.582 9 8z" />
-                          </svg>
-                          Continue to Purchase
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        {/* Stripe checkout hidden for testing */}
-                        {/* <button
-                          onClick={() => openStripeCheckout()}
-                          className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 text-base font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-200 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:brightness-110 active:scale-[0.98]"
-                        >
-                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                          </svg>
-                          Buy Now — ${listing.price}
-                        </button> */}
-                        <button
-                          onClick={() => handleArrangePurchase()}
-                          className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-5 text-base font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98]"
-                        >
-                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 13.574 12c0-4.418 4.03 8 9 8s9 3.582 9 8z" />
-                          </svg>
-                          Continue to Purchase
-                        </button>
-                      </>
-                    )}
+                      </svg>
+                      {primaryPurchaseLabel({
+                        paymentType: (listing as { paymentType?: string }).paymentType,
+                        price: listing.price,
+                        pricingType: listing.pricingType as string | undefined,
+                        hasExistingRequest: buyerArrangeRequestCount > 0,
+                      })}
+                    </button>
+                    <p className="mt-2 text-center text-[10px] leading-relaxed text-[var(--muted)]">
+                      {purchaseButtonTitle((listing as { paymentType?: string }).paymentType)}
+                    </p>
                   </div>
 
                   {/* SECONDARY BUTTONS - Responsive grid */}
@@ -1624,8 +1576,8 @@ Property Status: 🟢 Inquiry Active`;
                           </svg>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-sky-300">Arrange Purchase</p>
-                          <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">Payment and delivery handled directly between buyer and seller. Keep communication on Sky Drop for protection.</p>
+                          <p className="text-sm font-medium text-sky-300">Contact seller to buy</p>
+                          <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">Agree bank transfer, cash, or pickup in Messages. Keep the conversation on Sky Drop for your protection.</p>
                         </div>
                       </div>
                     </div>
@@ -1922,21 +1874,6 @@ Service Status: 🟢 Inquiry Active`;
             </div>
             )}
 
-            {/* Payment & Contact Info */}
-            {user && user.email !== listing.sellerEmail && listing.pricingType !== "quote" && (
-              (listing as any).paymentType === "contact" ? (
-                <a href="/payments#arrange" target="_blank" rel="noopener noreferrer" className="rounded-lg border border-sky-500/10 bg-sky-500/[0.03] px-3.5 py-2.5 block transition hover:bg-sky-500/[0.06]">
-                  <p className="text-xs font-bold text-sky-400">Continue to Purchase — ${(listing as any).price}</p>
-                  <p className="mt-0.5 text-[10px] leading-relaxed text-zinc-500">Payment arranged with seller after purchase. Keep communication on Sky Drop for protection. <span className="text-sky-400/70 underline">How it works →</span></p>
-                </a>
-              ) : (
-                <a href="/payments#arrange" target="_blank" rel="noopener noreferrer" className="rounded-lg border border-sky-500/10 bg-sky-500/[0.03] px-3.5 py-2.5 block transition hover:bg-sky-500/[0.06]">
-                  <p className="text-xs font-bold text-sky-400">Continue to Purchase — ${(listing as any).price}</p>
-                  <p className="mt-0.5 text-[10px] leading-relaxed text-zinc-500">Payment arranged with seller after purchase. Keep communication on Sky Drop for protection. <span className="text-sky-400/70 underline">How it works →</span></p>
-                </a>
-              )
-            )}
-
             {/* Unverified Seller Notice */}
             {isNotVerified && user && user.email !== listing.sellerEmail && (
               <p className="text-[11px] text-[var(--muted)]">
@@ -2229,10 +2166,19 @@ Service Status: 🟢 Inquiry Active`;
           </div>
         </div>
 
+        {listing.description && (
+          <div className="mt-4 lg:mt-5 rounded-xl border border-white/[0.06] bg-[var(--card)] p-4 sm:p-5">
+            <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-[var(--muted)]">Description</h2>
+            <div className="text-sm leading-relaxed text-[var(--foreground)] whitespace-pre-wrap max-w-3xl">
+              {listing.description}
+            </div>
+          </div>
+        )}
+
       </section>
 
       {sellerListings.length > 0 && (
-        <section className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 pb-12">
+        <section className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 pb-8">
           <div className="flex items-center gap-3 mb-6">
             <div className="h-5 w-0.5 rounded-full bg-gradient-to-b from-sky-500 to-sky-500" />
             <h2 className="text-base font-bold text-white">More from {listing.sellerUsername || listing.sellerEmail?.split("@")[0] || "this seller"}</h2>
@@ -2323,16 +2269,24 @@ Service Status: 🟢 Inquiry Active`;
               {isContactListing ? (
                 <button
                   onClick={handleArrangePurchase}
+                  title={purchaseButtonTitle("contact")}
                   className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-white"
                 >
-                  {`Request Purchase — $${listing.price}`}
+                  {primaryPurchaseLabel({
+                    paymentType: "contact",
+                    price: listing.price,
+                  })}
                 </button>
               ) : (
                 <button
                   onClick={() => handleArrangePurchase()}
+                  title={purchaseButtonTitle("stripe")}
                   className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-white"
                 >
-                  Buy Now — ${listing.price}
+                  {primaryPurchaseLabel({
+                    paymentType: "stripe",
+                    price: listing.price,
+                  })}
                 </button>
               )}
               <button
