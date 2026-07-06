@@ -908,10 +908,9 @@ export default function Home() {
       {/* HERO / SEARCH SECTION */}
       <section className={`${PAGE_SHELL_WIDE} pt-1 sm:pt-2`}>
         <div className="relative overflow-hidden rounded-[2rem] bg-[var(--card)]">
-          <div className="absolute inset-0 backdrop-blur-[2px]" />
           <div className="relative z-10 px-5 py-3 sm:px-6 sm:py-4">
             <div className="mx-auto max-w-2xl text-center">
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/[0.05] px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-[var(--muted)] shadow-[0_0_24px_rgba(14,165,233,0.1)]">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/[0.05] px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-[var(--muted)]">
                 NZ Marketplace
               </div>
               <h1 className="text-xl font-black tracking-tight text-white sm:text-3xl lg:text-4xl">
@@ -924,7 +923,7 @@ export default function Home() {
                 <div className="mt-4 flex justify-center">
                   <Link
                     href="/post/ai"
-                    className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.98]"
+                    className="inline-flex items-center gap-2 rounded-2xl bg-sky-500 px-5 py-2.5 text-sm font-bold text-white transition-colors duration-200 hover:bg-sky-400 active:scale-[0.98]"
                   >
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -936,7 +935,7 @@ export default function Home() {
                 <div className="mt-4 flex flex-col items-center justify-center gap-2 sm:flex-row">
                   <Link
                     href="/signup"
-                    className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.98]"
+                    className="inline-flex items-center gap-2 rounded-2xl bg-sky-500 px-5 py-2.5 text-sm font-bold text-white transition-colors duration-200 hover:bg-sky-400 active:scale-[0.98]"
                   >
                     Join Free
                   </Link>
@@ -954,7 +953,7 @@ export default function Home() {
             <div className="relative mx-auto mt-3 max-w-2xl rounded-2xl bg-[var(--background)] px-4 py-3 shadow-xl border border-white/[0.08]">
               {/* Search */}
               <div className="relative">
-                <div className="relative flex items-center rounded-xl bg-[var(--card)] shadow-xl backdrop-blur-md transition-all duration-300 group-focus-within:bg-[var(--card-hover)] ring-1 ring-sky-500/20">
+                <div className="relative flex items-center rounded-xl bg-[var(--card)] shadow transition-all duration-200 group-focus-within:bg-[var(--card-hover)] ring-1 ring-sky-500/20">
                   <svg className="ml-4 h-5 w-5 shrink-0 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
@@ -976,7 +975,7 @@ export default function Home() {
                   />
                   <div className="mr-2 flex items-center gap-2">
                     {search && (
-                      <button onClick={() => setSearch("")} className="flex h-11 w-11 items-center justify-center rounded-lg text-[var(--muted)] transition-all duration-200 hover:bg-[var(--card-hover)] hover:text-[var(--foreground)] hover:scale-110 active:scale-95" aria-label="Clear search">
+                      <button onClick={() => setSearch("")} className="flex h-11 w-11 items-center justify-center rounded-lg text-[var(--muted)] transition-colors duration-200 hover:bg-[var(--card-hover)] hover:text-[var(--foreground)]" aria-label="Clear search">
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                       </button>
                     )}
@@ -990,7 +989,7 @@ export default function Home() {
                         }
                       }}
                       disabled={!search.trim()}
-                      className="flex h-11 w-11 items-center justify-center rounded-lg text-sky-400 transition-all duration-200 hover:bg-sky-500/20 hover:text-sky-300 hover:scale-110 active:scale-95 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-sky-400 disabled:hover:scale-100"
+                      className="flex h-11 w-11 items-center justify-center rounded-lg text-sky-400 transition-colors duration-200 hover:bg-sky-500/20 hover:text-sky-300 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-sky-400"
                       title="Search"
                       aria-label="Search"
                     >
@@ -999,8 +998,8 @@ export default function Home() {
                       </svg>
                     </button>
                     {(search || selectedCategory !== "All") && (
-                      <button onClick={saveSearch} className="flex h-11 w-11 items-center justify-center rounded-lg text-sky-400 transition-all duration-200 hover:bg-sky-500/20 hover:text-sky-300 hover:scale-110 active:scale-95" title="Save search" aria-label="Save search">
-                        <svg className="h-4 w-4 transition-transform duration-200 group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <button onClick={saveSearch} className="flex h-11 w-11 items-center justify-center rounded-lg text-sky-400 transition-colors duration-200 hover:bg-sky-500/20 hover:text-sky-300" title="Save search" aria-label="Save search">
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                         </svg>
                       </button>
@@ -1031,9 +1030,9 @@ export default function Home() {
                 <div className="relative flex max-w-full gap-2 overflow-x-auto px-1 pb-0.5 scrollbar-none">
                   <button
                     onClick={() => setSelectedCategory("All")}
-                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-2.5 text-xs font-medium transition-all duration-200 active:scale-95 ${
+                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-2.5 text-xs font-medium transition-colors duration-200 ${
                       selectedCategory === "All"
-                        ? "border-sky-400/30 bg-sky-500/10 text-white shadow-[0_0_24px_rgba(14,165,233,0.1)] hover:shadow-[0_0_32px_rgba(14,165,233,0.15)]"
+                        ? "border-sky-400/30 bg-sky-500/10 text-white"
                         : "bg-[var(--card)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-hover)]"
                     }`}
                   >
@@ -1043,9 +1042,9 @@ export default function Home() {
                     <button
                       key={cat.name}
                       onClick={() => setSelectedCategory(cat.name)}
-                      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-2.5 text-xs font-medium transition-all duration-200 active:scale-95 ${
+                      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-2.5 text-xs font-medium transition-colors duration-200 ${
                         selectedCategory === cat.name
-                          ? "border-sky-400/30 bg-sky-500/10 text-white shadow-[0_0_24px_rgba(14,165,233,0.1)] hover:shadow-[0_0_32px_rgba(14,165,233,0.15)]"
+                          ? "border-sky-400/30 bg-sky-500/10 text-white"
                           : "bg-[var(--card)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-hover)]"
                       }`}
                     >
