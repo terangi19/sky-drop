@@ -947,13 +947,10 @@ export default function Home() {
             </div>
 
             {/* Search and Category Pills - integrated into hero */}
-            <div className="relative mx-auto mt-4 max-w-2xl rounded-2xl bg-[var(--background)] px-4 py-3 shadow-xl border border-white/[0.08]">
+            <div className="relative mx-auto mt-4 max-w-2xl rounded-2xl bg-[var(--background)] px-3 py-2.5 shadow-xl border border-white/[0.08]">
               {/* Search */}
               <div className="relative">
                 <div className="relative flex items-center rounded-xl bg-[var(--card)] shadow transition-all duration-200 group-focus-within:bg-[var(--card-hover)] ring-1 ring-sky-500/20">
-                  <svg className="ml-4 h-5 w-5 shrink-0 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
                   <input
                     type="text"
                     placeholder="Search listings..."
@@ -968,12 +965,12 @@ export default function Home() {
                         router.push(`/search?q=${encodeURIComponent(search.trim())}`);
                       }
                     }}
-                    className="flex-1 bg-transparent px-3 py-3.5 text-[16px] text-[var(--foreground)] outline-none placeholder:text-[var(--muted)] transition-colors"
+                    className="flex-1 bg-transparent px-4 py-2.5 text-[15px] text-[var(--foreground)] outline-none placeholder:text-[var(--muted)] transition-colors"
                   />
-                  <div className="mr-2 flex items-center gap-2">
+                  <div className="mr-2 flex items-center gap-1.5">
                     {search && (
-                      <button onClick={() => setSearch("")} className="flex h-11 w-11 items-center justify-center rounded-lg text-[var(--muted)] transition-colors duration-200 hover:bg-[var(--card-hover)] hover:text-[var(--foreground)]" aria-label="Clear search">
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                      <button onClick={() => setSearch("")} className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--muted)] transition-colors duration-200 hover:bg-[var(--card-hover)] hover:text-[var(--foreground)]" aria-label="Clear search">
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                       </button>
                     )}
                     <button
@@ -986,17 +983,17 @@ export default function Home() {
                         }
                       }}
                       disabled={!search.trim()}
-                      className="flex h-11 w-11 items-center justify-center rounded-lg text-sky-400 transition-colors duration-200 hover:bg-sky-500/20 hover:text-sky-300 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-sky-400"
+                      className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-500 text-white transition-colors duration-200 hover:bg-sky-400 disabled:opacity-30 disabled:bg-sky-500/50 disabled:hover:bg-sky-500/50"
                       title="Search"
                       aria-label="Search"
                     >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                       </svg>
                     </button>
                     {(search || selectedCategory !== "All") && (
-                      <button onClick={saveSearch} className="flex h-11 w-11 items-center justify-center rounded-lg text-sky-400 transition-colors duration-200 hover:bg-sky-500/20 hover:text-sky-300" title="Save search" aria-label="Save search">
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <button onClick={saveSearch} className="flex h-9 w-9 items-center justify-center rounded-lg text-sky-400 transition-colors duration-200 hover:bg-sky-500/20 hover:text-sky-300" title="Save search" aria-label="Save search">
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                         </svg>
                       </button>
@@ -1022,12 +1019,12 @@ export default function Home() {
                 )}
               </div>
 
-              {/* Category pills - inside solid background for uniform contrast */}
-              <div className="mt-3 flex justify-center">
-                <div className="relative flex max-w-full gap-2 overflow-x-auto px-1 pb-0.5 scrollbar-none">
+              {/* Category pills - connected to search */}
+              <div className="mt-2 flex justify-center">
+                <div className="relative flex max-w-full gap-1.5 overflow-x-auto px-0.5 pb-0 scrollbar-none">
                   <button
                     onClick={() => setSelectedCategory("All")}
-                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium transition-colors duration-200 ${
+                    className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1.5 text-xs font-medium transition-colors duration-200 ${
                       selectedCategory === "All"
                         ? "border-sky-400/30 bg-sky-500/10 text-white"
                         : "bg-[var(--card)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-hover)]"
@@ -1039,7 +1036,7 @@ export default function Home() {
                     <button
                       key={cat.name}
                       onClick={() => setSelectedCategory(cat.name)}
-                      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium transition-colors duration-200 ${
+                      className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1.5 text-xs font-medium transition-colors duration-200 ${
                         selectedCategory === cat.name
                           ? "border-sky-400/30 bg-sky-500/10 text-white"
                           : "bg-[var(--card)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-hover)]"
