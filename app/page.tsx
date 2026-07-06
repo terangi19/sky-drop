@@ -908,37 +908,37 @@ export default function Home() {
       {/* HERO / SEARCH SECTION */}
       <section className={`${PAGE_SHELL_WIDE} pt-0 pb-1`}>
         <div className="relative overflow-hidden rounded-2xl bg-[var(--card)]">
-          <div className="relative z-10 px-5 py-1.5 sm:px-6 sm:py-2">
+          <div className="relative z-10 px-5 py-4 sm:px-6 sm:py-5">
             <div className="mx-auto max-w-2xl text-center">
-              <h1 className="text-xl font-black tracking-tight text-white sm:text-2xl lg:text-3xl">
+              <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl lg:text-4xl">
                 Buy & Sell Smarter in New Zealand
               </h1>
-              <p className="mt-2 text-sm text-[var(--muted)] sm:text-base">
+              <p className="mt-3 text-base text-[var(--muted)] sm:text-lg">
                 Create listings in seconds with Āwhina AI.
               </p>
               {user ? (
-                <div className="mt-3 flex justify-center">
+                <div className="mt-4 flex justify-center">
                   <Link
                     href="/post/ai"
-                    className="inline-flex items-center gap-2 rounded-2xl bg-sky-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg transition-all duration-200 hover:bg-sky-400 hover:shadow-xl active:scale-[0.98]"
+                    className="inline-flex items-center gap-2 rounded-2xl bg-sky-500 px-6 py-3 text-base font-bold text-white shadow-lg transition-all duration-200 hover:bg-sky-400 hover:shadow-xl active:scale-[0.98]"
                   >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                     </svg>
                     Start Selling
                   </Link>
                 </div>
               ) : (
-                <div className="mt-3 flex flex-col items-center justify-center gap-2 sm:flex-row">
+                <div className="mt-4 flex flex-col items-center justify-center gap-3 sm:flex-row">
                   <Link
                     href="/signup"
-                    className="inline-flex items-center gap-2 rounded-2xl bg-sky-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg transition-all duration-200 hover:bg-sky-400 hover:shadow-xl active:scale-[0.98]"
+                    className="inline-flex items-center gap-2 rounded-2xl bg-sky-500 px-6 py-3 text-base font-bold text-white shadow-lg transition-all duration-200 hover:bg-sky-400 hover:shadow-xl active:scale-[0.98]"
                   >
                     Join Free
                   </Link>
                   <Link
                     href="/#listings"
-                    className="inline-flex items-center gap-2 rounded-2xl bg-white/[0.04] px-5 py-2.5 text-sm font-bold text-white transition-colors duration-200 hover:bg-white/[0.06]"
+                    className="inline-flex items-center gap-2 rounded-2xl bg-white/[0.04] px-6 py-3 text-base font-bold text-white transition-colors duration-200 hover:bg-white/[0.06]"
                   >
                     Browse Items
                   </Link>
@@ -1051,31 +1051,6 @@ export default function Home() {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* TRUST SIGNALS */}
-      <section className={`${PAGE_SHELL_WIDE} py-1`}>
-        <div className="flex flex-wrap justify-center gap-3 text-[11px] text-[var(--muted)]">
-          <div className="flex items-center gap-1">
-            <svg className="h-3.5 w-3.5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-            </svg>
-            <span>Stripe checkout available</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <svg className="h-3.5 w-3.5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-            </svg>
-            <span>Email verified sellers</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <svg className="h-3.5 w-3.5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            <span>NZ-based marketplace</span>
           </div>
         </div>
       </section>
@@ -1275,6 +1250,31 @@ export default function Home() {
           <p className="mt-8 text-center text-xs text-[var(--muted)]">All {filteredListings.length} listings loaded</p>
         )}
 
+      </section>
+
+      {/* TRUST SIGNALS */}
+      <section className={`${PAGE_SHELL_WIDE} py-4`}>
+        <div className="flex flex-wrap justify-center gap-4 text-xs text-[var(--muted)]">
+          <div className="flex items-center gap-1.5">
+            <svg className="h-4 w-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
+            <span>Stripe checkout available</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <svg className="h-4 w-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+            <span>Email verified sellers</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <svg className="h-4 w-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <span>NZ-based marketplace</span>
+          </div>
+        </div>
       </section>
 
       {deleteConfirm && (
