@@ -910,38 +910,35 @@ export default function Home() {
         <div className="relative overflow-hidden rounded-[2rem] bg-[var(--card)]">
           <div className="relative z-10 px-5 py-3 sm:px-6 sm:py-4">
             <div className="mx-auto max-w-2xl text-center">
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/[0.05] px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-[var(--muted)]">
-                NZ Marketplace
-              </div>
-              <h1 className="text-xl font-black tracking-tight text-white sm:text-3xl lg:text-4xl">
-                Buy & Sell Smarter in New Zealand
+              <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl lg:text-4xl">
+                Buy & Sell in New Zealand
               </h1>
-              <p className="mt-2 text-sm text-[var(--muted)] sm:text-base">
-                Create listings in seconds with Āwhina AI.
+              <p className="mt-3 text-base text-[var(--muted)] sm:text-lg">
+                Simple marketplace. Real people. No fees.
               </p>
               {user ? (
-                <div className="mt-4 flex justify-center">
+                <div className="mt-5 flex justify-center">
                   <Link
                     href="/post/ai"
-                    className="inline-flex items-center gap-2 rounded-2xl bg-sky-500 px-5 py-2.5 text-sm font-bold text-white transition-colors duration-200 hover:bg-sky-400 active:scale-[0.98]"
+                    className="inline-flex items-center gap-2 rounded-2xl bg-sky-500 px-6 py-3 text-base font-bold text-white shadow-lg transition-all duration-200 hover:bg-sky-400 hover:shadow-xl active:scale-[0.98]"
                   >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                     </svg>
                     Start Selling
                   </Link>
                 </div>
               ) : (
-                <div className="mt-4 flex flex-col items-center justify-center gap-2 sm:flex-row">
+                <div className="mt-5 flex flex-col items-center justify-center gap-3 sm:flex-row">
                   <Link
                     href="/signup"
-                    className="inline-flex items-center gap-2 rounded-2xl bg-sky-500 px-5 py-2.5 text-sm font-bold text-white transition-colors duration-200 hover:bg-sky-400 active:scale-[0.98]"
+                    className="inline-flex items-center gap-2 rounded-2xl bg-sky-500 px-6 py-3 text-base font-bold text-white shadow-lg transition-all duration-200 hover:bg-sky-400 hover:shadow-xl active:scale-[0.98]"
                   >
                     Join Free
                   </Link>
                   <Link
                     href="/#listings"
-                    className="inline-flex items-center gap-2 rounded-2xl bg-white/[0.04] px-5 py-2.5 text-sm font-bold text-white transition-all duration-300 hover:bg-white/[0.06]"
+                    className="inline-flex items-center gap-2 rounded-2xl bg-white/[0.04] px-6 py-3 text-base font-bold text-white transition-colors duration-200 hover:bg-white/[0.06]"
                   >
                     Browse Items
                   </Link>
