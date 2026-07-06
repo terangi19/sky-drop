@@ -1027,7 +1027,7 @@ export default function Home() {
                 <div className="relative flex max-w-full gap-2 overflow-x-auto px-1 pb-0.5 scrollbar-none">
                   <button
                     onClick={() => setSelectedCategory("All")}
-                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-2.5 text-xs font-medium transition-colors duration-200 ${
+                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium transition-colors duration-200 ${
                       selectedCategory === "All"
                         ? "border-sky-400/30 bg-sky-500/10 text-white"
                         : "bg-[var(--card)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-hover)]"
@@ -1039,7 +1039,7 @@ export default function Home() {
                     <button
                       key={cat.name}
                       onClick={() => setSelectedCategory(cat.name)}
-                      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-2.5 text-xs font-medium transition-colors duration-200 ${
+                      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium transition-colors duration-200 ${
                         selectedCategory === cat.name
                           ? "border-sky-400/30 bg-sky-500/10 text-white"
                           : "bg-[var(--card)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-hover)]"
