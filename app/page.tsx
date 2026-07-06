@@ -946,8 +946,8 @@ export default function Home() {
               )}
             </div>
 
-            {/* Search and Category Pills - solid background to block gradient */}
-            <div className="relative mx-auto mt-2 max-w-2xl rounded-2xl bg-[var(--background)] px-4 py-2 shadow-xl border border-white/[0.08]">
+            {/* Search and Category Pills - integrated into hero */}
+            <div className="relative mx-auto mt-4 max-w-2xl rounded-2xl bg-[var(--background)] px-4 py-3 shadow-xl border border-white/[0.08]">
               {/* Search */}
               <div className="relative">
                 <div className="relative flex items-center rounded-xl bg-[var(--card)] shadow transition-all duration-200 group-focus-within:bg-[var(--card-hover)] ring-1 ring-sky-500/20">
