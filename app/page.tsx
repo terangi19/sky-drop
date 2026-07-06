@@ -906,7 +906,7 @@ export default function Home() {
       )}
 
       {/* HERO / SEARCH SECTION */}
-      <section className={`${PAGE_SHELL_WIDE} pt-0 pb-1`}>
+      <section className={`${PAGE_SHELL_WIDE} pt-0 pb-0`}>
         <div className="relative overflow-hidden rounded-2xl bg-[var(--card)]">
           <div className="relative z-10 px-5 py-4 sm:px-6 sm:py-5">
             <div className="mx-auto max-w-2xl text-center">
@@ -1053,7 +1053,7 @@ export default function Home() {
       </section>
 
       {/* LISTINGS */}
-      <section id="listings" className={`${PAGE_SHELL_MARKETPLACE} pb-10`}>
+      <section id="listings" className={`${PAGE_SHELL_MARKETPLACE} pb-6`}>
         <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
           <div className="flex items-center gap-4">
             <h2 className="text-xl font-bold tracking-tight text-white sm:text-2xl">
@@ -1250,7 +1250,7 @@ export default function Home() {
       </section>
 
       {/* TRUST SIGNALS */}
-      <section className={`${PAGE_SHELL_WIDE} py-4`}>
+      <section className={`${PAGE_SHELL_WIDE} py-2`}>
         <div className="flex flex-wrap justify-center gap-4 text-xs text-[var(--muted)]">
           <div className="flex items-center gap-1.5">
             <svg className="h-4 w-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1296,7 +1296,7 @@ export default function Home() {
 
       {/* RECENTLY VIEWED */}
       {recentlyViewed.length > 0 && (
-        <section className={`${PAGE_SHELL_MARKETPLACE} pb-4`}>
+        <section className={`${PAGE_SHELL_MARKETPLACE} pb-2`}>
           <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.12em] text-white">Recently viewed</p>
           <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
             {recentlyViewed.map((item) => (
@@ -1325,7 +1325,7 @@ export default function Home() {
 
       {/* RECENTLY SOLD */}
       {listings.filter((l) => !isListingVisibleInMarketplace(l)).length > 0 && (
-        <section className={`${PAGE_SHELL_MARKETPLACE} pb-4`}>
+        <section className={`${PAGE_SHELL_MARKETPLACE} pb-2`}>
           <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.12em] text-white">Recently sold</p>
           <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
             {listings.filter((l) => !isListingVisibleInMarketplace(l)).slice(0, 6).map((item) => (
