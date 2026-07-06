@@ -1055,6 +1055,31 @@ export default function Home() {
         </div>
       </section>
 
+      {/* TRUST SIGNALS */}
+      <section className={`${PAGE_SHELL_WIDE} py-2`}>
+        <div className="flex flex-wrap justify-center gap-4 text-xs text-[var(--muted)]">
+          <div className="flex items-center gap-1.5">
+            <svg className="h-4 w-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
+            <span>Stripe checkout available</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <svg className="h-4 w-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+            <span>Email verified sellers</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <svg className="h-4 w-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <span>NZ-based marketplace</span>
+          </div>
+        </div>
+      </section>
+
       {/* LISTINGS */}
       <section id="listings" className={`${PAGE_SHELL_MARKETPLACE} pb-10`}>
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
