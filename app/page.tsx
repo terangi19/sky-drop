@@ -906,8 +906,8 @@ export default function Home() {
       )}
 
       {/* HERO / SEARCH SECTION */}
-      <section className={`${PAGE_SHELL_WIDE} pt-1 sm:pt-2`}>
-        <div className="relative overflow-hidden rounded-[2rem] bg-[var(--card)]">
+      <section className={`${PAGE_SHELL_WIDE} pt-0 pb-2`}>
+        <div className="relative overflow-hidden rounded-2xl bg-[var(--card)]">
           <div className="relative z-10 px-5 py-3 sm:px-6 sm:py-4">
             <div className="mx-auto max-w-2xl text-center">
               <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl lg:text-4xl">
@@ -1110,7 +1110,7 @@ export default function Home() {
       <section id="listings" className={`${PAGE_SHELL_MARKETPLACE} pb-10`}>
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
           <div className="flex items-center gap-4">
-            <h2 className="text-base font-semibold tracking-tight text-white sm:text-lg">
+            <h2 className="text-xl font-bold tracking-tight text-white sm:text-2xl">
               {selectedCategory !== "All" ? selectedCategory : "Latest listings"}
             </h2>
             {(selectedCategory !== "All" || selectedCondition !== "All" || selectedRegion !== "All" || search) ? (
