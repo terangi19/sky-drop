@@ -87,7 +87,12 @@ export function isAdminInitialized(): boolean {
 }
 
 // Verify a Firebase ID token — Admin SDK when service account is configured
-export async function verifyIdToken(idToken: string): Promise<{ uid: string; email?: string; email_verified?: boolean }> {
+export async function verifyIdToken(idToken: string): Promise<{
+  uid: string;
+  email?: string;
+  email_verified?: boolean;
+  auth_time?: number;
+}> {
   const trimmed = idToken?.trim();
   if (!trimmed) {
     throw new Error("Missing authentication token");
@@ -100,6 +105,7 @@ export async function verifyIdToken(idToken: string): Promise<{ uid: string; ema
         uid: decoded.uid,
         email: decoded.email,
         email_verified: decoded.email_verified,
+        auth_time: decoded.auth_time,
       };
     } catch (e: unknown) {
       const err = e as { code?: string; message?: string; errorInfo?: { code?: string } };

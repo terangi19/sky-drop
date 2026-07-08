@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
 
     const db = getAdminDb();
     const doc = await db.collection("config").doc("announcement").get();
-    const existing = doc.exists ? doc.data() : {};
+    const existing: { message?: string; active?: boolean } = doc.exists ? doc.data() ?? {} : {};
 
     // If same message already active, dismiss it
     if (existing.message === message && existing.active) {

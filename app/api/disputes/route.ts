@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { QueryDocumentSnapshot } from "firebase-admin/firestore";
 import { getStripe } from "../../lib/stripe-server";
 import { verifyIdToken, getServerDb } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
         .where("purchaseId", "==", purchaseId)
         .limit(5)
         .get();
-      const hasOpenDispute = openDisputes.docs.some((d) => {
+      const hasOpenDispute = openDisputes.docs.some((d: QueryDocumentSnapshot) => {
         const status = String(d.data().status || "");
         return status === "open" || status === "under_review";
       });

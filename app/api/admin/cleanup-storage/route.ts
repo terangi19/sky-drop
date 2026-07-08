@@ -90,6 +90,7 @@ export async function POST(req: NextRequest) {
       if (file.name.includes("/thumbnails/")) {
         try {
           const [metadata] = await file.getMetadata();
+          if (!metadata.timeCreated) continue;
           const createdDate = new Date(metadata.timeCreated);
 
           if (createdDate < thirtyDaysAgo) {

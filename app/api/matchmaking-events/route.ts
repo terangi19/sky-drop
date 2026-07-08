@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
       try {
         const listingDoc = await db.collection("listings").doc(data.sourceListingId).get();
         if (listingDoc.exists) {
-          const listingData = listingDoc.data();
+          const listingData = listingDoc.data() || {};
           listingTitle = listingData.title || "Unknown listing";
           listingImage = listingData.images?.[0] || listingData.imageUrl || listingData.image || "";
         }
@@ -93,7 +93,7 @@ export async function GET(req: NextRequest) {
       try {
         const listingDoc = await db.collection("listings").doc(data.sourceListingId).get();
         if (listingDoc.exists) {
-          const listingData = listingDoc.data();
+          const listingData = listingDoc.data() || {};
           listingTitle = listingData.title || "Unknown listing";
           listingImage = listingData.images?.[0] || listingData.imageUrl || listingData.image || "";
         }

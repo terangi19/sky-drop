@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     const failures: string[] = [];
 
     await Promise.all(
-      messageIds.map(async (messageId) => {
+      messageIds.map(async (messageId: string) => {
         try {
           const ref = db.collection("messages").doc(messageId);
           const snap = await ref.get();

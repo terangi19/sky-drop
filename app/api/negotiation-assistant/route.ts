@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
     try {
       const listingDoc = await db.collection("listings").doc(listingId).get();
       if (listingDoc.exists) {
-        const data = listingDoc.data();
+        const data = listingDoc.data() || {};
         const createdAt = data.createdAt?.toMillis?.() || Date.now();
         const daysSinceCreation = (Date.now() - createdAt) / (1000 * 60 * 60 * 24);
 
