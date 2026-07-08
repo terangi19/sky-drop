@@ -103,8 +103,8 @@ export async function POST(req: NextRequest) {
       if (meta.listingId && meta.buyerUid && meta.title) {
         const db = getAdminDb();
 
-        const listingCollection = meta.collectionName || "listings";
-        const listingDoc = await db.collection(listingCollection).doc(meta.listingId).get();
+        // Always read from "listings" collection — never from a user-supplied collection name
+        const listingDoc = await db.collection("listings").doc(meta.listingId).get();
         if (!listingDoc.exists) {
           await eventRef.update({ status: "completed", processedAt: new Date() });
           return NextResponse.json({ received: true });
@@ -132,7 +132,6 @@ export async function POST(req: NextRequest) {
           total,
           type: listingType,
           stripePaymentIntentId: pi.id,
-          collectionName: meta.collectionName || "listings",
           destinationCharge: true,
         });
       }
