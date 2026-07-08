@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
@@ -34,14 +34,37 @@ export default function SearchPage() {
   const [savedSearches, setSavedSearches] = useState<any[]>([]);
   const [searchSaved, setSearchSaved] = useState(false);
 
+  // Sync filter state to URL params so search survives refresh and is shareable
   useEffect(() => {
     const max = searchParams.get("maxPrice");
     const min = searchParams.get("minPrice");
     const loc = searchParams.get("location");
+    const cond = searchParams.get("condition");
+    const sort = searchParams.get("sortBy");
     if (max) setMaxPrice(max);
     if (min) setMinPrice(min);
     if (loc) setLocation(loc);
+    if (cond) setCondition(cond);
+    if (sort) setSortBy(sort);
   }, [searchParams]);
+
+  // Push filter state to URL on change (debounced to avoid spam on rapid clicks)
+  const [urlSyncReady, setUrlSyncReady] = useState(false);
+  useEffect(() => {
+    if (!urlSyncReady) { setUrlSyncReady(true); return; }
+    const params = new URLSearchParams();
+    if (query) params.set("q", query);
+    if (minPrice) params.set("minPrice", minPrice);
+    if (maxPrice) params.set("maxPrice", maxPrice);
+    if (condition !== "all") params.set("condition", condition);
+    if (location !== "all") params.set("location", location);
+    if (sortBy !== "newest") params.set("sortBy", sortBy);
+    const qs = params.toString();
+    const currentQs = window.location.search.replace("?", "");
+    if (qs !== currentQs) {
+      router.replace(`${window.location.pathname}?${qs}`, { scroll: false });
+    }
+  }, [minPrice, maxPrice, condition, location, sortBy, query]);
 
   useEffect(() => {
     if (!user) {
