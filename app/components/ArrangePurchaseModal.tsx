@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { auth } from "../lib/firebase";
 import { getFreshIdToken } from "../lib/api-auth";
 import { trackFunnelEvent } from "../lib/funnel-events";
+import { sellerMessagesUrl } from "../lib/public-display";
 import { showToast } from "./Toast";
 import AnimatedCheckmark from "./AnimatedCheckmark";
 
@@ -180,7 +181,7 @@ export default function ArrangePurchaseModal({ listing, buyerEmail, onClose, onS
 
             <div className="mt-5 space-y-2">
               <button
-                onClick={() => router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listing.id}`)}
+                onClick={() => router.push(sellerMessagesUrl(listing, listing.id))}
                 className="w-full rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-sky-400"
               >
                 Open Chat

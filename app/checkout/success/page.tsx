@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { auth } from "../../lib/firebase";
 import stripePromise from "../../lib/stripe-client";
@@ -12,15 +13,13 @@ function SuccessInner() {
   const [purchaseData, setPurchaseData] = useState<{ purchaseId: string; orderId: string; conversationId: string; title: string; price: string } | null>(null);
 
   const listingId = searchParams.get("listingId") || "";
+  const purchaseId = searchParams.get("purchaseId") || "";
   const title = searchParams.get("title") || "Listing";
   const price = searchParams.get("price") || "0";
-  const buyerEmail = searchParams.get("buyerEmail") || "";
-  const collectionName = searchParams.get("collectionName") || "listings";
   const badgeForSale = searchParams.get("badgeForSale") || "";
   const digitalParam = searchParams.get("type") || "";
   const digitalStoragePath = searchParams.get("digitalStoragePath") || "";
   const digitalFileName = searchParams.get("digitalFileName") || "";
-  const sellerEmailParam = searchParams.get("sellerEmail") || "";
 
   const hasRun = useRef(false);
 
@@ -38,7 +37,7 @@ function SuccessInner() {
     }
 
     async function verifyAndDisplay() {
-      if (!listingId || !buyerEmail || !paymentIntentClientSecret) {
+      if (!listingId || !paymentIntentClientSecret) {
         setStatus("done");
         return;
       }
@@ -52,6 +51,7 @@ function SuccessInner() {
           setStatus("done");
           return;
         }
+        const confirmedTotal = Number(paymentIntentResult.paymentIntent.amount || 0) / 100;
 
         const isBadge = !!badgeForSale;
         const isDigital = digitalParam === "digital";
@@ -67,30 +67,36 @@ function SuccessInner() {
         }
 
         const token = await auth.currentUser?.getIdToken();
-        const createRes = await fetch("/api/create-purchase", {
+        const endpoint = purchaseId ? "/api/pay-offer" : "/api/create-purchase";
+        const payload = purchaseId
+          ? {
+              purchaseId,
+              stripePaymentIntentId: paymentIntentResult.paymentIntent.id,
+              total: confirmedTotal,
+            }
+          : {
+              listingId,
+              listingTitle: title,
+              listingImage: "",
+              deliveryMethod: isBadge ? "badge" : isDigital ? "digital" : isService ? "service" : "pickup",
+              total: confirmedTotal,
+              processingFee: 1.00,
+              badgeTransfer: badgeForSale || "",
+              type: isBadge ? "badge" : isDigital ? "digital" : isService ? "service" : "physical",
+              digitalFileURL: resolvedDigitalURL,
+              digitalFileName: isDigital ? (digitalFileName || "File") : "",
+              status: isDigital ? "delivered" : isBadge ? "pending" : isService ? "in_progress" : "pending",
+              disputeDeadline: isDigital ? new Date(Date.now() + 48 * 3600000).toISOString() : isService ? new Date(Date.now() + 7 * 86400000).toISOString() : null,
+              stripePaymentIntentId: paymentIntentResult.paymentIntent.id,
+            };
+
+        const createRes = await fetch(endpoint, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             ...(token ? { "Authorization": `Bearer ${token}` } : {}),
           },
-          body: JSON.stringify({
-            listingId,
-            listingTitle: title,
-            listingImage: "",
-            sellerEmail: sellerEmailParam || undefined,
-            buyerName: buyerEmail,
-            deliveryMethod: isBadge ? "badge" : isDigital ? "digital" : isService ? "service" : "pickup",
-            total: Number(price) + 1,
-            processingFee: 1.00,
-            badgeTransfer: badgeForSale || "",
-            type: isBadge ? "badge" : isDigital ? "digital" : isService ? "service" : "physical",
-            digitalFileURL: resolvedDigitalURL,
-            digitalFileName: isDigital ? (digitalFileName || "File") : "",
-            status: isDigital ? "delivered" : isBadge ? "pending" : isService ? "in_progress" : "pending",
-            disputeDeadline: isDigital ? new Date(Date.now() + 48 * 3600000).toISOString() : isService ? new Date(Date.now() + 7 * 86400000).toISOString() : null,
-            stripePaymentIntentId: paymentIntentResult.paymentIntent.id,
-            collectionName,
-          }),
+          body: JSON.stringify(payload),
         });
         const createData = await createRes.json();
         if (!createRes.ok || !createData.success) {
@@ -115,7 +121,7 @@ function SuccessInner() {
 
     verifyAndDisplay();
     return () => { cancelled = true; };
-  }, [listingId, title, price, buyerEmail, badgeForSale, digitalParam, digitalStoragePath, digitalFileName, sellerEmailParam, collectionName, searchParams]);
+  }, [listingId, purchaseId, title, price, badgeForSale, digitalParam, digitalStoragePath, digitalFileName, searchParams]);
 
   const redirectToMessages = () => {
     const url = purchaseData?.conversationId
@@ -158,12 +164,12 @@ function SuccessInner() {
                 >
                   View Messages
                 </button>
-                <a
+                <Link
                   href="/"
                   className="text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
                 >
                   Back to Marketplace
-                </a>
+                </Link>
               </div>
             </>
           )}

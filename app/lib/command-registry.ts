@@ -72,7 +72,7 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
       "orders", "my orders page", "recent purchases", "view purchases",
       "my bought items", "order status", "track orders",
     ],
-    phoneticAliases: ["purchas", "purches", "my order", "purchase history", "purchis"],
+    phoneticAliases: ["purchas", "purches", "purcheses", "my order", "purchase history", "purchis"],
   },
 
   // ── Sales ──
@@ -219,7 +219,7 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
 
   // ── Admin ──
   {
-    path: "/admin",
+    path: "/manage",
     title: "Admin",
     aliases: [
       "admin", "admin panel", "administration", "dashboard admin",

@@ -56,6 +56,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Payment has not succeeded (status: ${paymentIntent.status})` }, { status: 400 });
     }
 
+    const metadata = paymentIntent.metadata || {};
+    if (metadata.purchaseId && metadata.purchaseId !== purchaseId) {
+      return NextResponse.json({ error: "Payment does not match this accepted offer" }, { status: 400 });
+    }
+    if (metadata.buyerEmail && metadata.buyerEmail !== buyerEmail) {
+      return NextResponse.json({ error: "Payment does not match your account" }, { status: 400 });
+    }
+
     const totalCents = Math.round((Number(total) || 0) * 100);
     if (totalCents > 0 && paymentIntent.amount !== totalCents) {
       return NextResponse.json({ error: "PaymentIntent amount does not match purchase total" }, { status: 400 });

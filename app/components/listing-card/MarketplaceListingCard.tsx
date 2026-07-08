@@ -13,6 +13,10 @@ import {
 import { SellerReviewSummary } from "../SellerReviewStars";
 import ListingImage, { listingHasImage } from "../ListingImage";
 import { purchaseButtonTitle, shortPurchaseLabel } from "../../lib/purchase-button-labels";
+import {
+  sellerProfileDisplayName,
+  sellerProfileSlug,
+} from "../../lib/public-display";
 
 export type MarketplaceListingCardProps = {
   item: Record<string, any>;
@@ -404,17 +408,17 @@ export default memo(function MarketplaceListingCard({
         </div>
 
         <Link
-          href={
-            user?.email === item.sellerEmail
-              ? "#"
-              : `/seller/${item.sellerUsername || item.sellerEmail}`
-          }
+          href={(() => {
+            const slug = sellerProfileSlug(item);
+            if (user?.email === item.sellerEmail || !slug) return "#";
+            return `/seller/${slug}`;
+          })()}
           onClick={(e) => e.stopPropagation()}
           className="block hover:cursor-pointer"
         >
           {(() => {
             const email = item.sellerEmail;
-            const username = item.sellerUsername || email?.split("@")[0] || "—";
+            const username = sellerProfileDisplayName(item, "Seller");
             const initial = username.charAt(0).toUpperCase();
             const stats = sellerReviewStats[email || ""];
             const avgRating = stats ? stats.avg : 0;

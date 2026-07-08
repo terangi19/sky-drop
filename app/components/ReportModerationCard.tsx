@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { auth } from "../lib/firebase";
+import { sellerMessagesUrl, sellerProfileSlug } from "../lib/public-display";
 import { showToast } from "./Toast";
 
 export type ModerationReport = {
@@ -35,8 +36,7 @@ type ReportAction =
 
 function fmtUser(username?: string | null, email?: string) {
   if (username) return `@${username.replace(/^@/, "")}`;
-  if (email) return email.split("@")[0];
-  return "Unknown";
+  return "User";
 }
 
 function fmtDateTime(ms?: number | null) {
@@ -70,17 +70,21 @@ export default function ReportModerationCard({ report, onActionComplete, compact
 
   const reportedHandle = fmtUser(report.reportedUsername, report.reportedUserEmail);
   const reporterHandle = fmtUser(report.reporterUsername, report.reporterUserEmail);
-  const conversationHref = report.listingId
-    ? `/messages?user=${encodeURIComponent(report.reportedUserEmail || "")}&listing=${report.listingId}`
-    : `/messages?user=${encodeURIComponent(report.reportedUserEmail || "")}`;
+  const conversationHref = sellerMessagesUrl(
+    {
+      sellerUsername: report.reportedUsername || undefined,
+      sellerId: report.reportedUserId,
+    },
+    report.listingId
+  );
   const historyHref = report.reportedUserEmail
     ? `/manage/reports?against=${encodeURIComponent(report.reportedUserEmail)}`
     : "/manage/reports";
-  const profileHref = report.reportedUsername
-    ? `/seller/${encodeURIComponent(report.reportedUsername.replace(/^@/, ""))}`
-    : report.reportedUserEmail
-      ? `/seller/${encodeURIComponent(report.reportedUserEmail)}`
-      : null;
+  const profileSlug = sellerProfileSlug({
+    sellerUsername: report.reportedUsername || undefined,
+    sellerId: report.reportedUserId,
+  });
+  const profileHref = profileSlug ? `/seller/${encodeURIComponent(profileSlug)}` : null;
 
   async function runAction(action: ReportAction, confirmMessage?: string) {
     if (confirmMessage && !confirm(confirmMessage)) return;

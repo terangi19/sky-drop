@@ -8,6 +8,7 @@ import { auth, db } from "../lib/firebase";
 import { createNotification } from "../lib/notifications";
 import { calculateTrustScore } from "../lib/trustscore";
 import { playSuccess } from "../lib/sounds";
+import { buildCheckoutSuccessUrl } from "../lib/payment-checkout";
 import AnimatedCheckmark from "./AnimatedCheckmark";
 import { isListingAvailableForPurchase } from "../lib/listing-availability";
 
@@ -24,8 +25,8 @@ interface Props {
   onClose: () => void;
 }
 
-function PaymentForm({ total, listingId, title, buyerEmail, sellerEmail, onSuccess, onBack }: {
-  total: number; listingId: string; title: string; buyerEmail: string; sellerEmail: string; onSuccess: (id: string) => void; onBack: () => void;
+function PaymentForm({ total, listingId, title, purchaseId, onSuccess, onBack }: {
+  total: number; listingId: string; title: string; purchaseId?: string; onSuccess: (id: string) => void; onBack: () => void;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -43,7 +44,13 @@ function PaymentForm({ total, listingId, title, buyerEmail, sellerEmail, onSucce
     const { error: submitError } = await stripe.confirmPayment({
       elements,
       confirmParams: {
-        return_url: `${window.location.origin}/checkout/success?listingId=${encodeURIComponent(listingId)}&title=${encodeURIComponent(title)}&price=${encodeURIComponent(String(total))}&buyerEmail=${encodeURIComponent(buyerEmail)}&sellerEmail=${encodeURIComponent(sellerEmail)}&type=service`,
+        return_url: buildCheckoutSuccessUrl(window.location.origin, {
+          listingId,
+          purchaseId,
+          title,
+          price: String(total),
+          type: "service",
+        }),
       },
       redirect: "if_required",
     });
@@ -161,6 +168,7 @@ export default function OfferPaymentModal({ amount, listingTitle, listingId, sel
           price: String(total),
           listingId,
           imageUrl: listingImage || "",
+          purchaseId: purchaseId || "",
         }),
       });
       const data = await res.json();
@@ -184,7 +192,6 @@ export default function OfferPaymentModal({ amount, listingTitle, listingId, sel
       if (!token) { setStep("form"); return; }
 
       let resultPurchaseId = "";
-      let resultOrderId = "";
 
       if (initialPurchaseId) {
         // Offer payment — purchase already exists, update via /api/pay-offer
@@ -204,7 +211,6 @@ export default function OfferPaymentModal({ amount, listingTitle, listingId, sel
           return;
         }
         resultPurchaseId = payData.purchaseId || initialPurchaseId;
-        resultOrderId = payData.orderId || "";
       } else {
         // Direct purchase (service buy-now)
         const createRes = await fetch("/api/create-purchase", {
@@ -364,7 +370,7 @@ export default function OfferPaymentModal({ amount, listingTitle, listingId, sel
                     </div>
                   </div>
                   <Elements stripe={stripePromise} options={{ clientSecret }}>
-                    <PaymentForm total={total} listingId={listingId} title={listingTitle} buyerEmail={buyerEmail} sellerEmail={sellerEmail} onSuccess={handlePaymentSuccess} onBack={() => setStep("form")} />
+                    <PaymentForm total={total} listingId={listingId} title={listingTitle} purchaseId={initialPurchaseId} onSuccess={handlePaymentSuccess} onBack={() => setStep("form")} />
                   </Elements>
                 </div>
               )}

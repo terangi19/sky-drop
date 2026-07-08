@@ -16,6 +16,7 @@ import {
   adminGetSellerProfileByEmail,
   requireAdminForCheckout,
 } from "../../lib/checkout-server";
+import { sanitizeCheckoutCollectionName } from "../../lib/payment-checkout";
 
 export async function POST(req: NextRequest) {
   let stripePaymentIntentIdForRecovery = "";
@@ -58,8 +59,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Could not determine buyer email" }, { status: 400 });
     }
 
-    const collectionName = body.collectionName || "listings";
-
     const stripe = getStripe();
     let paymentIntent;
     try {
@@ -76,6 +75,9 @@ export async function POST(req: NextRequest) {
     }
 
     const meta = paymentIntent.metadata || {};
+    const collectionName = sanitizeCheckoutCollectionName(
+      meta.collectionName || body.collectionName || "listings"
+    );
     if (meta.listingId && meta.listingId !== listingId) {
       return NextResponse.json({ error: "Payment does not match this listing" }, { status: 400 });
     }

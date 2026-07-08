@@ -6,6 +6,7 @@ import {
 } from "./profile-display-admin";
 import { publicHandleFromProfile } from "./public-display";
 import type { Firestore } from "firebase-admin/firestore";
+import { sanitizeCheckoutCollectionName } from "./payment-checkout";
 import {
   assertListingAvailableForPurchase,
   buildListingUpdateAfterSale,
@@ -159,7 +160,7 @@ export async function createPurchaseWithAdmin(input: CreatePurchaseInput): Promi
   const db = getAdminDb();
   const { buyerName } = await resolveBuyerIdentity(input.buyerEmail, input.buyerName);
   const convId = makeConversationId(input.listingId, input.buyerEmail);
-  const colRef = input.collectionName || "listings";
+  const colRef = sanitizeCheckoutCollectionName(input.collectionName || "listings");
   const now = input.paidAt ? new Date(input.paidAt) : new Date();
 
   let orderId = "";
@@ -239,8 +240,8 @@ export async function createPurchaseWithAdmin(input: CreatePurchaseInput): Promi
       total: input.total || Number(listing.price || 0) + (input.processingFee ?? 1.00),
       badgeTransfer: input.badgeTransfer || "",
       type,
-      digitalFileURL: input.digitalFileURL || "",
-      digitalFileName: input.digitalFileName || "",
+      digitalFileURL: input.digitalFileURL || String(listing.digitalFileURL || ""),
+      digitalFileName: input.digitalFileName || String(listing.digitalFileName || ""),
       status: computedStatus,
       destinationCharge: input.destinationCharge ?? true,
       paidAt: now,
@@ -357,7 +358,7 @@ export async function createPurchaseWithRest(
   const { buyerName } = await resolveBuyerIdentity(input.buyerEmail, input.buyerName);
   const purchaseId = makePurchaseId(input.listingId, input.buyerEmail);
   const convId = makeConversationId(input.listingId, input.buyerEmail);
-  const colRef = input.collectionName || "listings";
+  const colRef = sanitizeCheckoutCollectionName(input.collectionName || "listings");
 
   let orderId = "";
   let conversationId = "";

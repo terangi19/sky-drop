@@ -16,6 +16,7 @@ import { createNotification } from "../lib/notifications";
 import { awardXP } from "../lib/xp";
 import { showToast } from "../components/Toast";
 import { InteractiveReviewStars } from "../components/SellerReviewStars";
+import { sellerMessagesUrl, sellerProfileSlug } from "../lib/public-display";
 
 interface Purchase {
   id: string;
@@ -25,6 +26,7 @@ interface Purchase {
   listingImage: string;
   sellerEmail: string;
   sellerUsername?: string;
+  sellerId?: string;
   buyerEmail: string;
   buyerName: string;
   buyerPhone: string;
@@ -537,7 +539,7 @@ export default function PurchasesPage() {
                           <Link href={`/post/listing/${p.listingId}`} className="text-sm font-bold text-[var(--foreground)] transition hover:text-sky-400 line-clamp-1">{p.listingTitle}</Link>
                           <p className="mt-0.5 text-sm font-semibold text-sky-400">${Number(p.listingPrice).toFixed(2)}</p>
                           <div className="mt-0.5 flex items-center gap-2 text-[11px] text-[var(--muted)]">
-                            <Link href={`/seller/${p.sellerEmail}`} className="hover:text-sky-400 transition-colors">Seller</Link>
+                            <Link href={`/seller/${sellerProfileSlug(p)}`} className="hover:text-sky-400 transition-colors">Seller</Link>
                             {p.createdAt && <span>· {formatDate(p.createdAt)}</span>}
                           </div>
                         </div>
@@ -586,7 +588,7 @@ export default function PurchasesPage() {
                       })()}
 
                       <div className="mt-3 flex items-center gap-2 flex-wrap">
-                        <Link href={`/messages?user=${encodeURIComponent(p.sellerUsername || p.sellerEmail || "")}&listing=${p.listingId}`}
+                        <Link href={sellerMessagesUrl(p, p.listingId)}
                           className="rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-1.5 text-[11px] font-bold text-[var(--muted)] transition hover:bg-[var(--card-hover)] hover:text-[var(--foreground)] active:scale-[0.97]">
                           Message
                         </Link>

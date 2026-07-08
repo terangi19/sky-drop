@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "../../lib/stripe-server";
-import { verifyIdToken } from "../../lib/firebase-admin";
+import { getAdminDb, verifyIdToken } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import { validateSellerForCheckout } from "../../lib/seller-payments";
 import { isListingAvailableForPurchase } from "../../lib/listing-availability";
@@ -11,9 +11,17 @@ import {
   adminReserveListing,
   requireAdminForCheckout,
 } from "../../lib/checkout-server";
+import { sanitizeCheckoutCollectionName } from "../../lib/payment-checkout";
 
 const PROCESSING_FEE = 1.0;
 const RESERVATION_MS = 15 * 60 * 1000;
+
+async function adminGetPurchase(purchaseId: string): Promise<Record<string, unknown> | null> {
+  requireAdminForCheckout();
+  const snap = await getAdminDb().collection("purchases").doc(purchaseId).get();
+  if (!snap.exists) return null;
+  return snap.data() as Record<string, unknown>;
+}
 
 function listingExpiresMs(listingData: Record<string, unknown>): number | null {
   const expiresAt = listingData.expiresAt as { toMillis?: () => number } | string | undefined;
@@ -102,11 +110,9 @@ export async function POST(req: NextRequest) {
       deliveryMethod,
       winningBid,
       shippingFee,
+      purchaseId,
     } = body;
-    const collectionName =
-      typeof collectionNameBody === "string" && collectionNameBody
-        ? collectionNameBody
-        : "listings";
+    const collectionName = sanitizeCheckoutCollectionName(collectionNameBody);
 
     if (!listingId || price == null || price === "" || !title) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -187,11 +193,29 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const expectedTotal = computeCheckoutTotal(listingData, {
+    let expectedTotal = computeCheckoutTotal(listingData, {
       deliveryMethod: typeof deliveryMethod === "string" ? deliveryMethod : undefined,
       winningBid: winningBid != null ? Number(winningBid) : undefined,
       shippingFee: shippingFee != null ? Number(shippingFee) : undefined,
     });
+
+    if (typeof purchaseId === "string" && purchaseId.trim()) {
+      const purchaseSnap = await adminGetPurchase(purchaseId.trim());
+      if (!purchaseSnap) {
+        return NextResponse.json({ error: "Accepted offer not found" }, { status: 404 });
+      }
+      const purchase = purchaseSnap;
+      if (String(purchase.buyerEmail || "") !== String(decodedToken.email || "")) {
+        return NextResponse.json({ error: "Offer payment does not match your account" }, { status: 403 });
+      }
+      if (String(purchase.listingId || "") !== listingId) {
+        return NextResponse.json({ error: "Offer payment does not match this listing" }, { status: 400 });
+      }
+      if (String(purchase.status || "") !== "offer_accepted") {
+        return NextResponse.json({ error: "This offer is no longer payable" }, { status: 400 });
+      }
+      expectedTotal = Number(purchase.total) || expectedTotal;
+    }
     if (Math.abs(expectedTotal - Number(price)) > 0.02) {
       return NextResponse.json(
         {
@@ -201,7 +225,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await adminReserveListing(collectionName, listingId, decodedToken.uid);
+    try {
+      await adminReserveListing(collectionName, listingId, decodedToken.uid);
+    } catch (reservationError) {
+      const message =
+        reservationError instanceof Error ? reservationError.message : String(reservationError);
+      if (message.includes("LISTING_RESERVED")) {
+        return NextResponse.json(
+          { error: "Someone else is checking out this item. Please try again shortly." },
+          { status: 409 }
+        );
+      }
+      throw reservationError;
+    }
 
     const sellerProfile = await adminGetSellerProfileByEmail(sellerEmail);
     const sellerError = validateSellerForCheckout(sellerProfile);
@@ -228,6 +264,7 @@ export async function POST(req: NextRequest) {
         metadata: {
           listingId,
           title,
+          purchaseId: typeof purchaseId === "string" ? purchaseId.trim() : "",
           buyerUid: decodedToken.uid,
           buyerEmail: decodedToken.email || "",
           sellerEmail,
@@ -240,7 +277,11 @@ export async function POST(req: NextRequest) {
         },
         application_fee_amount: applicationFeeAmount,
       },
-      { idempotencyKey: `payment-${listingId}-${decodedToken.uid}` }
+      {
+        idempotencyKey: purchaseId
+          ? `payment-offer-${String(purchaseId).trim()}-${decodedToken.uid}`
+          : `payment-${listingId}-${decodedToken.uid}`,
+      }
     );
 
     return NextResponse.json({

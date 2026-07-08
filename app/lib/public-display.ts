@@ -7,9 +7,18 @@ export type PublicProfileFields = {
 };
 
 export type SellerLinkFields = PublicProfileFields & {
+  buyerUsername?: string;
+  reportedUsername?: string;
+  reporterUsername?: string;
   sellerUsername?: string;
   sellerEmail?: string;
+  buyerEmail?: string;
+  sellerId?: string;
+  buyerId?: string;
+  reportedUserId?: string;
+  reporterUserId?: string;
   email?: string;
+  uid?: string;
 };
 
 export function isEmailLike(value: string | undefined | null): boolean {
@@ -46,15 +55,31 @@ export function publicNameFromProfile(
   return handle === fallback ? fallback : stripAtPrefix(handle);
 }
 
-/** Path segment for `/seller/[slug]` — username first, email only for lookup fallback. */
+/** Path segment for `/seller/[slug]` — username first, then UID. Never expose email publicly. */
 export function sellerProfileSlug(
   fields: SellerLinkFields | null | undefined
 ): string {
-  for (const raw of [fields?.sellerUsername, fields?.username]) {
+  for (const raw of [
+    fields?.sellerUsername,
+    fields?.buyerUsername,
+    fields?.reportedUsername,
+    fields?.reporterUsername,
+    fields?.username,
+  ]) {
     const v = String(raw || "").trim();
     if (v && !isEmailLike(v)) return stripAtPrefix(v);
   }
-  return String(fields?.sellerEmail || fields?.email || "").trim();
+  for (const raw of [
+    fields?.sellerId,
+    fields?.buyerId,
+    fields?.reportedUserId,
+    fields?.reporterUserId,
+    fields?.uid,
+  ]) {
+    const v = String(raw || "").trim();
+    if (v) return v;
+  }
+  return "";
 }
 
 /** Heading text on seller pages — never an email address. */
@@ -63,7 +88,39 @@ export function sellerProfileDisplayName(
   fallback = "Seller"
 ): string {
   const slug = sellerProfileSlug(fields);
-  return slug && !isEmailLike(slug) ? slug : fallback;
+  const looksLikeUid =
+    !slug ||
+    isEmailLike(slug) ||
+    /^[A-Za-z0-9_-]{16,}$/.test(slug) ||
+    /^uid[-_]/i.test(slug);
+  return looksLikeUid ? fallback : slug;
+}
+
+/** Query value for `/messages?user=` — username first, then UID. Never expose email. */
+export function sellerMessageTarget(
+  fields: SellerLinkFields | null | undefined
+): string {
+  return sellerProfileSlug(fields);
+}
+
+export function sellerMessagesUrl(
+  fields: SellerLinkFields | null | undefined,
+  listingId?: string | null,
+  extraParams?: Record<string, string | number | boolean | null | undefined>
+): string {
+  const target = sellerMessageTarget(fields);
+  const params = new URLSearchParams();
+  if (target) params.set("user", target);
+  if (listingId) params.set("listing", listingId);
+  if (extraParams) {
+    for (const [key, value] of Object.entries(extraParams)) {
+      if (value !== undefined && value !== null && value !== "") {
+        params.set(key, String(value));
+      }
+    }
+  }
+  const qs = params.toString();
+  return qs ? `/messages?${qs}` : "/messages";
 }
 
 export function resolveStoredBuyerName(

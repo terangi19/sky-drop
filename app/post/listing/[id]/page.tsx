@@ -42,6 +42,11 @@ import {
   purchaseButtonTitle,
   shortPurchaseLabel,
 } from "../../../lib/purchase-button-labels";
+import {
+  sellerMessagesUrl,
+  sellerProfileDisplayName,
+  sellerProfileSlug,
+} from "../../../lib/public-display";
 
 function getBidIncrement(price: number): number {
   if (price < 50) return 1;
@@ -748,8 +753,10 @@ export default function ListingPage() {
     );
   }
 
-  const sellerName = listing.sellerUsername || listing.sellerEmail?.split("@")[0] || "Unknown";
+  const sellerName = sellerProfileDisplayName(listing, "Seller");
   const sellerInitial = sellerName.charAt(0).toUpperCase();
+  const sellerMessagesHref = sellerMessagesUrl(listing, listingId);
+  const sellerSlug = sellerProfileSlug(listing);
   async function sendMessageToSeller() {
     if (!user?.email || !listing.sellerEmail || !messageText.trim()) return;
     setSendingMessage(true);
@@ -1339,7 +1346,7 @@ Property Status: 🟢 Inquiry Active`;
                         } catch (e) {
                           console.error("Property inquiry failed:", e);
                         }
-                        router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`);
+                        router.push(sellerMessagesHref);
                       }}
                       className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-5 text-base font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98]"
                     >
@@ -1361,7 +1368,7 @@ Property Status: 🟢 Inquiry Active`;
                       </button>
                     )}
                     <button
-                      onClick={() => router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`)}
+                      onClick={() => router.push(sellerMessagesHref)}
                       className="h-11 flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06]"
                     >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1411,7 +1418,7 @@ Property Status: 🟢 Inquiry Active`;
                           buyerEmail: user!.email!,
                           sellerEmail: listing.sellerEmail,
                         });
-                        router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`);
+                        router.push(sellerMessagesHref);
                       }}
                       className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 text-base font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-200 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:brightness-110 active:scale-[0.98]"
                     >
@@ -1423,7 +1430,7 @@ Property Status: 🟢 Inquiry Active`;
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <button
-                      onClick={() => router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`)}
+                      onClick={() => router.push(sellerMessagesHref)}
                       className="h-11 flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06]"
                     >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1535,7 +1542,7 @@ Property Status: 🟢 Inquiry Active`;
                       </button>
                     )}
                     <button
-                      onClick={() => router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`)}
+                      onClick={() => router.push(sellerMessagesHref)}
                       className="h-12 flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06]"
                     >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1653,7 +1660,7 @@ Application Status: 🟢 Active`;
                           console.error("Job inquiry failed:", e);
                         }
                         try { localStorage.setItem("skyJobPrefill", `Hi, I'm interested in this job 👋`); } catch {}
-                        router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`);
+                        router.push(sellerMessagesHref);
                       }}
                       className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 text-base font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-200 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:brightness-110 active:scale-[0.98]"
                     >
@@ -1662,7 +1669,7 @@ Application Status: 🟢 Active`;
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <button
-                      onClick={() => router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`)}
+                      onClick={() => router.push(sellerMessagesHref)}
                       className="h-11 flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06]"
                     >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1739,7 +1746,7 @@ Service Status: 🟢 Inquiry Active`;
                         } catch (e) {
                           console.error("Service inquiry failed:", e);
                         }
-                        router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`)
+                        router.push(sellerMessagesHref)
                       }}
                       className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-fuchsia-500 px-5 text-base font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98]"
                     >
@@ -1847,7 +1854,7 @@ Service Status: 🟢 Inquiry Active`;
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <Link
-                      href={`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`}
+                      href={sellerMessagesHref}
                       className="h-11 flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06]"
                     >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1887,7 +1894,7 @@ Service Status: 🟢 Inquiry Active`;
             {/* 7. SELLER CARD */}
             <div>
               <Link
-                href={user?.email === listing.sellerEmail ? "#" : `/seller/${listing.sellerUsername || listing.sellerEmail}`}
+                href={user?.email === listing.sellerEmail || !sellerSlug ? "#" : `/seller/${sellerSlug}`}
                 className="block rounded-xl border border-sky-500/20 bg-sky-500/5 p-5 transition-all duration-200 hover:border-sky-500/30 hover:bg-sky-500/10 hover:shadow-lg hover:shadow-sky-500/5"
               >
                 <div className="flex items-center gap-4">
@@ -2181,7 +2188,7 @@ Service Status: 🟢 Inquiry Active`;
         <section className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 pb-8">
           <div className="flex items-center gap-3 mb-6">
             <div className="h-5 w-0.5 rounded-full bg-gradient-to-b from-sky-500 to-sky-500" />
-            <h2 className="text-base font-bold text-white">More from {listing.sellerUsername || listing.sellerEmail?.split("@")[0] || "this seller"}</h2>
+            <h2 className="text-base font-bold text-white">More from {sellerProfileDisplayName(listing, "this seller")}</h2>
           </div>
           <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
             {sellerListings.map((l: any) => (
@@ -2290,7 +2297,7 @@ Service Status: 🟢 Inquiry Active`;
                 </button>
               )}
               <button
-                onClick={() => router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`)}
+                onClick={() => router.push(sellerMessagesHref)}
                 className="flex items-center justify-center gap-2 rounded-xl border border-white/[0.10] bg-white/[0.04] px-4 py-3 text-sm font-bold text-[var(--foreground)]"
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -2317,7 +2324,7 @@ Service Status: 🟢 Inquiry Active`;
           onClose={() => setShowArrangeModal(false)}
           onSuccess={(conversationId) => {
             setShowArrangeModal(false);
-            router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listingId}`);
+            router.push(sellerMessagesHref);
           }}
         />
       )}

@@ -7,6 +7,7 @@ import {
   PageHeader, Panel, DataTable, Th, Td, EmptyRow, Btn, Badge, LoadingBlock, confirmAction,
 } from "../../components/manage/ManageUI";
 import { showToast } from "../../components/Toast";
+import { sellerMessagesUrl } from "../../lib/public-display";
 
 export default function ManageDisputesPage() {
   const [disputes, setDisputes] = useState<any[]>([]);
@@ -82,12 +83,28 @@ export default function ManageDisputesPage() {
                     <Td>
                       <div className="flex flex-wrap gap-1">
                         <Link
-                          href={`/messages?user=${encodeURIComponent(d.buyerEmail || d.sellerEmail || "")}&listing=${d.listingId || ""}`}
+                          href={sellerMessagesUrl(
+                            {
+                              buyerUsername: d.buyerUsername,
+                              buyerId: d.buyerId,
+                              sellerUsername: d.sellerUsername,
+                              sellerId: d.sellerId,
+                            },
+                            d.listingId || ""
+                          )}
                           target="_blank"
                         >
                           <Btn>Evidence</Btn>
                         </Link>
-                        <Link href={`/messages?user=${encodeURIComponent(d.sellerEmail || "")}`} target="_blank">
+                        <Link
+                          href={sellerMessagesUrl(
+                            {
+                              sellerUsername: d.sellerUsername,
+                              sellerId: d.sellerId,
+                            }
+                          )}
+                          target="_blank"
+                        >
                           <Btn>Contact</Btn>
                         </Link>
                         <Btn onClick={() => runAction(d.id, "review", "Mark under review")}>Review</Btn>

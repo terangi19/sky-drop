@@ -17,6 +17,8 @@ import {
   resolveVoiceCommand,
   type VoiceCommandAction,
 } from "../lib/awhina-voice-command";
+import { resolveVoiceFormCommand, type VoiceFormCommand } from "../lib/awhina-voice-form-command";
+import { dispatchAwhinaVoiceFormAction } from "../lib/awhina-voice-form-events";
 import {
   isExactNavShortcut,
   isSellNavigationPhrase,
@@ -125,7 +127,16 @@ export type AwhinaVoiceState = {
   intro: string | null;
 };
 
-export function useAwhinaVoice() {
+type UseAwhinaVoiceOptions = {
+  userEmail?: string | null;
+  isAdmin?: boolean;
+};
+
+type PendingConfirmationAction =
+  | VoiceCommandAction
+  | Extract<VoiceFormCommand, { requiresConfirmation: true }>;
+
+export function useAwhinaVoice(options: UseAwhinaVoiceOptions = {}) {
   const router = useRouter();
   const pathname = usePathname() || "/";
   const [phase, setPhase] = useState<AwhinaVoicePhase>(() =>
@@ -181,8 +192,8 @@ export function useAwhinaVoice() {
     busySinceRef.current = 0;
   }, []);
 
-  /* ── Confirmation state for medium-confidence commands ── */
-  const pendingConfirmationRef = useRef<VoiceCommandAction | null>(null);
+  /* ── Confirmation state for medium-confidence / protected commands ── */
+  const pendingConfirmationRef = useRef<PendingConfirmationAction | null>(null);
 
   const clearConfirmationTimer = useCallback(() => {
     if (confirmationTimerRef.current) {
@@ -435,7 +446,7 @@ export function useAwhinaVoice() {
       }
 
       if (action.type === "page") {
-        const result = action.run();
+        const result = action.run?.() ?? { ok: false };
         if (!result.ok) {
           setHint("Couldn't do that on this page — try another command.");
           clearBusy();
@@ -465,7 +476,7 @@ export function useAwhinaVoice() {
         navigatedByVoiceRef.current = true;
         setPhase("speaking");
         setHeadline(action.status || "Opening…");
-        router.push(action.path);
+        router.push(action.path!);
         afterCommandCycle();
         return;
       }
@@ -480,7 +491,7 @@ export function useAwhinaVoice() {
         setPhase("speaking");
         setHeadline(`${AWHINA_NAME}`);
         setHint(action.status);
-        setTranscript(action.message);
+        setTranscript(action.message ?? action.status);
         speakingUntilRef.current = Date.now() + 2000;
         clearBusy();
         window.setTimeout(() => afterCommandCycle(), 1800);
@@ -492,6 +503,65 @@ export function useAwhinaVoice() {
     [afterCommandCycle, clearBusy, disableVoiceMode, keepVoiceModeOn, resumeListening, router]
   );
 
+  const runFormAction = useCallback(
+    async (action: VoiceFormCommand) => {
+      keepVoiceModeOn();
+
+      if (action.type === "cancel") {
+        setHint(action.status);
+        afterCommandCycle();
+        return;
+      }
+
+      setHeardText(action.heard);
+      setActionText(action.targetTitle || action.status);
+
+      if (action.type === "apply_fill") {
+        dispatchAwhinaVoiceFormAction({
+          type: "apply_fill",
+          fill: action.fill,
+          status: action.status,
+          heard: action.heard,
+          targetTitle: action.targetTitle,
+        });
+        showToast(action.status, "success");
+        setPhase("speaking");
+        setHeadline(action.status);
+        afterCommandCycle();
+        return;
+      }
+
+      if (action.type === "append_description") {
+        dispatchAwhinaVoiceFormAction({
+          type: "append_description",
+          text: action.text,
+          status: action.status,
+          heard: action.heard,
+          targetTitle: action.targetTitle,
+        });
+        showToast(action.status, "success");
+        setPhase("speaking");
+        setHeadline(action.status);
+        afterCommandCycle();
+        return;
+      }
+
+      if (action.type === "publish") {
+        dispatchAwhinaVoiceFormAction({
+          type: "publish",
+          status: action.status,
+          heard: action.heard,
+          targetTitle: action.targetTitle,
+        });
+        showToast(action.confirmedStatus, "success");
+        setPhase("speaking");
+        setHeadline(action.confirmedStatus);
+        afterCommandCycle();
+      }
+    },
+    [afterCommandCycle, keepVoiceModeOn]
+  );
+
   const runVoiceCommandNow = useCallback(
     (trimmed: string): boolean => {
       // Check if user is responding to a confirmation prompt
@@ -501,13 +571,21 @@ export function useAwhinaVoice() {
           pendingConfirmationRef.current = null;
           clearConfirmationTimer();
           markBusy();
-          void runAction(pending);
+          if ("requiresConfirmation" in pending) {
+            void runFormAction(pending);
+          } else {
+            void runAction(pending);
+          }
           return true;
         }
         if (DENY_INTENT.test(trimmed)) {
           pendingConfirmationRef.current = null;
           clearConfirmationTimer();
-          setHint(`Cancelled. Try saying "go to ${pending.targetTitle}".`);
+          setHint(
+            pending.targetTitle
+              ? `Cancelled. Try saying "go to ${pending.targetTitle}".`
+              : "Cancelled."
+          );
           afterCommandCycle();
           return true;
         }
@@ -517,14 +595,48 @@ export function useAwhinaVoice() {
         if (targetNorm && (saidNorm === targetNorm || saidNorm.includes(targetNorm) || targetNorm.includes(saidNorm))) {
           pendingConfirmationRef.current = null;
           markBusy();
-          void runAction(pending);
+          if ("requiresConfirmation" in pending) {
+            void runFormAction(pending);
+          } else {
+            void runAction(pending);
+          }
           return true;
         }
         // User said something else — cancel confirmation, process new input
         pendingConfirmationRef.current = null;
       }
 
-      const cmd = resolveVoiceCommand(trimmed, pathname);
+      const formCmd = pathname === "/post/ai" ? resolveVoiceFormCommand(trimmed) : null;
+      if (formCmd) {
+        clearEndOfSpeechTimers();
+        lastScheduledTextRef.current = "";
+        utteranceTextRef.current = "";
+        onUtteranceFlushedRef.current?.();
+        keepVoiceModeOn();
+
+        if (formCmd.type === "cancel") {
+          clearBusy();
+          void runFormAction(formCmd);
+          return true;
+        }
+
+        if ("requiresConfirmation" in formCmd && formCmd.requiresConfirmation) {
+          pendingConfirmationRef.current = formCmd;
+          setPhase("confirming");
+          setHeadline("Confirm action");
+          setTranscript(formatUtteranceDisplay(trimmed));
+          setHint(formCmd.confirmationHint);
+          startConfirmationTimer();
+          void restartListeningRef.current?.({ force: true });
+          return true;
+        }
+
+        markBusy();
+        void runFormAction(formCmd);
+        return true;
+      }
+
+      const cmd = resolveVoiceCommand(trimmed, pathname, { isAdmin: options.isAdmin });
       if (!cmd) return false;
 
       if (busyRef.current && !isPriorityNav(cmd)) return false;
@@ -636,7 +748,7 @@ export function useAwhinaVoice() {
           openSellFromVoice();
         }
         navigatedByVoiceRef.current = true;
-        router.push(cmd.path);
+        router.push(cmd.path!);
         afterCommandCycle();
         return true;
       }
@@ -651,10 +763,12 @@ export function useAwhinaVoice() {
       keepVoiceModeOn,
       markBusy,
       clearBusy,
+      options.isAdmin,
       pathname,
       resumeListening,
       router,
       runAction,
+      runFormAction,
       startConfirmationTimer,
     ]
   );
@@ -674,7 +788,7 @@ export function useAwhinaVoice() {
       abortProcessingRef.current = false;
       clearInactivityTimer();
 
-      const local = resolveVoiceCommand(trimmed, pathname);
+      const local = resolveVoiceCommand(trimmed, pathname, { isAdmin: options.isAdmin });
       const isInstant =
         local?.type === "navigate" ||
         local?.type === "search" ||
@@ -684,6 +798,7 @@ export function useAwhinaVoice() {
       // Direct route to Awhina for listing descriptions — not bare "go to sell" navigation.
       if (
         voiceModeRef.current &&
+        pathname !== "/post/ai" &&
         local?.type !== "navigate" &&
         local?.type !== "search" &&
         local?.type !== "page" &&
@@ -735,7 +850,7 @@ export function useAwhinaVoice() {
         }
 
         if (isSellNavigationPhrase(trimmed) || isSalesNavigationPhrase(trimmed)) {
-          const navCmd = resolveVoiceCommand(trimmed, pathname);
+          const navCmd = resolveVoiceCommand(trimmed, pathname, { isAdmin: options.isAdmin });
           if (navCmd) {
             await runAction(navCmd);
             return;
@@ -963,7 +1078,7 @@ export function useAwhinaVoice() {
 
       // Check if this is a priority navigation command that can preempt AI processing
       if (busyRef.current && trimmed) {
-        const navCmd = resolveVoiceCommand(trimmed, pathname);
+        const navCmd = resolveVoiceCommand(trimmed, pathname, { isAdmin: options.isAdmin });
         if (isPriorityNav(navCmd)) {
           abortProcessingRef.current = true;
           processGenerationRef.current += 1;
@@ -989,7 +1104,7 @@ export function useAwhinaVoice() {
       if (!trimmed) return;
 
       if (pausedRef.current) {
-        const pausedCmd = resolveVoiceCommand(trimmed, pathname);
+        const pausedCmd = resolveVoiceCommand(trimmed, pathname, { isAdmin: options.isAdmin });
         if (
           RESUME_INTENT.test(trimmed) ||
           pausedCmd?.type === "resume" ||
@@ -1019,7 +1134,7 @@ export function useAwhinaVoice() {
       ) {
         if (runVoiceCommandNow(trimmed)) return;
       } else {
-        const urgent = resolveVoiceCommand(trimmed, pathname);
+        const urgent = resolveVoiceCommand(trimmed, pathname, { isAdmin: options.isAdmin });
         if (urgent && (urgent.type === "voice_off" || urgent.type === "resume")) {
           if (runVoiceCommandNow(trimmed)) return;
         }

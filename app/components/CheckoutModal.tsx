@@ -9,12 +9,14 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import { getFreshIdToken } from "../lib/api-auth";
 import { ref, getDownloadURL } from "firebase/storage";
 import { createNotification } from "../lib/notifications";
+import { sellerMessagesUrl, sellerProfileDisplayName } from "../lib/public-display";
 import { showToast } from "./Toast";
 
 import AnimatedCheckmark from "./AnimatedCheckmark";
 import ListingImage from "./ListingImage";
-import { playConfetti, playSuccess } from "../lib/sounds";
+import { playSuccess } from "../lib/sounds";
 import { isListingAvailableForPurchase } from "../lib/listing-availability";
+import { buildCheckoutSuccessUrl } from "../lib/payment-checkout";
 
 interface ListingData {
   id?: string;
@@ -87,8 +89,8 @@ const CHECKOUT_STEPS: ProgressStep[] = [
   { key: "success", label: "Complete", icon: "✅" },
 ];
 
-function PaymentForm({ total, listingId, title, price, buyerEmail, paymentIntentId, onSuccess, onBack, badgeForSale, sellerEmail, collectionName, type, digitalFileURL, digitalFileName, digitalStoragePath }: {
-  total: number; listingId: string; title: string; price: string; buyerEmail: string; paymentIntentId: string; onSuccess: (confirmedPaymentIntentId: string) => void; onBack: () => void; badgeForSale?: string; sellerEmail?: string; collectionName?: string; type?: string; digitalFileURL?: string; digitalFileName?: string; digitalStoragePath?: string;
+function PaymentForm({ total, listingId, title, paymentIntentId, onSuccess, onBack, badgeForSale, type, digitalFileURL, digitalFileName, digitalStoragePath }: {
+  total: number; listingId: string; title: string; paymentIntentId: string; onSuccess: (confirmedPaymentIntentId: string) => void; onBack: () => void; badgeForSale?: string; type?: string; digitalFileURL?: string; digitalFileName?: string; digitalStoragePath?: string;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -111,7 +113,17 @@ function PaymentForm({ total, listingId, title, price, buyerEmail, paymentIntent
     const { error: submitError, paymentIntent } = await stripe.confirmPayment({
       elements,
       confirmParams: {
-        return_url: `${window.location.origin}/checkout/success?listingId=${encodeURIComponent(listingId)}&title=${encodeURIComponent(title)}&price=${encodeURIComponent(price)}&buyerEmail=${encodeURIComponent(buyerEmail)}&sellerEmail=${encodeURIComponent(sellerEmail || "")}&collectionName=${encodeURIComponent(collectionName || "listings")}${badgeForSale ? `&badgeForSale=${encodeURIComponent(badgeForSale)}` : ""}${type === "digital" ? `&type=digital&digitalStoragePath=${encodeURIComponent(digitalStoragePath || digitalFileURL || "")}&digitalFileName=${encodeURIComponent(digitalFileName || "")}` : ""}${type === "rental" ? `&type=rental` : ""}`,
+        return_url: buildCheckoutSuccessUrl(window.location.origin, {
+          listingId,
+          title,
+          price: String(total),
+          badgeForSale,
+          type:
+            type === "digital" ? "digital" : type === "rental" ? "rental" : undefined,
+          digitalStoragePath:
+            type === "digital" ? digitalStoragePath || digitalFileURL || "" : undefined,
+          digitalFileName: type === "digital" ? digitalFileName || "" : undefined,
+        }),
       },
       redirect: "if_required",
     });
@@ -549,29 +561,31 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
 
       // Badge transfer runs server-side in create-purchase when configured
 
-      await createNotification({
-        type: isAuction ? "purchase" : "purchase",
-        targetEmail: listing.sellerEmail,
-        fromEmail: buyerEmail,
-        title: isAuction ? "Auction payment received! 🎉" : isDigital ? "Your digital item was purchased! 🎉" : isBadge ? "Your badge was purchased! 🎉" : isRental ? "Your item was rented! 🎉" : isEvent ? "Your event tickets were purchased! 🎉" : "Your item sold! 🎉",
-        message: isAuction
-          ? `${name.trim()} won the auction and paid $${winningBid}. Coordinate delivery through messages.`
-          : isDigital
-          ? `${name.trim()} just purchased "${listing.title}" (digital download).`
-          : isBadge
-          ? `${name.trim()} just purchased your "${listing.badgeForSale}" badge. It has been automatically transferred.`
-          : isRental
-          ? `${name.trim()} just rented "${listing.title}" for ${listing.rentalDays || 1} day(s) — $${listing.price}/day. Coordinate pickup.`
-          : isEvent
-          ? `${name.trim()} just purchased tickets to "${listing.title}" for $${listing.price}. Coordinate with the buyer.`
-          : `${name.trim()} just purchased "${listing.title}" for $${listing.price}. Check your sales page to confirm and ship.`,
-        listingId: listing.id,
-        listingTitle: listing.title,
-        listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
-        total,
-        buyerName: name.trim(),
-        orderId: purchaseId,
-      });
+      if (listing.sellerEmail) {
+        await createNotification({
+          type: "purchase",
+          targetEmail: listing.sellerEmail,
+          fromEmail: buyerEmail,
+          title: isAuction ? "Auction payment received! 🎉" : isDigital ? "Your digital item was purchased! 🎉" : isBadge ? "Your badge was purchased! 🎉" : isRental ? "Your item was rented! 🎉" : isEvent ? "Your event tickets were purchased! 🎉" : "Your item sold! 🎉",
+          message: isAuction
+            ? `${name.trim()} won the auction and paid $${winningBid}. Coordinate delivery through messages.`
+            : isDigital
+            ? `${name.trim()} just purchased "${listing.title}" (digital download).`
+            : isBadge
+            ? `${name.trim()} just purchased your "${listing.badgeForSale}" badge. It has been automatically transferred.`
+            : isRental
+            ? `${name.trim()} just rented "${listing.title}" for ${listing.rentalDays || 1} day(s) - $${listing.price}/day. Coordinate pickup.`
+            : isEvent
+            ? `${name.trim()} just purchased tickets to "${listing.title}" for $${listing.price}. Coordinate with the buyer.`
+            : `${name.trim()} just purchased "${listing.title}" for $${listing.price}. Check your sales page to confirm and ship.`,
+          listingId: listing.id,
+          listingTitle: listing.title,
+          listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
+          total,
+          buyerName: name.trim(),
+          orderId: purchaseId,
+        });
+      }
 
       // Buyer purchase confirmation
       await createNotification({
@@ -592,7 +606,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
         listingTitle: listing.title,
         listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
         total,
-        sellerName: listing.sellerUsername || listing.sellerEmail?.split("@")[0] || "",
+        sellerName: sellerProfileDisplayName(listing, "Seller"),
         orderId: purchaseId,
       });
 
@@ -844,7 +858,11 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                 View Order Details
               </button>
               <button
-                onClick={() => router.push(`/messages?user=${encodeURIComponent(listing.sellerUsername || listing.sellerEmail || "")}&listing=${listing.id}&purchased=1`)}
+                onClick={() =>
+                  router.push(
+                    sellerMessagesUrl(listing, listing.id, { purchased: 1 })
+                  )
+                }
                 className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-white/[0.06] hover:border-white/[0.12]"
               >
                 Message Seller
@@ -1081,7 +1099,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                     {isRental && listing.rentalDeposit && <p className="mt-1 text-[10px] text-sky-400/70">${Number(listing.rentalDeposit).toFixed(2)} refundable after safe return.</p>}
                   </div>
                   <Elements stripe={stripePromise} options={{ clientSecret }}>
-                    <PaymentForm total={total} listingId={listing.id} title={listing.title} price={String(total)} buyerEmail={buyerEmail} paymentIntentId={paymentIntentId} onSuccess={handlePaymentSuccess} onBack={resetToForm} badgeForSale={listing.badgeForSale} sellerEmail={listing.sellerEmail} collectionName={collectionName} type={listing.type} digitalFileURL={listing.digitalFileURL} digitalFileName={listing.digitalFileName} digitalStoragePath={listing.digitalStoragePath} />
+                    <PaymentForm total={total} listingId={listing.id || ""} title={listing.title} paymentIntentId={paymentIntentId} onSuccess={handlePaymentSuccess} onBack={resetToForm} badgeForSale={listing.badgeForSale} type={listing.type} digitalFileURL={listing.digitalFileURL} digitalFileName={listing.digitalFileName} digitalStoragePath={listing.digitalStoragePath} />
                   </Elements>
                 </div>
               )}

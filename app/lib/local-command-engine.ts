@@ -14,7 +14,18 @@
  */
 
 import { matchRouteFromRegistry, ROUTE_REGISTRY } from "./command-registry";
-import { openListingByIndex, messageSellerOnPage, scrollDown, scrollToBottom, scrollToTop, scrollUp, switchTab } from "./awhina-voice-page-actions";
+import {
+  openListingByIndex,
+  messageSellerOnPage,
+  prepareOfferOnPage,
+  refineSearchOnPage,
+  scrollDown,
+  scrollToBottom,
+  scrollToTop,
+  scrollUp,
+  showSimilarListingsOnPage,
+  switchTab,
+} from "./awhina-voice-page-actions";
 import { phoneticNormalize, resolvePhonetic } from "./voice-phonetic";
 import { logCommand } from "./command-logger";
 import { processVoiceSearchTranscript, isProductSearchPhrase } from "./voice-search-pipeline";
@@ -25,7 +36,7 @@ import { logVoiceSearch } from "./voice-search-logger";
 export type LocalCommandConfidence = "high" | "medium";
 
 export type LocalCommandAction = {
-  type: "navigate" | "search" | "page" | "resume" | "voice_off";
+  type: "navigate" | "search" | "page" | "resume" | "voice_off" | "reply";
   status: string;
   confidence: LocalCommandConfidence;
   heard: string;
@@ -33,6 +44,11 @@ export type LocalCommandAction = {
   path?: string;
   query?: string;
   run?: () => { ok: boolean; path?: string };
+  message?: string;
+};
+
+type LocalCommandContext = {
+  isAdmin?: boolean;
 };
 
 /* ── Direct shortcut commands ── */
@@ -68,9 +84,18 @@ const OPEN_LISTING_INTENT =
 
 const MESSAGE_SELLER_INTENT =
   /\b(message|contact|chat with|talk to)\s+(the\s+)?(seller|owner|them|vendor)\b/i;
+const SEARCH_LOCATION_REFINEMENT =
+  /\b(?:show|only|filter|just)\s+(?:only\s+)?(auckland|wellington|christchurch|hamilton|tauranga|dunedin|queenstown)\b/i;
+const SEARCH_MAX_PRICE_REFINEMENT =
+  /\b(?:only|show|find)?\s*(?:under|below|less than|max(?:imum)?)\s+\$?\s*([\d,]+(?:\.\d{2})?)\b/i;
+const SEARCH_CHEAPEST_REFINEMENT =
+  /\b(cheapest|better deals|best deals|lowest price)\b/i;
+const SEARCH_AUCTION_REFINEMENT = /\b(only auctions|show auctions|actually show auctions)\b/i;
+const SHOW_SIMILAR_RE = /\b(show similar listings|find similar listings|show similar|find similar)\b/i;
+const OFFER_RE = /\b(?:offer|make offer|offer them)\s+\$?\s*([\d,]+(?:\.\d{2})?)\b/i;
 
 const PROFILE_INTENT =
-  /\b(go to|open|show|view|take me to|navigate to|visit)\s+(?:the\s+)?(?:profile\s+(?:of|for)\s+)?([a-zA-Z0-9_]+)\b/i;
+  /\b(?:go to|open|show|view|take me to|navigate to|visit)\s+(?:the\s+)?(?:profile|account)(?:\s+(?:of|for))?\s+([a-zA-Z0-9_]+)\b/i;
 
 /** Route targets — never treat as seller usernames ("go to sell" → Sell, not /seller/sell). */
 const RESERVED_PROFILE_USERNAMES = new Set([
@@ -474,6 +499,54 @@ function buildVoiceToggleAction(text: string): LocalCommandAction | null {
 function buildPageAction(text: string, pathname: string): LocalCommandAction | null {
   const t = text.trim();
 
+  if (pathname.startsWith("/search")) {
+    const loc = t.match(SEARCH_LOCATION_REFINEMENT);
+    if (loc?.[1]) {
+      return {
+        type: "page",
+        status: `Showing ${loc[1]} only…`,
+        confidence: "high",
+        heard: t,
+        targetTitle: `${loc[1]} filter`,
+        run: () => refineSearchOnPage({ type: "location", value: loc[1] }),
+      };
+    }
+    const max = t.match(SEARCH_MAX_PRICE_REFINEMENT);
+    if (max?.[1]) {
+      const value = parsePrice(max[1]);
+      if (value) {
+        return {
+          type: "page",
+          status: `Only under $${value}…`,
+          confidence: "high",
+          heard: t,
+          targetTitle: "price filter",
+          run: () => refineSearchOnPage({ type: "maxPrice", value: String(value) }),
+        };
+      }
+    }
+    if (SEARCH_CHEAPEST_REFINEMENT.test(t) || SEARCH_AUCTION_REFINEMENT.test(t)) {
+      if (SEARCH_AUCTION_REFINEMENT.test(t)) {
+        return {
+          type: "page",
+          status: "Showing auctions…",
+          confidence: "high",
+          heard: t,
+          targetTitle: "auction filter",
+          run: () => refineSearchOnPage({ type: "saleType", value: "auction" }),
+        };
+      }
+      return {
+        type: "page",
+        status: "Finding better deals…",
+        confidence: "high",
+        heard: t,
+        targetTitle: "search sorting",
+        run: () => refineSearchOnPage({ type: "sortBy", value: "price-low" }),
+      };
+    }
+  }
+
   if (OPEN_LISTING_INTENT.test(t)) {
     const index = listingIndexFromText(t);
     return {
@@ -506,6 +579,32 @@ function buildPageAction(text: string, pathname: string): LocalCommandAction | n
         return { ok: false };
       },
     };
+  }
+
+  if (SHOW_SIMILAR_RE.test(t)) {
+    return {
+      type: "page",
+      status: "Showing similar listings…",
+      confidence: "high",
+      heard: t,
+      targetTitle: "similar listings",
+      run: () => showSimilarListingsOnPage(),
+    };
+  }
+
+  const offer = t.match(OFFER_RE);
+  if (offer?.[1]) {
+    const amount = parsePrice(offer[1]);
+    if (amount) {
+      return {
+        type: "page",
+        status: `Prepared a $${amount} offer…`,
+        confidence: "high",
+        heard: t,
+        targetTitle: "offer",
+        run: () => prepareOfferOnPage(String(amount)),
+      };
+    }
   }
 
   /* ── Tab switching ── */
@@ -543,7 +642,11 @@ function buildPageAction(text: string, pathname: string): LocalCommandAction | n
 
 /* ── Route Registry Matching ── */
 
-function registryMatchAction(text: string, pathname: string): LocalCommandAction | null {
+function registryMatchAction(
+  text: string,
+  pathname: string,
+  context?: LocalCommandContext
+): LocalCommandAction | null {
   const t = normalize(text);
   if (!t || t.length < 2) return null;
 
@@ -561,6 +664,16 @@ function registryMatchAction(text: string, pathname: string): LocalCommandAction
         heard: text,
         targetTitle: match.title,
         run: () => ({ ok: true }),
+      };
+    }
+    if ((match.path.startsWith("/admin") || match.path.startsWith("/manage")) && !context?.isAdmin) {
+      return {
+        type: "reply",
+        status: "Admin access denied",
+        confidence: "high",
+        heard: text,
+        targetTitle: "Admin",
+        message: "Admin access is only available to authorized accounts.",
       };
     }
     return {
@@ -588,6 +701,19 @@ function registryMatchAction(text: string, pathname: string): LocalCommandAction
             heard: text,
             targetTitle: strippedMatch.title,
             run: () => ({ ok: true }),
+          };
+        }
+        if (
+          (strippedMatch.path.startsWith("/admin") || strippedMatch.path.startsWith("/manage")) &&
+          !context?.isAdmin
+        ) {
+          return {
+            type: "reply",
+            status: "Admin access denied",
+            confidence: "high",
+            heard: text,
+            targetTitle: "Admin",
+            message: "Admin access is only available to authorized accounts.",
           };
         }
         return {
@@ -618,6 +744,19 @@ function registryMatchAction(text: string, pathname: string): LocalCommandAction
           run: () => ({ ok: true }),
         };
       }
+      if (
+        (phoneticMatch.path.startsWith("/admin") || phoneticMatch.path.startsWith("/manage")) &&
+        !context?.isAdmin
+      ) {
+        return {
+          type: "reply",
+          status: "Admin access denied",
+          confidence: "high",
+          heard: text,
+          targetTitle: "Admin",
+          message: "Admin access is only available to authorized accounts.",
+        };
+      }
       return {
         type: "navigate",
         path: phoneticMatch.path,
@@ -634,6 +773,19 @@ function registryMatchAction(text: string, pathname: string): LocalCommandAction
   if (phoneticNorm !== t) {
     const phoneticRouteMatch = matchRouteFromRegistry(phoneticNorm, 5);
     if (phoneticRouteMatch) {
+      if (
+        (phoneticRouteMatch.path.startsWith("/admin") || phoneticRouteMatch.path.startsWith("/manage")) &&
+        !context?.isAdmin
+      ) {
+        return {
+          type: "reply",
+          status: "Admin access denied",
+          confidence: "high",
+          heard: text,
+          targetTitle: "Admin",
+          message: "Admin access is only available to authorized accounts.",
+        };
+      }
       return {
         type: "navigate",
         path: phoneticRouteMatch.path,
@@ -851,7 +1003,11 @@ function sellOrSalesShortcutAction(
   return null;
 }
 
-export function matchLocalCommand(text: string, pathname: string): LocalCommandAction | null {
+export function matchLocalCommand(
+  text: string,
+  pathname: string,
+  context?: LocalCommandContext
+): LocalCommandAction | null {
   const trimmed = text.trim();
   if (!trimmed) return null;
 
@@ -921,6 +1077,19 @@ export function matchLocalCommand(text: string, pathname: string): LocalCommandA
           run: () => ({ ok: true }),
         };
       }
+      if (
+        (shortMatch.path.startsWith("/admin") || shortMatch.path.startsWith("/manage")) &&
+        !context?.isAdmin
+      ) {
+        return {
+          type: "reply",
+          status: "Admin access denied",
+          confidence: "high",
+          heard: trimmed,
+          targetTitle: "Admin",
+          message: "Admin access is only available to authorized accounts.",
+        };
+      }
       return {
         type: "navigate",
         path: shortMatch.path,
@@ -936,6 +1105,19 @@ export function matchLocalCommand(text: string, pathname: string): LocalCommandA
     if (corrected !== navTarget) {
       const phoneticMatch = matchRouteFromRegistry(corrected, 5);
       if (phoneticMatch) {
+        if (
+          (phoneticMatch.path.startsWith("/admin") || phoneticMatch.path.startsWith("/manage")) &&
+          !context?.isAdmin
+        ) {
+          return {
+            type: "reply",
+            status: "Admin access denied",
+            confidence: "high",
+            heard: trimmed,
+            targetTitle: "Admin",
+            message: "Admin access is only available to authorized accounts.",
+          };
+        }
         return {
           type: "navigate",
           path: phoneticMatch.path,
@@ -949,7 +1131,7 @@ export function matchLocalCommand(text: string, pathname: string): LocalCommandA
   }
 
   // 7. Full registry match with prefix stripping
-  const registryAction = registryMatchAction(trimmed, pathname);
+  const registryAction = registryMatchAction(trimmed, pathname, context);
   if (registryAction) return registryAction;
 
   // 8. Search intent — "find BMW 335i", "look for iPhone"
@@ -968,6 +1150,19 @@ export function matchLocalCommand(text: string, pathname: string): LocalCommandA
     const myTarget = myXMatch[1];
     const myRoute = matchRouteFromRegistry(`my ${myTarget}`, 5) ?? matchRouteFromRegistry(myTarget, 5);
     if (myRoute) {
+      if (
+        (myRoute.path.startsWith("/admin") || myRoute.path.startsWith("/manage")) &&
+        !context?.isAdmin
+      ) {
+        return {
+          type: "reply",
+          status: "Admin access denied",
+          confidence: "high",
+          heard: trimmed,
+          targetTitle: "Admin",
+          message: "Admin access is only available to authorized accounts.",
+        };
+      }
       return {
         type: "navigate",
         path: myRoute.path,
@@ -999,12 +1194,13 @@ export function isInstantLocalCommand(text: string, pathname: string): boolean {
  */
 export function resolveLocalCommand(
   text: string,
-  pathname: string
+  pathname: string,
+  context?: LocalCommandContext
 ): { action: LocalCommandAction | null; corrected: boolean } {
   const start = performance.now();
 
   // First try direct
-  const direct = matchLocalCommand(text, pathname);
+  const direct = matchLocalCommand(text, pathname, context);
   if (direct) {
     const elapsed = Math.round(performance.now() - start);
     logCommand({
@@ -1027,7 +1223,7 @@ export function resolveLocalCommand(
   // Try with phonetic normalization
   const phonNorm = phoneticNormalize(text);
   if (phonNorm !== normalize(text)) {
-    const withPhonetic = matchLocalCommand(phonNorm, pathname);
+    const withPhonetic = matchLocalCommand(phonNorm, pathname, context);
     if (withPhonetic) {
       const elapsed = Math.round(performance.now() - start);
       logCommand({

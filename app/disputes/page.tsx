@@ -8,6 +8,7 @@ import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import { User } from "firebase/auth";
 import { collection, onSnapshot, orderBy, query, where } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
+import { sellerMessagesUrl, sellerProfileDisplayName } from "../lib/public-display";
 
 const DISPUTE_LABELS: Record<string, string> = {
   open: "Open",
@@ -114,7 +115,7 @@ export default function DisputesPage() {
                         <p className="text-sm font-bold text-[var(--foreground)] line-clamp-1">{d.listingTitle}</p>
                         <p className="mt-0.5 text-sm font-semibold text-sky-400">${Number(d.listingPrice).toFixed(2)}</p>
                         <div className="mt-0.5 flex items-center gap-2 text-[11px] text-zinc-500">
-                          <span>Seller: {d.sellerName || d.sellerEmail?.split("@")[0] || "Unknown"}</span>
+                          <span>Seller: {d.sellerName || sellerProfileDisplayName(d, "Seller")}</span>
                           <span>· {REASON_LABELS[d.reason] || d.reason}</span>
                           {d.createdAt?.toDate && <span>· {d.createdAt.toDate().toLocaleDateString()}</span>}
                         </div>
@@ -129,7 +130,7 @@ export default function DisputesPage() {
                     )}
 
                     <div className="mt-3 flex items-center gap-2 flex-wrap">
-                      <Link href={`/messages?user=${encodeURIComponent(d.sellerUsername || d.sellerEmail || "")}&listing=${d.listingId}`}
+                      <Link href={sellerMessagesUrl(d, d.listingId)}
                         className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-[11px] font-bold text-zinc-400 transition hover:bg-white/[0.05] hover:text-zinc-300 active:scale-[0.97]">
                         Message Seller
                       </Link>

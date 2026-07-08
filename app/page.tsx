@@ -59,6 +59,7 @@ import { isDemoListing } from "./lib/marketplace-display";
 import { adjustListingWatchlistCount } from "./lib/listing-watchlist-count";
 import { HOME_MARKETPLACE_THEME as t } from "./lib/browse-category-config";
 import { useSellerListingMeta } from "./lib/useSellerListingMeta";
+import { sellerMessagesUrl } from "./lib/public-display";
 
 interface Listing {
   id: string;
@@ -498,8 +499,16 @@ export default function Home() {
     // For Stripe payments, check if seller has Stripe configured
     if (item.sellerEmail) {
       try {
-        const sellerSnap = await getDoc(doc(db, "profiles", item.sellerEmail.split("@")[0]));
-        if (sellerSnap.exists()) {
+        const sellerId = String((item as { sellerId?: string }).sellerId || "").trim();
+        const sellerSnap = sellerId
+          ? await getDoc(doc(db, "profiles", sellerId))
+          : await (async () => {
+              const sellerByEmail = await getDocs(
+                query(collection(db, "profiles"), where("email", "==", item.sellerEmail), limit(1))
+              );
+              return sellerByEmail.docs[0] ?? null;
+            })();
+        if (sellerSnap?.exists()) {
           const sellerData = sellerSnap.data();
           if (!sellerHasStripeConfigured(sellerData)) {
             // Seller doesn't have Stripe, default to Arrange Purchase
@@ -853,7 +862,9 @@ export default function Home() {
             onSuccess={(conversationId) => {
               setShowArrangeModal(false);
               setArrangeListing(null);
-              router.push(`/messages?user=${encodeURIComponent(arrangeListing.sellerUsername || arrangeListing.sellerEmail || "")}&listing=${arrangeListing.id}`);
+              router.push(
+                sellerMessagesUrl(arrangeListing, arrangeListing.id)
+              );
             }}
           />
         </Suspense>

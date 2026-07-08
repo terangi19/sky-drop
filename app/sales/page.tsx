@@ -13,7 +13,7 @@ import { canSellerConfirmArrangeSale } from "../lib/arrange-purchase-status";
 import { createNotification } from "../lib/notifications";
 import { awardXP } from "../lib/xp";
 import { showToast } from "../components/Toast";
-import { isEmailLike } from "../lib/public-display";
+import { isEmailLike, sellerMessagesUrl } from "../lib/public-display";
 import { useAwhinaInsightEffect } from "../contexts/AwhinaPageInsightContext";
 import { buildSalesInsight } from "../lib/awhina-insights";
 
@@ -26,6 +26,7 @@ interface Purchase {
   sellerEmail: string;
   buyerEmail: string;
   buyerUsername?: string;
+  buyerId?: string;
   buyerName: string;
   buyerPhone: string;
   deliveryMethod: string;
@@ -473,7 +474,7 @@ export default function SalesPage() {
                       {(s as any).fundsReleased && !(s as any).destinationCharge && (
                         <span className="text-[11px] text-sky-400 font-bold">✅ Funds Released</span>
                       )}
-                      <Link href={`/messages?user=${encodeURIComponent(s.buyerUsername || s.buyerEmail || "")}&listing=${s.listingId}`}
+                      <Link href={sellerMessagesUrl(s, s.listingId)}
                         className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-4 py-1.5 text-[11px] font-bold text-zinc-400 transition hover:bg-white/[0.05] hover:text-zinc-300 active:scale-[0.97]">
                         Message
                       </Link>

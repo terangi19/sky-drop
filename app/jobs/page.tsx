@@ -8,6 +8,7 @@ import Background from "../components/Background";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { LISTING_GRID, PAGE_SHELL_WIDE } from "../lib/page-layout";
+import { sellerProfileDisplayName } from "../lib/public-display";
 
 const CATEGORIES = ["All", "IT & Tech", "Sales & Marketing", "Accounting & Finance", "Construction & Trades", "Healthcare & Education", "Hospitality & Tourism", "Other"];
 
@@ -151,7 +152,7 @@ export default function JobsPage() {
                   </div>
 
                   <div className="mt-auto flex items-center justify-between border-t border-white/[0.06] pt-4">
-                    <span className="text-[11px] text-[var(--muted)]">{item.sellerUsername || item.sellerEmail?.split("@")[0] || "Employer"}</span>
+                    <span className="text-[11px] text-[var(--muted)]">{sellerProfileDisplayName(item, "Employer")}</span>
                     <Link href={`/post/listing/${item.id}`} className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-4 py-1.5 text-[11px] font-bold text-sky-400 transition-all duration-200 hover:bg-sky-500/20 hover:scale-105 active:scale-95">
                       View Job
                     </Link>

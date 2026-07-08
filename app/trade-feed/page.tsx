@@ -21,6 +21,11 @@ import { playOffer, playSuccess, playClick } from "../lib/sounds";
 import { createNotification } from "../lib/notifications";
 import { useProfile } from "../contexts/ProfileContext";
 import { REVIEW_STAR_CLASS } from "../components/SellerReviewStars";
+import {
+  sellerMessagesUrl,
+  sellerProfileDisplayName,
+  sellerProfileSlug,
+} from "../lib/public-display";
 
 const WORLDS = [
   { id: "all", label: "Categories", icon: "🌐", accent: "border-sky-500/20", glow: "shadow-[0_0_12px_rgba(14,165,233,0.06)]", color: "from-sky-400" },
@@ -869,7 +874,8 @@ export default function TradeFeedPage() {
                   const postOffers = post.offers || 0;
                   const isPopular = post.promotedUntil?.toMillis?.() > Date.now() || postViews >= 10;
                   const imgs = post.images || (post.image ? [post.image] : []);
-                  const sellerName = post.sellerUsername?.split("@")[0] || post.sellerEmail?.split("@")[0];
+                  const sellerName = sellerProfileDisplayName(post);
+                  const sellerSlug = sellerProfileSlug(post);
 
                   return (
                     <div key={post.id}>
@@ -947,7 +953,7 @@ export default function TradeFeedPage() {
 
                           {/* Seller + Actions row */}
                           <div className="mt-2.5 flex items-center gap-2 text-xs">
-                            <Link href={`/seller/${post.sellerUsername || post.sellerEmail}`} onClick={(e) => e.stopPropagation()}
+                            <Link href={sellerSlug ? `/seller/${sellerSlug}` : "#"} onClick={(e) => e.stopPropagation()}
                               className="flex items-center gap-1.5 text-zinc-500 hover:text-sky-400 transition-colors">
                               <div className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-sky-500 text-[8px] font-bold text-white">
                                 {sellerName?.charAt(0).toUpperCase() || "?"}
@@ -971,7 +977,7 @@ export default function TradeFeedPage() {
                                   className="rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-3.5 py-1.5 text-[10px] font-bold text-white transition-all hover:shadow-[0_0_12px_rgba(14,165,233,0.2)] active:scale-95">Buy</button>
                               )}
                               {user?.email !== post.sellerEmail && (
-                                <Link href={`/messages?user=${encodeURIComponent(post.sellerUsername || post.sellerEmail || "")}&listing=${encodeURIComponent(post.id)}`} onClick={(e) => e.stopPropagation()}
+                                <Link href={sellerMessagesUrl(post, post.id)} onClick={(e) => e.stopPropagation()}
                                   className="rounded-xl border border-white/[0.06] px-3.5 py-1.5 text-[10px] font-bold text-zinc-400 hover:text-[var(--foreground)] hover:border-white/[0.12] transition">Chat</Link>
                               )}
                               {user?.email === post.sellerEmail && (

@@ -26,6 +26,10 @@ import {
   type SkyAiListingFill,
 } from "../../lib/sky-ai-listing-fill";
 import {
+  AWHINA_VOICE_FORM_ACTION_EVENT,
+  type AwhinaVoiceFormAction,
+} from "../../lib/awhina-voice-form-events";
+import {
   dataUrlToFile,
   SKY_AI_LISTING_IMAGES_EVENT,
   type SkyAiListingImagesDetail,
@@ -43,6 +47,12 @@ import {
 import { compressImage, generateThumbnail, type CompressedImage, type Thumbnail } from "../../lib/image-optimization";
 import { withTimeout } from "../../lib/with-timeout";
 import { getClientCsrfToken } from "../../lib/csrf-client";
+
+function sentenceCaseFragment(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed) return trimmed;
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+}
 
 const objectToCategory: Record<string, string> = {
   "car": "Cars", "truck": "Cars", "bus": "Cars", "motorcycle": "Cars",
@@ -413,6 +423,18 @@ export default function AIPostPage() {
     }
   }, [imagePreviews.length, title, description, category, condition, price, listingType, location, autoPublish]);
 
+  const appendDescriptionFromVoice = useCallback((text: string) => {
+    const incoming = text.trim();
+    if (!incoming) return;
+    setDescription((prev) => {
+      const current = prev.trim();
+      if (!current) return sentenceCaseFragment(incoming);
+      const needsPeriod = /[.!?]$/.test(current) ? "" : ".";
+      return `${current}${needsPeriod} ${sentenceCaseFragment(incoming)}`.trim();
+    });
+    showToast("Description updated");
+  }, []);
+
   const fetchPriceSuggestion = async () => {
     if (!title || !category) {
       showToast("Please enter a title and category first", "error");
@@ -526,13 +548,33 @@ export default function AIPostPage() {
       }
     };
 
+    const onVoiceFormAction = (e: Event) => {
+      const detail = (e as CustomEvent<AwhinaVoiceFormAction>).detail;
+      if (!detail) return;
+      if (detail.type === "apply_fill") {
+        applyFill(detail.fill);
+        return;
+      }
+      if (detail.type === "append_description") {
+        appendDescriptionFromVoice(detail.text);
+        return;
+      }
+      if (detail.type === "publish") {
+        setTimeout(() => {
+          document.getElementById("listing-submit-btn")?.click();
+        }, 0);
+      }
+    };
+
     window.addEventListener(SKY_AI_LISTING_FILL_EVENT, onFill);
     window.addEventListener(SKY_AI_LISTING_IMAGES_EVENT, onImages);
+    window.addEventListener(AWHINA_VOICE_FORM_ACTION_EVENT, onVoiceFormAction);
     return () => {
       window.removeEventListener(SKY_AI_LISTING_FILL_EVENT, onFill);
       window.removeEventListener(SKY_AI_LISTING_IMAGES_EVENT, onImages);
+      window.removeEventListener(AWHINA_VOICE_FORM_ACTION_EVENT, onVoiceFormAction);
     };
-  }, [applyFill, imagePreviews.length]);
+  }, [appendDescriptionFromVoice, applyFill, imagePreviews.length]);
 
   // Load model from CDN
   useEffect(() => {

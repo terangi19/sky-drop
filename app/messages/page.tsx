@@ -43,6 +43,7 @@ import { extractEmailsFromText,
   sellerProfileSlug,
 } from "../lib/public-display";
 import { resolveSellerBySlug } from "../lib/seller-profile-lookup";
+import { sellerMessagesUrl } from "../lib/public-display";
 import { canSellerConfirmArrangeSale, countSellerSales } from "../lib/arrange-purchase-status";
 import { getFreshIdToken } from "../lib/api-auth";
 import { trackFunnelEvent } from "../lib/funnel-events";
@@ -1862,7 +1863,17 @@ function MessagesPage() {
                                   {/* Actions */}
                                   <div className="flex items-center gap-2 p-3">
                                     <button
-                                      onClick={() => router.push(`/messages?user=${encodeURIComponent(chatUser)}&listing=${chatListingId}`)}
+                                      onClick={() =>
+                                        router.push(
+                                          sellerMessagesUrl(
+                                            {
+                                              sellerUsername: sellerProfile?.username,
+                                              sellerId: sellerProfile?.id,
+                                            },
+                                            chatListingId
+                                          )
+                                        )
+                                      }
                                       className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 py-2 text-[11px] font-bold text-sky-400 transition hover:bg-sky-500/20"
                                     >
                                       <span>💬</span>

@@ -14,6 +14,11 @@ import {
 import { PAGE_SHELL_MARKETPLACE } from "../lib/page-layout";
 import DragScrollCarousel, { useDragGuardClick } from "./DragScrollCarousel";
 import ListingImage, { listingHasImage } from "./ListingImage";
+import {
+  sellerMessagesUrl,
+  sellerProfileDisplayName,
+  sellerProfileSlug,
+} from "../lib/public-display";
 
 interface HotItem {
   id: string;
@@ -27,6 +32,7 @@ interface HotItem {
   views?: number;
   sellerEmail?: string;
   sellerUsername?: string;
+  sellerId?: string;
   [key: string]: unknown;
 }
 
@@ -86,10 +92,15 @@ export default function HotThisWeek({
           const hotGlow = watchlistGlowFn(hotSaves);
           const hasImage = listingHasImage(item);
           const sellerEmail = item.sellerEmail || "";
-          const username = item.sellerUsername || sellerEmail.split("@")[0] || "Seller";
+          const username = sellerProfileDisplayName(item);
           const isOwnListing = Boolean(user?.email && user.email === sellerEmail);
-          const profileHref = isOwnListing ? "/profile" : `/seller/${item.sellerUsername || sellerEmail}`;
-          const messageHref = `/messages?user=${encodeURIComponent(item.sellerUsername || sellerEmail)}&listing=${encodeURIComponent(item.id)}`;
+          const profileSlug = sellerProfileSlug(item);
+          const profileHref = isOwnListing
+            ? "/profile"
+            : profileSlug
+              ? `/seller/${profileSlug}`
+              : "#";
+          const messageHref = sellerMessagesUrl(item, item.id);
 
           return (
             <HotWeekCard

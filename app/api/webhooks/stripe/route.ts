@@ -5,6 +5,7 @@ import { createPurchaseWithAdmin } from "../../../lib/purchase-service";
 import { notifyAdmin, writeFailureRecord } from "../../../lib/admin-alerts";
 import * as Sentry from "@sentry/nextjs";
 import { logSecurityCritical } from "../../../lib/security-log";
+import { sanitizeCheckoutCollectionName } from "../../../lib/payment-checkout";
 
 export async function POST(req: NextRequest) {
   const sig = req.headers.get("stripe-signature");
@@ -103,8 +104,8 @@ export async function POST(req: NextRequest) {
       if (meta.listingId && meta.buyerUid && meta.title) {
         const db = getAdminDb();
 
-        // Always read from "listings" collection — never from a user-supplied collection name
-        const listingDoc = await db.collection("listings").doc(meta.listingId).get();
+        const collectionName = sanitizeCheckoutCollectionName(meta.collectionName || "listings");
+        const listingDoc = await db.collection(collectionName).doc(meta.listingId).get();
         if (!listingDoc.exists) {
           await eventRef.update({ status: "completed", processedAt: new Date() });
           return NextResponse.json({ received: true });
@@ -132,6 +133,7 @@ export async function POST(req: NextRequest) {
           total,
           type: listingType,
           stripePaymentIntentId: pi.id,
+          collectionName,
           destinationCharge: true,
         });
       }

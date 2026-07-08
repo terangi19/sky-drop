@@ -35,6 +35,10 @@ export type VoiceCommandAction = {
   run?: () => { ok: boolean; path?: string };
 };
 
+type VoiceCommandContext = {
+  isAdmin?: boolean;
+};
+
 /* ── Debug / analytics bridge ── */
 
 export type VoiceDebugLog = {
@@ -99,13 +103,39 @@ function normalizeCmd(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim();
 }
 
-export function resolveVoiceCommand(text: string, pathname: string): VoiceCommandAction | null {
-  const trimmed = text.trim();
+function cleanVoiceTranscript(text: string): string {
+  return text
+    .replace(/^(?:hey\s+)?awhina[:,]?\s*/i, "")
+    .replace(/^(?:uh|um|okay|ok|please)\s+/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function resolveVoiceCommand(
+  text: string,
+  pathname: string,
+  context?: VoiceCommandContext
+): VoiceCommandAction | null {
+  const trimmed = cleanVoiceTranscript(text);
   if (!trimmed) return null;
+
+  if (!isSellNavigationPhrase(trimmed) && isListingSpeech(trimmed)) {
+    const action: VoiceCommandAction = {
+      type: "listing",
+      path: "/post/ai",
+      status: "Preparing listing draft…",
+      confidence: "high",
+      heard: trimmed,
+      targetTitle: "Sell",
+      message: trimmed,
+    };
+    voiceLog(trimmed, action);
+    return action;
+  }
 
   // Pipeline 1: Local Command Engine
   // Try exact match first — fastest path
-  const local = matchLocalCommand(trimmed, pathname);
+  const local = matchLocalCommand(trimmed, pathname, context);
   if (local) {
     const action = localToVoiceAction(local);
     voiceLog(trimmed, action);
@@ -127,7 +157,7 @@ export function resolveVoiceCommand(text: string, pathname: string): VoiceComman
   }
 
   // Try phonetic-corrected match
-  const { action: localPhonetic } = resolveLocalCommand(trimmed, pathname);
+  const { action: localPhonetic } = resolveLocalCommand(trimmed, pathname, context);
   if (localPhonetic) {
     const action = localToVoiceAction(localPhonetic);
     voiceLog(trimmed, action);
@@ -223,6 +253,16 @@ function localToVoiceAction(local: LocalCommandAction): VoiceCommandAction {
         status: "Turning off Voice Mode…",
         confidence: "high",
         heard: local.heard,
+      };
+
+    case "reply":
+      return {
+        type: "reply",
+        status: local.status,
+        confidence,
+        heard: local.heard,
+        targetTitle: local.targetTitle,
+        message: local.message || local.status,
       };
   }
 }

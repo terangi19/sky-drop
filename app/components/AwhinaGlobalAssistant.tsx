@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { User } from "firebase/auth";
 import { auth, onAuthStateChanged } from "../lib/firebase";
 import { useAwhinaVoice } from "../hooks/useAwhinaVoice";
+import { isAdminEmail } from "../lib/admin-check";
 import { dismissAwhinaIntro, shouldShowAwhinaIntro } from "../lib/awhina-intro";
 import { dismissVoiceModeIntro, shouldShowVoiceModeIntro } from "../lib/voice-mode-intro";
 import { SKY_AI_OPEN_EVENT, consumeVoiceSellNavigation, dispatchSkyAiOpen, isVoiceSellNavigationPending, type SkyAiOpenDetail } from "../lib/sky-ai-events";
@@ -44,7 +45,10 @@ export default function AwhinaGlobalAssistant() {
   const [pendingChatQuery, setPendingChatQuery] = useState<string | undefined>();
   const pendingChatQueryRef = useRef<string | undefined>();
   const awhinaIntroOnSellPageRef = useRef(false);
-  const voice = useAwhinaVoice();
+  const voice = useAwhinaVoice({
+    userEmail: user?.email ?? null,
+    isAdmin: isAdminEmail(user?.email),
+  });
 
   const openChat = useCallback((query?: string) => {
     if (shouldShowAwhinaIntro() && !isVoiceSellNavigationPending()) {

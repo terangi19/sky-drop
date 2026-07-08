@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import { sellerProfileSlug } from "../lib/public-display";
 import { sanitizeHtml } from "../lib/sanitize";
 import {
   arrayUnion,
@@ -1608,9 +1609,9 @@ const tabGroups = [
                     <p className="mb-3 text-sm font-medium text-zinc-400">Following ({followingList.length})</p>
                     <div className="flex flex-wrap gap-2">
                       {followingList.map((f) => (
-                        <Link key={f.sellerId} href={`/seller/${f.sellerEmail}`}
+                        <Link key={f.sellerId} href={`/seller/${sellerProfileSlug({ sellerId: f.sellerId })}`}
                           className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-xs transition-all hover:bg-white/[0.06] hover:border-white/[0.12]">
-                          {f.sellerEmail?.split("@")[0] || "User"}
+                          {"Seller"}
                         </Link>
                       ))}
                     </div>

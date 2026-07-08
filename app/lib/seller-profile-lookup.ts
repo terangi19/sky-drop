@@ -26,6 +26,11 @@ export async function resolveSellerBySlug(
   if (!normalized) return null;
   const lower = normalized.toLowerCase();
 
+  const directProfile = await getDoc(doc(db, "profiles", normalized));
+  if (directProfile.exists()) {
+    return { uid: directProfile.id, data: directProfile.data()! };
+  }
+
   const unameSnap = await getDoc(doc(db, "usernames", lower));
   if (unameSnap.exists()) {
     const uid = String(unameSnap.data()?.uid || "");

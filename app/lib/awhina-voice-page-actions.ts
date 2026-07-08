@@ -59,6 +59,75 @@ export function messageSellerOnPage(): PageActionResult {
   return { ok: false };
 }
 
+function updateSearchUrl(mutator: (params: URLSearchParams) => void): string | null {
+  if (typeof window === "undefined") return null;
+  const url = new URL(window.location.href);
+  mutator(url.searchParams);
+  return `${url.pathname}?${url.searchParams.toString()}`;
+}
+
+export function refineSearchOnPage(
+  refinement:
+    | { type: "location"; value: string }
+    | { type: "maxPrice"; value: string }
+    | { type: "saleType"; value: "auction" | "buy_now" | "auction_buy_now" }
+    | { type: "sortBy"; value: "price-low" | "price-high" | "newest" | "popular" }
+): PageActionResult {
+  if (typeof window === "undefined" || !window.location.pathname.startsWith("/search")) {
+    return { ok: false };
+  }
+  const next = updateSearchUrl((params) => {
+    if (refinement.type === "location") {
+      params.set("location", refinement.value.toLowerCase());
+      return;
+    }
+    if (refinement.type === "maxPrice") {
+      params.set("maxPrice", refinement.value);
+      return;
+    }
+    if (refinement.type === "saleType") {
+      params.set("saleType", refinement.value);
+      return;
+    }
+    params.set("sortBy", refinement.value);
+  });
+  if (!next) return { ok: false };
+  window.location.assign(next);
+  return { ok: true, path: next };
+}
+
+export function showSimilarListingsOnPage(): PageActionResult {
+  if (typeof window === "undefined" || !window.location.pathname.includes("/post/listing/")) {
+    return { ok: false };
+  }
+  const title =
+    document.querySelector("h1")?.textContent?.trim() ||
+    document.title.split("—")[0]?.trim() ||
+    "";
+  const category =
+    document.querySelector('[class*="rounded-full"][class*="text-sky-400"]')?.textContent?.trim() || "";
+  const seed = `${title} ${category}`.trim();
+  if (!seed) return { ok: false };
+  const q = encodeURIComponent(seed.split(/\s+/).slice(0, 6).join(" "));
+  const path = `/search?q=${q}`;
+  window.location.assign(path);
+  return { ok: true, path };
+}
+
+export function prepareOfferOnPage(amount: string): PageActionResult {
+  const offerInput =
+    document.querySelector<HTMLInputElement>('input[placeholder*="offer" i]') ??
+    document.querySelector<HTMLInputElement>('input[type="number"]');
+  const offerButton = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find((btn) =>
+    /make offer|send offer|offer/i.test(btn.textContent || "")
+  );
+  if (!offerInput || !offerButton) return { ok: false };
+  offerInput.focus();
+  offerInput.value = amount;
+  offerInput.dispatchEvent(new Event("input", { bubbles: true }));
+  return { ok: true };
+}
+
 export function switchTab(tabId: string): PageActionResult {
   const tab =
     document.querySelector<HTMLElement>(`[role="tab"][data-tab="${tabId}"]`) ??

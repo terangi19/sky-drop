@@ -1,5 +1,11 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminDb, isAdminInitialized } from "./firebase-admin";
+import {
+  isReservationHeldByOtherBuyer,
+  sanitizeCheckoutCollectionName,
+} from "./payment-checkout";
+
+const RESERVATION_MS = 15 * 60 * 1000;
 
 export function requireAdminForCheckout(): void {
   if (!isAdminInitialized()) {
@@ -14,7 +20,10 @@ export async function adminGetListing(
   listingId: string
 ): Promise<Record<string, unknown> | null> {
   requireAdminForCheckout();
-  const snap = await getAdminDb().collection(collectionName).doc(listingId).get();
+  const snap = await getAdminDb()
+    .collection(sanitizeCheckoutCollectionName(collectionName))
+    .doc(listingId)
+    .get();
   if (!snap.exists) return null;
   return snap.data() as Record<string, unknown>;
 }
@@ -38,14 +47,28 @@ export async function adminReserveListing(
   buyerUid: string
 ): Promise<void> {
   requireAdminForCheckout();
-  try {
-    await getAdminDb().collection(collectionName).doc(listingId).update({
+  const safeCollection = sanitizeCheckoutCollectionName(collectionName);
+  await getAdminDb().runTransaction(async (tx) => {
+    const ref = getAdminDb().collection(safeCollection).doc(listingId);
+    const snap = await tx.get(ref);
+    if (!snap.exists) {
+      throw new Error("LISTING_NOT_FOUND");
+    }
+    const listing = snap.data() as Record<string, unknown>;
+    if (
+      isReservationHeldByOtherBuyer(
+        listing as { reservedAt?: { toMillis?: () => number } | string; reservedBy?: unknown },
+        buyerUid,
+        RESERVATION_MS
+      )
+    ) {
+      throw new Error("LISTING_RESERVED");
+    }
+    tx.update(ref, {
       reservedAt: FieldValue.serverTimestamp(),
       reservedBy: buyerUid,
     });
-  } catch (e) {
-    console.warn("[checkout] reservation skipped:", e);
-  }
+  });
 }
 
 export async function adminCreateCheckoutMessage(data: {

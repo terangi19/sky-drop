@@ -377,7 +377,7 @@ export default function ListingCard({
                   sellerUsername: liveUsername || item.sellerUsername,
                   sellerEmail: email,
                 },
-                email?.split("@")[0] || "Seller"
+                "Seller"
               );
               const initial = displayName.charAt(0).toUpperCase();
               const stats = sellerReviewStats[email || ""];
