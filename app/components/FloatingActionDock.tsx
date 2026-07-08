@@ -6,8 +6,8 @@ import { AWHINA_ASK_LABEL, AWHINA_NAME } from "../lib/awhina-brand";
 import type { AwhinaVoiceState } from "../hooks/useAwhinaVoice";
 import { useFeedback } from "../contexts/FeedbackContext";
 import { useTourGuide } from "../contexts/TourGuideContext";
-import { SKY_AI_COMPOSER_ACTIVE_EVENT, type SkyAiComposerActiveDetail } from "../lib/sky-ai-events";
 import { FAB_DOCK_POSITION } from "../lib/floating-ui-layout";
+import { SKY_AI_COMPOSER_ACTIVE_EVENT, type SkyAiComposerActiveDetail } from "../lib/sky-ai-events";
 import FeedbackModal from "./FeedbackModal";
 
 type Props = {
@@ -154,16 +154,17 @@ export default function FloatingActionDock({
     clearLongPress();
   };
 
-  const showUnseenBadge = hasUnseenTour && !expanded;
+  const showUnseenBadge = hasUnseenTour && !expanded && !dockHidden;
+
+  if (dockHidden) {
+    return <FeedbackModal />;
+  }
 
   return (
     <>
       <div
         ref={dockRef}
-        className={`${FAB_DOCK_POSITION} pointer-events-none flex flex-col items-end transition-all duration-300 ${
-          dockHidden ? "translate-y-4 opacity-0 pointer-events-none" : "translate-y-0 opacity-100"
-        }`}
-        aria-hidden={dockHidden}
+        className={`${FAB_DOCK_POSITION} pointer-events-none flex flex-col items-end`}
       >
         {expanded && (
           <div

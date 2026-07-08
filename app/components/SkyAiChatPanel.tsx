@@ -18,7 +18,8 @@ import {
   stripSkyAiMachineTags,
   type SkyAiListingFill,
 } from "../lib/sky-ai-listing-fill";
-import { SKY_AI_OPEN_EVENT, dispatchSkyAiComposerActive, type SkyAiOpenDetail } from "../lib/sky-ai-events";
+import { dispatchSkyAiComposerActive, SKY_AI_OPEN_EVENT, type SkyAiOpenDetail } from "../lib/sky-ai-events";
+import { AWHINA_CHAT_BACKDROP_Z, AWHINA_CHAT_SHEET_Z } from "../lib/floating-ui-layout";
 import { SKY_AI_QUICK_PROMPTS, SKY_AI_WELCOME } from "../lib/sky-ai-prompts";
 import { mergeListingFillWithDraft } from "../lib/sky-ai-draft-merge";
 import { readListingDraftFromSkyAi } from "../lib/sky-ai-listing-context";
@@ -1060,7 +1061,7 @@ export default function SkyAiChatPanel({
       }} />
 
       <div
-        className={`border-t border-sky-500/15 awhina-chat-surface px-3 py-2.5 ${
+        className={`border-t border-sky-500/15 awhina-chat-surface relative z-10 shrink-0 bg-[rgba(6,8,12,0.98)] px-3 py-2.5 ${
           isSheet ? "max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]" : "rounded-b-xl"
         }`}
       >
@@ -1197,7 +1198,7 @@ export default function SkyAiChatPanel({
   return (
     <>
       <div
-        className={`awhina-chat awhina-chat-shell fixed right-0 top-0 z-[10001] flex h-full w-full max-w-[400px] flex-col border-l border-sky-500/20 shadow-[0_0_60px_rgba(14,165,233,0.08)] backdrop-blur-xl transition-transform duration-300 ease-out ${
+        className={`awhina-chat awhina-chat-shell fixed right-0 top-0 ${AWHINA_CHAT_SHEET_Z} flex h-full w-full max-w-[400px] flex-col border-l border-sky-500/20 shadow-[0_0_60px_rgba(14,165,233,0.08)] backdrop-blur-xl transition-transform duration-300 ease-out ${
           open ? "translate-x-0 animate-fade-in-panel" : "translate-x-full pointer-events-none"
         }`}
         aria-hidden={!open}
@@ -1209,7 +1210,7 @@ export default function SkyAiChatPanel({
       {open && (
         <button
           type="button"
-          className="fixed inset-0 z-[10000] bg-black/50 md:bg-black/25 animate-fade-in-backdrop"
+          className={`fixed inset-0 ${AWHINA_CHAT_BACKDROP_Z} bg-black/50 md:bg-black/25 animate-fade-in-backdrop`}
           aria-label={`Close ${AWHINA_NAME} overlay`}
           onClick={() => setOpen(false)}
         />
