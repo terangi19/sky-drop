@@ -707,13 +707,40 @@ export function applySkyAiListingFill(fill: SkyAiListingFill, h: ListingFillHand
   const normalized = normalizeSkyAiListingFill(fill);
   if (!normalized) return false;
 
-  const type = (normalized.listingType || "physical") as
+  let type = (normalized.listingType || "physical") as
     | "physical"
     | "service"
     | "rental"
     | "vehicle";
 
+  const hasVehicleDetails = Boolean(
+    normalized.vehicleMake ||
+      normalized.vehicleModel ||
+      normalized.vehicleYear ||
+      normalized.vehicleOdometer
+  );
+
+  if (type === "vehicle" || (type === "physical" && hasVehicleDetails)) {
+    type = "physical";
+    if (!normalized.category || normalized.category === "Other") {
+      normalized.category = "Cars";
+    }
+  }
+
   h.setListingType(type);
+
+  const applyVehicleFields = () => {
+    if (normalized.vehicleMake) h.setVehicleMake?.(normalized.vehicleMake);
+    if (normalized.vehicleModel) h.setVehicleModel?.(normalized.vehicleModel);
+    if (normalized.vehicleYear) h.setVehicleYear?.(normalized.vehicleYear);
+    if (normalized.vehicleOdometer) h.setVehicleOdometer?.(normalized.vehicleOdometer);
+    if (normalized.vehicleTransmission) h.setVehicleTransmission?.(normalized.vehicleTransmission);
+    if (normalized.vehicleFuelType) h.setVehicleFuelType?.(normalized.vehicleFuelType);
+    if (normalized.vehicleBodyType) h.setVehicleBodyType?.(normalized.vehicleBodyType);
+    if (normalized.vehicleColour) h.setVehicleColour?.(normalized.vehicleColour);
+    h.setAcceptOffers?.(false);
+    h.setSaleType?.("buy_now");
+  };
 
   if (type === "service") {
     h.setPickupAvailable?.(true);
@@ -768,25 +795,6 @@ export function applySkyAiListingFill(fill: SkyAiListingFill, h: ListingFillHand
       if (normalized.vehicleTransmission) h.setVehicleTransmission?.(normalized.vehicleTransmission);
       if (normalized.stockQuantity) h.setStockQuantity?.(normalized.stockQuantity);
     }
-  } else if (type === "vehicle") {
-    h.setCategory("Cars");
-    h.setSaleType?.("buy_now");
-    h.setAcceptOffers?.(false);
-    if (normalized.condition) h.setCondition(normalized.condition);
-    if (normalized.price) h.setPrice(normalized.price);
-    if (normalized.paymentType) h.setPaymentType?.(normalized.paymentType);
-    if (normalized.location) h.setLocation(normalized.location);
-    if (normalized.vehicleMake) h.setVehicleMake?.(normalized.vehicleMake);
-    if (normalized.vehicleModel) h.setVehicleModel?.(normalized.vehicleModel);
-    if (normalized.vehicleYear) h.setVehicleYear?.(normalized.vehicleYear);
-    if (normalized.vehicleOdometer) h.setVehicleOdometer?.(normalized.vehicleOdometer);
-    if (normalized.vehicleTransmission) h.setVehicleTransmission?.(normalized.vehicleTransmission);
-    if (normalized.vehicleFuelType) h.setVehicleFuelType?.(normalized.vehicleFuelType);
-    if (normalized.vehicleBodyType) h.setVehicleBodyType?.(normalized.vehicleBodyType);
-    if (normalized.vehicleColour) h.setVehicleColour?.(normalized.vehicleColour);
-    if (normalized.pickupAvailable !== undefined) h.setPickupAvailable?.(normalized.pickupAvailable);
-    else if (normalized.location) h.setPickupAvailable?.(true);
-    if (normalized.shippingAvailable !== undefined) h.setShippingAvailable?.(normalized.shippingAvailable);
   } else {
     if (normalized.category) h.setCategory(normalized.category);
     if (normalized.condition) h.setCondition(normalized.condition);
@@ -797,6 +805,9 @@ export function applySkyAiListingFill(fill: SkyAiListingFill, h: ListingFillHand
     if (normalized.shippingAvailable !== undefined) h.setShippingAvailable?.(normalized.shippingAvailable);
     if (normalized.acceptOffers !== undefined) h.setAcceptOffers?.(normalized.acceptOffers);
     if (normalized.saleType) h.setSaleType?.(normalized.saleType);
+    if (normalized.category === "Cars" || hasVehicleDetails) {
+      applyVehicleFields();
+    }
   }
 
   if (normalized.title) h.setTitle(normalized.title);

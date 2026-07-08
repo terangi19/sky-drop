@@ -876,7 +876,7 @@ export default function AIPostPage() {
         return;
       }
     }
-    if (listingType === "vehicle") {
+    if (listingType === "vehicle" || (listingType === "physical" && category === "Cars")) {
       if (!vehicleMake || !vehicleModel) {
         showToast("Enter the vehicle make and model.", "error");
         return;
@@ -1078,6 +1078,18 @@ export default function AIPostPage() {
         buyNowPrice: buyNowPrice ? Number(buyNowPrice) : null,
         startingBid: (saleType === "auction" || saleType === "auction_buy_now") && startingBid ? Number(startingBid) : null,
         reservePrice: (saleType === "auction" || saleType === "auction_buy_now") && reservePrice ? Number(reservePrice) : null,
+        ...(category === "Cars"
+          ? {
+              vehicleMake,
+              vehicleModel,
+              vehicleYear: vehicleYear ? Number(vehicleYear) : null,
+              vehicleOdometer: vehicleOdometer ? Number(vehicleOdometer) : null,
+              vehicleBodyType,
+              vehicleFuelType,
+              vehicleTransmission,
+              vehicleColour,
+            }
+          : {}),
         ...(editId ? {} : {
           auctionEndsAt: (saleType === "auction" || saleType === "auction_buy_now") ? new Date(Date.now() + Number(auctionDuration) * 86400000) : null,
           expiresAt: new Date(Date.now() + Number(expiresIn) * 86400000),
@@ -1227,7 +1239,7 @@ export default function AIPostPage() {
     }
 
     const typeConfig = [
-      { key: "physical", icon: "📦", label: "Physical", desc: "Real items that can be picked up or shipped.", examples: "Phones, furniture, tools, clothing, collectibles.", action: () => setAcceptOffers(false) },
+      { key: "physical", icon: "📦", label: "Physical", desc: "Real items that can be picked up or shipped, including vehicles.", examples: "Phones, cars, furniture, tools, clothing, collectibles.", action: () => setAcceptOffers(false) },
       { key: "service", icon: "🛠️", label: "Service", desc: "Local services performed in person.", examples: "Lawn mowing, cleaning, tutoring, photography, trades, handyman work, personal training.", action: () => { setCategory("Other Services"); setServicePricingType("fixed"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(true); setSaleType("buy_now"); } },
       { key: "rental", icon: "🔑", label: "Rental", desc: "Something people can hire or rent temporarily.", examples: "Houses, rooms, trailers, equipment, party gear.", action: () => { setCategory("Other"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); setLocation(""); setCondition("New"); } },
       { key: "vehicle", icon: "🚗", label: "Vehicle", desc: "Motor vehicles for sale.", examples: "Cars, motorcycles, boats, caravans, trucks.", action: () => { setCategory("Cars"); setSaleType("buy_now"); setAcceptOffers(false); } },
@@ -1479,7 +1491,7 @@ export default function AIPostPage() {
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {[
-                { key: "physical", icon: "📦", label: "Physical", desc: "Sell items for pickup or shipping.", tags: ["Phones", "Furniture", "Tools"], action: () => setAcceptOffers(false) },
+                { key: "physical", icon: "📦", label: "Physical", desc: "Sell items for pickup or shipping, including vehicles.", tags: ["Phones", "Vehicles", "Furniture"], action: () => setAcceptOffers(false) },
                 { key: "service", icon: "🛠️", label: "Service", desc: "Offer local or online services.", tags: ["Cleaning", "Tutoring", "Photography"], action: () => { setCategory("Other Services"); setServicePricingType("fixed"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(true); setSaleType("buy_now"); } },
                 { key: "rental", icon: "🔑", label: "Rental", desc: "Rent equipment, vehicles or tools.", tags: ["Equipment", "Vehicles", "Tools"], action: () => { setCategory("Other"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); setLocation(""); setCondition("New"); } },
                 { key: "wanted", icon: "📋", label: "Wanted", desc: "Tell sellers what you're looking for.", tags: ["BMW 335i", "Lawn mowing", "House to rent"], action: () => { setCategory("Items"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); } },
@@ -1588,6 +1600,69 @@ export default function AIPostPage() {
             </div>
             )}
           </div>
+
+          {(listingType === "vehicle" || (listingType === "physical" && category === "Cars")) && (
+            <div className="space-y-3 rounded-xl bg-white/[0.03] p-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div>
+                <label className="text-sm font-bold text-[var(--foreground)]">Vehicle details</label>
+                <p className="mt-1 text-[10px] text-[var(--muted)]">Cars and motor vehicles listed under Physical Items.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Make *</label>
+                  <input type="text" value={vehicleMake} onChange={(e) => setVehicleMake(e.target.value)} placeholder="e.g. Mazda"
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Model *</label>
+                  <input type="text" value={vehicleModel} onChange={(e) => setVehicleModel(e.target.value)} placeholder="e.g. Axela"
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Year</label>
+                  <input type="number" value={vehicleYear} onChange={(e) => setVehicleYear(e.target.value)} placeholder="e.g. 2015"
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Odometer (km)</label>
+                  <input type="number" value={vehicleOdometer} onChange={(e) => setVehicleOdometer(e.target.value)} placeholder="e.g. 128000"
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Colour</label>
+                  <input type="text" value={vehicleColour} onChange={(e) => setVehicleColour(e.target.value)} placeholder="e.g. Blue"
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Body type</label>
+                  <select value={vehicleBodyType} onChange={(e) => setVehicleBodyType(e.target.value)}
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                    {["SUV", "Sedan", "Hatchback", "Wagon", "Coupe", "Convertible", "Ute", "Van", "Truck", "Motorcycle", "Other"].map((opt) => (
+                      <option key={opt} className="bg-[var(--card)] text-[var(--foreground)]">{opt}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Fuel</label>
+                  <select value={vehicleFuelType} onChange={(e) => setVehicleFuelType(e.target.value)}
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                    {["Petrol", "Diesel", "Electric", "Hybrid", "Plug-in Hybrid", "Other"].map((opt) => (
+                      <option key={opt} className="bg-[var(--card)] text-[var(--foreground)]">{opt}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Transmission</label>
+                  <select value={vehicleTransmission} onChange={(e) => setVehicleTransmission(e.target.value)}
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                    {["Automatic", "Manual", "Other"].map((opt) => (
+                      <option key={opt} className="bg-[var(--card)] text-[var(--foreground)]">{opt}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
 
           {listingType !== "rental" && (
           <div className="space-y-4">

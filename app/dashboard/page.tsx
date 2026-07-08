@@ -435,7 +435,7 @@ export default function DashboardPage() {
                 <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent" />
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-500/10 text-lg ring-1 ring-sky-500/20">Insights</div>
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-500/10 text-lg ring-1 ring-sky-500/20" aria-hidden>💡</div>
                     <div>
                       <h2 className="text-base font-black text-white">Top Insights</h2>
                       <p className="text-[11px] text-zinc-500">AI-powered recommendations</p>
@@ -484,7 +484,7 @@ export default function DashboardPage() {
               <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent" />
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-500/10 text-lg ring-1 ring-sky-500/20">Orders</div>
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-500/10 text-lg ring-1 ring-sky-500/20" aria-hidden>📦</div>
                   <div>
                     <h2 className="text-base font-black text-white">Recent orders</h2>
                     <p className="text-[11px] text-zinc-500">Your latest sales activity</p>

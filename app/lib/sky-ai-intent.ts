@@ -134,7 +134,7 @@ const DRAFT_CONTEXT_RE =
 /** Intent for a turn in an ongoing chat (short replies, topic switches). */
 export function detectSkyAiConversationIntent(
   message: string,
-  context?: { priorAssistant?: string; pathname?: string }
+  context?: { priorAssistant?: string; priorUserMessage?: string; pathname?: string }
 ): SkyAiIntent {
   const base = detectSkyAiIntent(message);
   const m = message.trim();
