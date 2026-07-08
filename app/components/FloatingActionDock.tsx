@@ -224,7 +224,7 @@ export default function FloatingActionDock({
             </div>
           )}
 
-          <div className="relative group">
+          <div className="relative">
             {showFabHint && !expanded && (
               <div
                 className="absolute bottom-[calc(100%+0.75rem)] right-0 w-[min(15rem,calc(100vw-2rem))] rounded-xl border border-sky-500/25 bg-[#0c0e14]/95 px-3 py-2.5 text-right shadow-[0_0_30px_rgba(14,165,233,0.15)] backdrop-blur-xl animate-in fade-in slide-in-from-bottom-2"
@@ -245,12 +245,6 @@ export default function FloatingActionDock({
                 </button>
                 <span className="absolute -bottom-1.5 right-6 h-3 w-3 rotate-45 border-r border-b border-sky-500/25 bg-[#0c0e14]/95" />
               </div>
-            )}
-
-            {!showFabHint && !expanded && (
-              <span className="awhina-chat-fab-tooltip pointer-events-none absolute bottom-[calc(100%+0.5rem)] right-0 whitespace-nowrap rounded-lg border border-white/[0.06] bg-zinc-900/95 px-3 py-1.5 text-[10px] font-semibold text-always-white opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
-                {primaryHint}
-              </span>
             )}
 
             {showUnseenBadge && (
