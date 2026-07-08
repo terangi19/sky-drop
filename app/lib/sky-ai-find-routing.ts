@@ -65,6 +65,55 @@ export function isActualVehicleQuery(message: string, searchTerm: string): boole
   return false;
 }
 
+const NZ_CITIES =
+  /\b(auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston north|new plymouth|rotorua|queenstown|invercargill|nelson|whangarei|gisborne)\b/i;
+
+const FIND_PRODUCT_ALIASES: Record<string, string> = {
+  iphone: "iPhone",
+  iphones: "iPhone",
+  ps5: "PS5",
+  ps4: "PS4",
+  xbox: "Xbox",
+  macbook: "MacBook",
+  ipad: "iPad",
+  airpods: "AirPods",
+};
+
+/** Parse max-price filter from find messages — supports "under 400", "under $600", "under 10k". */
+export function parseFindBudget(message: string): string | undefined {
+  const m = message.match(
+    /\b(?:under|up to|max|budget|less than|below)\s*\$?\s*([\d,]+(?:\.\d+)?)\s*(k|K)?\b/i
+  );
+  if (!m) return undefined;
+  let num = parseFloat(m[1].replace(/,/g, ""));
+  if (Number.isNaN(num)) return undefined;
+  if (m[2]) num *= 1000;
+  return String(Math.round(num));
+}
+
+export function parseFindCity(message: string): string | undefined {
+  const match = message.match(
+    /\b(?:in|near|around|within)\s+(auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston north|new plymouth|rotorua|queenstown|invercargill|nelson|whangarei|gisborne)\b/i
+  );
+  if (!match) return undefined;
+  return match[1]
+    .split(/\s+/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+}
+
+export function normalizeFindSearchTerm(term: string): string {
+  const lower = term.toLowerCase();
+  for (const [key, value] of Object.entries(FIND_PRODUCT_ALIASES)) {
+    if (lower === key) return value;
+    if (lower.startsWith(`${key} `)) return value + term.slice(key.length);
+  }
+  if (/\bbmw\b/i.test(term)) {
+    return term.replace(/\bbmw\b/i, "BMW");
+  }
+  return term;
+}
+
 export function buildFindSearchPath(options: {
   q: string;
   maxPrice?: string;
@@ -170,13 +219,36 @@ export function extractFindSearchTerm(message: string): string {
       /\b(find me|find a|find an|show me|looking for|search for|want to buy|wanna buy|need a|need an|iso|in search of|hunting for|anyone selling|for sale)\b/gi,
       " "
     )
-    .replace(/\b(a|an|the|under|near|in|around|within|budget|max|up to)\b/gi, " ")
+    .replace(
+      /\b(?:under|up to|max|budget|less than|below)\s*\$?\s*[\d,]+(?:\.\d+)?\s*k?\b/gi,
+      " "
+    )
+    .replace(/\b(a|an|the|near|in|around|within)\b/gi, " ")
     .replace(/\$[\d,]+(?:\.\d{2})?/g, " ")
     .replace(/\b[\d,]+\s*k\b/gi, " ")
-    .replace(/\b(auckland|wellington|christchurch|hamilton|tauranga|dunedin)\b/gi, " ")
+    .replace(NZ_CITIES, " ")
     .replace(/\s+/g, " ")
     .trim();
 
-  if (cleaned.length >= 3) return cleaned;
+  if (cleaned.length >= 2) return normalizeFindSearchTerm(cleaned);
   return "what you're after";
+}
+
+/** Parse navigation URL params from a find search path. */
+export function parseFindSearchPath(path: string): {
+  q?: string;
+  maxPrice?: string;
+  location?: string;
+} {
+  if (!path.startsWith("/search")) return {};
+  try {
+    const params = new URL(path, "https://skydrop.co.nz").searchParams;
+    return {
+      q: params.get("q") || undefined,
+      maxPrice: params.get("maxPrice") || undefined,
+      location: params.get("location") || undefined,
+    };
+  } catch {
+    return {};
+  }
 }

@@ -109,16 +109,8 @@ export function stripSkyAiMachineTags(text: string): string {
 /** Turn [[NAV:...]] into visible text — never leave a blank “here's the link” gap. */
 export function formatNavTagForDisplay(path: string): string {
   if (path.startsWith("/search")) {
-    try {
-      const q = new URL(path, "https://skydrop.co.nz").searchParams.get("q");
-      if (q) {
-        const label = decodeURIComponent(q.replace(/\+/g, " "));
-        return `\n\n→ **Search results for "${label}"** — opening now.`;
-      }
-    } catch {
-      /* ignore */
-    }
-    return "\n\n→ **Opening search results** now.";
+    // Find replies already include a concise "Opening … listings" line; navigateTo handles routing.
+    return "";
   }
   if (path === "/vehicles") return "\n\n→ **Opening Vehicles** now.";
   if (path === "/") return "\n\n→ **Opening marketplace** now.";

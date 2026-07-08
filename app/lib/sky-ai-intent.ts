@@ -147,7 +147,10 @@ export function detectSkyAiConversationIntent(
   );
 
   const inFindFlow = Boolean(
-    context?.priorAssistant && /find|search|looking for|ps5|mower|under \$/i.test(context.priorAssistant)
+    (context?.priorAssistant &&
+      /find|search|looking for|opening.*listings|ps5|mower|\bunder\s*\$?\d/i.test(context.priorAssistant)) ||
+      (context?.priorUserMessage &&
+        /\b(find|show me|looking for|search for|want to buy|iso)\b/i.test(context.priorUserMessage))
   );
 
   if (inFindFlow) {
@@ -196,8 +199,12 @@ export function shouldBypassNavigationShortcut(message: string): boolean {
 }
 
 /** Per-message system injection so the model picks the right completion path. */
-export function getSkyAiIntentHint(message: string, pathname?: string): string {
-  const intent = detectSkyAiConversationIntent(message, { pathname });
+export function getSkyAiIntentHint(
+  message: string,
+  pathname?: string,
+  priorAssistant?: string
+): string {
+  const intent = detectSkyAiConversationIntent(message, { pathname, priorAssistant });
   switch (intent) {
     case "find_buy":
       return `[INTENT: FIND/BUY] User wants to search or browse — NOT sell. Do NOT output LISTING_FILL or a wanted listing. Car parts/accessories (spoiler, rims, turbo, etc.) → Physical Items via /search?q=... — NEVER /vehicles. Whole vehicles (335i, Hilux, etc.) → /search?q=... or /vehicles. If uncertain, /search?q=... on all listings. End with one actionable next step.`;

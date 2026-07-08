@@ -3,10 +3,14 @@
  * Used before OpenAI so find/sell/troubleshoot never dead-end or mis-route.
  */
 
+import { isSkyAiGeneralQuestion, skyAiCapabilitiesReply } from "./sky-ai-prompts";
 import { detectSkyAiIntent, hasListingSellIntent } from "./sky-ai-intent";
 import {
   extractFindSearchTerm,
+  parseFindBudget,
+  parseFindCity,
   resolveFindBrowseRoute,
+  type FindBrowseRoute,
 } from "./sky-ai-find-routing";
 
 const FIND_RE =
@@ -15,26 +19,70 @@ const FIND_RE =
 const WANTED_AD_EXPLICIT =
   /\b(post a wanted|create a wanted|wanted ad|wanted listing)\b/i;
 
-export function tryFindBrowseReply(message: string): { text: string; navigateTo?: string } | null {
+export type SkyAiTaskContext = {
+  priorUserMessage?: string;
+  priorAssistantMessage?: string;
+};
+
+function buildFindBrowseReplyText(
+  route: FindBrowseRoute,
+  options: { budget?: string; city?: string }
+): string {
+  const term = route.searchTerm;
+  const hasTerm = term !== "what you're after";
+  const displayTerm = hasTerm ? term : route.categoryLabel.toLowerCase();
+
+  let line = hasTerm
+    ? `Opening **${displayTerm}** listings`
+    : `Opening **${route.categoryLabel}**`;
+
+  if (options.budget) {
+    line += ` under **$${Number(options.budget).toLocaleString("en-NZ")}**`;
+  }
+  if (options.city) {
+    line += ` in **${options.city}**`;
+  }
+
+  return `${line}... [[NAV:${route.path}]]`;
+}
+
+export function tryFindBrowseReply(
+  message: string,
+  context?: SkyAiTaskContext
+): { text: string; navigateTo?: string } | null {
   const m = message.trim();
   if (!m || WANTED_AD_EXPLICIT.test(m)) return null;
-  if (!FIND_RE.test(m) && detectSkyAiIntent(m) !== "find_buy") return null;
+
+  const priorWasFind = Boolean(
+    context?.priorUserMessage && FIND_RE.test(context.priorUserMessage)
+  );
+  const isFindRefinement =
+    priorWasFind &&
+    (Boolean(parseFindBudget(m) || parseFindCity(m)) ||
+      /\b(under|up to|max|budget|in|near|around)\b/i.test(m));
+
+  if (!isFindRefinement) {
+    if (!FIND_RE.test(m) && detectSkyAiIntent(m) !== "find_buy") return null;
+  }
   if (hasListingSellIntent(m)) return null;
 
-  const budget = m.match(/under\s*\$?\s*([\d,]+)/i)?.[1]?.replace(/,/g, "");
-  const city = m.match(/\b(in|near)\s+(auckland|wellington|christchurch|hamilton|tauranga|dunedin)\b/i)?.[2];
-  const item = extractFindSearchTerm(m);
+  let budget = parseFindBudget(m);
+  let city = parseFindCity(m);
+  let item = extractFindSearchTerm(m);
+
+  if (context?.priorUserMessage) {
+    if (item === "what you're after") {
+      const priorItem = extractFindSearchTerm(context.priorUserMessage);
+      if (priorItem !== "what you're after") item = priorItem;
+    }
+    if (!budget) budget = parseFindBudget(context.priorUserMessage);
+    if (!city) city = parseFindCity(context.priorUserMessage);
+  }
+
   const route = resolveFindBrowseRoute(m, { budget, city, searchTerm: item });
 
-  const budgetLine = budget ? ` Set max price around **$${budget}**.` : "";
-  const cityLine = city ? ` Filter by **${city}**.` : "";
-  const searchLine =
-    item !== "what you're after"
-      ? `**${route.categoryLabel}** search for **${item}**`
-      : `**${route.categoryLabel}** on Sky Drop`;
-
   return {
-    text: `${searchLine} — opening matching listings now.${budgetLine}${cityLine}\n\n→ **Search results for "${item !== "what you're after" ? item : "your search"}"** [[NAV:${route.path}]]`,
+    text: buildFindBrowseReplyText(route, { budget, city }),
     navigateTo: route.path,
   };
 }
@@ -114,9 +162,14 @@ export function tryArrangePurchaseReply(message: string): { text: string; naviga
 /** First matching deterministic task reply, or null to use OpenAI. */
 export function trySkyAiTaskReply(
   message: string,
-  pathname: string
+  pathname: string,
+  context?: SkyAiTaskContext
 ): { text: string; navigateTo?: string; source: "rules" } | null {
-  const find = tryFindBrowseReply(message);
+  if (isSkyAiGeneralQuestion(message)) {
+    return { text: skyAiCapabilitiesReply(), source: "rules" };
+  }
+
+  const find = tryFindBrowseReply(message, context);
   if (find) return { ...find, source: "rules" };
 
   // On sell page, let OpenAI handle sells with LISTING_FILL

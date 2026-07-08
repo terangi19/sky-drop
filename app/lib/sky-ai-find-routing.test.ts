@@ -3,9 +3,12 @@ import {
   inferFindBrowseCategory,
   isActualVehicleQuery,
   isVehiclePartQuery,
+  parseFindBudget,
+  parseFindSearchPath,
   resolveFindBrowseRoute,
 } from "./sky-ai-find-routing";
 import { tryFindBrowseReply } from "./sky-ai-task-replies";
+import { stripSkyAiMachineTags } from "./sky-ai-listing-fill";
 
 describe("sky-ai find routing", () => {
   it("routes car parts to physical search, not vehicles", () => {
@@ -54,18 +57,31 @@ describe("sky-ai find routing", () => {
     expect(reply).toBeTruthy();
     expect(reply!.navigateTo).toMatch(/^\/search\?q=/);
     expect(reply!.navigateTo).not.toContain("/vehicles");
-    expect(reply!.text).toContain("Physical Items");
-    expect(reply!.text).toContain("BMW spoiler");
+    expect(stripSkyAiMachineTags(reply!.text)).toContain("BMW spoiler");
   });
 
   it("tryFindBrowseReply navigates to vehicle search for BMW 335i", () => {
     const reply = tryFindBrowseReply("Find a BMW 335i");
     expect(reply).toBeTruthy();
     expect(reply!.navigateTo).toMatch(/^\/search\?q=/);
-    expect(reply!.text).toContain("Vehicles");
   });
 
   it("infers physical category for gaming items", () => {
     expect(inferFindBrowseCategory("Find me a PS5 under $600", "PS5")).toBe("physical");
+  });
+
+  it("never puts max price into search query term", () => {
+    const reply = tryFindBrowseReply("find me a iphone under 400");
+    const params = parseFindSearchPath(reply!.navigateTo!);
+    expect(params.q).toBe("iPhone");
+    expect(params.maxPrice).toBe("400");
+    expect(parseFindBudget("find me a iphone under 400")).toBe("400");
+  });
+
+  it("returns concise single-line confirmation", () => {
+    const reply = tryFindBrowseReply("Find me a BMW spoiler");
+    const shown = stripSkyAiMachineTags(reply!.text);
+    expect((shown.match(/opening/gi) || []).length).toBe(1);
+    expect(shown).not.toMatch(/search results for/i);
   });
 });

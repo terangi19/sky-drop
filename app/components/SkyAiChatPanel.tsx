@@ -12,16 +12,22 @@ import {
   AWHINA_THINKING,
 } from "../lib/awhina-brand";
 import { skyAiRuleFallbackText } from "../lib/openai-health";
+import { detectSkyAiIntent } from "../lib/sky-ai-intent";
 import {
   dispatchListingFill,
   SKY_AI_LISTING_FILL_EVENT,
   stripSkyAiMachineTags,
   type SkyAiListingFill,
 } from "../lib/sky-ai-listing-fill";
-import { tryFindBrowseReply } from "../lib/sky-ai-task-replies";
+import {
+  SKY_AI_LISTING_FILL_SUCCESS,
+  SKY_AI_QUICK_PROMPTS,
+  SKY_AI_WELCOME,
+  isSkyAiGeneralQuestion,
+  isSkyAiWelcomeBleed,
+} from "../lib/sky-ai-prompts";
 import { dispatchSkyAiComposerActive, SKY_AI_OPEN_EVENT, type SkyAiOpenDetail } from "../lib/sky-ai-events";
 import { AWHINA_CHAT_BACKDROP_Z, AWHINA_CHAT_SHEET_Z } from "../lib/floating-ui-layout";
-import { SKY_AI_QUICK_PROMPTS, SKY_AI_WELCOME } from "../lib/sky-ai-prompts";
 import { mergeListingFillWithDraft } from "../lib/sky-ai-draft-merge";
 import { readListingDraftFromSkyAi } from "../lib/sky-ai-listing-context";
 import {
@@ -262,12 +268,8 @@ export default function SkyAiChatPanel({
     setMessages((prev) => prev.map((m) => {
       if (m.id === id) {
         const updated = { ...m, ...patch };
-        // Always filter out welcome messages - AI should never show them after interaction
-        if (patch.text && /\b(Tell me what you need|create a listing, price help|safety tips|take me to seller guidelines|Tap a quick button below)\b/i.test(patch.text)) {
-          return {
-            ...updated,
-            text: `Done! I've filled your listing. What would you like to do next? You can edit the details, improve the description, generate keywords, check the price, or create listings for Facebook Marketplace or Trade Me.`,
-          };
+        if (patch.text && listingFillOccurredRef.current && isSkyAiWelcomeBleed(patch.text)) {
+          return { ...updated, text: SKY_AI_LISTING_FILL_SUCCESS };
         }
         return updated;
       }
@@ -277,9 +279,8 @@ export default function SkyAiChatPanel({
 
   const addAssistantMessage = useCallback((msg: ChatMessage) => {
     setMessages((prev) => {
-      // Always filter out welcome messages - AI should never show them after interaction
-      if (msg.text && /\b(Tell me what you need|create a listing, price help|safety tips|take me to seller guidelines|Tap a quick button below)\b/i.test(msg.text)) {
-        return [...prev, { ...msg, text: `Done! I've filled your listing. What would you like to do next? You can edit the details, improve the description, generate keywords, check the price, or create listings for Facebook Marketplace or Trade Me.` }];
+      if (msg.text && listingFillOccurredRef.current && isSkyAiWelcomeBleed(msg.text)) {
+        return [...prev, { ...msg, text: SKY_AI_LISTING_FILL_SUCCESS }];
       }
       return [...prev, msg];
     });
@@ -304,16 +305,24 @@ export default function SkyAiChatPanel({
       if (!res.ok) throw new Error("Failed to load");
       const data = await res.json();
       const loaded: ChatMessage[] = (data.messages || []).map(
-        (m: { id: string; role: string; content: string }) => ({
-          id: m.id,
-          role: m.role === "user" ? "user" : "assistant",
-          text: m.content,
-        })
+        (m: { id: string; role: string; content: string }) => {
+          const isAssistant = m.role !== "user";
+          const hasListingFill = isAssistant && /\[\[LISTING_FILL\]\]/.test(m.content);
+          return {
+            id: m.id,
+            role: isAssistant ? "assistant" : "user",
+            text: hasListingFill ? stripSkyAiMachineTags(m.content) : m.content,
+            ...(hasListingFill ? { _rawText: m.content } : {}),
+          };
+        }
       );
-      // Filter out welcome messages if a listing fill occurred in the loaded conversation
+      const hadListingFill = loaded.some(
+        (msg) => msg.role === "assistant" && /\[\[LISTING_FILL\]\]/.test((msg as ChatMessage & { _rawText?: string })._rawText || msg.text)
+      );
+      setListingFillOccurred(hadListingFill);
       const filtered = loaded.map((msg) => {
-        if (msg.role === "assistant" && /\b(Tell me what you need|create a listing, price help|safety tips|take me to seller guidelines|Tap a quick button below)\b/i.test(msg.text)) {
-          return { ...msg, text: `Done! I've filled your listing. What would you like to do next? You can edit the details, improve the description, generate keywords, check the price, or create listings for Facebook Marketplace or Trade Me.` };
+        if (hadListingFill && msg.role === "assistant" && isSkyAiWelcomeBleed(msg.text)) {
+          return { ...msg, text: SKY_AI_LISTING_FILL_SUCCESS };
         }
         return msg;
       });
@@ -360,6 +369,14 @@ export default function SkyAiChatPanel({
       const imageNames = attachments.map((a) => a.name);
 
       if ((!trimmed && imageUrls.length === 0) || busy) return;
+
+      const switchedIntent =
+        isSkyAiGeneralQuestion(trimmed) ||
+        detectSkyAiIntent(trimmed) === "find_buy" ||
+        detectSkyAiIntent(trimmed) === "price_value" ||
+        detectSkyAiIntent(trimmed) === "visibility_issue" ||
+        detectSkyAiIntent(trimmed) === "buy_trouble";
+      if (switchedIntent) setListingFillOccurred(false);
 
       if (imageUrls.length && pathname.startsWith("/post/ai")) {
         dispatchListingImages(imageUrls, imageNames);
@@ -423,7 +440,10 @@ export default function SkyAiChatPanel({
 
       try {
         const token = await getFreshIdToken();
-        const listingContext = readListingDraftFromSkyAi();
+        const listingContext =
+          pathname.startsWith("/post/ai") || !switchedIntent
+            ? readListingDraftFromSkyAi()
+            : null;
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 45000);
         const res = await fetch("/api/sky-ai", {
@@ -502,9 +522,10 @@ export default function SkyAiChatPanel({
                   accumulated += evt.text;
                   const stripped = stripSkyAiMachineTags(accumulated);
                   // Filter welcome message during streaming if listing fill just occurred
-                  const filtered = listingFillOccurredRef.current && /\b(Tell me what you need|create a listing, price help|safety tips|take me to seller guidelines|Tap a quick button below)\b/i.test(stripped)
-                    ? `Done! I've filled your listing. What would you like to do next? You can edit the details, improve the description, generate keywords, check the price, or create listings for Facebook Marketplace or Trade Me.`
-                    : stripped;
+                  const filtered =
+                    listingFillOccurredRef.current && isSkyAiWelcomeBleed(stripped)
+                      ? SKY_AI_LISTING_FILL_SUCCESS
+                      : stripped;
                   updateAssistant(assistantId, {
                     text: filtered,
                     _rawText: accumulated, // Preserve raw text with LISTING_FILL tags
@@ -536,9 +557,10 @@ export default function SkyAiChatPanel({
                       if (navFromFill) navigateTo = navFromFill;
                       const aiReply = evt.reply || stripSkyAiMachineTags(accumulated);
                       // Prevent welcome message after listing fill on non-sell pages
-                      const cleanReply = aiReply && aiReply.length > 10 && !/\b(Tell me what you need|create a listing, price help|safety tips|take me to seller guidelines)\b/i.test(aiReply)
-                        ? aiReply
-                        : `Done! I've filled your listing. What would you like to do next? You can edit the details, improve the description, generate keywords, check the price, or create listings for Facebook Marketplace or Trade Me.`;
+                      const cleanReply =
+                        aiReply && aiReply.length > 10 && !isSkyAiWelcomeBleed(aiReply)
+                          ? aiReply
+                          : SKY_AI_LISTING_FILL_SUCCESS;
                       updateAssistant(assistantId, {
                         text: cleanReply,
                         _rawText: accumulated, // Preserve raw text with LISTING_FILL tags
@@ -590,9 +612,10 @@ export default function SkyAiChatPanel({
               if (navFromFill) navigateTo = navFromFill;
               const aiReply = data.reply || "";
               // Prevent welcome message after listing fill on non-sell pages
-              const cleanReply = aiReply && aiReply.length > 10 && !/\b(Tell me what you need|create a listing, price help|safety tips|take me to seller guidelines)\b/i.test(aiReply)
-                ? aiReply
-                : `Done! I've filled your listing. What would you like to do next? You can edit the details, improve the description, generate keywords, check the price, or create listings for Facebook Marketplace or Trade Me.`;
+              const cleanReply =
+                aiReply && aiReply.length > 10 && !isSkyAiWelcomeBleed(aiReply)
+                  ? aiReply
+                  : SKY_AI_LISTING_FILL_SUCCESS;
               updateAssistant(assistantId, {
                 text: cleanReply,
                 streaming: false,
@@ -641,18 +664,6 @@ export default function SkyAiChatPanel({
 
       if (newConversationId) setConversationId(newConversationId);
       if (user) loadConversations();
-
-      if (!navigateTo && trimmed) {
-        const findFallback = tryFindBrowseReply(trimmed);
-        if (findFallback?.navigateTo) {
-          navigateTo = findFallback.navigateTo;
-          updateAssistant(assistantId, {
-            text: stripSkyAiMachineTags(findFallback.text),
-            streaming: false,
-            navigating: true,
-          });
-        }
-      }
 
       if (navigateTo) runNavigate(navigateTo);
       setBusy(false);

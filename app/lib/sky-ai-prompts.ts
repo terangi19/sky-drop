@@ -86,6 +86,28 @@ export const SKY_AI_PROFILE_QUICK_PROMPTS: { label: string; query: string }[] = 
 
 /** User is asking what the assistant can do — not requesting navigation. */
 
+/** Shown after a listing fill when the model regurgitates the welcome opener. */
+export const SKY_AI_LISTING_FILL_SUCCESS =
+  `Done! I've filled your listing. What would you like to do next? You can edit the details, improve the description, generate keywords, check the price, or create listings for Facebook Marketplace or Trade Me.`;
+
+/** True when assistant text is the initial welcome / opener — not a real answer. */
+export function isSkyAiWelcomeBleed(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  if (t === SKY_AI_WELCOME.trim()) return true;
+  if (t.replace(/\n/g, " ").trim() === SKY_AI_SELL_WELCOME.replace(/\n/g, " ").trim()) return true;
+  if (/Tell me what you need/i.test(t) && /Tap a quick button below/i.test(t)) return true;
+  if (/^Tell me what you need\b/i.test(t)) return true;
+  if (/^Tap a quick button below/i.test(t)) return true;
+  if (/Describe what you're selling in one message/i.test(t) && /hit \*\*Publish\*\*/i.test(t)) return true;
+  if (/^Kia ora — I'm \*\*/i.test(t) && /help you \*\*sell\*\*/i.test(t) && /Try:/i.test(t) && t.length < 400) {
+    return true;
+  }
+  if (/^Kia ora 👋 Describe what you're selling/i.test(t)) return true;
+  if (/create a listing, price help/i.test(t) && !/Here's what I do/i.test(t)) return true;
+  return false;
+}
+
 export function isSkyAiGeneralQuestion(message: string): boolean {
 
   const n = message.toLowerCase().replace(/[^\w\s?]/g, " ").trim();

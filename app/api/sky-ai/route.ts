@@ -32,6 +32,7 @@ import {
   hasListingSellIntent,
   isSkyAiAdviceQuestion,
   shouldBypassNavigationShortcut,
+  detectSkyAiIntent,
 } from "../../lib/sky-ai-intent";
 import { trySkyAiTaskReply } from "../../lib/sky-ai-task-replies";
 import { logAwhinaQualityIfNeeded } from "../../lib/sky-ai-quality-log";
@@ -194,7 +195,8 @@ function buildMessages(
   history: SkyAiHistoryItem[],
   listingContext: SkyAiListingContext | null,
   images: string[],
-  justGeneratedListing: boolean
+  justGeneratedListing: boolean,
+  priorAssistant?: string
 ): OpenAI.Chat.ChatCompletionMessageParam[] {
   const userContent: OpenAI.Chat.ChatCompletionMessageParam["content"] =
     images.length > 0
@@ -220,7 +222,7 @@ function buildMessages(
           hasImages: images.length > 0,
           justGeneratedListing,
         }) +
-        (message ? `\n\n${getSkyAiIntentHint(message, pathname)}` : ""),
+        (message ? `\n\n${getSkyAiIntentHint(message, pathname, priorAssistant)}` : ""),
     },
     ...history.map((h) => ({
       role: h.role as "user" | "assistant",
@@ -322,43 +324,27 @@ export async function POST(req: NextRequest) {
 
     const hasListingIntent = hasListingSellIntent(message);
 
-  // Check if the last assistant message contained a LISTING_FILL (listing was just generated)
-  const lastAssistantMessage = history.length > 0 && history[history.length - 1]?.role === "assistant"
-    ? history[history.length - 1].content
-    : "";
+  const lastAssistantMessage =
+    history.length > 0 && history[history.length - 1]?.role === "assistant"
+      ? history[history.length - 1].content
+      : "";
+  const priorUserMessage = [...history].reverse().find((h) => h.role === "user")?.content;
+  const taskContext = { priorUserMessage, priorAssistantMessage: lastAssistantMessage };
   const justGeneratedListing = /\[\[LISTING_FILL\]\]/.test(lastAssistantMessage);
+  const currentIntent = detectSkyAiIntent(message);
+  const isNewTaskSwitch =
+    isSkyAiGeneralQuestion(message) ||
+    currentIntent === "find_buy" ||
+    currentIntent === "price_value" ||
+    currentIntent === "visibility_issue" ||
+    currentIntent === "buy_trouble";
 
-  // If a listing was just generated and the user sends an empty or generic message, show contextual actions instead of calling the AI
-  if (justGeneratedListing && (!message || message.length < 5 || /\b(what|help|do|need|can you)\b/i.test(message))) {
-    const contextualActions = `Here's what you can do next with your listing:\n\n• **Publish your listing** — Add photos above, then hit Publish below to go live\n• **Edit the title or description** — I can refine it for you\n• **Improve the description** — Add more details to attract buyers\n• **Generate keywords** — Add search terms for better visibility\n• **Price check** — Compare with similar listings\n• **Create Facebook Marketplace listing** — I can format it for FB\n• **Create Trade Me listing** — I can format it for Trade Me\n\nWhat would you like to do?`;
-    if (uid && conversationId) {
-      await safePersist(() =>
-        appendSkyAiExchange(conversationId, uid, message, contextualActions, undefined)
-      );
-    }
-    if (stream) {
-      return new Response(
-        sseLine({ type: "delta", text: contextualActions }) +
-          sseLine({
-            type: "done",
-            reply: contextualActions,
-            navigateTo: undefined,
-            source: "rules",
-            conversationId: conversationId || undefined,
-          }),
-        { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } }
-      );
-    }
-    return NextResponse.json({
-      reply: contextualActions,
-      navigateTo: undefined,
-      source: "rules",
-      conversationId: conversationId || undefined,
-    });
-  }
+  const contextualListingContext =
+    pathname.startsWith("/post/ai") || !isNewTaskSwitch ? listingContext : null;
+  const effectiveJustGeneratedListing = justGeneratedListing && !isNewTaskSwitch;
 
-  const isAdviceQuestion = isSkyAiAdviceQuestion(message);
-  const taskReply = !justGeneratedListing ? trySkyAiTaskReply(message, pathname) : null;
+  // Capabilities + find always win over stale post-listing menu
+  const taskReply = trySkyAiTaskReply(message, pathname, taskContext);
   if (taskReply) {
     const reply = stripBold(taskReply.text);
     recordAwhinaQuality(req, message, pathname, reply, taskReply.source, undefined, uid);
@@ -388,6 +374,41 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  const isVaguePostListingFollowUp =
+    !message ||
+    message.length < 5 ||
+    /^(help|help me|thanks|thank you|ok|okay|cool|nice|what next|what now)\??$/i.test(message);
+
+  // If a listing was just generated and the user sends a vague follow-up, show contextual actions
+  if (justGeneratedListing && isVaguePostListingFollowUp && !isSkyAiGeneralQuestion(message)) {
+    const contextualActions = `Here's what you can do next with your listing:\n\n• **Publish your listing** — Add photos above, then hit Publish below to go live\n• **Edit the title or description** — I can refine it for you\n• **Improve the description** — Add more details to attract buyers\n• **Generate keywords** — Add search terms for better visibility\n• **Price check** — Compare with similar listings\n• **Create Facebook Marketplace listing** — I can format it for FB\n• **Create Trade Me listing** — I can format it for Trade Me\n\nWhat would you like to do?`;
+    if (uid && conversationId) {
+      await safePersist(() =>
+        appendSkyAiExchange(conversationId, uid, message, contextualActions, undefined)
+      );
+    }
+    if (stream) {
+      return new Response(
+        sseLine({ type: "delta", text: contextualActions }) +
+          sseLine({
+            type: "done",
+            reply: contextualActions,
+            navigateTo: undefined,
+            source: "rules",
+            conversationId: conversationId || undefined,
+          }),
+        { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } }
+      );
+    }
+    return NextResponse.json({
+      reply: contextualActions,
+      navigateTo: undefined,
+      source: "rules",
+      conversationId: conversationId || undefined,
+    });
+  }
+
+  const isAdviceQuestion = isSkyAiAdviceQuestion(message);
   const shortcut =
     !isAdviceQuestion &&
     !hasListingIntent &&
@@ -455,7 +476,15 @@ export async function POST(req: NextRequest) {
 
     const openai = new OpenAI({ apiKey });
     const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
-    const messages = buildMessages(message, pathname, history, listingContext, images, justGeneratedListing);
+    const messages = buildMessages(
+      message,
+      pathname,
+      history,
+      contextualListingContext,
+      images,
+      effectiveJustGeneratedListing,
+      lastAssistantMessage
+    );
 
     if (stream) {
       let completion;
