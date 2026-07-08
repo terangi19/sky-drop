@@ -12,7 +12,7 @@ export default function NotificationBell({
   className = "",
 }: NotificationBellProps) {
   const hasNotifications = count > 0;
-  const sharedClassName = `relative flex h-9 w-9 items-center justify-center rounded-lg transition ${hasNotifications ? "bg-[var(--soft-card)] animate-breathe-glow" : "bg-[var(--soft-card)] hover:bg-[var(--card-hover)]"} ${className}`;
+  const sharedClassName = `relative flex h-9 w-9 items-center justify-center rounded-lg transition ${hasNotifications ? "animate-breathe-glow" : ""} ${className}`;
 
   const icon = (
     <>
@@ -31,7 +31,7 @@ export default function NotificationBell({
       </svg>
 
       {hasNotifications && (
-        <span className="absolute -right-1.5 -top-1.5 flex min-w-[18px] h-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white ring-2 ring-[var(--card)]">
+        <span className="absolute -right-1.5 -top-1.5 flex min-w-[18px] h-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-always-white ring-2 ring-[var(--card)]">
           {count > 9 ? "9+" : count}
         </span>
       )}

@@ -66,7 +66,7 @@ const DISPUTE_STYLES: Record<string, string> = {
   open: "bg-red-500/10 text-red-400 border-red-500/20",
   under_review: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   resolved_buyer: "bg-sky-500/10 text-sky-400 border-sky-500/20",
-  resolved_seller: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20",
+  resolved_seller: "bg-zinc-500/10 text-[var(--muted)] border-zinc-500/20",
   refunded: "bg-sky-500/10 text-sky-400 border-sky-500/20",
 };
 
@@ -421,12 +421,12 @@ export default function PurchasesPage() {
   }
 
   return (
-    <main className="relative min-h-screen bg-[var(--background)]">
+    <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <Background />
       <Navbar />
 
       <div className="relative z-10 mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-12">
-        <Link href="/" className="inline-flex items-center gap-2 rounded-xl border border-[var(--card-border)] bg-zinc-900/30 px-3 py-2 text-sm text-zinc-400 transition hover:bg-zinc-800/50 hover:text-zinc-200 mb-5 sm:mb-6 group">
+        <Link href="/" className="inline-flex items-center gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] px-3 py-2 text-sm text-[var(--muted)] transition hover:bg-[var(--card)]/50 hover:text-[var(--foreground)] mb-5 sm:mb-6 group">
           <svg className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
           Back
         </Link>
@@ -437,11 +437,11 @@ export default function PurchasesPage() {
             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M5 8l7-5 7 5M12 3v9" /></svg>
             Orders
           </div>
-          <h1 className="relative text-3xl sm:text-4xl font-black tracking-tight">
-            <span className="bg-gradient-to-r from-white via-sky-200 to-white bg-clip-text text-transparent">My Purchases</span>
+          <h1 className="relative text-3xl sm:text-4xl font-black tracking-tight text-[var(--foreground)]">
+            My Purchases
           </h1>
           <BrowseAwhinaAssistantPanel className="mt-4 mb-0 mx-auto w-full max-w-2xl text-left" />
-          <p className="relative mt-3 text-sm text-zinc-500">{purchases.length} total · {counts.active || 0} active</p>
+          <p className="relative mt-3 text-sm text-[var(--muted)]">{purchases.length} total · {counts.active || 0} active</p>
         </div>
 
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
@@ -450,13 +450,13 @@ export default function PurchasesPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
             </svg>
             <input type="text" placeholder="Search purchases..." value={search} onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-xl border border-[var(--input-border)] bg-zinc-900/30 pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-zinc-600 outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-zinc-800/50 focus:ring-2 focus:ring-sky-500/10" />
+              className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--soft-card)] pl-10 pr-4 py-2.5 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:border-sky-500/40 focus:bg-[var(--card-hover)] focus:ring-2 focus:ring-sky-500/10" />
           </div>
-          <div className="flex items-center gap-1 rounded-xl border border-[var(--card-border)] bg-zinc-900/20 p-1">
+          <div className="flex items-center gap-1 rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] p-1">
             {SORT_OPTIONS.map((opt) => (
               <button key={opt.value} onClick={() => setSort(opt.value)}
                 className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
-                  sort === opt.value ? "bg-sky-500/15 text-sky-300 border border-sky-500/20" : "text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.03]"
+                  sort === opt.value ? "bg-sky-500/15 text-sky-300 border border-sky-500/20" : "text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-white/[0.03]"
                 }`}>
                 {opt.label}
               </button>
@@ -464,11 +464,11 @@ export default function PurchasesPage() {
           </div>
         </div>
 
-        <div className="flex gap-1 overflow-x-auto mb-6 rounded-xl border border-[var(--card-border)] bg-zinc-900/20 p-1">
+        <div className="flex gap-1 overflow-x-auto mb-6 rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] p-1">
           {FILTER_TABS.map((tab) => (
             <button key={tab.key} onClick={() => setFilter(tab.key)}
               className={`shrink-0 rounded-lg px-3.5 py-2 text-xs font-bold transition-all duration-200 ${
-                filter === tab.key ? "bg-sky-500/15 text-sky-300 border border-sky-500/20" : "text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.03]"
+                filter === tab.key ? "bg-sky-500/15 text-sky-300 border border-sky-500/20" : "text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-white/[0.03]"
               }`}>
               {tab.label}{counts[tab.key] > 0 ? ` (${counts[tab.key]})` : ""}
             </button>
@@ -482,13 +482,13 @@ export default function PurchasesPage() {
         {loading ? (
           <div className="space-y-3">
             {[1,2,3].map((i) => (
-              <div key={i} className="rounded-2xl border border-[var(--card-border)] bg-zinc-900/20 p-4 sm:p-5 animate-pulse">
+              <div key={i} className="rounded-2xl border border-[var(--card-border)] bg-[var(--soft-card)] p-4 sm:p-5 animate-pulse">
                 <div className="flex items-center gap-4">
-                  <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-xl bg-zinc-800/30" />
+                  <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-xl bg-[var(--card)]" />
                   <div className="flex-1 space-y-2">
-                    <div className="h-4 w-40 rounded bg-zinc-800/30" />
-                    <div className="h-3 w-20 rounded bg-zinc-800/30" />
-                    <div className="h-3 w-32 rounded bg-zinc-800/30" />
+                    <div className="h-4 w-40 rounded bg-[var(--card)]" />
+                    <div className="h-3 w-20 rounded bg-[var(--card)]" />
+                    <div className="h-3 w-32 rounded bg-[var(--card)]" />
                   </div>
                 </div>
               </div>
@@ -496,14 +496,14 @@ export default function PurchasesPage() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="mx-auto max-w-md mt-16 text-center">
-            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl border border-[var(--card-border)] bg-zinc-900/30">
-              <svg className="h-8 w-8 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl border border-[var(--card-border)] bg-[var(--soft-card)]">
+              <svg className="h-8 w-8 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
               </svg>
             </div>
-            <h2 className="text-2xl font-black tracking-tight text-white">Nothing here yet</h2>
-            <p className="mt-2 text-sm text-zinc-500">Items you buy will show up here.</p>
-            <Link href="/" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 active:scale-[0.97]">
+            <h2 className="text-2xl font-black tracking-tight text-[var(--foreground)]">Nothing here yet</h2>
+            <p className="mt-2 text-sm text-[var(--muted)]">Items you buy will show up here.</p>
+            <Link href="/" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2.5 text-sm font-bold text-always-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 active:scale-[0.97]">
               Browse Marketplace
             </Link>
           </div>
@@ -516,17 +516,17 @@ export default function PurchasesPage() {
               const isRental = p.deliveryMethod === "rental";
               const isArrange = p.paymentType === "contact";
               const isWanted = p.type === "wanted";
-              const displayStatus = isWanted ? { label: "Wanted", style: "bg-sky-500/10 text-sky-400 border-sky-500/20" } : { label: STATUS_LABELS[p.status] || p.status, style: STATUS_STYLES[p.status] || "bg-zinc-800/50 text-zinc-500 border-zinc-700/50" };
+              const displayStatus = isWanted ? { label: "Wanted", style: "bg-sky-500/10 text-sky-400 border-sky-500/20" } : { label: STATUS_LABELS[p.status] || p.status, style: STATUS_STYLES[p.status] || "bg-[var(--card)]/50 text-[var(--muted)] border-zinc-700/50" };
               return (
-                <div key={p.id} className="group relative overflow-hidden rounded-2xl border border-[var(--card-border)] bg-gradient-to-br from-zinc-900/30 to-zinc-900/20 p-4 sm:p-5 transition-all duration-200 hover:bg-zinc-800/40 hover:border-zinc-700/40 hover:shadow-lg hover:shadow-black/20">
+                <div key={p.id} className="group relative overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--soft-card)] p-4 sm:p-5 transition-all duration-200 hover:bg-[var(--card-hover)] hover:border-[var(--card-border)] hover:shadow-lg hover:shadow-black/10">
                   <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                   <div className="flex items-start gap-3 sm:gap-4">
                     <Link href={`/post/listing/${p.listingId}`} className="shrink-0">
-                      <div className="h-16 w-16 sm:h-20 sm:w-20 overflow-hidden rounded-xl bg-gradient-to-br from-zinc-800 to-zinc-900 ring-2 ring-[var(--card-border)] transition-transform duration-300 group-hover:scale-[1.03]">
+                      <div className="h-16 w-16 sm:h-20 sm:w-20 overflow-hidden rounded-xl bg-[var(--card)] ring-2 ring-[var(--card-border)] transition-transform duration-300 group-hover:scale-[1.03]">
                         {p.listingImage ? (
                           <img src={p.listingImage} alt="" className="h-full w-full object-cover" />
                         ) : (
-                          <div className="flex h-full items-center justify-center text-[10px] text-zinc-600">—</div>
+                          <div className="flex h-full items-center justify-center text-[10px] text-[var(--muted)]">—</div>
                         )}
                       </div>
                     </Link>
@@ -534,9 +534,9 @@ export default function PurchasesPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <Link href={`/post/listing/${p.listingId}`} className="text-sm font-bold text-white transition hover:text-sky-400 line-clamp-1">{p.listingTitle}</Link>
+                          <Link href={`/post/listing/${p.listingId}`} className="text-sm font-bold text-[var(--foreground)] transition hover:text-sky-400 line-clamp-1">{p.listingTitle}</Link>
                           <p className="mt-0.5 text-sm font-semibold text-sky-400">${Number(p.listingPrice).toFixed(2)}</p>
-                          <div className="mt-0.5 flex items-center gap-2 text-[11px] text-zinc-500">
+                          <div className="mt-0.5 flex items-center gap-2 text-[11px] text-[var(--muted)]">
                             <Link href={`/seller/${p.sellerEmail}`} className="hover:text-sky-400 transition-colors">Seller</Link>
                             {p.createdAt && <span>· {formatDate(p.createdAt)}</span>}
                           </div>
@@ -556,7 +556,7 @@ export default function PurchasesPage() {
                       {/* TradeMe-style Timeline */}
                       <PurchaseTimeline purchase={p} isService={isService} isRental={isRental} isArrange={isArrange} isWanted={isWanted} />
 
-                      <div className="mt-2 flex items-center gap-2 text-[11px] text-zinc-500">
+                      <div className="mt-2 flex items-center gap-2 text-[11px] text-[var(--muted)]">
                         <span>{dl.icon} {dl.text}</span>
                       </div>
                       {(p.tracking || p.trackingNumber) &&
@@ -587,12 +587,12 @@ export default function PurchasesPage() {
 
                       <div className="mt-3 flex items-center gap-2 flex-wrap">
                         <Link href={`/messages?user=${encodeURIComponent(p.sellerUsername || p.sellerEmail || "")}&listing=${p.listingId}`}
-                          className="rounded-lg border border-[var(--card-border)] bg-zinc-800/30 px-3 py-1.5 text-[11px] font-bold text-zinc-400 transition hover:bg-zinc-700/50 hover:text-zinc-200 active:scale-[0.97]">
+                          className="rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-1.5 text-[11px] font-bold text-[var(--muted)] transition hover:bg-[var(--card-hover)] hover:text-[var(--foreground)] active:scale-[0.97]">
                           Message
                         </Link>
                         {p.deliveryMethod === "digital" && p.digitalFileURL && p.status === "delivered" && (
                           <a href={p.digitalFileURL} target="_blank" rel="noopener noreferrer" download={p.digitalFileName}
-                            className="rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 px-3 py-1.5 text-[11px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">
+                            className="rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 px-3 py-1.5 text-[11px] font-bold text-always-white shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">
                             📥 Download
                           </a>
                         )}
@@ -604,7 +604,7 @@ export default function PurchasesPage() {
                         )}
                         {p.deliveryMethod === "shipping" && !["delivered", "cancelled"].includes(p.status) && (
                           <button onClick={() => { setEditAddress(p); setNewAddress(p.shippingAddress || ""); }}
-                            className="rounded-lg border border-[var(--card-border)] bg-zinc-800/30 px-3 py-1.5 text-[11px] font-bold text-zinc-400 transition hover:bg-zinc-700/50 active:scale-[0.97]">
+                            className="rounded-lg border border-[var(--card-border)] bg-[var(--card)] px-3 py-1.5 text-[11px] font-bold text-[var(--muted)] transition hover:bg-[var(--card-hover)] active:scale-[0.97]">
                             Edit Address
                           </button>
                         )}
@@ -616,7 +616,7 @@ export default function PurchasesPage() {
                         )}
                         {action && !p.disputeStatus && (
                           <button onClick={() => updateStatus(p.id, action.action)}
-                            className={`rounded-lg ${action.color} px-3 py-1.5 text-[11px] font-bold text-white shadow-lg transition hover:brightness-110 active:scale-[0.97]`}>
+                            className={`rounded-lg ${action.color} px-3 py-1.5 text-[11px] font-bold text-always-white transition hover:brightness-110 active:scale-[0.97]`}>
                             {action.label}
                           </button>
                         )}
@@ -630,7 +630,7 @@ export default function PurchasesPage() {
             {visibleCount < filtered.length && (
               <div className="flex justify-center pt-2">
                 <button onClick={() => setVisibleCount(prev => prev + 10)}
-                  className="rounded-xl border border-[var(--card-border)] bg-zinc-900/20 px-5 py-2.5 text-xs font-bold text-zinc-400 transition hover:bg-zinc-800/40 hover:text-zinc-200 active:scale-[0.97]">
+                  className="rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] px-5 py-2.5 text-xs font-bold text-[var(--muted)] transition hover:bg-[var(--card)]/40 hover:text-[var(--foreground)] active:scale-[0.97]">
                   Load More ({filtered.length - visibleCount})
                 </button>
               </div>
@@ -638,14 +638,14 @@ export default function PurchasesPage() {
 
             {reviewModal && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setReviewModal(null)}>
-                <div className="mx-4 w-full max-w-sm rounded-2xl border border-[var(--card-border)] bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-                  <h3 className="text-lg font-black text-white">Leave a Review</h3>
-                  <p className="mt-1 text-sm text-zinc-400">{reviewModal.listingTitle}</p>
+                <div className="mx-4 w-full max-w-sm rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                  <h3 className="text-lg font-black text-[var(--foreground)]">Leave a Review</h3>
+                  <p className="mt-1 text-sm text-[var(--muted)]">{reviewModal.listingTitle}</p>
                   <InteractiveReviewStars value={reviewRating} onChange={setReviewRating} className="mt-4" />
                   <textarea placeholder="Share your experience..." value={reviewText} onChange={(e) => setReviewText(e.target.value)}
-                    rows={3} className="mt-4 w-full rounded-xl border border-[var(--input-border)] bg-zinc-800 px-4 py-3 text-sm text-white outline-none transition focus:border-sky-500 placeholder:text-zinc-500" />
+                    rows={3} className="mt-4 w-full rounded-xl border border-[var(--input-border)] bg-[var(--card)] px-4 py-3 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500 placeholder:text-[var(--muted)]" />
                   <div className="mt-4 flex gap-3">
-                    <button onClick={() => setReviewModal(null)} className="flex-1 rounded-xl border border-[var(--card-border)] bg-zinc-800 py-3 text-sm font-bold text-zinc-300 hover:bg-zinc-700 active:scale-[0.97] transition-all">Cancel</button>
+                    <button onClick={() => setReviewModal(null)} className="flex-1 rounded-xl border border-[var(--card-border)] bg-[var(--card)] py-3 text-sm font-bold text-[var(--foreground)] hover:bg-[var(--card-hover)] active:scale-[0.97] transition-all">Cancel</button>
                     <button disabled={!reviewRating || reviewSending} onClick={async () => {
                       setReviewSending(true);
                       try {
@@ -682,7 +682,7 @@ export default function PurchasesPage() {
                         showToast("Failed to submit review", "error");
                       }
                       setReviewSending(false);
-                    }} className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97] disabled:opacity-50">
+                    }} className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-always-white shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97] disabled:opacity-50">
                       {reviewSending ? "Sending..." : "Submit Review"}
                     </button>
                   </div>
@@ -695,14 +695,14 @@ export default function PurchasesPage() {
 
       {editAddress && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setEditAddress(null)}>
-          <div className="mx-4 w-full max-w-sm rounded-2xl border border-[var(--card-border)] bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-black text-white">Update Address</h3>
-            <p className="mt-1 text-sm text-zinc-400">{editAddress.listingTitle}</p>
+          <div className="mx-4 w-full max-w-sm rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-black text-[var(--foreground)]">Update Address</h3>
+            <p className="mt-1 text-sm text-[var(--muted)]">{editAddress.listingTitle}</p>
             <input type="text" value={newAddress} onChange={(e) => setNewAddress(e.target.value)} placeholder="New shipping address"
-              className="mt-4 w-full rounded-xl border border-[var(--input-border)] bg-zinc-800 px-4 py-3 text-sm text-white outline-none transition focus:border-sky-500 placeholder:text-zinc-500" />
+              className="mt-4 w-full rounded-xl border border-[var(--input-border)] bg-[var(--card)] px-4 py-3 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500 placeholder:text-[var(--muted)]" />
             <div className="mt-4 flex gap-3">
-              <button onClick={() => setEditAddress(null)} className="flex-1 rounded-xl border border-[var(--card-border)] bg-zinc-800 py-3 text-sm font-bold text-zinc-300 hover:bg-zinc-700 active:scale-[0.97] transition-all">Cancel</button>
-              <button onClick={saveAddress} className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">Save</button>
+              <button onClick={() => setEditAddress(null)} className="flex-1 rounded-xl border border-[var(--card-border)] bg-[var(--card)] py-3 text-sm font-bold text-[var(--foreground)] hover:bg-[var(--card-hover)] active:scale-[0.97] transition-all">Cancel</button>
+              <button onClick={saveAddress} className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-always-white shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">Save</button>
             </div>
           </div>
         </div>
@@ -710,17 +710,17 @@ export default function PurchasesPage() {
 
       {disputeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setDisputeModal(null)}>
-          <div className="mx-4 w-full max-w-md rounded-2xl border border-[var(--card-border)] bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-black text-white">Open a Dispute</h3>
-            <p className="mt-1 text-sm text-zinc-400">{disputeModal.listingTitle}</p>
-            <p className="mt-3 rounded-lg border border-sky-500/20 bg-sky-500/5 px-3 py-2 text-[11px] leading-relaxed text-zinc-400">
-              Admins review disputes using your <strong className="text-zinc-300">Sky Drop Messages</strong> with the seller — what was agreed, tracking, and timelines. Describe the issue below and mention anything important from chat. We cannot review SMS, WhatsApp, or email.
+          <div className="mx-4 w-full max-w-md rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-black text-[var(--foreground)]">Open a Dispute</h3>
+            <p className="mt-1 text-sm text-[var(--muted)]">{disputeModal.listingTitle}</p>
+            <p className="mt-3 rounded-lg border border-sky-500/20 bg-sky-500/5 px-3 py-2 text-[11px] leading-relaxed text-[var(--muted)]">
+              Admins review disputes using your <strong className="text-[var(--foreground)]">Sky Drop Messages</strong> with the seller — what was agreed, tracking, and timelines. Describe the issue below and mention anything important from chat. We cannot review SMS, WhatsApp, or email.
             </p>
             <div className="mt-4 space-y-3">
               <div>
-                <label className="text-xs font-bold text-zinc-500 mb-1 block">Reason</label>
+                <label className="text-xs font-bold text-[var(--muted)] mb-1 block">Reason</label>
                 <select value={disputeReason} onChange={(e) => setDisputeReason(e.target.value)}
-                  className="w-full rounded-xl border border-[var(--input-border)] bg-zinc-800 px-4 py-3 text-sm text-white outline-none transition focus:border-sky-500">
+                  className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--card)] px-4 py-3 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
                   <option value="">Select a reason...</option>
                   <option value="not_received">Item not received</option>
                   <option value="not_as_described">Not as described</option>
@@ -732,14 +732,14 @@ export default function PurchasesPage() {
                 </select>
               </div>
               <div>
-                <label className="text-xs font-bold text-zinc-500 mb-1 block">Describe the issue</label>
+                <label className="text-xs font-bold text-[var(--muted)] mb-1 block">Describe the issue</label>
                 <textarea value={disputeDescription} onChange={(e) => setDisputeDescription(e.target.value)}
-                  rows={4} className="w-full rounded-xl border border-[var(--input-border)] bg-zinc-800 px-4 py-3 text-sm text-white outline-none transition focus:border-sky-500 placeholder:text-zinc-500"
+                  rows={4} className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--card)] px-4 py-3 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500 placeholder:text-[var(--muted)]"
                   placeholder="Explain what happened in detail..." />
               </div>
             </div>
             <div className="mt-4 flex gap-3">
-              <button onClick={() => setDisputeModal(null)} className="flex-1 rounded-xl border border-[var(--card-border)] bg-zinc-800 py-3 text-sm font-bold text-zinc-300 hover:bg-zinc-700 active:scale-[0.97] transition-all">Cancel</button>
+              <button onClick={() => setDisputeModal(null)} className="flex-1 rounded-xl border border-[var(--card-border)] bg-[var(--card)] py-3 text-sm font-bold text-[var(--foreground)] hover:bg-[var(--card-hover)] active:scale-[0.97] transition-all">Cancel</button>
               <button disabled={!disputeReason || !disputeDescription.trim() || disputeSending} onClick={async () => {
                 setDisputeSending(true);
                 try {
@@ -755,7 +755,7 @@ export default function PurchasesPage() {
                   showToast(e instanceof Error ? e.message : "Failed to open dispute. Try again.", "error");
                 }
                 setDisputeSending(false);
-              }} className="flex-1 rounded-xl bg-gradient-to-r from-red-500 to-sky-500 py-3 text-sm font-bold text-white shadow-lg shadow-red-500/20 transition hover:shadow-xl active:scale-[0.97] disabled:opacity-50">
+              }} className="flex-1 rounded-xl bg-gradient-to-r from-red-500 to-sky-500 py-3 text-sm font-bold text-always-white shadow-red-500/20 transition hover:shadow-xl active:scale-[0.97] disabled:opacity-50">
                 {disputeSending ? "Opening..." : "Open Dispute"}
               </button>
             </div>

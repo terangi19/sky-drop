@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 
 /** Shared panel styling for dropdowns and popover menus. */
 export const MENU_PANEL_CLASS =
-  "overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)]/95 shadow-xl shadow-black/25 backdrop-blur-xl";
+  "app-menu-panel overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)]/95 shadow-xl shadow-black/25 backdrop-blur-xl";
 
 export const MENU_PANEL_ARROW_CLASS =
   "absolute h-2.5 w-2.5 rotate-45 border-t border-l border-[var(--card-border)] bg-[var(--soft-card)]";
