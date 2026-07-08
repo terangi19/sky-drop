@@ -101,14 +101,18 @@ export default function SearchPage() {
 
   useEffect(() => {
     if (!user) {
-      setWatchlist([]);
-      setSavedSearches([]);
-      return;
+      const resetState = window.requestAnimationFrame(() => {
+        setWatchlist([]);
+        setSavedSearches([]);
+      });
+      return () => window.cancelAnimationFrame(resetState);
     }
+    let nextWatchlist: string[] = [];
+    let nextSavedSearches: SavedSearch[] = [];
     const saved = localStorage.getItem(`watchlist_${user.uid}`);
     if (saved) {
       try {
-        setWatchlist(JSON.parse(saved));
+        nextWatchlist = JSON.parse(saved) as string[];
       } catch (e) {
         console.error("Failed to parse watchlist:", e);
       }
@@ -116,11 +120,16 @@ export default function SearchPage() {
     const savedSearchesData = localStorage.getItem(`savedSearches_${user.uid}`);
     if (savedSearchesData) {
       try {
-        setSavedSearches(JSON.parse(savedSearchesData) as SavedSearch[]);
+        nextSavedSearches = JSON.parse(savedSearchesData) as SavedSearch[];
       } catch (e) {
         console.error("Failed to parse saved searches:", e);
       }
     }
+    const syncSavedState = window.requestAnimationFrame(() => {
+      setWatchlist(nextWatchlist);
+      setSavedSearches(nextSavedSearches);
+    });
+    return () => window.cancelAnimationFrame(syncSavedState);
   }, [user]);
 
   const checkIfSearchSaved = () => {
@@ -175,11 +184,11 @@ export default function SearchPage() {
     router.push(`/post/listing/${listing.id}`);
   };
 
-  const handlePromote = (_listing: Listing) => {
+  const handlePromote = () => {
     // TODO: Implement promote modal
   };
 
-  const handleDelete = (_listing: Listing) => {
+  const handleDelete = () => {
     // TODO: Implement delete
   };
 
