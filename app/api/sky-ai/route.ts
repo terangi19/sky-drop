@@ -27,8 +27,22 @@ import {
 } from "../../lib/sky-ai-prompts";
 import { openaiErrorResponse } from "../../lib/openai-errors";
 import { enhanceListingFillFromMessage } from "../../lib/sky-ai-form-actions";
+import {
+  getSkyAiIntentHint,
+  hasListingSellIntent,
+  isSkyAiAdviceQuestion,
+  shouldBypassNavigationShortcut,
+} from "../../lib/sky-ai-intent";
+import { trySkyAiTaskReply } from "../../lib/sky-ai-task-replies";
+import { logAwhinaQualityIfNeeded } from "../../lib/sky-ai-quality-log";
 
-export const runtime = "nodejs";
+function listingFillConfirmReply(fill: SkyAiListingFill | undefined): string {
+  if (!fill) return "";
+  const title = fill.title?.trim();
+  return title
+    ? `Filled your listing — **${title}**. Add photos, then hit **Publish**. Want me to tweak anything?`
+    : `Filled your listing draft. Add photos, then hit **Publish**. Want me to tweak anything?`;
+}
 
 const NAVIGATE_PATTERNS =
   /\b(take me|go to|open|show me|navigate|bring me|send me|guide me to|where is|where's|how do i get to)\b/i;
@@ -201,10 +215,12 @@ function buildMessages(
   return [
     {
       role: "system",
-      content: buildSkyAiSystemPrompt(pathname, listingContext, {
-        hasImages: images.length > 0,
-        justGeneratedListing,
-      }),
+      content:
+        buildSkyAiSystemPrompt(pathname, listingContext, {
+          hasImages: images.length > 0,
+          justGeneratedListing,
+        }) +
+        (message ? `\n\n${getSkyAiIntentHint(message, pathname)}` : ""),
     },
     ...history.map((h) => ({
       role: h.role as "user" | "assistant",
@@ -226,6 +242,26 @@ async function safePersist(
   } catch (e) {
     console.warn("sky-ai: conversation save failed (chat still works):", e);
   }
+}
+
+function recordAwhinaQuality(
+  req: NextRequest,
+  message: string,
+  pathname: string,
+  reply: string,
+  source: "ai" | "rules",
+  listingFill: SkyAiListingFill | undefined,
+  uid: string | null
+) {
+  void logAwhinaQualityIfNeeded({
+    userMessage: message,
+    reply,
+    pathname,
+    source,
+    listingFill,
+    uid,
+    ip: parseIpFromRequest(req.headers),
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -284,34 +320,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const hasListingIntent = (
-      // Structured field labels
-      /(?:^|\n)(title|price|description|location|condition|category|make|model|year|odometer|colour|color|transmission|fuel|mileage|km|kms)\s*:/i.test(message) ||
-      // Listing type keywords
-      /(?:rental|vehicle|service|digital|item|physical)\s+listing/i.test(message) ||
-      // Multiple field-like lines
-      (message.match(/(?:^|\n)\s*\w+\s*:/g) || []).length >= 2 ||
-      // Vehicle pattern: year + make/model + price
-      /\d{4}\s+[A-Za-z]+\s+[A-Za-z0-9]+.*\$[\d,]+/i.test(message) ||
-      // Year at start (vehicle shorthand like "2015 Mazda Axela blue")
-      /^\d{4}\s+[A-Za-z]/.test(message) ||
-      // Selling intent keywords
-      /\b(i('m| am| want to)?\s*(sell|selling|list|listing|post|create|make|put up|advertise)|for sale|selling my|i have a .* for sale|want to sell)\b/i.test(message) ||
-      // Item descriptions with price
-      /\$[\d,]+/.test(message) ||
-      // Vehicle brand keywords on any page
-      /\b(toyota|honda|mazda|ford|holden|nissan|subaru|mitsubishi|hyundai|kia|bmw|mercedes|audi|volkswagen|vw|jeep|chevrolet|dodge|tesla|lexus|suzuki|isuzu|hilux|corolla|camry|rav4|cx-5|axela|swift|ranger|commodore)\b/i.test(message) ||
-      // Service/rental/digital signals on any page
-      /\b(lawn|mow|clean|handyman|tutor|teach|photograph|design|seo|website|graphic|weekly rent|per week|bond|deposit|apartment|flat|room|house for rent|digital download|template|ebook|preset|notion|canva)\b/i.test(message) ||
-      // Physical item selling
-      /\b(ps5|playstation|xbox|iphone|samsung|laptop|macbook|tv|television|couch|sofa|fridge|washing machine|bike|bicycle|kayak|surfboard|guitar|camera)\b/i.test(message) ||
-      // Condition + item pattern
-      /\b(new|used|good condition|excellent condition|great condition|like new)\b.*\b(sell|selling|for sale|\$\d)/i.test(message) ||
-      // Located in + price
-      /\b(located in|based in|pickup from|auckland|wellington|christchurch|hamilton|tauranga|dunedin|palmerston|napier|rotorua|nelson|invercargill|waikato|otago)\b.*\$[\d,]+/i.test(message) ||
-      // Odometer / km reading
-      /\b\d{2,3}[\s,]?\d{3}\s*km\b/i.test(message)
-    );
+    const hasListingIntent = hasListingSellIntent(message);
 
   // Check if the last assistant message contained a LISTING_FILL (listing was just generated)
   const lastAssistantMessage = history.length > 0 && history[history.length - 1]?.role === "assistant"
@@ -348,8 +357,44 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const isAdviceQuestion = /\b(should i|which (sale type|one|option)|what.s (best|better|faster|quickest)|how much (should|is)|is it (safe|worth)|recommend|suggestion)\b/i.test(message);
-  const shortcut = !isAdviceQuestion && !hasListingIntent && !justGeneratedListing ? tryNavigationShortcut(message, pathname) : null;
+  const isAdviceQuestion = isSkyAiAdviceQuestion(message);
+  const taskReply = !justGeneratedListing ? trySkyAiTaskReply(message, pathname) : null;
+  if (taskReply) {
+    const reply = stripBold(taskReply.text);
+    recordAwhinaQuality(req, message, pathname, reply, taskReply.source, undefined, uid);
+    if (uid && conversationId) {
+      await safePersist(() =>
+        appendSkyAiExchange(conversationId, uid, message, reply, taskReply.navigateTo)
+      );
+    }
+    if (stream) {
+      return new Response(
+        sseLine({ type: "delta", text: reply }) +
+          sseLine({
+            type: "done",
+            reply,
+            navigateTo: taskReply.navigateTo,
+            source: taskReply.source,
+            conversationId: conversationId || undefined,
+          }),
+        { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } }
+      );
+    }
+    return NextResponse.json({
+      reply,
+      navigateTo: taskReply.navigateTo,
+      source: taskReply.source,
+      conversationId: conversationId || undefined,
+    });
+  }
+
+  const shortcut =
+    !isAdviceQuestion &&
+    !hasListingIntent &&
+    !justGeneratedListing &&
+    !shouldBypassNavigationShortcut(message)
+      ? tryNavigationShortcut(message, pathname)
+      : null;
     if (shortcut) {
       const reply = stripBold(shortcut.reply);
       if (uid && conversationId) {
@@ -455,11 +500,13 @@ export async function POST(req: NextRequest) {
                 appendSkyAiExchange(conversationId, uid, message, full, finalNav)
               );
             }
+            const displayReply = text || listingFillConfirmReply(mergedFill) || full.trim() || "Add photos, then hit **Publish**.";
+            recordAwhinaQuality(req, message, pathname, displayReply, "ai", mergedFill, uid);
             controller.enqueue(
               encoder.encode(
                 sseLine({
                   type: "done",
-                  reply: text,
+                  reply: displayReply,
                   navigateTo: finalNav,
                   listingFill: mergedFill,
                   source: "ai",
@@ -514,8 +561,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const finalReply =
+      text ||
+      listingFillConfirmReply(mergedFill) ||
+      "I didn't catch that — try again, or tell me what you want to sell or find.";
+    recordAwhinaQuality(req, message, pathname, finalReply, "ai", mergedFill, uid);
+
     return NextResponse.json({
-      reply: text || "I couldn't generate a reply. Try again.",
+      reply: finalReply,
       navigateTo: finalNav,
       listingFill: mergedFill,
       source: "ai",
@@ -530,7 +583,12 @@ export async function POST(req: NextRequest) {
         { status: mapped.status }
       );
     }
-    const msg = e instanceof Error ? e.message : "Sky AI unavailable";
-    return NextResponse.json({ error: msg, code: "sky_ai_error" }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: "Āwhina hit a snag — refresh and try again. Your form changes are still on screen.",
+        code: "sky_ai_error",
+      },
+      { status: 500 }
+    );
   }
 }

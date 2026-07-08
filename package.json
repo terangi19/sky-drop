@@ -18,6 +18,10 @@
     "test": "playwright test",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",
+    "test:awhina": "vitest run app/lib/sky-ai-evaluation.test.ts app/lib/sky-ai-conversation-stress.test.ts app/lib/sky-ai-task-replies.test.ts",
+    "test:awhina:live": "vitest run app/lib/sky-ai-live-eval.test.ts",
+    "test:awhina:smoke": "node scripts/smoke-awhina-manual.cjs",
+    "test:awhina:live:compare": "cross-env SKY_AI_COMPARE_PRODUCTION=1 vitest run app/lib/sky-ai-live-eval.test.ts",
     "git:sync": "powershell -ExecutionPolicy Bypass -File scripts/git-sync.ps1"
   },
   "dependencies": {

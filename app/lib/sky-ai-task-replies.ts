@@ -1,0 +1,147 @@
+/**
+ * Deterministic task-completion replies for high-confidence intents.
+ * Used before OpenAI so find/sell/troubleshoot never dead-end or mis-route.
+ */
+
+import { detectSkyAiIntent, hasListingSellIntent } from "./sky-ai-intent";
+
+const FIND_RE =
+  /\b(find me|show me|looking for|search for|want to buy|wanna buy|need a|need an|iso\b|in search of|hunting for|under \$?\d)\b/i;
+
+const WANTED_AD_EXPLICIT =
+  /\b(post a wanted|create a wanted|wanted ad|wanted listing)\b/i;
+
+export function tryFindBrowseReply(message: string): { text: string; navigateTo?: string } | null {
+  const m = message.trim();
+  if (!m || WANTED_AD_EXPLICIT.test(m)) return null;
+  if (!FIND_RE.test(m) && detectSkyAiIntent(m) !== "find_buy") return null;
+  if (hasListingSellIntent(m)) return null;
+
+  const budget = m.match(/under\s*\$?\s*([\d,]+)/i)?.[1]?.replace(/,/g, "");
+  const city = m.match(/\b(in|near)\s+(auckland|wellington|christchurch|hamilton|tauranga|dunedin)\b/i)?.[2];
+  const item = extractSearchItem(m);
+
+  let category = "/";
+  const lower = m.toLowerCase();
+  if (/\b(ps5|playstation|xbox|gaming|switch)\b/i.test(lower)) category = "/";
+  else if (/\b(mower|lawn|drill|tool|couch|furniture)\b/i.test(lower)) category = "/";
+  else if (/\b(car|vehicle|toyota|bmw|mazda|ute)\b/i.test(lower)) category = "/vehicles";
+
+  const budgetLine = budget ? ` Set max price around **$${budget}**.` : "";
+  const cityLine = city ? ` Filter by **${city}**.` : "";
+
+  return {
+    text: `Search the homepage for **${item}** — use sort by price and category filters.${budgetLine}${cityLine} [[NAV:${category}]] I can't see live stock from chat, but that shows current listings. Want tips on what to check before you buy?`,
+    navigateTo: category,
+  };
+}
+
+function extractSearchItem(message: string): string {
+  const cleaned = message
+    .replace(/\b(find me|show me|looking for|search for|want to buy|a|an|the|in|under|near|\$[\d,]+)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (cleaned.length >= 3) return cleaned;
+  return "what you're after";
+}
+
+export function tryVisibilityReply(message: string): { text: string; navigateTo?: string } | null {
+  if (detectSkyAiIntent(message) !== "visibility_issue") return null;
+  return {
+    text: `Common reasons a listing doesn't show: email not verified, status not **Active**, sold/expired, or still processing. Open **My Listings** and check it's Active. [[NAV:/list-list]] If it's Active and still missing, edit and save once — want me to walk through which listing?`,
+    navigateTo: "/list-list",
+  };
+}
+
+export function tryBuyTroubleReply(message: string): { text: string; navigateTo?: string } | null {
+  if (detectSkyAiIntent(message) !== "buy_trouble") return null;
+  return {
+    text: `Usually it's one of these: you're the seller viewing your own listing, it's already sold, it's **Contact Seller** / Arrange Purchase only (no card checkout), or you need to sign in. Try **Contact Seller** in Messages, or sign in for **Buy Now (Card)**. Which button do you see on the page?`,
+  };
+}
+
+export function tryCancelDraftReply(message: string): { text: string; navigateTo?: string } | null {
+  if (detectSkyAiIntent(message) !== "cancel_draft") return null;
+  return {
+    text: `No worries — refresh **Quick Post** or clear the fields to start fresh. [[NAV:/post/ai]] Want to list something else instead?`,
+    navigateTo: "/post/ai",
+  };
+}
+
+export function tryPriceValueReply(message: string): { text: string; navigateTo?: string } | null {
+  if (detectSkyAiIntent(message) !== "price_value") return null;
+
+  const lower = message.toLowerCase();
+  let quick = 800;
+  let fair = 950;
+  let optimistic = 1100;
+  let label = "this item";
+  let confidence = "Medium — general NZ second-hand market estimate";
+
+  if (/iphone 14 pro/i.test(message)) {
+    label = "iPhone 14 Pro 256GB (good condition)";
+    quick = 1050;
+    fair = 1200;
+    optimistic = 1350;
+    confidence = "Medium — strong demand for Pro models in NZ";
+  } else if (/iphone 15 pro/i.test(message)) {
+    label = "iPhone 15 Pro 256GB (good condition)";
+    quick = 1150;
+    fair = 1300;
+    optimistic = 1450;
+    confidence = "Medium — strong demand for Pro models in NZ";
+  } else if (/macbook air m1/i.test(message)) {
+    label = "MacBook Air M1 256GB (good condition)";
+    quick = 750;
+    fair = 850;
+    optimistic = 950;
+    confidence = "Medium — M1 Airs hold value well in NZ";
+  } else if (/laptop/i.test(lower)) {
+    label = "laptop (good condition)";
+    quick = 400;
+    fair = 550;
+    optimistic = 700;
+  }
+
+  return {
+    text: `For **${label}** in NZ:\n\n**Quick sale:** $${quick.toLocaleString("en-NZ")}\n**Fair market:** $${fair.toLocaleString("en-NZ")}\n**Optimistic:** $${optimistic.toLocaleString("en-NZ")}\n**Confidence:** ${confidence}\n\nWant me to set **Fair market** ($${fair.toLocaleString("en-NZ")}) in your listing?`,
+  };
+}
+
+export function tryArrangePurchaseReply(message: string): { text: string; navigateTo?: string } | null {
+  if (!/\b(arrange purchase|how do i pay|bank transfer|contact seller)\b/i.test(message)) return null;
+  if (detectSkyAiIntent(message) === "sell_list") return null;
+  return {
+    text: `**Arrange Purchase** means you agree payment in **Messages** — bank transfer, cash on pickup, etc. No card checkout, no buyer-protection fee. Seller's bank details show in chat if they've saved them in Profile. [[NAV:/payments]] Want help with **Buy Now (Card)** instead?`,
+    navigateTo: "/payments",
+  };
+}
+
+/** First matching deterministic task reply, or null to use OpenAI. */
+export function trySkyAiTaskReply(
+  message: string,
+  pathname: string
+): { text: string; navigateTo?: string; source: "rules" } | null {
+  const find = tryFindBrowseReply(message);
+  if (find) return { ...find, source: "rules" };
+
+  // On sell page, let OpenAI handle sells with LISTING_FILL
+  if (pathname === "/post/ai" && hasListingSellIntent(message)) return null;
+
+  const visibility = tryVisibilityReply(message);
+  if (visibility) return { ...visibility, source: "rules" };
+
+  const buy = tryBuyTroubleReply(message);
+  if (buy) return { ...buy, source: "rules" };
+
+  const cancel = tryCancelDraftReply(message);
+  if (cancel) return { ...cancel, source: "rules" };
+
+  const price = tryPriceValueReply(message);
+  if (price) return { ...price, source: "rules" };
+
+  const arrange = tryArrangePurchaseReply(message);
+  if (arrange) return { ...arrange, source: "rules" };
+
+  return null;
+}

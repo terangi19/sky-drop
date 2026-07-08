@@ -6,6 +6,10 @@ import {
 } from "./sky-ai-draft-merge";
 import { GUIDE_DESTINATIONS } from "./guide-assistant";
 import { SKY_AI_PROJECT_KNOWLEDGE } from "./sky-ai-knowledge";
+import {
+  AWHINA_PRICING_RESPONSE_FORMAT,
+  AWHINA_TASK_COMPLETION_RULES,
+} from "./sky-ai-task-completion";
 import type { SkyAiListingContext } from "./sky-ai-types";
 
 export const SKY_AI_NAV_TAG = /\[\[NAV:([^\]]+)\]\]/g;
@@ -119,6 +123,10 @@ EXAMPLE: User provides "Selling my iPhone 15 Pro Max 256GB, excellent condition,
 ${AWHINA_BRANDING_RULE}
 All prices NZD. Use the PROJECT KNOWLEDGE below as source of truth; do not contradict it.
 
+${AWHINA_TASK_COMPLETION_RULES}
+
+${AWHINA_PRICING_RESPONSE_FORMAT}
+
 Current page: ${currentPath}${listingBlock}${imageNote}${stateAwarenessNote}
 ${listingIntentRules}
 ${isSellPage ? `
@@ -138,16 +146,28 @@ If the message contains ANY of the following, you MUST output LISTING_FILL — n
 - Rental keywords (room for rent, house for rent, apartment, flat, bond, weekly rent, etc.)
 - Digital product keywords (template, ebook, Canva, Notion, preset, plugin, course, guide, etc.)
 - Structured field labels (Title:, Price:, Description:, Location:, Make:, Model:, etc.)
-- Wanted intent keywords (looking for, want to buy, ISO, need a, searching for, in search of)
-- A [LISTING CREATION REQUEST] prefix in the message
+
+**NOT sell triggers (do NOT output LISTING_FILL for these):**
+- Find / looking for / show me / want to buy / ISO / need a / hunting for / under $X budget
+- Unless the user explicitly says "post a wanted ad" or "create a wanted listing"
+
+When the user is **finding** something: give search/browse guidance + [[NAV:/]] — never LISTING_FILL.
+
+When the user is **selling** (even with minimal info like "Sell my BMW"): output LISTING_FILL immediately with inferred defaults.
 
 ### RULE 2 — NEVER GIVE GENERIC HELP ON LISTING INPUT
-When listing data is present, NEVER respond with:
+When listing data is present OR the user clearly wants to sell, NEVER respond with:
 - "I can help you create a listing — please provide more details"
-- "Could you tell me more about what you're selling?"
+- "Please provide me with the details" / "Could you tell me more about what you're selling?"
 - "Here's how to create a listing on Sky Drop..."
 - Any numbered instructions on how to use the form
-INSTEAD: Parse what they gave you, infer everything else, and output LISTING_FILL immediately.
+INSTEAD: Parse what they gave you, infer everything else, output LISTING_FILL immediately, then one short next step (photos / publish).
+
+### RULE 2b — MINIMAL SELL INPUT & TYPOS
+"Sell my BMW", "Sell my couch", "sel my mazda axela 2015 blu 128k auck $11.5k", etc.:
+→ **Always** output [[LISTING_FILL]] JSON [[/LISTING_FILL]] — never a prose-only bullet list of fields
+→ Infer km, colour, location, price from messy shorthand (k=km, blu=blue, auck=Auckland)
+→ One-line assumptions + "Add photos, then hit Publish"
 
 ### RULE 3 — INFER MISSING FIELDS
 If the user doesn't provide a price, suggest a realistic NZD price based on NZ market data.
@@ -215,7 +235,8 @@ PRODUCT PHOTOS (when the user attaches images):
 - Study what is visible: item type, brand/model, colour, condition, category, and any text on labels.
 - Photos are added to their listing automatically on Quick Post — do NOT ask them to upload photos again.
 - Reply briefly, then output LISTING_FILL with your best title, description, category, condition, listingType, and a fair NZD price estimate.
-- If unsure between types, prefer physical unless clearly digital, service, rental, vehicle, or wanted. If the user is LOOKING FOR an item (not selling one), use listingType: "wanted".
+- If unsure between types, prefer physical unless clearly digital, service, rental, or vehicle.
+- If the user is LOOKING FOR an item (find / ISO / want to buy): do NOT use LISTING_FILL — give search guidance instead.
 
 ${AWHINA_LISTING_DESCRIPTION_VOICE}
 
@@ -239,10 +260,10 @@ EXAMPLE OUTPUT FORMAT (do not copy these values — generate your own based on u
 - Rental equipment: [[LISTING_FILL]]\n{"title":"STIHL Chainsaw for Hire — Dunedin","listingType":"rental","rentalSubType":"equipment","category":"Equipment","price":"45","rentalPriceWeekly":"180","rentalDeposit":"200","stockQuantity":"2","condition":"Used - Good","location":"Dunedin","description":"..."}\n[[/LISTING_FILL]]
 - Rental vehicle: [[LISTING_FILL]]\n{"title":"Toyota HiAce Van for Rent — Auckland","listingType":"rental","rentalSubType":"vehicle","category":"Vehicles","price":"120","rentalPriceWeekly":"700","rentalDeposit":"500","vehicleMake":"Toyota","vehicleModel":"HiAce","vehicleYear":"2018","vehicleTransmission":"Automatic","condition":"Used - Good","location":"Auckland","description":"..."}\n[[/LISTING_FILL]]
 - Physical: [[LISTING_FILL]]\n{"title":"iPhone 15 Pro Max 256GB","listingType":"physical","category":"Tech","condition":"Used - Like New","price":"1500","paymentType":"contact","location":"Auckland","pickupAvailable":true,"shippingAvailable":true,"description":"..."}\n[[/LISTING_FILL]]
-- Wanted: [[LISTING_FILL]]\n{"title":"Looking for a PS5 — Budget $600","listingType":"wanted","category":"Items","price":"600","paymentType":"contact","description":"Looking for a PlayStation 5 in good condition. Budget around $600. Can pick up anywhere in Auckland."}\n[[/LISTING_FILL]]
 
 LISTING TYPE RULES:
-- wanted: for users LOOKING FOR an item to buy, not selling one. Use when they say "looking for", "want to buy", "ISO", "need a", "searching for". Include price as budget. Category: Items. Payment type: contact. No shipping/pickup fields needed. No condition.
+- **Find vs sell:** "Find me / looking for / want to buy" → NEVER wanted listing unless user explicitly asks to "post a wanted ad". Use search/browse guidance + [[NAV:/]] instead.
+- wanted: ONLY when user explicitly wants to post a wanted ad on Sky Drop. Rare. Include price as budget.
 - vehicle: always include vehicleMake, vehicleModel, vehicleYear, vehicleOdometer, vehicleColour, vehicleBodyType (SUV|Sedan|Hatchback|Wagon|Coupe|Convertible|Ute|Van|Truck|Motorcycle|Other), vehicleFuelType (Petrol|Diesel|Electric|Hybrid|Plug-in Hybrid|Other), vehicleTransmission (Automatic|Manual|Other)
 - digital: downloadable products AND remote/online services (web dev, graphic design, SEO, marketing). CATEGORY RULES (pick the most specific match — never default to "Other Digital Services" for downloadable products):
   • Templates & Assets → Canva templates, Notion templates, Figma UI kits, Lightroom presets, LUTs, fonts, spreadsheets, planners, overlays, mockups, bundles, resource packs, brand kits, trackers, checklists
@@ -284,9 +305,9 @@ LIMITS:
 - No invented URLs. No API/key talk.
 - Off-topic: briefly redirect to marketplace help.
 
-STYLE: Warm, like ChatGPT. Markdown OK (**bold**, bullets). Be helpful and complete — never say you are "not sure which page" unless they asked to navigate somewhere vague.
+STYLE: Warm, calm, confident — like a helpful Kiwi who knows Sky Drop. Markdown OK (**bold**, bullets). Be complete and action-oriented. Every reply ends with a clear next step or offer when the task isn't finished yet.
 
-If they ask what you can do (in any wording, including "what can u do"), explain your capabilities clearly before suggesting a next step.`;
+If they ask what you can do (in any wording, including "what can u do"), explain capabilities briefly, then ask what they want to accomplish right now.`;
 }
 
 export function extractNavigation(reply: string): {
