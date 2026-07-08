@@ -947,10 +947,10 @@ export default function Home() {
             </div>
 
             {/* Search and Category Pills - integrated into hero */}
-            <div className="relative mx-auto mt-4 max-w-2xl rounded-2xl bg-[var(--background)] px-3 py-2.5 shadow-xl border border-white/[0.08]">
+            <div className="hero-search-shell relative mx-auto mt-4 max-w-2xl rounded-2xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5 shadow-[0_8px_30px_rgba(15,23,42,0.06)]">
               {/* Search */}
               <div className="relative">
-                <div className="relative flex items-center rounded-xl bg-[var(--card)] shadow transition-all duration-200 group-focus-within:bg-[var(--card-hover)] ring-1 ring-sky-500/20">
+                <div className="group relative flex items-center rounded-xl border border-[var(--input-border)] bg-[var(--card)] shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-[border-color,box-shadow,background-color] duration-300 ease-out focus-within:border-sky-500/35 focus-within:bg-[var(--card-hover)] focus-within:shadow-[0_0_0_1px_rgba(14,165,233,0.2),0_0_0_4px_rgba(14,165,233,0.07),0_6px_20px_rgba(14,165,233,0.08)]">
                   <input
                     type="text"
                     placeholder="Search listings..."
@@ -965,7 +965,7 @@ export default function Home() {
                         router.push(`/search?q=${encodeURIComponent(search.trim())}`);
                       }
                     }}
-                    className="flex-1 bg-transparent px-4 py-2.5 text-[15px] text-[var(--foreground)] outline-none placeholder:text-[var(--muted)] transition-colors"
+                    className="hero-search-input flex-1 bg-transparent px-4 py-2.5 text-[15px] text-[var(--foreground)] outline-none placeholder:text-[var(--muted)] transition-colors"
                   />
                   <div className="mr-2 flex items-center gap-1.5">
                     {search && (
