@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "../../lib/stripe-server";
-import { verifyIdToken, getServerDb } from "../../lib/firebase-admin";
+import { verifyIdToken, getAdminDb, getServerDb, isAdminInitialized } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import { sellerPayoutCents } from "../../lib/purchase-service";
 import { isAdminEmail } from "../../lib/admin-check";
@@ -40,7 +40,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
     }
 
-    const db = getServerDb(idToken);
+    // Payment state transitions MUST use Admin SDK to bypass Firestore rules.
+    // Fall back to client-scoped REST only in dev when Admin SDK unavailable.
+    const db = isAdminInitialized() ? getAdminDb() : getServerDb(idToken);
 
     const body = await req.json();
     purchaseId = body.purchaseId;

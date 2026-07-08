@@ -92,33 +92,23 @@ export async function POST(req: NextRequest) {
       accountAgeSec: decoded.auth_time ? Math.floor((Date.now() / 1000) - decoded.auth_time) : undefined,
     };
 
-    // Abuse decision engine disabled for messages - causing 403 errors
-    // const decision = await decide(input);
-    // await applyDecisionDelay(decision);
-
-    // if (decision.captchaRequired && isTurnstileConfigured()) {
-    //   if (!turnstileToken || !(await verifyTurnstileToken(turnstileToken))) {
-    //     recordTurnstileAttempt(decoded.uid, false);
-    //     return NextResponse.json({ error: "Security check required", captchaRequired: true }, { status: 403 });
-    //   }
-    //   recordTurnstileAttempt(decoded.uid, true);
-    // }
-
-    // if (decision.verdict === "block") {
-    //   await persistRiskFlag(decoded.uid, `message_blocked:${decision.reason}`);
-    //   return NextResponse.json({ error: "Message could not be sent" }, { status: 403 });
-    // }
+    const decision = await decide(input);
+    await applyDecisionDelay(decision);
 
     const scamResult = detectScam(text);
     if (scamResult.isScam) {
       return NextResponse.json({ error: "Message flagged as suspicious" }, { status: 400 });
     }
 
-    // Shadow degrade disabled with abuse decision engine
-    // if (decision.verdict === "shadow_degrade") {
-    //   registerAction(decoded.uid, ip, input.contentHash);
-    //   return NextResponse.json({ success: true, shadowDegraded: true });
-    // }
+    if (decision.verdict === "block") {
+      await persistRiskFlag(decoded.uid, `message_blocked:${decision.reason}`);
+      return NextResponse.json({ error: "Message could not be sent" }, { status: 403 });
+    }
+
+    if (decision.verdict === "shadow_degrade") {
+      registerAction(decoded.uid, ip, input.contentHash);
+      return NextResponse.json({ success: true, shadowDegraded: true });
+    }
 
     if (!isAdminInitialized()) {
       return NextResponse.json({ error: "Server not configured" }, { status: 500 });

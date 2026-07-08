@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { verifyIdToken } from "../../lib/firebase-admin";
+import { rateLimit } from "../../lib/rate-limit";
+import { parseIpFromRequest } from "../../lib/geo-check";
 
 export interface SearchIntent {
   category?: string;
@@ -14,11 +17,30 @@ export interface SearchIntent {
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = parseIpFromRequest(req.headers);
+    const { allowed } = await rateLimit(`ai-search-intent:${ip}`, 30, 60_000);
+    if (!allowed) {
+      return NextResponse.json({ error: "Too many requests. Try again shortly." }, { status: 429 });
+    }
+
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    try {
+      await verifyIdToken(authHeader.slice(7));
+    } catch {
+      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+    }
+
     const body = await req.json();
     const { query } = body;
 
     if (!query || typeof query !== "string") {
       return NextResponse.json({ error: "Query is required" }, { status: 400 });
+    }
+    if (query.length > 500) {
+      return NextResponse.json({ error: "Query too long (max 500 characters)" }, { status: 400 });
     }
 
     // Call OpenAI to parse search intent

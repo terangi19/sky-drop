@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import { doc, getDoc, collection, getDocs } from "firebase/firestore";
 import { db } from "../../lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "../../lib/firebase";
+import { isAdminEmail } from "../../lib/admin-check";
+import { useRouter } from "next/navigation";
 
 interface DailyMetrics {
   date: string;
@@ -32,12 +36,22 @@ interface CostSummary {
 }
 
 export default function CostDashboard() {
+  const router = useRouter();
   const [metrics, setMetrics] = useState<DailyMetrics[]>([]);
   const [loading, setLoading] = useState(true);
   const [costSummary, setCostSummary] = useState<CostSummary | null>(null);
+  const [authorized, setAuthorized] = useState(false);
 
   useEffect(() => {
-    loadMetrics();
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (!user?.email || !isAdminEmail(user.email)) {
+        router.replace("/");
+        return;
+      }
+      setAuthorized(true);
+      loadMetrics();
+    });
+    return () => unsub();
   }, []);
 
   async function loadMetrics() {
@@ -108,7 +122,7 @@ export default function CostDashboard() {
     });
   }
 
-  if (loading) {
+  if (loading || !authorized) {
     return (
       <div className="min-h-screen bg-black text-white p-8">
         <div className="max-w-7xl mx-auto">

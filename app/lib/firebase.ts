@@ -25,12 +25,13 @@ auth.setPersistence?.(browserLocalPersistence).catch(() => {});
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
-// App Check disabled — not enforced in Firebase Console and causing reCAPTCHA errors
-// Re-enable once you have a valid reCAPTCHA v3 site key configured for your domain
-// import { initAppCheck } from "./app-check";
-// if (typeof window !== "undefined") {
-//   initAppCheck();
-// }
+// App Check — initializes if NEXT_PUBLIC_RECAPTCHA_SITE_KEY is set.
+// Gracefully skipped if unconfigured (development, preview, or missing env var).
+// To enable: set NEXT_PUBLIC_RECAPTCHA_SITE_KEY in your environment.
+import { initAppCheck } from "./app-check";
+if (typeof window !== "undefined") {
+  initAppCheck();
+}
 
 // Re-export for convenience — all files import from here
 export { onAuthStateChanged } from "firebase/auth";

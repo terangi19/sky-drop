@@ -1,20 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminAuth, getAdminDb } from "../../lib/firebase-admin";
+import { getAdminAuth, getAdminDb, verifyIdToken } from "../../lib/firebase-admin";
+import { rateLimit } from "../../lib/rate-limit";
+import { randomUUID } from "crypto";
 
 export async function POST(req: NextRequest) {
   try {
-    const { email } = await req.json();
+    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+    const { allowed } = await rateLimit(`send-verification-email:${ip}`, 5, 60_000);
+    if (!allowed) {
+      return NextResponse.json({ error: "Too many requests. Try again shortly." }, { status: 429 });
+    }
 
-    if (!email) {
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    let decoded;
+    try {
+      decoded = await verifyIdToken(authHeader.slice(7));
+    } catch {
+      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+    }
+
+    const { email } = await req.json();
+    if (!email || typeof email !== "string") {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
 
-    const auth = getAdminAuth();
+    // The authenticated user may only send verification for their own email
+    if (decoded.email?.toLowerCase() !== email.toLowerCase()) {
+      return NextResponse.json({ error: "You can only verify your own email" }, { status: 403 });
+    }
+
     const db = getAdminDb();
     const baseUrl = process.env.NEXT_PUBLIC_URL || "https://skydrop.co.nz";
-    
-    // Generate a verification token
-    const verificationToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+
+    // Generate a cryptographically secure verification token
+    const verificationToken = randomUUID();
     
     // Store the token in Firestore with expiration
     await db.collection("email-verification").doc(verificationToken).set({
