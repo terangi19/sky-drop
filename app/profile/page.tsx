@@ -428,12 +428,13 @@ const tabGroups = [
   // Read bank details with getDoc + on-demand (not real-time) for cost optimization
   useEffect(() => {
     if (!user?.uid) return;
+    const uid: string = user.uid;
     let mounted = true;
 
     async function fetchBankDetails() {
       if (!mounted) return;
       try {
-        const bankRef = doc(db, "profiles", user.uid, "bankDetails", "private");
+        const bankRef = doc(db, "profiles", uid, "bankDetails", "private");
         const snap = await getDoc(bankRef);
         if (snap.exists() && mounted) {
           const data = snap.data();
@@ -502,12 +503,13 @@ const tabGroups = [
   // Fetch following list with getDocs + polling (60 seconds) instead of real-time for cost optimization
   useEffect(() => {
     if (!user?.uid) return;
+    const uid: string = user.uid;
     let mounted = true;
 
     async function fetchFollowing() {
       if (!mounted) return;
       try {
-        const q = query(collection(db, "followers"), where("followerId", "==", user.uid), limit(100));
+        const q = query(collection(db, "followers"), where("followerId", "==", uid), limit(100));
         const snap = await getDocs(q);
         if (mounted) {
           setFollowingList(snap.docs.map((d) => d.data() as any));
@@ -530,6 +532,7 @@ const tabGroups = [
   // Fetch listings with getDocs + polling (60 seconds) instead of real-time for cost optimization
   useEffect(() => {
     if (!user?.email) return;
+    const userEmail: string = user.email;
     let mounted = true;
 
     async function fetchListings() {
@@ -537,7 +540,7 @@ const tabGroups = [
       try {
         const q = query(
           collection(db, "listings"),
-          where("sellerEmail", "==", user.email),
+          where("sellerEmail", "==", userEmail),
           limit(100)
         );
         const snap = await getDocs(q);
@@ -572,6 +575,7 @@ const tabGroups = [
       setSellerPurchases([]);
       return;
     }
+    const userEmail: string = user.email;
     let mounted = true;
 
     async function fetchPurchases() {
@@ -579,7 +583,7 @@ const tabGroups = [
       try {
         const q = query(
           collection(db, "purchases"),
-          where("sellerEmail", "==", user.email),
+          where("sellerEmail", "==", userEmail),
           limit(100)
         );
         const snap = await getDocs(q);
@@ -870,13 +874,13 @@ const tabGroups = [
 
       const token = await auth.currentUser?.getIdToken(true);
       if (!token) { showToast("Please sign in again", "error"); return; }
-      const csrfToken = getClientCsrfToken();
+      const csrfToken = await getClientCsrfToken();
       const res = await fetch("/api/save-profile", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json", 
           Authorization: `Bearer ${token}`,
-          ...(csrfToken && { "x-csrf-token": csrfToken })
+          ...(csrfToken ? { "x-csrf-token": csrfToken } : {})
         },
         body: JSON.stringify(profilePayload),
       });
@@ -1115,13 +1119,13 @@ const tabGroups = [
       const token = await auth.currentUser?.getIdToken();
       if (!token) { showToast("Please sign in again", "error"); setStripeConnecting(false); return; }
 
-      const csrfToken = getClientCsrfToken();
+      const csrfToken = await getClientCsrfToken();
       const res = await fetch("/api/stripe-connect", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json", 
           Authorization: `Bearer ${token}`,
-          ...(csrfToken && { "x-csrf-token": csrfToken })
+          ...(csrfToken ? { "x-csrf-token": csrfToken } : {})
         },
         body: JSON.stringify({ action: "create", email: user.email }),
       });
@@ -1135,13 +1139,13 @@ const tabGroups = [
       const token2 = await auth.currentUser?.getIdToken();
       if (!token2) { showToast("Please sign in again", "error"); setStripeConnecting(false); return; }
 
-      const csrfToken2 = getClientCsrfToken();
+      const csrfToken2 = await getClientCsrfToken();
       const linkRes = await fetch("/api/stripe-connect", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json", 
           Authorization: `Bearer ${token2}`,
-          ...(csrfToken2 && { "x-csrf-token": csrfToken2 })
+          ...(csrfToken2 ? { "x-csrf-token": csrfToken2 } : {})
         },
         body: JSON.stringify({ action: "onboard", accountId: data.accountId }),
       });
@@ -1160,13 +1164,13 @@ const tabGroups = [
       const token = await auth.currentUser?.getIdToken();
       if (!token) { showToast("Please sign in again", "error"); return; }
 
-      const csrfToken = getClientCsrfToken();
+      const csrfToken = await getClientCsrfToken();
       const res = await fetch("/api/stripe-connect", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json", 
           Authorization: `Bearer ${token}`,
-          ...(csrfToken && { "x-csrf-token": csrfToken })
+          ...(csrfToken ? { "x-csrf-token": csrfToken } : {})
         },
         body: JSON.stringify({ action: "onboard", accountId: stripeAccountId }),
       });

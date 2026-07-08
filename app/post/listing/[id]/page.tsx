@@ -619,7 +619,7 @@ export default function ListingPage() {
       await sendMessage({
         type: "offer",
         text: `Offer: $${offerAmount}`,
-        receiver: listing.sellerEmail,
+        receiver: listing.sellerEmail!,
         listingId: listing.id,
         listingTitle: listing.title || "Unknown",
         listingImage: listing.images?.[0] || listing.imageUrl || "",
@@ -678,7 +678,7 @@ export default function ListingPage() {
         const { createNotification } = await import("../../../lib/notifications");
         await createNotification({
           targetEmail: listing.sellerEmail || "",
-          fromEmail: user.email,
+          fromEmail: user.email!,
           type: "bid",
           title: "New bid on your listing",
           message: `${user.email} bid $${amount} on "${listing.title}"`,
@@ -701,7 +701,7 @@ export default function ListingPage() {
         if (data.outbidUser && data.outbidUser !== listing.sellerEmail) {
           await createNotification({
             targetEmail: data.outbidUser,
-            fromEmail: user.email,
+            fromEmail: user.email!,
             type: "outbid",
             title: "You've been outbid!",
             message: `You were outbid on "${listing.title}"`,
@@ -763,7 +763,7 @@ export default function ListingPage() {
     try {
       await sendMessage({
         text: messageText.trim(),
-        receiver: listing.sellerEmail,
+        receiver: listing.sellerEmail!,
         listingId: listingId,
         listingTitle: listing.title || "Listing",
         listingImage: listing.imageUrl || listing.image || undefined,
@@ -1305,6 +1305,8 @@ export default function ListingPage() {
                       onClick={async (e) => {
                         e.stopPropagation();
                         try {
+                          const sellerEmail = listing.sellerEmail;
+                          if (!sellerEmail || !user?.email) return;
                           const buyerMsg = `🏡 Property inquiry started for "${listing.title}"
 
 You're now connected with the property owner/agent.
@@ -1324,21 +1326,21 @@ Property Status: 🟢 Inquiry Active`;
                           const result = await sendMessage({
                             type: "system",
                             text: buyerMsg,
-                            receiver: listing.sellerEmail,
+                            receiver: sellerEmail,
                             listingId,
                             listingTitle: listing.title,
                             listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
                             listingPrice: listing.price,
                             createConversation: true,
                             convKey: `listing_${listingId}`,
-                            buyerEmail: user!.email!,
-                            sellerEmail: listing.sellerEmail,
+                            buyerEmail: user.email,
+                            sellerEmail,
                           });
 
                           await sendMessage({
                             type: "text",
                             text: `A user is interested in your property listing.\n\nUse this chat to discuss:\n• viewing arrangements\n• price/negotiation\n• property details\n• settlement or tenancy\n\nKeep all communication inside Sky Drop for protection.`,
-                            receiver: listing.sellerEmail,
+                            receiver: sellerEmail,
                             listingId,
                             listingTitle: listing.title,
                             conversationId: result.conversationId,
@@ -1408,7 +1410,7 @@ Property Status: 🟢 Inquiry Active`;
                         await sendMessage({
                           type: "text",
                           text: `Hi, I'm interested in "${listing.title}" — could you please provide a quote?`,
-                          receiver: listing.sellerEmail,
+                          receiver: listing.sellerEmail!,
                           listingId,
                           listingTitle: listing.title,
                           listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
@@ -1416,7 +1418,7 @@ Property Status: 🟢 Inquiry Active`;
                           createConversation: true,
                           convKey: `listing_${listingId}`,
                           buyerEmail: user!.email!,
-                          sellerEmail: listing.sellerEmail,
+                          sellerEmail: listing.sellerEmail!,
                         });
                         router.push(sellerMessagesHref);
                       }}
@@ -1474,12 +1476,12 @@ Property Status: 🟢 Inquiry Active`;
                         <span className="text-sky-400">✓</span> Trusted
                       </span>
                     )}
-                    {sellerProfile?.reviewCount && typeof sellerProfile.reviewCount === 'number' && sellerProfile.reviewCount > 0 && (
+                    {typeof sellerProfile?.reviewCount === "number" && sellerProfile.reviewCount > 0 && (
                       <span className="flex items-center gap-1">
                         ★ {typeof sellerProfile.reviewAverage === 'number' ? sellerProfile.reviewAverage.toFixed(1) : "5.0"} ({sellerProfile.reviewCount} reviews)
                       </span>
                     )}
-                    {sellerProfile?.createdAt && typeof sellerProfile.createdAt === 'object' && 'seconds' in sellerProfile.createdAt && (
+                    {typeof sellerProfile?.createdAt === "object" && !!sellerProfile?.createdAt && "seconds" in sellerProfile.createdAt && (
                       <span>Member since {new Date((sellerProfile.createdAt as any).seconds * 1000).toLocaleDateString("en-NZ", { month: "short", year: "numeric" })}</span>
                     )}
                   </div>
@@ -1637,7 +1639,7 @@ Application Status: 🟢 Active`;
                           const result = await sendMessage({
                             type: "system",
                             text: buyerMsg,
-                            receiver: listing.sellerEmail,
+                            receiver: listing.sellerEmail!,
                             listingId,
                             listingTitle: listing.title,
                             listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
@@ -1645,13 +1647,13 @@ Application Status: 🟢 Active`;
                             createConversation: true,
                             convKey: `listing_${listingId}`,
                             buyerEmail: user!.email!,
-                            sellerEmail: listing.sellerEmail,
+                            sellerEmail: listing.sellerEmail!,
                           });
 
                           await sendMessage({
                             type: "text",
                             text: `🟢 A user is interested in your job listing.\n\nUse this chat to discuss:\n• experience/skills\n• availability\n• interview arrangements\n• pay/rates\n• job expectations\n\nKeep all communication inside Sky Drop for protection.`,
-                            receiver: listing.sellerEmail,
+                            receiver: listing.sellerEmail!,
                             listingId,
                             listingTitle: listing.title,
                             conversationId: result.conversationId,
@@ -1724,7 +1726,7 @@ Service Status: 🟢 Inquiry Active`;
                           const result = await sendMessage({
                             type: "system",
                             text: buyerMsg,
-                            receiver: listing.sellerEmail,
+                            receiver: listing.sellerEmail!,
                             listingId,
                             listingTitle: listing.title,
                             listingImage: listing.images?.[0] || listing.imageUrl || listing.image || "",
@@ -1732,13 +1734,13 @@ Service Status: 🟢 Inquiry Active`;
                             createConversation: true,
                             convKey: `listing_${listingId}`,
                             buyerEmail: user!.email!,
-                            sellerEmail: listing.sellerEmail,
+                            sellerEmail: listing.sellerEmail!,
                           });
 
                           await sendMessage({
                             type: "text",
                             text: `🟢 A user is interested in hiring your service.\n\nUse this chat to discuss:\n• project requirements\n• pricing\n• deadlines\n• revisions\n• delivery expectations\n\nKeep all communication inside Sky Drop for protection.`,
-                            receiver: listing.sellerEmail,
+                            receiver: listing.sellerEmail!,
                             listingId,
                             listingTitle: listing.title,
                             conversationId: result.conversationId,
@@ -2132,7 +2134,7 @@ Service Status: 🟢 Inquiry Active`;
                         const { createNotification } = await import("../../../lib/notifications");
                         await createNotification({
                           targetEmail: listing.sellerEmail || "",
-                          fromEmail: user.email,
+                          fromEmail: user.email!,
                           type: "question",
                           title: `New question on "${listing.title}"`,
                           message: questionText.slice(0, 100),

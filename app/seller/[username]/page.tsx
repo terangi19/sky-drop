@@ -47,6 +47,7 @@ import {
 import { parseFirestoreDate } from "../../lib/date-format";
 
 interface ProfileData {
+  uid?: string;
   username?: string;
   // displayName removed
   bio?: string;
