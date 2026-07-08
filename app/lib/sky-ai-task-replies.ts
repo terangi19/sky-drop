@@ -34,7 +34,7 @@ export function tryFindBrowseReply(message: string): { text: string; navigateTo?
       : `**${route.categoryLabel}** on Sky Drop`;
 
   return {
-    text: `${searchLine} — results are sorted by relevance.${budgetLine}${cityLine} [[NAV:${route.path}]] Matching listings show on the search page — say if you want buyer tips.`,
+    text: `${searchLine} — opening matching listings now.${budgetLine}${cityLine}\n\n→ **Search results for "${item !== "what you're after" ? item : "your search"}"** [[NAV:${route.path}]]`,
     navigateTo: route.path,
   };
 }

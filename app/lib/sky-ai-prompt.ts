@@ -350,9 +350,30 @@ export function parseReportDraftTag(
 
 export function sanitizeNavigateTo(path: string | undefined): string | undefined {
   if (!path) return undefined;
-  const allowed = new Set(GUIDE_DESTINATIONS.map((d) => d.path));
-  if (allowed.has(path)) return path;
-  const base = path.split("#")[0];
-  const match = GUIDE_DESTINATIONS.find((d) => d.path === path || d.path.split("#")[0] === base);
+  const trimmed = path.trim();
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) return undefined;
+
+  const pathname = trimmed.split(/[?#]/)[0];
+
+  if (pathname === "/search") {
+    try {
+      const query = trimmed.includes("?") ? trimmed.split("?")[1]?.split("#")[0] ?? "" : "";
+      const params = new URLSearchParams(query);
+      const safe = new URLSearchParams();
+      for (const key of ["q", "maxPrice", "minPrice", "location", "category"]) {
+        const v = params.get(key);
+        if (v) safe.set(key, v.slice(0, 200));
+      }
+      const qs = safe.toString();
+      return qs ? `/search?${qs}` : "/search";
+    } catch {
+      return undefined;
+    }
+  }
+
+  const exact = GUIDE_DESTINATIONS.find((d) => d.path === trimmed);
+  if (exact) return exact.path;
+
+  const match = GUIDE_DESTINATIONS.find((d) => d.path.split("#")[0] === pathname);
   return match?.path;
 }

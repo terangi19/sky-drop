@@ -1,10 +1,8 @@
 "use client";
 
 import {
-  Bell,
   LayoutDashboard,
   LogOut,
-  Package,
   Shield,
   User,
 } from "lucide-react";
@@ -19,7 +17,6 @@ type AccountMenuContentProps = {
   pathname: string;
   username?: string | null;
   userEmail?: string | null;
-  activityCount?: number;
   isAdmin?: boolean;
   onLogout: () => void;
   /** Called after navigation actions (e.g. close mobile drawer). */
@@ -39,7 +36,6 @@ export default function AccountMenuContent({
   pathname,
   username,
   userEmail,
-  activityCount = 0,
   isAdmin = false,
   onLogout,
   onNavigate,
@@ -64,21 +60,6 @@ export default function AccountMenuContent({
           icon={User}
           label="Profile"
           active={isPathActive(pathname, "/profile")}
-          onNavigate={onNavigate}
-        />
-        <AppMenuLink
-          href="/notifications"
-          icon={Bell}
-          label="Notifications"
-          active={isPathActive(pathname, "/notifications")}
-          badge={activityCount}
-          onNavigate={onNavigate}
-        />
-        <AppMenuLink
-          href="/list-list"
-          icon={Package}
-          label="My Listings"
-          active={isPathActive(pathname, "/list-list")}
           onNavigate={onNavigate}
         />
         {isAdmin ? (

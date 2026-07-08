@@ -1,15 +1,5 @@
-import { GUIDE_DESTINATIONS } from "./guide-assistant";
 import { normalizeServicePricingType } from "./service-pricing";
-import { SKY_AI_NAV_TAG } from "./sky-ai-prompt";
-
-function sanitizeNavigateTo(path: string | undefined): string | undefined {
-  if (!path) return undefined;
-  const allowed = new Set(GUIDE_DESTINATIONS.map((d) => d.path));
-  if (allowed.has(path)) return path;
-  const base = path.split("#")[0];
-  const match = GUIDE_DESTINATIONS.find((d) => d.path === path || d.path.split("#")[0] === base);
-  return match?.path;
-}
+import { SKY_AI_NAV_TAG, sanitizeNavigateTo } from "./sky-ai-prompt";
 
 export const SKY_AI_LISTING_FILL_TAG =
   /\[\[LISTING_FILL\]\]\s*([\s\S]*?)\s*\[\[\/LISTING_FILL\]\]/gi;
@@ -112,8 +102,27 @@ export function inferPhysicalCategoryFromText(text: string): string | undefined 
 export function stripSkyAiMachineTags(text: string): string {
   return text
     .replace(SKY_AI_LISTING_FILL_TAG, "")
-    .replace(SKY_AI_NAV_TAG, "")
+    .replace(SKY_AI_NAV_TAG, (_, path: string) => formatNavTagForDisplay(path.trim()))
     .trim();
+}
+
+/** Turn [[NAV:...]] into visible text — never leave a blank “here's the link” gap. */
+export function formatNavTagForDisplay(path: string): string {
+  if (path.startsWith("/search")) {
+    try {
+      const q = new URL(path, "https://skydrop.co.nz").searchParams.get("q");
+      if (q) {
+        const label = decodeURIComponent(q.replace(/\+/g, " "));
+        return `\n\n→ **Search results for "${label}"** — opening now.`;
+      }
+    } catch {
+      /* ignore */
+    }
+    return "\n\n→ **Opening search results** now.";
+  }
+  if (path === "/vehicles") return "\n\n→ **Opening Vehicles** now.";
+  if (path === "/") return "\n\n→ **Opening marketplace** now.";
+  return `\n\n→ **Opening ${path}** now.`;
 }
 
 function normalizeCondition(raw: string): string | undefined {
@@ -624,7 +633,7 @@ export function extractSkyAiReply(reply: string): {
     .replace(SKY_AI_LISTING_FILL_TAG, "")
     .replace(SKY_AI_NAV_TAG, (_, path: string) => {
       navigateTo = sanitizeNavigateTo(path.trim());
-      return "";
+      return formatNavTagForDisplay(path.trim());
     })
     .trim();
 

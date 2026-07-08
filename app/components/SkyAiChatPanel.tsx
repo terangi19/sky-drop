@@ -18,6 +18,7 @@ import {
   stripSkyAiMachineTags,
   type SkyAiListingFill,
 } from "../lib/sky-ai-listing-fill";
+import { tryFindBrowseReply } from "../lib/sky-ai-task-replies";
 import { dispatchSkyAiComposerActive, SKY_AI_OPEN_EVENT, type SkyAiOpenDetail } from "../lib/sky-ai-events";
 import { AWHINA_CHAT_BACKDROP_Z, AWHINA_CHAT_SHEET_Z } from "../lib/floating-ui-layout";
 import { SKY_AI_QUICK_PROMPTS, SKY_AI_WELCOME } from "../lib/sky-ai-prompts";
@@ -240,6 +241,9 @@ export default function SkyAiChatPanel({
 
   const runNavigate = useCallback(
     (path: string) => {
+      if (isSheet && (path.startsWith("/search") || path === "/vehicles" || path === "/")) {
+        setOpen(false);
+      }
       if (navigateTimerRef.current) clearTimeout(navigateTimerRef.current);
       navigateTimerRef.current = setTimeout(() => {
         router.push(path);
@@ -251,7 +255,7 @@ export default function SkyAiChatPanel({
         }
       }, 100);
     },
-    [router]
+    [router, isSheet, setOpen]
   );
 
   const updateAssistant = useCallback((id: string, patch: Partial<ChatMessage>) => {
@@ -545,7 +549,7 @@ export default function SkyAiChatPanel({
                   } else {
                     const navFromFill = handleListingFill(evt.listingFill, navigateTo);
                     if (navFromFill) navigateTo = navFromFill;
-                    const replyText = evt.reply || stripSkyAiMachineTags(accumulated);
+                    const replyText = stripSkyAiMachineTags(evt.reply || accumulated);
                     updateAssistant(assistantId, {
                       text: replyText,
                       streaming: false,
@@ -637,6 +641,19 @@ export default function SkyAiChatPanel({
 
       if (newConversationId) setConversationId(newConversationId);
       if (user) loadConversations();
+
+      if (!navigateTo && trimmed) {
+        const findFallback = tryFindBrowseReply(trimmed);
+        if (findFallback?.navigateTo) {
+          navigateTo = findFallback.navigateTo;
+          updateAssistant(assistantId, {
+            text: stripSkyAiMachineTags(findFallback.text),
+            streaming: false,
+            navigating: true,
+          });
+        }
+      }
+
       if (navigateTo) runNavigate(navigateTo);
       setBusy(false);
     },

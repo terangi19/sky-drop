@@ -7,6 +7,7 @@ import type { AwhinaVoiceState } from "../hooks/useAwhinaVoice";
 import { useFeedback } from "../contexts/FeedbackContext";
 import { useTourGuide } from "../contexts/TourGuideContext";
 import { FAB_DOCK_POSITION } from "../lib/floating-ui-layout";
+import { dismissAwhinaFabHint, shouldShowAwhinaFabHint } from "../lib/awhina-fab-hint";
 import { SKY_AI_COMPOSER_ACTIVE_EVENT, type SkyAiComposerActiveDetail } from "../lib/sky-ai-events";
 import FeedbackModal from "./FeedbackModal";
 
@@ -65,6 +66,7 @@ export default function FloatingActionDock({
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [composerActive, setComposerActive] = useState(false);
+  const [showFabHint, setShowFabHint] = useState(false);
   const dockRef = useRef<HTMLDivElement>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggered = useRef(false);
@@ -103,6 +105,11 @@ export default function FloatingActionDock({
   }, [dockHidden]);
 
   useEffect(() => {
+    if (dockHidden || expanded) return;
+    setShowFabHint(shouldShowAwhinaFabHint());
+  }, [dockHidden, expanded]);
+
+  useEffect(() => {
     if (!expanded) return;
     const onPointerDown = (e: PointerEvent) => {
       if (dockRef.current && !dockRef.current.contains(e.target as Node)) {
@@ -125,7 +132,13 @@ export default function FloatingActionDock({
     action();
   };
 
+  const dismissFabHint = useCallback(() => {
+    dismissAwhinaFabHint();
+    setShowFabHint(false);
+  }, []);
+
   const handlePrimaryClick = () => {
+    dismissFabHint();
     if (longPressTriggered.current) {
       longPressTriggered.current = false;
       return;
@@ -142,6 +155,7 @@ export default function FloatingActionDock({
   };
 
   const handlePointerDown = () => {
+    dismissFabHint();
     longPressTriggered.current = false;
     clearLongPress();
     longPressTimer.current = setTimeout(() => {
@@ -155,6 +169,8 @@ export default function FloatingActionDock({
   };
 
   const showUnseenBadge = hasUnseenTour && !expanded && !dockHidden;
+
+  const primaryHint = chatHidden ? "Tap for menu" : "Tap chat · Hold for more";
 
   if (dockHidden) {
     return <FeedbackModal />;
@@ -208,7 +224,35 @@ export default function FloatingActionDock({
             </div>
           )}
 
-          <div className="relative">
+          <div className="relative group">
+            {showFabHint && !expanded && (
+              <div
+                className="absolute bottom-[calc(100%+0.75rem)] right-0 w-[min(15rem,calc(100vw-2rem))] rounded-xl border border-sky-500/25 bg-[#0c0e14]/95 px-3 py-2.5 text-right shadow-[0_0_30px_rgba(14,165,233,0.15)] backdrop-blur-xl animate-in fade-in slide-in-from-bottom-2"
+                role="status"
+              >
+                <p className="text-[11px] font-semibold leading-snug text-white">
+                  {chatHidden ? "Tap for voice, tips & feedback" : "Tap to chat with Āwhina"}
+                </p>
+                <p className="mt-1 text-[10px] leading-snug text-sky-300/85">
+                  {chatHidden ? "Opens the assistant menu" : "Hold the button for voice, tips & feedback"}
+                </p>
+                <button
+                  type="button"
+                  onClick={dismissFabHint}
+                  className="mt-2 text-[10px] font-bold text-sky-400 hover:text-sky-300"
+                >
+                  Got it
+                </button>
+                <span className="absolute -bottom-1.5 right-6 h-3 w-3 rotate-45 border-r border-b border-sky-500/25 bg-[#0c0e14]/95" />
+              </div>
+            )}
+
+            {!showFabHint && !expanded && (
+              <span className="awhina-chat-fab-tooltip pointer-events-none absolute bottom-[calc(100%+0.5rem)] right-0 whitespace-nowrap rounded-lg border border-white/[0.06] bg-zinc-900/95 px-3 py-1.5 text-[10px] font-semibold text-always-white opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
+                {primaryHint}
+              </span>
+            )}
+
             {showUnseenBadge && (
               <span className="absolute -right-0.5 -top-0.5 z-10 flex h-3 w-3">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-75" />
@@ -228,18 +272,26 @@ export default function FloatingActionDock({
                 if (!expanded) setExpanded(true);
               }}
               aria-expanded={expanded}
-              title={expanded ? undefined : "Tap to chat · hold for more"}
+              title={expanded ? undefined : primaryHint}
               aria-label={
                 expanded
                   ? "Close menu"
                   : chatHidden
-                    ? "Open assistant menu"
-                    : `Open ${AWHINA_ASK_LABEL}`
+                    ? `Open assistant menu — ${primaryHint}`
+                    : `${AWHINA_ASK_LABEL} — ${primaryHint}`
               }
               className={`relative flex h-14 w-14 items-center justify-center rounded-full border border-white/[0.08] bg-[#0c0e14]/90 backdrop-blur-xl shadow-[0_0_24px_rgba(14,165,233,0.18)] transition-all duration-300 hover:scale-105 hover:border-sky-400/40 hover:shadow-[0_0_32px_rgba(14,165,233,0.28)] active:scale-95 ${
                 voice.voiceMode ? "ring-2 ring-violet-400/30" : ""
               } ${expanded ? "bg-zinc-800/95" : ""}`}
             >
+              {!expanded && (
+                <span
+                  className="pointer-events-none absolute -left-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full border border-white/10 bg-zinc-900/90 text-[9px] font-bold text-sky-300/90"
+                  aria-hidden
+                >
+                  ···
+                </span>
+              )}
               {voiceActive && !expanded && (
                 <span className="absolute inset-0 rounded-full border border-violet-400/35 animate-pulse" />
               )}
@@ -252,6 +304,12 @@ export default function FloatingActionDock({
                 </span>
               )}
             </button>
+
+            {!expanded && (
+              <p className="mt-1.5 max-w-[5.5rem] text-center text-[9px] font-semibold leading-tight text-sky-300/75">
+                {primaryHint}
+              </p>
+            )}
           </div>
 
         </div>

@@ -386,12 +386,11 @@ export default function Navbar() {
                     <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400 light:text-gray-500">Account</div>
                     <div className="px-1">
                       <AccountMenuContent
-                        pathname={pathname}
-                        username={username}
-                        userEmail={user.email}
-                        activityCount={activityCount}
-                        isAdmin={isAdmin}
-                        onLogout={handleLogout}
+                      pathname={pathname}
+                      username={username}
+                      userEmail={user.email}
+                      isAdmin={isAdmin}
+                      onLogout={handleLogout}
                         onNavigate={closeMobileMenu}
                       />
                     </div>
@@ -485,11 +484,10 @@ export default function Navbar() {
                 </button>
                 <div className="absolute top-full right-0 z-50 mt-2 w-[220px] opacity-0 invisible translate-y-2 transition-all duration-200 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:translate-y-0">
                   <AppMenuPanel arrow="top-right">
-                    <AccountMenuContent
+                      <AccountMenuContent
                       pathname={pathname}
                       username={username}
                       userEmail={user.email}
-                      activityCount={activityCount}
                       isAdmin={isAdmin}
                       onLogout={handleLogout}
                     />
