@@ -494,7 +494,7 @@ export default memo(function MarketplaceListingCard({
               type="button"
               onClick={() => {
                 setShowDeleteConfirm(false);
-                onDelete(item);
+                onDelete?.(item);
               }}
               className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-red-700"
             >

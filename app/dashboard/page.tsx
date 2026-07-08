@@ -41,12 +41,13 @@ export default function DashboardPage() {
   // Fetch profile with getDoc + polling (60 seconds) instead of real-time for cost optimization
   useEffect(() => {
     if (!user?.uid) return;
+    const uid: string = user.uid;
     let mounted = true;
 
     async function fetchProfile() {
       if (!mounted) return;
       try {
-        const snap = await getDoc(doc(db, "profiles", user.uid));
+        const snap = await getDoc(doc(db, "profiles", uid));
         if (snap.exists() && mounted) {
           setXp(snap.data().xp || 0);
           setSellerProfile(snap.data());
@@ -88,15 +89,16 @@ export default function DashboardPage() {
   // Fetch dashboard data with getDocs + polling (60 seconds) instead of real-time for cost optimization
   useEffect(() => {
     if (!user?.email) return;
+    const userEmail: string = user.email;
     let mounted = true;
 
     async function fetchDashboardData() {
       if (!mounted) return;
       try {
         const [purchasesSnap, listingsSnap, reviewsSnap] = await Promise.all([
-          getDocs(query(collection(db, "purchases"), where("sellerEmail", "==", user.email), limit(50))),
-          getDocs(query(collection(db, "listings"), where("sellerEmail", "==", user.email), limit(50))),
-          getDocs(query(collection(db, "reviews"), where("sellerEmail", "==", user.email), limit(50)))
+          getDocs(query(collection(db, "purchases"), where("sellerEmail", "==", userEmail), limit(50))),
+          getDocs(query(collection(db, "listings"), where("sellerEmail", "==", userEmail), limit(50))),
+          getDocs(query(collection(db, "reviews"), where("sellerEmail", "==", userEmail), limit(50)))
         ]);
 
         if (!mounted) return;

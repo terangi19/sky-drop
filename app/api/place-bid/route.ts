@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
         throw new Error("Listing not found");
       }
 
-      const listing = snap.data();
+      const listing = snap.data() || {};
       const currentBid = listing.currentBid || listing.startingBid || 0;
       const highestBidder = listing.highestBidder || "";
       const auctionEndsAt = listing.auctionEndsAt?.toMillis?.() || listing.auctionEndsAt;

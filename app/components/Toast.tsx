@@ -26,7 +26,7 @@ export default function ToastContainer() {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   useEffect(() => {
-    addToastFn = (message, type) => {
+    addToastFn = (message, type = "success") => {
       const id = ++toastId;
       const duration = type === "error" ? 6000 : 3000;
       setToasts((prev) => [...prev, { id, message, type }]);

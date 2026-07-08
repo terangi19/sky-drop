@@ -36,10 +36,10 @@ export async function GET(req: NextRequest) {
       try {
         const listingDoc = await db.collection("listings").doc(listingId).get();
         if (listingDoc.exists) {
-          const data = listingDoc.data();
+          const data = listingDoc.data() || {};
           if (data.title) {
             const words = data.title.split(/\s+/);
-            keywords.push(...words.filter(w => w.length > 3));
+            keywords.push(...words.filter((w: string) => w.length > 3));
           }
         }
       } catch (e) {
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
     for (const viewed of viewedListings.slice(0, 20)) {
       if (viewed.title) {
         const words = viewed.title.split(/\s+/);
-        keywords.push(...words.filter(w => w.length > 3));
+        keywords.push(...words.filter((w: string) => w.length > 3));
       }
     }
 

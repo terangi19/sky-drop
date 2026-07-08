@@ -163,8 +163,14 @@ export function useVoiceInput({
 
     // Pre-warm server recording path for Brave or when STT isn't available,
     // so the first mic start (AudioContext, mime check) is instant.
-    if (!sttSupported || isBraveBrowser()) {
+    if (!sttSupported) {
       prewarmServerRecording();
+    } else {
+      isBraveBrowser()
+        .then((brave) => {
+          if (brave) prewarmServerRecording();
+        })
+        .catch(() => undefined);
     }
 
     return () => {

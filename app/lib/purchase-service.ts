@@ -16,6 +16,15 @@ import {
 } from "./listing-stock";
 import { incrementProfileSalesCount } from "./seller-sales-admin";
 
+function listingPrimaryImage(listing: Record<string, unknown>): string {
+  const images = Array.isArray(listing.images) ? listing.images : [];
+  const firstImage = images[0];
+  if (typeof firstImage === "string" && firstImage) return firstImage;
+  if (typeof listing.imageUrl === "string" && listing.imageUrl) return listing.imageUrl;
+  if (typeof listing.image === "string" && listing.image) return listing.image;
+  return "";
+}
+
 export interface CreatePurchaseInput {
   listingId: string;
   listingTitle: string;
@@ -228,7 +237,7 @@ export async function createPurchaseWithAdmin(input: CreatePurchaseInput): Promi
       listingId: input.listingId,
       listingTitle: input.listingTitle || listing.title || "",
       listingPrice: input.winningBid ? String(input.winningBid) : input.listingPrice || listing.price || "",
-      listingImage: input.listingImage || listing.images?.[0] || listing.imageUrl || listing.image || "",
+      listingImage: input.listingImage || listingPrimaryImage(listing),
       sellerEmail,
       buyerEmail: input.buyerEmail,
       buyerName,
@@ -294,7 +303,7 @@ export async function createPurchaseWithAdmin(input: CreatePurchaseInput): Promi
         listingId: input.listingId,
         listingTitle: input.listingTitle || listing.title || "",
         listingPrice: input.listingPrice || listing.price || "",
-        listingImage: input.listingImage || listing.images?.[0] || listing.imageUrl || listing.image || "",
+        listingImage: input.listingImage || listingPrimaryImage(listing),
         orderStatus: "paid",
         orderId,
         createdAt: now,
@@ -399,7 +408,7 @@ export async function createPurchaseWithRest(
       listingId: input.listingId,
       listingTitle: input.listingTitle || listing.title || "",
       listingPrice: input.winningBid ? String(input.winningBid) : input.listingPrice || listing.price || "",
-      listingImage: input.listingImage || listing.images?.[0] || listing.imageUrl || listing.image || "",
+      listingImage: input.listingImage || listingPrimaryImage(listing),
       sellerEmail,
       buyerEmail: input.buyerEmail,
       buyerName,
@@ -459,7 +468,7 @@ export async function createPurchaseWithRest(
         listingId: input.listingId,
         listingTitle: input.listingTitle || listing.title || "",
         listingPrice: input.listingPrice || listing.price || "",
-        listingImage: input.listingImage || listing.images?.[0] || listing.imageUrl || listing.image || "",
+        listingImage: input.listingImage || listingPrimaryImage(listing),
         orderStatus: "paid",
         createdAt: now,
         updatedAt: now,
@@ -588,7 +597,7 @@ export async function acceptOfferWithAdmin(input: AcceptOfferInput): Promise<Acc
       listingId: input.listingId,
       listingTitle: input.listingTitle || listing.title || "",
       listingPrice: input.listingPrice || listing.price || "",
-      listingImage: input.listingImage || listing.images?.[0] || listing.imageUrl || listing.image || "",
+      listingImage: input.listingImage || listingPrimaryImage(listing),
       sellerEmail: input.sellerEmail,
       buyerEmail: input.buyerEmail,
       buyerName,
@@ -620,7 +629,7 @@ export async function acceptOfferWithAdmin(input: AcceptOfferInput): Promise<Acc
         listingId: input.listingId,
         listingTitle: input.listingTitle || listing.title || "",
         listingPrice: input.listingPrice || listing.price || "",
-        listingImage: input.listingImage || listing.images?.[0] || listing.imageUrl || listing.image || "",
+        listingImage: input.listingImage || listingPrimaryImage(listing),
         orderStatus: "offer_accepted",
         createdAt: now,
         updatedAt: now,
@@ -860,7 +869,7 @@ export async function acceptOfferWithRest(
     listingId: input.listingId,
     listingTitle: input.listingTitle || listing.title || "",
     listingPrice: input.listingPrice || listing.price || "",
-    listingImage: input.listingImage || listing.images?.[0] || listing.imageUrl || listing.image || "",
+    listingImage: input.listingImage || listingPrimaryImage(listing),
     sellerEmail: input.sellerEmail,
     buyerEmail: input.buyerEmail,
     buyerName,
@@ -887,7 +896,7 @@ export async function acceptOfferWithRest(
       listingId: input.listingId,
       listingTitle: input.listingTitle || listing.title || "",
       listingPrice: input.listingPrice || listing.price || "",
-      listingImage: input.listingImage || listing.images?.[0] || listing.imageUrl || listing.image || "",
+      listingImage: input.listingImage || listingPrimaryImage(listing),
       orderStatus: "offer_accepted",
       createdAt: now,
       updatedAt: now,
@@ -1021,7 +1030,7 @@ export async function payOfferWithRest(
         listingId: purchase.listingId,
         listingTitle: purchase.listingTitle || listing.title || "",
         listingPrice: purchase.listingPrice || listing.price || "",
-        listingImage: purchase.listingImage || listing.images?.[0] || listing.imageUrl || listing.image || "",
+        listingImage: purchase.listingImage || listingPrimaryImage(listing),
         orderStatus: "paid",
         orderId,
         createdAt: now,
@@ -1173,9 +1182,9 @@ async function firestoreUpdate(projectId: string, idToken: string, path: string,
   if (!res.ok) throw new Error(`Firestore PATCH error: ${res.status} ${await res.text()}`);
 }
 
-async function firestoreDelete(projectId, idToken, path) {
-  const url = 'https://firestore.googleapis.com/v1/projects/' + projectId + '/databases/(default)/documents/' + path;
-  await fetch(url, { method: 'DELETE', headers: { Authorization: 'Bearer ' + idToken } }).catch(() => {});
+async function firestoreDelete(projectId: string, idToken: string, path: string): Promise<void> {
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${path}`;
+  await fetch(url, { method: "DELETE", headers: { Authorization: `Bearer ${idToken}` } }).catch(() => {});
 }
 
 // ==================== Firestore REST Transaction Support ====================

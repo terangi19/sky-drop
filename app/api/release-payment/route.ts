@@ -49,8 +49,9 @@ export async function POST(req: NextRequest) {
     if (!purchaseId) {
       return NextResponse.json({ error: "Missing purchaseId" }, { status: 400 });
     }
+    const purchaseIdSafe = purchaseId;
 
-    const purchaseDoc = await db.collection("purchases").doc(purchaseId).get();
+    const purchaseDoc = await db.collection("purchases").doc(purchaseIdSafe).get();
     if (!purchaseDoc.exists) {
       return NextResponse.json({ error: "Purchase not found" }, { status: 404 });
     }
@@ -147,11 +148,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Seller has not set up payouts." }, { status: 400 });
     }
 
-    const idempotencyKey = `release-${purchaseId}`;
+    const idempotencyKey = `release-${purchaseIdSafe}`;
 
     // Step 1: Verify purchase state atomically (read-only Firestore transaction)
     await db.runTransaction(async (transaction) => {
-      const purchaseTx = await transaction.get(db.collection("purchases").doc(purchaseId));
+      const purchaseTx = await transaction.get(db.collection("purchases").doc(purchaseIdSafe));
       if (!purchaseTx.exists) {
         throw new Error("Purchase not found");
       }

@@ -37,13 +37,21 @@ export async function checkImage(file: File): Promise<NsfwResult> {
         URL.revokeObjectURL(url);
         const m = await getModel();
         const predictions = await m.classify(img);
+        type Prediction = { className: string; probability: number };
 
-        const flagged = predictions.filter((p) => NSFW_CLASSES.has(p.className) && p.probability > 0.4);
-        const topFlagged = flagged.sort((a, b) => b.probability - a.probability)[0];
+        const flagged = predictions.filter(
+          (p: Prediction) => NSFW_CLASSES.has(p.className) && p.probability > 0.4
+        );
+        const topFlagged = flagged.sort(
+          (a: Prediction, b: Prediction) => b.probability - a.probability
+        )[0];
 
         resolve({
           safe: !topFlagged,
-          predictions: predictions.map((p) => ({ className: p.className, probability: p.probability })),
+          predictions: predictions.map((p: Prediction) => ({
+            className: p.className,
+            probability: p.probability,
+          })),
           reason: topFlagged
             ? `Flagged as ${topFlagged.className} (${Math.round(topFlagged.probability * 100)}%)`
             : undefined,

@@ -199,7 +199,7 @@ export default function ListingPage() {
 
   const auctionEnded = listing && (listing.saleType === "auction" || listing.saleType === "auction_buy_now")
     ? getAuctionEndTime(listing.auctionEndsAt) < Date.now() : false;
-  const isAuctionWinner = auctionEnded && user?.email === listing.highestBidder;
+  const isAuctionWinner = Boolean(auctionEnded && listing && user?.email === listing.highestBidder);
 
   const isContactListing = (listing as { paymentType?: string })?.paymentType === "contact";
 
@@ -542,6 +542,7 @@ export default function ListingPage() {
   }, [listing]);
 
   async function saveToWatchlist() {
+    if (!listing) return;
     const existingWatchlist = JSON.parse(localStorage.getItem("watchlist") || "[]");
     const alreadySaved = existingWatchlist.find((item: any) => item.id === listing.id);
     if (alreadySaved) {
@@ -607,21 +608,20 @@ export default function ListingPage() {
     return detectSuspiciousPrice(Number(listing.price), listing.category);
   }, [listing]);
 
-  const isExpired = listing?.expiresAt?.toMillis?.() < Date.now();
+  const isExpired = Boolean(listing?.expiresAt?.toMillis?.() && listing.expiresAt.toMillis() < Date.now());
 
   const submitOffer = async () => {
-    if (!offerAmount || offerSending || !user?.email || !listing) return;
+    if (!offerAmount || offerSending || !user?.email || !listing?.sellerEmail) return;
     const amount = Number(offerAmount);
     if (!offerAmount || amount <= 0) { showToast("Enter a valid offer amount", "info"); return; }
     setOfferSending(true);
     try {
-      const title = listing.title || "Unknown";
       await sendMessage({
         type: "offer",
         text: `Offer: $${offerAmount}`,
         receiver: listing.sellerEmail,
         listingId: listing.id,
-        listingTitle: listing.title,
+        listingTitle: listing.title || "Unknown",
         listingImage: listing.images?.[0] || listing.imageUrl || "",
         listingPrice: listing.price,
         offerType: "make",
@@ -758,7 +758,7 @@ export default function ListingPage() {
   const sellerMessagesHref = sellerMessagesUrl(listing, listingId);
   const sellerSlug = sellerProfileSlug(listing);
   async function sendMessageToSeller() {
-    if (!user?.email || !listing.sellerEmail || !messageText.trim()) return;
+    if (!user?.email || !listing?.sellerEmail || !messageText.trim()) return;
     setSendingMessage(true);
     try {
       await sendMessage({
@@ -766,8 +766,8 @@ export default function ListingPage() {
         receiver: listing.sellerEmail,
         listingId: listingId,
         listingTitle: listing.title || "Listing",
-        listingImage: listing.imageUrl || listing.image || null,
-        listingPrice: listing.price || null,
+        listingImage: listing.imageUrl || listing.image || undefined,
+        listingPrice: listing.price || undefined,
       });
       setMessageSent(true);
       setMessageText("");
@@ -1025,10 +1025,10 @@ export default function ListingPage() {
               {!isListingVisibleInMarketplace(listing) && (
                 <span className="rounded-lg bg-red-600/90 px-3 py-1 text-xs font-black uppercase tracking-wider text-white">Sold</span>
               )}
-              {isListingVisibleInMarketplace(listing) && listing.expiresAt?.toMillis?.() < Date.now() && (
+              {isListingVisibleInMarketplace(listing) && Boolean(listing.expiresAt?.toMillis?.() && listing.expiresAt.toMillis() < Date.now()) && (
                 <span className="rounded-lg bg-[var(--soft-card)] px-3 py-1 text-xs font-black uppercase tracking-wider text-[var(--muted)]">Expired</span>
               )}
-              {(listing as any).promotedUntil?.toMillis?.() > Date.now() && (
+              {Boolean((listing as any).promotedUntil?.toMillis?.() && (listing as any).promotedUntil.toMillis() > Date.now()) && (
                 <span className="rounded-lg bg-sky-500/90 px-3 py-1 text-xs font-black uppercase tracking-wider text-white">Promoted</span>
               )}
             </div>
@@ -1080,8 +1080,8 @@ export default function ListingPage() {
                 <div className="flex items-center justify-between text-xs text-[var(--muted)]">
                   <span>{listing.bidCount || 0} bids</span>
                   {listing.reservePrice && (
-                    <span className={listing.currentBid >= listing.reservePrice ? "text-sky-400" : "text-sky-400"}>
-                      Reserve {listing.currentBid >= listing.reservePrice ? "met ✅" : "not met"}
+                    <span className={(Number(listing.currentBid) || 0) >= (Number(listing.reservePrice) || 0) ? "text-sky-400" : "text-sky-400"}>
+                      Reserve {(Number(listing.currentBid) || 0) >= (Number(listing.reservePrice) || 0) ? "met ✅" : "not met"}
                     </span>
                   )}
                 </div>
@@ -1101,7 +1101,7 @@ export default function ListingPage() {
                     {user?.email === listing.highestBidder && (
                       <div className="text-xs text-sky-400">✓ You're winning</div>
                     )}
-                    {user && listing.bidCount > 0 && user.email !== listing.highestBidder && user.email !== listing.sellerEmail && (
+                    {user && (Number(listing.bidCount) || 0) > 0 && user.email !== listing.highestBidder && user.email !== listing.sellerEmail && (
                       <div className="text-xs text-sky-400">You've been outbid</div>
                     )}
                     {listing.auctionEndsAt && (
@@ -2243,7 +2243,7 @@ Service Status: 🟢 Inquiry Active`;
             <p className="mt-1 text-sm text-[var(--muted)]">{listing.title}</p>
             <p className="mt-1 text-xs text-[var(--muted)]">Current bid: ${listing.currentBid || listing.startingBid || 0}</p>
             {listing.reservePrice != null && listing.reservePrice > 0 && (
-              <p className="text-xs text-[var(--muted)]">Reserve: ${listing.reservePrice} {listing.currentBid >= listing.reservePrice ? "✅" : ""}</p>
+              <p className="text-xs text-[var(--muted)]">Reserve: ${listing.reservePrice} {(Number(listing.currentBid) || 0) >= (Number(listing.reservePrice) || 0) ? "✅" : ""}</p>
             )}
             <div className="relative mt-3">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg text-[var(--muted)]">$</span>

@@ -97,17 +97,17 @@ function fieldWeight(field: string): number {
 /** Build a searchable text blob from all listing fields. */
 export function buildListingSearchBlob(listing: ListingSearchRecord): string {
   const parts: string[] = [
-    listing.title,
-    listing.description,
-    listing.category,
-    listing.type,
-    listing.vehicleMake,
-    listing.vehicleModel,
-    listing.make,
-    listing.model,
+    listing.title || "",
+    listing.description || "",
+    listing.category || "",
+    listing.type || "",
+    listing.vehicleMake || "",
+    listing.vehicleModel || "",
+    listing.make || "",
+    listing.model || "",
     listing.vehicleYear != null ? String(listing.vehicleYear) : "",
     listing.year != null ? String(listing.year) : "",
-    listing.location,
+    listing.location || "",
   ];
 
   for (const key of ["tags", "keywords", "searchKeywords", "aiKeywords"] as const) {

@@ -1159,7 +1159,7 @@ export default function AIPostPage() {
       let newId = editId;
       if (editId) {
         const token = await auth.currentUser?.getIdToken();
-        const csrfToken = getClientCsrfToken();
+        const csrfToken = await getClientCsrfToken();
         const controller = new AbortController();
         const fetchTimeout = window.setTimeout(() => controller.abort(), 30_000);
         let res: Response;
@@ -1169,7 +1169,7 @@ export default function AIPostPage() {
             headers: {
               "Content-Type": "application/json",
               ...(token ? { Authorization: `Bearer ${token}` } : {}),
-              ...(csrfToken && { "x-csrf-token": csrfToken }),
+              ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
             },
             body: JSON.stringify({ listingId: editId, ...listingData, expiresInDays: expiresIn }),
             signal: controller.signal,
@@ -1191,13 +1191,13 @@ export default function AIPostPage() {
           setLoading(false);
           return;
         }
-        const csrfToken = getClientCsrfToken();
+        const csrfToken = await getClientCsrfToken();
         const res = await fetch("/api/create-listing", {
           method: "POST",
           headers: { 
             "Content-Type": "application/json", 
             Authorization: `Bearer ${token}`,
-            ...(csrfToken && { "x-csrf-token": csrfToken })
+            ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
           },
           body: JSON.stringify({ ...listingData, expiresInDays: expiresIn, listingType: publishType }),
         });

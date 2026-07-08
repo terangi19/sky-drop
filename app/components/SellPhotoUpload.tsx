@@ -4,7 +4,7 @@ import type { ChangeEvent, RefObject } from "react";
 
 type Props = {
   imagePreviews: string[];
-  fileInputRef: RefObject<HTMLInputElement | null>;
+  fileInputRef: RefObject<HTMLInputElement>;
   onUpload: (e: ChangeEvent<HTMLInputElement>) => void;
   onRemove: (index: number) => void;
 };

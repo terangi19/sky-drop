@@ -844,6 +844,7 @@ function MessagesPage() {
   }
   async function clearConversation() {
     if (!chatUser || !user?.email) return;
+    const userEmail: string = user.email;
     try {
       const archived = JSON.parse(localStorage.getItem("archivedConversations") || "[]");
       if (!archived.includes(chatUser)) {
@@ -852,7 +853,7 @@ function MessagesPage() {
       }
       const dismissed = JSON.parse(localStorage.getItem("dismissedNotifications") || "[]");
       const relevant = messages.filter((m: any) =>
-        messageInActiveConversation(m, user.email, chatUser, chatListingId)
+        messageInActiveConversation(m, userEmail, chatUser, chatListingId)
       );
       for (const msg of relevant) {
         if (!dismissed.includes(msg.id)) dismissed.push(msg.id);

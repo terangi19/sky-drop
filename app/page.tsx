@@ -69,6 +69,7 @@ interface Listing {
   category?: string;
   image?: string;
   imageUrl?: string;
+  images?: string[];
   createdAt?: { seconds: number };
   userId?: string;
   sellerEmail?: string;
@@ -772,7 +773,7 @@ export default function Home() {
           text: `Offer: $${offerAmount}`,
           offerType: "make", offerAmount: String(offerAmount), offerStatus: "pending",
           listingId: offerListing.id, listingTitle: offerListing.title,
-          listingImage: offerListing.images?.[0] || offerListing.imageUrl || "",
+          listingImage: offerListing.images?.[0] || offerListing.imageUrl || offerListing.image || "",
           listingPrice: offerListing.price,
         }),
       });

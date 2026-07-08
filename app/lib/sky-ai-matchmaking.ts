@@ -61,7 +61,7 @@ async function searchMatchingListings(
       if (isSameMarketplaceUser(data, exclude)) continue;
       if (data.status === "sold") continue;
 
-      const listing = { id: doc.id, ...data };
+      const listing = { ...data, id: doc.id };
       if (isWantedListingMatch(wanted, listing)) {
         matched.set(doc.id, listing);
       }
@@ -94,7 +94,7 @@ async function searchMatchingWanted(
       if (isSameMarketplaceUser(data, exclude)) continue;
       if (data.status === "sold") continue;
 
-      const wanted = { id: doc.id, ...data, type: "wanted" };
+      const wanted = { ...data, id: doc.id, type: "wanted" };
       if (isWantedListingMatch(wanted, listing)) {
         matched.set(doc.id, wanted);
       }

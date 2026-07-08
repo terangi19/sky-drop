@@ -452,7 +452,9 @@ export function buildPurchasesInsight(
           needsConfirm.length === 1
             ? `"${p.listingTitle}" is ready to confirm received.`
             : `${needsConfirm.length} orders are ready to confirm received.`,
-        actions: [{ type: "button" as const, label: "View Orders", onClick: onFocusActive, primary: true }],
+        actions: onFocusActive
+          ? [{ type: "button" as const, label: "View Orders", onClick: onFocusActive, primary: true }]
+          : [],
       };
     }
 
@@ -462,7 +464,9 @@ export function buildPurchasesInsight(
         icon: "💡",
         label: "Tip",
         message: `Dispute in progress on "${openDispute.listingTitle}".`,
-        actions: [{ type: "button" as const, label: "View Orders", onClick: onFocusActive, primary: true }],
+        actions: onFocusActive
+          ? [{ type: "button" as const, label: "View Orders", onClick: onFocusActive, primary: true }]
+          : [],
       };
     }
 
@@ -501,14 +505,16 @@ export function buildSalesInsight(
           needsUpdate.length === 1
             ? `"${needsUpdate[0].listingTitle}" needs an update.`
             : `${needsUpdate.length} orders need updating — confirm, ship, or mark complete.`,
-        actions: [
-          {
-            type: "button" as const,
-            label: `View ${needsUpdate.length} Active`,
-            onClick: onFocusActive,
-            primary: true,
-          },
-        ],
+        actions: onFocusActive
+          ? [
+              {
+                type: "button" as const,
+                label: `View ${needsUpdate.length} Active`,
+                onClick: onFocusActive,
+                primary: true,
+              },
+            ]
+          : [],
       };
     }
 

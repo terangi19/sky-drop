@@ -20,8 +20,11 @@ export async function POST(req: NextRequest) {
     }
 
     const tokenData = tokenDoc.data();
+    if (!tokenData?.expiresAt || !tokenData.email) {
+      return NextResponse.json({ error: "Invalid verification token" }, { status: 400 });
+    }
     const now = new Date();
-    const expiresAt = tokenData?.expiresAt?.toDate ? tokenData.expiresAt.toDate() : new Date(tokenData.expiresAt);
+    const expiresAt = tokenData.expiresAt?.toDate ? tokenData.expiresAt.toDate() : new Date(tokenData.expiresAt);
 
     if (now > expiresAt) {
       await db.collection("email-verification").doc(token).delete();

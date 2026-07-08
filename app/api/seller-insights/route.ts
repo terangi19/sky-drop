@@ -80,9 +80,11 @@ export async function GET(req: NextRequest) {
     const allInsights = [...sellerInsights, ...wantedInsights];
     
     // Sort by impact and confidence
-    const impactOrder = { high: 0, medium: 1, low: 2 };
+    const impactOrder: Record<"high" | "medium" | "low", number> = { high: 0, medium: 1, low: 2 };
     allInsights.sort((a, b) => {
-      if (a.impact !== b.impact) return impactOrder[a.impact] - impactOrder[b.impact];
+      const aImpact = a.impact as keyof typeof impactOrder;
+      const bImpact = b.impact as keyof typeof impactOrder;
+      if (aImpact !== bImpact) return impactOrder[aImpact] - impactOrder[bImpact];
       return (b.confidence || 0) - (a.confidence || 0);
     });
 
