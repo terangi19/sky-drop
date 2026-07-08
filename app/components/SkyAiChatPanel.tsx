@@ -1254,7 +1254,7 @@ export default function SkyAiChatPanel({
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
-            className="relative flex h-[56px] w-[56px] items-center justify-center rounded-full border border-white/[0.06] bg-[#0c0e14]/80 backdrop-blur-xl shadow-[0_0_20px_rgba(14,165,233,0.12)] transition-all duration-300 hover:scale-110 hover:shadow-[0_0_35px_rgba(14,165,233,0.3)] hover:border-sky-400/40 active:scale-95"
+            className="relative flex h-[56px] w-[56px] items-center justify-center rounded-full border border-white/[0.06] bg-[#0c0e14]/80 backdrop-blur-xl shadow-[0_0_20px_rgba(14,165,233,0.12)] transition-all duration-300 hover:scale-110 hover:shadow-[0_0_35px_rgba(14,165,233,0.3)] hover:border-sky-400/40 active:scale-95 light:border-gray-200/90 light:bg-white/95 light:shadow-[0_4px_24px_rgba(14,165,233,0.12)] light:hover:border-sky-400/50"
             aria-label={`Open ${AWHINA_ASK_LABEL}`}
           >
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-sky-500 text-sm shadow-[0_0_12px_rgba(14,165,233,0.2)]">

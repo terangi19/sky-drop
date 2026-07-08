@@ -16,7 +16,7 @@ export default function GuestTourFab() {
     <button
       type="button"
       onClick={startTour}
-      className={`${FAB_DOCK_POSITION} pointer-events-auto relative flex h-14 w-14 items-center justify-center rounded-full border border-sky-500/30 bg-gradient-to-br from-sky-500/20 to-sky-500/10 text-sky-300 shadow-lg shadow-sky-500/20 backdrop-blur-xl transition-all hover:scale-105 hover:border-sky-400/45 active:scale-95`}
+      className={`${FAB_DOCK_POSITION} pointer-events-auto relative flex h-14 w-14 items-center justify-center rounded-full border border-sky-500/30 bg-gradient-to-br from-sky-500/20 to-sky-500/10 text-sky-300 shadow-lg shadow-sky-500/20 backdrop-blur-xl transition-all hover:scale-105 hover:border-sky-400/45 active:scale-95 light:border-sky-500/35 light:from-sky-100 light:to-white light:text-sky-700 light:shadow-[0_4px_20px_rgba(14,165,233,0.12)]`}
       aria-label="Page tips"
       title="Take a tour"
     >

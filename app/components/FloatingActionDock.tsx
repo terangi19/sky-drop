@@ -41,18 +41,20 @@ function SpeedDialAction({
       aria-label={label}
       className={`group flex items-center gap-2.5 rounded-full border pl-1.5 pr-3 py-1.5 backdrop-blur-xl transition-all duration-200 animate-in fade-in slide-in-from-bottom-2 disabled:opacity-50 ${
         active
-          ? "border-violet-400/45 bg-violet-500/15 shadow-[0_0_20px_rgba(139,92,246,0.25)]"
-          : "border-white/[0.08] bg-[#0c0e14]/90 hover:border-sky-400/30 hover:bg-[#12151c]/95"
+          ? "border-violet-400/45 bg-violet-500/15 shadow-[0_0_20px_rgba(139,92,246,0.25)] light:border-violet-500/35 light:bg-violet-100 light:shadow-[0_4px_16px_rgba(139,92,246,0.15)]"
+          : "awhina-fab-surface border-white/[0.08] bg-[#0c0e14]/90 hover:border-sky-400/30 hover:bg-[#12151c]/95 light:border-gray-200/90 light:bg-white/95 light:shadow-[0_4px_20px_rgba(15,23,42,0.08)] light:hover:border-sky-400/40 light:hover:bg-white"
       }`}
     >
       <span
         className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-          active ? "bg-violet-500/25 text-violet-200" : "bg-white/[0.05] text-sky-300"
+          active
+            ? "bg-violet-500/25 text-violet-200 light:bg-violet-200 light:text-violet-700"
+            : "bg-white/[0.05] text-sky-300 light:bg-sky-50 light:text-sky-600"
         }`}
       >
         {children}
       </span>
-      <span className="text-[12px] font-semibold text-white/90 whitespace-nowrap">{label}</span>
+      <span className="text-[12px] font-semibold text-white/90 whitespace-nowrap light:text-gray-800">{label}</span>
     </button>
   );
 }
@@ -180,11 +182,11 @@ export default function FloatingActionDock({
     <>
       <div
         ref={dockRef}
-        className={`${FAB_DOCK_POSITION} pointer-events-none flex flex-col items-end`}
+        className={`awhina-fab-dock ${FAB_DOCK_POSITION} pointer-events-none flex flex-col items-end`}
       >
         {expanded && (
           <div
-            className="fixed inset-0 z-[-1] pointer-events-auto bg-black/20 backdrop-blur-[1px] md:bg-transparent md:backdrop-blur-none"
+            className="fixed inset-0 z-[-1] pointer-events-auto bg-black/20 backdrop-blur-[1px] md:bg-transparent md:backdrop-blur-none light:bg-slate-900/10"
             aria-hidden
           />
         )}
@@ -227,23 +229,23 @@ export default function FloatingActionDock({
           <div className="relative">
             {showFabHint && !expanded && (
               <div
-                className="absolute bottom-[calc(100%+0.75rem)] right-0 w-[min(15rem,calc(100vw-2rem))] rounded-xl border border-sky-500/25 bg-[#0c0e14]/95 px-3 py-2.5 text-right shadow-[0_0_30px_rgba(14,165,233,0.15)] backdrop-blur-xl animate-in fade-in slide-in-from-bottom-2"
+                className="absolute bottom-[calc(100%+0.75rem)] right-0 w-[min(15rem,calc(100vw-2rem))] rounded-xl border border-sky-500/25 bg-[#0c0e14]/95 px-3 py-2.5 text-right shadow-[0_0_30px_rgba(14,165,233,0.15)] backdrop-blur-xl animate-in fade-in slide-in-from-bottom-2 light:border-sky-500/30 light:bg-white/98 light:shadow-[0_8px_32px_rgba(14,165,233,0.12)]"
                 role="status"
               >
-                <p className="text-[11px] font-semibold leading-snug text-white">
+                <p className="text-[11px] font-semibold leading-snug text-white light:text-gray-900">
                   {chatHidden ? "Tap for voice, tips & feedback" : "Tap to chat with Āwhina"}
                 </p>
-                <p className="mt-1 text-[10px] leading-snug text-sky-300/85">
+                <p className="mt-1 text-[10px] leading-snug text-sky-300/85 light:text-sky-700">
                   {chatHidden ? "Opens the assistant menu" : "Hold the button for voice, tips & feedback"}
                 </p>
                 <button
                   type="button"
                   onClick={dismissFabHint}
-                  className="mt-2 text-[10px] font-bold text-sky-400 hover:text-sky-300"
+                  className="mt-2 text-[10px] font-bold text-sky-400 hover:text-sky-300 light:text-sky-600 light:hover:text-sky-700"
                 >
                   Got it
                 </button>
-                <span className="absolute -bottom-1.5 right-6 h-3 w-3 rotate-45 border-r border-b border-sky-500/25 bg-[#0c0e14]/95" />
+                <span className="absolute -bottom-1.5 right-6 h-3 w-3 rotate-45 border-r border-b border-sky-500/25 bg-[#0c0e14]/95 light:border-sky-500/30 light:bg-white/98" />
               </div>
             )}
 
@@ -274,13 +276,13 @@ export default function FloatingActionDock({
                     ? `Open assistant menu — ${primaryHint}`
                     : `${AWHINA_ASK_LABEL} — ${primaryHint}`
               }
-              className={`relative flex h-14 w-14 items-center justify-center rounded-full border border-white/[0.08] bg-[#0c0e14]/90 backdrop-blur-xl shadow-[0_0_24px_rgba(14,165,233,0.18)] transition-all duration-300 hover:scale-105 hover:border-sky-400/40 hover:shadow-[0_0_32px_rgba(14,165,233,0.28)] active:scale-95 ${
-                voice.voiceMode ? "ring-2 ring-violet-400/30" : ""
-              } ${expanded ? "bg-zinc-800/95" : ""}`}
+              className={`awhina-fab-surface relative flex h-14 w-14 items-center justify-center rounded-full border border-white/[0.08] bg-[#0c0e14]/90 backdrop-blur-xl shadow-[0_0_24px_rgba(14,165,233,0.18)] transition-all duration-300 hover:scale-105 hover:border-sky-400/40 hover:shadow-[0_0_32px_rgba(14,165,233,0.28)] active:scale-95 light:border-gray-200/90 light:bg-white/95 light:shadow-[0_4px_24px_rgba(14,165,233,0.15)] light:hover:border-sky-400/50 ${
+                voice.voiceMode ? "ring-2 ring-violet-400/30 light:ring-violet-500/25" : ""
+              } ${expanded ? "bg-zinc-800/95 light:bg-gray-100" : ""}`}
             >
               {!expanded && (
                 <span
-                  className="pointer-events-none absolute -left-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full border border-white/10 bg-zinc-900/90 text-[9px] font-bold text-sky-300/90"
+                  className="pointer-events-none absolute -left-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full border border-white/10 bg-zinc-900/90 text-[9px] font-bold text-sky-300/90 light:border-gray-200 light:bg-white light:text-sky-600"
                   aria-hidden
                 >
                   ···
@@ -291,7 +293,7 @@ export default function FloatingActionDock({
               )}
 
               {expanded ? (
-                <X className="relative h-5 w-5 text-white" strokeWidth={2} />
+                <X className="relative h-5 w-5 text-white light:text-gray-800" strokeWidth={2} />
               ) : (
                 <span className="relative flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-sky-500 text-base shadow-[0_0_14px_rgba(14,165,233,0.25)]">
                   ✦
@@ -300,7 +302,7 @@ export default function FloatingActionDock({
             </button>
 
             {!expanded && (
-              <p className="mt-1.5 max-w-[5.5rem] text-center text-[9px] font-semibold leading-tight text-sky-300/75">
+              <p className="mt-1.5 max-w-[5.5rem] text-center text-[9px] font-semibold leading-tight text-sky-300/75 light:text-sky-700">
                 {primaryHint}
               </p>
             )}

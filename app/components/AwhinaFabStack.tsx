@@ -53,7 +53,7 @@ export default function AwhinaFabStack({ voice, onOpenChat, onToggle, chatHidden
                   : "border-violet-400/55 bg-violet-500/20 shadow-[0_0_28px_rgba(139,92,246,0.4)]"
                 : micGlow
                   ? "border-violet-400/50 bg-violet-500/15 shadow-[0_0_24px_rgba(139,92,246,0.35)]"
-                  : "border-white/[0.08] bg-[#0c0e14]/85 shadow-[0_0_16px_rgba(139,92,246,0.1)] hover:scale-110 hover:border-violet-400/35 hover:shadow-[0_0_24px_rgba(139,92,246,0.24)]"
+                  : "border-white/[0.08] bg-[#0c0e14]/85 shadow-[0_0_16px_rgba(139,92,246,0.1)] hover:scale-110 hover:border-violet-400/35 hover:shadow-[0_0_24px_rgba(139,92,246,0.24)] light:border-gray-200/90 light:bg-white/95 light:shadow-[0_4px_16px_rgba(15,23,42,0.08)]"
             }`}
           >
             {voiceActive && (
@@ -91,7 +91,7 @@ export default function AwhinaFabStack({ voice, onOpenChat, onToggle, chatHidden
             <button
               type="button"
               onClick={onOpenChat}
-              className="relative flex h-[52px] w-[52px] items-center justify-center rounded-full border border-white/[0.06] bg-[#0c0e14]/80 backdrop-blur-xl shadow-[0_0_20px_rgba(14,165,233,0.12)] transition-all duration-300 hover:scale-110 hover:shadow-[0_0_35px_rgba(14,165,233,0.3)] hover:border-sky-400/40 active:scale-95"
+              className={`relative flex h-[52px] w-[52px] items-center justify-center rounded-full border border-white/[0.06] bg-[#0c0e14]/80 backdrop-blur-xl shadow-[0_0_20px_rgba(14,165,233,0.12)] transition-all duration-300 hover:scale-110 hover:shadow-[0_0_35px_rgba(14,165,233,0.3)] hover:border-sky-400/40 active:scale-95 light:border-gray-200/90 light:bg-white/95 light:shadow-[0_4px_24px_rgba(14,165,233,0.12)]`}
               aria-label={`Open ${AWHINA_ASK_LABEL}`}
             >
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-sky-500 text-sm shadow-[0_0_12px_rgba(14,165,233,0.2)]">

@@ -8,6 +8,7 @@
 
 /* Sky Drop theme toggle uses .light on <html>; dark: utilities apply only when NOT in light mode */
 @custom-variant dark (&:where(:root:not(.light) &));
+@custom-variant light (&:where(:root.light &));
 
 :root {
   /* Design System - Spacing Scale */
@@ -640,6 +641,33 @@ select:focus-visible {
   background-color: rgba(10, 22, 40, 0.96) !important;
   border-color: rgba(255, 255, 255, 0.1) !important;
   color: #ffffff !important;
+}
+
+/* FAB speed dial — light surfaces (global text flips turn white copy black on dark pills) */
+:root.light .awhina-fab-dock button {
+  color: #1f2937;
+}
+
+:root.light .awhina-fab-dock .awhina-fab-surface,
+:root.light .awhina-fab-dock [class*="bg-[#0c0e14]"],
+:root.light .awhina-fab-dock [class*="bg-[#12151c]"] {
+  background-color: rgba(255, 255, 255, 0.96) !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08) !important;
+}
+
+:root.light .awhina-fab-dock .text-white\/90,
+:root.light .awhina-fab-dock .text-white {
+  color: #1f2937 !important;
+}
+
+:root.light .awhina-fab-dock .bg-zinc-800\/95,
+:root.light .awhina-fab-dock .bg-zinc-900\/90 {
+  background-color: #f3f4f6 !important;
+}
+
+:root.light .awhina-fab-dock .text-sky-300\/75 {
+  color: #0369a1 !important;
 }
 
 /* Āwhina global voice dock */
