@@ -1154,7 +1154,7 @@ export default function ListingPage() {
                 <div className="flex items-center gap-2 text-xs text-sky-400 font-bold">
                   <span>${(Number(listing.price) || 0).toFixed(2)}/day{listing.rentalPriceWeekly ? ` · $${Number(listing.rentalPriceWeekly).toFixed(2)}/wk` : ""}{listing.rentalPriceMonthly ? ` · $${Number(listing.rentalPriceMonthly).toFixed(2)}/mo` : ""}</span>
                 </div>
-                {listing.rentalDeposit && (
+                {!!listing.rentalDeposit && (
                   <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
                     <span className="text-sky-400">${(Number(listing.rentalDeposit) || 0).toFixed(2)} refundable deposit</span>
                   </div>
@@ -1827,10 +1827,10 @@ Service Status: 🟢 Inquiry Active`;
                           <span>${Number(listing.price)}/day × {rentalDays} day{rentalDays > 1 ? "s" : ""}</span>
                           <span className="text-white font-bold">${(Number(listing.price) * rentalDays).toFixed(2)}</span>
                         </div>
-                        {listing.rentalDeposit && (
+                        {!!listing.rentalDeposit && (
                           <div className="mt-0.5 flex items-center justify-between text-[var(--muted)]">
                             <span className="text-sky-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">🔒 Refundable Deposit</span>
-                            <span>$${(Number(listing.rentalDeposit) || 0).toFixed(2)}</span>
+                            <span>${(Number(listing.rentalDeposit) || 0).toFixed(2)}</span>
                           </div>
                         )}
                         <div className="mt-0.5 flex items-center justify-between text-[var(--muted)]">
