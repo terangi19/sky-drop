@@ -947,10 +947,10 @@ export default function Home() {
             </div>
 
             {/* Search and Category Pills - integrated into hero */}
-            <div className="hero-search-shell relative mx-auto mt-4 max-w-2xl rounded-2xl border border-[var(--card-border)] bg-[var(--background)] px-3 py-2.5 shadow-[0_8px_30px_rgba(15,23,42,0.06)]">
+            <div className="hero-search-shell relative mx-auto mt-4 max-w-2xl px-0.5">
               {/* Search */}
               <div className="relative">
-                <div className="group relative flex items-center rounded-xl border border-[var(--input-border)] bg-[var(--card)] shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-[border-color,box-shadow,background-color] duration-300 ease-out focus-within:border-sky-500/35 focus-within:bg-[var(--card-hover)] focus-within:shadow-[0_0_0_1px_rgba(14,165,233,0.2),0_0_0_4px_rgba(14,165,233,0.07),0_6px_20px_rgba(14,165,233,0.08)]">
+                <div className="hero-search-field group relative flex items-center">
                   <input
                     type="text"
                     placeholder="Search listings..."
@@ -965,7 +965,7 @@ export default function Home() {
                         router.push(`/search?q=${encodeURIComponent(search.trim())}`);
                       }
                     }}
-                    className="hero-search-input flex-1 bg-transparent px-4 py-2.5 text-[15px] text-[var(--foreground)] outline-none placeholder:text-[var(--muted)] transition-colors"
+                    className="hero-search-input flex-1 bg-transparent px-4 py-2.5 text-[15px] text-[var(--foreground)] outline-none placeholder:text-[var(--muted)]"
                   />
                   <div className="mr-2 flex items-center gap-1.5">
                     {search && (
@@ -983,7 +983,7 @@ export default function Home() {
                         }
                       }}
                       disabled={!search.trim()}
-                      className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-500 text-white transition-colors duration-200 hover:bg-sky-400 disabled:opacity-30 disabled:bg-sky-500/50 disabled:hover:bg-sky-500/50"
+                      className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-500 text-always-white transition-colors duration-200 hover:bg-sky-400 disabled:opacity-30 disabled:bg-sky-500/50 disabled:hover:bg-sky-500/50"
                       title="Search"
                       aria-label="Search"
                     >
@@ -1020,7 +1020,7 @@ export default function Home() {
               </div>
 
               {/* Category pills - connected to search */}
-              <div className="mt-2 flex justify-center">
+              <div className="hero-search-pills mt-2.5 flex justify-center">
                 <div className="relative flex max-w-full gap-1.5 overflow-x-auto px-0.5 pb-0 scrollbar-none">
                   <button
                     onClick={() => setSelectedCategory("All")}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Lightbulb, MessageSquare, Mic, X } from "lucide-react";
+import { Lightbulb, MessageSquare, Mic, Sparkles, X } from "lucide-react";
 import { AWHINA_ASK_LABEL, AWHINA_NAME } from "../lib/awhina-brand";
 import type { AwhinaVoiceState } from "../hooks/useAwhinaVoice";
 import { useFeedback } from "../contexts/FeedbackContext";
@@ -220,7 +220,7 @@ export default function FloatingActionDock({
               </SpeedDialAction>
               {!chatHidden && (
                 <SpeedDialAction label={`Open ${AWHINA_NAME}`} onClick={() => runAction(onOpenChat)}>
-                  <span className="text-sm">✦</span>
+                  <Sparkles className="h-4 w-4 text-sky-400" strokeWidth={2} />
                 </SpeedDialAction>
               )}
             </div>
@@ -276,34 +276,40 @@ export default function FloatingActionDock({
                     ? `Open assistant menu — ${primaryHint}`
                     : `${AWHINA_ASK_LABEL} — ${primaryHint}`
               }
-              className={`awhina-fab-surface relative flex h-14 w-14 items-center justify-center rounded-full border border-white/[0.08] bg-[#0c0e14]/90 backdrop-blur-xl shadow-[0_0_24px_rgba(14,165,233,0.18)] transition-all duration-300 hover:scale-105 hover:border-sky-400/40 hover:shadow-[0_0_32px_rgba(14,165,233,0.28)] active:scale-95 light:border-gray-200/90 light:bg-white/95 light:shadow-[0_4px_24px_rgba(14,165,233,0.15)] light:hover:border-sky-400/50 ${
-                voice.voiceMode ? "ring-2 ring-violet-400/30 light:ring-violet-500/25" : ""
-              } ${expanded ? "bg-zinc-800/95 light:bg-gray-100" : ""}`}
+              className={`awhina-fab-primary ${expanded ? "is-expanded" : ""} ${voice.voiceMode ? "is-voice" : ""}`}
             >
               {!expanded && (
-                <span
-                  className="pointer-events-none absolute -left-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full border border-white/10 bg-zinc-900/90 text-[9px] font-bold text-sky-300/90 light:border-gray-200 light:bg-white light:text-sky-600"
-                  aria-hidden
-                >
-                  ···
+                <span className="awhina-fab-badge" aria-hidden title="Hold for menu">
+                  <span className="awhina-fab-badge-dot" />
+                  <span className="awhina-fab-badge-dot" />
+                  <span className="awhina-fab-badge-dot" />
                 </span>
               )}
+
               {voiceActive && !expanded && (
-                <span className="absolute inset-0 rounded-full border border-violet-400/35 animate-pulse" />
+                <span className="awhina-fab-voice-pulse" aria-hidden />
               )}
 
               {expanded ? (
-                <X className="relative h-5 w-5 text-white light:text-gray-800" strokeWidth={2} />
+                <X className="awhina-fab-close-icon" strokeWidth={2} aria-hidden />
               ) : (
-                <span className="relative flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-sky-500 text-base shadow-[0_0_14px_rgba(14,165,233,0.25)]">
-                  ✦
+                <span className="awhina-fab-gem" aria-hidden>
+                  <Sparkles className="h-[18px] w-[18px] text-always-white" strokeWidth={2.25} />
                 </span>
               )}
             </button>
 
             {!expanded && (
-              <p className="mt-1.5 max-w-[5.5rem] text-center text-[9px] font-semibold leading-tight text-sky-300/75 light:text-sky-700">
-                {primaryHint}
+              <p className="awhina-fab-caption" aria-hidden>
+                {chatHidden ? (
+                  <span className="awhina-fab-caption-primary">Tap for menu</span>
+                ) : (
+                  <>
+                    <span className="awhina-fab-caption-primary">Tap chat</span>
+                    <span className="awhina-fab-caption-sep">·</span>
+                    <span className="awhina-fab-caption-secondary">Hold for more</span>
+                  </>
+                )}
               </p>
             )}
           </div>

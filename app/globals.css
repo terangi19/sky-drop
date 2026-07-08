@@ -674,6 +674,223 @@ select:focus-visible {
   color: #0369a1 !important;
 }
 
+/* Premium Āwhina primary FAB */
+.awhina-fab-primary {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.625rem;
+  height: 3.625rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(56, 189, 248, 0.24);
+  background: linear-gradient(155deg, #0a1020 0%, #111827 52%, #0c4a6e 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.07) inset,
+    0 4px 18px rgba(0, 0, 0, 0.38),
+    0 10px 32px rgba(14, 165, 233, 0.14);
+  transition:
+    transform 0.28s cubic-bezier(0.34, 1.4, 0.64, 1),
+    box-shadow 0.28s ease,
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.awhina-fab-primary:hover {
+  transform: scale(1.04);
+  border-color: rgba(56, 189, 248, 0.42);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.09) inset,
+    0 6px 22px rgba(0, 0, 0, 0.42),
+    0 14px 40px rgba(14, 165, 233, 0.2);
+}
+
+.awhina-fab-primary:active {
+  transform: scale(0.97);
+}
+
+.awhina-fab-primary.is-expanded {
+  background: rgba(24, 24, 27, 0.95);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+
+.awhina-fab-primary.is-voice:not(.is-expanded) {
+  border-color: rgba(167, 139, 250, 0.45);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.07) inset,
+    0 4px 18px rgba(0, 0, 0, 0.38),
+    0 0 0 3px rgba(139, 92, 246, 0.14),
+    0 10px 32px rgba(139, 92, 246, 0.18);
+}
+
+.awhina-fab-gem {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 9999px;
+  background: linear-gradient(145deg, #7dd3fc 0%, #0ea5e9 48%, #0284c7 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.35) inset,
+    0 4px 14px rgba(14, 165, 233, 0.45);
+}
+
+.awhina-fab-close-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: #f8fafc;
+}
+
+.awhina-fab-badge {
+  pointer-events: none;
+  position: absolute;
+  top: -0.125rem;
+  left: -0.125rem;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.125rem;
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(15, 23, 42, 0.88);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.28);
+}
+
+.awhina-fab-badge-dot {
+  width: 0.1875rem;
+  height: 0.1875rem;
+  border-radius: 9999px;
+  background: rgba(125, 211, 252, 0.9);
+}
+
+.awhina-fab-voice-pulse {
+  pointer-events: none;
+  position: absolute;
+  inset: -2px;
+  border-radius: 9999px;
+  border: 1px solid rgba(167, 139, 250, 0.4);
+  animation: awhina-fab-voice-breathe 2.4s ease-in-out infinite;
+}
+
+@keyframes awhina-fab-voice-breathe {
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.03); }
+}
+
+.awhina-fab-caption {
+  margin-top: 0.625rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  max-width: 7.5rem;
+  padding: 0.3125rem 0.625rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(56, 189, 248, 0.18);
+  background: rgba(8, 15, 30, 0.82);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+  text-align: center;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.awhina-fab-caption-primary {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #e0f2fe;
+}
+
+.awhina-fab-caption-sep {
+  font-size: 0.625rem;
+  font-weight: 500;
+  color: rgba(56, 189, 248, 0.55);
+}
+
+.awhina-fab-caption-secondary {
+  font-size: 0.5625rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(186, 230, 253, 0.72);
+}
+
+:root.light .awhina-fab-primary {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 2px 4px rgba(15, 23, 42, 0.05),
+    0 10px 28px rgba(14, 165, 233, 0.11);
+}
+
+:root.light .awhina-fab-primary:hover {
+  border-color: rgba(14, 165, 233, 0.28);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 4px 10px rgba(15, 23, 42, 0.07),
+    0 14px 36px rgba(14, 165, 233, 0.15);
+}
+
+:root.light .awhina-fab-primary.is-expanded {
+  background: #f8fafc;
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+}
+
+:root.light .awhina-fab-primary.is-voice:not(.is-expanded) {
+  border-color: rgba(139, 92, 246, 0.32);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 2px 4px rgba(15, 23, 42, 0.05),
+    0 0 0 3px rgba(139, 92, 246, 0.08),
+    0 10px 28px rgba(139, 92, 246, 0.12);
+}
+
+:root.light .awhina-fab-gem {
+  background: linear-gradient(145deg, #38bdf8 0%, #0ea5e9 50%, #0284c7 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.5) inset,
+    0 4px 12px rgba(14, 165, 233, 0.35);
+}
+
+:root.light .awhina-fab-close-icon {
+  color: #1e293b;
+}
+
+:root.light .awhina-fab-badge {
+  border-color: rgba(0, 0, 0, 0.08);
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.1);
+}
+
+:root.light .awhina-fab-badge-dot {
+  background: #0ea5e9;
+}
+
+:root.light .awhina-fab-caption {
+  border-color: rgba(14, 165, 233, 0.14);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
+}
+
+:root.light .awhina-fab-caption-primary {
+  color: #0369a1;
+}
+
+:root.light .awhina-fab-caption-sep {
+  color: rgba(14, 165, 233, 0.45);
+}
+
+:root.light .awhina-fab-caption-secondary {
+  color: #64748b;
+}
+
 /* Header dropdown menus — light panel + dark text (header forces white on all descendants) */
 :root.light header .app-menu-panel,
 :root.light header .app-menu-panel * {
@@ -957,23 +1174,61 @@ select:focus-visible {
   opacity: 0.5 !important;
 }
 
-/* Hero search — soft inner glow instead of global input focus ring */
+/* Hero search — clean single-field focus (no stacked glow layers) */
+.hero-search-field {
+  border-radius: 1rem;
+  border: 1px solid var(--input-border);
+  background: var(--card);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hero-search-field:focus-within {
+  border-color: rgba(56, 189, 248, 0.55);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.12);
+}
+
 .hero-search-input,
 .hero-search-input:focus,
 .hero-search-input:focus-visible {
   outline: none !important;
   box-shadow: none !important;
   border: none !important;
+  background: transparent !important;
 }
+
+:root.light .hero-search-shell {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+:root.light .hero-search-field {
+  background: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+}
+
+:root.light .hero-search-field:focus-within {
+  border-color: #0ea5e9 !important;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1) !important;
+  background: #ffffff !important;
+}
+
 :root.light .hero-search-input:focus,
 :root.light .hero-search-input:focus-visible {
   box-shadow: none !important;
   border-color: transparent !important;
 }
-:root.light .hero-search-shell {
-  background: #ffffff !important;
-  border-color: rgba(14, 165, 233, 0.12) !important;
-  box-shadow: 0 8px 32px rgba(10, 22, 40, 0.06), 0 1px 0 rgba(255, 255, 255, 0.8) inset !important;
+
+:root.light .hero-search-pills button {
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+:root.light .hero-search-pills button.border-sky-400\/30 {
+  border-color: rgba(14, 165, 233, 0.28) !important;
+  background-color: rgba(14, 165, 233, 0.08) !important;
+  color: #0369a1 !important;
 }
 
 :root.light section select option {
