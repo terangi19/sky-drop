@@ -139,19 +139,53 @@ export default function SellerPage() {
 
     async function load() {
       try {
-        const resolved = await resolveSellerBySlug(routeSlug);
-        if (!resolved) {
+        // Try API endpoint first (server-side, bypasses Firestore rules)
+        let profileData: ProfileData | null = null;
+        let uid = "";
+
+        try {
+          const apiRes = await fetch(`/api/public-profile?slug=${encodeURIComponent(routeSlug)}`);
+          if (apiRes.ok) {
+            const apiData = await apiRes.json();
+            if (apiData.profile) {
+              profileData = apiData.profile as ProfileData;
+              uid = profileData.uid || "";
+            }
+          }
+        } catch {}
+
+        // Fall back to direct Firestore lookup if API fails
+        if (!profileData) {
+          const resolved = await resolveSellerBySlug(routeSlug);
+          if (resolved) {
+            profileData = resolved.data as ProfileData;
+            uid = resolved.uid;
+          }
+        }
+
+        if (!profileData) {
           if (!cancelled) {
             setLoading(false);
           }
           return;
         }
 
-        const data = resolved.data as ProfileData;
-        setProfile(data);
-        setSellerUid(resolved.uid);
+        setProfile(profileData);
+        setSellerUid(uid);
 
-        const email = data.email;
+        // Fetch email from listings if not available from profile
+        // (profile reads restricted to owner-only; email is public via listings)
+        let email = profileData.email || "";
+        if (!email && uid) {
+          try {
+            const listingSnap = await getDocs(
+              query(collection(db, "listings"), where("sellerId", "==", uid), limit(1))
+            );
+            if (!listingSnap.empty) {
+              email = listingSnap.docs[0].data().sellerEmail || "";
+            }
+          } catch {}
+        }
         if (!email) {
           setLoading(false);
           return;

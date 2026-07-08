@@ -142,11 +142,10 @@ service cloud.firestore {
 
     match /profiles/{profileId} {
 
-      // Profiles contain PII (email, phone, KYC status) — authenticate required.
-      // NOTE: This allows any authenticated user to read any profile.
-      // For stronger protection, restrict to owner-only + create a public
-      // profile API endpoint for the seller page (see H22 in audit).
-      allow read: if request.auth != null;
+      // Profiles contain PII (email, phone, KYC status) — owner-only read.
+      // Public profile data is served through the /api/public-profile endpoint
+      // which uses Admin SDK (bypasses these rules).
+      allow read: if request.auth != null && request.auth.uid == profileId;
 
       allow create: if request.auth != null
 
