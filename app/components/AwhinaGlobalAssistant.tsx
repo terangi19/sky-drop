@@ -185,6 +185,7 @@ export default function AwhinaGlobalAssistant() {
         onOpenChat={() => openChat()}
         onToggleVoice={handleVoiceToggle}
         chatHidden={!showChatSheet}
+        chatOverlayOpen={chatOpen}
       />
     </>
   );

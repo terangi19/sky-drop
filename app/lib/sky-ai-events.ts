@@ -1,8 +1,22 @@
 export const SKY_AI_OPEN_EVENT = "sky-ai-open";
+export const SKY_AI_COMPOSER_ACTIVE_EVENT = "sky-ai-composer-active";
 
 export type SkyAiOpenDetail = {
   query?: string;
 };
+
+export type SkyAiComposerActiveDetail = {
+  active: boolean;
+};
+
+export function dispatchSkyAiComposerActive(active: boolean) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent<SkyAiComposerActiveDetail>(SKY_AI_COMPOSER_ACTIVE_EVENT, {
+      detail: { active },
+    })
+  );
+}
 
 export function dispatchSkyAiOpen(query?: string) {
   if (typeof window === "undefined") return;

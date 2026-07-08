@@ -22,7 +22,7 @@ const SELL_RE =
   /\b(i\s*('m|am)?\s*(sell|selling|list|listing|post|create|make|put up|advertise|flog)|want to sell|for sale|selling my|get rid of|clearing out|listing my)\b/i;
 
 const FIND_RE =
-  /\b(find me|show me|looking for|search for|want to buy|wanna buy|need a|need an|iso\b|in search of|hunting for|where can i (find|get)|anyone selling|under \$?\d)\b/i;
+  /\b(find(?: me| a| an)?|show me|looking for|search for|want to buy|wanna buy|need a|need an|iso\b|in search of|hunting for|where can i (find|get)|anyone selling|under \$?\d)\b/i;
 
 const PRICE_RE =
   /\b(how much|what('s| is) it worth|price check|fair price|good price|value of|should i (ask|charge|list)|worth\??|pricing|appraisal|help me price|price my)\b/i;
@@ -200,7 +200,7 @@ export function getSkyAiIntentHint(message: string, pathname?: string): string {
   const intent = detectSkyAiConversationIntent(message, { pathname });
   switch (intent) {
     case "find_buy":
-      return `[INTENT: FIND/BUY] User wants to search or browse — NOT sell. Do NOT output LISTING_FILL or a wanted listing. Give category/search steps + [[NAV:/]]. End with one actionable next step.`;
+      return `[INTENT: FIND/BUY] User wants to search or browse — NOT sell. Do NOT output LISTING_FILL or a wanted listing. Car parts/accessories (spoiler, rims, turbo, etc.) → Physical Items via /search?q=... — NEVER /vehicles. Whole vehicles (335i, Hilux, etc.) → /search?q=... or /vehicles. If uncertain, /search?q=... on all listings. End with one actionable next step.`;
     case "sell_list":
       return `[INTENT: SELL] Output [[LISTING_FILL]]{...}[[/LISTING_FILL]] immediately — never prose-only drafts. Infer NZ defaults from typos (blu, k, auck). End with photos + Publish.`;
     case "price_value":

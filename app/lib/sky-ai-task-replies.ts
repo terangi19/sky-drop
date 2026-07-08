@@ -4,9 +4,13 @@
  */
 
 import { detectSkyAiIntent, hasListingSellIntent } from "./sky-ai-intent";
+import {
+  extractFindSearchTerm,
+  resolveFindBrowseRoute,
+} from "./sky-ai-find-routing";
 
 const FIND_RE =
-  /\b(find me|show me|looking for|search for|want to buy|wanna buy|need a|need an|iso\b|in search of|hunting for|under \$?\d)\b/i;
+  /\b(find(?: me| a| an)?|show me|looking for|search for|want to buy|wanna buy|need a|need an|iso\b|in search of|hunting for|where can i (find|get)|anyone selling|under \$?\d)\b/i;
 
 const WANTED_AD_EXPLICIT =
   /\b(post a wanted|create a wanted|wanted ad|wanted listing)\b/i;
@@ -19,30 +23,20 @@ export function tryFindBrowseReply(message: string): { text: string; navigateTo?
 
   const budget = m.match(/under\s*\$?\s*([\d,]+)/i)?.[1]?.replace(/,/g, "");
   const city = m.match(/\b(in|near)\s+(auckland|wellington|christchurch|hamilton|tauranga|dunedin)\b/i)?.[2];
-  const item = extractSearchItem(m);
-
-  let category = "/";
-  const lower = m.toLowerCase();
-  if (/\b(ps5|playstation|xbox|gaming|switch)\b/i.test(lower)) category = "/";
-  else if (/\b(mower|lawn|drill|tool|couch|furniture)\b/i.test(lower)) category = "/";
-  else if (/\b(car|vehicle|toyota|bmw|mazda|ute)\b/i.test(lower)) category = "/vehicles";
+  const item = extractFindSearchTerm(m);
+  const route = resolveFindBrowseRoute(m, { budget, city, searchTerm: item });
 
   const budgetLine = budget ? ` Set max price around **$${budget}**.` : "";
   const cityLine = city ? ` Filter by **${city}**.` : "";
+  const searchLine =
+    item !== "what you're after"
+      ? `**${route.categoryLabel}** search for **${item}**`
+      : `**${route.categoryLabel}** on Sky Drop`;
 
   return {
-    text: `Search the homepage for **${item}** — use sort by price and category filters.${budgetLine}${cityLine} [[NAV:${category}]] I can't see live stock from chat, but that shows current listings. Want tips on what to check before you buy?`,
-    navigateTo: category,
+    text: `${searchLine} — results are sorted by relevance.${budgetLine}${cityLine} [[NAV:${route.path}]] Matching listings show on the search page — say if you want buyer tips.`,
+    navigateTo: route.path,
   };
-}
-
-function extractSearchItem(message: string): string {
-  const cleaned = message
-    .replace(/\b(find me|show me|looking for|search for|want to buy|a|an|the|in|under|near|\$[\d,]+)\b/gi, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (cleaned.length >= 3) return cleaned;
-  return "what you're after";
 }
 
 export function tryVisibilityReply(message: string): { text: string; navigateTo?: string } | null {

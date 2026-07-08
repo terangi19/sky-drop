@@ -18,7 +18,7 @@ import {
   stripSkyAiMachineTags,
   type SkyAiListingFill,
 } from "../lib/sky-ai-listing-fill";
-import { SKY_AI_OPEN_EVENT, type SkyAiOpenDetail } from "../lib/sky-ai-events";
+import { SKY_AI_OPEN_EVENT, dispatchSkyAiComposerActive, type SkyAiOpenDetail } from "../lib/sky-ai-events";
 import { SKY_AI_QUICK_PROMPTS, SKY_AI_WELCOME } from "../lib/sky-ai-prompts";
 import { mergeListingFillWithDraft } from "../lib/sky-ai-draft-merge";
 import { readListingDraftFromSkyAi } from "../lib/sky-ai-listing-context";
@@ -753,6 +753,14 @@ export default function SkyAiChatPanel({
     return () => clearTimeout(t);
   }, [open]);
 
+  useEffect(() => {
+    const composerVisible = isSheet ? open : !!open;
+    dispatchSkyAiComposerActive(composerVisible);
+    return () => {
+      if (composerVisible) dispatchSkyAiComposerActive(false);
+    };
+  }, [isSheet, open]);
+
   const showThinking =
     busy && messages.length > 0 && messages[messages.length - 1]?.streaming && !messages[messages.length - 1]?.text;
 
@@ -1052,7 +1060,7 @@ export default function SkyAiChatPanel({
       }} />
 
       <div
-        className={`border-t border-sky-500/15 awhina-chat-surface px-3 py-2 ${
+        className={`border-t border-sky-500/15 awhina-chat-surface px-3 py-2.5 ${
           isSheet ? "max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]" : "rounded-b-xl"
         }`}
       >
@@ -1100,59 +1108,66 @@ export default function SkyAiChatPanel({
           className="hidden"
           onChange={handleImagePick}
         />
-        <form onSubmit={handleSubmit} className="flex gap-2">
-          <button
-            type="button"
-            disabled={busy || imageBusy || pendingImages.length >= SKY_AI_MAX_IMAGES_PER_MESSAGE}
-            onClick={() => imageInputRef.current?.click()}
-            className="shrink-0 self-end flex h-[42px] w-[42px] items-center justify-center rounded-xl border border-sky-500/25 bg-sky-500/10 text-lg text-sky-300 hover:bg-sky-500/20 disabled:opacity-40"
-            title="Add photos"
-            aria-label="Add photos"
-          >
-            📷
-          </button>
-          {voiceSupported && (
-            <button
-              type="button"
-              disabled={busy || imageBusy}
-              onClick={toggleListening}
-              className={`shrink-0 self-end flex h-[42px] w-[42px] items-center justify-center rounded-xl border text-lg transition disabled:opacity-40 ${
-                listening
-                  ? "border-red-400/50 bg-red-500/20 text-red-300 animate-pulse shadow-[0_0_16px_rgba(248,113,113,0.35)]"
-                  : "border-sky-500/25 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20"
-              }`}
-              title={
-                listening
-                  ? "Stop listening"
-                  : 'Voice input — speak naturally, e.g. "take me to services"'
-              }
-              aria-label={listening ? "Stop voice input" : "Start voice input"}
-              aria-pressed={listening}
-            >
-              🎤
-            </button>
-          )}
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                if (canSend) handleSubmit(e);
-              }
-            }}
-            placeholder="Describe what you're selling, or attach a photo…"
-            disabled={busy}
-            rows={2}
-            className="min-w-0 flex-1 resize-none rounded-xl border border-sky-500/20 bg-white/[0.03] px-3 py-2 text-[12px] text-always-white outline-none placeholder:text-zinc-500 focus:border-sky-400/50 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)]"
-          />
-          <button
-            type="submit"
-            disabled={!canSend}
-            className="shrink-0 self-end rounded-xl bg-gradient-to-r from-sky-500 to-sky-500 px-3 py-2.5 text-[11px] font-bold text-always-white shadow-[0_0_20px_rgba(14,165,233,0.25)] hover:brightness-110 disabled:opacity-40"
-          >
-            Send
-          </button>
+        <form onSubmit={handleSubmit} className="space-y-2">
+          <div className="overflow-hidden rounded-xl border border-sky-500/20 bg-white/[0.03] focus-within:border-sky-400/50 focus-within:shadow-[0_0_20px_rgba(14,165,233,0.1)]">
+            <textarea
+              ref={chatInputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  if (canSend) handleSubmit(e);
+                }
+              }}
+              placeholder="Describe what you're selling, or attach a photo…"
+              disabled={busy}
+              rows={2}
+              className="block w-full min-h-[52px] max-h-32 resize-none border-0 bg-transparent px-3 pt-2.5 pb-1 text-[12px] leading-relaxed text-always-white outline-none placeholder:text-zinc-500"
+            />
+            <div className="flex items-center justify-between gap-2 border-t border-white/[0.04] px-2 py-1.5">
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  disabled={busy || imageBusy || pendingImages.length >= SKY_AI_MAX_IMAGES_PER_MESSAGE}
+                  onClick={() => imageInputRef.current?.click()}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-sky-500/25 bg-sky-500/10 text-base text-sky-300 hover:bg-sky-500/20 disabled:opacity-40"
+                  title="Add photos"
+                  aria-label="Add photos"
+                >
+                  📷
+                </button>
+                {voiceSupported && (
+                  <button
+                    type="button"
+                    disabled={busy || imageBusy}
+                    onClick={toggleListening}
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border text-base transition disabled:opacity-40 ${
+                      listening
+                        ? "border-red-400/50 bg-red-500/20 text-red-300 animate-pulse shadow-[0_0_16px_rgba(248,113,113,0.35)]"
+                        : "border-sky-500/25 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20"
+                    }`}
+                    title={
+                      listening
+                        ? "Stop listening"
+                        : 'Voice input — speak naturally, e.g. "take me to services"'
+                    }
+                    aria-label={listening ? "Stop voice input" : "Start voice input"}
+                    aria-pressed={listening}
+                  >
+                    🎤
+                  </button>
+                )}
+              </div>
+              <button
+                type="submit"
+                disabled={!canSend}
+                className="shrink-0 rounded-lg bg-gradient-to-r from-sky-500 to-sky-500 px-4 py-2 text-[11px] font-bold text-always-white shadow-[0_0_20px_rgba(14,165,233,0.25)] hover:brightness-110 disabled:opacity-40"
+              >
+                Send
+              </button>
+            </div>
+          </div>
         </form>
         {voiceStatus && (
           <p className="mt-1.5 text-[10px] leading-snug text-sky-400/90" role="status">

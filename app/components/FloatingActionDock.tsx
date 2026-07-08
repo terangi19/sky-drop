@@ -6,6 +6,7 @@ import { AWHINA_ASK_LABEL, AWHINA_NAME } from "../lib/awhina-brand";
 import type { AwhinaVoiceState } from "../hooks/useAwhinaVoice";
 import { useFeedback } from "../contexts/FeedbackContext";
 import { useTourGuide } from "../contexts/TourGuideContext";
+import { SKY_AI_COMPOSER_ACTIVE_EVENT, type SkyAiComposerActiveDetail } from "../lib/sky-ai-events";
 import { FAB_DOCK_POSITION } from "../lib/floating-ui-layout";
 import FeedbackModal from "./FeedbackModal";
 
@@ -14,6 +15,8 @@ type Props = {
   onOpenChat: () => void;
   onToggleVoice?: () => void;
   chatHidden?: boolean;
+  /** Global chat sheet is open — hide dock so it never overlaps the composer. */
+  chatOverlayOpen?: boolean;
 };
 
 function SpeedDialAction({
@@ -58,8 +61,10 @@ export default function FloatingActionDock({
   onOpenChat,
   onToggleVoice,
   chatHidden,
+  chatOverlayOpen = false,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
+  const [composerActive, setComposerActive] = useState(false);
   const dockRef = useRef<HTMLDivElement>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggered = useRef(false);
@@ -81,6 +86,21 @@ export default function FloatingActionDock({
   useEffect(() => {
     return () => clearLongPress();
   }, [clearLongPress]);
+
+  useEffect(() => {
+    const onComposer = (e: Event) => {
+      const active = (e as CustomEvent<SkyAiComposerActiveDetail>).detail?.active;
+      setComposerActive(!!active);
+    };
+    window.addEventListener(SKY_AI_COMPOSER_ACTIVE_EVENT, onComposer);
+    return () => window.removeEventListener(SKY_AI_COMPOSER_ACTIVE_EVENT, onComposer);
+  }, []);
+
+  const dockHidden = chatOverlayOpen || composerActive;
+
+  useEffect(() => {
+    if (dockHidden) setExpanded(false);
+  }, [dockHidden]);
 
   useEffect(() => {
     if (!expanded) return;
@@ -138,7 +158,13 @@ export default function FloatingActionDock({
 
   return (
     <>
-      <div ref={dockRef} className={`${FAB_DOCK_POSITION} pointer-events-none flex flex-col items-end`}>
+      <div
+        ref={dockRef}
+        className={`${FAB_DOCK_POSITION} pointer-events-none flex flex-col items-end transition-all duration-300 ${
+          dockHidden ? "translate-y-4 opacity-0 pointer-events-none" : "translate-y-0 opacity-100"
+        }`}
+        aria-hidden={dockHidden}
+      >
         {expanded && (
           <div
             className="fixed inset-0 z-[-1] pointer-events-auto bg-black/20 backdrop-blur-[1px] md:bg-transparent md:backdrop-blur-none"
@@ -227,11 +253,6 @@ export default function FloatingActionDock({
             </button>
           </div>
 
-          {!expanded && !chatHidden && (
-            <span className="text-[9px] font-bold uppercase tracking-wider text-sky-300/70">
-              {AWHINA_NAME}
-            </span>
-          )}
         </div>
       </div>
 

@@ -98,9 +98,6 @@ export default function AwhinaFabStack({ voice, onOpenChat, onToggle, chatHidden
                 ✦
               </span>
             </button>
-            <span className="mt-1 block text-center text-[9px] font-bold uppercase tracking-wider text-sky-300/80">
-              {AWHINA_NAME}
-            </span>
           </div>
         )}
       </div>
