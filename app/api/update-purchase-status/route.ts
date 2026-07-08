@@ -3,6 +3,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { verifyIdToken, getAdminDb } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import { requireAdminForCheckout } from "../../lib/checkout-server";
+import { canTransition } from "../../lib/purchase-fsm";
 
 const SELLER_ALLOWED_STATUSES = new Set([
   "seller_confirming",
@@ -86,6 +87,14 @@ export async function POST(req: NextRequest) {
     }
 
     const currentStatus = String(purchase.status || "");
+
+    // FSM validation — ensure the transition is allowed
+    if (!canTransition(currentStatus as any, status as any)) {
+      return NextResponse.json(
+        { error: `Cannot transition from "${currentStatus}" to "${status}"` },
+        { status: 400 }
+      );
+    }
 
     if (status === "delivered") {
       const method = String(purchase.deliveryMethod || "");
