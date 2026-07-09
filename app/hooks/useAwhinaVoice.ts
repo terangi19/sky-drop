@@ -1125,11 +1125,12 @@ export function useAwhinaVoice(options: UseAwhinaVoiceOptions = {}) {
       setTranscript(formatUtteranceDisplay(display));
       if (voiceModeRef.current) setHint(VOICE_MODE_ON_HINT);
 
-      // Exact shortcuts and "go to sell" run instantly — even on interim STT.
+      // Complete local commands should run instantly — even on interim STT.
       if (
         isExactNavShortcut(trimmed) ||
         isSellNavigationPhrase(trimmed) ||
         isSalesNavigationPhrase(trimmed) ||
+        isCompleteNavPhrase(trimmed, pathname) ||
         meta.hadFinalChunk
       ) {
         if (runVoiceCommandNow(trimmed)) return;
@@ -1158,12 +1159,6 @@ export function useAwhinaVoice(options: UseAwhinaVoiceOptions = {}) {
 
       if (meta.hadFinalChunk && !isIncompleteUtterance(trimmed)) {
         flushUtterance(trimmed);
-        return;
-      }
-
-      if (isCompleteNavPhrase(trimmed, pathname)) {
-        if (meta.hadFinalChunk && runVoiceCommandNow(trimmed)) return;
-        scheduleEndOfSpeech(display, { force: true, quickCommand: true });
         return;
       }
 

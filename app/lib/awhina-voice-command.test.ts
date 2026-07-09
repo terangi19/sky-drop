@@ -17,6 +17,17 @@ describe("resolveVoiceCommand navigation coverage", () => {
     expect(resolveVoiceCommand("um please show my purcheses", "/")?.path).toBe("/purchases");
   });
 
+  it("supports Sky Drop as a wake phrase", () => {
+    expect(resolveVoiceCommand("Sky Drop, go home", "/messages")?.path).toBe("/");
+    expect(resolveVoiceCommand("hey sky ai open watchlist", "/")?.path).toBe("/watchlist");
+  });
+
+  it("responds to a bare wake phrase", () => {
+    const cmd = resolveVoiceCommand("Sky Drop", "/");
+    expect(cmd?.type).toBe("reply");
+    expect(cmd?.message).toMatch(/listening/i);
+  });
+
   it("blocks unauthorized admin navigation", () => {
     const cmd = resolveVoiceCommand("open admin", "/", { isAdmin: false });
     expect(cmd?.type).toBe("reply");

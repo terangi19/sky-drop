@@ -97,6 +97,11 @@ const SELL_INTENT =
 const HAS_DETAIL =
   /\$[\d,]+|\b(ps5|iphone|laptop|car|toyota|honda|mazda|bike|couch|service|rental|digital|bmw|ford|nissan|subaru)\b/i;
 
+const WAKE_PREFIX =
+  /^(?:hey\s+)?(?:awhina|sky\s*drop(?:\s+ai)?|sky\s+ai)[:,]?\s*/i;
+const WAKE_ONLY =
+  /^(?:hey\s+)?(?:awhina|sky\s*drop(?:\s+ai)?|sky\s+ai)[.!?,\s]*$/i;
+
 /* ── Main Resolver ── */
 
 function normalizeCmd(text: string): string {
@@ -105,7 +110,7 @@ function normalizeCmd(text: string): string {
 
 function cleanVoiceTranscript(text: string): string {
   return text
-    .replace(/^(?:hey\s+)?awhina[:,]?\s*/i, "")
+    .replace(WAKE_PREFIX, "")
     .replace(/^(?:uh|um|okay|ok|please)\s+/i, "")
     .replace(/\s+/g, " ")
     .trim();
@@ -116,6 +121,19 @@ export function resolveVoiceCommand(
   pathname: string,
   context?: VoiceCommandContext
 ): VoiceCommandAction | null {
+  if (WAKE_ONLY.test(text.trim())) {
+    const action: VoiceCommandAction = {
+      type: "reply",
+      status: "I'm listening.",
+      confidence: "high",
+      heard: text.trim(),
+      targetTitle: "Voice Mode",
+      message: "I'm listening.",
+    };
+    voiceLog(text.trim(), action);
+    return action;
+  }
+
   const trimmed = cleanVoiceTranscript(text);
   if (!trimmed) return null;
 
