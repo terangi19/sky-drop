@@ -324,21 +324,20 @@ export default function ListingPage() {
     safeGetDoc(docRef).then((snap) => {
       if (!snap?.exists() || !mounted) return;
       const listingData = snap.data();
-      const sellerId = listingData.sellerId as string | undefined;
       const sellerEmail = listingData.sellerEmail as string | undefined;
+      const sellerSlug = sellerProfileSlug({
+        sellerUsername: listingData.sellerUsername as string | undefined,
+        sellerEmail,
+        sellerId: listingData.sellerId as string | undefined,
+      });
 
-      if (sellerId) {
-        getDoc(doc(db, "profiles", sellerId))
-          .then((profileSnap) => {
-            if (profileSnap.exists() && mounted) {
-              setSellerProfile(profileSnap.data() as SellerProfile);
+      if (sellerSlug) {
+        fetch(`/api/public-profile?slug=${encodeURIComponent(sellerSlug)}`)
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data) => {
+            if (data?.profile && mounted) {
+              setSellerProfile(data.profile as SellerProfile);
             }
-          })
-          .catch((e) => console.error("Failed to fetch seller profile:", e));
-      } else if (sellerEmail && auth.currentUser) {
-        getDocs(query(collection(db, "profiles"), where("email", "==", sellerEmail)))
-          .then((profileSnap) => {
-            if (!profileSnap.empty && mounted) setSellerProfile(profileSnap.docs[0].data() as SellerProfile);
           })
           .catch((e) => console.error("Failed to fetch seller profile:", e));
       }
@@ -1962,11 +1961,11 @@ Service Status: 🟢 Inquiry Active`;
                       </span>
                       {isFullyVerified && (
                         <div className="group relative">
-                          <button type="button" className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-sky-500/20 px-2 py-0.5 text-[11px] font-bold text-sky-400 border border-sky-500/30 cursor-pointer hover:bg-sky-500/30 transition-colors" title="Identity verified with ID">
+                          <button type="button" className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-sky-500/20 px-2 py-0.5 text-[11px] font-bold text-sky-400 border border-sky-500/30 cursor-pointer hover:bg-sky-500/30 transition-colors" title="Email verified">
                             ✓ Verified
                           </button>
                           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 rounded-lg bg-[var(--card)] border border-white/[0.1] px-3 py-2 text-[10px] text-[var(--muted)] opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all duration-200 z-50 pointer-events-none">
-                            Identity verified with ID
+                            Email verified
                           </div>
                         </div>
                       )}
