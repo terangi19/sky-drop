@@ -1,29 +1,34 @@
-/**
- * Script to generate demo listings for Sky Drop
- * Run with: npx ts-node --compiler-options {\"module\":\"commonjs\"} scripts/generate-demo-listings.ts
- */
+// Simple demo listing generator using existing Firebase admin setup
+const admin = require('firebase-admin');
 
-import { getAdminDb, getAdminAuth } from "../app/lib/firebase-admin";
-
-interface DemoListing {
-  title: string;
-  description: string;
-  price: string;
-  category: string;
-  condition: string;
-  location: string;
-  images: string[];
-  type: string;
-  saleType: string;
-  paymentType: string;
-  pickupAvailable: boolean;
-  shippingAvailable: boolean;
-  isDemo: boolean;
-  demoNotice: string;
+// Use the same initialization as the app
+function parseServiceAccountJson() {
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT?.trim();
+  if (!raw) {
+    throw new Error("FIREBASE_SERVICE_ACCOUNT is not set");
+  }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    try {
+      return JSON.parse(JSON.parse(raw));
+    } catch {
+      throw new Error("FIREBASE_SERVICE_ACCOUNT is invalid JSON");
+    }
+  }
 }
 
-const DEMO_LISTINGS: DemoListing[] = [
-  // Vehicles
+const serviceAccount = parseServiceAccountJson();
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+});
+
+const db = admin.firestore();
+const auth = admin.auth();
+
+const DEMO_LISTINGS = [
   {
     title: "2018 BMW 320i Sport Line",
     description: "Well-maintained BMW 320i with full service history. Features include M Sport package, sunroof, navigation, and premium sound system. Recently serviced with new tires. Perfect for someone looking for a reliable luxury sedan.",
@@ -56,8 +61,6 @@ const DEMO_LISTINGS: DemoListing[] = [
     isDemo: true,
     demoNotice: "This is a demonstration listing used to showcase Sky Drop while the marketplace is growing."
   },
-
-  // Electronics
   {
     title: "MacBook Pro 14-inch M3 Pro",
     description: "Latest MacBook Pro with M3 Pro chip, 18GB RAM, 512GB SSD. Perfect for creative professionals and developers. Includes original charger and box. AppleCare+ until 2026.",
@@ -90,8 +93,6 @@ const DEMO_LISTINGS: DemoListing[] = [
     isDemo: true,
     demoNotice: "This is a demonstration listing used to showcase Sky Drop while the marketplace is growing."
   },
-
-  // Tools
   {
     title: "Makita 18V Cordless Drill Kit",
     description: "Professional-grade Makita drill with 2 batteries, charger, and carry case. Brushless motor for longer life and more power. Perfect for DIY or trade use.",
@@ -108,8 +109,6 @@ const DEMO_LISTINGS: DemoListing[] = [
     isDemo: true,
     demoNotice: "This is a demonstration listing used to showcase Sky Drop while the marketplace is growing."
   },
-
-  // Furniture
   {
     title: "Modern Leather Sofa Set",
     description: "3+2 seater leather sofa set in dark brown. Genuine leather, excellent condition. Comfortable and stylish. Perfect for living room.",
@@ -126,8 +125,6 @@ const DEMO_LISTINGS: DemoListing[] = [
     isDemo: true,
     demoNotice: "This is a demonstration listing used to showcase Sky Drop while the marketplace is growing."
   },
-
-  // Sports
   {
     title: "Road Bike - Giant Contend",
     description: "Giant Contend road bike in excellent condition. Carbon fork, Shimano Tiagra groupset. Perfect for road cycling and fitness. Size Medium.",
@@ -144,8 +141,6 @@ const DEMO_LISTINGS: DemoListing[] = [
     isDemo: true,
     demoNotice: "This is a demonstration listing used to showcase Sky Drop while the marketplace is growing."
   },
-
-  // Clothing
   {
     title: "Designer Leather Jacket",
     description: "Genuine leather jacket in excellent condition. Size L, classic style. Perfect for casual or formal wear. Minor wear on cuffs.",
@@ -162,8 +157,6 @@ const DEMO_LISTINGS: DemoListing[] = [
     isDemo: true,
     demoNotice: "This is a demonstration listing used to showcase Sky Drop while the marketplace is growing."
   },
-
-  // Gaming
   {
     title: "PlayStation 5 with 2 Controllers",
     description: "PS5 console with 2 DualSense controllers and 3 games (Spider-Man 2, FIFA 24, Call of Duty). Excellent condition, works perfectly.",
@@ -180,8 +173,6 @@ const DEMO_LISTINGS: DemoListing[] = [
     isDemo: true,
     demoNotice: "This is a demonstration listing used to showcase Sky Drop while the marketplace is growing."
   },
-
-  // Home & Garden
   {
     title: "Lawn Mower - Honda Self-Propelled",
     description: "Honda self-propelled lawn mower in excellent condition. Easy to start and use. Includes catcher. Perfect for medium-sized lawns.",
@@ -201,101 +192,64 @@ const DEMO_LISTINGS: DemoListing[] = [
 ];
 
 async function createDemoAccount() {
-  const auth = getAdminAuth();
-  const db = getAdminDb();
-  
   const demoEmail = "demo@skydrop.nz";
   const demoPassword = "DemoAccount2024!";
   
   try {
-    // Check if demo account already exists
-    try {
-      const userRecord = await auth.getUserByEmail(demoEmail);
-      console.log("Demo account already exists:", demoEmail);
-      return { uid: userRecord.uid, email: demoEmail };
-    } catch (error: any) {
-      // Account doesn't exist, create it
-      if (error.code === "auth/user-not-found") {
-        const userRecord = await auth.createUser({
-          email: demoEmail,
-          password: demoPassword,
-          emailVerified: true,
-          displayName: "Sky Drop Demo",
-        });
-        
-        // Create profile
-        await db.collection("profiles").doc(userRecord.uid).set({
-          email: demoEmail,
-          username: "skydrop-demo",
-          displayName: "Sky Drop Demo",
-          createdAt: new Date(),
-          salesCount: 0,
-          reportsCount: 0,
-          kycStatus: "approved",
-          restricted: false,
-        });
-        
-        console.log("Demo account created:", demoEmail);
-        return { uid: userRecord.uid, email: demoEmail };
-      }
+    const userRecord = await auth.getUserByEmail(demoEmail);
+    console.log("Demo account already exists:", userRecord.uid);
+    return userRecord.uid;
+  } catch (error) {
+    if (error.code === 'auth/user-not-found') {
+      const userRecord = await auth.createUser({
+        email: demoEmail,
+        password: demoPassword,
+        emailVerified: true
+      });
+      console.log("Demo account created:", userRecord.uid);
+      return userRecord.uid;
+    } else {
       throw error;
     }
-  } catch (error: any) {
-    console.error("Error creating demo account:", error);
-    throw error;
   }
 }
 
-async function generateDemoListings() {
-  const db = getAdminDb();
-  const demoAccount = await createDemoAccount();
-  
-  console.log(`Generating ${DEMO_LISTINGS.length} demo listings...`);
-  
-  const now = new Date();
-  const expiresAt = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000); // 90 days from now
-  
-  let successCount = 0;
-  let errorCount = 0;
+async function createDemoListings(userId) {
+  const batch = db.batch();
+  const listingsRef = db.collection('listings');
   
   for (const listing of DEMO_LISTINGS) {
-    try {
-      const listingData = {
-        ...listing,
-        sellerEmail: demoAccount.email,
-        sellerUsername: "skydrop-demo",
-        sellerId: demoAccount.uid,
-        status: "live",
-        views: Math.floor(Math.random() * 100) + 10, // Random view count for realism
-        bidCount: 0,
-        createdAt: now,
-        expiresAt,
-        imageUrl: listing.images[0] || "",
-        visibilityRank: "normal",
-      };
-      
-      await db.collection("listings").add(listingData);
-      successCount++;
-      console.log(`✓ Created: ${listing.title}`);
-    } catch (error: any) {
-      errorCount++;
-      console.error(`✗ Failed to create: ${listing.title}`, error.message);
-    }
+    const docRef = listingsRef.doc();
+    const listingData = {
+      ...listing,
+      sellerId: userId,
+      sellerEmail: "demo@skydrop.nz",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      expiresAt: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)), // 30 days from now
+      visible: true
+    };
+    batch.set(docRef, listingData);
   }
   
-  console.log(`\nDemo listing generation complete:`);
-  console.log(`- Success: ${successCount}`);
-  console.log(`- Failed: ${errorCount}`);
-  console.log(`- Demo account: ${demoAccount.email}`);
+  await batch.commit();
+  console.log(`Created ${DEMO_LISTINGS.length} demo listings`);
 }
 
-// Run the script
-generateDemoListings()
-  .then(() => {
-    console.log("\n✓ Demo listings generated successfully!");
-    process.exit(0);
-  })
-  .catch((error) => {
-    console.error("\n✗ Error generating demo listings:", error);
+async function main() {
+  try {
+    console.log("Creating demo account...");
+    const userId = await createDemoAccount();
+    
+    console.log("Creating demo listings...");
+    await createDemoListings(userId);
+    
+    console.log("Demo listings created successfully!");
+    console.log("Demo email: demo@skydrop.nz");
+    console.log("Demo password: DemoAccount2024!");
+  } catch (error) {
+    console.error("Error creating demo listings:", error);
     process.exit(1);
-  });
+  }
+}
+
+main();

@@ -1,28 +1,27 @@
-/**
- * Script to generate demo listings for Sky Drop
- * Run with: npx ts-node --compiler-options {\"module\":\"commonjs\"} scripts/generate-demo-listings.ts
- */
+const admin = require('firebase-admin');
 
-import { getAdminDb, getAdminAuth } from "../app/lib/firebase-admin";
+// Initialize with environment variables
+const serviceAccount = {
+  type: process.env.FIREBASE_TYPE || 'service_account',
+  project_id: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
+  private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+  client_email: process.env.FIREBASE_CLIENT_EMAIL,
+  client_id: process.env.FIREBASE_CLIENT_ID,
+  auth_uri: process.env.FIREBASE_AUTH_URI || 'https://accounts.google.com/o/oauth2/auth',
+  token_uri: process.env.FIREBASE_TOKEN_URI || 'https://oauth2.googleapis.com/token',
+  auth_provider_x509_cert_url: process.env.FIREBASE_AUTH_PROVIDER_X509_CERT_URL,
+  client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL
+};
 
-interface DemoListing {
-  title: string;
-  description: string;
-  price: string;
-  category: string;
-  condition: string;
-  location: string;
-  images: string[];
-  type: string;
-  saleType: string;
-  paymentType: string;
-  pickupAvailable: boolean;
-  shippingAvailable: boolean;
-  isDemo: boolean;
-  demoNotice: string;
-}
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
 
-const DEMO_LISTINGS: DemoListing[] = [
+const db = admin.firestore();
+const auth = admin.auth();
+
+const DEMO_LISTINGS = [
   // Vehicles
   {
     title: "2018 BMW 320i Sport Line",
@@ -56,7 +55,6 @@ const DEMO_LISTINGS: DemoListing[] = [
     isDemo: true,
     demoNotice: "This is a demonstration listing used to showcase Sky Drop while the marketplace is growing."
   },
-
   // Electronics
   {
     title: "MacBook Pro 14-inch M3 Pro",
@@ -90,7 +88,6 @@ const DEMO_LISTINGS: DemoListing[] = [
     isDemo: true,
     demoNotice: "This is a demonstration listing used to showcase Sky Drop while the marketplace is growing."
   },
-
   // Tools
   {
     title: "Makita 18V Cordless Drill Kit",
@@ -108,7 +105,6 @@ const DEMO_LISTINGS: DemoListing[] = [
     isDemo: true,
     demoNotice: "This is a demonstration listing used to showcase Sky Drop while the marketplace is growing."
   },
-
   // Furniture
   {
     title: "Modern Leather Sofa Set",
@@ -126,7 +122,6 @@ const DEMO_LISTINGS: DemoListing[] = [
     isDemo: true,
     demoNotice: "This is a demonstration listing used to showcase Sky Drop while the marketplace is growing."
   },
-
   // Sports
   {
     title: "Road Bike - Giant Contend",
@@ -144,7 +139,6 @@ const DEMO_LISTINGS: DemoListing[] = [
     isDemo: true,
     demoNotice: "This is a demonstration listing used to showcase Sky Drop while the marketplace is growing."
   },
-
   // Clothing
   {
     title: "Designer Leather Jacket",
@@ -162,7 +156,6 @@ const DEMO_LISTINGS: DemoListing[] = [
     isDemo: true,
     demoNotice: "This is a demonstration listing used to showcase Sky Drop while the marketplace is growing."
   },
-
   // Gaming
   {
     title: "PlayStation 5 with 2 Controllers",
@@ -180,7 +173,6 @@ const DEMO_LISTINGS: DemoListing[] = [
     isDemo: true,
     demoNotice: "This is a demonstration listing used to showcase Sky Drop while the marketplace is growing."
   },
-
   // Home & Garden
   {
     title: "Lawn Mower - Honda Self-Propelled",
@@ -201,101 +193,64 @@ const DEMO_LISTINGS: DemoListing[] = [
 ];
 
 async function createDemoAccount() {
-  const auth = getAdminAuth();
-  const db = getAdminDb();
-  
   const demoEmail = "demo@skydrop.nz";
   const demoPassword = "DemoAccount2024!";
   
   try {
-    // Check if demo account already exists
-    try {
-      const userRecord = await auth.getUserByEmail(demoEmail);
-      console.log("Demo account already exists:", demoEmail);
-      return { uid: userRecord.uid, email: demoEmail };
-    } catch (error: any) {
-      // Account doesn't exist, create it
-      if (error.code === "auth/user-not-found") {
-        const userRecord = await auth.createUser({
-          email: demoEmail,
-          password: demoPassword,
-          emailVerified: true,
-          displayName: "Sky Drop Demo",
-        });
-        
-        // Create profile
-        await db.collection("profiles").doc(userRecord.uid).set({
-          email: demoEmail,
-          username: "skydrop-demo",
-          displayName: "Sky Drop Demo",
-          createdAt: new Date(),
-          salesCount: 0,
-          reportsCount: 0,
-          kycStatus: "approved",
-          restricted: false,
-        });
-        
-        console.log("Demo account created:", demoEmail);
-        return { uid: userRecord.uid, email: demoEmail };
-      }
+    const userRecord = await auth.getUserByEmail(demoEmail);
+    console.log("Demo account already exists:", userRecord.uid);
+    return userRecord.uid;
+  } catch (error) {
+    if (error.code === 'auth/user-not-found') {
+      const userRecord = await auth.createUser({
+        email: demoEmail,
+        password: demoPassword,
+        emailVerified: true
+      });
+      console.log("Demo account created:", userRecord.uid);
+      return userRecord.uid;
+    } else {
       throw error;
     }
-  } catch (error: any) {
-    console.error("Error creating demo account:", error);
-    throw error;
   }
 }
 
-async function generateDemoListings() {
-  const db = getAdminDb();
-  const demoAccount = await createDemoAccount();
-  
-  console.log(`Generating ${DEMO_LISTINGS.length} demo listings...`);
-  
-  const now = new Date();
-  const expiresAt = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000); // 90 days from now
-  
-  let successCount = 0;
-  let errorCount = 0;
+async function createDemoListings(userId) {
+  const batch = db.batch();
+  const listingsRef = db.collection('listings');
   
   for (const listing of DEMO_LISTINGS) {
-    try {
-      const listingData = {
-        ...listing,
-        sellerEmail: demoAccount.email,
-        sellerUsername: "skydrop-demo",
-        sellerId: demoAccount.uid,
-        status: "live",
-        views: Math.floor(Math.random() * 100) + 10, // Random view count for realism
-        bidCount: 0,
-        createdAt: now,
-        expiresAt,
-        imageUrl: listing.images[0] || "",
-        visibilityRank: "normal",
-      };
-      
-      await db.collection("listings").add(listingData);
-      successCount++;
-      console.log(`✓ Created: ${listing.title}`);
-    } catch (error: any) {
-      errorCount++;
-      console.error(`✗ Failed to create: ${listing.title}`, error.message);
-    }
+    const docRef = listingsRef.doc();
+    const listingData = {
+      ...listing,
+      sellerId: userId,
+      sellerEmail: "demo@skydrop.nz",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      expiresAt: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)), // 30 days from now
+      visible: true
+    };
+    batch.set(docRef, listingData);
   }
   
-  console.log(`\nDemo listing generation complete:`);
-  console.log(`- Success: ${successCount}`);
-  console.log(`- Failed: ${errorCount}`);
-  console.log(`- Demo account: ${demoAccount.email}`);
+  await batch.commit();
+  console.log(`Created ${DEMO_LISTINGS.length} demo listings`);
 }
 
-// Run the script
-generateDemoListings()
-  .then(() => {
-    console.log("\n✓ Demo listings generated successfully!");
-    process.exit(0);
-  })
-  .catch((error) => {
-    console.error("\n✗ Error generating demo listings:", error);
+async function main() {
+  try {
+    console.log("Creating demo account...");
+    const userId = await createDemoAccount();
+    
+    console.log("Creating demo listings...");
+    await createDemoListings(userId);
+    
+    console.log("Demo listings created successfully!");
+    console.log("Demo email: demo@skydrop.nz");
+    console.log("Demo password: DemoAccount2024!");
+  } catch (error) {
+    console.error("Error creating demo listings:", error);
     process.exit(1);
-  });
+  }
+}
+
+main();
