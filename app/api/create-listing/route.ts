@@ -146,6 +146,8 @@ export async function POST(req: NextRequest) {
       "paymentType",
       "pricingType",
       "type",
+      "isDemo",
+      "demoNotice",
     ];
     const clientData: Record<string, unknown> = {};
     for (const key of allowedFields) {
@@ -372,7 +374,8 @@ export async function POST(req: NextRequest) {
     const listingId = ref.id;
 
     // Saved-search alerts: notify users whose saved search matches this new listing
-    if (isAdminInitialized()) {
+    // Skip for demo listings to keep them out of marketplace logic
+    if (isAdminInitialized() && !finalData.isDemo) {
       try {
         const searches = await getAdminDb().collection("savedSearches").limit(500).get();
         const titleLower = sanitizedTitle.toLowerCase();
@@ -403,6 +406,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Auto-Matching: notify users of matching listings/wanted posts
+      // Skip for demo listings to keep them out of marketplace logic
       try {
         const listingWithId = { ...finalData, id: listingId, type: listingType || "physical" };
         console.log("[create-listing] Running matchmaking for listing:", listingId, listingWithId.type);

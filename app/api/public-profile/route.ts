@@ -4,7 +4,7 @@ import { getAdminDb, isAdminInitialized } from "../../lib/firebase-admin";
 const PUBLIC_FIELDS = [
   "username", "photoURL", "bannerURL", "bio", "region",
   "memberSince", "createdAt", "followers", "following",
-  "verified", "trustedSeller", "fastReply", "topTrader",
+  "verified", "emailVerified", "phoneVerified", "trustedSeller", "fastReply", "topTrader",
   "profileBadge", "profileViews", "salesCount",
   "responseTime", "hideOnline",
   "email", // already public via listings

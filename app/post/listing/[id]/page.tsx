@@ -129,6 +129,8 @@ interface Listing {
   landArea?: number;
   floorArea?: number;
   parking?: number;
+  isDemo?: boolean;
+  demoNotice?: string;
   [key: string]: unknown;
 }
 
@@ -296,6 +298,7 @@ export default function ListingPage() {
 
   useEffect(() => {
     let mounted = true;
+    setSellerProfile(null);
     const docRef = doc(db, "listings", listingId);
     const unsub = safeOnSnapshot(docRef, (snap) => {
       if (!snap.exists()) { if (mounted) setLoading(false); return; }
@@ -1008,7 +1011,9 @@ export default function ListingPage() {
             </div>
 
             {/* 2. TITLE */}
-            <h1 className="text-2xl font-black tracking-tight text-[var(--foreground)] leading-tight">{listing.title}</h1>
+            <h1 className="text-2xl font-black tracking-tight text-[var(--foreground)] leading-tight">
+              {listing.title ? String(listing.title) : ""}
+            </h1>
 
             {/* 3. PRICE */}
             <div className="flex flex-wrap items-baseline gap-3">
@@ -1032,6 +1037,23 @@ export default function ListingPage() {
                 <span className="rounded-lg bg-sky-500/90 px-3 py-1 text-xs font-black uppercase tracking-wider text-white">Promoted</span>
               )}
             </div>
+
+            {/* Demo Listing Banner */}
+            {listing.isDemo && (
+              <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/20">
+                    <span className="text-amber-400 text-xs font-bold">Demo</span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-amber-300">Demo Listing</p>
+                    <p className="mt-0.5 text-xs text-[var(--muted)]">
+                      This is a demonstration listing used to showcase Sky Drop during beta. This item is not available for purchase.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Total cost display for non-quote, non-auction listings */}
             {listing.price && 
@@ -1401,7 +1423,22 @@ Property Status: 🟢 Inquiry Active`;
             {/* QUOTE REQUIRED — digital services */}
             {listing.type === "digital" && listing.pricingType === "quote" && isListingVisibleInMarketplace(listing) && !isExpired && (
             <div className="flex flex-col gap-3">
-              {user && user.email !== listing.sellerEmail ? (
+              {listing.isDemo ? (
+                <div className="w-full">
+                  <button
+                    disabled
+                    className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500/20 to-amber-500/10 px-5 text-base font-bold text-amber-400 border border-amber-500/30 cursor-not-allowed"
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    Demo Listing - Not Available
+                  </button>
+                  <p className="mt-2 text-center text-[10px] leading-relaxed text-[var(--muted)]">
+                    This is a demonstration listing for showcase purposes only.
+                  </p>
+                </div>
+              ) : user && user.email !== listing.sellerEmail ? (
                 <>
                   <div className="w-full">
                     <button
@@ -1462,7 +1499,22 @@ Property Status: 🟢 Inquiry Active`;
             {/* 5. BUY BUTTONS */}
             {isListingAvailableForPurchase(listing) && !isExpired && listing.type !== "service" && listing.type !== "job" && listing.type !== "property" && listing.type !== "rental" && !(listing.type === "digital" && listing.pricingType === "quote") && (purchaseUi.canPurchaseMore || (isContactListing && buyerArrangeRequestCount > 0)) && (
             <div ref={nativeActionsRef} className="flex flex-col gap-2">
-              {user && user.email !== listing.sellerEmail ? (
+              {listing.isDemo ? (
+                <div className="w-full">
+                  <button
+                    disabled
+                    className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500/20 to-amber-500/10 px-5 text-base font-bold text-amber-400 border border-amber-500/30 cursor-not-allowed"
+                  >
+                    <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    Demo Listing - Not Available
+                  </button>
+                  <p className="mt-2 text-center text-[10px] leading-relaxed text-[var(--muted)]">
+                    This is a demonstration listing for showcase purposes only.
+                  </p>
+                </div>
+              ) : user && user.email !== listing.sellerEmail ? (
                 <>
                   {/* Trust Summary */}
                   <div className="flex flex-wrap items-center gap-2 text-[11px] text-[var(--muted)]">

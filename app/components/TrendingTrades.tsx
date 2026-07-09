@@ -11,9 +11,12 @@ export default function TrendingTrades({
   formatTime,
 }: TrendingTradesProps) {
 
+  // Exclude demo listings from trending
+  const filteredPosts = trendingPosts.filter(post => !post.isDemo);
+
   if (
-    !trendingPosts ||
-    trendingPosts.length === 0
+    !filteredPosts ||
+    filteredPosts.length === 0
   ) {
     return null;
   }
@@ -41,7 +44,7 @@ export default function TrendingTrades({
       {/* LIST */}
       <div className="space-y-2">
 
-        {trendingPosts.map(
+        {filteredPosts.map(
           (post) => (
 
             <div

@@ -145,6 +145,11 @@ export default memo(function MarketplaceListingCard({
               </div>
             )}
             <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+              {item.isDemo && (
+                <span className="rounded-full px-2.5 py-0.5 text-[9px] font-bold bg-amber-500/20 border border-amber-500/40 text-amber-400">
+                  Demo
+                </span>
+              )}
               {item.promotedUntil?.toMillis?.() > Date.now() && (
                 <span className={IMG_BADGE}>Promoted</span>
               )}
@@ -217,6 +222,11 @@ export default memo(function MarketplaceListingCard({
             </div>
           )}
           <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+            {item.isDemo && (
+              <span className="rounded-full px-2.5 py-0.5 text-[9px] font-bold bg-amber-500/20 border border-amber-500/40 text-amber-400">
+                Demo
+              </span>
+            )}
             {isVisible &&
               item.createdAt?.seconds &&
               Date.now() / 1000 - item.createdAt.seconds < 86400 && (

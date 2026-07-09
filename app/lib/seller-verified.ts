@@ -7,7 +7,7 @@ export type SellerVerificationProfile = {
 export function profileEmailVerified(
   profile: SellerVerificationProfile | null | undefined
 ): boolean {
-  return profile?.emailVerified === true;
+  return profile?.emailVerified === true || profile?.verified === true;
 }
 
 export function profilePhoneVerified(

@@ -40,10 +40,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Mark email as verified
+    // Mark email as verified in Auth
     await auth.updateUser(userRecord.uid, {
       emailVerified: true,
     });
+
+    // Keep Firestore profile in sync so listing + profile pages agree
+    await db.collection("profiles").doc(userRecord.uid).set(
+      {
+        emailVerified: true,
+        verified: true,
+        updatedAt: new Date(),
+      },
+      { merge: true }
+    );
 
     // Delete the token
     await db.collection("email-verification").doc(token).delete();
