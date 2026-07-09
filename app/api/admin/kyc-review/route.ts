@@ -132,6 +132,8 @@ export async function POST(req: NextRequest) {
     if (action === "approve") {
       const fullyVerified = verifiedFlagAfterUpdate(profile, {
         emailVerified: profile?.emailVerified === true,
+        phoneVerified: profile?.phoneVerified === true,
+        kycStatus: "approved",
       });
 
       await kycRef.set(

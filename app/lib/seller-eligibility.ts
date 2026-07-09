@@ -16,7 +16,7 @@ export function profilePhoneMarkedVerified(profile: Record<string, unknown> | nu
 
   if (!profile) return false;
 
-  return profile.phoneVerified === true || profile.verified === true;
+  return profile.phoneVerified === true;
 
 }
 

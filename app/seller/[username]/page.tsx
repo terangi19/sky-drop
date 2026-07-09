@@ -40,6 +40,7 @@ import {
   isFullyVerifiedSeller,
   profileEmailVerified,
   profilePhoneVerified,
+  profileIdVerified,
 } from "../../lib/seller-verified";
 import { parseFirestoreDate } from "../../lib/date-format";
 
@@ -58,6 +59,7 @@ interface ProfileData {
   hideOnline?: boolean;
   phoneVerified?: boolean;
   emailVerified?: boolean;
+  kycStatus?: string;
   memberSince?: Timestamp;
   verified?: boolean;
   trustedSeller?: boolean;
@@ -738,6 +740,23 @@ export default function SellerPage() {
                       <div>
                         <p className="text-xs font-bold text-[var(--muted)]">Phone Not Verified</p>
                         <p className="text-[10px] text-zinc-600">Phone number not confirmed</p>
+                      </div>
+                    </div>
+                  )}
+                  {profileIdVerified(profile) ? (
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-sky-500/30 to-sky-500/20 text-[10px] ring-1 ring-sky-500/30">🪪</span>
+                      <div>
+                        <p className="text-xs font-bold text-sky-400">ID Verified</p>
+                        <p className="text-[10px] text-[var(--muted)]">Identity documents approved</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-800/60 text-[10px] ring-1 ring-white/[0.06]">🪪</span>
+                      <div>
+                        <p className="text-xs font-bold text-[var(--muted)]">ID Not Verified</p>
+                        <p className="text-[10px] text-zinc-600">Identity verification not completed</p>
                       </div>
                     </div>
                   )}

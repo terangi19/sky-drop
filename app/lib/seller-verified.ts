@@ -2,12 +2,13 @@ export type SellerVerificationProfile = {
   phoneVerified?: boolean;
   emailVerified?: boolean;
   verified?: boolean;
+  kycStatus?: string;
 };
 
 export function profileEmailVerified(
   profile: SellerVerificationProfile | null | undefined
 ): boolean {
-  return profile?.emailVerified === true || profile?.verified === true;
+  return profile?.emailVerified === true;
 }
 
 export function profilePhoneVerified(
@@ -16,15 +17,25 @@ export function profilePhoneVerified(
   return profile?.phoneVerified === true;
 }
 
-/** Public "Verified" badge — requires email verification only. */
+export function profileIdVerified(
+  profile: SellerVerificationProfile | null | undefined
+): boolean {
+  return profile?.kycStatus === "approved";
+}
+
+/** Public "Verified" badge — requires email, phone, and ID verification. */
 export function isFullyVerifiedSeller(
   profile: SellerVerificationProfile | null | undefined
 ): boolean {
   if (!profile) return false;
-  return profileEmailVerified(profile);
+  return (
+    profileEmailVerified(profile) &&
+    profilePhoneVerified(profile) &&
+    profileIdVerified(profile)
+  );
 }
 
-/** Legacy `verified` field on profiles — kept in sync with email verification. */
+/** Legacy `verified` field on profiles — true only when all three checks pass. */
 export function sellerVerifiedFlag(
   profile: SellerVerificationProfile | null | undefined
 ): boolean {

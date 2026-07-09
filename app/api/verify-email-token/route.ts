@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth, getAdminDb } from "../../lib/firebase-admin";
+import { verifiedFlagAfterUpdate } from "../../lib/seller-verified";
 
 export async function POST(req: NextRequest) {
   try {
@@ -46,10 +47,12 @@ export async function POST(req: NextRequest) {
     });
 
     // Keep Firestore profile in sync so listing + profile pages agree
+    const profileSnap = await db.collection("profiles").doc(userRecord.uid).get();
+    const existing = profileSnap.data() || {};
     await db.collection("profiles").doc(userRecord.uid).set(
       {
         emailVerified: true,
-        verified: true,
+        verified: verifiedFlagAfterUpdate(existing, { emailVerified: true }),
         updatedAt: new Date(),
       },
       { merge: true }

@@ -1961,11 +1961,11 @@ Service Status: 🟢 Inquiry Active`;
                       </span>
                       {isFullyVerified && (
                         <div className="group relative">
-                          <button type="button" className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-sky-500/20 px-2 py-0.5 text-[11px] font-bold text-sky-400 border border-sky-500/30 cursor-pointer hover:bg-sky-500/30 transition-colors" title="Email verified">
+                          <button type="button" className="inline-flex items-center gap-0.5 shrink-0 rounded-full bg-sky-500/20 px-2 py-0.5 text-[11px] font-bold text-sky-400 border border-sky-500/30 cursor-pointer hover:bg-sky-500/30 transition-colors" title="Email, phone, and ID verified">
                             ✓ Verified
                           </button>
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-32 rounded-lg bg-[var(--card)] border border-white/[0.1] px-3 py-2 text-[10px] text-[var(--muted)] opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all duration-200 z-50 pointer-events-none">
-                            Email verified
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-40 rounded-lg bg-[var(--card)] border border-white/[0.1] px-3 py-2 text-[10px] text-[var(--muted)] opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all duration-200 z-50 pointer-events-none">
+                            Email, phone, and ID verified
                           </div>
                         </div>
                       )}
