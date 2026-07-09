@@ -240,6 +240,13 @@ export default function Navbar() {
     await signOut(auth);
   }
 
+  function toggleTheme() {
+    const isLight = document.documentElement.classList.toggle("light");
+    try {
+      localStorage.setItem("theme", isLight ? "light" : "dark");
+    } catch {}
+  }
+
   const browseActive =
     pathname === "/" ||
     ["/services", "/rentals", "/wanted", "/vehicles", "/property", "/jobs", "/events"].some(
@@ -381,6 +388,14 @@ export default function Navbar() {
                 <Link href="/sales" className={`rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/sales") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>Sales</Link>
 
                 <div className="my-1.5 mx-3 border-t border-white/[0.04] light:border-black/[0.08]" />
+                <button
+                  onClick={toggleTheme}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-bold text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] transition-colors light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"
+                >
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-sm light:bg-black/[0.04]">☀</span>
+                  Toggle theme
+                </button>
+                <div className="my-1.5 mx-3 border-t border-white/[0.04] light:border-black/[0.08]" />
                 {user ? (
                   <>
                     <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400 light:text-gray-500">Account</div>
@@ -444,10 +459,7 @@ export default function Navbar() {
             )}
 
             <button
-              onClick={() => {
-                const isLight = document.documentElement.classList.toggle("light");
-                localStorage.setItem("theme", isLight ? "light" : "dark");
-              }}
+              onClick={toggleTheme}
               className="flex h-9 w-9 items-center justify-center rounded-xl text-[var(--nav-ice-muted)] hover:bg-white/[0.06] hover:text-[var(--nav-ice)] transition-all duration-200"
               aria-label="Toggle theme"
             >

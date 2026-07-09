@@ -9,7 +9,6 @@ import Link from "next/link";
 import Navbar from "../components/Navbar";
 import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import Background from "../components/Background";
-import ThemeToggle from "../components/ThemeToggle";
 import { ReviewStars } from "../components/SellerReviewStars";
 
 import {
@@ -88,8 +87,6 @@ export default function ReviewsPage() {
       <Background />
 
       <Navbar />
-
-      <ThemeToggle />
 
       <section className="relative z-10 mx-auto max-w-6xl px-6 py-12">
         {/* HEADER */}

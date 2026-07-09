@@ -8,7 +8,6 @@ import { auth } from "../lib/firebase";
 // Code split heavy components
 const Navbar = dynamic(() => import("../components/Navbar"), { loading: () => <div className="h-16" /> });
 const Background = dynamic(() => import("../components/Background"), { ssr: false });
-const ThemeToggle = dynamic(() => import("../components/ThemeToggle"));
 const AdminNav = dynamic(() => import("../components/AdminNav"), { loading: () => <div className="h-12" /> });
 
 type DashStats = {
@@ -82,7 +81,6 @@ export default function AdminDashboard() {
     <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <Background />
       <Navbar />
-      <ThemeToggle />
       <section className="relative z-10 mx-auto max-w-6xl px-4 pt-28 pb-20">
         <div className="mb-8">
           <h1 className="text-3xl font-black">Admin Dashboard</h1>

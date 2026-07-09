@@ -5,7 +5,6 @@ import Link from "next/link";
 import Navbar from "../components/Navbar";
 import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import Background from "../components/Background";
-import ThemeToggle from "../components/ThemeToggle";
 import {
   collection,
   doc,
@@ -182,8 +181,7 @@ export default function NotificationsPage() {
   if (!user) {
     return (
       <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-        <Background /><Navbar /><ThemeToggle />
-        <div className="relative z-10 mx-auto max-w-3xl px-4 py-20 text-center">
+        <Background /><Navbar /><div className="relative z-10 mx-auto max-w-3xl px-4 py-20 text-center">
           <p className="text-[var(--muted)]">Please log in to view notifications.</p>
           <Link href="/login" className="mt-4 inline-block rounded-lg bg-red-500 px-6 py-2.5 text-sm font-bold text-white hover:bg-red-400">Log In</Link>
         </div>
@@ -193,9 +191,7 @@ export default function NotificationsPage() {
 
   return (
     <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-      <Background /><Navbar /><ThemeToggle />
-
-      <section className="relative z-10 mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
+      <Background /><Navbar /><section className="relative z-10 mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="relative text-center sm:text-left">
             <div className="inline-flex items-center gap-2 rounded-full border border-red-500/15 bg-red-500/5 px-3 py-1 text-[10px] font-bold text-red-400 mb-3 tracking-wide uppercase">

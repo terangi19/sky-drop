@@ -14,7 +14,6 @@ import {
 
 import Navbar from "../../../components/Navbar";
 import { AwhinaUnderHeader } from "../../../components/AwhinaOnlineBadge";
-import ThemeToggle from "../../../components/ThemeToggle";
 
 import { uploadListingImagesViaApi } from "../../../lib/upload-listing-image.client";
 import {
@@ -314,8 +313,6 @@ export default function EditListingPage({
   return (
     <main className="min-h-screen bg-zinc-950 text-[var(--foreground)]">
       <Navbar />
-
-      <ThemeToggle />
 
       <div className="mx-auto max-w-3xl px-6 py-16">
         <h1 className="text-5xl font-black text-sky-400">Edit listing</h1>

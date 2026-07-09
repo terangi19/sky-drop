@@ -4,7 +4,6 @@ import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
-import ThemeToggle from "../components/ThemeToggle";
 
 const sections = [
   {
@@ -99,8 +98,6 @@ export default function TrustPage() {
     <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <Background />
       <Navbar />
-      <ThemeToggle />
-
       <section className="relative z-10 mx-auto max-w-3xl px-6 py-12">
         <Link
           href="/"

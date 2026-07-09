@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
 import { AwhinaUnderHeader } from "../../components/AwhinaOnlineBadge";
-import ThemeToggle from "../../components/ThemeToggle";
 import ListingImage, { listingHasImage } from "../../components/ListingImage";
 import {
   collection,
@@ -14,18 +13,16 @@ import {
   doc,
   getDoc,
   getDocs,
-  increment,
   onSnapshot,
   limit,
   orderBy,
   query,
-  runTransaction,
   setDoc,
   Timestamp,
   updateDoc,
   where,
 } from "firebase/firestore";
-import { db } from "../../lib/firebase";
+import { auth, db } from "../../lib/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { useParams } from "next/navigation";
 import ReportModal from "../../components/ReportModal";
@@ -173,6 +170,7 @@ export default function SellerPage() {
 
         setProfile(profileData);
         setSellerUid(uid);
+        setFollowerCount(profileData.followers ?? 0);
 
         // Fetch email from listings if not available from profile
         // (profile reads restricted to owner-only; email is public via listings)
@@ -230,13 +228,7 @@ export default function SellerPage() {
     return () => unsub();
   }, [currentUser?.uid, sellerUid]);
 
-  // Follower count from profile
-  useEffect(() => {
-    if (!sellerUid) { setFollowerCount(0); return; }
-    getDoc(doc(db, "profiles", sellerUid)).then((d) => {
-      if (d.exists()) setFollowerCount(d.data()?.followers ?? 0);
-    });
-  }, [sellerUid]);
+  // Follower count comes from public profile API (updated after follow/unfollow)
 
   // Count reports for this seller
   useEffect(() => {
@@ -280,26 +272,30 @@ export default function SellerPage() {
     setFollowing(newFollowing);
     setFollowLoading(true);
     try {
-      await runTransaction(db, async (transaction) => {
-        const ref = doc(db, "followers", `${sellerUid}_${currentUser.uid}`);
-        const profileRef = doc(db, "profiles", sellerUid);
-        if (newFollowing) {
-          transaction.set(ref, {
-            sellerId: sellerUid,
-            followerId: currentUser.uid,
-            sellerEmail: profile?.email,
-            followerEmail: currentUser.email,
-            createdAt: Timestamp.now(),
-          });
-          transaction.update(profileRef, { followers: increment(1) });
-        } else {
-          const profileSnap = await transaction.get(profileRef);
-          const currentFollowers = profileSnap.data()?.followers ?? 0;
-          if (currentFollowers <= 0) return;
-          transaction.delete(ref);
-          transaction.update(profileRef, { followers: increment(-1) });
-        }
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Not authenticated");
+
+      const res = await fetch("/api/follow", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          sellerUid,
+          action: newFollowing ? "follow" : "unfollow",
+        }),
       });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(typeof data.error === "string" ? data.error : "Failed to update follow status");
+      }
+
+      setFollowing(Boolean(data.following));
+      if (typeof data.followerCount === "number") {
+        setFollowerCount(data.followerCount);
+      }
     } catch (e) {
       setFollowing(!newFollowing);
       console.error(e);
@@ -376,7 +372,7 @@ export default function SellerPage() {
   if (loading) {
     return (
       <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-        <Background /><Navbar /><ThemeToggle />
+        <Background /><Navbar />
         <div className="relative z-10 mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
           <div className="flex items-center justify-center py-32">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-sky-500 border-t-transparent" />
@@ -389,7 +385,7 @@ export default function SellerPage() {
   if (!profile) {
     return (
       <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-        <Background /><Navbar /><ThemeToggle />
+        <Background /><Navbar />
         <div className="relative z-10 mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
           <div className="rounded-2xl border border-zinc-700/50 bg-zinc-900/70 p-12 text-center shadow-[0_2px_12px_rgba(0,0,0,0.3)]">
             <h2 className="text-xl font-bold text-[var(--foreground)] mb-2">Seller not found</h2>
@@ -412,7 +408,7 @@ export default function SellerPage() {
 
   return (
     <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-      <Background /><Navbar /><ThemeToggle />
+      <Background /><Navbar />
 
       <div className="relative z-10 mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
         <div className="space-y-6">

@@ -6,7 +6,6 @@ import { User } from "firebase/auth";
 import { auth, onAuthStateChanged } from "../lib/firebase";
 import Background from "../components/Background";
 import Navbar from "../components/Navbar";
-import ThemeToggle from "../components/ThemeToggle";
 
 async function setAdminSession(token: string) {
   try {
@@ -114,7 +113,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
         <Background />
         <Navbar />
-        <ThemeToggle />
         <section className="relative z-10 flex min-h-screen items-center justify-center px-6">
           <div className="max-w-xl rounded-[40px] border border-red-500/20 bg-[var(--card)] p-12 text-center shadow-2xl backdrop-blur-xl">
             <div className="mb-6 text-7xl">🔒</div>

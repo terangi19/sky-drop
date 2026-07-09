@@ -3,7 +3,6 @@
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
-import ThemeToggle from "../components/ThemeToggle";
 
 const sections = [
   {
@@ -77,8 +76,6 @@ export default function TermsPage() {
     <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)] transition-colors duration-300">
       <Background />
       <Navbar />
-      <ThemeToggle />
-
       <section className="relative z-10 mx-auto max-w-3xl px-6 py-12">
 
         <div className="mb-8">

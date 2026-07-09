@@ -6,7 +6,6 @@ import { auth } from "../../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
-import ThemeToggle from "../../components/ThemeToggle";
 
 interface SellerInsight {
   type: "price" | "title" | "images" | "description" | "category";
@@ -66,7 +65,6 @@ export default function SellerInsightsPage() {
       <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
         <Background />
         <Navbar />
-        <ThemeToggle />
         <div className="relative z-10 flex items-center justify-center min-h-screen">
           <div className="text-center">
             <div className="h-8 w-8 border-2 border-sky-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
@@ -81,8 +79,6 @@ export default function SellerInsightsPage() {
     <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <Background />
       <Navbar />
-      <ThemeToggle />
-
       <div className="relative z-10 mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
         <div className="mb-8">
           <h1 className="text-4xl font-black text-white mb-2">Seller Insights</h1>

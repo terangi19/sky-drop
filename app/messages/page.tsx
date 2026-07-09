@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
-import ThemeToggle from "../components/ThemeToggle";
 import { PAGE_SHELL_CHAT } from "../lib/page-layout";
 import {
   addDoc,

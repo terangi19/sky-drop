@@ -5,7 +5,6 @@ import Link from "next/link";
 import Navbar from "../../components/Navbar";
 import { AwhinaUnderHeader } from "../../components/AwhinaOnlineBadge";
 import Background from "../../components/Background";
-import ThemeToggle from "../../components/ThemeToggle";
 import { User } from "firebase/auth";
 import { collection, onSnapshot, orderBy, query, where } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../../lib/firebase";
@@ -81,8 +80,7 @@ export default function EmployerApplicationsPage() {
 
   return (
     <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-      <Background /><Navbar /><ThemeToggle />
-      <section className="relative z-10 mx-auto max-w-5xl px-4 sm:px-6 py-8">
+      <Background /><Navbar /><section className="relative z-10 mx-auto max-w-5xl px-4 sm:px-6 py-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-black text-[var(--foreground)]">Job Applications</h1>

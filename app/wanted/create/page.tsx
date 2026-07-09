@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
-import ThemeToggle from "../../components/ThemeToggle";
 import { showToast } from "../../components/Toast";
 import { getFreshIdToken } from "../../lib/api-auth";
 import TurnstileWidget from "../../components/TurnstileWidget";
@@ -94,8 +93,6 @@ export default function WantedCreatePage() {
     <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <Background />
       <Navbar />
-      <ThemeToggle />
-
       <div className="relative z-10 mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-12">
         <div className="mb-6 text-center">
           <Link

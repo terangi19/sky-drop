@@ -3,7 +3,6 @@
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
-import ThemeToggle from "../components/ThemeToggle";
 import { useEffect, useState } from "react";
 
 export default function PostPage() {
@@ -28,8 +27,6 @@ export default function PostPage() {
     <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <Background />
       <Navbar />
-      <ThemeToggle />
-      
       <div className="relative z-10 mx-auto max-w-3xl px-6 py-12">
         <Link href="/" className="inline-flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-[var(--foreground)] transition hover:border-zinc-700 hover:bg-zinc-800/60 mb-6">
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">

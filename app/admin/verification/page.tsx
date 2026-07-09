@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Navbar from "../../components/Navbar";
 import Background from "../../components/Background";
-import ThemeToggle from "../../components/ThemeToggle";
 import { showToast } from "../../components/Toast";
 import { adminFetch } from "../../lib/admin-fetch.client";
 import {
@@ -160,8 +159,7 @@ export default function AdminVerificationPage() {
   if (!isAdmin) {
     return (
       <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
-        <Background /><Navbar /><ThemeToggle />
-        <section className="relative z-10 flex min-h-screen items-center justify-center px-6">
+        <Background /><Navbar /><section className="relative z-10 flex min-h-screen items-center justify-center px-6">
           <div className="max-w-xl rounded-[40px] border border-red-500/20 bg-[var(--card)] p-12 text-center shadow-2xl backdrop-blur-xl">
             <div className="mb-6 text-7xl">🔒</div>
             <h1 className="text-5xl font-black text-red-500">Access Denied</h1>
@@ -179,9 +177,7 @@ export default function AdminVerificationPage() {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)] transition-colors duration-300">
-      <Background /><Navbar /><ThemeToggle />
-
-      <section className="relative z-10 mx-auto max-w-5xl px-6 py-12">
+      <Background /><Navbar /><section className="relative z-10 mx-auto max-w-5xl px-6 py-12">
         <div className="mb-8">
           <h1 className="text-4xl font-black text-sky-500">Verification Review</h1>
           <p className="mt-4 text-[var(--muted)]">Review submissions and pending listings.</p>
