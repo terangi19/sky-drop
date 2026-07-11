@@ -37,7 +37,7 @@ import ServicePricingBadge from "../../../components/ServicePricingBadge";
 import { formatServicePriceDisplay } from "../../../lib/service-pricing";
 import { sendMessage } from "../../../lib/api-send-message";
 import ListingImage from "../../../components/ListingImage";
-import { purchaseCheckoutAction, paymentMethodSummary, primaryPurchaseLabel, purchaseButtonTitle, shortPurchaseLabel } from "../../../lib/purchase-button-labels";
+import { paymentMethodSummary, primaryPurchaseLabel, purchaseButtonTitle, shortPurchaseLabel } from "../../../lib/purchase-button-labels";
 import { fetchListingPaymentType } from "../../../lib/buy-listing-route";
 import { assertStripeNeverArrange, logPurchaseFlow, logPurchaseSummary } from "../../../lib/purchase-flow-debug";
 import {
@@ -275,8 +275,6 @@ export default function ListingPage() {
 
     const reactListingPt = (listing as { paymentType?: string }).paymentType;
     const buttonPt = effectivePaymentType;
-    const reactPt =
-      authoritativePaymentTypeRef.current ?? checkoutPaymentType ?? reactListingPt;
 
     logPurchaseFlow("button-paymentType", {
       source,
@@ -286,39 +284,66 @@ export default function ListingPage() {
       checkoutPaymentType,
     });
 
-    const serverPt = await fetchListingPaymentType(listingId);
+    let serverPt = await fetchListingPaymentType(listingId);
     if (serverPt === "stripe" || serverPt === "contact") {
       applyAuthoritativePaymentType(serverPt, `click-fetch:${source}`);
     }
-
-    const clickHandlerPt =
-      serverPt ?? authoritativePaymentTypeRef.current ?? reactPt;
-    const action = purchaseCheckoutAction(clickHandlerPt);
-
-    logPurchaseFlow("click-handler-paymentType", {
-      source,
-      listingId,
-      clickHandlerPaymentType: clickHandlerPt ?? null,
-      serverPaymentType: serverPt ?? null,
-      action,
-    });
-
-    assertStripeNeverArrange(serverPt, action, source);
 
     const trace = {
       firestorePaymentType: authoritativePaymentTypeRef.current ?? serverPt ?? null,
       reactListingPaymentType: reactListingPt ?? null,
       buttonPaymentType: buttonPt ?? null,
-      clickHandlerPaymentType: clickHandlerPt ?? null,
+      clickHandlerPaymentType: serverPt ?? null,
       serverPaymentType: serverPt ?? null,
     };
 
-    if (serverPt === "stripe" || action === "stripe") {
+    logPurchaseFlow("click-handler-paymentType", {
+      source,
+      listingId,
+      clickHandlerPaymentType: serverPt ?? null,
+      serverPaymentType: serverPt ?? null,
+      cachedPaymentType: reactListingPt ?? null,
+    });
+
+    if (serverPt === "stripe") {
+      assertStripeNeverArrange(serverPt, "stripe", source);
       choosePurchaseModal("CheckoutModal", source, trace);
       return;
     }
 
-    choosePurchaseModal("ArrangePurchaseModal", source, trace);
+    if (serverPt === "contact") {
+      choosePurchaseModal("ArrangePurchaseModal", source, trace);
+      return;
+    }
+
+    // Server fetch failed — retry once; never open Arrange from stale client cache.
+    serverPt = await fetchListingPaymentType(listingId);
+    if (serverPt === "stripe" || serverPt === "contact") {
+      applyAuthoritativePaymentType(serverPt, `retry-fetch:${source}`);
+      trace.serverPaymentType = serverPt;
+      trace.clickHandlerPaymentType = serverPt;
+      logPurchaseFlow("click-handler-paymentType", {
+        source,
+        listingId,
+        clickHandlerPaymentType: serverPt,
+        serverPaymentType: serverPt,
+        retry: true,
+      });
+      choosePurchaseModal(
+        serverPt === "stripe" ? "CheckoutModal" : "ArrangePurchaseModal",
+        source,
+        trace
+      );
+      return;
+    }
+
+    showToast("Couldn't verify payment method. Check your connection and try again.", "error");
+    logPurchaseFlow("modal-blocked", {
+      attempted: "ArrangePurchaseModal",
+      reason: "server paymentType unavailable — refusing stale cache fallback",
+      source,
+      ...trace,
+    });
   }
 
   // Safety net: authoritative stripe must never show Arrange Purchase
@@ -355,15 +380,27 @@ export default function ListingPage() {
     return () => observer.disconnect();
   }, [listing]);
 
-  // Auto-open checkout when navigated with ?buy=1 — same path as every buy button
+  // Auto-open checkout when navigated with ?buy=1 — wait for server paymentType first
   useEffect(() => {
     if (buyAutoOpenedRef.current) return;
     if (typeof window === "undefined" || new URLSearchParams(window.location.search).get("buy") !== "1") return;
     if (!user?.email || !listing) return;
     if (listing.pricingType === "quote") return;
 
-    buyAutoOpenedRef.current = true;
-    void openPurchaseFlow("buy-query");
+    let cancelled = false;
+    void (async () => {
+      const pt = await fetchListingPaymentType(listingId);
+      if (cancelled || buyAutoOpenedRef.current) return;
+      if (pt === "stripe" || pt === "contact") {
+        applyAuthoritativePaymentType(pt, "buy-query-prefetch");
+      }
+      buyAutoOpenedRef.current = true;
+      void openPurchaseFlow("buy-query");
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [user, listing, listingId]);
 
   // Notify winner + seller when auction ends
@@ -2527,7 +2564,7 @@ Service Status: 🟢 Inquiry Active`;
         </div>
       )}
 
-      {showArrangeModal && checkoutPaymentType !== "stripe" && listing && user?.email && (
+      {showArrangeModal && checkoutPaymentType === "contact" && listing && user?.email && (
         <ArrangePurchaseModal
           listing={{ ...listing, id: listingId }}
           buyerEmail={user.email}
