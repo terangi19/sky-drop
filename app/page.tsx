@@ -31,7 +31,6 @@ const MarketplaceListingCard = lazy(() => import("./components/MarketplaceListin
 const ArrangePurchaseModal = lazy(() => import("./components/ArrangePurchaseModal"));
 const HotThisWeek = lazy(() => import("./components/HotThisWeek"));
 import { LISTING_GRID, LISTING_GRID_MT, PAGE_SHELL_MARKETPLACE, PAGE_SHELL_WIDE } from "./lib/page-layout";
-import { sellerHasStripeConfigured } from "./lib/seller-payments";
 import { funnel } from "./lib/funnel-events";
 import {
   addDoc,
@@ -489,42 +488,25 @@ export default function Home() {
 
     const handleBuyNow = useCallback(async (item: Listing) => {
     if (!isListingVisibleInMarketplace(item)) return;
-    
-    // Check if seller has Stripe configured for Pay Now
-    if (item.paymentType === "contact") {
-      setArrangeListing(item);
+
+    // Feed cards poll every 60s — always read paymentType from Firestore before routing checkout.
+    let fresh: Listing = item;
+    try {
+      const snap = await getDoc(doc(db, "listings", item.id));
+      if (snap.exists()) {
+        fresh = { ...item, ...snap.data(), id: item.id } as Listing;
+      }
+    } catch (e) {
+      console.error("Failed to refresh listing for buy:", e);
+    }
+
+    if (fresh.paymentType === "contact") {
+      setArrangeListing(fresh);
       setShowArrangeModal(true);
       return;
     }
-    
-    // For Stripe payments, check if seller has Stripe configured
-    if (item.sellerEmail) {
-      try {
-        const sellerId = String((item as { sellerId?: string }).sellerId || "").trim();
-        const sellerSnap = sellerId
-          ? await getDoc(doc(db, "profiles", sellerId))
-          : await (async () => {
-              const sellerByEmail = await getDocs(
-                query(collection(db, "profiles"), where("email", "==", item.sellerEmail), limit(1))
-              );
-              return sellerByEmail.docs[0] ?? null;
-            })();
-        if (sellerSnap?.exists()) {
-          const sellerData = sellerSnap.data();
-          if (!sellerHasStripeConfigured(sellerData)) {
-            // Seller doesn't have Stripe, default to Arrange Purchase
-            setArrangeListing(item);
-            setShowArrangeModal(true);
-            return;
-          }
-        }
-      } catch (e) {
-        console.error("Failed to check seller Stripe status:", e);
-        // On error, try Stripe checkout
-      }
-    }
-    
-    router.push(`/post/listing/${item.id}?buy=1`);
+
+    router.push(`/post/listing/${fresh.id}?buy=1`);
   }, [router]);
 
     const saveToWatchlist = useCallback(async (item: any) => {

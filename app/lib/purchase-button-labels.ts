@@ -9,7 +9,7 @@ export function primaryPurchaseLabel(opts: {
   hasExistingRequest?: boolean;
 }): string {
   if (opts.pricingType === "quote") return "Request Quote";
-  if (opts.hasExistingRequest) return "Open Chat";
+  if (opts.hasExistingRequest && isContactPayment(opts.paymentType)) return "Open Chat";
   const price =
     opts.price != null && opts.price !== "" ? `$${opts.price}` : null;
   if (isContactPayment(opts.paymentType)) {

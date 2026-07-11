@@ -400,6 +400,14 @@ export default function ListingPage() {
     [listing, buyerPurchasedQuantity, buyerArrangeRequestCount]
   );
 
+  const canShowBuyerPurchaseCta =
+    !!listing &&
+    (purchaseUi.canPurchaseMore ||
+      (isContactListing && buyerArrangeRequestCount > 0) ||
+      (!isContactListing &&
+        isListingAvailableForPurchase(listing) &&
+        buyerPurchasedQuantity === 0));
+
   // Outbid detection
   useEffect(() => {
     if (!user?.email || !listing) return;
@@ -1519,7 +1527,7 @@ Property Status: 🟢 Inquiry Active`;
             )}
 
             {/* 5. BUY BUTTONS */}
-            {isListingAvailableForPurchase(listing) && !isExpired && listing.type !== "service" && listing.type !== "job" && listing.type !== "property" && listing.type !== "rental" && !(listing.type === "digital" && listing.pricingType === "quote") && (purchaseUi.canPurchaseMore || (isContactListing && buyerArrangeRequestCount > 0)) && (
+            {isListingAvailableForPurchase(listing) && !isExpired && listing.type !== "service" && listing.type !== "job" && listing.type !== "property" && listing.type !== "rental" && !(listing.type === "digital" && listing.pricingType === "quote") && canShowBuyerPurchaseCta && (
             <div ref={nativeActionsRef} className="flex flex-col gap-2">
               {listing.isDemo ? (
                 <div className="w-full">

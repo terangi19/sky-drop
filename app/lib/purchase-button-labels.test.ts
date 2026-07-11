@@ -41,4 +41,21 @@ describe("purchase labels follow paymentType", () => {
     expect(purchaseButtonTitle("stripe")).toMatch(/stripe|card/i);
     expect(paymentMethodSummary("stripe")).toMatch(/stripe/i);
   });
+
+  it("keeps Buy Now for stripe listings even with an old arrange request", () => {
+    expect(
+      primaryPurchaseLabel({
+        paymentType: "stripe",
+        price: "78",
+        hasExistingRequest: true,
+      })
+    ).toContain("Buy Now");
+    expect(
+      primaryPurchaseLabel({
+        paymentType: "contact",
+        price: "78",
+        hasExistingRequest: true,
+      })
+    ).toBe("Open Chat");
+  });
 });
