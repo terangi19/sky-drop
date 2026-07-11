@@ -20,6 +20,7 @@ import {
 } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
+import { listingBuyHref } from "../lib/buy-listing-route";
 import {
   getRecentlyViewed,
   isInWatchlist,
@@ -105,7 +106,7 @@ export default function OpportunitiesPage() {
 
   function handleBuyNow(item: any) {
     if (!isListingVisibleInMarketplace(item)) return;
-    router.push(`/post/listing/${item.id}`);
+    router.push(listingBuyHref(item.id));
   }
 
   async function toggleWatchlist(item: any) {

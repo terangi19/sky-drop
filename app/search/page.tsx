@@ -7,7 +7,7 @@ import Background from "../components/Background";
 import MarketplaceListingCard from "../components/MarketplaceListingCard";
 import { useListings } from "../useListings";
 import { useAuth } from "../contexts/AuthContext";
-import { isListingVisibleInMarketplace } from "../lib/listing-availability";
+import { listingBuyHref } from "../lib/buy-listing-route";
 import { rankListingsBySearch } from "../lib/marketplace-fuzzy-search";
 import { normalizeMarketplaceSearchQuery, processVoiceSearchTranscript } from "../lib/voice-search-pipeline";
 import { logVoiceSearch } from "../lib/voice-search-logger";
@@ -176,7 +176,7 @@ export default function SearchPage() {
   };
 
   const handleBuyNow = (item: Listing) => {
-    router.push(`/post/listing/${item.id}`);
+    router.push(listingBuyHref(item.id));
   };
 
   const handleMakeOffer = (listing: Listing) => {

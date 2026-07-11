@@ -23,6 +23,7 @@ import {
 } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
+import { listingBuyHref } from "../lib/buy-listing-route";
 import {
   BROWSE_CATEGORY_CONFIGS,
   HOME_MARKETPLACE_THEME,
@@ -157,11 +158,7 @@ export default function BrowseCategoryPage({ configKey }: Props) {
 
   function handleBuyNow(item: any) {
     if (!isListingVisibleInMarketplace(item)) return;
-    if (item.paymentType === "contact") {
-      router.push(`/post/listing/${item.id}`);
-      return;
-    }
-    router.push(`/post/listing/${item.id}?buy=1`);
+    router.push(listingBuyHref(item.id));
   }
 
   async function toggleWatchlist(item: any) {

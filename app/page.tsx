@@ -30,6 +30,7 @@ const PromoteModal = lazy(() => import("./components/PromoteModal"));
 const MarketplaceListingCard = lazy(() => import("./components/MarketplaceListingCard"));
 const ArrangePurchaseModal = lazy(() => import("./components/ArrangePurchaseModal"));
 const HotThisWeek = lazy(() => import("./components/HotThisWeek"));
+import { listingBuyHref } from "./lib/buy-listing-route";
 import { LISTING_GRID, LISTING_GRID_MT, PAGE_SHELL_MARKETPLACE, PAGE_SHELL_WIDE } from "./lib/page-layout";
 import { funnel } from "./lib/funnel-events";
 import {
@@ -488,25 +489,7 @@ export default function Home() {
 
     const handleBuyNow = useCallback(async (item: Listing) => {
     if (!isListingVisibleInMarketplace(item)) return;
-
-    // Feed cards poll every 60s — always read paymentType from Firestore before routing checkout.
-    let fresh: Listing = item;
-    try {
-      const snap = await getDoc(doc(db, "listings", item.id));
-      if (snap.exists()) {
-        fresh = { ...item, ...snap.data(), id: item.id } as Listing;
-      }
-    } catch (e) {
-      console.error("Failed to refresh listing for buy:", e);
-    }
-
-    if (fresh.paymentType === "contact") {
-      setArrangeListing(fresh);
-      setShowArrangeModal(true);
-      return;
-    }
-
-    router.push(`/post/listing/${fresh.id}?buy=1`);
+    router.push(listingBuyHref(item.id));
   }, [router]);
 
     const saveToWatchlist = useCallback(async (item: any) => {

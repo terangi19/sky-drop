@@ -41,9 +41,9 @@ import {
   paymentMethodSummary,
   primaryPurchaseLabel,
   purchaseButtonTitle,
-  purchaseCheckoutAction,
   shortPurchaseLabel,
 } from "../../../lib/purchase-button-labels";
+import { resolvePurchaseCheckoutAction } from "../../../lib/buy-listing-route";
 import {
   sellerMessagesUrl,
   sellerProfileDisplayName,
@@ -214,9 +214,14 @@ export default function ListingPage() {
     return false;
   }
 
-  function openPrimaryPurchase() {
+  const buyAutoOpenedRef = useRef(false);
+
+  async function openPrimaryPurchase() {
     if (!user?.email || !listing) return;
-    const action = purchaseCheckoutAction((listing as { paymentType?: string }).paymentType);
+    const action = await resolvePurchaseCheckoutAction(
+      listingId,
+      (listing as { paymentType?: string }).paymentType
+    );
     if (action === "arrange") {
       setShowCheckout(false);
       setShowArrangeModal(true);
@@ -244,15 +249,17 @@ export default function ListingPage() {
     return () => observer.disconnect();
   }, [listing]);
 
-  // Auto-open checkout if navigated with ?buy=1 (Arrange Purchase for all listings)
+  // Auto-open checkout when navigated with ?buy=1
   useEffect(() => {
-    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("buy") === "1" && user?.email && listing) {
-      if (listing.pricingType === "quote") return;
-      if (isAuctionWinner) {
-        setWinningBid(listing.currentBid || listing.startingBid || 0);
-      }
-      openPrimaryPurchase();
+    if (buyAutoOpenedRef.current) return;
+    if (typeof window === "undefined" || new URLSearchParams(window.location.search).get("buy") !== "1") return;
+    if (!user?.email || !listing) return;
+    if (listing.pricingType === "quote") return;
+    buyAutoOpenedRef.current = true;
+    if (isAuctionWinner) {
+      setWinningBid(listing.currentBid || listing.startingBid || 0);
     }
+    void openPrimaryPurchase();
   }, [user, listing, isAuctionWinner]);
 
   // Notify winner + seller when auction ends
