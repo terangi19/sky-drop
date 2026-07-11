@@ -1,5 +1,6 @@
 import type Stripe from "stripe";
-import { FieldValue, type Firestore } from "firebase-admin/firestore";
+import { FieldValue } from "firebase-admin/firestore";
+import type { ServerDb } from "./firebase-admin";
 import { getStripe } from "./stripe-server";
 import { STRIPE_CONNECT_REQUIRED_MSG, type SellerProfileSlice } from "./seller-payments";
 
@@ -35,7 +36,7 @@ export async function verifyStripeConnectAccount(
 }
 
 export async function clearStripeConnectFromProfile(
-  db: Firestore,
+  db: ServerDb,
   uid: string
 ): Promise<void> {
   await db.collection("profiles").doc(uid).set(
@@ -49,7 +50,7 @@ export async function clearStripeConnectFromProfile(
 }
 
 export async function resolveStripeConnectAccount(
-  db: Firestore,
+  db: ServerDb,
   uid: string,
   accountId: string | undefined | null,
   stripe?: Stripe

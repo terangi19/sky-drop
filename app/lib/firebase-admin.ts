@@ -337,6 +337,9 @@ export function getServerDb(idToken?: string) {
   return createRestDb(idToken);
 }
 
+/** Admin SDK Firestore or REST fallback from getServerDb(). */
+export type ServerDb = ReturnType<typeof getServerDb>;
+
 function createRestDb(idToken: string) {
   const projectId = getProjectId();
 
