@@ -43,7 +43,7 @@ import {
   purchaseButtonTitle,
   shortPurchaseLabel,
 } from "../../../lib/purchase-button-labels";
-import { resolvePurchaseCheckoutAction } from "../../../lib/buy-listing-route";
+import { resolvePurchaseCheckoutAction, fetchListingPaymentType } from "../../../lib/buy-listing-route";
 import {
   sellerMessagesUrl,
   sellerProfileDisplayName,
@@ -218,9 +218,13 @@ export default function ListingPage() {
 
   async function openPrimaryPurchase() {
     if (!user?.email || !listing) return;
+    const freshPaymentType = await fetchListingPaymentType(listingId);
+    if (freshPaymentType) {
+      setListing((prev) => (prev ? { ...prev, paymentType: freshPaymentType } : prev));
+    }
     const action = await resolvePurchaseCheckoutAction(
       listingId,
-      (listing as { paymentType?: string }).paymentType
+      freshPaymentType ?? (listing as { paymentType?: string }).paymentType
     );
     if (action === "arrange") {
       setShowCheckout(false);
@@ -325,6 +329,10 @@ export default function ListingPage() {
       const data: any = { id: snap.id, ...snap.data() };
       setListing(data);
       setLoading(false);
+      void fetchListingPaymentType(listingId).then((pt) => {
+        if (!mounted || !pt) return;
+        setListing((prev) => (prev ? { ...prev, paymentType: pt } : prev));
+      });
       // Update document meta for SEO/social sharing
       try {
         document.title = `${data.title} — $${data.price} on Sky Drop`;
@@ -2300,7 +2308,7 @@ Service Status: 🟢 Inquiry Active`;
         </section>
       )}
 
-      {showCheckout && user?.email && !isContactListing && listing.pricingType !== "quote" && (
+      {showCheckout && user?.email && listing.pricingType !== "quote" && (
         <CheckoutModal
           listing={{ ...listing, rentalDays, pickupDate, returnDate }}
           buyerEmail={user.email}

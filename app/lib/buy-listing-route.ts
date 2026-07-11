@@ -1,13 +1,13 @@
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDocFromServer } from "firebase/firestore";
 import { db } from "./firebase";
 import { purchaseCheckoutAction } from "./purchase-button-labels";
 
-/** Always read paymentType from Firestore — feed cards and snapshots can be stale. */
+/** Server read — bypasses Firestore offline cache (stale paymentType after seller edits). */
 export async function fetchListingPaymentType(
   listingId: string
 ): Promise<string | undefined> {
   try {
-    const snap = await getDoc(doc(db, "listings", listingId));
+    const snap = await getDocFromServer(doc(db, "listings", listingId));
     if (snap.exists()) {
       const pt = snap.data()?.paymentType;
       return typeof pt === "string" ? pt : undefined;
