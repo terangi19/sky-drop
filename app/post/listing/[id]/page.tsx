@@ -37,12 +37,7 @@ import ServicePricingBadge from "../../../components/ServicePricingBadge";
 import { formatServicePriceDisplay } from "../../../lib/service-pricing";
 import { sendMessage } from "../../../lib/api-send-message";
 import ListingImage from "../../../components/ListingImage";
-import {
-  paymentMethodSummary,
-  primaryPurchaseLabel,
-  purchaseButtonTitle,
-  shortPurchaseLabel,
-} from "../../../lib/purchase-button-labels";
+import { purchaseCheckoutAction, paymentMethodSummary, primaryPurchaseLabel, purchaseButtonTitle, shortPurchaseLabel } from "../../../lib/purchase-button-labels";
 import { resolvePurchaseCheckoutAction, fetchListingPaymentType } from "../../../lib/buy-listing-route";
 import {
   sellerMessagesUrl,
@@ -253,18 +248,38 @@ export default function ListingPage() {
     return () => observer.disconnect();
   }, [listing]);
 
-  // Auto-open checkout when navigated with ?buy=1
+  // Auto-open checkout when navigated with ?buy=1 — wait for server paymentType, not cache
   useEffect(() => {
     if (buyAutoOpenedRef.current) return;
     if (typeof window === "undefined" || new URLSearchParams(window.location.search).get("buy") !== "1") return;
     if (!user?.email || !listing) return;
     if (listing.pricingType === "quote") return;
-    buyAutoOpenedRef.current = true;
-    if (isAuctionWinner) {
-      setWinningBid(listing.currentBid || listing.startingBid || 0);
-    }
-    void openPrimaryPurchase();
-  }, [user, listing, isAuctionWinner]);
+
+    let cancelled = false;
+    void (async () => {
+      const pt = await fetchListingPaymentType(listingId);
+      if (cancelled || buyAutoOpenedRef.current) return;
+      buyAutoOpenedRef.current = true;
+      if (pt) {
+        setListing((prev) => (prev ? { ...prev, paymentType: pt } : prev));
+      }
+      if (isAuctionWinner) {
+        setWinningBid(listing.currentBid || listing.startingBid || 0);
+      }
+      const action = purchaseCheckoutAction(pt ?? (listing as { paymentType?: string }).paymentType);
+      if (action === "arrange") {
+        setShowCheckout(false);
+        setShowArrangeModal(true);
+      } else {
+        setShowArrangeModal(false);
+        setShowCheckout(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, listing, listingId, isAuctionWinner]);
 
   // Notify winner + seller when auction ends
   const prevAuctionEndedRef = useRef(false);

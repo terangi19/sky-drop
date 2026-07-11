@@ -2,10 +2,25 @@ import { doc, getDocFromServer } from "firebase/firestore";
 import { db } from "./firebase";
 import { purchaseCheckoutAction } from "./purchase-button-labels";
 
-/** Server read — bypasses Firestore offline cache (stale paymentType after seller edits). */
+/** Authoritative paymentType — API first (Admin SDK), Firestore server read as fallback. */
 export async function fetchListingPaymentType(
   listingId: string
 ): Promise<string | undefined> {
+  try {
+    const res = await fetch(
+      `/api/listing-checkout-mode?listingId=${encodeURIComponent(listingId)}`,
+      { cache: "no-store" }
+    );
+    if (res.ok) {
+      const data = (await res.json()) as { paymentType?: string };
+      if (data.paymentType === "stripe" || data.paymentType === "contact") {
+        return data.paymentType;
+      }
+    }
+  } catch (e) {
+    console.error("[fetchListingPaymentType] api", e);
+  }
+
   try {
     const snap = await getDocFromServer(doc(db, "listings", listingId));
     if (snap.exists()) {
@@ -13,7 +28,7 @@ export async function fetchListingPaymentType(
       return typeof pt === "string" ? pt : undefined;
     }
   } catch (e) {
-    console.error("[fetchListingPaymentType]", e);
+    console.error("[fetchListingPaymentType] firestore", e);
   }
   return undefined;
 }
@@ -27,5 +42,6 @@ export async function resolvePurchaseCheckoutAction(
   fallbackPaymentType?: string | null
 ): Promise<"arrange" | "stripe"> {
   const fresh = await fetchListingPaymentType(listingId);
-  return purchaseCheckoutAction(fresh ?? fallbackPaymentType);
+  if (fresh) return purchaseCheckoutAction(fresh);
+  return purchaseCheckoutAction(fallbackPaymentType);
 }
