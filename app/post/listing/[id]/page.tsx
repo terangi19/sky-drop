@@ -40,6 +40,7 @@ import {
   paymentMethodSummary,
   primaryPurchaseLabel,
   purchaseButtonTitle,
+  purchaseCheckoutAction,
   shortPurchaseLabel,
 } from "../../../lib/purchase-button-labels";
 import {
@@ -205,17 +206,21 @@ export default function ListingPage() {
 
   const isContactListing = (listing as { paymentType?: string })?.paymentType === "contact";
 
-  // Stripe checkout hidden for testing
-  // function openStripeCheckout() {
-  //   if (isContactListing) {
-  //     showToast("This listing uses Arrange Purchase — tap the green Purchase button to message the seller.", "info");
-  //     return;
-  //   }
-  //   setShowCheckout(true);
-  // }
+  function openPrimaryPurchase() {
+    if (!user?.email || !listing) return;
+    const action = purchaseCheckoutAction((listing as { paymentType?: string }).paymentType);
+    if (action === "arrange") {
+      setShowCheckout(false);
+      setShowArrangeModal(true);
+    } else {
+      setShowArrangeModal(false);
+      setShowCheckout(true);
+    }
+  }
 
   function handleArrangePurchase() {
     if (!user?.email || !listing) return;
+    setShowCheckout(false);
     setShowArrangeModal(true);
   }
 
@@ -238,10 +243,9 @@ export default function ListingPage() {
       if (isAuctionWinner) {
         setWinningBid(listing.currentBid || listing.startingBid || 0);
       }
-      // Stripe checkout hidden for testing - use arrange purchase instead
-      handleArrangePurchase();
+      openPrimaryPurchase();
     }
-  }, [user, listing, isAuctionWinner, isContactListing]);
+  }, [user, listing, isAuctionWinner]);
 
   // Notify winner + seller when auction ends
   const prevAuctionEndedRef = useRef(false);
@@ -1547,7 +1551,7 @@ Property Status: 🟢 Inquiry Active`;
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleArrangePurchase();
+                        openPrimaryPurchase();
                       }}
                       title={purchaseButtonTitle((listing as { paymentType?: string }).paymentType)}
                       className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-5 text-base font-bold text-white shadow-xl shadow-sky-500/25 transition-all duration-200 hover:shadow-2xl hover:shadow-sky-500/35 hover:brightness-110 active:scale-[0.98]"
@@ -1898,8 +1902,7 @@ Service Status: 🟢 Inquiry Active`;
                     )}
                     <button onClick={() => {
                       if (rentalDays < 1) { showToast("Select pickup and return dates", "info"); return; }
-                      // Stripe checkout hidden for testing - use arrange purchase instead
-                      handleArrangePurchase();
+                      openPrimaryPurchase();
                     }}
                       className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 text-base font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-200 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:brightness-110 active:scale-[0.98]">
                       Rent Now {rentalDays > 0 ? `— $${(Number(listing.price) * rentalDays + 1).toFixed(2)}` : ""}
@@ -2339,7 +2342,7 @@ Service Status: 🟢 Inquiry Active`;
                 </button>
               ) : (
                 <button
-                  onClick={() => handleArrangePurchase()}
+                  onClick={openPrimaryPurchase}
                   title={purchaseButtonTitle("stripe")}
                   className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-white"
                 >

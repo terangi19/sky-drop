@@ -33,3 +33,10 @@ export function paymentMethodSummary(paymentType?: string | null): string {
     ? "Contact seller to pay"
     : "Card checkout (Stripe)";
 }
+
+/** Which buyer checkout UI to open for the listing's current paymentType. */
+export function purchaseCheckoutAction(
+  paymentType?: string | null
+): "arrange" | "stripe" {
+  return isContactPayment(paymentType) ? "arrange" : "stripe";
+}

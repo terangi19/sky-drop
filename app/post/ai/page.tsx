@@ -16,6 +16,7 @@ import { showToast } from "../../components/Toast";
 import { detectScam } from "../../lib/scamdetection";
 import { detectSuspiciousPrice } from "../../lib/pricedetection";
 import { getListingBlockReason } from "../../lib/seller-eligibility";
+import { STRIPE_CONNECT_REQUIRED_MSG, sellerHasStripeConfigured } from "../../lib/seller-payments";
 import { resolveListingType } from "../../lib/listing-types";
 import { hasActiveListingDraft, mergeListingFillWithDraft } from "../../lib/sky-ai-draft-merge";
 import { readListingDraftFromSkyAi, syncListingDraftToSkyAi } from "../../lib/sky-ai-listing-context";
@@ -132,6 +133,7 @@ export default function AIPostPage() {
   const [servicePricingType, setServicePricingType] = useState<ServicePricingType>("fixed");
   const [acceptOffers, setAcceptOffers] = useState(false);
   const [paymentType, setPaymentType] = useState("contact");
+  const [stripeConnected, setStripeConnected] = useState(false);
 
   const [editId, setEditId] = useState<string | null>(null);
   const [existingImages, setExistingImages] = useState<string[]>([]);
@@ -257,6 +259,21 @@ export default function AIPostPage() {
     setValidationErrors(prev => ({ ...prev, location: validateLocation(value) }));
   };
 
+  const choosePaymentType = useCallback((type: string) => {
+    const next = type === "stripe" ? "stripe" : "contact";
+    if (next === "stripe" && !stripeConnected) {
+      showToast(STRIPE_CONNECT_REQUIRED_MSG, "error");
+      return;
+    }
+    setPaymentType(next);
+  }, [stripeConnected]);
+
+  useEffect(() => {
+    if (!stripeConnected && paymentType === "stripe") {
+      setPaymentType("contact");
+    }
+  }, [stripeConnected, paymentType]);
+
   useEffect(() => {
     const stored = readListingDraftFromSkyAi();
     if (stored?.extras?.length && draftExtras.length === 0) {
@@ -357,7 +374,7 @@ export default function AIPostPage() {
       setPrice: trackingSetPrice,
       setListingType: trackingSetListingType,
       setLocation: trackingSetLocation,
-      setPaymentType,
+      setPaymentType: choosePaymentType,
       setVehicleMake,
       setVehicleModel,
       setVehicleYear,
@@ -421,7 +438,7 @@ export default function AIPostPage() {
     } else if (!ok) {
       showToast("Āwhina couldn't fill your form — try describing the item again", "error");
     }
-  }, [imagePreviews.length, title, description, category, condition, price, listingType, location, autoPublish]);
+  }, [imagePreviews.length, title, description, category, condition, price, listingType, location, autoPublish, choosePaymentType]);
 
   const appendDescriptionFromVoice = useCallback((text: string) => {
     const incoming = text.trim();
@@ -633,10 +650,13 @@ export default function AIPostPage() {
           const snap = await getDoc(doc(db, "profiles", u.uid));
           if (snap.exists()) {
             const d = snap.data();
+            setStripeConnected(sellerHasStripeConfigured(d));
             // Smart default: pre-fill location from user profile if not already set
             if (d.location && !location) {
               setLocation(d.location);
             }
+          } else {
+            setStripeConnected(false);
           }
         } catch {}
       }
@@ -1139,21 +1159,15 @@ export default function AIPostPage() {
         }),
       };
 
-      // Check Stripe Connect BEFORE creating listing
+      // Check Stripe Connect BEFORE creating/updating listing
       if (paymentType === "stripe") {
-        try {
-          const profileSnap = await getDoc(doc(db, "profiles", user.uid));
-          if (profileSnap.exists()) {
-            const profileData = profileSnap.data();
-            if (!profileData.stripeAccountId) {
-              showToast("⚠️ Connect Stripe to receive payouts before creating listings", "error");
-              setTimeout(() => { window.location.href = "/profile?tab=payouts"; }, 1500);
-              setLoading(false);
-              setConfirmedSubmit(false);
-              return;
-            }
-          }
-        } catch (e) { console.error("Stripe check error:", e); }
+        if (!stripeConnected) {
+          showToast(STRIPE_CONNECT_REQUIRED_MSG, "error");
+          setTimeout(() => { window.location.href = "/profile?tab=payouts"; }, 1500);
+          setLoading(false);
+          setConfirmedSubmit(false);
+          return;
+        }
       }
 
       let newId = editId;
@@ -1836,7 +1850,7 @@ export default function AIPostPage() {
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <button type="button" onClick={() => setPaymentType("contact")}
+                  <button type="button" onClick={() => choosePaymentType("contact")}
                     className={`rounded-xl border px-4 py-3 text-xs font-bold text-left transition-all duration-200 active:scale-[0.97] ${
                       paymentType === "contact" ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.06)]" : "bg-white/[0.02] text-[var(--muted)] hover:bg-white/[0.04]"
                     }`}>
@@ -1844,9 +1858,17 @@ export default function AIPostPage() {
                     <span className="ml-1 rounded bg-sky-500/20 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-sky-300">Default</span>
                     <p className="mt-1 text-[9px] font-normal text-[var(--muted)]">Bank transfer, cash, or pickup — agree payment in Messages</p>
                   </button>
-                  <button type="button" onClick={() => setPaymentType("stripe")}
+                  <button
+                    type="button"
+                    onClick={() => choosePaymentType("stripe")}
+                    disabled={!stripeConnected}
+                    title={stripeConnected ? "Card payment via Stripe Checkout" : STRIPE_CONNECT_REQUIRED_MSG}
                     className={`rounded-xl border px-4 py-3 text-xs font-bold text-left transition-all duration-200 active:scale-[0.97] ${
-                      paymentType === "stripe" ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.06)]" : "bg-white/[0.02] text-[var(--muted)] hover:bg-white/[0.04]"
+                      !stripeConnected
+                        ? "cursor-not-allowed border-white/[0.06] bg-white/[0.02] text-[var(--muted)] opacity-60"
+                        : paymentType === "stripe"
+                          ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.06)]"
+                          : "bg-white/[0.02] text-[var(--muted)] hover:bg-white/[0.04]"
                     }`}>
                     <span className="flex items-center gap-1.5">
                       <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0" fill="currentColor">
@@ -1855,9 +1877,21 @@ export default function AIPostPage() {
                       <span className="font-bold tracking-tight">Stripe</span>
                       <span className="text-[10px] font-normal text-[var(--muted)]">Checkout</span>
                     </span>
-                    <p className="mt-1 text-[9px] font-normal text-[var(--muted)]">Card payment — requires Stripe Connect on your profile</p>
+                    <p className="mt-1 text-[9px] font-normal text-[var(--muted)]">
+                      {stripeConnected
+                        ? "Card payment — buyer protection included"
+                        : "Connect Stripe in Profile → Payouts to enable"}
+                    </p>
                   </button>
                 </div>
+                {!stripeConnected && (
+                  <p className="text-[10px] text-amber-400/90 leading-relaxed">
+                    Stripe Checkout is locked until you connect payouts.{" "}
+                    <Link href="/profile?tab=payouts" className="underline hover:text-amber-300">
+                      Set up Stripe
+                    </Link>
+                  </p>
+                )}
                 {paymentType === "contact" && (
                   <p className="text-[10px] text-sky-400/90 leading-relaxed">
                     Sellers: add bank details in{" "}

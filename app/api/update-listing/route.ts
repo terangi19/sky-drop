@@ -3,6 +3,7 @@ import { verifyIdToken, getServerDb, getAdminDb, isAdminInitialized } from "../.
 import { rateLimit } from "../../lib/rate-limit";
 import { sanitizeListingContent } from "../../lib/sanitize";
 import { createSystemNotification } from "../../lib/system-notifications";
+import { stripeListingPublishError } from "../../lib/seller-payments";
 
 export async function PUT(req: NextRequest) {
   try {
@@ -97,6 +98,13 @@ export async function PUT(req: NextRequest) {
 
     for (const key of allowedFields) {
       if (key in body) {
+        if (key === "paymentType") {
+          const val = body[key];
+          if (val === "contact" || val === "stripe") {
+            updateData[key] = val;
+          }
+          continue;
+        }
         if (key === "stockQuantity") {
           const val = body[key];
           if (val === undefined || val === null || val === "" || Number(val) <= 0) continue;
@@ -109,6 +117,22 @@ export async function PUT(req: NextRequest) {
 
     updateData.updatedAt = new Date();
     updateData.imageUrl = (updateData.images as string[])?.[0] || (existingData.imageUrl as string) || "";
+
+    const nextPaymentType = updateData.paymentType ?? existingData.paymentType;
+    if (nextPaymentType === "stripe") {
+      let profileForStripe: Record<string, unknown> | null = null;
+      if (isAdminInitialized()) {
+        const snap = await getAdminDb().collection("profiles").doc(token.uid).get();
+        if (snap.exists) profileForStripe = snap.data() as Record<string, unknown>;
+      } else {
+        const snap = await db.collection("profiles").doc(token.uid).get();
+        if (snap.exists) profileForStripe = snap.data() as Record<string, unknown>;
+      }
+      const stripeErr = stripeListingPublishError(profileForStripe);
+      if (stripeErr) {
+        return NextResponse.json({ error: stripeErr }, { status: 400 });
+      }
+    }
 
     await db.collection("listings").doc(listingId).update(updateData);
 

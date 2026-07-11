@@ -14,6 +14,7 @@ import { trackAndCheckAbuse } from "../../lib/abuse-tracker";
 import { createSystemNotification } from "../../lib/system-notifications";
 import { resolveListingType } from "../../lib/listing-types";
 import { runMatchmaking } from "../../lib/sky-ai-matchmaking";
+import { stripeListingPublishError } from "../../lib/seller-payments";
 
 const SCAM_KEYWORDS = [
   "bank transfer only", "crypto only", "pay outside", "whatsapp",
@@ -293,6 +294,21 @@ export async function POST(req: NextRequest) {
       //     error: "The maximum price for non-KYC sellers is $600. Verify your ID (KYC) to unlock unlimited pricing.",
       //   }, { status: 400 });
       // }
+    }
+
+    const requestedPaymentType = String(clientData.paymentType || "contact");
+    if (requestedPaymentType === "stripe") {
+      let profileForStripe: Record<string, unknown> | null = null;
+      if (isAdminInitialized()) {
+        profileForStripe = await getSellerProfileForUid(token.uid, token.email);
+      } else {
+        const snap = await getServerDb(idToken).collection("profiles").doc(token.uid).get();
+        if (snap.exists) profileForStripe = snap.data() as Record<string, unknown>;
+      }
+      const stripeErr = stripeListingPublishError(profileForStripe);
+      if (stripeErr) {
+        return NextResponse.json({ error: stripeErr }, { status: 400 });
+      }
     }
 
     let status: string;

@@ -60,3 +60,19 @@ export function sellerHasStripeConfigured(
   if (!sellerProfile) return false;
   return !!sellerProfile.stripeAccountId;
 }
+
+export const STRIPE_CONNECT_REQUIRED_MSG =
+  "Connect Stripe in Profile → Payouts before using Stripe Checkout on listings.";
+
+/** Block Stripe Checkout listings when seller has not connected payouts. */
+export function stripeListingPublishError(
+  sellerProfile: SellerProfileSlice | undefined | null
+): string | null {
+  if (!sellerProfile?.stripeAccountId) {
+    return STRIPE_CONNECT_REQUIRED_MSG;
+  }
+  if (sellerProfile.restricted) {
+    return "Your seller account is restricted — Stripe Checkout listings are not allowed.";
+  }
+  return null;
+}

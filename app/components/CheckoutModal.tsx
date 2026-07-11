@@ -255,7 +255,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
     address.trim().length > 0 && city.trim().length > 0 && postcode.trim().length > 0;
   const isValid = isBadge || isDigital || isRental || isEvent
     ? name.trim()
-    : name.trim() && phone.trim() && deliveryMethod && (deliveryMethod !== "shipping" || shippingDetailsComplete);
+    : name.trim() && deliveryMethod && (deliveryMethod !== "shipping" || shippingDetailsComplete);
 
   function formatShippingAddress() {
     const parts = [address.trim(), `${city.trim()} ${postcode.trim()}`.trim(), country.trim()].filter(Boolean);
@@ -979,28 +979,43 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                     </div>
                   )}
 
-                  <div>
-                    <label className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-white">{isBadge ? "Your name" : "Your details"}</label>
-                    <div className="space-y-2">
-                      <input type="text" placeholder={isBadge ? "Full name" : "Full name"} value={name} onChange={(e) => setName(e.target.value)}
-                        className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-white hover:bg-white/[0.05] focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
+                  <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
+                    <div className="mb-3 flex items-center gap-2">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-500/15 text-xs">👤</span>
+                      <div>
+                        <p className="text-[13px] font-bold text-[var(--foreground)]">{isBadge ? "Your name" : "Your contact details"}</p>
+                        <p className="text-[10px] text-white/50">{isBadge ? "So the seller knows who bought it" : "So the seller can reach you about this order"}</p>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="mb-1 block text-[11px] font-semibold text-white/70">Full name</label>
+                        <input type="text" placeholder="e.g. Jordan Smith" value={name} onChange={(e) => setName(e.target.value)}
+                          className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-white/35 hover:bg-white/[0.05] focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
+                      </div>
                       {!isBadge && (
-                        <input type="tel" placeholder="Phone number" value={phone} onChange={(e) => setPhone(e.target.value)}
-                          className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-white hover:bg-white/[0.05] focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
+                        <div>
+                          <label className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold text-white/70">
+                            Phone number
+                            <span className="rounded-full bg-white/[0.06] px-1.5 py-0.5 text-[9px] font-medium text-white/50">Optional</span>
+                          </label>
+                          <input type="tel" placeholder="e.g. 021 123 4567" value={phone} onChange={(e) => setPhone(e.target.value)}
+                            className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-white/35 hover:bg-white/[0.05] focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
+                        </div>
                       )}
                       {deliveryMethod === "shipping" && (
                         <div className="space-y-2 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-3">
-                          <p className="text-[11px] font-medium text-white">Shipping address</p>
+                          <p className="text-[11px] font-semibold text-white/70">Shipping address</p>
                           <input type="text" placeholder="Street address" value={address} onChange={(e) => setAddress(e.target.value)}
-                            className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-white hover:bg-white/[0.05] focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
+                            className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-white/35 hover:bg-white/[0.05] focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
                           <div className="grid grid-cols-2 gap-2">
                             <input type="text" placeholder="City" value={city} onChange={(e) => setCity(e.target.value)}
-                              className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-white hover:bg-white/[0.05] focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
+                              className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-white/35 hover:bg-white/[0.05] focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
                             <input type="text" placeholder="Postcode" value={postcode} onChange={(e) => setPostcode(e.target.value)}
-                              className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-white hover:bg-white/[0.05] focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
+                              className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-white/35 hover:bg-white/[0.05] focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
                           </div>
                           <input type="text" placeholder="Country" value={country} onChange={(e) => setCountry(e.target.value)}
-                            className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-white hover:bg-white/[0.05] focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
+                            className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-white/35 hover:bg-white/[0.05] focus:border-sky-500/40 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/10" />
                         </div>
                       )}
                     </div>
