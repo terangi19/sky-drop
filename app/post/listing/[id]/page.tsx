@@ -38,7 +38,8 @@ import { formatServicePriceDisplay } from "../../../lib/service-pricing";
 import { sendMessage } from "../../../lib/api-send-message";
 import ListingImage from "../../../components/ListingImage";
 import { purchaseCheckoutAction, paymentMethodSummary, primaryPurchaseLabel, purchaseButtonTitle, shortPurchaseLabel } from "../../../lib/purchase-button-labels";
-import { resolvePurchaseCheckoutAction, fetchListingPaymentType } from "../../../lib/buy-listing-route";
+import { fetchListingPaymentType } from "../../../lib/buy-listing-route";
+import { assertStripeNeverArrange, logPurchaseFlow, logPurchaseSummary } from "../../../lib/purchase-flow-debug";
 import {
   sellerMessagesUrl,
   sellerProfileDisplayName,
@@ -187,6 +188,62 @@ export default function ListingPage() {
   const nativeActionsRef = useRef<HTMLDivElement | null>(null);
   const [stickyBarVisible, setStickyBarVisible] = useState(true);
   const [showArrangeModal, setShowArrangeModal] = useState(false);
+  /** Authoritative buyer checkout mode — API/Firestore server, never stale snapshot cache alone. */
+  const authoritativePaymentTypeRef = useRef<"stripe" | "contact" | null>(null);
+  const [checkoutPaymentType, setCheckoutPaymentType] = useState<"stripe" | "contact" | null>(null);
+
+  function applyAuthoritativePaymentType(pt: "stripe" | "contact", source: string) {
+    authoritativePaymentTypeRef.current = pt;
+    setCheckoutPaymentType(pt);
+    setListing((prev) => (prev ? { ...prev, paymentType: pt } : prev));
+    logPurchaseFlow("react-listing-paymentType", { listingId, checkoutPaymentType: pt, source });
+  }
+
+  /** Sole gate for opening purchase modals — Arrange cannot open when server/ref says stripe. */
+  function choosePurchaseModal(
+    modal: "CheckoutModal" | "ArrangePurchaseModal",
+    source: string,
+    trace: {
+      firestorePaymentType?: string | null;
+      reactListingPaymentType?: string | null;
+      buttonPaymentType?: string | null;
+      clickHandlerPaymentType?: string | null;
+      serverPaymentType?: string | null;
+    }
+  ) {
+    const serverStripe =
+      trace.serverPaymentType === "stripe" ||
+      authoritativePaymentTypeRef.current === "stripe" ||
+      checkoutPaymentType === "stripe";
+
+    if (modal === "ArrangePurchaseModal" && serverStripe) {
+      logPurchaseFlow("modal-blocked", {
+        attempted: "ArrangePurchaseModal",
+        reason: "server/ref paymentType is stripe",
+        source,
+        ...trace,
+      });
+      modal = "CheckoutModal";
+    }
+
+    logPurchaseFlow("modal-chosen", { modal, source, ...trace });
+    logPurchaseSummary({
+      ...trace,
+      modalChosen: modal,
+      source,
+    });
+
+    if (modal === "CheckoutModal") {
+      setShowArrangeModal(false);
+      if (isAuctionWinner && listing) {
+        setWinningBid(listing.currentBid || listing.startingBid || 0);
+      }
+      setShowCheckout(true);
+    } else {
+      setShowCheckout(false);
+      setShowArrangeModal(true);
+    }
+  }
 
   function getAuctionEndTime(endsAt: unknown): number {
     if (!endsAt) return 0;
@@ -200,7 +257,9 @@ export default function ListingPage() {
     ? getAuctionEndTime(listing.auctionEndsAt) < Date.now() : false;
   const isAuctionWinner = Boolean(auctionEnded && listing && user?.email === listing.highestBidder);
 
-  const isContactListing = (listing as { paymentType?: string })?.paymentType === "contact";
+  const effectivePaymentType =
+    checkoutPaymentType ?? (listing as { paymentType?: string })?.paymentType;
+  const isContactListing = effectivePaymentType === "contact";
 
   function isListingOwner(l: Listing | null, u: User | null): boolean {
     if (!l || !u) return false;
@@ -211,30 +270,78 @@ export default function ListingPage() {
 
   const buyAutoOpenedRef = useRef(false);
 
-  async function openPrimaryPurchase() {
+  async function openPurchaseFlow(source: string) {
     if (!user?.email || !listing) return;
-    const freshPaymentType = await fetchListingPaymentType(listingId);
-    if (freshPaymentType) {
-      setListing((prev) => (prev ? { ...prev, paymentType: freshPaymentType } : prev));
-    }
-    const action = await resolvePurchaseCheckoutAction(
+
+    const reactListingPt = (listing as { paymentType?: string }).paymentType;
+    const buttonPt = effectivePaymentType;
+    const reactPt =
+      authoritativePaymentTypeRef.current ?? checkoutPaymentType ?? reactListingPt;
+
+    logPurchaseFlow("button-paymentType", {
+      source,
       listingId,
-      freshPaymentType ?? (listing as { paymentType?: string }).paymentType
-    );
-    if (action === "arrange") {
-      setShowCheckout(false);
-      setShowArrangeModal(true);
-    } else {
+      buttonPaymentType: buttonPt ?? null,
+      reactListingPaymentType: reactListingPt ?? null,
+      checkoutPaymentType,
+    });
+
+    const serverPt = await fetchListingPaymentType(listingId);
+    if (serverPt === "stripe" || serverPt === "contact") {
+      applyAuthoritativePaymentType(serverPt, `click-fetch:${source}`);
+    }
+
+    const clickHandlerPt =
+      serverPt ?? authoritativePaymentTypeRef.current ?? reactPt;
+    const action = purchaseCheckoutAction(clickHandlerPt);
+
+    logPurchaseFlow("click-handler-paymentType", {
+      source,
+      listingId,
+      clickHandlerPaymentType: clickHandlerPt ?? null,
+      serverPaymentType: serverPt ?? null,
+      action,
+    });
+
+    assertStripeNeverArrange(serverPt, action, source);
+
+    const trace = {
+      firestorePaymentType: authoritativePaymentTypeRef.current ?? serverPt ?? null,
+      reactListingPaymentType: reactListingPt ?? null,
+      buttonPaymentType: buttonPt ?? null,
+      clickHandlerPaymentType: clickHandlerPt ?? null,
+      serverPaymentType: serverPt ?? null,
+    };
+
+    if (serverPt === "stripe" || action === "stripe") {
+      choosePurchaseModal("CheckoutModal", source, trace);
+      return;
+    }
+
+    choosePurchaseModal("ArrangePurchaseModal", source, trace);
+  }
+
+  // Safety net: authoritative stripe must never show Arrange Purchase
+  useEffect(() => {
+    if (checkoutPaymentType === "stripe" && showArrangeModal) {
+      logPurchaseFlow("modal-blocked", {
+        attempted: "ArrangePurchaseModal",
+        reason: "checkoutPaymentType state is stripe while showArrangeModal true",
+      });
       setShowArrangeModal(false);
       setShowCheckout(true);
     }
-  }
+  }, [checkoutPaymentType, showArrangeModal]);
 
-  function handleArrangePurchase() {
-    if (!user?.email || !listing) return;
-    setShowCheckout(false);
-    setShowArrangeModal(true);
-  }
+  useEffect(() => {
+    if (!listing) return;
+    logPurchaseFlow("react-listing-paymentType", {
+      listingId,
+      reactListingPaymentType: (listing as { paymentType?: string }).paymentType ?? null,
+      checkoutPaymentType,
+      effectivePaymentType: effectivePaymentType ?? null,
+    });
+  }, [listingId, listing?.paymentType, checkoutPaymentType, effectivePaymentType]);
 
   // Hide sticky bar when native action buttons scroll into view
   useEffect(() => {
@@ -248,38 +355,16 @@ export default function ListingPage() {
     return () => observer.disconnect();
   }, [listing]);
 
-  // Auto-open checkout when navigated with ?buy=1 — wait for server paymentType, not cache
+  // Auto-open checkout when navigated with ?buy=1 — same path as every buy button
   useEffect(() => {
     if (buyAutoOpenedRef.current) return;
     if (typeof window === "undefined" || new URLSearchParams(window.location.search).get("buy") !== "1") return;
     if (!user?.email || !listing) return;
     if (listing.pricingType === "quote") return;
 
-    let cancelled = false;
-    void (async () => {
-      const pt = await fetchListingPaymentType(listingId);
-      if (cancelled || buyAutoOpenedRef.current) return;
-      buyAutoOpenedRef.current = true;
-      if (pt) {
-        setListing((prev) => (prev ? { ...prev, paymentType: pt } : prev));
-      }
-      if (isAuctionWinner) {
-        setWinningBid(listing.currentBid || listing.startingBid || 0);
-      }
-      const action = purchaseCheckoutAction(pt ?? (listing as { paymentType?: string }).paymentType);
-      if (action === "arrange") {
-        setShowCheckout(false);
-        setShowArrangeModal(true);
-      } else {
-        setShowArrangeModal(false);
-        setShowCheckout(true);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user, listing, listingId, isAuctionWinner]);
+    buyAutoOpenedRef.current = true;
+    void openPurchaseFlow("buy-query");
+  }, [user, listing, listingId]);
 
   // Notify winner + seller when auction ends
   const prevAuctionEndedRef = useRef(false);
@@ -336,17 +421,40 @@ export default function ListingPage() {
 
   useEffect(() => {
     let mounted = true;
+    void fetchListingPaymentType(listingId).then((pt) => {
+      if (!mounted || (pt !== "stripe" && pt !== "contact")) return;
+      applyAuthoritativePaymentType(pt, "mount");
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [listingId]);
+
+  useEffect(() => {
+    let mounted = true;
     setSellerProfile(null);
     const docRef = doc(db, "listings", listingId);
     const unsub = safeOnSnapshot(docRef, (snap) => {
       if (!snap.exists()) { if (mounted) setLoading(false); return; }
       if (!mounted) return;
-      const data: any = { id: snap.id, ...snap.data() };
+      const raw = snap.data();
+      const snapPaymentType = raw?.paymentType;
+      const authPt = authoritativePaymentTypeRef.current;
+      const data: any = { id: snap.id, ...raw };
+      if (authPt) {
+        data.paymentType = authPt;
+      }
+      logPurchaseFlow("firestore-snapshot", {
+        listingId,
+        firestorePaymentType: snapPaymentType ?? null,
+        authoritativePaymentType: authPt,
+        mergedIntoReactState: data.paymentType ?? null,
+      });
       setListing(data);
       setLoading(false);
       void fetchListingPaymentType(listingId).then((pt) => {
-        if (!mounted || !pt) return;
-        setListing((prev) => (prev ? { ...prev, paymentType: pt } : prev));
+        if (!mounted || (pt !== "stripe" && pt !== "contact")) return;
+        applyAuthoritativePaymentType(pt, "post-snapshot");
       });
       // Update document meta for SEO/social sharing
       try {
@@ -1600,7 +1708,7 @@ Property Status: 🟢 Inquiry Active`;
 
                   {/* Payment Helper Row */}
                   <div className="text-[11px] font-medium text-[var(--muted)]">
-                    Payment: {paymentMethodSummary((listing as { paymentType?: string }).paymentType)}
+                    Payment: {paymentMethodSummary(effectivePaymentType)}
                   </div>
 
                   {/* PRIMARY CTA */}
@@ -1608,27 +1716,27 @@ Property Status: 🟢 Inquiry Active`;
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        openPrimaryPurchase();
+                        void openPurchaseFlow("primary-desktop");
                       }}
-                      title={purchaseButtonTitle((listing as { paymentType?: string }).paymentType)}
+                      title={purchaseButtonTitle(effectivePaymentType)}
                       className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-5 text-base font-bold text-white shadow-xl shadow-sky-500/25 transition-all duration-200 hover:shadow-2xl hover:shadow-sky-500/35 hover:brightness-110 active:scale-[0.98]"
                     >
                       <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        {(listing as { paymentType?: string }).paymentType === "contact" ? (
+                        {isContactListing ? (
                           <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                         ) : (
                           <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                         )}
                       </svg>
                       {primaryPurchaseLabel({
-                        paymentType: (listing as { paymentType?: string }).paymentType,
+                        paymentType: effectivePaymentType,
                         price: listing.price,
                         pricingType: listing.pricingType as string | undefined,
                         hasExistingRequest: buyerArrangeRequestCount > 0,
                       })}
                     </button>
                     <p className="mt-2 text-center text-[10px] leading-relaxed text-[var(--muted)]">
-                      {purchaseButtonTitle((listing as { paymentType?: string }).paymentType)}
+                      {purchaseButtonTitle(effectivePaymentType)}
                     </p>
                   </div>
 
@@ -1959,7 +2067,7 @@ Service Status: 🟢 Inquiry Active`;
                     )}
                     <button onClick={() => {
                       if (rentalDays < 1) { showToast("Select pickup and return dates", "info"); return; }
-                      openPrimaryPurchase();
+                      void openPurchaseFlow("rent-now");
                     }}
                       className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 text-base font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-200 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:brightness-110 active:scale-[0.98]">
                       Rent Now {rentalDays > 0 ? `— $${(Number(listing.price) * rentalDays + 1).toFixed(2)}` : ""}
@@ -2386,29 +2494,18 @@ Service Status: 🟢 Inquiry Active`;
         <div className="fixed bottom-0 inset-x-0 z-40 lg:hidden border-t border-white/[0.06] bg-zinc-950/95 backdrop-blur-xl px-4 py-3 flex gap-3" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
           {user ? (
             <>
-              {isContactListing ? (
-                <button
-                  onClick={handleArrangePurchase}
-                  title={purchaseButtonTitle("contact")}
-                  className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-white"
-                >
-                  {primaryPurchaseLabel({
-                    paymentType: "contact",
-                    price: listing.price,
-                  })}
-                </button>
-              ) : (
-                <button
-                  onClick={openPrimaryPurchase}
-                  title={purchaseButtonTitle("stripe")}
-                  className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-white"
-                >
-                  {primaryPurchaseLabel({
-                    paymentType: "stripe",
-                    price: listing.price,
-                  })}
-                </button>
-              )}
+              <button
+                onClick={() => void openPurchaseFlow("sticky-mobile")}
+                title={purchaseButtonTitle(effectivePaymentType)}
+                className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-white"
+              >
+                {primaryPurchaseLabel({
+                  paymentType: effectivePaymentType,
+                  price: listing.price,
+                  pricingType: listing.pricingType as string | undefined,
+                  hasExistingRequest: buyerArrangeRequestCount > 0,
+                })}
+              </button>
               <button
                 onClick={() => router.push(sellerMessagesHref)}
                 className="flex items-center justify-center gap-2 rounded-xl border border-white/[0.10] bg-white/[0.04] px-4 py-3 text-sm font-bold text-[var(--foreground)]"
@@ -2430,7 +2527,7 @@ Service Status: 🟢 Inquiry Active`;
         </div>
       )}
 
-      {showArrangeModal && listing && user?.email && (
+      {showArrangeModal && checkoutPaymentType !== "stripe" && listing && user?.email && (
         <ArrangePurchaseModal
           listing={{ ...listing, id: listingId }}
           buyerEmail={user.email}

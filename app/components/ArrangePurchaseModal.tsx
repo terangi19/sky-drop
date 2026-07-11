@@ -8,6 +8,7 @@ import { trackFunnelEvent } from "../lib/funnel-events";
 import { sellerMessagesUrl } from "../lib/public-display";
 import { showToast } from "./Toast";
 import AnimatedCheckmark from "./AnimatedCheckmark";
+import { logModalMounted } from "../lib/purchase-flow-debug";
 
 interface ListingData {
   id?: string;
@@ -47,6 +48,13 @@ export default function ArrangePurchaseModal({ listing, buyerEmail, onClose, onS
   const [conversationId, setConversationId] = useState("");
 
   const imageSrc = listing.images?.[0] || listing.imageUrl || listing.image || "";
+
+  useEffect(() => {
+    logModalMounted("ArrangePurchaseModal", {
+      listingId: listing.id ?? null,
+      listingPaymentType: listing.paymentType ?? null,
+    });
+  }, [listing.id, listing.paymentType]);
 
   function getCurrentStepIndex(): number {
     const stepIndexMap: Record<ArrangeStep, number> = { intro: 0, confirm: 1, processing: 2, success: 3, error: 2 };

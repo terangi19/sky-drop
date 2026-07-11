@@ -17,6 +17,7 @@ import ListingImage from "./ListingImage";
 import { playSuccess } from "../lib/sounds";
 import { isListingAvailableForPurchase } from "../lib/listing-availability";
 import { buildCheckoutSuccessUrl } from "../lib/payment-checkout";
+import { logModalMounted } from "../lib/purchase-flow-debug";
 
 interface ListingData {
   id?: string;
@@ -279,6 +280,9 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
 
   // Restore body scroll on unmount
   useEffect(() => {
+    logModalMounted("CheckoutModal", {
+      listingId: listing.id ?? null,
+    });
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
   }, []);

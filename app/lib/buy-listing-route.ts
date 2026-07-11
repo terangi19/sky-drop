@@ -1,11 +1,12 @@
 import { doc, getDocFromServer } from "firebase/firestore";
 import { db } from "./firebase";
 import { purchaseCheckoutAction } from "./purchase-button-labels";
+import { logPurchaseFlow } from "./purchase-flow-debug";
 
-/** Authoritative paymentType — API first (Admin SDK), Firestore server read as fallback. */
+/** Authoritative paymentType — API (Admin SDK) first, Firestore server read as fallback. */
 export async function fetchListingPaymentType(
   listingId: string
-): Promise<string | undefined> {
+): Promise<"stripe" | "contact" | undefined> {
   try {
     const res = await fetch(
       `/api/listing-checkout-mode?listingId=${encodeURIComponent(listingId)}`,
@@ -14,21 +15,28 @@ export async function fetchListingPaymentType(
     if (res.ok) {
       const data = (await res.json()) as { paymentType?: string };
       if (data.paymentType === "stripe" || data.paymentType === "contact") {
+        logPurchaseFlow("firestore-server-api", { listingId, source: "api", paymentType: data.paymentType });
         return data.paymentType;
       }
+    } else {
+      logPurchaseFlow("firestore-server-api", { listingId, source: "api", httpStatus: res.status, ok: false });
     }
   } catch (e) {
     console.error("[fetchListingPaymentType] api", e);
+    logPurchaseFlow("firestore-server-api", { listingId, source: "api", error: String(e) });
   }
 
   try {
     const snap = await getDocFromServer(doc(db, "listings", listingId));
     if (snap.exists()) {
       const pt = snap.data()?.paymentType;
-      return typeof pt === "string" ? pt : undefined;
+      const normalized = pt === "stripe" ? "stripe" : pt === "contact" ? "contact" : undefined;
+      logPurchaseFlow("firestore-server-api", { listingId, source: "getDocFromServer", paymentType: normalized, raw: pt });
+      return normalized;
     }
   } catch (e) {
     console.error("[fetchListingPaymentType] firestore", e);
+    logPurchaseFlow("firestore-server-api", { listingId, source: "getDocFromServer", error: String(e) });
   }
   return undefined;
 }
@@ -42,6 +50,21 @@ export async function resolvePurchaseCheckoutAction(
   fallbackPaymentType?: string | null
 ): Promise<"arrange" | "stripe"> {
   const fresh = await fetchListingPaymentType(listingId);
-  if (fresh) return purchaseCheckoutAction(fresh);
-  return purchaseCheckoutAction(fallbackPaymentType);
+  const action = purchaseCheckoutAction(fresh ?? fallbackPaymentType);
+  logPurchaseFlow("routing-decision", {
+    listingId,
+    serverPaymentType: fresh ?? null,
+    fallbackPaymentType: fallbackPaymentType ?? null,
+    action,
+  });
+  return action;
+}
+
+/** Server stripe always wins — arrange modal must never open when API says stripe. */
+export function purchaseModalForPaymentType(
+  paymentType: string | undefined | null
+): "CheckoutModal" | "ArrangePurchaseModal" {
+  return purchaseCheckoutAction(paymentType) === "stripe"
+    ? "CheckoutModal"
+    : "ArrangePurchaseModal";
 }
