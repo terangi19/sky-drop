@@ -134,6 +134,7 @@ export default function AIPostPage() {
   const [acceptOffers, setAcceptOffers] = useState(false);
   const [paymentType, setPaymentType] = useState("contact");
   const [stripeConnected, setStripeConnected] = useState(false);
+  const [stripeStatusLoaded, setStripeStatusLoaded] = useState(false);
 
   const [editId, setEditId] = useState<string | null>(null);
   const [existingImages, setExistingImages] = useState<string[]>([]);
@@ -268,11 +269,14 @@ export default function AIPostPage() {
     setPaymentType(next);
   }, [stripeConnected]);
 
+  // Only clamp after profile Stripe status is known — otherwise edit load races
+  // (stripeConnected starts false) and silently forces Arrange Purchase.
   useEffect(() => {
+    if (!stripeStatusLoaded) return;
     if (!stripeConnected && paymentType === "stripe") {
       setPaymentType("contact");
     }
-  }, [stripeConnected, paymentType]);
+  }, [stripeStatusLoaded, stripeConnected, paymentType]);
 
   useEffect(() => {
     const stored = readListingDraftFromSkyAi();
@@ -658,7 +662,14 @@ export default function AIPostPage() {
           } else {
             setStripeConnected(false);
           }
-        } catch {}
+        } catch {
+          setStripeConnected(false);
+        } finally {
+          setStripeStatusLoaded(true);
+        }
+      } else {
+        setStripeConnected(false);
+        setStripeStatusLoaded(true);
       }
     });
     return () => unsub();
