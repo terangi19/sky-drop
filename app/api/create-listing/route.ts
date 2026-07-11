@@ -14,7 +14,7 @@ import { trackAndCheckAbuse } from "../../lib/abuse-tracker";
 import { createSystemNotification } from "../../lib/system-notifications";
 import { resolveListingType } from "../../lib/listing-types";
 import { runMatchmaking } from "../../lib/sky-ai-matchmaking";
-import { stripeListingPublishError } from "../../lib/seller-payments";
+import { stripeListingPublishErrorAsync } from "../../lib/stripe-connect-account";
 
 const SCAM_KEYWORDS = [
   "bank transfer only", "crypto only", "pay outside", "whatsapp",
@@ -305,7 +305,7 @@ export async function POST(req: NextRequest) {
         const snap = await getServerDb(idToken).collection("profiles").doc(token.uid).get();
         if (snap.exists) profileForStripe = snap.data() as Record<string, unknown>;
       }
-      const stripeErr = stripeListingPublishError(profileForStripe);
+      const stripeErr = await stripeListingPublishErrorAsync(profileForStripe);
       if (stripeErr) {
         return NextResponse.json({ error: stripeErr }, { status: 400 });
       }

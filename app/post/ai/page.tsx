@@ -16,7 +16,7 @@ import { showToast } from "../../components/Toast";
 import { detectScam } from "../../lib/scamdetection";
 import { detectSuspiciousPrice } from "../../lib/pricedetection";
 import { getListingBlockReason } from "../../lib/seller-eligibility";
-import { STRIPE_CONNECT_REQUIRED_MSG, sellerHasStripeConfigured } from "../../lib/seller-payments";
+import { STRIPE_CONNECT_REQUIRED_MSG, sellerCanUseStripeCheckout } from "../../lib/seller-payments";
 import { resolveListingType } from "../../lib/listing-types";
 import { hasActiveListingDraft, mergeListingFillWithDraft } from "../../lib/sky-ai-draft-merge";
 import { readListingDraftFromSkyAi, syncListingDraftToSkyAi } from "../../lib/sky-ai-listing-context";
@@ -654,7 +654,22 @@ export default function AIPostPage() {
           const snap = await getDoc(doc(db, "profiles", u.uid));
           if (snap.exists()) {
             const d = snap.data();
-            setStripeConnected(sellerHasStripeConfigured(d));
+            let connected = sellerCanUseStripeCheckout(d);
+            if (connected) {
+              try {
+                const token = await u.getIdToken();
+                const statusRes = await fetch("/api/stripe-connect", {
+                  headers: token ? { Authorization: `Bearer ${token}` } : {},
+                });
+                if (statusRes.ok) {
+                  const status = await statusRes.json();
+                  connected = !!status.connected;
+                }
+              } catch {
+                // keep profile-based result
+              }
+            }
+            setStripeConnected(connected);
             // Smart default: pre-fill location from user profile if not already set
             if (d.location && !location) {
               setLocation(d.location);

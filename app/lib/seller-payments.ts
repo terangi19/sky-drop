@@ -61,6 +61,32 @@ export function sellerHasStripeConfigured(
   return !!sellerProfile.stripeAccountId;
 }
 
+export type StripeKeyMode = "test" | "live";
+
+export function getPublishableKeyMode(publishableKey?: string): StripeKeyMode | null {
+  const key = publishableKey || process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "";
+  if (key.startsWith("pk_test_")) return "test";
+  if (key.startsWith("pk_live_")) return "live";
+  return null;
+}
+
+/** True when profile has a Connect account for the current publishable-key environment. */
+export function sellerStripeMatchesPlatform(
+  profile: (SellerProfileSlice & { stripeAccountKeyMode?: string }) | null | undefined
+): boolean {
+  if (!profile?.stripeAccountId) return false;
+  const platform = getPublishableKeyMode();
+  const stored = profile.stripeAccountKeyMode;
+  if (platform && stored) return platform === stored;
+  return true;
+}
+
+export function sellerCanUseStripeCheckout(
+  profile: (SellerProfileSlice & { stripeAccountKeyMode?: string }) | null | undefined
+): boolean {
+  return sellerHasStripeConfigured(profile) && sellerStripeMatchesPlatform(profile);
+}
+
 export const STRIPE_CONNECT_REQUIRED_MSG =
   "Connect Stripe in Profile → Payouts before using Stripe Checkout on listings.";
 

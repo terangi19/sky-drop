@@ -3,12 +3,75 @@ import { getStripe } from "../../lib/stripe-server";
 import { verifyIdToken, getServerDb } from "../../lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { rateLimit } from "../../lib/rate-limit";
+import {
+  clearStripeConnectFromProfile,
+  getStripeKeyMode,
+  isStripeModeMismatchError,
+  resolveStripeConnectAccount,
+  verifyStripeConnectAccount,
+} from "../../lib/stripe-connect-account";
 
-async function logStripeKeyInfo() {
-  if (process.env.NODE_ENV === "production") return;
-  const key = process.env.STRIPE_SECRET_KEY || "";
-  const prefix = key.slice(0, 7);
-  console.warn("[Stripe Connect] Key prefix:", prefix, "| length:", key.length);
+async function authenticate(req: NextRequest) {
+  const authHeader = req.headers.get("authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+  }
+  const idToken = authHeader.slice(7);
+  try {
+    const decodedToken = await verifyIdToken(idToken);
+    return { decodedToken, idToken };
+  } catch {
+    return { error: NextResponse.json({ error: "Invalid or expired token" }, { status: 401 }) };
+  }
+}
+
+/** Validate stored Connect account against current Stripe keys; auto-clear wrong-environment IDs. */
+export async function GET(req: NextRequest) {
+  try {
+    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+    const { allowed } = await rateLimit(`stripe-connect:${ip}`, 30, 60_000);
+    if (!allowed) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+
+    const auth = await authenticate(req);
+    if ("error" in auth && auth.error) return auth.error;
+    const { decodedToken, idToken } = auth;
+
+    const db = getServerDb(idToken!);
+    const profileDoc = await db.collection("profiles").doc(decodedToken!.uid).get();
+    const accountId = profileDoc.data()?.stripeAccountId as string | undefined;
+
+    const resolved = await resolveStripeConnectAccount(db, decodedToken!.uid, accountId);
+
+    if (resolved.cleared && resolved.modeMismatch) {
+      return NextResponse.json({
+        connected: false,
+        modeMismatch: true,
+        cleared: true,
+        message:
+          "Your Stripe account was connected in live mode but this environment uses test keys (or vice versa). Connect again below.",
+      });
+    }
+
+    if (!resolved.connected) {
+      return NextResponse.json({ connected: false });
+    }
+
+    const s = getStripe();
+    const account = await s.accounts.retrieve(resolved.accountId!);
+    return NextResponse.json({
+      connected: true,
+      accountId: resolved.accountId,
+      keyMode: getStripeKeyMode(),
+      detailsSubmitted: account.details_submitted,
+      chargesEnabled: account.charges_enabled,
+    });
+  } catch (e: unknown) {
+    console.error("Stripe Connect status error:", e);
+    const msg = e instanceof Error ? e.message : "Failed";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -19,83 +82,100 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }
 
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const idToken = authHeader.slice(7);
-    let decodedToken;
-    try {
-      decodedToken = await verifyIdToken(idToken);
-    } catch {
-      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
-    }
+    const auth = await authenticate(req);
+    if ("error" in auth && auth.error) return auth.error;
+    const { decodedToken, idToken } = auth;
 
     const body = await req.json();
     const { action, accountId, amount } = body;
-    const email = decodedToken.email; // Use authenticated user's email, not request body
+    const email = decodedToken!.email;
     const s = getStripe();
-
-    logStripeKeyInfo();
-
-    const balance = await s.balance.retrieve();
-    if (process.env.NODE_ENV !== "production") {
-      console.warn("[Stripe Connect] Balance livemode:", balance.livemode);
-      console.warn("[Stripe Connect] Balance available currencies:", balance.available.map((b: any) => b.currency));
-    }
-
-    const db = getServerDb(idToken);
+    const db = getServerDb(idToken!);
+    const uid = decodedToken!.uid;
+    const profileUrl = `${process.env.NEXT_PUBLIC_URL || "http://localhost:3000"}/profile?tab=payments`;
 
     if (action === "create") {
-      // Deduplicate: if profile already has a Stripe account, return existing
-      const existingProfile = await db.collection("profiles").doc(decodedToken.uid).get();
-      const existingAccountId = existingProfile.data()?.stripeAccountId;
+      const existingProfile = await db.collection("profiles").doc(uid).get();
+      const existingAccountId = existingProfile.data()?.stripeAccountId as string | undefined;
+
       if (existingAccountId) {
-        return NextResponse.json({ accountId: existingAccountId });
+        const resolved = await resolveStripeConnectAccount(db, uid, existingAccountId, s);
+        if (resolved.connected && resolved.accountId) {
+          return NextResponse.json({ accountId: resolved.accountId });
+        }
       }
 
-      let account;
-      try {
-        account = await s.accounts.create({
-          type: "express",
-          email,
-          capabilities: { transfers: { requested: true } },
-        });
-      } catch (createErr: any) {
-        console.error("[Stripe Connect] Full accounts.create error:", JSON.stringify(createErr, Object.getOwnPropertyNames(createErr)));
-        console.error("[Stripe Connect] Error type:", createErr.type);
-        console.error("[Stripe Connect] Error code:", createErr.code);
-        console.error("[Stripe Connect] Error statusCode:", createErr.statusCode);
-        console.error("[Stripe Connect] Error param:", createErr.param);
-        console.error("[Stripe Connect] Error stack:", createErr.stack);
-        throw createErr;
-      }
+      const account = await s.accounts.create({
+        type: "express",
+        email,
+        capabilities: { transfers: { requested: true } },
+      });
 
-      await db.collection("profiles").doc(decodedToken.uid).set({
-        stripeAccountId: account.id,
-        stripeConnectOnboarded: false,
-      }, { merge: true });
+      await db.collection("profiles").doc(uid).set(
+        {
+          stripeAccountId: account.id,
+          stripeConnectOnboarded: false,
+          stripeAccountKeyMode: getStripeKeyMode(),
+        },
+        { merge: true }
+      );
 
       return NextResponse.json({ accountId: account.id });
     }
 
     if (action === "onboard") {
-      const profileDoc = await db.collection("profiles").doc(decodedToken.uid).get();
-        if (!profileDoc.exists || profileDoc.data()!.stripeAccountId !== accountId) {
+      const profileDoc = await db.collection("profiles").doc(uid).get();
+      const storedId = profileDoc.data()?.stripeAccountId as string | undefined;
+      if (!profileDoc.exists || storedId !== accountId) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
       }
 
-      const link = await s.accountLinks.create({
-        account: accountId,
-        refresh_url: `${process.env.NEXT_PUBLIC_URL || "http://localhost:3000"}/profile`,
-        return_url: `${process.env.NEXT_PUBLIC_URL || "http://localhost:3000"}/profile`,
-        type: "account_onboarding",
-      });
-      return NextResponse.json({ url: link.url });
+      const verify = await verifyStripeConnectAccount(s, accountId);
+      if (verify !== "valid") {
+        await clearStripeConnectFromProfile(db, uid);
+        return NextResponse.json(
+          {
+            error:
+              "This Stripe account was connected in a different environment. Connect again to continue.",
+            needsReconnect: true,
+            modeMismatch: verify === "mode_mismatch",
+          },
+          { status: 400 }
+        );
+      }
+
+      try {
+        const link = await s.accountLinks.create({
+          account: accountId,
+          refresh_url: profileUrl,
+          return_url: profileUrl,
+          type: "account_onboarding",
+        });
+        return NextResponse.json({ url: link.url });
+      } catch (linkErr: unknown) {
+        if (isStripeModeMismatchError(linkErr)) {
+          await clearStripeConnectFromProfile(db, uid);
+          return NextResponse.json(
+            {
+              error:
+                "This Stripe account was connected in live mode but you're on test keys locally. Connect again.",
+              needsReconnect: true,
+              modeMismatch: true,
+            },
+            { status: 400 }
+          );
+        }
+        throw linkErr;
+      }
+    }
+
+    if (action === "disconnect") {
+      await clearStripeConnectFromProfile(db, uid);
+      return NextResponse.json({ success: true });
     }
 
     if (action === "withdraw") {
-      const profileRef = db.collection("profiles").doc(decodedToken.uid);
+      const profileRef = db.collection("profiles").doc(uid);
       const profileDoc = await profileRef.get();
       if (!profileDoc.exists || profileDoc.data()!.stripeAccountId !== accountId) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
@@ -135,9 +215,9 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("Stripe Connect error:", e);
-    return NextResponse.json({ error: e.message || "Failed" }, { status: 500 });
+    const msg = e instanceof Error ? e.message : "Failed";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
-

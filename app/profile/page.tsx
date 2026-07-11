@@ -224,6 +224,8 @@ const [followingList, setFollowingList] = useState<{sellerEmail: string; sellerI
 const [followerCount, setFollowerCount] = useState(0);
 const [stripeAccountId, setStripeAccountId] = useState("");
 const [stripeConnecting, setStripeConnecting] = useState(false);
+const [stripeStatusLoading, setStripeStatusLoading] = useState(false);
+const [stripeModeMismatch, setStripeModeMismatch] = useState(false);
   const [bankAccountName, setBankAccountName] = useState("");
   const [bankAccountNumber, setBankAccountNumber] = useState("");
   const [bankReference, setBankReference] = useState("");
@@ -452,6 +454,10 @@ const tabGroups = [
 
   useEffect(() => {
     if (loading) return;
+    if (typeof window !== "undefined") {
+      const tab = new URLSearchParams(window.location.search).get("tab");
+      if (tab === "payouts" || tab === "payments") setActiveTab("payments");
+    }
     const hash = typeof window !== "undefined" ? window.location.hash.slice(1) : "";
     if (!hash) return;
     const tabFromHash: Record<string, string> = {
@@ -1112,6 +1118,47 @@ const tabGroups = [
     } catch (e) { console.error(e); showToast("Could not delete listing. Please refresh and try again.", "error"); }
   }
 
+  async function refreshStripeStatus() {
+    if (!user?.uid) return;
+    setStripeStatusLoading(true);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) return;
+      const res = await fetch("/api/stripe-connect", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return;
+
+      if (data.modeMismatch && data.cleared) {
+        setStripeAccountId("");
+        setStripeModeMismatch(true);
+        showToast(
+          "Your live Stripe account was cleared for local test mode. Connect Stripe again.",
+          "error"
+        );
+        return;
+      }
+
+      setStripeModeMismatch(false);
+      if (data.connected && data.accountId) {
+        setStripeAccountId(data.accountId);
+      } else if (data.cleared || !data.connected) {
+        setStripeAccountId("");
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setStripeStatusLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === "payments" && user?.uid) {
+      void refreshStripeStatus();
+    }
+  }, [activeTab, user?.uid]);
+
   async function handleStripeConnect() {
     if (!user?.uid || !user.email) return;
     setStripeConnecting(true);
@@ -1133,8 +1180,13 @@ const tabGroups = [
       if (!res.ok) { showToast(data.error || "Failed to create Stripe account", "error"); setStripeConnecting(false); return; }
       if (!data.accountId) { showToast("No account ID returned from Stripe", "error"); setStripeConnecting(false); return; }
 
-      await setDoc(doc(db, "profiles", user.uid), { stripeAccountId: data.accountId }, { merge: true });
+      await setDoc(
+        doc(db, "profiles", user.uid),
+        { stripeAccountId: data.accountId, stripeConnectOnboarded: false },
+        { merge: true }
+      );
       setStripeAccountId(data.accountId);
+      setStripeModeMismatch(false);
 
       const token2 = await auth.currentUser?.getIdToken();
       if (!token2) { showToast("Please sign in again", "error"); setStripeConnecting(false); return; }
@@ -1175,7 +1227,16 @@ const tabGroups = [
         body: JSON.stringify({ action: "onboard", accountId: stripeAccountId }),
       });
       const data = await res.json();
-      if (!res.ok) { showToast(data.error || "Failed to open Stripe onboarding", "error"); return; }
+      if (!res.ok) {
+        if (data.needsReconnect) {
+          setStripeAccountId("");
+          setStripeModeMismatch(!!data.modeMismatch);
+          showToast(data.error || "Reconnect Stripe for this environment", "error");
+          return;
+        }
+        showToast(data.error || "Failed to open Stripe onboarding", "error");
+        return;
+      }
       if (!data.url) { showToast("No onboarding URL returned", "error"); return; }
 
       window.location.href = data.url;
@@ -1870,9 +1931,20 @@ const tabGroups = [
               <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <p className="text-sm font-medium text-white">Stripe checkout</p>
-                  {stripeAccountId && <span className="text-xs text-sky-400">Connected</span>}
+                  {stripeAccountId && !stripeModeMismatch && (
+                    <span className="text-xs text-sky-400">Connected</span>
+                  )}
+                  {stripeStatusLoading && (
+                    <span className="text-xs text-zinc-500">Checking…</span>
+                  )}
                 </div>
-                {stripeAccountId ? (
+                {stripeModeMismatch && (
+                  <p className="mb-3 text-xs leading-relaxed text-amber-400/90">
+                    Your Stripe account was connected in live mode but this environment uses test keys.
+                    Connect again below to use Stripe Checkout locally.
+                  </p>
+                )}
+                {stripeAccountId && !stripeModeMismatch ? (
                   <button onClick={handleStripeOnboard}
                     className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] py-2.5 text-sm font-medium transition-colors hover:bg-white/[0.06] active:scale-[0.98]">
                     Manage Stripe account

@@ -3,7 +3,7 @@ import { verifyIdToken, getServerDb, getAdminDb, isAdminInitialized } from "../.
 import { rateLimit } from "../../lib/rate-limit";
 import { sanitizeListingContent } from "../../lib/sanitize";
 import { createSystemNotification } from "../../lib/system-notifications";
-import { stripeListingPublishError } from "../../lib/seller-payments";
+import { stripeListingPublishErrorAsync } from "../../lib/stripe-connect-account";
 
 export async function PUT(req: NextRequest) {
   try {
@@ -128,7 +128,7 @@ export async function PUT(req: NextRequest) {
         const snap = await db.collection("profiles").doc(token.uid).get();
         if (snap.exists) profileForStripe = snap.data() as Record<string, unknown>;
       }
-      const stripeErr = stripeListingPublishError(profileForStripe);
+      const stripeErr = await stripeListingPublishErrorAsync(profileForStripe);
       if (stripeErr) {
         return NextResponse.json({ error: stripeErr }, { status: 400 });
       }
