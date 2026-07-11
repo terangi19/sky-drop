@@ -43,7 +43,22 @@ export async function POST(req: NextRequest) {
 
     const alreadyProcessed = await getAdminDb().runTransaction(async (tx) => {
       const snap = await tx.get(eventRef);
-      if (snap.exists) return true;
+      if (snap.exists) {
+        const eventData = snap.data();
+        // If event is stuck in "processing" for more than 5 minutes, allow retry
+        if (eventData?.status === "processing") {
+          const createdAt = eventData.createdAt?.toDate?.() || eventData.createdAt;
+          if (createdAt && (Date.now() - new Date(createdAt).getTime()) > 5 * 60 * 1000) {
+            // Update to allow retry
+            tx.update(eventRef, { status: "retrying", retriedAt: new Date() });
+            return false;
+          }
+          // Still processing, skip duplicate
+          return true;
+        }
+        // Already completed or failed, skip duplicate
+        return true;
+      }
       tx.set(eventRef, {
         eventId: event.id,
         type: event.type,
@@ -278,6 +293,62 @@ export async function POST(req: NextRequest) {
           disputeStatus: dispute.status === "won" ? "dispute_won" : dispute.status === "lost" ? "dispute_lost" : "dispute_closed",
           disputeClosedAt: new Date(),
         });
+      }
+    }
+
+    if (event.type === "charge.refund.updated" || (event.type as string) === "charge.refund.created") {
+      const refund = event.data.object as any;
+      const chargeId = refund.charge as string;
+      const db = getAdminDb();
+
+      let paymentIntentId = "";
+      let listingId = "";
+      let buyerEmail = "";
+      let sellerEmail = "";
+
+      try {
+        const charge = await stripe.charges.retrieve(chargeId, { expand: ["payment_intent"] });
+        const pi = charge.payment_intent as any;
+        paymentIntentId = pi?.id || "";
+        listingId = pi?.metadata?.listingId || "";
+        buyerEmail = pi?.metadata?.buyerEmail || "";
+        sellerEmail = pi?.metadata?.sellerEmail || "";
+      } catch {}
+
+      // Update purchase record with refund status
+      if (paymentIntentId) {
+        const purchases = await db.collection("purchases")
+          .where("stripePaymentIntentId", "==", paymentIntentId)
+          .limit(1)
+          .get();
+        if (!purchases.empty) {
+          const purchaseRef = purchases.docs[0].ref;
+          const refundAmount = refund.amount / 100;
+          const purchaseData = purchases.docs[0].data();
+          
+          await purchaseRef.update({
+            refundStatus: refund.status || "processing",
+            refundAmount: refundAmount,
+            refundId: refund.id,
+            refundedAt: new Date(refund.created * 1000),
+            status: "refunded",
+          });
+
+          await notifyAdmin({
+            type: "refund_created",
+            title: "Refund Initiated",
+            message: `Refund ${refund.id} for $${refundAmount.toFixed(2)} on purchase ${purchases.docs[0].id}`,
+            metadata: {
+              refundId: refund.id,
+              chargeId,
+              paymentIntentId,
+              listingId,
+              buyerEmail,
+              sellerEmail,
+              refundAmount,
+            },
+          });
+        }
       }
     }
 
