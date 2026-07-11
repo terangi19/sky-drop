@@ -8,6 +8,7 @@ import MarketplaceListingCard from "../components/MarketplaceListingCard";
 import { useListings } from "../useListings";
 import { useAuth } from "../contexts/AuthContext";
 import { listingBuyHref } from "../lib/buy-listing-route";
+import { isListingVisibleInMarketplace } from "../lib/listing-availability";
 import { rankListingsBySearch } from "../lib/marketplace-fuzzy-search";
 import { normalizeMarketplaceSearchQuery, processVoiceSearchTranscript } from "../lib/voice-search-pipeline";
 import { logVoiceSearch } from "../lib/voice-search-logger";
