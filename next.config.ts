@@ -60,6 +60,29 @@ const nextConfig = {
   swcMinify: true,
   compress: true,
   productionBrowserSourceMaps: false,
+
+  // Webpack configuration to handle nsfwjs model files
+  webpack: (config: any) => {
+    // Exclude nsfwjs model files from static analysis - they're loaded dynamically at runtime
+    config.externals = config.externals || [];
+    config.externals.push({
+      'nsfwjs/dist/models/inception_v3/group1-shard1of6.min.js': 'commonjs nsfwjs/dist/models/inception_v3/group1-shard1of6.min.js',
+      'nsfwjs/dist/models/inception_v3/group1-shard2of6.min.js': 'commonjs nsfwjs/dist/models/inception_v3/group1-shard2of6.min.js',
+      'nsfwjs/dist/models/inception_v3/group1-shard3of6.min.js': 'commonjs nsfwjs/dist/models/inception_v3/group1-shard3of6.min.js',
+      'nsfwjs/dist/models/inception_v3/group1-shard4of6.min.js': 'commonjs nsfwjs/dist/models/inception_v3/group1-shard4of6.min.js',
+      'nsfwjs/dist/models/inception_v3/group1-shard5of6.min.js': 'commonjs nsfwjs/dist/models/inception_v3/group1-shard5of6.min.js',
+      'nsfwjs/dist/models/inception_v3/group1-shard6of6.min.js': 'commonjs nsfwjs/dist/models/inception_v3/group1-shard6of6.min.js',
+      'nsfwjs/dist/models/mobilenet_v2/group1-shard1of1.min.js': 'commonjs nsfwjs/dist/models/mobilenet_v2/group1-shard1of1.min.js',
+    });
+
+    // Ignore these files during webpack's static analysis
+    config.ignoreWarnings = config.ignoreWarnings || [];
+    config.ignoreWarnings.push({
+      module: /nsfwjs\/dist\/models/,
+    });
+
+    return config;
+  },
   
   // Optimize bundle
   modularizeImports: {
