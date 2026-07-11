@@ -652,24 +652,24 @@ export default function AIPostPage() {
       if (u?.uid) {
         try {
           const snap = await getDoc(doc(db, "profiles", u.uid));
+          let connected = false;
+          try {
+            const token = await u.getIdToken();
+            const statusRes = await fetch("/api/stripe-connect", {
+              headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            if (statusRes.ok) {
+              const status = await statusRes.json();
+              connected = !!status.connected;
+            } else if (snap.exists()) {
+              connected = sellerCanUseStripeCheckout(snap.data());
+            }
+          } catch {
+            if (snap.exists()) connected = sellerCanUseStripeCheckout(snap.data());
+          }
+          setStripeConnected(connected);
           if (snap.exists()) {
             const d = snap.data();
-            let connected = sellerCanUseStripeCheckout(d);
-            if (connected) {
-              try {
-                const token = await u.getIdToken();
-                const statusRes = await fetch("/api/stripe-connect", {
-                  headers: token ? { Authorization: `Bearer ${token}` } : {},
-                });
-                if (statusRes.ok) {
-                  const status = await statusRes.json();
-                  connected = !!status.connected;
-                }
-              } catch {
-                // keep profile-based result
-              }
-            }
-            setStripeConnected(connected);
             // Smart default: pre-fill location from user profile if not already set
             if (d.location && !location) {
               setLocation(d.location);
@@ -728,6 +728,7 @@ export default function AIPostPage() {
     const editParam = new URLSearchParams(window.location.search).get("edit");
     if (!editParam) return;
     setEditId(editParam);
+    setShowAdvancedOptions(true);
     setEditLoading(true);
     getDoc(doc(db, "listings", editParam)).then((snap) => {
       if (!snap.exists()) return;
@@ -781,6 +782,9 @@ export default function AIPostPage() {
       setFloorArea(data.floorArea != null ? String(data.floorArea) : "");
       setParking(data.parking != null ? String(data.parking) : "");
       setAcceptOffers(!!data.acceptOffers);
+      if (data.paymentType === "stripe") {
+        setShowAdvancedOptions(true);
+      }
       setPaymentType(data.paymentType === "stripe" ? "stripe" : "contact");
       setPricingType(data.pricingType === "quote" ? "quote" : "fixed");
       setServicePricingType(

@@ -7,6 +7,7 @@ import Navbar from "../../../components/Navbar";
 import Background from "../../../components/Background";
 import ReportModal from "../../../components/ReportModal";
 import CheckoutModal from "../../../components/CheckoutModal";
+import SellerPaymentMethodControl from "../../../components/SellerPaymentMethodControl";
 import PromoteModal from "../../../components/PromoteModal";
 import JobApplicationModal from "../../../components/JobApplicationModal";
 import ArrangePurchaseModal from "../../../components/ArrangePurchaseModal";
@@ -205,6 +206,13 @@ export default function ListingPage() {
   const isAuctionWinner = Boolean(auctionEnded && listing && user?.email === listing.highestBidder);
 
   const isContactListing = (listing as { paymentType?: string })?.paymentType === "contact";
+
+  function isListingOwner(l: Listing | null, u: User | null): boolean {
+    if (!l || !u) return false;
+    if (l.sellerId && u.uid === l.sellerId) return true;
+    if (l.sellerEmail && u.email && l.sellerEmail.toLowerCase() === u.email.toLowerCase()) return true;
+    return false;
+  }
 
   function openPrimaryPurchase() {
     if (!user?.email || !listing) return;
@@ -1319,6 +1327,17 @@ export default function ListingPage() {
                 )}
               </div>
             )}
+
+            {listing &&
+              user &&
+              isListingOwner(listing, user) &&
+              listing.type !== "job" &&
+              listing.pricingType !== "quote" && (
+                <SellerPaymentMethodControl
+                  listingId={listingId}
+                  paymentType={(listing as { paymentType?: string }).paymentType}
+                />
+              )}
 
             {/* Property inquiry buttons */}
             {listing.type === "property" && (
