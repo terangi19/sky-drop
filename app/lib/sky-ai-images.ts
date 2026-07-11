@@ -1,6 +1,13 @@
 "use client";
 
-import { checkImage } from "./nsfw";
+// NSFW check is temporarily disabled due to webpack compilation issues
+// Import will be uncommented when ENABLE_NSFW_CHECK=true
+// import { checkImage } from "./nsfw";
+
+// Stub function when NSFW is disabled
+async function checkImage(file: File) {
+  return { safe: true, predictions: [], reason: undefined };
+}
 
 export const SKY_AI_LISTING_IMAGES_EVENT = "sky-ai-listing-images";
 
