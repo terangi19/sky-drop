@@ -6,8 +6,8 @@ import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-
 import stripePromise from "../lib/stripe-client";
 import { auth, db, storage, onAuthStateChanged } from "../lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { getFreshIdToken } from "../lib/api-auth";
 import { ref, getDownloadURL } from "firebase/storage";
+import { getFreshIdToken } from "../lib/api-auth";
 import { createNotification } from "../lib/notifications";
 import { sellerMessagesUrl, sellerProfileDisplayName } from "../lib/public-display";
 import { showToast } from "./Toast";
@@ -821,7 +821,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
                   <span>${Number(listing.rentalDeposit).toFixed(2)}</span>
                 </div>
               )}
-              <div className="mt-1 flex items-center justify-between text-white"><span>Buyer Protection</span><span>$1.00</span></div>
+              <div className="mt-1 flex items-center justify-between text-white"><span>Processing fee</span><span>${processingFee.toFixed(2)}</span></div>
               <div className="mt-2 flex items-center justify-between border-t border-white/[0.08] pt-2 text-sm font-bold text-white"><span>Total Due Today</span><span>${total.toFixed(2)}</span></div>
               {isRental && listing.rentalDeposit && <p className="mt-1 text-[10px] text-sky-400/70">${Number(listing.rentalDeposit).toFixed(2)} refundable after safe return.</p>}
             </div>
@@ -832,7 +832,11 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
               <div className="space-y-2">
                 <div className="flex items-start gap-2">
                   <span className="text-[10px] mt-0.5">1️⃣</span>
-                  <p className="text-[10px] text-sky-400/80">Order confirmed - Seller has received your shipping details</p>
+                  <p className="text-[10px] text-sky-400/80">
+                    {deliveryMethod === "pickup"
+                      ? "The seller has been notified. Contact them to arrange pickup."
+                      : "Seller has been notified of your purchase."}
+                  </p>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="text-[10px] mt-0.5">2️⃣</span>
@@ -845,10 +849,7 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
               </div>
             </div>
 
-            <div className="mt-3 rounded-xl border border-sky-500/20 bg-gradient-to-br from-sky-500/[0.06] to-sky-500/[0.02] px-3 py-2 text-left text-[10px] leading-relaxed text-sky-400/80">
-              💳 Secured by Stripe · 🛡️ Buyer Protection Active
-            </div>
-            <div className="mt-2 flex items-center justify-center gap-1 text-xs text-white">
+            <div className="mt-4 flex items-center justify-center gap-1 text-xs text-white">
               <span className="text-sky-400">✓</span>
               <span>Seller has been notified</span>
             </div>
@@ -856,20 +857,20 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
             {/* Action Buttons */}
             <div className="mt-5 space-y-2">
               <button
-                onClick={() => router.push("/purchases")}
-                className="w-full rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:brightness-110 active:scale-[0.98]"
-              >
-                View Order Details
-              </button>
-              <button
                 onClick={() =>
                   router.push(
                     sellerMessagesUrl(listing, listing.id, { purchased: 1 })
                   )
                 }
-                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-white/[0.06] hover:border-white/[0.12]"
+                className="w-full rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:brightness-110 active:scale-[0.98]"
               >
                 Message Seller
+              </button>
+              <button
+                onClick={() => router.push("/purchases")}
+                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] py-3 text-sm font-bold text-[var(--foreground)] transition hover:bg-white/[0.06] hover:border-white/[0.12]"
+              >
+                View Order Details
               </button>
               <button
                 onClick={safeClose}
