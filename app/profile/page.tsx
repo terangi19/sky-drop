@@ -630,11 +630,13 @@ const tabGroups = [
     if (isNewUser) {
       return [
         { id: "profile", label: "Profile", group: "account" },
+        { id: "verification", label: "Verification", group: "account" },
       ] as const;
     }
     // Full tabs for established users
     return [
       { id: "profile", label: "Profile", group: "account" },
+      { id: "verification", label: "Verification", group: "account" },
       { id: "payments", label: "Payments", group: "account" },
       { id: "notifications", label: "Notifications", group: "account" },
       { id: "settings", label: "Settings", group: "account" },
