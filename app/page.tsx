@@ -888,10 +888,10 @@ export default function Home() {
           <div className="relative z-10 px-5 py-4 sm:px-6 sm:py-5">
             <div className="mx-auto max-w-2xl text-center">
               <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl lg:text-4xl">
-                Buy & Sell Smarter in New Zealand
+                Buy & Sell in New Zealand
               </h1>
               <p className="mt-3 text-base text-[var(--muted)] sm:text-lg">
-                Create listings in seconds with Āwhina AI.
+                Local marketplace for New Zealand
               </p>
               {user ? (
                 <div className="mt-4 flex justify-center">
@@ -1122,7 +1122,7 @@ export default function Home() {
                   </svg>
                 </div>
                 <h2 className="text-2xl font-black tracking-tight text-white mb-2">Welcome to Sky Drop</h2>
-                <p className="text-sm text-[var(--muted)] mb-6">No listings yet — be the first to list something and start selling!</p>
+                <p className="text-sm text-[var(--muted)] mb-6">No listings yet — be the first to list something and start selling! It's free and takes seconds with AI.</p>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
                   <Link href="/post/ai"
                     className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.97]">
@@ -1164,6 +1164,10 @@ export default function Home() {
                   <Link href="/post/ai?type=wanted"
                     className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-[var(--card)] px-6 py-3.5 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:bg-[var(--card-hover)] active:scale-[0.97]">
                     Post a Wanted ad
+                  </Link>
+                  <Link href="/"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-[var(--card)] px-6 py-3.5 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:bg-[var(--card-hover)] active:scale-[0.97]">
+                    Browse All Listings
                   </Link>
                 </div>
               </>

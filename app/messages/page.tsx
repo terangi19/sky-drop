@@ -517,12 +517,27 @@ function MessagesPage() {
 
   // Compute filteredMessages for chat view
   const filteredMessages = useMemo(
-    () =>
-      messages
+    () => {
+      const filtered = messages
         .filter((msg: any) =>
           messageInActiveConversation(msg, user?.email || "", chatUser, chatListingId)
         )
-        .reverse(),
+        .reverse();
+      
+      // Deduplicate order messages by orderId to prevent duplicate payment confirmation cards
+      const seenOrderIds = new Set<string>();
+      const deduplicated = filtered.filter((msg: any) => {
+        if (msg.type === "order" && msg.orderId) {
+          if (seenOrderIds.has(msg.orderId)) {
+            return false;
+          }
+          seenOrderIds.add(msg.orderId);
+        }
+        return true;
+      });
+      
+      return deduplicated;
+    },
     [messages, chatUser, chatListingId, user?.email]
   );
     // Auto-scroll
@@ -1746,7 +1761,7 @@ function MessagesPage() {
                           const isWantedListing = listingCard?.type === "wanted" || msg.listingType === "wanted";
                           const getStatusConfig = (status?: string) => {
                             const configs: Record<string, { icon: string; label: string; color: string; bg: string; border: string }> = {
-                              paid: { icon: "💳", label: "Payment Confirmed", color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/20" },
+                              paid: { icon: "✅", label: "Payment Confirmed", color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/20" },
                               awaiting_seller: { icon: "⏳", label: "Awaiting Seller", color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/20" },
                               pickup_arranged: { icon: "📍", label: "Pickup Arranged", color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/20" },
                               shipped: { icon: "🚚", label: "Shipped", color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/20" },
@@ -1759,109 +1774,57 @@ function MessagesPage() {
                           const statusConfig = isWantedListing ? { icon: "📋", label: "Wanted", color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/20" } : getStatusConfig(msg.orderStatus);
                           const isCompleted = !isWantedListing && (msg.orderStatus === "completed" || msg.orderStatus === "delivered");
                           const isDisputed = !isWantedListing && msg.orderStatus === "disputed";
+                          const isPaid = !isWantedListing && msg.orderStatus === "paid";
 
                           return (
                             <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
                               <div className="w-full max-w-md">
                                 <div className={`overflow-hidden rounded-2xl bg-[var(--card)] shadow-lg hover:shadow-xl transition-shadow duration-200`}>
-                                  {/* Header */}
-                                  <div className="flex items-start gap-3 p-4 border-b border-white/[0.04]">
-                                    {/* Thumbnail */}
-                                    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-[var(--soft-card)]">
-                                      {msg.listingImage ? (
-                                        <img src={msg.listingImage} alt="" className="h-full w-full object-cover" />
-                                      ) : (
-                                        <div className="flex h-full w-full items-center justify-center text-[var(--muted)]">
-                                          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                          </svg>
+                                  {/* Header with status */}
+                                  <div className="flex items-center justify-between p-4 border-b border-white/[0.04]">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-lg">{statusConfig.icon}</span>
+                                      <span className={`text-sm font-bold ${statusConfig.color}`}>{statusConfig.label}</span>
+                                    </div>
+                                    <div className="text-[10px] text-[var(--muted)]">
+                                      {(msg.purchaseId || msg.id).slice(-8).toUpperCase()}
+                                    </div>
+                                  </div>
+
+                                  {/* Order summary */}
+                                  <div className="p-4">
+                                    <div className="flex gap-3">
+                                      {/* Thumbnail */}
+                                      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[var(--soft-card)]">
+                                        {msg.listingImage ? (
+                                          <img src={msg.listingImage} alt="" className="h-full w-full object-cover" />
+                                        ) : (
+                                          <div className="flex h-full w-full items-center justify-center text-[var(--muted)]">
+                                            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                            </svg>
+                                          </div>
+                                        )}
+                                      </div>
+                                      {/* Listing info */}
+                                      <div className="min-w-0 flex-1">
+                                        <h3 className="truncate text-sm font-bold text-[var(--foreground)]">{msg.listingTitle || "Listing"}</h3>
+                                        <div className="mt-1 flex items-baseline gap-2">
+                                          <span className="text-sm font-semibold text-[var(--foreground)]">${msg.listingPrice || "—"}</span>
+                                          <span className="text-xs text-[var(--muted)]">·</span>
+                                          <span className="text-xs text-[var(--muted)]">{formatTime(msg.createdAt)}</span>
                                         </div>
-                                      )}
-                                    </div>
-                                    {/* Title, Price, Seller */}
-                                    <div className="min-w-0 flex-1">
-                                      <h3 className="truncate text-sm font-bold text-[var(--foreground)]">{msg.listingTitle || "Listing"}</h3>
-                                      <div className="mt-1 flex items-center gap-2">
-                                        <span className="text-lg font-black text-sky-400">${msg.listingPrice || "—"}</span>
-                                        <span className="text-xs text-[var(--muted)]">·</span>
-                                        <span className="text-xs text-[var(--muted)]">{chatUser}</span>
-                                      </div>
-                                      <div className="mt-1 flex items-center gap-2 text-[10px] text-[var(--muted)]">
-                                        <span>ID: {(msg.purchaseId || msg.id).slice(-8).toUpperCase()}</span>
-                                        <span>·</span>
-                                        <span>{formatTime(msg.createdAt)}</span>
-                                      </div>
-                                    </div>
-                                    {/* Status Pill */}
-                                    <div className={`shrink-0 rounded-full border ${statusConfig.border} ${statusConfig.bg} px-3 py-1.5`}>
-                                      <div className="flex items-center gap-1.5">
-                                        <span>{statusConfig.icon}</span>
-                                        <span className={`text-[11px] font-bold uppercase tracking-wide ${statusConfig.color}`}>
-                                          {statusConfig.label}
-                                        </span>
+                                        {isPaid && (
+                                          <p className="mt-2 text-xs text-sky-400">
+                                            Next: Message the seller to arrange pickup or shipping.
+                                          </p>
+                                        )}
                                       </div>
                                     </div>
                                   </div>
 
-                                  {/* Content: Progress Tracker OR Success State */}
-                                  {isWantedListing ? (
-                                    <div className="px-4 py-3 bg-[var(--card)] border-b border-[var(--border)]">
-                                      <div className="flex items-center gap-2">
-                                        <div className={`flex h-8 w-8 items-center justify-center rounded-full ${statusConfig.bg}`}>
-                                          <span className="text-lg">{statusConfig.icon}</span>
-                                        </div>
-                                        <div>
-                                          <p className="text-sm font-medium text-[var(--foreground)]">Wanted Listing</p>
-                                          <p className="text-[10px] text-[var(--muted)]">Sellers can message you about this request</p>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  ) : isCompleted ? (
-                                    // Success State for completed orders
-                                    <div className="px-4 py-4 bg-sky-500/5 border-b border-sky-500/10">
-                                      <div className="flex items-center gap-3">
-                                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-500/20">
-                                          <svg className="h-5 w-5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                          </svg>
-                                        </div>
-                                        <div>
-                                          <p className="text-sm font-bold text-sky-400">Order Completed</p>
-                                          <p className="text-[11px] text-sky-400/80">Your purchase has been successfully delivered.</p>
-                                        </div>
-                                      </div>
-                                      <div className="mt-3 flex items-center gap-4 text-[10px] text-[var(--muted)]">
-                                        <span>Delivered: {formatTime(msg.createdAt)}</span>
-                                        <span>Seller: {chatUser}</span>
-                                      </div>
-                                    </div>
-                                  ) : isDisputed ? (
-                                    // Dispute State
-                                    <div className="px-4 py-3 bg-red-500/5 border-b border-red-500/10">
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-lg">⚠️</span>
-                                        <p className="text-xs font-medium text-red-400">This order is under dispute review</p>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    // Simple Status for in-progress orders
-                                    <div className="px-4 py-3 bg-[var(--card)] border-b border-[var(--border)]">
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                          <div className={`flex h-8 w-8 items-center justify-center rounded-full ${statusConfig.bg}`}>
-                                            <span className="text-lg">{statusConfig.icon}</span>
-                                          </div>
-                                          <div>
-                                            <p className="text-sm font-medium text-[var(--foreground)]">{statusConfig.label}</p>
-                                            <p className="text-[10px] text-[var(--muted)]">Updated {formatTime(msg.createdAt)}</p>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )}
-
                                   {/* Actions */}
-                                  <div className="flex items-center gap-2 p-3">
+                                  <div className="flex items-center gap-2 p-4 border-t border-white/[0.04]">
                                     <button
                                       onClick={() =>
                                         router.push(
@@ -1874,28 +1837,28 @@ function MessagesPage() {
                                           )
                                         )
                                       }
-                                      className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 py-2 text-[11px] font-bold text-sky-400 transition hover:bg-sky-500/20"
+                                      className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-sky-500 px-3 py-2.5 text-[11px] font-bold text-white transition hover:bg-sky-400"
                                     >
                                       <span>💬</span>
                                       <span>Message Seller</span>
                                     </button>
                                     <button
+                                      onClick={() => router.push("/purchases")}
+                                      className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2.5 text-[11px] font-bold text-[var(--foreground)] transition hover:border-sky-500/20 hover:bg-[var(--card-hover)]"
+                                    >
+                                      <span>📋</span>
+                                      <span>View Order</span>
+                                    </button>
+                                    <button
                                       onClick={() => router.push(`/post/listing/${chatListingId}`)}
-                                      className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-[11px] font-bold text-[var(--foreground)] transition hover:border-sky-500/20 hover:bg-[var(--card-hover)]"
+                                      className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2.5 text-[11px] font-bold text-[var(--foreground)] transition hover:border-sky-500/20 hover:bg-[var(--card-hover)]"
                                     >
                                       <span>🔗</span>
                                       <span>View Listing</span>
                                     </button>
-                                    {isCompleted ? (
+                                    {isDisputed && (
                                       <button
-                                        className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 py-2 text-[11px] font-bold text-sky-400 transition hover:bg-sky-500/20"
-                                      >
-                                        <span>⭐</span>
-                                        <span>Review</span>
-                                      </button>
-                                    ) : (
-                                      <button
-                                        className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-[11px] font-bold text-red-400 transition hover:bg-red-500/20"
+                                        className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-[11px] font-bold text-red-400 transition hover:bg-red-500/20"
                                       >
                                         <span>⚠️</span>
                                         <span>Dispute</span>
