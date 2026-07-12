@@ -69,7 +69,7 @@ export function getBuyerPurchaseUiState(
 
   if (!tracksStock) {
     const soldOut = listing.status === "sold";
-    const purchased = buyerPurchasedQuantity > 0 || soldOut;
+    const purchased = buyerPurchasedQuantity > 0;
     const hasRequest = arrangeRequestCount > 0 && !purchased;
     return {
       ...base,

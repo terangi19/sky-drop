@@ -32,6 +32,10 @@ import {
   countBuyerPurchasedQuantity,
   getBuyerPurchaseUiState,
 } from "../../../lib/buyer-purchase-ui";
+import {
+  getListingPurchaseViewState,
+  type ListingOrderSlice,
+} from "../../../lib/listing-purchase-state";
 import { ReviewStars } from "../../../components/SellerReviewStars";
 import ServicePricingBadge from "../../../components/ServicePricingBadge";
 import { formatServicePriceDisplay } from "../../../lib/service-pricing";
@@ -169,7 +173,8 @@ export default function ListingPage() {
   const [winningBid, setWinningBid] = useState<number | null>(null);
   const [showPromote, setShowPromote] = useState(false);
   const [showJobApplication, setShowJobApplication] = useState(false);
-  const [buyerPurchases, setBuyerPurchases] = useState<{ status?: string }[]>([]);
+  const [buyerPurchases, setBuyerPurchases] = useState<ListingOrderSlice[]>([]);
+  const [sellerListingOrders, setSellerListingOrders] = useState<ListingOrderSlice[]>([]);
   const [sellerReviewData, setSellerReviewData] = useState<{ avg: number; count: number } | null>(null);
   const [sellerSalesCount, setSellerSalesCount] = useState<number | null>(null);
   const [bidAmount, setBidAmount] = useState("");
@@ -264,6 +269,7 @@ export default function ListingPage() {
   function isListingOwner(l: Listing | null, u: User | null): boolean {
     if (!l || !u) return false;
     if (l.sellerId && u.uid === l.sellerId) return true;
+    if (l.userId && u.uid === l.userId) return true;
     if (l.sellerEmail && u.email && l.sellerEmail.toLowerCase() === u.email.toLowerCase()) return true;
     return false;
   }
@@ -386,6 +392,8 @@ export default function ListingPage() {
     if (typeof window === "undefined" || new URLSearchParams(window.location.search).get("buy") !== "1") return;
     if (!user?.email || !listing) return;
     if (listing.pricingType === "quote") return;
+    if (isListingOwner(listing, user)) return;
+    if (!isListingAvailableForPurchase(listing)) return;
 
     let cancelled = false;
     void (async () => {
@@ -548,12 +556,36 @@ export default function ListingPage() {
     const unsub = onSnapshot(
       q,
       (snap) => {
-        setBuyerPurchases(snap.docs.map((d) => d.data() as { status?: string }));
+        setBuyerPurchases(
+          snap.docs.map((d) => ({ id: d.id, ...(d.data() as ListingOrderSlice) }))
+        );
       },
       (e) => console.error("Buyer purchases snapshot:", e)
     );
     return () => unsub();
   }, [user?.email, listingId]);
+
+  useEffect(() => {
+    if (!user?.email || !listingId || !listing || !isListingOwner(listing, user)) {
+      setSellerListingOrders([]);
+      return;
+    }
+    const q = query(
+      collection(db, "purchases"),
+      where("listingId", "==", listingId),
+      where("sellerEmail", "==", user.email)
+    );
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        setSellerListingOrders(
+          snap.docs.map((d) => ({ id: d.id, ...(d.data() as ListingOrderSlice) }))
+        );
+      },
+      (e) => console.error("Seller listing orders snapshot:", e)
+    );
+    return () => unsub();
+  }, [user?.email, user?.uid, listingId, listing?.sellerEmail, listing?.sellerId]);
 
   const buyerPurchasedQuantity = useMemo(
     () => countBuyerPurchasedQuantity(buyerPurchases),
@@ -575,8 +607,37 @@ export default function ListingPage() {
     [listing, buyerPurchasedQuantity, buyerArrangeRequestCount]
   );
 
+  const listingOrders = useMemo(
+    () => (listing && user && isListingOwner(listing, user) ? sellerListingOrders : buyerPurchases),
+    [listing, user, sellerListingOrders, buyerPurchases]
+  );
+
+  const purchaseView = useMemo(
+    () =>
+      getListingPurchaseViewState({
+        listing,
+        userUid: user?.uid,
+        userEmail: user?.email,
+        listingSellerId: listing?.sellerId || listing?.userId,
+        listingSellerEmail: listing?.sellerEmail,
+        buyerPurchasedQuantity,
+        arrangeRequestCount: buyerArrangeRequestCount,
+        listingOrders,
+      }),
+    [
+      listing,
+      user?.uid,
+      user?.email,
+      buyerPurchasedQuantity,
+      buyerArrangeRequestCount,
+      listingOrders,
+    ]
+  );
+
   const canShowBuyerPurchaseCta =
     !!listing &&
+    purchaseView.role === "buyer" &&
+    !purchaseView.hasActiveOrder &&
     (purchaseUi.canPurchaseMore ||
       (isContactListing && buyerArrangeRequestCount > 0) ||
       (!isContactListing &&
@@ -1281,9 +1342,56 @@ export default function ListingPage() {
               </div>
             )}
 
-            {purchaseUi.showPurchasedBanner && purchaseUi.bannerText && (
-              <div className="mt-2 flex items-center gap-1.5 rounded-lg border border-sky-500/20 bg-sky-500/10 px-3 py-1.5">
-                <span className="text-sky-400 text-[11px]">✓ {purchaseUi.bannerText}</span>
+            {purchaseView.showOrderStatusSection && (
+              <div className="mt-3 rounded-xl border border-sky-500/20 bg-sky-500/5 px-4 py-3 space-y-3">
+                {purchaseView.showBuyerPurchasedBanner && purchaseView.buyerBannerText && (
+                  <>
+                    <p className="text-sm font-bold text-sky-300">
+                      ✓ {purchaseView.buyerBannerText}
+                    </p>
+                    {purchaseView.orderStatusLabel && (
+                      <p className="text-xs text-[var(--muted)]">{purchaseView.orderStatusLabel}</p>
+                    )}
+                    <Link
+                      href="/purchases"
+                      className="inline-flex items-center gap-1 text-xs font-bold text-sky-400 hover:text-sky-300 transition-colors"
+                    >
+                      View Order
+                    </Link>
+                  </>
+                )}
+
+                {purchaseView.showSellerSoldUi && (
+                  <>
+                    <p className="text-sm font-bold text-sky-300">This item has been sold</p>
+                    {purchaseView.orderStatusLabel && (
+                      <p className="text-xs text-[var(--muted)]">{purchaseView.orderStatusLabel}</p>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {purchaseView.primaryOrder?.buyerEmail && (
+                        <Link
+                          href={sellerMessagesUrl(
+                            { buyerEmail: purchaseView.primaryOrder.buyerEmail },
+                            listingId
+                          )}
+                          className="inline-flex h-10 items-center justify-center rounded-lg border border-sky-500/30 bg-sky-500/10 px-4 text-xs font-bold text-sky-400 transition hover:bg-sky-500/20"
+                        >
+                          Message Buyer
+                        </Link>
+                      )}
+                      <Link
+                        href="/sales"
+                        className="inline-flex h-10 items-center justify-center rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 text-xs font-bold text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-white/[0.06]"
+                      >
+                        View Order
+                      </Link>
+                    </div>
+                  </>
+                )}
+
+                {purchaseView.showPublicSoldUi && (
+                  <p className="text-sm font-bold text-[var(--muted)]">This item has been sold</p>
+                )}
               </div>
             )}
 
@@ -1515,7 +1623,8 @@ export default function ListingPage() {
               user &&
               isListingOwner(listing, user) &&
               listing.type !== "job" &&
-              listing.pricingType !== "quote" && (
+              listing.pricingType !== "quote" &&
+              !purchaseView.hidePaymentMethodSection && (
                 <SellerPaymentMethodControl
                   listingId={listingId}
                   paymentType={(listing as { paymentType?: string }).paymentType}
@@ -2527,7 +2636,7 @@ Service Status: 🟢 Inquiry Active`;
       )}
 
       {/* STICKY MOBILE CTA BAR — hidden on lg+, hidden when native buttons are in view */}
-      {listing && stickyBarVisible && user?.email !== listing.sellerEmail && isListingVisibleInMarketplace(listing) && !isExpired && listing.type !== "job" && (
+      {listing && stickyBarVisible && purchaseView.role === "buyer" && !purchaseView.hasActiveOrder && isListingVisibleInMarketplace(listing) && !isExpired && listing.type !== "job" && (
         <div className="fixed bottom-0 inset-x-0 z-40 lg:hidden border-t border-white/[0.06] bg-zinc-950/95 backdrop-blur-xl px-4 py-3 flex gap-3" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
           {user ? (
             <>
