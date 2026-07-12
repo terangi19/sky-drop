@@ -36,6 +36,7 @@ import {
   SKY_AI_MAX_IMAGES_PER_MESSAGE,
 } from "../lib/sky-ai-images";
 import { getFreshIdToken } from "../lib/api-auth";
+import { getClientCsrfToken } from "../lib/csrf-client";
 import { resolveVoiceCommand } from "../lib/awhina-voice-command";
 import { showToast } from "./Toast";
 import { useVoiceInput } from "../hooks/useVoiceInput";
@@ -1012,9 +1013,14 @@ export default function SkyAiChatPanel({
                   }
                   const fill = listingPreviewFill;
                   if (!fill) { setPublishing(false); return; }
+                  const csrfToken = await getClientCsrfToken();
                   const res = await fetch("/api/create-listing", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${token}`,
+                      ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
+                    },
                     body: JSON.stringify({
                       title: fill.title || "Untitled",
                       description: fill.description || "",
