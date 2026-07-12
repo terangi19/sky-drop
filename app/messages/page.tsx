@@ -41,7 +41,7 @@ import { extractEmailsFromText,
   sanitizePublicText,
   sellerProfileSlug,
 } from "../lib/public-display";
-import { resolveSellerBySlug } from "../lib/seller-profile-lookup";
+import { fetchPublicProfileBySlug } from "../lib/fetch-public-profile-client";
 import { sellerMessagesUrl } from "../lib/public-display";
 import { canSellerConfirmArrangeSale, countSellerSales } from "../lib/arrange-purchase-status";
 import { getFreshIdToken } from "../lib/api-auth";
@@ -243,8 +243,8 @@ function MessagesPage() {
       if (isEmailLike(param)) {
         setChatUser(param);
       } else {
-        resolveSellerBySlug(param).then((resolved) => {
-          const profileEmail = (resolved?.data as any)?.email || param;
+        fetchPublicProfileBySlug(param).then((profile) => {
+          const profileEmail = profile?.email || param;
           setChatUser(profileEmail);
         }).catch(() => setChatUser(param));
       }
@@ -287,43 +287,24 @@ function MessagesPage() {
     let cancelled = false;
     (async () => {
       try {
-        const snap = await getDocs(query(collection(db, "profiles"), where("email", "==", chatUser)));
-        if (!snap.empty && !cancelled) {
-          const data = snap.docs[0].data();
+        const profile = await fetchPublicProfileBySlug(chatUser);
+        if (profile && !cancelled) {
+          const profileEmail = profile.email || chatUser;
           const purchaseSnap = await getDocs(
-            query(collection(db, "purchases"), where("sellerEmail", "==", chatUser), limit(100))
+            query(collection(db, "purchases"), where("sellerEmail", "==", profileEmail), limit(100))
           );
           const salesTotal = countSellerSales(
             purchaseSnap.docs.map((d) => d.data() as { status?: string; paymentType?: string })
           );
           setSellerProfile({
-            id: snap.docs[0].id,
-            ...data,
-            sales: salesTotal,
+            id: profile.uid,
+            ...profile,
+            sales: salesTotal || profile.salesCount || 0,
           });
-          const trust = calculateTrustScore(data as any);
+          const trust = calculateTrustScore(profile as any);
           setSellerTrust({ score: trust.score, level: trust.score >= 80 ? "Trusted" : trust.score >= 50 ? "Established" : "New" });
         } else if (!cancelled) {
-          const resolved = await resolveSellerBySlug(chatUser);
-          if (resolved && !cancelled) {
-            const data = resolved.data as any;
-            const profileEmail = data.email || chatUser;
-            const purchaseSnap = await getDocs(
-              query(collection(db, "purchases"), where("sellerEmail", "==", profileEmail), limit(100))
-            );
-            const salesTotal = countSellerSales(
-              purchaseSnap.docs.map((d) => d.data() as { status?: string; paymentType?: string })
-            );
-            setSellerProfile({
-              id: resolved.uid,
-              ...data,
-              sales: salesTotal,
-            });
-            const trust = calculateTrustScore(data as any);
-            setSellerTrust({ score: trust.score, level: trust.score >= 80 ? "Trusted" : trust.score >= 50 ? "Established" : "New" });
-          } else {
-            setSellerProfile(null);
-          }
+          setSellerProfile(null);
         }
       } catch (e) { console.error("Failed to fetch seller profile:", e); }
     })();
@@ -469,20 +450,13 @@ function MessagesPage() {
     if (!identifier || identifier === "system") return;
     if (!forceRefresh && usernames[identifier]) return;
     try {
-      const snap = await getDocs(query(collection(db, "profiles"), where("email", "==", identifier), limit(1)));
+      const profile = await fetchPublicProfileBySlug(identifier, { forceRefresh });
       let handle = "User";
-      if (!snap.empty) {
-        handle = publicHandleFromProfile(snap.docs[0].data() as { username?: string }, "User");
-      } else {
-        const resolved = await resolveSellerBySlug(identifier);
-        if (resolved) {
-          const profileEmail = (resolved.data as any)?.email || identifier;
-          if (!forceRefresh && usernames[profileEmail]) {
-            handle = usernames[profileEmail];
-          } else {
-            handle = publicHandleFromProfile(resolved.data as { username?: string }, "User");
-            setUsernames((prev) => ({ ...prev, [profileEmail]: handle }));
-          }
+      if (profile) {
+        handle = publicHandleFromProfile(profile, "User");
+        const profileEmail = profile.email;
+        if (profileEmail && profileEmail !== identifier) {
+          setUsernames((prev) => ({ ...prev, [profileEmail]: handle }));
         }
       }
       setUsernames((prev) => ({ ...prev, [identifier]: handle }));

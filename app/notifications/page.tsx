@@ -20,9 +20,9 @@ import {
 import { User } from "firebase/auth";
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import { showToast } from "../components/Toast";
+import { fetchPublicHandle as resolvePublicHandle } from "../lib/fetch-public-profile-client";
 import {
   extractEmailsFromText,
-  publicHandleFromProfile,
   sanitizePublicText,
 } from "../lib/public-display";
 
@@ -77,10 +77,7 @@ export default function NotificationsPage() {
   async function fetchPublicHandle(email: string) {
     if (!email || publicHandles[email]) return;
     try {
-      const snap = await getDocs(query(collection(db, "profiles"), where("email", "==", email)));
-      const handle = snap.empty
-        ? "User"
-        : publicHandleFromProfile(snap.docs[0].data() as { username?: string }, "User");
+      const handle = await resolvePublicHandle(email, "User");
       setPublicHandles((prev) => ({ ...prev, [email]: handle }));
     } catch {
       /* ignore */

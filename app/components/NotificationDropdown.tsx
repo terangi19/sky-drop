@@ -1,20 +1,8 @@
 "use client";
 
-import {
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  limit,
-} from "firebase/firestore";
-import { db } from "../lib/firebase";
-import { isEmailLike, publicHandleFromProfile } from "../lib/public-display";
+import { fetchPublicHandle } from "../lib/fetch-public-profile-client";
 import { MENU_PANEL_CLASS } from "./ui/AppMenu";
 
 type NotificationItem = {
@@ -110,21 +98,11 @@ export default function NotificationDropdown({
     const timer = setTimeout(async () => {
       const batch = emails.slice(0, 10);
       try {
-        const snap = await getDocs(
-          query(collection(db, "profiles"), where("email", "in", batch))
+        const entries = await Promise.all(
+          batch.map(async (email) => [email, await fetchPublicHandle(email, "User")] as const)
         );
         if (id !== fetchRef.current) return;
-        const map: Record<string, string> = {};
-        snap.forEach((d) => {
-          const data = d.data();
-          const email = data.email as string | undefined;
-          if (email) {
-            map[email] = publicHandleFromProfile(
-              { username: data.username },
-              "User"
-            );
-          }
-        });
+        const map = Object.fromEntries(entries);
         setUsernames((prev) => ({ ...prev, ...map }));
       } catch (e) { console.error("Failed to fetch usernames:", e); }
     }, 300);
