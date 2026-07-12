@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { fetchPublicHandle } from "../lib/fetch-public-profile-client";
 import { MENU_PANEL_CLASS } from "./ui/AppMenu";
+import { isEmailLike } from "../lib/public-display";
 
 type NotificationItem = {
   id: string;
