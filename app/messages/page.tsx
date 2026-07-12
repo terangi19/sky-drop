@@ -306,6 +306,12 @@ function MessagesPage() {
     })();
     return () => { cancelled = true; };
   }, [chatUser]);
+
+  // Force refresh username for current chat user to avoid stale cache
+  useEffect(() => {
+    if (!chatUser) return;
+    fetchUsername(chatUser, true);
+  }, [chatUser]);
   // Close profile preview on outside click
   useEffect(() => {
     if (!showProfilePreview) return;
@@ -435,9 +441,10 @@ function MessagesPage() {
 
     return () => { cancelled = true; };
   }, [chatUser, user, messages, chatListingId]);
-  // Fetch usernames
-  async function fetchUsername(identifier: string) {
-    if (!identifier || identifier === "system" || usernames[identifier]) return;
+  // Fetch usernames - always fetch fresh data for current chat user to avoid stale cache
+  async function fetchUsername(identifier: string, forceRefresh = false) {
+    if (!identifier || identifier === "system") return;
+    if (!forceRefresh && usernames[identifier]) return;
     try {
       const snap = await getDocs(query(collection(db, "profiles"), where("email", "==", identifier), limit(1)));
       let handle = "User";
@@ -447,7 +454,7 @@ function MessagesPage() {
         const resolved = await resolveSellerBySlug(identifier);
         if (resolved) {
           const profileEmail = (resolved.data as any)?.email || identifier;
-          if (usernames[profileEmail]) {
+          if (!forceRefresh && usernames[profileEmail]) {
             handle = usernames[profileEmail];
           } else {
             handle = publicHandleFromProfile(resolved.data as { username?: string }, "User");
