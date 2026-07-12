@@ -11,7 +11,8 @@ export type PurchaseStatus =
   | "shipped"
   | "delivered"
   | "completed"
-  | "cancelled";
+  | "cancelled"
+  | "refunded";
 
 const TRANSITIONS: Record<PurchaseStatus, PurchaseStatus[]> = {
   pending:            ["seller_confirming", "shipped", "cancelled"],
@@ -20,6 +21,7 @@ const TRANSITIONS: Record<PurchaseStatus, PurchaseStatus[]> = {
   delivered:          ["completed"],
   completed:          [],
   cancelled:          [],
+  refunded:           [],
 };
 
 /** Valid next states for a given current status */
@@ -50,6 +52,7 @@ export const STATUS_LABELS: Record<PurchaseStatus, string> = {
   delivered:          "Delivered",
   completed:          "Completed",
   cancelled:          "Cancelled",
+  refunded:           "Refunded",
 };
 
 /** Colour scheme tokens for UI badges */
@@ -60,4 +63,5 @@ export const STATUS_STYLES: Record<PurchaseStatus, string> = {
   delivered:          "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   completed:          "bg-green-500/10 text-green-400 border-green-500/20",
   cancelled:          "bg-red-500/10 text-red-400 border-red-500/20",
+  refunded:           "bg-violet-500/10 text-violet-300 border-violet-500/25",
 };

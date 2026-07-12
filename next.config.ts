@@ -1,7 +1,12 @@
 import type { NextConfig } from "next";
 import path from "path";
+import { loadEnvConfig } from "@next/env";
 
 import { withSentryConfig } from "@sentry/nextjs";
+
+const projectRoot = path.resolve(__dirname);
+// Load .env.local before next.config reads process.env (fixes missing NEXT_PUBLIC_* in dev)
+loadEnvConfig(projectRoot);
 
 
 
@@ -9,23 +14,12 @@ const isDev = process.env.NODE_ENV === "development";
 
 const scriptSrcUnsafeEval = isDev ? "'unsafe-eval' " : "";
 
-const projectRoot = path.resolve(__dirname);
-
-
-
 const nextConfig = {
 
-  // Prevent Next from using C:\Users\rangi (parent lockfile) as workspace root — breaks .env.local for client bundles
+  // Prevent Next from using C:\Users\rangi (parent lockfile) as workspace root
   outputFileTracingRoot: projectRoot,
   turbopack: {
     root: projectRoot,
-  },
-
-  // Ensure NEXT_PUBLIC_* from .env.local reach client bundles in dev (webpack)
-  env: {
-    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
-    NEXT_PUBLIC_FIREBASE_API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-    NEXT_PUBLIC_FIREBASE_PROJECT_ID: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
   },
 
   images: {
@@ -73,7 +67,6 @@ const nextConfig = {
   },
 
   // Performance optimizations
-  swcMinify: true,
   compress: true,
   productionBrowserSourceMaps: false,
 

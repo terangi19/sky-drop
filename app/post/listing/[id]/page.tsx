@@ -36,6 +36,7 @@ import {
   getListingPurchaseViewState,
   type ListingOrderSlice,
 } from "../../../lib/listing-purchase-state";
+import RefundStatusCard from "../../../components/RefundStatusCard";
 import { ReviewStars } from "../../../components/SellerReviewStars";
 import ServicePricingBadge from "../../../components/ServicePricingBadge";
 import { formatServicePriceDisplay } from "../../../lib/service-pricing";
@@ -1342,13 +1343,31 @@ export default function ListingPage() {
               </div>
             )}
 
-            {purchaseView.showOrderStatusSection && (
+            {(purchaseView.showBuyerRefundedBanner || purchaseView.showSellerRefundedBanner) && (
+              <div className="mt-3 space-y-2">
+                <RefundStatusCard
+                  role={purchaseView.showSellerRefundedBanner ? "seller" : "buyer"}
+                  refundAmount={purchaseView.primaryOrder?.refundAmount}
+                  refundedAt={purchaseView.primaryOrder?.refundedAt}
+                  total={purchaseView.primaryOrder?.total}
+                />
+                <Link
+                  href={purchaseView.showSellerRefundedBanner ? "/sales" : "/purchases"}
+                  className="inline-flex items-center gap-1 text-xs font-bold text-violet-400 hover:text-violet-300 transition-colors"
+                >
+                  {purchaseView.showSellerRefundedBanner ? "View Sale" : "View Order"}
+                </Link>
+              </div>
+            )}
+
+            {purchaseView.showOrderStatusSection &&
+              !purchaseView.showBuyerRefundedBanner &&
+              !purchaseView.showSellerRefundedBanner && (
               <div className="mt-3 rounded-xl border border-sky-500/20 bg-sky-500/5 px-4 py-3 space-y-3">
                 {purchaseView.showBuyerPurchasedBanner && purchaseView.buyerBannerText && (
                   <>
                     <p className="text-sm font-bold text-sky-300">
-                      {purchaseView.primaryOrder?.status === "refunded" ? "↩ " : "✓ "}
-                      {purchaseView.buyerBannerText}
+                      ✓ {purchaseView.buyerBannerText}
                     </p>
                     {purchaseView.orderStatusLabel && (
                       <p className="text-xs text-[var(--muted)]">{purchaseView.orderStatusLabel}</p>
@@ -1358,21 +1377,6 @@ export default function ListingPage() {
                       className="inline-flex items-center gap-1 text-xs font-bold text-sky-400 hover:text-sky-300 transition-colors"
                     >
                       View Order
-                    </Link>
-                  </>
-                )}
-
-                {purchaseView.showSellerRefundedBanner && (
-                  <>
-                    <p className="text-sm font-bold text-sky-300">↩ Payment refunded for this order</p>
-                    {purchaseView.orderStatusLabel && (
-                      <p className="text-xs text-[var(--muted)]">{purchaseView.orderStatusLabel}</p>
-                    )}
-                    <Link
-                      href="/sales"
-                      className="inline-flex items-center gap-1 text-xs font-bold text-sky-400 hover:text-sky-300 transition-colors"
-                    >
-                      View Sale
                     </Link>
                   </>
                 )}

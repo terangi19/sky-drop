@@ -154,6 +154,14 @@ export async function applyStripeRefundToPurchase(
   }
 
   if (input.fullyRefunded && data.buyerEmail && data.sellerEmail) {
+    await markExistingOrderMessagesRefunded(db, {
+      purchaseId,
+      orderId: orderId || null,
+      listingTitle: String(data.listingTitle || "this item"),
+      refundLabel,
+      now,
+    });
+
     const messageBase = {
       type: "order",
       orderId: orderId || null,
@@ -202,6 +210,49 @@ export async function applyStripeRefundToPurchase(
   }
 
   return { updated: true, purchaseId };
+}
+
+async function markExistingOrderMessagesRefunded(
+  db: Firestore,
+  input: {
+    purchaseId: string;
+    orderId: string | null;
+    listingTitle: string;
+    refundLabel: string;
+    now: Date;
+  }
+): Promise<void> {
+  const queries = [
+    db.collection("messages").where("purchaseId", "==", input.purchaseId).where("type", "==", "order"),
+  ];
+  if (input.orderId) {
+    queries.push(
+      db.collection("messages").where("orderId", "==", input.orderId).where("type", "==", "order")
+    );
+  }
+
+  const seen = new Set<string>();
+  const batch = db.batch();
+  let writes = 0;
+
+  for (const q of queries) {
+    const snap = await q.get();
+    for (const doc of snap.docs) {
+      if (seen.has(doc.id)) continue;
+      seen.add(doc.id);
+      batch.update(doc.ref, {
+        orderStatus: "refunded",
+        purchaseId: input.purchaseId,
+        text: `Payment refunded for "${input.listingTitle}" — ${input.refundLabel}.`,
+        updatedAt: input.now,
+      });
+      writes += 1;
+    }
+  }
+
+  if (writes > 0) {
+    await batch.commit();
+  }
 }
 
 async function restoreListingAfterFullRefund(

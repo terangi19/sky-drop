@@ -13,7 +13,7 @@ export const ARRANGE_SALE_COUNT_STATUSES = new Set([
 
 export function countsAsBuyerPurchase(status: string, paymentType?: string): boolean {
   const s = status.toLowerCase();
-  if (!s || s === "cancelled" || s === "failed") return false;
+  if (!s || s === "cancelled" || s === "failed" || s === "refunded") return false;
   if (s === "arrange_requested") return false;
   if (s === "pending" && paymentType === "contact") return true;
   return ARRANGE_SALE_COUNT_STATUSES.has(s);

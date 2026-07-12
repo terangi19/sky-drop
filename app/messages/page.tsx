@@ -33,6 +33,14 @@ import { createNotification } from "../lib/notifications";
 import OfferPaymentModal from "../components/OfferPaymentModal";
 import ArrangePaymentCopyBar from "../components/ArrangePaymentCopyBar";
 import StayOnSkyDropNotice from "../components/StayOnSkyDropNotice";
+import RefundStatusCard from "../components/RefundStatusCard";
+import {
+  dedupeConversationOrderMessages,
+  pickConversationPurchase,
+  resolveConversationOrderStatus,
+  shouldHideSupersededPaidOrderCard,
+} from "../lib/conversation-order-status";
+import { isRefundedStatus } from "../lib/refund-display";
 import BraveWarning from "../components/BraveWarning";
 import { STAY_ON_SKY_DROP_HEADLINE } from "../lib/conversation-safety";
 import { extractEmailsFromText,
@@ -522,29 +530,20 @@ function MessagesPage() {
   }, [messages, user?.email, blockedUsers]);
 
   // Compute filteredMessages for chat view
+  const conversationMessagesNewestFirst = useMemo(
+    () =>
+      messages.filter((msg: any) =>
+        messageInActiveConversation(msg, user?.email || "", chatUser, chatListingId)
+      ),
+    [messages, chatUser, chatListingId, user?.email]
+  );
+
   const filteredMessages = useMemo(
     () => {
-      const filtered = messages
-        .filter((msg: any) =>
-          messageInActiveConversation(msg, user?.email || "", chatUser, chatListingId)
-        )
-        .reverse();
-      
-      // Deduplicate order messages by orderId to prevent duplicate payment confirmation cards
-      const seenOrderIds = new Set<string>();
-      const deduplicated = filtered.filter((msg: any) => {
-        if (msg.type === "order" && msg.orderId) {
-          if (seenOrderIds.has(msg.orderId)) {
-            return false;
-          }
-          seenOrderIds.add(msg.orderId);
-        }
-        return true;
-      });
-      
-      return deduplicated;
+      const deduplicated = dedupeConversationOrderMessages(conversationMessagesNewestFirst);
+      return deduplicated.reverse();
     },
-    [messages, chatUser, chatListingId, user?.email]
+    [conversationMessagesNewestFirst]
   );
     // Auto-scroll
     useEffect(() => {
@@ -1126,20 +1125,36 @@ function MessagesPage() {
     }
   }
   useEffect(() => {
-    if (!chatUser || !user?.email) { setHasPurchaseInChat(false); return; }
-    let mounted = true;
-    (async () => {
-      try {
-        const snap = await getDocs(query(collection(db, "purchases"), where("listingId", "==", chatListingId || "")));
-        const matched = snap.docs.find((d) => {
-          const data = d.data();
-          return (data.sellerEmail === user.email && data.buyerEmail === chatUser) || (data.buyerEmail === user.email && data.sellerEmail === chatUser);
-        });
-        if (matched && mounted) { setHasPurchaseInChat(true); setPurchaseData({ id: matched.id, ...matched.data() }); }
-        else if (mounted) { setHasPurchaseInChat(false); setPurchaseData(null); }
-      } catch { if (mounted) { setHasPurchaseInChat(false); setPurchaseData(null); } }
-    })();
-    return () => { mounted = false; };
+    if (!chatUser || !user?.email || !chatListingId) {
+      setHasPurchaseInChat(false);
+      setPurchaseData(null);
+      return;
+    }
+
+    const q = query(
+      collection(db, "purchases"),
+      where("listingId", "==", chatListingId)
+    );
+
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const matched = pickConversationPurchase(snap.docs, user.email!, chatUser);
+        if (matched) {
+          setHasPurchaseInChat(true);
+          setPurchaseData({ id: matched.id, ...matched.data });
+        } else {
+          setHasPurchaseInChat(false);
+          setPurchaseData(null);
+        }
+      },
+      () => {
+        setHasPurchaseInChat(false);
+        setPurchaseData(null);
+      }
+    );
+
+    return () => unsub();
   }, [chatUser, chatListingId, user?.email]);
   // â€”â€” Render â€”â€”
   return (
@@ -1487,11 +1502,15 @@ function MessagesPage() {
                 {/* Messages area */}
                 <div ref={messagesContainerRef} className="flex-1 overflow-y-auto scrollbar-thin px-5 py-4">
                    {/* Listing context card — purchased */}
-                  {hasPurchaseInChat && (
+                  {hasPurchaseInChat && !isRefundedStatus(purchaseData?.status) && (
                     <StayOnSkyDropNotice paymentType={purchaseData?.paymentType} />
                   )}
                   {listingCard && hasPurchaseInChat && (
-                    <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-[var(--soft-card)] shadow-[0_0_20px_rgba(56,189,248,0.15)]">
+                    <div className={`mb-2 overflow-hidden rounded-xl border shadow-[0_0_20px_rgba(56,189,248,0.15)] ${
+                      isRefundedStatus(purchaseData?.status)
+                        ? "border-violet-500/25 bg-[var(--soft-card)]"
+                        : "border-[var(--card-border)]/50 bg-[var(--soft-card)]"
+                    }`}>
                       <div className="flex items-center gap-3 p-3">
                         {listingCard.image ? (
                           <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-[var(--soft-card)]">
@@ -1505,49 +1524,48 @@ function MessagesPage() {
                         )}
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[13px] font-bold text-[var(--foreground)]">{listingCard.title || "Listing"}</p>
-                          <p className="text-[12px] font-black text-sky-400">${purchaseData?.total || listingCard.price}</p>
+                          {!isRefundedStatus(purchaseData?.status) && (
+                            <p className="text-[12px] font-black text-sky-400">${purchaseData?.total || listingCard.price}</p>
+                          )}
                           {(purchaseData?.tracking || purchaseData?.trackingNumber) &&
+                            !isRefundedStatus(purchaseData?.status) &&
                             ["shipped", "delivered"].includes(purchaseData?.status) && (
                             <p className="mt-1 text-[10px] text-sky-400/90">
                               Tracking: {purchaseData.tracking || purchaseData.trackingNumber}
                             </p>
                           )}
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className={`text-[10px] ${
-                              purchaseData?.status === "refunded" ? "text-sky-400" :
-                              purchaseData?.status === "delivered" || purchaseData?.status === "completed" ? "text-sky-400" :
-                              purchaseData?.status === "shipped" ? "text-sky-400" :
-                              purchaseData?.status === "seller_confirming" ? "text-sky-400" :
-                              purchaseData?.status === "cancelled" ? "text-red-400" :
-                              "text-sky-400"
-                            }`}>
-                              {purchaseData?.status === "arrange_requested"
-                                ? purchaseData?.sellerEmail === user?.email
-                                  ? "Awaiting your confirmation"
-                                  : "Purchase request sent"
-                                : purchaseData?.status === "pending" ? "Awaiting seller confirmation" :
-                               purchaseData?.status === "seller_confirming" ? "Confirmed" :
-                               purchaseData?.status === "shipped" ? "Shipped" :
-                               purchaseData?.status === "delivered" ? "Delivered" :
-                               purchaseData?.status === "completed" ? "Completed" :
-                               purchaseData?.status === "refunded" ? "Refunded" :
-                               purchaseData?.status === "cancelled" ? "Cancelled" :
-                               "Purchased"}
-                            </span>
-                            {purchaseData?.status === "refunded" && (
-                              <span className="text-[10px] font-bold text-sky-400">
-                                ↩ Payment refunded
+                          {!isRefundedStatus(purchaseData?.status) && (
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className={`text-[10px] ${
+                                purchaseData?.status === "delivered" || purchaseData?.status === "completed" ? "text-sky-400" :
+                                purchaseData?.status === "shipped" ? "text-sky-400" :
+                                purchaseData?.status === "seller_confirming" ? "text-sky-400" :
+                                purchaseData?.status === "cancelled" ? "text-red-400" :
+                                "text-sky-400"
+                              }`}>
+                                {purchaseData?.status === "arrange_requested"
+                                  ? purchaseData?.sellerEmail === user?.email
+                                    ? "Awaiting your confirmation"
+                                    : "Purchase request sent"
+                                  : purchaseData?.status === "pending" ? "Awaiting seller confirmation" :
+                                 purchaseData?.status === "seller_confirming" ? "Confirmed" :
+                                 purchaseData?.status === "shipped" ? "Shipped" :
+                                 purchaseData?.status === "delivered" ? "Delivered" :
+                                 purchaseData?.status === "completed" ? "Completed" :
+                                 purchaseData?.status === "cancelled" ? "Cancelled" :
+                                 "Purchased"}
                               </span>
-                            )}
-                            {purchaseData?.disputeStatus && (
-                              <span className="text-[10px] font-bold text-red-400">
-                                {purchaseData.disputeStatus === "refunded" ? "✅ Refunded" : "⚠️ Disputed"}
-                              </span>
-                            )}
-                          </div>
+                              {purchaseData?.disputeStatus && (
+                                <span className="text-[10px] font-bold text-red-400">
+                                  {purchaseData.disputeStatus === "refunded" ? "✅ Refunded" : "⚠️ Disputed"}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <div className="flex flex-col gap-1">
                           {purchaseData?.sellerEmail === user?.email &&
+                            !isRefundedStatus(purchaseData?.status) &&
                             canSellerConfirmArrangeSale(
                               purchaseData?.status || "",
                               purchaseData?.paymentType
@@ -1561,11 +1579,11 @@ function MessagesPage() {
                               {confirmingArrangeSale ? "Updating…" : "Mark sold"}
                             </button>
                           )}
-                          <Link href={`/purchases`}
+                          <Link href={purchaseData?.sellerEmail === user?.email ? "/sales" : "/purchases"}
                             className="shrink-0 rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white text-center transition hover:bg-sky-400">
                             View Order
                           </Link>
-                          {purchaseData?.buyerEmail === user?.email && !purchaseData?.disputeStatus && purchaseData?.status !== "refunded" && (
+                          {purchaseData?.buyerEmail === user?.email && !purchaseData?.disputeStatus && !isRefundedStatus(purchaseData?.status) && (
                             <button onClick={() => router.push("/purchases")}
                               className="shrink-0 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-[10px] font-bold text-red-400 transition hover:bg-red-500/20">
                               ⚠️ Dispute
@@ -1573,6 +1591,17 @@ function MessagesPage() {
                           )}
                         </div>
                       </div>
+                      {isRefundedStatus(purchaseData?.status) && (
+                        <div className="border-t border-violet-500/15 px-3 pb-3 pt-2">
+                          <RefundStatusCard
+                            role={purchaseData?.sellerEmail === user?.email ? "seller" : "buyer"}
+                            refundAmount={purchaseData?.refundAmount}
+                            refundedAt={purchaseData?.refundedAt}
+                            total={purchaseData?.total}
+                            variant="compact"
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
                   {/* Listing context card — auction ended */}
@@ -1802,6 +1831,51 @@ function MessagesPage() {
                         }
                         // Order/confirmation card
                         if (msg.type === "order") {
+                          if (
+                            shouldHideSupersededPaidOrderCard(
+                              msg,
+                              purchaseData,
+                              conversationMessagesNewestFirst,
+                              chatListingId
+                            )
+                          ) {
+                            return null;
+                          }
+
+                          const effectiveOrderStatus = resolveConversationOrderStatus(
+                            msg,
+                            purchaseData,
+                            chatListingId
+                          );
+                          const isRefundedOrder = effectiveOrderStatus === "refunded";
+                          const isSellerViewer = purchaseData?.sellerEmail === user?.email;
+
+                          if (isRefundedOrder) {
+                            return (
+                              <div key={msg.id} className="flex justify-center">
+                                <div className="w-full max-w-md space-y-2">
+                                  <RefundStatusCard
+                                    role={isSellerViewer ? "seller" : "buyer"}
+                                    refundAmount={purchaseData?.refundAmount}
+                                    refundedAt={purchaseData?.refundedAt || msg.createdAt}
+                                    total={purchaseData?.total ?? Number(msg.listingPrice)}
+                                    variant="compact"
+                                  />
+                                  <div className="flex justify-end">
+                                    <button
+                                      onClick={() =>
+                                        router.push(isSellerViewer ? "/sales" : "/purchases")
+                                      }
+                                      className="rounded-lg border border-violet-500/20 bg-violet-500/10 px-3 py-1.5 text-[10px] font-bold text-violet-300 transition hover:bg-violet-500/15"
+                                    >
+                                      View Order
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          }
+
                           const isWantedListing = listingCard?.type === "wanted" || msg.listingType === "wanted";
                           const getStatusConfig = (status?: string) => {
                             const configs: Record<string, { icon: string; label: string; color: string; bg: string; border: string }> = {
@@ -1815,10 +1889,9 @@ function MessagesPage() {
                             };
                             return configs[status || "paid"] || configs.paid;
                           };
-                          const statusConfig = isWantedListing ? { icon: "📋", label: "Wanted", color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/20" } : getStatusConfig(msg.orderStatus);
-                          const isCompleted = !isWantedListing && (msg.orderStatus === "completed" || msg.orderStatus === "delivered");
-                          const isDisputed = !isWantedListing && msg.orderStatus === "disputed";
-                          const isPaid = !isWantedListing && msg.orderStatus === "paid";
+                          const statusConfig = isWantedListing ? { icon: "📋", label: "Wanted", color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/20" } : getStatusConfig(effectiveOrderStatus);
+                          const isDisputed = !isWantedListing && effectiveOrderStatus === "disputed";
+                          const isPaid = !isWantedListing && effectiveOrderStatus === "paid";
 
                           return (
                             <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
@@ -1887,7 +1960,9 @@ function MessagesPage() {
                                       <span>Message Seller</span>
                                     </button>
                                     <button
-                                      onClick={() => router.push("/purchases")}
+                                      onClick={() =>
+                                        router.push(isSellerViewer ? "/sales" : "/purchases")
+                                      }
                                       className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2.5 text-[11px] font-bold text-[var(--foreground)] transition hover:border-sky-500/20 hover:bg-[var(--card-hover)]"
                                     >
                                       <span>📋</span>

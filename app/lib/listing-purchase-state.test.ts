@@ -89,8 +89,9 @@ describe("listing-purchase-state", () => {
     });
 
     expect(state.role).toBe("buyer");
-    expect(state.showBuyerPurchasedBanner).toBe(true);
-    expect(state.buyerBannerText).toBe("Your payment for this item was refunded");
-    expect(state.orderStatusLabel).toBe("Payment refunded");
+    expect(state.showBuyerRefundedBanner).toBe(true);
+    expect(state.showBuyerPurchasedBanner).toBe(false);
+    expect(state.buyerBannerText).toBeNull();
+    expect(state.orderStatusLabel).toBe("This order has been fully refunded");
   });
 });

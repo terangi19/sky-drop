@@ -16,6 +16,8 @@ import { showToast } from "../components/Toast";
 import { isEmailLike, sellerMessagesUrl } from "../lib/public-display";
 import { useAwhinaInsightEffect } from "../contexts/AwhinaPageInsightContext";
 import { buildSalesInsight } from "../lib/awhina-insights";
+import RefundStatusCard from "../components/RefundStatusCard";
+import { REFUND_BADGE_CLASS } from "../lib/refund-display";
 
 interface Purchase {
   id: string;
@@ -41,6 +43,8 @@ interface Purchase {
   tracking?: string;
   trackingNumber?: string;
   paymentType?: string;
+  refundAmount?: number;
+  refundedAt?: any;
 }
 
 const statusStyles: Record<string, string> = {
@@ -52,6 +56,7 @@ const statusStyles: Record<string, string> = {
   delivered: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   completed: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   cancelled: "bg-red-500/10 text-red-400 border-red-500/20",
+  refunded: REFUND_BADGE_CLASS,
   rented: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   returned: "bg-blue-500/10 text-blue-400 border-blue-500/20",
 };
@@ -72,6 +77,7 @@ function statusLabel(status: string): string {
     delivered: "Delivered",
     completed: "Completed",
     cancelled: "Cancelled",
+    refunded: "Fully refunded",
     rented: "Rented",
     returned: "Returned",
   };
@@ -166,7 +172,7 @@ export default function SalesPage() {
 
   const filtered = useMemo(() => {
     let items = [...sales];
-    if (filter === "active") items = items.filter((s) => !["completed", "cancelled"].includes(s.status));
+    if (filter === "active") items = items.filter((s) => !["completed", "cancelled", "refunded"].includes(s.status));
     else if (filter !== "all") items = items.filter((s) => s.status === filter);
     return items;
   }, [sales, filter]);
@@ -403,7 +409,9 @@ export default function SalesPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {filtered.map((s) => (
+            {filtered.map((s) => {
+              const isRefunded = s.status === "refunded";
+              return (
               <div key={s.id} className="group relative overflow-hidden rounded-2xl border border-white/[0.06] bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-4 sm:p-5 transition-all duration-200 hover:bg-white/[0.06] hover:border-white/[0.10] hover:shadow-lg hover:shadow-black/20">
                 <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="flex items-start gap-3 sm:gap-4">
@@ -434,17 +442,29 @@ export default function SalesPage() {
                           {s.createdAt && <span>· {formatDate(s.createdAt)}</span>}
                         </div>
                       </div>
-                      <span className={`shrink-0 rounded-full border px-3 py-0.5 text-[10px] font-bold ${statusStyles[s.status] || "bg-zinc-800/50 text-zinc-500 border-zinc-700/50"}`}>
-                        {statusLabel(s.status)}
-                      </span>
-                      {s.disputeStatus && (
+                      {!isRefunded && (
+                        <span className={`shrink-0 rounded-full border px-3 py-0.5 text-[10px] font-bold ${statusStyles[s.status] || "bg-zinc-800/50 text-zinc-500 border-zinc-700/50"}`}>
+                          {statusLabel(s.status)}
+                        </span>
+                      )}
+                      {s.disputeStatus && !isRefunded && (
                         <span className="shrink-0 rounded-full border border-red-500/20 bg-red-500/10 px-3 py-0.5 text-[10px] font-bold text-red-400">
                           ⚠️ Dispute
                         </span>
                       )}
                     </div>
 
-                    {s.deliveryMethod === "shipping" && s.shippingAddress && (
+                    {isRefunded && (
+                      <RefundStatusCard
+                        role="seller"
+                        refundAmount={s.refundAmount}
+                        refundedAt={s.refundedAt}
+                        total={s.total}
+                        className="mt-3"
+                      />
+                    )}
+
+                    {s.deliveryMethod === "shipping" && s.shippingAddress && !isRefunded && (
                       <p className="mt-1.5 text-[11px] text-zinc-600">📍 Ship to: {s.shippingAddress}</p>
                     )}
 
@@ -458,20 +478,20 @@ export default function SalesPage() {
                           {confirmingSaleId === s.id ? "Updating…" : "Mark sold to buyer"}
                         </button>
                       ) : null}
-                      {nextStatus[s.status] && !s.disputeStatus && !(s as any).fundsReleased ? (
+                      {nextStatus[s.status] && !s.disputeStatus && s.status !== "refunded" && !(s as any).fundsReleased ? (
                         <button onClick={() => setConfirmAction({ id: s.id, status: nextStatus[s.status].status, label: nextStatus[s.status].label })}
                           className="rounded-lg bg-gradient-to-r from-sky-500 to-sky-500 px-4 py-1.5 text-[11px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">
                           {nextStatus[s.status].label}
                         </button>
                       ) : null}
-                      {(s as any).paymentType === "contact" ? (
+                      {(s as any).paymentType === "contact" && !isRefunded ? (
                         <span className="text-[11px] text-sky-400/80 font-bold">🤝 Arrange Purchase — payment off-platform</span>
-                      ) : (s as any).destinationCharge ? (
+                      ) : (s as any).destinationCharge && s.status !== "refunded" ? (
                         <span className="text-[11px] text-sky-400 font-bold">✅ Funds sent to your Stripe account</span>
                       ) : s.status === "delivered" && !(s as any).fundsReleased ? (
                         <span className="text-[11px] text-sky-400 font-bold">🔒 Payment Processing</span>
                       ) : null}
-                      {(s as any).fundsReleased && !(s as any).destinationCharge && (
+                      {(s as any).fundsReleased && !(s as any).destinationCharge && s.status !== "refunded" && (
                         <span className="text-[11px] text-sky-400 font-bold">✅ Funds Released</span>
                       )}
                       <Link href={sellerMessagesUrl(s, s.listingId)}
@@ -485,7 +505,8 @@ export default function SalesPage() {
                   </div>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
         )}
       </section>

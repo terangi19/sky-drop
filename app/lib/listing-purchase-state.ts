@@ -16,6 +16,8 @@ export type ListingOrderSlice = {
   status?: string;
   paymentType?: string;
   total?: number;
+  refundAmount?: number;
+  refundedAt?: unknown;
 };
 
 export type ListingViewerRole = "guest" | "buyer" | "seller" | "public";
@@ -27,6 +29,7 @@ export type ListingPurchaseViewState = {
   showOrderStatusSection: boolean;
   orderStatusLabel: string | null;
   showBuyerPurchasedBanner: boolean;
+  showBuyerRefundedBanner: boolean;
   buyerBannerText: string | null;
   showSellerSoldUi: boolean;
   showSellerRefundedBanner: boolean;
@@ -103,7 +106,7 @@ export function formatOrderStatusLabel(status?: string): string {
     case "cancelled":
       return "Cancelled";
     case "refunded":
-      return "Refunded";
+      return "Fully refunded";
     default:
       return "Order in progress";
   }
@@ -211,7 +214,10 @@ export function getListingPurchaseViewState(opts: {
     role === "seller" && refundedOrders.length > 0;
 
   const showBuyerPurchasedBanner =
-    role === "buyer" && !showBuyerRefundedBanner && buyerUi.showPurchasedBanner && !!buyerUi.bannerText;
+    role === "buyer" &&
+    !showBuyerRefundedBanner &&
+    buyerUi.showPurchasedBanner &&
+    !!buyerUi.bannerText;
 
   const showSellerSoldUi = role === "seller" && hasActiveOrder && !showSellerRefundedBanner;
   const showPublicSoldUi =
@@ -225,7 +231,7 @@ export function getListingPurchaseViewState(opts: {
     showPublicSoldUi;
 
   const orderStatusLabel = primaryOrder && isRefundedOrder(primaryOrder)
-    ? "Payment refunded"
+    ? "This order has been fully refunded"
     : primaryOrder
     ? formatOrderStatusLabel(primaryOrder.status)
     : soldListing
@@ -238,13 +244,9 @@ export function getListingPurchaseViewState(opts: {
     primaryOrder,
     showOrderStatusSection,
     orderStatusLabel,
-    showBuyerPurchasedBanner:
-      showBuyerPurchasedBanner || showBuyerRefundedBanner,
-    buyerBannerText: showBuyerPurchasedBanner
-      ? buyerUi.bannerText
-      : showBuyerRefundedBanner
-        ? "Your payment for this item was refunded"
-        : null,
+    showBuyerPurchasedBanner,
+    showBuyerRefundedBanner,
+    buyerBannerText: showBuyerPurchasedBanner ? buyerUi.bannerText : null,
     showSellerSoldUi,
     showSellerRefundedBanner,
     showPublicSoldUi,

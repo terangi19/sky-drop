@@ -17,6 +17,8 @@ import { awardXP } from "../lib/xp";
 import { showToast } from "../components/Toast";
 import { InteractiveReviewStars } from "../components/SellerReviewStars";
 import { sellerMessagesUrl, sellerProfileSlug } from "../lib/public-display";
+import RefundStatusCard from "../components/RefundStatusCard";
+import { REFUND_BADGE_CLASS } from "../lib/refund-display";
 
 interface Purchase {
   id: string;
@@ -51,6 +53,7 @@ interface Purchase {
   disputeStatus?: string;
   fundsReleased?: boolean;
   refundAmount?: number;
+  refundedAt?: any;
   stripePaymentIntentId?: string;
   rentalDays?: number;
   rentalStart?: any;
@@ -62,7 +65,7 @@ const DISPUTE_LABELS: Record<string, string> = {
   under_review: "Under Review",
   resolved_buyer: "Resolved — You Won",
   resolved_seller: "Resolved — Seller",
-  refunded: "Refunded",
+  refunded: "Fully refunded",
 };
 
 const DISPUTE_STYLES: Record<string, string> = {
@@ -70,7 +73,7 @@ const DISPUTE_STYLES: Record<string, string> = {
   under_review: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   resolved_buyer: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   resolved_seller: "bg-zinc-500/10 text-[var(--muted)] border-zinc-500/20",
-  refunded: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+  refunded: REFUND_BADGE_CLASS,
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -81,7 +84,7 @@ const STATUS_LABELS: Record<string, string> = {
   shipped: "Shipped",
   delivered: "Delivered",
   cancelled: "Cancelled",
-  refunded: "Refunded",
+  refunded: "Fully refunded",
   rented: "Rented",
   returned: "Returned",
   arrange_requested: "Arrangement Requested",
@@ -96,7 +99,7 @@ const STATUS_DESCRIPTIONS: Record<string, string> = {
   shipped: "Item has been shipped",
   delivered: "Order completed",
   cancelled: "Order was cancelled",
-  refunded: "Payment refunded",
+  refunded: "This order has been fully refunded",
   rented: "Item is rented",
   returned: "Item has been returned",
   arrange_requested: "Waiting for seller to arrange payment",
@@ -111,7 +114,7 @@ const STATUS_STYLES: Record<string, string> = {
   shipped: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   delivered: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   cancelled: "bg-red-500/10 text-red-400 border-red-500/20",
-  refunded: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+  refunded: REFUND_BADGE_CLASS,
   rented: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   returned: "bg-blue-500/10 text-blue-400 border-blue-500/20",
   arrange_requested: "bg-sky-500/10 text-sky-400",
@@ -379,21 +382,13 @@ export default function PurchasesPage() {
 
     if (purchase.status === "refunded") {
       return (
-        <div className="mt-3 rounded-lg border border-sky-500/20 bg-sky-500/5 p-3">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500/20">
-              <span className="text-lg">↩</span>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-sky-400">Payment Refunded</p>
-              <p className="text-[10px] text-sky-400/80">
-                {purchase.refundAmount
-                  ? `$${Number(purchase.refundAmount).toFixed(2)} returned to your payment method`
-                  : "This order was fully refunded via Stripe"}
-              </p>
-            </div>
-          </div>
-        </div>
+        <RefundStatusCard
+          role="buyer"
+          refundAmount={purchase.refundAmount}
+          refundedAt={purchase.refundedAt}
+          total={purchase.total}
+          className="mt-3"
+        />
       );
     }
 
@@ -542,7 +537,12 @@ export default function PurchasesPage() {
               const isRental = p.deliveryMethod === "rental";
               const isArrange = p.paymentType === "contact";
               const isWanted = p.type === "wanted";
-              const displayStatus = isWanted ? { label: "Wanted", style: "bg-sky-500/10 text-sky-400 border-sky-500/20" } : { label: STATUS_LABELS[p.status] || p.status, style: STATUS_STYLES[p.status] || "bg-[var(--card)]/50 text-[var(--muted)] border-zinc-700/50" };
+              const isRefunded = p.status === "refunded";
+              const displayStatus = isWanted
+                ? { label: "Wanted", style: "bg-sky-500/10 text-sky-400 border-sky-500/20" }
+                : isRefunded
+                  ? null
+                  : { label: STATUS_LABELS[p.status] || p.status, style: STATUS_STYLES[p.status] || "bg-[var(--card)]/50 text-[var(--muted)] border-zinc-700/50" };
               return (
                 <div key={p.id} className="group relative overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--soft-card)] p-4 sm:p-5 transition-all duration-200 hover:bg-[var(--card-hover)] hover:border-[var(--card-border)] hover:shadow-lg hover:shadow-black/10">
                   <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -568,9 +568,11 @@ export default function PurchasesPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-1.5 flex-wrap shrink-0">
-                          <span className={`shrink-0 rounded-full border border-[var(--card-border)] px-3 py-0.5 text-[10px] font-bold ${displayStatus.style}`}>
-                            {displayStatus.label}
-                          </span>
+                          {displayStatus && (
+                            <span className={`shrink-0 rounded-full border border-[var(--card-border)] px-3 py-0.5 text-[10px] font-bold ${displayStatus.style}`}>
+                              {displayStatus.label}
+                            </span>
+                          )}
                                                     {(p as any).destinationCharge && !p.fundsReleased && p.status !== "completed" && p.status !== "refunded" && (
                             <span className="shrink-0 rounded-full border border-sky-500/15 bg-sky-500/[0.04] px-2.5 py-0.5 text-[9px] font-medium text-sky-400/70">
                               💳 Paid to Seller
@@ -587,6 +589,7 @@ export default function PurchasesPage() {
                       </div>
                       {(p.tracking || p.trackingNumber) &&
                         !isWanted &&
+                        !isRefunded &&
                         ["shipped", "delivered"].includes(p.status) && (
                         <p className="mt-1.5 rounded-lg border border-sky-500/15 bg-sky-500/5 px-2.5 py-1.5 text-[11px] text-sky-300/90">
                           <span className="font-bold text-sky-400">Tracking: </span>
@@ -594,7 +597,7 @@ export default function PurchasesPage() {
                         </p>
                       )}
 
-                      {p.disputeStatus && p.disputeStatus !== "resolved_seller" && (
+                      {p.disputeStatus && p.disputeStatus !== "resolved_seller" && p.status !== "refunded" && (
                         <div className="mt-2 flex items-center gap-2">
                           <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${DISPUTE_STYLES[p.disputeStatus] || "bg-red-500/10 text-red-400 border-red-500/20"}`}>
                             {p.disputeStatus === "refunded" ? "✅ " : "⚠️ "}{DISPUTE_LABELS[p.disputeStatus] || p.disputeStatus}

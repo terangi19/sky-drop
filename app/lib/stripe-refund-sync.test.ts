@@ -113,7 +113,15 @@ describe("applyStripeRefundToPurchase", () => {
           };
         }
         if (name === "messages") {
-          return { add: vi.fn() };
+          return {
+            add: vi.fn(),
+            where: vi.fn(() => ({
+              where: vi.fn(() => ({
+                get: vi.fn(async () => ({ empty: true, docs: [] })),
+              })),
+              get: vi.fn(async () => ({ empty: true, docs: [] })),
+            })),
+          };
         }
         if (name === "disputes") {
           return {
