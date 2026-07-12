@@ -514,11 +514,13 @@ function MessagesPage() {
       setMessages(items);
       setLoading(false);
       if (snap.metadata?.hasPendingWrites) return;
+      // Force refresh all participant usernames on initial load to ensure fresh data
+      const isInitialLoad = !snap.metadata.hasPendingWrites && items.length > 0 && Object.keys(usernames).length === 0;
       items.forEach((msg: any) => {
-        fetchUsername(msg.sender);
-        fetchUsername(msg.receiver);
-        msg.participants?.forEach((p: string) => fetchUsername(p));
-        extractEmailsFromText(msg.text || "").forEach((e) => fetchUsername(e));
+        fetchUsername(msg.sender, isInitialLoad);
+        fetchUsername(msg.receiver, isInitialLoad);
+        msg.participants?.forEach((p: string) => fetchUsername(p, isInitialLoad));
+        extractEmailsFromText(msg.text || "").forEach((e) => fetchUsername(e, isInitialLoad));
       });
     }, (err) => { 
       console.error("Messages snapshot error:", err);
