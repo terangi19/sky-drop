@@ -96,11 +96,40 @@ export function sellerProfileDisplayName(
   return looksLikeUid ? fallback : slug;
 }
 
-/** Query value for `/messages?user=` — username first, then UID. Never expose email. */
+/** Query value for `/messages?user=` — username first, then UID, then email as fallback. */
 export function sellerMessageTarget(
   fields: SellerLinkFields | null | undefined
 ): string {
-  return sellerProfileSlug(fields);
+  for (const raw of [
+    fields?.sellerUsername,
+    fields?.buyerUsername,
+    fields?.reportedUsername,
+    fields?.reporterUsername,
+    fields?.username,
+  ]) {
+    const v = String(raw || "").trim();
+    if (v && !isEmailLike(v)) return stripAtPrefix(v);
+  }
+  for (const raw of [
+    fields?.sellerId,
+    fields?.buyerId,
+    fields?.reportedUserId,
+    fields?.reporterUserId,
+    fields?.uid,
+  ]) {
+    const v = String(raw || "").trim();
+    if (v) return v;
+  }
+  // Fallback to email for messaging (acceptable since messages page handles emails)
+  for (const raw of [
+    fields?.sellerEmail,
+    fields?.buyerEmail,
+    fields?.email,
+  ]) {
+    const v = String(raw || "").trim();
+    if (v && isEmailLike(v)) return v;
+  }
+  return "";
 }
 
 export function sellerMessagesUrl(
