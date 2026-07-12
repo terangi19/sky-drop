@@ -14,6 +14,7 @@ import { detectScam } from "../../lib/scamdetection";
 import { requireVerifiedEmail } from "../../lib/require-verified";
 import { parseIpFromRequest } from "../../lib/geo-check";
 import { rateLimit } from "../../lib/rate-limit";
+import { clearHiddenConversationForUser } from "../../lib/conversation-hide.server";
 
 export async function POST(req: NextRequest) {
   try {
@@ -164,6 +165,13 @@ export async function POST(req: NextRequest) {
     }
 
     const msgRef = await db.collection("messages").add(messageData);
+
+    await clearHiddenConversationForUser(
+      db,
+      receiver,
+      decoded.email || "",
+      listingId || null
+    ).catch(() => {});
 
     if (conversationId) {
       try {

@@ -54,6 +54,11 @@ import {
   messageInActiveConversation,
   messageInInboxList,
 } from "../lib/messages-unread";
+import {
+  hiddenMapFromDocs,
+  shouldShowConversationInInbox,
+  type HiddenConversationRecord,
+} from "../lib/conversation-hide";
 // Feature 8: Expanded risky keywords
 const RISKY_KEYWORDS = [
   "pay outside", "bank transfer only", "crypto", "gift card",
@@ -125,6 +130,9 @@ function MessagesPage() {
   const [unreadMap, setUnreadMap] = useState<Record<string, boolean>>({});
   const [conversationUnread, setConversationUnread] = useState<Record<string, number>>({});
   const [conversationReadTimes, setConversationReadTimes] = useState<Record<string, number>>({});
+  const [hiddenConversations, setHiddenConversations] = useState<
+    Map<string, HiddenConversationRecord>
+  >(new Map());
   const [listingCard, setListingCard] = useState<any>(null);
   const seenBatchRef = useRef<Set<string>>(new Set());
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -191,6 +199,21 @@ function MessagesPage() {
         localStorage.setItem("blockedUsers", JSON.stringify(emails));
       },
       (e) => console.error("Failed to fetch blocked users:", e)
+    );
+    return () => unsub();
+  }, [user?.uid]);
+  useEffect(() => {
+    if (!user?.uid) {
+      setHiddenConversations(new Map());
+      return;
+    }
+    const hiddenQ = collection(db, "profiles", user.uid, "inboxHidden");
+    const unsub = onSnapshot(
+      hiddenQ,
+      (snap) => {
+        setHiddenConversations(hiddenMapFromDocs(snap.docs));
+      },
+      (e) => console.error("Failed to fetch hidden conversations:", e)
     );
     return () => unsub();
   }, [user?.uid]);
@@ -867,46 +890,75 @@ function MessagesPage() {
     if (!chatUser || !user?.email) return;
     const userEmail: string = user.email;
     try {
-      const archived = JSON.parse(localStorage.getItem("archivedConversations") || "[]");
-      if (!archived.includes(chatUser)) {
-        archived.push(chatUser);
-        localStorage.setItem("archivedConversations", JSON.stringify(archived));
-      }
-      const dismissed = JSON.parse(localStorage.getItem("dismissedNotifications") || "[]");
+      const token = await getFreshIdToken();
+      if (!token) return;
+      const activeMessage = messages.find((m: any) =>
+        messageInActiveConversation(m, userEmail, chatUser, chatListingId)
+      );
+      await fetch("/api/hide-conversation", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          otherEmail: chatUser,
+          listingId: chatListingId,
+          conversationId: activeMessage?.conversationId || null,
+        }),
+      });
       const relevant = messages.filter((m: any) =>
         messageInActiveConversation(m, userEmail, chatUser, chatListingId)
       );
-      for (const msg of relevant) {
-        if (!dismissed.includes(msg.id)) dismissed.push(msg.id);
-      }
-      localStorage.setItem("dismissedNotifications", JSON.stringify(dismissed));
       const messageIds = relevant.map((m: any) => m.id);
-      const token = await user.getIdToken();
-      fetch("/api/mark-messages-read", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ messageIds }),
-      }).catch((e) => console.error("Failed to mark archived messages read:", e));
-    } catch {}
-    setShowMenu(false); setChatUser(""); setChatListingId(null);
+      if (messageIds.length > 0) {
+        fetch("/api/mark-messages-read", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ messageIds }),
+        }).catch((e) => console.error("Failed to mark hidden messages read:", e));
+      }
+    } catch (e) {
+      console.error("Failed to hide conversation:", e);
+    }
+    setShowMenu(false);
+    setChatUser("");
+    setChatListingId(null);
   }
   async function executeClearAllMessages() {
     if (!user?.email) return;
     setClearAllConfirm(false);
-    const ids = [...new Set(messages.map((m: any) => m.id))];
+    const targets = new Map<
+      string,
+      { otherEmail: string; listingId: string | null; conversationId: string | null }
+    >();
+    for (const msg of messages) {
+      if (!messageInInboxList(msg, user.email, blockedUsers)) continue;
+      const other = msg.participants?.find((p: string) => p !== user.email);
+      if (!other) continue;
+      const key = conversationKey(other, msg.listingId);
+      if (!targets.has(key)) {
+        targets.set(key, {
+          otherEmail: other,
+          listingId: msg.listingId || null,
+          conversationId: msg.conversationId || null,
+        });
+      }
+    }
     const token = await user.getIdToken();
-    const res = await fetch("/api/delete-messages", {
+    const res = await fetch("/api/hide-conversation", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ messageIds: ids }),
+      body: JSON.stringify({ conversations: Array.from(targets.values()) }),
     });
     const data = await res.json().catch(() => ({}));
-    const marked = data.marked || 0;
-    const failed = data.failed || 0;
     setChatUser("");
     setChatListingId(null);
-    if (failed === 0) showToast("All messages cleared", "info");
-    else showToast(`Cleared ${ids.length - failed} messages (${failed} failed)`, failed === ids.length ? "error" : "info");
+    if (res.ok) {
+      showToast(`Cleared ${data.hidden || targets.size} conversation(s) from your inbox`, "info");
+    } else {
+      showToast(data.error || "Could not clear conversations", "error");
+    }
   }
   // Feature 3: Offer system with status
   async function sendOffer(type: string, amount?: string) {
@@ -1018,7 +1070,9 @@ function MessagesPage() {
       });
     }
   });
-  let conversations = Array.from(conversationMap.entries());
+  let conversations = Array.from(conversationMap.entries()).filter(([key, c]) =>
+    shouldShowConversationInInbox(key, hiddenConversations, c.msg, user?.email || "")
+  );
   if (searchQuery.trim()) {
     const q = searchQuery.toLowerCase();
     conversations = conversations.filter(([_, c]) => {
@@ -1132,11 +1186,11 @@ function MessagesPage() {
       {clearAllConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setClearAllConfirm(false)}>
           <div className="mx-4 w-full max-w-sm rounded-2xl border border-white/[0.08] bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-black text-red-400">Clear All Messages</h3>
-            <p className="mt-2 text-sm text-[var(--foreground)]">Delete all your messages? This cannot be undone.</p>
+            <h3 className="text-lg font-black text-red-400">Clear All Conversations</h3>
+            <p className="mt-2 text-sm text-[var(--foreground)]">Remove all conversations from your inbox? Other participants keep their messages. New replies will bring threads back.</p>
             <div className="mt-5 flex gap-3">
               <button onClick={() => setClearAllConfirm(false)} className="flex-1 rounded-xl border border-white/[0.08] bg-[var(--card)] py-3 text-sm font-bold text-[var(--foreground)] hover:bg-[var(--card-hover)]">Cancel</button>
-              <button onClick={executeClearAllMessages} className="flex-1 rounded-xl bg-red-500 py-3 text-sm font-bold text-white hover:bg-red-400">Delete All</button>
+              <button onClick={executeClearAllMessages} className="flex-1 rounded-xl bg-red-500 py-3 text-sm font-bold text-white hover:bg-red-400">Clear All</button>
             </div>
           </div>
         </div>
@@ -1426,7 +1480,7 @@ function MessagesPage() {
                       </button>
                       <button onClick={clearConversation} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[12px] text-[var(--foreground)] hover:bg-white/[0.06] transition-colors">
                         <svg className="h-3.5 w-3.5 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                        Archive conversation
+                        Clear conversation
                       </button>
                       {hasPurchaseInChat && purchaseData?.buyerEmail === user?.email && !purchaseData?.disputeStatus && (
                         <button onClick={() => router.push("/purchases")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[12px] text-[var(--foreground)] hover:bg-white/[0.06] transition-colors">

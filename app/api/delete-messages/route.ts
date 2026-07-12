@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb, isAdminInitialized, verifyIdToken } from "../../lib/firebase-admin";
 import { parseIpFromRequest } from "../../lib/geo-check";
 import { rateLimit } from "../../lib/rate-limit";
+import { hiddenConversationDocId } from "../../lib/conversation-hide";
 
+/** Legacy route — hides conversations per user instead of deleting shared messages. */
 export async function POST(req: NextRequest) {
   try {
     const ip = parseIpFromRequest(req.headers);
@@ -23,7 +25,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
     }
 
-    const userEmail = decoded.email?.trim();
+    const userEmail = decoded.email?.trim().toLowerCase();
     if (!userEmail) {
       return NextResponse.json({ error: "Could not determine user email" }, { status: 400 });
     }
@@ -43,45 +45,71 @@ export async function POST(req: NextRequest) {
     }
 
     const db = getAdminDb();
-    let marked = 0;
-    let failed = 0;
+    const conversationTargets = new Map<
+      string,
+      { otherEmail: string; listingId: string | null; conversationId: string | null }
+    >();
 
-    // Delete in batches of 30 (Firestore batch limit for individual doc deletes)
-    for (let i = 0; i < messageIds.length; i += 30) {
-      const batch = db.batch();
-      const batchIds = messageIds.slice(i, i + 30);
-      let hasValid = false;
-
-      for (const messageId of batchIds) {
-        try {
-          const ref = db.collection("messages").doc(messageId);
-          const snap = await ref.get();
-          if (!snap.exists) {
-            marked += 1;
-            continue;
-          }
-          const data = snap.data() || {};
-          const participants = Array.isArray(data.participants) ? data.participants : [];
-          if (!participants.includes(userEmail)) {
-            failed += 1;
-            continue;
-          }
-          batch.delete(ref);
-          hasValid = true;
-          marked += 1;
-        } catch {
-          failed += 1;
+    for (const messageId of messageIds) {
+      try {
+        const snap = await db.collection("messages").doc(messageId).get();
+        if (!snap.exists) continue;
+        const data = snap.data() || {};
+        const participants = Array.isArray(data.participants) ? data.participants : [];
+        if (!participants.includes(userEmail)) continue;
+        const otherEmail = participants.find((p: string) => p !== userEmail);
+        if (!otherEmail) continue;
+        const listingId =
+          typeof data.listingId === "string" && data.listingId ? data.listingId : null;
+        const key = `${otherEmail}||${listingId || ""}`;
+        if (!conversationTargets.has(key)) {
+          conversationTargets.set(key, {
+            otherEmail,
+            listingId,
+            conversationId:
+              typeof data.conversationId === "string" ? data.conversationId : null,
+          });
         }
-      }
-
-      if (hasValid) {
-        await batch.commit();
+      } catch {
+        // skip invalid message
       }
     }
 
-    return NextResponse.json({ marked, failed });
+    if (conversationTargets.size === 0) {
+      return NextResponse.json({ marked: 0, failed: messageIds.length });
+    }
+
+    const batch = db.batch();
+    const now = new Date();
+    for (const target of conversationTargets.values()) {
+      const docId = hiddenConversationDocId(target.otherEmail, target.listingId);
+      const ref = db
+        .collection("profiles")
+        .doc(decoded.uid)
+        .collection("inboxHidden")
+        .doc(docId);
+      batch.set(
+        ref,
+        {
+          otherEmail: target.otherEmail,
+          listingId: target.listingId,
+          conversationId: target.conversationId,
+          hiddenAt: now,
+          hiddenAtMs: now.getTime(),
+          updatedAt: now,
+        },
+        { merge: true }
+      );
+    }
+    await batch.commit();
+
+    return NextResponse.json({
+      marked: conversationTargets.size,
+      failed: 0,
+      hidden: conversationTargets.size,
+    });
   } catch (e) {
     console.error("[delete-messages]", e);
-    return NextResponse.json({ error: "Failed to delete messages" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to hide messages" }, { status: 500 });
   }
 }
