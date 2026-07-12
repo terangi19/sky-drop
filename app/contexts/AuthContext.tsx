@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { User } from "firebase/auth";
 import { auth, onAuthStateChanged } from "../lib/firebase";
+import { resetAuthReadyCache } from "../lib/auth-session";
 
 interface AuthContextType {
   user: User | null;
@@ -23,7 +24,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(currentUser);
       setLoading(false);
     });
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      resetAuthReadyCache();
+    };
   }, []);
 
   return (

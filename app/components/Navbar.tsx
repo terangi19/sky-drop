@@ -12,7 +12,6 @@ import { usePathname, useRouter } from "next/navigation";
 
 import {
   signOut,
-  User,
 } from "firebase/auth";
 
 import {
@@ -27,11 +26,11 @@ import {
 import {
   auth,
   db,
-  onAuthStateChanged,
 } from "../lib/firebase";
 
 import NotificationBell from "./NotificationBell";
 import SkyDropLogo from "./SkyDropLogo";
+import { useAuth } from "../contexts/AuthContext";
 import { useProfile } from "../contexts/ProfileContext";
 import { isAdminEmail } from "../lib/admin-check";
 import {
@@ -61,12 +60,9 @@ const BROWSE_LINKS = [
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const { username } = useProfile();
   const { openFeedback } = useFeedback();
-  const [user, setUser] =
-    useState<User | null>(
-      null
-    );
 
   const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
   const [activityUnreadCount, setActivityUnreadCount] = useState(0);
@@ -131,19 +127,6 @@ export default function Navbar() {
     );
     return () => unsub();
   }, [user?.uid]);
-
-  useEffect(() => {
-    const unsubscribe =
-      onAuthStateChanged(
-        auth,
-        (currentUser) => {
-          setUser(currentUser);
-        }
-      );
-
-    return () =>
-      unsubscribe();
-  }, []);
 
   function firestoreErrorCode(error: unknown): string {
     if (error && typeof error === "object" && "code" in error) {
@@ -396,7 +379,11 @@ export default function Navbar() {
                   Toggle theme
                 </button>
                 <div className="my-1.5 mx-3 border-t border-white/[0.04] light:border-black/[0.08]" />
-                {user ? (
+                {authLoading ? (
+                  <div className="px-3 py-3">
+                    <div className="h-10 animate-pulse rounded-xl bg-white/[0.06]" />
+                  </div>
+                ) : user ? (
                   <>
                     <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400 light:text-gray-500">Account</div>
                     <div className="px-1">
@@ -442,7 +429,9 @@ export default function Navbar() {
 
           {/* RIGHT ICONS */}
           <div className="hidden md:flex items-center gap-1">
-            {user && (
+            {authLoading ? (
+              <div className="h-9 w-9 animate-pulse rounded-xl bg-white/[0.06]" />
+            ) : user ? (
               <Link
                 href="/messages"
                 className={`relative h-9 w-9 items-center justify-center rounded-xl transition-all duration-200 flex group ${isActive("/messages") ? "bg-white/[0.08] text-[var(--nav-ice)]" : "hover:bg-white/[0.06] text-[var(--nav-ice-muted)] hover:text-[var(--nav-ice)]"}`}
@@ -456,7 +445,7 @@ export default function Navbar() {
                   </span>
                 )}
               </Link>
-            )}
+            ) : null}
 
             <button
               onClick={toggleTheme}
@@ -468,7 +457,7 @@ export default function Navbar() {
               </svg>
             </button>
 
-            {user && (
+            {!authLoading && user && (
               <Link
                 href="/notifications"
                 aria-label="Notifications"
@@ -481,7 +470,9 @@ export default function Navbar() {
 
           {/* PROFILE — desktop only */}
           <div className="hidden md:flex items-center gap-2">
-            {user ? (
+            {authLoading ? (
+              <div className="h-9 w-28 animate-pulse rounded-xl bg-white/[0.06]" />
+            ) : user ? (
               <div className="relative group">
                 <button
                   type="button"
@@ -529,7 +520,7 @@ export default function Navbar() {
         </div>
       </div>
       {/* Mobile bottom bar */}
-      {user && (
+      {!authLoading && user && (
         <nav className="fixed bottom-0 left-0 right-0 z-[9999] border-t border-white/[0.04] bg-zinc-950/90 backdrop-blur-xl lg:hidden" style={{ backgroundColor: "var(--nav-bg)" }}>
           <div className="flex items-center justify-around py-1.5" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 4px) + 4px)" }}>
             {MOBILE_NAV_ITEMS.map((item) => {

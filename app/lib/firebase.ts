@@ -1,5 +1,12 @@
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth, browserLocalPersistence } from "firebase/auth";
+import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
+import {
+  getAuth,
+  initializeAuth,
+  indexedDBLocalPersistence,
+  browserLocalPersistence,
+  browserPopupRedirectResolver,
+  type Auth,
+} from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getFirebaseStorageBucket } from "./firebase-storage-config";
@@ -15,23 +22,44 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "G-24M12L6HFB",
 };
 
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+function getOrCreateApp(): FirebaseApp {
+  return getApps().length ? getApp() : initializeApp(firebaseConfig);
+}
 
-export const auth = getAuth(app);
-auth.useDeviceLanguage();
+/**
+ * Client: initializeAuth with LOCAL persistence before any auth reads.
+ * Server: getAuth only (no browser storage).
+ *
+ * Using setPersistence() after getAuth() races session restore on refresh.
+ */
+function createAuth(app: FirebaseApp): Auth {
+  if (typeof window === "undefined") {
+    return getAuth(app);
+  }
 
-auth.setPersistence?.(browserLocalPersistence).catch(() => {});
+  try {
+    return initializeAuth(app, {
+      persistence: [indexedDBLocalPersistence, browserLocalPersistence],
+      popupRedirectResolver: browserPopupRedirectResolver,
+    });
+  } catch {
+    return getAuth(app);
+  }
+}
+
+export const app = getOrCreateApp();
+export const auth = createAuth(app);
+if (typeof window !== "undefined") {
+  auth.useDeviceLanguage();
+}
 
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
 // App Check — initializes if NEXT_PUBLIC_RECAPTCHA_SITE_KEY is set.
-// Gracefully skipped if unconfigured (development, preview, or missing env var).
-// To enable: set NEXT_PUBLIC_RECAPTCHA_SITE_KEY in your environment.
 import { initAppCheck } from "./app-check";
 if (typeof window !== "undefined") {
   initAppCheck();
 }
 
-// Re-export for convenience — all files import from here
 export { onAuthStateChanged } from "firebase/auth";

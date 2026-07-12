@@ -2,20 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { auth, onAuthStateChanged } from "../lib/firebase";
+import { useAuth } from "../contexts/AuthContext";
 
 export function RouteGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [checking, setChecking] = useState(() => typeof window !== "undefined" && !!auth.currentUser);
+  const { loading } = useAuth();
+  const [checking, setChecking] = useState(loading);
 
   useEffect(() => {
-    if (auth.currentUser) {
-      setChecking(false);
-      return;
-    }
-    const unsub = onAuthStateChanged(auth, () => setChecking(false));
-    return () => unsub();
-  }, [pathname]);
+    setChecking(loading);
+  }, [loading, pathname]);
 
   if (checking) {
     return (
