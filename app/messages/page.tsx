@@ -1514,6 +1514,7 @@ function MessagesPage() {
                           )}
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className={`text-[10px] ${
+                              purchaseData?.status === "refunded" ? "text-sky-400" :
                               purchaseData?.status === "delivered" || purchaseData?.status === "completed" ? "text-sky-400" :
                               purchaseData?.status === "shipped" ? "text-sky-400" :
                               purchaseData?.status === "seller_confirming" ? "text-sky-400" :
@@ -1529,9 +1530,15 @@ function MessagesPage() {
                                purchaseData?.status === "shipped" ? "Shipped" :
                                purchaseData?.status === "delivered" ? "Delivered" :
                                purchaseData?.status === "completed" ? "Completed" :
+                               purchaseData?.status === "refunded" ? "Refunded" :
                                purchaseData?.status === "cancelled" ? "Cancelled" :
                                "Purchased"}
                             </span>
+                            {purchaseData?.status === "refunded" && (
+                              <span className="text-[10px] font-bold text-sky-400">
+                                ↩ Payment refunded
+                              </span>
+                            )}
                             {purchaseData?.disputeStatus && (
                               <span className="text-[10px] font-bold text-red-400">
                                 {purchaseData.disputeStatus === "refunded" ? "✅ Refunded" : "⚠️ Disputed"}
@@ -1558,7 +1565,7 @@ function MessagesPage() {
                             className="shrink-0 rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white text-center transition hover:bg-sky-400">
                             View Order
                           </Link>
-                          {purchaseData?.buyerEmail === user?.email && !purchaseData?.disputeStatus && (
+                          {purchaseData?.buyerEmail === user?.email && !purchaseData?.disputeStatus && purchaseData?.status !== "refunded" && (
                             <button onClick={() => router.push("/purchases")}
                               className="shrink-0 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-[10px] font-bold text-red-400 transition hover:bg-red-500/20">
                               ⚠️ Dispute

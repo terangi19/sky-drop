@@ -50,6 +50,7 @@ interface Purchase {
   disputeDeadline?: any;
   disputeStatus?: string;
   fundsReleased?: boolean;
+  refundAmount?: number;
   stripePaymentIntentId?: string;
   rentalDays?: number;
   rentalStart?: any;
@@ -80,6 +81,7 @@ const STATUS_LABELS: Record<string, string> = {
   shipped: "Shipped",
   delivered: "Delivered",
   cancelled: "Cancelled",
+  refunded: "Refunded",
   rented: "Rented",
   returned: "Returned",
   arrange_requested: "Arrangement Requested",
@@ -94,6 +96,7 @@ const STATUS_DESCRIPTIONS: Record<string, string> = {
   shipped: "Item has been shipped",
   delivered: "Order completed",
   cancelled: "Order was cancelled",
+  refunded: "Payment refunded",
   rented: "Item is rented",
   returned: "Item has been returned",
   arrange_requested: "Waiting for seller to arrange payment",
@@ -108,6 +111,7 @@ const STATUS_STYLES: Record<string, string> = {
   shipped: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   delivered: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   cancelled: "bg-red-500/10 text-red-400 border-red-500/20",
+  refunded: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   rented: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   returned: "bg-blue-500/10 text-blue-400 border-blue-500/20",
   arrange_requested: "bg-sky-500/10 text-sky-400",
@@ -373,6 +377,26 @@ export default function PurchasesPage() {
       );
     }
 
+    if (purchase.status === "refunded") {
+      return (
+        <div className="mt-3 rounded-lg border border-sky-500/20 bg-sky-500/5 p-3">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500/20">
+              <span className="text-lg">↩</span>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-sky-400">Payment Refunded</p>
+              <p className="text-[10px] text-sky-400/80">
+                {purchase.refundAmount
+                  ? `$${Number(purchase.refundAmount).toFixed(2)} returned to your payment method`
+                  : "This order was fully refunded via Stripe"}
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     const isCompleted = purchase.status === "delivered";
     const isDisputed = !!purchase.disputeStatus;
     
@@ -547,7 +571,7 @@ export default function PurchasesPage() {
                           <span className={`shrink-0 rounded-full border border-[var(--card-border)] px-3 py-0.5 text-[10px] font-bold ${displayStatus.style}`}>
                             {displayStatus.label}
                           </span>
-                                                    {(p as any).destinationCharge && !p.fundsReleased && p.status !== "completed" && (
+                                                    {(p as any).destinationCharge && !p.fundsReleased && p.status !== "completed" && p.status !== "refunded" && (
                             <span className="shrink-0 rounded-full border border-sky-500/15 bg-sky-500/[0.04] px-2.5 py-0.5 text-[9px] font-medium text-sky-400/70">
                               💳 Paid to Seller
                             </span>
@@ -610,13 +634,13 @@ export default function PurchasesPage() {
                             Edit Address
                           </button>
                         )}
-                        {["delivered", "shipped", "seller_confirming"].includes(p.status) && !p.disputeStatus && !p.fundsReleased && (!p.disputeDeadline || new Date(p.disputeDeadline.seconds * 1000 || p.disputeDeadline) > new Date()) && (
+                        {["delivered", "shipped", "seller_confirming"].includes(p.status) && p.status !== "refunded" && !p.disputeStatus && !p.fundsReleased && (!p.disputeDeadline || new Date(p.disputeDeadline.seconds * 1000 || p.disputeDeadline) > new Date()) && (
                           <button onClick={() => { setDisputeModal(p); setDisputeReason(""); setDisputeDescription(""); }}
                             className="rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-1.5 text-[11px] font-bold text-red-400 transition hover:bg-red-500/10 active:scale-[0.97]">
                             ⚠️ Dispute
                           </button>
                         )}
-                        {action && !p.disputeStatus && (
+                        {action && !p.disputeStatus && p.status !== "refunded" && (
                           <button onClick={() => updateStatus(p.id, action.action)}
                             className={`rounded-lg ${action.color} px-3 py-1.5 text-[11px] font-bold text-always-white transition hover:brightness-110 active:scale-[0.97]`}>
                             {action.label}

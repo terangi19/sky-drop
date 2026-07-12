@@ -6,6 +6,11 @@ import { notifyAdmin, writeFailureRecord } from "../../../lib/admin-alerts";
 import * as Sentry from "@sentry/nextjs";
 import { logSecurityCritical } from "../../../lib/security-log";
 import { sanitizeCheckoutCollectionName } from "../../../lib/payment-checkout";
+import {
+  applyStripeRefundToPurchase,
+  isFullStripeRefund,
+  resolveStripeRefundContext,
+} from "../../../lib/stripe-refund-sync";
 
 export async function POST(req: NextRequest) {
   const sig = req.headers.get("stripe-signature");
@@ -296,59 +301,96 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (event.type === "charge.refund.updated" || (event.type as string) === "charge.refund.created") {
-      const refund = event.data.object as any;
-      const chargeId = refund.charge as string;
+    if (
+      event.type === "charge.refunded" ||
+      event.type === "refund.created" ||
+      event.type === "refund.updated"
+    ) {
       const db = getAdminDb();
-
       let paymentIntentId = "";
-      let listingId = "";
-      let buyerEmail = "";
-      let sellerEmail = "";
+      let purchaseIdFromMeta = "";
+      let refundId = "";
+      let refundAmount = 0;
+      let refundStatus = "succeeded";
+      let refundedAt = new Date();
+      let fullyRefunded = false;
 
-      try {
-        const charge = await stripe.charges.retrieve(chargeId, { expand: ["payment_intent"] });
-        const pi = charge.payment_intent as any;
-        paymentIntentId = pi?.id || "";
-        listingId = pi?.metadata?.listingId || "";
-        buyerEmail = pi?.metadata?.buyerEmail || "";
-        sellerEmail = pi?.metadata?.sellerEmail || "";
-      } catch {}
-
-      // Update purchase record with refund status
-      if (paymentIntentId) {
-        const purchases = await db.collection("purchases")
-          .where("stripePaymentIntentId", "==", paymentIntentId)
-          .limit(1)
-          .get();
-        if (!purchases.empty) {
-          const purchaseRef = purchases.docs[0].ref;
-          const refundAmount = refund.amount / 100;
-          const purchaseData = purchases.docs[0].data();
-          
-          await purchaseRef.update({
-            refundStatus: refund.status || "processing",
-            refundAmount: refundAmount,
-            refundId: refund.id,
-            refundedAt: new Date(refund.created * 1000),
-            status: "refunded",
-          });
-
-          await notifyAdmin({
-            type: "refund_created",
-            title: "Refund Initiated",
-            message: `Refund ${refund.id} for $${refundAmount.toFixed(2)} on purchase ${purchases.docs[0].id}`,
-            metadata: {
-              refundId: refund.id,
-              chargeId,
-              paymentIntentId,
-              listingId,
-              buyerEmail,
-              sellerEmail,
-              refundAmount,
-            },
-          });
+      if (event.type === "charge.refunded") {
+        const charge = event.data.object as any;
+        paymentIntentId =
+          typeof charge.payment_intent === "string"
+            ? charge.payment_intent
+            : charge.payment_intent?.id || "";
+        refundAmount = Number(charge.amount_refunded || 0) / 100;
+        fullyRefunded = isFullStripeRefund(
+          Number(charge.amount_refunded || 0),
+          Number(charge.amount || 0),
+          charge.refunded === true
+        );
+        refundedAt = charge.created ? new Date(charge.created * 1000) : new Date();
+      } else {
+        const refund = event.data.object as any;
+        if (
+          (event.type === "refund.updated" || event.type === "refund.created") &&
+          refund.status !== "succeeded"
+        ) {
+          await eventRef.update({ status: "completed", processedAt: new Date() });
+          return NextResponse.json({ received: true });
         }
+
+        refundId = refund.id || "";
+        refundStatus = refund.status || "succeeded";
+        refundAmount = Number(refund.amount || 0) / 100;
+        purchaseIdFromMeta = refund.metadata?.purchaseId || "";
+        refundedAt = refund.created ? new Date(refund.created * 1000) : new Date();
+
+        const resolved = await resolveStripeRefundContext(stripe, {
+          chargeId: typeof refund.charge === "string" ? refund.charge : refund.charge?.id,
+          paymentIntentId:
+            typeof refund.payment_intent === "string"
+              ? refund.payment_intent
+              : refund.payment_intent?.id || "",
+          refundAmountCents: Number(refund.amount || 0),
+        });
+        paymentIntentId = resolved.paymentIntentId;
+        fullyRefunded = resolved.fullyRefunded;
+        if (resolved.refundAmountCents > 0) {
+          refundAmount = resolved.refundAmountCents / 100;
+        }
+      }
+
+      const syncResult = await applyStripeRefundToPurchase({
+        paymentIntentId,
+        purchaseId: purchaseIdFromMeta || undefined,
+        refundId: refundId || undefined,
+        refundAmount,
+        refundStatus,
+        refundedAt,
+        fullyRefunded,
+      });
+
+      if (syncResult.updated) {
+        await notifyAdmin({
+          type: "refund_created",
+          title: fullyRefunded ? "Payment Refunded" : "Partial Refund Issued",
+          message: fullyRefunded
+            ? `Purchase ${syncResult.purchaseId} fully refunded — $${refundAmount.toFixed(2)}`
+            : `Purchase ${syncResult.purchaseId} partial refund — $${refundAmount.toFixed(2)}`,
+          metadata: {
+            refundId,
+            paymentIntentId,
+            purchaseId: syncResult.purchaseId,
+            refundAmount,
+            fullyRefunded,
+          },
+        });
+      } else if (syncResult.skipped === "purchase_not_found") {
+        console.error("[stripe-webhook] refund received but purchase not found", {
+          eventType: event.type,
+          paymentIntentId,
+          purchaseIdFromMeta,
+          refundId,
+        });
       }
     }
 

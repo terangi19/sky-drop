@@ -1347,7 +1347,8 @@ export default function ListingPage() {
                 {purchaseView.showBuyerPurchasedBanner && purchaseView.buyerBannerText && (
                   <>
                     <p className="text-sm font-bold text-sky-300">
-                      ✓ {purchaseView.buyerBannerText}
+                      {purchaseView.primaryOrder?.status === "refunded" ? "↩ " : "✓ "}
+                      {purchaseView.buyerBannerText}
                     </p>
                     {purchaseView.orderStatusLabel && (
                       <p className="text-xs text-[var(--muted)]">{purchaseView.orderStatusLabel}</p>
@@ -1357,6 +1358,21 @@ export default function ListingPage() {
                       className="inline-flex items-center gap-1 text-xs font-bold text-sky-400 hover:text-sky-300 transition-colors"
                     >
                       View Order
+                    </Link>
+                  </>
+                )}
+
+                {purchaseView.showSellerRefundedBanner && (
+                  <>
+                    <p className="text-sm font-bold text-sky-300">↩ Payment refunded for this order</p>
+                    {purchaseView.orderStatusLabel && (
+                      <p className="text-xs text-[var(--muted)]">{purchaseView.orderStatusLabel}</p>
+                    )}
+                    <Link
+                      href="/sales"
+                      className="inline-flex items-center gap-1 text-xs font-bold text-sky-400 hover:text-sky-300 transition-colors"
+                    >
+                      View Sale
                     </Link>
                   </>
                 )}

@@ -79,6 +79,8 @@ export async function POST(req: NextRequest) {
     }
 
     const disputeStatus = String(purchase.disputeStatus || "");
+    const currentStatus = String(purchase.status || "");
+
     if (["open", "pending", "under_review"].includes(disputeStatus)) {
       return NextResponse.json(
         { error: "Order is in dispute — status cannot be changed" },
@@ -86,7 +88,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const currentStatus = String(purchase.status || "");
+    if (currentStatus === "refunded") {
+      return NextResponse.json(
+        { error: "Order has been refunded — status cannot be changed" },
+        { status: 400 }
+      );
+    }
 
     // FSM validation — ensure the transition is allowed
     if (!canTransition(currentStatus as any, status as any)) {

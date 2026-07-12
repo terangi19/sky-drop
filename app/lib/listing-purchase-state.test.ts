@@ -69,25 +69,28 @@ describe("listing-purchase-state", () => {
     expect(state.hidePaymentMethodSection).toBe(true);
   });
 
-  it("public viewer sees sold state only", () => {
+  it("buyer sees refunded banner after full Stripe refund", () => {
     const state = getListingPurchaseViewState({
       listing: { status: "sold" },
-      userUid: "other-uid",
-      userEmail: "other@test.com",
+      userUid: "buyer-uid",
+      userEmail: "buyer@test.com",
       listingSellerId: "seller-uid",
       listingSellerEmail: "seller@test.com",
       buyerPurchasedQuantity: 0,
       arrangeRequestCount: 0,
-      listingOrders: [],
+      listingOrders: [
+        {
+          buyerId: "buyer-uid",
+          buyerEmail: "buyer@test.com",
+          status: "refunded",
+          paymentType: "stripe",
+        },
+      ],
     });
 
-    expect(resolveListingViewerRole(
-      { sellerId: "seller-uid" },
-      "other-uid",
-      "other@test.com",
-      []
-    )).toBe("public");
-    expect(state.showPublicSoldUi).toBe(true);
-    expect(state.showBuyerPurchasedBanner).toBe(false);
+    expect(state.role).toBe("buyer");
+    expect(state.showBuyerPurchasedBanner).toBe(true);
+    expect(state.buyerBannerText).toBe("Your payment for this item was refunded");
+    expect(state.orderStatusLabel).toBe("Payment refunded");
   });
 });

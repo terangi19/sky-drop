@@ -29,6 +29,7 @@ export type ListingPurchaseViewState = {
   showBuyerPurchasedBanner: boolean;
   buyerBannerText: string | null;
   showSellerSoldUi: boolean;
+  showSellerRefundedBanner: boolean;
   showPublicSoldUi: boolean;
   hidePaymentMethodSection: boolean;
   hideBuyerPurchaseCta: boolean;
@@ -101,6 +102,8 @@ export function formatOrderStatusLabel(status?: string): string {
       return "Payment failed";
     case "cancelled":
       return "Cancelled";
+    case "refunded":
+      return "Refunded";
     default:
       return "Order in progress";
   }
@@ -122,6 +125,10 @@ export function resolveListingViewerRole(
   if (listingOrders.some((o) => matchesBuyer(o, uid, email))) return "buyer";
   if (uid || email) return "public";
   return "guest";
+}
+
+function isRefundedOrder(order: ListingOrderSlice): boolean {
+  return String(order.status || "").toLowerCase() === "refunded";
 }
 
 export function getListingPurchaseViewState(opts: {
@@ -158,19 +165,28 @@ export function getListingPurchaseViewState(opts: {
   );
 
   const completedOrders = listingOrders.filter(isCompletedListingOrder);
+  const refundedOrders = listingOrders.filter(isRefundedOrder);
   const soldListing = listingIsSold(listing);
   const hasActiveOrder = completedOrders.length > 0 || soldListing;
+  const hasRefundedOrder = refundedOrders.length > 0;
+
+  const buyerRefundedOrder =
+    listingOrders.find(
+      (o) => matchesBuyer(o, userUid, userEmail) && isRefundedOrder(o)
+    ) ?? null;
 
   const buyerOrder =
+    buyerRefundedOrder ??
     listingOrders.find(
       (o) =>
         matchesBuyer(o, userUid, userEmail) &&
         (isCompletedListingOrder(o) || isArrangeRequestPending(String(o.status || "")))
-    ) ?? null;
+    ) ??
+    null;
 
   const primaryOrder =
     role === "seller"
-      ? completedOrders[0] ?? listingOrders[0] ?? null
+      ? completedOrders[0] ?? refundedOrders[0] ?? listingOrders[0] ?? null
       : buyerOrder;
 
   const buyerUi = getBuyerPurchaseUiState(
@@ -179,27 +195,38 @@ export function getListingPurchaseViewState(opts: {
     arrangeRequestCount
   );
 
-  const hidePaymentMethodSection = hasActiveOrder;
   const hideBuyerPurchaseCta =
     role === "seller" ||
     role === "public" ||
     role === "guest" ||
     hasActiveOrder ||
+    hasRefundedOrder ||
     (buyerPurchasedQuantity === 0 &&
       arrangeRequestCount === 0 &&
       !buyerUi.canPurchaseMore);
 
-  const showBuyerPurchasedBanner =
-    role === "buyer" && buyerUi.showPurchasedBanner && !!buyerUi.bannerText;
+  const showBuyerRefundedBanner =
+    role === "buyer" && !!buyerRefundedOrder;
+  const showSellerRefundedBanner =
+    role === "seller" && refundedOrders.length > 0;
 
-  const showSellerSoldUi = role === "seller" && hasActiveOrder;
+  const showBuyerPurchasedBanner =
+    role === "buyer" && !showBuyerRefundedBanner && buyerUi.showPurchasedBanner && !!buyerUi.bannerText;
+
+  const showSellerSoldUi = role === "seller" && hasActiveOrder && !showSellerRefundedBanner;
   const showPublicSoldUi =
     (role === "public" || role === "guest") && hasActiveOrder;
 
   const showOrderStatusSection =
-    showBuyerPurchasedBanner || showSellerSoldUi || showPublicSoldUi;
+    showBuyerPurchasedBanner ||
+    showBuyerRefundedBanner ||
+    showSellerRefundedBanner ||
+    showSellerSoldUi ||
+    showPublicSoldUi;
 
-  const orderStatusLabel = primaryOrder
+  const orderStatusLabel = primaryOrder && isRefundedOrder(primaryOrder)
+    ? "Payment refunded"
+    : primaryOrder
     ? formatOrderStatusLabel(primaryOrder.status)
     : soldListing
       ? "This listing is no longer available"
@@ -207,16 +234,26 @@ export function getListingPurchaseViewState(opts: {
 
   return {
     role,
-    hasActiveOrder,
+    hasActiveOrder: hasActiveOrder || hasRefundedOrder,
     primaryOrder,
     showOrderStatusSection,
     orderStatusLabel,
-    showBuyerPurchasedBanner,
-    buyerBannerText: showBuyerPurchasedBanner ? buyerUi.bannerText : null,
+    showBuyerPurchasedBanner:
+      showBuyerPurchasedBanner || showBuyerRefundedBanner,
+    buyerBannerText: showBuyerPurchasedBanner
+      ? buyerUi.bannerText
+      : showBuyerRefundedBanner
+        ? "Your payment for this item was refunded"
+        : null,
     showSellerSoldUi,
+    showSellerRefundedBanner,
     showPublicSoldUi,
-    hidePaymentMethodSection,
+    hidePaymentMethodSection: hasActiveOrder || hasRefundedOrder,
     hideBuyerPurchaseCta,
-    canPurchaseMore: role === "buyer" && buyerUi.canPurchaseMore && !hasActiveOrder,
+    canPurchaseMore:
+      role === "buyer" &&
+      buyerUi.canPurchaseMore &&
+      !hasActiveOrder &&
+      !showBuyerRefundedBanner,
   };
 }
