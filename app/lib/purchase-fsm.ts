@@ -14,18 +14,24 @@ export type PurchaseStatus =
   | "delivered"
   | "completed"
   | "cancelled"
-  | "refunded";
+  | "refunded"
+  | "in_progress"
+  | "rented"
+  | "returned";
 
 const TRANSITIONS: Record<PurchaseStatus, PurchaseStatus[]> = {
   pending:            ["seller_confirming", "shipped", "cancelled"],
-  seller_confirming:  ["preparing", "ready_for_pickup", "shipped", "delivered", "cancelled"],
-  preparing:          ["ready_for_pickup", "shipped", "delivered", "cancelled"],
+  seller_confirming:  ["preparing", "ready_for_pickup", "shipped", "cancelled"],
+  preparing:          ["ready_for_pickup", "shipped", "cancelled"],
   ready_for_pickup:   ["delivered", "cancelled"],
   shipped:            ["delivered"],
   delivered:          ["completed"],
-  completed:          [],
+  completed:          ["delivered"],
   cancelled:          [],
   refunded:           [],
+  in_progress:        ["completed", "delivered", "cancelled"],
+  rented:             ["returned", "cancelled"],
+  returned:           ["completed", "cancelled"],
 };
 
 /** Valid next states for a given current status */
@@ -59,6 +65,9 @@ export const STATUS_LABELS: Record<PurchaseStatus, string> = {
   completed:          "Completed",
   cancelled:          "Cancelled",
   refunded:           "Refunded",
+  in_progress:        "In Progress",
+  rented:             "Rented",
+  returned:           "Returned",
 };
 
 /** Colour scheme tokens for UI badges */
@@ -72,4 +81,7 @@ export const STATUS_STYLES: Record<PurchaseStatus, string> = {
   completed:          "bg-green-500/10 text-green-400 border-green-500/20",
   cancelled:          "bg-red-500/10 text-red-400 border-red-500/20",
   refunded:           "bg-violet-500/10 text-violet-300 border-violet-500/25",
+  in_progress:        "bg-sky-500/10 text-sky-400 border-sky-500/20",
+  rented:             "bg-sky-500/10 text-sky-400 border-sky-500/20",
+  returned:           "bg-blue-500/10 text-blue-400 border-blue-500/20",
 };

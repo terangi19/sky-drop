@@ -19,6 +19,7 @@ import { InteractiveReviewStars } from "../components/SellerReviewStars";
 import { sellerMessagesUrl, sellerProfileSlug } from "../lib/public-display";
 import RefundStatusCard from "../components/RefundStatusCard";
 import { REFUND_BADGE_CLASS } from "../lib/refund-display";
+import { getBuyerNextAction } from "../lib/purchase-order-actions";
 
 interface Purchase {
   id: string;
@@ -262,7 +263,7 @@ export default function PurchasesPage() {
     }
 
     showToast(
-      status === "delivered" ? "🎉 Order complete! Seller has been notified." : 
+      status === "delivered" ? "Receipt confirmed — seller will be notified." :
       status === "shipped" ? "📦 Order status updated to shipped" :
       status === "in_progress" ? "⚙️ Service marked as in progress" :
       "Order status updated successfully",
@@ -347,14 +348,13 @@ export default function PurchasesPage() {
   useAwhinaInsightEffect(awhinaInsight);
 
   function nextAction(p: Purchase): { label: string; action: string; color: string; badge?: string } | null {
-    if (p.status === "shipped") return { label: "Confirm Received", action: "delivered", color: "bg-sky-500" };
-    if (p.deliveryMethod === "pickup" && p.status === "seller_confirming") {
-      return { label: "Confirm Received", action: "delivered", color: "bg-sky-500" };
-    }
-    if (p.deliveryMethod === "service" && p.status === "in_progress") return { label: "Mark Completed", action: "delivered", color: "bg-sky-500" };
-    if (p.deliveryMethod === "service" && p.status === "completed") return { label: "Confirm Received", action: "delivered", color: "bg-sky-500" };
-    if (p.deliveryMethod === "rental" && p.status === "rented") return { label: "Return Item", action: "returned", color: "bg-sky-500" };
-    return null;
+    const action = getBuyerNextAction(p);
+    if (!action) return null;
+    return {
+      label: action.label,
+      action: action.status,
+      color: action.color || "bg-emerald-500",
+    };
   }
 
   function deliveryLabel(p: Purchase): { icon: string; text: string; badge: string } {

@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
     if (status === "delivered") {
       const method = String(purchase.deliveryMethod || "");
       const canConfirm =
-        ["shipped", "completed"].includes(currentStatus) ||
+        ["shipped", "ready_for_pickup"].includes(currentStatus) ||
         (method === "pickup" && currentStatus === "seller_confirming") ||
         (method === "service" && ["in_progress", "completed"].includes(currentStatus));
       if (!canConfirm) {
@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
 
     if (
       status === "shipped" &&
-      !["seller_confirming", "pending"].includes(currentStatus)
+      !["seller_confirming", "pending", "preparing"].includes(currentStatus)
     ) {
       return NextResponse.json(
         { error: "Order must be confirmed before marking shipped" },

@@ -18,6 +18,11 @@ import { useAwhinaInsightEffect } from "../contexts/AwhinaPageInsightContext";
 import { buildSalesInsight } from "../lib/awhina-insights";
 import RefundStatusCard from "../components/RefundStatusCard";
 import { REFUND_BADGE_CLASS } from "../lib/refund-display";
+import {
+  getSellerNextAction,
+  getSellerWaitingMessage,
+  isSellerWaitingForBuyer,
+} from "../lib/purchase-order-actions";
 
 interface Purchase {
   id: string;
@@ -88,16 +93,11 @@ function statusLabel(status: string): string {
   return labels[status] || status;
 }
 
-const nextStatus: Record<string, { label: string; status: string }> = {
-  pending: { label: "Confirm Order", status: "seller_confirming" },
-  seller_confirming: { label: "Mark Preparing", status: "preparing" },
-  preparing: { label: "Mark Ready", status: "ready_for_pickup" },
-  ready_for_pickup: { label: "Mark Delivered", status: "delivered" },
-  shipped: { label: "Mark Delivered", status: "delivered" },
-  in_progress: { label: "Mark Completed", status: "completed" },
-  rented: { label: "Mark Returned", status: "returned" },
-  returned: { label: "Complete", status: "completed" },
-};
+function sellerActionForSale(s: Purchase) {
+  const action = getSellerNextAction(s);
+  if (!action) return null;
+  return { label: action.label, status: action.status, needsTracking: action.needsTracking };
+}
 
 export default function SalesPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -105,7 +105,7 @@ export default function SalesPage() {
   const [sales, setSales] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [confirmAction, setConfirmAction] = useState<{ id: string; status: string; label: string } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ id: string; status: string; label: string; needsTracking?: boolean } | null>(null);
   const [trackingNumber, setTrackingNumber] = useState("");
   const [sellerStripeId, setSellerStripeId] = useState("");
   const [filter, setFilter] = useState("active");
@@ -280,7 +280,7 @@ export default function SalesPage() {
           fromEmail: currentEmail,
           type: "ready_for_pickup",
           title: "Ready for Pickup",
-          message: `Your order for "${purchase.listingTitle}" is ready for pickup! Contact the seller to arrange collection.`,
+          message: `Your order for "${purchase.listingTitle}" is ready for pickup! Confirm receipt in your purchases once you've collected it.`,
           listingId: purchase.listingId,
           listingTitle: purchase.listingTitle,
           listingImage: purchase.listingImage,
@@ -293,33 +293,7 @@ export default function SalesPage() {
           fromEmail: currentEmail,
           type: "item_shipped",
           title: "Item Shipped",
-          message: `Your item "${purchase.listingTitle}" has been shipped and is on its way! Track delivery in your purchases page.`,
-          listingId: purchase.listingId,
-          listingTitle: purchase.listingTitle,
-          listingImage: purchase.listingImage,
-        });
-      }
-
-      if (newStatus === "delivered" && purchase.deliveryMethod !== "service") {
-        await createNotification({
-          targetEmail: purchase.buyerEmail,
-          fromEmail: currentEmail,
-          type: "delivered",
-          title: "Item Delivered",
-          message: `Your purchase "${purchase.listingTitle}" has been marked as delivered. Please confirm receipt to release funds to the seller, or open a dispute within 7 days.`,
-          listingId: purchase.listingId,
-          listingTitle: purchase.listingTitle,
-          listingImage: purchase.listingImage,
-        });
-      }
-
-      if (newStatus === "delivered" && purchase.deliveryMethod === "service") {
-        await createNotification({
-          targetEmail: purchase.buyerEmail,
-          fromEmail: currentEmail,
-          type: "service_completed",
-          title: "Service Completed",
-          message: `Your service "${purchase.listingTitle}" has been marked as complete. Please confirm you're satisfied to release payment.`,
+          message: `Your item "${purchase.listingTitle}" has been shipped. Confirm receipt in your purchases when it arrives.`,
           listingId: purchase.listingId,
           listingTitle: purchase.listingTitle,
           listingImage: purchase.listingImage,
@@ -444,6 +418,8 @@ export default function SalesPage() {
           <div className="space-y-3">
             {filtered.map((s) => {
               const isRefunded = s.status === "refunded";
+              const sellerAction = sellerActionForSale(s);
+              const waitingForBuyer = isSellerWaitingForBuyer(s);
               return (
               <div key={s.id} className="group relative overflow-hidden rounded-2xl border border-white/[0.06] bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-4 sm:p-5 transition-all duration-200 hover:bg-white/[0.06] hover:border-white/[0.10] hover:shadow-lg hover:shadow-black/20">
                 <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -511,12 +487,17 @@ export default function SalesPage() {
                           {confirmingSaleId === s.id ? "Updating…" : "Mark sold to buyer"}
                         </button>
                       ) : null}
-                      {nextStatus[s.status] && !s.disputeStatus && s.status !== "refunded" && !(s as any).fundsReleased ? (
-                        <button onClick={() => setConfirmAction({ id: s.id, status: nextStatus[s.status].status, label: nextStatus[s.status].label })}
+                      {sellerAction && !s.disputeStatus && s.status !== "refunded" && !(s as any).fundsReleased ? (
+                        <button onClick={() => setConfirmAction({ id: s.id, status: sellerAction.status, label: sellerAction.label, needsTracking: sellerAction.needsTracking })}
                           className="rounded-lg bg-gradient-to-r from-sky-500 to-sky-500 px-4 py-1.5 text-[11px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">
-                          {nextStatus[s.status].label}
+                          {sellerAction.label}
                         </button>
                       ) : null}
+                      {waitingForBuyer && !isRefunded && (
+                        <span className="text-[11px] font-bold text-amber-400/90">
+                          ⏳ {getSellerWaitingMessage(s)}
+                        </span>
+                      )}
                       {(s as any).paymentType === "contact" && !isRefunded ? (
                         <span className="text-[11px] text-sky-400/80 font-bold">🤝 Arrange Purchase — payment off-platform</span>
                       ) : (s as any).destinationCharge && s.status !== "refunded" ? (
@@ -549,7 +530,7 @@ export default function SalesPage() {
           <div className="mx-4 w-full max-w-sm rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-center text-lg font-black text-[var(--foreground)]">Mark as {confirmAction.label}?</h3>
             <p className="mt-2 text-center text-sm text-[var(--muted)]">This will update the order status and notify the buyer.</p>
-            {confirmAction.status === "shipped" && (
+            {confirmAction.status === "shipped" && confirmAction.needsTracking && (
               <div className="mt-4">
                 <label className="mb-1 block text-xs font-bold text-[var(--muted)]">Tracking Number (optional)</label>
                 <input type="text" value={trackingNumber} onChange={(e) => setTrackingNumber(e.target.value)}
