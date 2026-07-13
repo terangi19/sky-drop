@@ -228,7 +228,7 @@ export async function createPurchaseWithAdmin(input: CreatePurchaseInput): Promi
 
     const type = input.type || "physical";
     const computedStatus = input.status === "delivered" ? "delivered"
-      : input.status === "confirmed" ? "confirmed" // Allow TradeMe-style auto-confirmation
+      : input.status === "confirmed" || input.status === "seller_confirming" ? "seller_confirming"
       : type === "rental" ? "rented"
       : type === "service" ? "in_progress"
       : "pending";
@@ -392,6 +392,7 @@ export async function createPurchaseWithRest(
     const type = input.type || "physical";
     const now = new Date().toISOString();
     const computedStatus = input.status === "delivered" ? "delivered"
+      : input.status === "confirmed" || input.status === "seller_confirming" ? "seller_confirming"
       : type === "rental" ? "rented"
       : type === "service" ? "in_progress"
       : "pending";

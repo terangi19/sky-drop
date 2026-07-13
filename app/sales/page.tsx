@@ -23,6 +23,7 @@ import {
   getSellerWaitingMessage,
   isSellerWaitingForBuyer,
 } from "../lib/purchase-order-actions";
+import { purchaseStatusLabel } from "../lib/purchase-status";
 
 interface Purchase {
   id: string;
@@ -55,6 +56,7 @@ interface Purchase {
 const statusStyles: Record<string, string> = {
   arrange_requested: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   pending: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+  confirmed: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   seller_confirming: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   preparing: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   ready_for_pickup: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
@@ -75,22 +77,7 @@ function formatDate(ts: any): string {
 }
 
 function statusLabel(status: string): string {
-  const labels: Record<string, string> = {
-    arrange_requested: "Purchase request",
-    pending: "Pending",
-    seller_confirming: "Confirmed",
-    preparing: "Preparing",
-    ready_for_pickup: "Ready for Pickup",
-    shipped: "Shipped",
-    in_progress: "In Progress",
-    delivered: "Delivered",
-    completed: "Completed",
-    cancelled: "Cancelled",
-    refunded: "Fully refunded",
-    rented: "Rented",
-    returned: "Returned",
-  };
-  return labels[status] || status;
+  return purchaseStatusLabel(status);
 }
 
 function sellerActionForSale(s: Purchase) {
@@ -487,7 +474,7 @@ export default function SalesPage() {
                           {confirmingSaleId === s.id ? "Updating…" : "Mark sold to buyer"}
                         </button>
                       ) : null}
-                      {sellerAction && !s.disputeStatus && s.status !== "refunded" && !(s as any).fundsReleased ? (
+                      {sellerAction && !s.disputeStatus && !isRefunded ? (
                         <button onClick={() => setConfirmAction({ id: s.id, status: sellerAction.status, label: sellerAction.label, needsTracking: sellerAction.needsTracking })}
                           className="rounded-lg bg-gradient-to-r from-sky-500 to-sky-500 px-4 py-1.5 text-[11px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">
                           {sellerAction.label}

@@ -165,7 +165,7 @@ export async function POST(req: NextRequest) {
       type: body.type || "physical",
       digitalFileURL: body.digitalFileURL || "",
       digitalFileName: body.digitalFileName || "",
-      status: "confirmed", // Auto-confirm Stripe payments (TradeMe-style: payment = order confirmed)
+      status: "seller_confirming", // Stripe payment = order confirmed; seller still fulfills
       rentalStart: body.rentalStart || null,
       rentalEnd: body.rentalEnd || null,
       rentalDays: body.rentalDays || null,

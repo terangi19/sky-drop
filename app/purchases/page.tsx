@@ -20,6 +20,7 @@ import { sellerMessagesUrl, sellerProfileSlug } from "../lib/public-display";
 import RefundStatusCard from "../components/RefundStatusCard";
 import { REFUND_BADGE_CLASS } from "../lib/refund-display";
 import { getBuyerNextAction } from "../lib/purchase-order-actions";
+import { normalizePurchaseStatus, purchaseStatusLabel } from "../lib/purchase-status";
 
 interface Purchase {
   id: string;
@@ -115,6 +116,8 @@ const STATUS_STYLES: Record<string, string> = {
   pending: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   confirmed: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   seller_confirming: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+  preparing: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+  ready_for_pickup: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   in_progress: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   shipped: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   delivered: "bg-sky-500/10 text-sky-400 border-sky-500/20",
@@ -170,9 +173,11 @@ function getDisputeDeadlineCountdown(deadline: any): { days: number; text: strin
 
 function statusIndex(s: string, isService?: boolean, isRental?: boolean, isArrange?: boolean): number {
   const steps = isArrange ? ARRANGE_TIMELINE_STEPS : isRental ? RENTAL_TIMELINE_STEPS : isService ? SERVICE_TIMELINE_STEPS : TIMELINE_STEPS;
-  // For Stripe payments (Pay Now), status starts at "confirmed" which is index 0
-  // For arrange purchases, status starts at "arrange_requested" which is index 0
-  const i = steps.findIndex((step) => step.key === s);
+  const norm = normalizePurchaseStatus(s);
+  let lookup = s;
+  if (norm === "seller_confirming" || norm === "preparing") lookup = "confirmed";
+  else if (norm === "ready_for_pickup") lookup = "shipped";
+  const i = steps.findIndex((step) => step.key === lookup);
   return i >= 0 ? i : -1;
 }
 
@@ -348,6 +353,7 @@ export default function PurchasesPage() {
   useAwhinaInsightEffect(awhinaInsight);
 
   function nextAction(p: Purchase): { label: string; action: string; color: string; badge?: string } | null {
+    if (p.disputeStatus || p.status === "refunded") return null;
     const action = getBuyerNextAction(p);
     if (!action) return null;
     return {
@@ -435,7 +441,7 @@ export default function PurchasesPage() {
             <span className="text-lg">{STATUS_LABELS[purchase.status]?.charAt(0) || "•"}</span>
           </div>
           <div>
-            <p className="text-sm font-medium text-[var(--foreground)]">{STATUS_LABELS[purchase.status] || purchase.status}</p>
+            <p className="text-sm font-medium text-[var(--foreground)]">{purchaseStatusLabel(purchase.status)}</p>
             {STATUS_DESCRIPTIONS[purchase.status] && (
               <p className="text-[10px] text-[var(--muted)]">{STATUS_DESCRIPTIONS[purchase.status]}</p>
             )}
@@ -546,7 +552,7 @@ export default function PurchasesPage() {
                 ? { label: "Wanted", style: "bg-sky-500/10 text-sky-400 border-sky-500/20" }
                 : isRefunded
                   ? null
-                  : { label: STATUS_LABELS[p.status] || p.status, style: STATUS_STYLES[p.status] || "bg-[var(--card)]/50 text-[var(--muted)] border-zinc-700/50" };
+                  : { label: purchaseStatusLabel(p.status), style: STATUS_STYLES[p.status] || STATUS_STYLES[normalizePurchaseStatus(p.status)] || "bg-[var(--card)]/50 text-[var(--muted)] border-zinc-700/50" };
               return (
                 <div key={p.id} className="group relative overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--soft-card)] p-4 sm:p-5 transition-all duration-200 hover:bg-[var(--card-hover)] hover:border-[var(--card-border)] hover:shadow-lg hover:shadow-black/10">
                   <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />

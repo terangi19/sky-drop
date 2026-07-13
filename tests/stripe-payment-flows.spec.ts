@@ -107,7 +107,7 @@ test.describe("Stripe Connect Payment Flow Tests", () => {
       const data = await res.json();
       expect(data.success).toBeTruthy();
       expect(data.purchaseId).toBeDefined();
-      expect(data.status).toBe("confirmed");
+      expect(data.status).toBe("seller_confirming");
     });
 
     test("should prevent duplicate purchase creation", async ({ request }) => {

@@ -4,12 +4,12 @@
  * Seller flow: Confirmed → Preparing → Ready for Pickup / Shipped → (wait for buyer)
  * Buyer flow:  Confirm Receipt → delivered (funds release path)
  */
+import { normalizePurchaseStatus } from "./purchase-status";
 
 export type PurchaseOrderSlice = {
   status?: string;
   deliveryMethod?: string;
   disputeStatus?: string;
-  fundsReleased?: boolean;
   paymentType?: string;
 };
 
@@ -20,12 +20,11 @@ export type OrderAction = {
   needsTracking?: boolean;
 };
 
-function isBlocked(p: PurchaseOrderSlice): boolean {
-  const status = String(p.status || "").toLowerCase();
+function isFulfillmentBlocked(p: PurchaseOrderSlice): boolean {
+  const status = normalizePurchaseStatus(p.status);
   if (status === "refunded" || status === "cancelled") return true;
   const dispute = String(p.disputeStatus || "");
   if (["open", "pending", "under_review"].includes(dispute)) return true;
-  if (p.fundsReleased) return true;
   return false;
 }
 
@@ -35,9 +34,9 @@ function deliveryMethod(p: PurchaseOrderSlice): string {
 
 /** Next action a seller may take, or null when waiting on the buyer / terminal. */
 export function getSellerNextAction(p: PurchaseOrderSlice): OrderAction | null {
-  if (isBlocked(p)) return null;
+  if (isFulfillmentBlocked(p)) return null;
 
-  const status = String(p.status || "").toLowerCase();
+  const status = normalizePurchaseStatus(p.status);
   const method = deliveryMethod(p);
 
   if (status === "pending") {
@@ -75,13 +74,13 @@ export function getSellerNextAction(p: PurchaseOrderSlice): OrderAction | null {
 }
 
 export function isSellerWaitingForBuyer(p: PurchaseOrderSlice): boolean {
-  if (isBlocked(p)) return false;
-  const status = String(p.status || "").toLowerCase();
+  if (isFulfillmentBlocked(p)) return false;
+  const status = normalizePurchaseStatus(p.status);
   return status === "ready_for_pickup" || status === "shipped";
 }
 
 export function getSellerWaitingMessage(p: PurchaseOrderSlice): string {
-  const status = String(p.status || "").toLowerCase();
+  const status = normalizePurchaseStatus(p.status);
   if (status === "ready_for_pickup") {
     return "Waiting for buyer to confirm pickup";
   }
@@ -95,9 +94,9 @@ export function getSellerWaitingMessage(p: PurchaseOrderSlice): string {
 export function getBuyerNextAction(
   p: PurchaseOrderSlice
 ): (OrderAction & { color?: string }) | null {
-  if (isBlocked(p)) return null;
+  if (isFulfillmentBlocked(p)) return null;
 
-  const status = String(p.status || "").toLowerCase();
+  const status = normalizePurchaseStatus(p.status);
   const method = deliveryMethod(p);
 
   if (status === "ready_for_pickup" || status === "shipped") {
@@ -109,7 +108,6 @@ export function getBuyerNextAction(
     };
   }
 
-  // Legacy: buyer could confirm pickup before seller marked ready
   if (method === "pickup" && status === "seller_confirming") {
     return {
       label: "Confirm Receipt",

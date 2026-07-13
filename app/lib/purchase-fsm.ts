@@ -5,6 +5,8 @@
  * Direct Firestore writes to purchase.status bypassing this module are a bug.
  */
 
+import { normalizePurchaseStatus } from "./purchase-status";
+
 export type PurchaseStatus =
   | "pending"
   | "seller_confirming"
@@ -35,13 +37,16 @@ const TRANSITIONS: Record<PurchaseStatus, PurchaseStatus[]> = {
 };
 
 /** Valid next states for a given current status */
-export function allowedTransitions(status: PurchaseStatus): PurchaseStatus[] {
-  return TRANSITIONS[status] || [];
+export function allowedTransitions(status: string): PurchaseStatus[] {
+  const normalized = normalizePurchaseStatus(status) as PurchaseStatus;
+  return TRANSITIONS[normalized] || [];
 }
 
 /** Check if a transition is allowed */
-export function canTransition(from: PurchaseStatus, to: PurchaseStatus): boolean {
-  return allowedTransitions(from).includes(to);
+export function canTransition(from: string, to: string): boolean {
+  const fromNorm = normalizePurchaseStatus(from) as PurchaseStatus;
+  const toNorm = normalizePurchaseStatus(to) as PurchaseStatus;
+  return allowedTransitions(fromNorm).includes(toNorm);
 }
 
 /** Transition — throws if invalid */

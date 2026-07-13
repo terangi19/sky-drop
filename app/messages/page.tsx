@@ -52,6 +52,7 @@ import { extractEmailsFromText,
 import { fetchPublicProfileBySlug } from "../lib/fetch-public-profile-client";
 import { sellerMessagesUrl } from "../lib/public-display";
 import { canSellerConfirmArrangeSale, countSellerSales } from "../lib/arrange-purchase-status";
+import { purchaseStatusLabel } from "../lib/purchase-status";
 import { getFreshIdToken } from "../lib/api-auth";
 import { trackFunnelEvent } from "../lib/funnel-events";
 import NegotiationAssistant from "../components/NegotiationAssistant";
@@ -1529,7 +1530,7 @@ function MessagesPage() {
                           )}
                           {(purchaseData?.tracking || purchaseData?.trackingNumber) &&
                             !isRefundedStatus(purchaseData?.status) &&
-                            ["shipped", "delivered"].includes(purchaseData?.status) && (
+                            ["shipped", "delivered", "ready_for_pickup"].includes(purchaseData?.status) && (
                             <p className="mt-1 text-[10px] text-sky-400/90">
                               Tracking: {purchaseData.tracking || purchaseData.trackingNumber}
                             </p>
@@ -1547,13 +1548,9 @@ function MessagesPage() {
                                   ? purchaseData?.sellerEmail === user?.email
                                     ? "Awaiting your confirmation"
                                     : "Purchase request sent"
-                                  : purchaseData?.status === "pending" ? "Awaiting seller confirmation" :
-                                 purchaseData?.status === "seller_confirming" ? "Confirmed" :
-                                 purchaseData?.status === "shipped" ? "Shipped" :
-                                 purchaseData?.status === "delivered" ? "Delivered" :
-                                 purchaseData?.status === "completed" ? "Completed" :
-                                 purchaseData?.status === "cancelled" ? "Cancelled" :
-                                 "Purchased"}
+                                  : purchaseData?.status === "pending"
+                                    ? "Awaiting seller confirmation"
+                                    : purchaseStatusLabel(purchaseData?.status)}
                               </span>
                               {purchaseData?.disputeStatus && (
                                 <span className="text-[10px] font-bold text-red-400">

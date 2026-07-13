@@ -4,6 +4,7 @@ import { verifyIdToken, getAdminDb } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import { requireAdminForCheckout } from "../../lib/checkout-server";
 import { canTransition } from "../../lib/purchase-fsm";
+import { normalizePurchaseStatus } from "../../lib/purchase-status";
 
 const SELLER_ALLOWED_STATUSES = new Set([
   "seller_confirming",
@@ -81,7 +82,7 @@ export async function POST(req: NextRequest) {
     }
 
     const disputeStatus = String(purchase.disputeStatus || "");
-    const currentStatus = String(purchase.status || "");
+    const currentStatus = normalizePurchaseStatus(String(purchase.status || ""));
 
     if (["open", "pending", "under_review"].includes(disputeStatus)) {
       return NextResponse.json(
@@ -98,7 +99,7 @@ export async function POST(req: NextRequest) {
     }
 
     // FSM validation — ensure the transition is allowed
-    if (!canTransition(currentStatus as any, status as any)) {
+    if (!canTransition(currentStatus, status)) {
       return NextResponse.json(
         { error: `Cannot transition from "${currentStatus}" to "${status}"` },
         { status: 400 }
