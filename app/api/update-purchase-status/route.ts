@@ -7,6 +7,8 @@ import { canTransition } from "../../lib/purchase-fsm";
 
 const SELLER_ALLOWED_STATUSES = new Set([
   "seller_confirming",
+  "preparing",
+  "ready_for_pickup",
   "shipped",
   "completed",
   "in_progress",

@@ -51,6 +51,8 @@ const statusStyles: Record<string, string> = {
   arrange_requested: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   pending: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   seller_confirming: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+  preparing: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+  ready_for_pickup: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   shipped: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   in_progress: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   delivered: "bg-sky-500/10 text-sky-400 border-sky-500/20",
@@ -72,6 +74,8 @@ function statusLabel(status: string): string {
     arrange_requested: "Purchase request",
     pending: "Pending",
     seller_confirming: "Confirmed",
+    preparing: "Preparing",
+    ready_for_pickup: "Ready for Pickup",
     shipped: "Shipped",
     in_progress: "In Progress",
     delivered: "Delivered",
@@ -86,7 +90,10 @@ function statusLabel(status: string): string {
 
 const nextStatus: Record<string, { label: string; status: string }> = {
   pending: { label: "Confirm Order", status: "seller_confirming" },
-  seller_confirming: { label: "Shipped", status: "shipped" },
+  seller_confirming: { label: "Mark Preparing", status: "preparing" },
+  preparing: { label: "Mark Ready", status: "ready_for_pickup" },
+  ready_for_pickup: { label: "Mark Delivered", status: "delivered" },
+  shipped: { label: "Mark Delivered", status: "delivered" },
   in_progress: { label: "Mark Completed", status: "completed" },
   rented: { label: "Mark Returned", status: "returned" },
   returned: { label: "Complete", status: "completed" },
@@ -248,6 +255,32 @@ export default function SalesPage() {
           type: "order_confirmed",
           title: "Order Confirmed",
           message: `Your order for "${purchase.listingTitle}" has been confirmed by the seller. They'll prepare your item and update the status when shipped.`,
+          listingId: purchase.listingId,
+          listingTitle: purchase.listingTitle,
+          listingImage: purchase.listingImage,
+        });
+      }
+
+      if (newStatus === "preparing") {
+        await createNotification({
+          targetEmail: purchase.buyerEmail,
+          fromEmail: currentEmail,
+          type: "order_preparing",
+          title: "Order Preparing",
+          message: `Your order for "${purchase.listingTitle}" is being prepared by the seller. You'll be notified when it's ready.`,
+          listingId: purchase.listingId,
+          listingTitle: purchase.listingTitle,
+          listingImage: purchase.listingImage,
+        });
+      }
+
+      if (newStatus === "ready_for_pickup") {
+        await createNotification({
+          targetEmail: purchase.buyerEmail,
+          fromEmail: currentEmail,
+          type: "ready_for_pickup",
+          title: "Ready for Pickup",
+          message: `Your order for "${purchase.listingTitle}" is ready for pickup! Contact the seller to arrange collection.`,
           listingId: purchase.listingId,
           listingTitle: purchase.listingTitle,
           listingImage: purchase.listingImage,

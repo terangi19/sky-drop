@@ -8,6 +8,8 @@
 export type PurchaseStatus =
   | "pending"
   | "seller_confirming"
+  | "preparing"
+  | "ready_for_pickup"
   | "shipped"
   | "delivered"
   | "completed"
@@ -16,7 +18,9 @@ export type PurchaseStatus =
 
 const TRANSITIONS: Record<PurchaseStatus, PurchaseStatus[]> = {
   pending:            ["seller_confirming", "shipped", "cancelled"],
-  seller_confirming:  ["shipped", "delivered", "cancelled"],
+  seller_confirming:  ["preparing", "ready_for_pickup", "shipped", "delivered", "cancelled"],
+  preparing:          ["ready_for_pickup", "shipped", "delivered", "cancelled"],
+  ready_for_pickup:   ["delivered", "cancelled"],
   shipped:            ["delivered"],
   delivered:          ["completed"],
   completed:          [],
@@ -48,6 +52,8 @@ export function transition(from: PurchaseStatus, to: PurchaseStatus): void {
 export const STATUS_LABELS: Record<PurchaseStatus, string> = {
   pending:            "Pending",
   seller_confirming:  "Confirmed",
+  preparing:          "Preparing",
+  ready_for_pickup:   "Ready for Pickup",
   shipped:            "Shipped",
   delivered:          "Delivered",
   completed:          "Completed",
@@ -59,6 +65,8 @@ export const STATUS_LABELS: Record<PurchaseStatus, string> = {
 export const STATUS_STYLES: Record<PurchaseStatus, string> = {
   pending:            "bg-amber-500/10 text-amber-400 border-amber-500/20",
   seller_confirming:  "bg-indigo-500/10 text-indigo-400 border-indigo-500/20",
+  preparing:          "bg-sky-500/10 text-sky-400 border-sky-500/20",
+  ready_for_pickup:   "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   shipped:            "bg-sky-500/10 text-sky-400 border-sky-500/20",
   delivered:          "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   completed:          "bg-green-500/10 text-green-400 border-green-500/20",
