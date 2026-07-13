@@ -62,6 +62,13 @@ import {
 } from "../lib/sky-ai-profile-fill";
 import { HOME_MARKETPLACE_THEME as t } from "../lib/browse-category-config";
 import { parseFirestoreDate } from "../lib/date-format";
+import { ReviewStars } from "../components/SellerReviewStars";
+import {
+  loadReviewsForUser,
+  reviewComment,
+  reviewerDisplayName,
+  type ProfileReview,
+} from "../lib/load-profile-reviews";
 
 interface ProfileData {
   username?: string;
@@ -136,6 +143,8 @@ interface ProfileData {
   bankAccountNumber?: string;
   bankReference?: string;
   restricted?: boolean;
+  averageRating?: number;
+  reviewCount?: number;
 }
 
 interface Listing {
@@ -241,6 +250,8 @@ const [sellBadge, setSellBadge] = useState<string | null>(null);
 const [sellBadgePrice, setSellBadgePrice] = useState("50");
 const [authRefreshing, setAuthRefreshing] = useState(false);
 const [activeTab, setActiveTab] = useState("profile");
+  const [profileReviews, setProfileReviews] = useState<ProfileReview[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
 
 const tabGroups = [
   { id: "account", label: "Account" },
@@ -1161,6 +1172,15 @@ const tabGroups = [
     }
   }, [activeTab, user?.uid]);
 
+  useEffect(() => {
+    if (activeTab !== "reviews" || !user?.uid) return;
+    setReviewsLoading(true);
+    loadReviewsForUser(user.uid, user.email || profile.email)
+      .then(setProfileReviews)
+      .catch(() => setProfileReviews([]))
+      .finally(() => setReviewsLoading(false));
+  }, [activeTab, user?.uid, user?.email, profile.email]);
+
   async function handleStripeConnect() {
     if (!user?.uid || !user.email) return;
     setStripeConnecting(true);
@@ -1693,8 +1713,68 @@ const tabGroups = [
           {activeTab === "reviews" && (
             <div className={settingsSection}>
               <h2 className="mb-1 text-base font-bold text-white">Reviews</h2>
-              <p className="mb-5 text-sm text-zinc-500">Reviews from buyers and sellers about you.</p>
-              <p className="text-sm text-zinc-600">View your reviews on your <Link href="/reviews" className="text-sky-400 hover:underline">reviews page</Link>.</p>
+              <p className="mb-5 text-sm text-zinc-500">Feedback from buyers and sellers on completed orders.</p>
+
+              <div className="mb-6 flex items-center gap-6 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                <div>
+                  <p className="text-2xl font-black text-white">
+                    {typeof profile.averageRating === "number" && profile.reviewCount
+                      ? profile.averageRating.toFixed(1)
+                      : profileReviews.length > 0
+                        ? (
+                            profileReviews.reduce((s, r) => s + r.rating, 0) / profileReviews.length
+                          ).toFixed(1)
+                        : "—"}
+                  </p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Average</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-black text-white">
+                    {typeof profile.reviewCount === "number" ? profile.reviewCount : profileReviews.length}
+                  </p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Reviews</p>
+                </div>
+                {(typeof profile.averageRating === "number" && profile.reviewCount) || profileReviews.length > 0 ? (
+                  <ReviewStars
+                    rating={
+                      typeof profile.averageRating === "number" && profile.reviewCount
+                        ? profile.averageRating
+                        : profileReviews.reduce((s, r) => s + r.rating, 0) / profileReviews.length
+                    }
+                    size="md"
+                  />
+                ) : null}
+              </div>
+
+              {reviewsLoading ? (
+                <p className="text-sm text-zinc-500">Loading reviews…</p>
+              ) : profileReviews.length === 0 ? (
+                <p className="text-sm text-zinc-600">No reviews yet. Complete an order to receive feedback.</p>
+              ) : (
+                <div className="space-y-3">
+                  {profileReviews.slice(0, 10).map((r) => (
+                    <div
+                      key={r.id}
+                      className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-bold text-white">
+                          {reviewerDisplayName(r)}
+                          {r.role === "seller" ? (
+                            <span className="ml-1 text-xs font-medium text-zinc-500">· Seller</span>
+                          ) : r.role === "buyer" ? (
+                            <span className="ml-1 text-xs font-medium text-zinc-500">· Buyer</span>
+                          ) : null}
+                        </span>
+                        <ReviewStars rating={r.rating} size="sm" />
+                      </div>
+                      {reviewComment(r) ? (
+                        <p className="mt-2 text-sm leading-relaxed text-zinc-300">{reviewComment(r)}</p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

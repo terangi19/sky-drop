@@ -24,6 +24,8 @@ import {
   isSellerWaitingForBuyer,
 } from "../lib/purchase-order-actions";
 import { purchaseStatusLabel } from "../lib/purchase-status";
+import OrderReviewModal from "../components/OrderReviewModal";
+import { canSellerReview } from "../lib/order-reviews";
 
 interface Purchase {
   id: string;
@@ -51,6 +53,7 @@ interface Purchase {
   paymentType?: string;
   refundAmount?: number;
   refundedAt?: any;
+  sellerReviewed?: boolean;
 }
 
 const statusStyles: Record<string, string> = {
@@ -98,6 +101,10 @@ export default function SalesPage() {
   const [filter, setFilter] = useState("active");
   const ordersRef = useRef<HTMLDivElement>(null);
   const [confirmingSaleId, setConfirmingSaleId] = useState<string | null>(null);
+  const [reviewModal, setReviewModal] = useState<Purchase | null>(null);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewText, setReviewText] = useState("");
+  const [reviewSending, setReviewSending] = useState(false);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => { setUser(u); userEmailRef.current = u?.email || null; });
@@ -495,6 +502,18 @@ export default function SalesPage() {
                       {(s as any).fundsReleased && !(s as any).destinationCharge && s.status !== "refunded" && (
                         <span className="text-[11px] text-sky-400 font-bold">✅ Funds Released</span>
                       )}
+                      {canSellerReview(s) && (
+                        <button
+                          onClick={() => {
+                            setReviewModal(s);
+                            setReviewRating(0);
+                            setReviewText("");
+                          }}
+                          className="rounded-lg border border-sky-500/20 bg-sky-500/5 px-4 py-1.5 text-[11px] font-bold text-sky-400 transition hover:bg-sky-500/10 active:scale-[0.97]"
+                        >
+                          Review Buyer
+                        </button>
+                      )}
                       <Link href={sellerMessagesUrl(s, s.listingId)}
                         className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-4 py-1.5 text-[11px] font-bold text-zinc-400 transition hover:bg-white/[0.05] hover:text-zinc-300 active:scale-[0.97]">
                         Message
@@ -550,6 +569,63 @@ export default function SalesPage() {
           </div>
         </div>
       )}
+
+      <OrderReviewModal
+        open={!!reviewModal}
+        title="Review Buyer"
+        subtitle={
+          reviewModal
+            ? `${reviewModal.listingTitle} · ${
+                reviewModal.buyerName && !isEmailLike(reviewModal.buyerName)
+                  ? reviewModal.buyerName
+                  : "Buyer"
+              }`
+            : ""
+        }
+        rating={reviewRating}
+        comment={reviewText}
+        sending={reviewSending}
+        onRatingChange={setReviewRating}
+        onCommentChange={setReviewText}
+        onClose={() => setReviewModal(null)}
+        onSubmit={async () => {
+          if (!reviewModal) return;
+          setReviewSending(true);
+          try {
+            const token = await getFreshIdToken();
+            if (!token) {
+              showToast("Please sign in again.", "error");
+              setReviewSending(false);
+              return;
+            }
+            const res = await fetch("/api/submit-review", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                purchaseId: reviewModal.id,
+                rating: reviewRating,
+                reviewText: reviewText.trim(),
+              }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              showToast(data.error || "Failed to submit review", "error");
+              setReviewSending(false);
+              return;
+            }
+            showToast("Review submitted. Thank you!", "success");
+            setReviewModal(null);
+            setReviewRating(0);
+            setReviewText("");
+          } catch {
+            showToast("Failed to submit review", "error");
+          }
+          setReviewSending(false);
+        }}
+      />
     </main>
   );
 }

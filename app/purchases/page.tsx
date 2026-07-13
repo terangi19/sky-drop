@@ -15,12 +15,13 @@ import { openDisputeRequest } from "../lib/open-dispute.client";
 import { createNotification } from "../lib/notifications";
 import { awardXP } from "../lib/xp";
 import { showToast } from "../components/Toast";
-import { InteractiveReviewStars } from "../components/SellerReviewStars";
 import { sellerMessagesUrl, sellerProfileSlug } from "../lib/public-display";
+import OrderReviewModal from "../components/OrderReviewModal";
 import RefundStatusCard from "../components/RefundStatusCard";
 import { REFUND_BADGE_CLASS } from "../lib/refund-display";
 import { getBuyerNextAction } from "../lib/purchase-order-actions";
 import { normalizePurchaseStatus, purchaseStatusLabel } from "../lib/purchase-status";
+import { canBuyerReview } from "../lib/order-reviews";
 
 interface Purchase {
   id: string;
@@ -60,6 +61,8 @@ interface Purchase {
   rentalDays?: number;
   rentalStart?: any;
   rentalEnd?: any;
+  reviewed?: boolean;
+  buyerReviewed?: boolean;
 }
 
 const DISPUTE_LABELS: Record<string, string> = {
@@ -635,10 +638,10 @@ export default function PurchasesPage() {
                             📥 Download
                           </a>
                         )}
-                        {p.status === "delivered" && !p.disputeStatus && (
+                        {canBuyerReview(p) && (
                           <button onClick={() => { setReviewModal(p); setReviewRating(0); setReviewText(""); }}
                             className="rounded-lg border border-sky-500/20 bg-sky-500/5 px-3 py-1.5 text-[11px] font-bold text-sky-400 transition hover:bg-sky-500/10 active:scale-[0.97]">
-                            Review
+                            Review Seller
                           </button>
                         )}
                         {p.deliveryMethod === "shipping" && !["delivered", "cancelled"].includes(p.status) && (
@@ -675,59 +678,55 @@ export default function PurchasesPage() {
               </div>
             )}
 
-            {reviewModal && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setReviewModal(null)}>
-                <div className="mx-4 w-full max-w-sm rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-                  <h3 className="text-lg font-black text-[var(--foreground)]">Leave a Review</h3>
-                  <p className="mt-1 text-sm text-[var(--muted)]">{reviewModal.listingTitle}</p>
-                  <InteractiveReviewStars value={reviewRating} onChange={setReviewRating} className="mt-4" />
-                  <textarea placeholder="Share your experience..." value={reviewText} onChange={(e) => setReviewText(e.target.value)}
-                    rows={3} className="mt-4 w-full rounded-xl border border-[var(--input-border)] bg-[var(--card)] px-4 py-3 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500 placeholder:text-[var(--muted)]" />
-                  <div className="mt-4 flex gap-3">
-                    <button onClick={() => setReviewModal(null)} className="flex-1 rounded-xl border border-[var(--card-border)] bg-[var(--card)] py-3 text-sm font-bold text-[var(--foreground)] hover:bg-[var(--card-hover)] active:scale-[0.97] transition-all">Cancel</button>
-                    <button disabled={!reviewRating || reviewSending} onClick={async () => {
-                      setReviewSending(true);
-                      try {
-                        const token = await getFreshIdToken();
-                        if (!token) {
-                          showToast("Please sign in again.", "error");
-                          setReviewSending(false);
-                          return;
-                        }
-                        const res = await fetch("/api/submit-review", {
-                          method: "POST",
-                          headers: {
-                            "Content-Type": "application/json",
-                            Authorization: `Bearer ${token}`,
-                          },
-                          body: JSON.stringify({
-                            purchaseId: reviewModal.id,
-                            rating: reviewRating,
-                            reviewText: reviewText.trim(),
-                          }),
-                        });
-                        const data = await res.json().catch(() => ({}));
-                        if (!res.ok) {
-                          showToast(data.error || "Failed to submit review", "error");
-                          setReviewSending(false);
-                          return;
-                        }
-                        showToast("Review submitted. Thank you!", "success");
-                        setReviewModal(null);
-                        setReviewRating(0);
-                        setReviewText("");
-                      } catch (e) {
-                        console.error(e);
-                        showToast("Failed to submit review", "error");
-                      }
-                      setReviewSending(false);
-                    }} className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-always-white shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97] disabled:opacity-50">
-                      {reviewSending ? "Sending..." : "Submit Review"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+            <OrderReviewModal
+              open={!!reviewModal}
+              title="Review Seller"
+              subtitle={reviewModal?.listingTitle || ""}
+              rating={reviewRating}
+              comment={reviewText}
+              sending={reviewSending}
+              onRatingChange={setReviewRating}
+              onCommentChange={setReviewText}
+              onClose={() => setReviewModal(null)}
+              onSubmit={async () => {
+                if (!reviewModal) return;
+                setReviewSending(true);
+                try {
+                  const token = await getFreshIdToken();
+                  if (!token) {
+                    showToast("Please sign in again.", "error");
+                    setReviewSending(false);
+                    return;
+                  }
+                  const res = await fetch("/api/submit-review", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                      purchaseId: reviewModal.id,
+                      rating: reviewRating,
+                      reviewText: reviewText.trim(),
+                    }),
+                  });
+                  const data = await res.json().catch(() => ({}));
+                  if (!res.ok) {
+                    showToast(data.error || "Failed to submit review", "error");
+                    setReviewSending(false);
+                    return;
+                  }
+                  showToast("Review submitted. Thank you!", "success");
+                  setReviewModal(null);
+                  setReviewRating(0);
+                  setReviewText("");
+                } catch (e) {
+                  console.error(e);
+                  showToast("Failed to submit review", "error");
+                }
+                setReviewSending(false);
+              }}
+            />
           </div>
         )}
       </div>

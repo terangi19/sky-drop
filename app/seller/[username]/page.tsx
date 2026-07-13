@@ -31,6 +31,12 @@ import { calculateTrustScore } from "../../lib/trustscore";
 import { isListingVisibleInMarketplace } from "../../lib/listing-availability";
 import { countSellerSales } from "../../lib/arrange-purchase-status";
 import {
+  loadReviewsForUser,
+  reviewComment,
+  reviewerDisplayName,
+  type ProfileReview,
+} from "../../lib/load-profile-reviews";
+import {
   isEmailLike,
   sellerProfileDisplayName,
   stripAtPrefix,
@@ -70,6 +76,8 @@ interface ProfileData {
   following?: number;
   profileViews?: number;
   profileBadge?: string;
+  averageRating?: number;
+  reviewCount?: number;
 }
 
 interface Listing {
@@ -88,15 +96,7 @@ interface Listing {
   [key: string]: unknown;
 }
 
-interface Review {
-  id: string;
-  rating: number;
-  comment?: string;
-  buyerEmail?: string;
-  buyerName?: string;
-  createdAt?: Timestamp;
-  [key: string]: unknown;
-}
+interface Review extends ProfileReview {}
 
 function timeAgo(seconds: number): string {
   const diff = Math.floor(Date.now() / 1000) - seconds;
@@ -258,13 +258,11 @@ export default function SellerPage() {
 
   // Reviews
   useEffect(() => {
-    if (!profile?.email) return;
-    const q = query(collection(db, "reviews"), where("sellerEmail", "==", profile.email), orderBy("createdAt", "desc"), limit(50));
-    getDocs(q).then((snap) => {
-      const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Review);
-      setReviews(items);
-    });
-  }, [profile?.email]);
+    if (!sellerUid && !profile?.email) return;
+    loadReviewsForUser(sellerUid, profile?.email)
+      .then((items) => setReviews(items as Review[]))
+      .catch(() => setReviews([]));
+  }, [sellerUid, profile?.email]);
 
   // Follow/unfollow
   async function toggleFollow() {
@@ -334,7 +332,15 @@ export default function SellerPage() {
   );
   const pinnedListings = useMemo(() => listings.filter((l) => l.pinned), [listings]);
 
-  const avgRating = reviews.length > 0 ? (reviews.reduce((t, r) => t + r.rating, 0) / reviews.length) : 0;
+  const avgRating = useMemo(() => {
+    if (typeof profile?.averageRating === "number" && profile.reviewCount) {
+      return profile.averageRating;
+    }
+    return reviews.length > 0 ? reviews.reduce((t, r) => t + r.rating, 0) / reviews.length : 0;
+  }, [profile?.averageRating, profile?.reviewCount, reviews]);
+
+  const reviewCount =
+    typeof profile?.reviewCount === "number" ? profile.reviewCount : reviews.length;
 
   const memberDate = useMemo(() => {
     if (!profile?.memberSince) return "";
@@ -808,7 +814,7 @@ export default function SellerPage() {
                 <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent" />
                 <div className="mb-4 flex items-center justify-between">
                   <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-[var(--foreground)]">
-                    Reviews ({reviews.length})
+                    Reviews ({reviewCount})
                   </h2>
                   {avgRating > 0 && (
                     <span className="inline-flex items-center gap-1 text-xs font-bold">
@@ -819,7 +825,7 @@ export default function SellerPage() {
                 </div>
 
                 {/* Rating bars */}
-                {reviews.length > 0 && (
+                {reviewCount > 0 && (
                   <div className="mb-4 space-y-1">
                     {[5,4,3,2,1].map((n) => {
                       const count = ratingCounts[n as keyof typeof ratingCounts];
@@ -847,16 +853,23 @@ export default function SellerPage() {
                     reviews.map((r) => (
                       <div key={r.id} className="rounded-lg border border-zinc-700/30 bg-zinc-800/25 p-3">
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-bold text-[var(--foreground)]">{r.buyerName || "Verified Buyer"}</span>
+                          <span className="text-[11px] font-bold text-[var(--foreground)]">
+                            {reviewerDisplayName(r)}
+                            {r.role === "seller" ? (
+                              <span className="ml-1 font-medium text-[var(--muted)]">· Seller</span>
+                            ) : null}
+                          </span>
                           <ReviewStars rating={r.rating} size="sm" />
                         </div>
-                        {(r.comment || (r as { reviewText?: string }).reviewText) && (
+                        {reviewComment(r) && (
                           <p className="mt-1 text-xs leading-relaxed text-[var(--foreground)]">
-                            {r.comment || (r as { reviewText?: string }).reviewText}
+                            {reviewComment(r)}
                           </p>
                         )}
-                        {r.createdAt?.toMillis && (
-                          <p className="mt-1 text-[10px] font-medium text-[var(--muted)]">{timeAgo(Math.floor(r.createdAt.toMillis() / 1000))}</p>
+                        {(r.createdAt as Timestamp | undefined)?.toMillis && (
+                          <p className="mt-1 text-[10px] font-medium text-[var(--muted)]">
+                            {timeAgo(Math.floor((r.createdAt as Timestamp).toMillis() / 1000))}
+                          </p>
                         )}
                       </div>
                     ))

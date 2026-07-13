@@ -6,6 +6,7 @@ const PUBLIC_FIELDS = [
   "memberSince", "createdAt", "followers", "following",
   "verified", "emailVerified", "phoneVerified", "kycStatus", "trustedSeller", "fastReply", "topTrader",
   "profileBadge", "profileViews", "salesCount",
+  "averageRating", "reviewCount",
   "responseTime", "hideOnline",
   "email", // already public via listings
 ];

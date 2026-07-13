@@ -3,8 +3,29 @@ import { FieldValue } from "firebase-admin/firestore";
 import { verifyIdToken, getAdminDb } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 import { requireAdminForCheckout } from "../../lib/checkout-server";
-import { adminGetPublicName } from "../../lib/profile-display-admin";
+import {
+  adminGetProfileByEmail,
+  adminGetPublicHandle,
+} from "../../lib/profile-display-admin";
 import { requireVerifiedEmail } from "../../lib/require-verified";
+import {
+  isReviewEligibleStatus,
+  REVIEW_COMMENT_MAX,
+  reviewDocId,
+  type ReviewRole,
+} from "../../lib/order-reviews";
+import { incrementProfileReviewAggregates } from "../../lib/review-aggregates";
+
+function resolveRole(
+  purchase: Record<string, unknown>,
+  userEmail: string
+): ReviewRole | null {
+  const buyerEmail = String(purchase.buyerEmail || "");
+  const sellerEmail = String(purchase.sellerEmail || "");
+  if (userEmail === buyerEmail) return "buyer";
+  if (userEmail === sellerEmail) return "seller";
+  return null;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -34,9 +55,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: verified.error }, { status: 403 });
     }
 
-    const buyerEmail = decoded.email || "";
-    if (!buyerEmail) {
-      return NextResponse.json({ error: "Could not determine buyer email" }, { status: 400 });
+    const reviewerId = decoded.uid || "";
+    const reviewerEmail = decoded.email || "";
+    if (!reviewerId || !reviewerEmail) {
+      return NextResponse.json({ error: "Could not determine reviewer identity" }, { status: 400 });
     }
 
     const body = await req.json();
@@ -50,6 +72,12 @@ export async function POST(req: NextRequest) {
     if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
       return NextResponse.json({ error: "Rating must be between 1 and 5" }, { status: 400 });
     }
+    if (reviewText.length > REVIEW_COMMENT_MAX) {
+      return NextResponse.json(
+        { error: `Comment must be ${REVIEW_COMMENT_MAX} characters or fewer` },
+        { status: 400 }
+      );
+    }
 
     const db = getAdminDb();
     const purchaseRef = db.collection("purchases").doc(purchaseId);
@@ -60,55 +88,105 @@ export async function POST(req: NextRequest) {
     }
 
     const purchase = purchaseSnap.data()!;
-    if (String(purchase.buyerEmail || "") !== buyerEmail) {
-      return NextResponse.json({ error: "Only the buyer can review this order" }, { status: 403 });
+    const role = resolveRole(purchase, reviewerEmail);
+    if (!role) {
+      return NextResponse.json({ error: "You are not part of this order" }, { status: 403 });
     }
 
-    const sellerEmail = String(purchase.sellerEmail || "");
-    if (!sellerEmail || sellerEmail === buyerEmail) {
-      return NextResponse.json({ error: "Invalid seller for this order" }, { status: 400 });
+    const status = String(purchase.status || "").toLowerCase();
+    if (["cancelled", "refunded"].includes(status)) {
+      return NextResponse.json({ error: "Reviews are not available for this order" }, { status: 400 });
     }
-
-    const status = String(purchase.status || "");
-    if (!["delivered", "completed", "returned"].includes(status)) {
+    if (!isReviewEligibleStatus(status)) {
       return NextResponse.json(
-        { error: "You can review after confirming receipt" },
+        { error: "You can review after the order is completed" },
         { status: 400 }
       );
     }
 
-    const existing = await db
-      .collection("reviews")
-      .where("purchaseId", "==", purchaseId)
-      .limit(1)
-      .get();
-    if (!existing.empty) {
+    const disputeStatus = String(purchase.disputeStatus || "");
+    if (["open", "pending", "under_review"].includes(disputeStatus)) {
+      return NextResponse.json({ error: "Reviews are not available while a dispute is open" }, { status: 400 });
+    }
+
+    if (role === "buyer" && (purchase.buyerReviewed || purchase.reviewed)) {
+      return NextResponse.json({ error: "You already reviewed this order" }, { status: 409 });
+    }
+    if (role === "seller" && purchase.sellerReviewed) {
       return NextResponse.json({ error: "You already reviewed this order" }, { status: 409 });
     }
 
-    const buyerName = await adminGetPublicName(buyerEmail);
-    const comment = reviewText || "";
+    const buyerEmail = String(purchase.buyerEmail || "");
+    const sellerEmail = String(purchase.sellerEmail || "");
+    const revieweeEmail = role === "buyer" ? sellerEmail : buyerEmail;
 
-    const reviewRef = await db.collection("reviews").add({
+    if (!revieweeEmail || revieweeEmail === reviewerEmail) {
+      return NextResponse.json({ error: "Invalid review target for this order" }, { status: 400 });
+    }
+
+    const [revieweeProfile] = await Promise.all([
+      adminGetProfileByEmail(revieweeEmail),
+    ]);
+
+    const revieweeId = revieweeProfile?.uid || "";
+    if (!revieweeId) {
+      return NextResponse.json({ error: "Could not resolve reviewee profile" }, { status: 400 });
+    }
+
+    const reviewerUsername = await adminGetPublicHandle(reviewerEmail, role === "buyer" ? "Buyer" : "Seller");
+    const revieweeUsername = await adminGetPublicHandle(
+      revieweeEmail,
+      role === "buyer" ? "Seller" : "Buyer"
+    );
+
+    const comment = reviewText;
+    const orderId = String(purchase.orderId || "");
+    const listingId = String(purchase.listingId || "");
+    const listingTitle = String(purchase.listingTitle || "");
+
+    const docId = reviewDocId(purchaseId, reviewerId);
+    const reviewRef = db.collection("reviews").doc(docId);
+    const existing = await reviewRef.get();
+    if (existing.exists) {
+      return NextResponse.json({ error: "You already reviewed this order" }, { status: 409 });
+    }
+
+    await reviewRef.set({
+      orderId,
+      listingId,
+      listingTitle,
       purchaseId,
-      reviewerEmail: buyerEmail,
+      reviewerId,
+      reviewerEmail,
+      reviewerUsername,
+      revieweeId,
+      revieweeEmail,
+      revieweeUsername,
+      role,
+      rating,
+      comment,
+      createdAt: FieldValue.serverTimestamp(),
+      // Legacy fields for existing UI queries
       buyerEmail,
       sellerEmail,
-      listingId: String(purchase.listingId || ""),
-      listingTitle: String(purchase.listingTitle || ""),
-      rating,
+      buyerName: role === "buyer" ? reviewerUsername : revieweeUsername,
       reviewText: comment,
-      comment,
-      buyerName,
-      createdAt: FieldValue.serverTimestamp(),
     });
 
-    await purchaseRef.update({
-      reviewed: true,
+    const purchasePatch: Record<string, unknown> = {
       updatedAt: FieldValue.serverTimestamp(),
-    });
+    };
+    if (role === "buyer") {
+      purchasePatch.buyerReviewed = true;
+      purchasePatch.reviewed = true;
+    } else {
+      purchasePatch.sellerReviewed = true;
+    }
+    await purchaseRef.update(purchasePatch);
 
-    return NextResponse.json({ success: true, reviewId: reviewRef.id });
+    await incrementProfileReviewAggregates(revieweeId, rating);
+
+    return NextResponse.json({ success: true, reviewId: docId, role });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Failed to submit review";
     console.error("[submit-review]", msg);
