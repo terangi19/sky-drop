@@ -35,18 +35,18 @@ const INCOMPLETE_TRAIL =
 const NAV_TO_INCOMPLETE = /\b(?:go|take me|navigate|open|bring me|bring up|head|show)\s+to\s*$/i;
 
 export const SILENCE_MS: Record<VoiceUtteranceKind, number> = {
-  navigation: 0,        // Instant — no silence wait for local commands
-  search: 0,            // Instant
-  listing: 12_000,      // Patient — user is dictating
-  conversation: 5_000,  // Wait for complete thought
+  navigation: 0, // Instant — no silence wait for local commands
+  search: 220, // Tiny settle so "search for …" can finish the last word
+  listing: 7_500, // Patient — user is dictating a listing
+  conversation: 650, // Snappy end-of-thought (was 5s — felt broken)
 };
 
 /** Short pause after the browser commits a complete phrase (user already stopped). */
 const POST_FINAL_MS: Record<VoiceUtteranceKind, number> = {
   navigation: 0,
-  search: 0,
-  listing: 2_500,
-  conversation: 1_500,
+  search: 60,
+  listing: 700,
+  conversation: 160,
 };
 
 export function isIncompleteUtterance(text: string): boolean {
@@ -147,23 +147,30 @@ export function endOfSpeechDelayMs(text: string, options?: EndOfSpeechOptions): 
   if (!t) return SILENCE_MS.conversation;
 
   if (isExactNavShortcut(t)) return 0;
+  if (options?.quickCommand) return 0;
 
   // Lightweight check: if this looks like a nav command, skip the full pipeline
   if (isLikelyNavCommand(t) && options?.pathname && isInstantLocalCommand(t, options.pathname)) {
     return 0;
   }
 
-  const kind = classifyVoiceUtterance(t);
+  const kind = classifyVoiceUtterance(t, options?.pathname);
   const incomplete = isIncompleteUtterance(t);
 
   if (!incomplete && options?.pathname) {
     const cmd = resolveVoiceCommand(t, options.pathname);
-    if (cmd?.type === "listing") {
-      if (options.hadFinalChunk) return POST_FINAL_MS.listing;
-      return SILENCE_MS.listing;
-    }
-    if (cmd?.type === "voice_off" || cmd?.type === "resume") {
-      return 0;
+    if (cmd) {
+      if (cmd.type === "voice_off" || cmd.type === "resume") return 0;
+      if (
+        (cmd.type === "navigate" || cmd.type === "search" || cmd.type === "page") &&
+        cmd.confidence === "high"
+      ) {
+        return options.hadFinalChunk ? 0 : 80;
+      }
+      if (cmd.type === "listing") {
+        if (options.hadFinalChunk) return POST_FINAL_MS.listing;
+        return SILENCE_MS.listing;
+      }
     }
   }
 

@@ -423,7 +423,7 @@ export function useVoiceInput({
               return;
             }
             void startListeningRef.current?.();
-          }, 100);
+          }, 40);
         } else {
           voiceDebug(`[VoiceInput] Session ended without restart (keepSession: ${keepSession})`);
         }
@@ -527,7 +527,7 @@ export function useVoiceInput({
 
       if (options?.force) {
         for (let attempt = 0; attempt < 5; attempt++) {
-          const delay = attempt === 0 ? 0 : 100 + attempt * 100;
+          const delay = attempt === 0 ? 0 : 40 + attempt * 60;
           if (delay) await new Promise<void>((resolve) => window.setTimeout(resolve, delay));
           if (disabled || intentionalStopRef.current) return;
           if (listeningRef.current || recordingRef.current) return;
@@ -544,7 +544,7 @@ export function useVoiceInput({
 
       // Increase retry attempts and add delay for recovery
       for (let attempt = 0; attempt < 5; attempt++) {
-        const delay = 100 + attempt * 100;
+        const delay = attempt === 0 ? 30 : 60 + attempt * 60;
         await new Promise<void>((resolve) => window.setTimeout(resolve, delay));
         if (disabled || intentionalStopRef.current) return;
         if (listeningRef.current || recordingRef.current) return;

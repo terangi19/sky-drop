@@ -215,14 +215,14 @@ export function useAwhinaVoice(options: UseAwhinaVoiceOptions = {}) {
         void restart.finally(() => {
           window.setTimeout(() => {
             suppressMicAutoRestartRef.current = false;
-          }, 250);
+          }, 120);
         });
       } else {
         window.setTimeout(() => {
           suppressMicAutoRestartRef.current = false;
-        }, 250);
+        }, 120);
       }
-    }, 150);
+    }, 40);
   }, []);
 
   const persistVoiceMode = useCallback((on: boolean) => {
@@ -340,19 +340,19 @@ export function useAwhinaVoice(options: UseAwhinaVoiceOptions = {}) {
           window.setTimeout(() => {
             if (!micListeningRef.current && voiceModeRef.current && !pausedRef.current) {
               console.warn(`[voice] Mic not listening after restart, retrying (attempt ${attempt + 1})`);
-              window.setTimeout(() => attemptMicRestart(attempt + 1), 200);
+              window.setTimeout(() => attemptMicRestart(attempt + 1), 80);
             }
-          }, 300);
+          }, 120);
         });
       } else {
-        window.setTimeout(() => attemptMicRestart(attempt + 1), 200);
+        window.setTimeout(() => attemptMicRestart(attempt + 1), 80);
       }
     };
     
-    window.setTimeout(() => attemptMicRestart(0), 100);
+    window.setTimeout(() => attemptMicRestart(0), 0);
     
     if (queued) {
-      window.setTimeout(() => flushUtteranceRef.current?.(queued), 120);
+      window.setTimeout(() => flushUtteranceRef.current?.(queued), 40);
     }
   }, [clearBusy, clearConfirmationTimer, keepVoiceModeOn, scheduleInactivityPause, setPausedState]);
 
@@ -1125,6 +1125,23 @@ export function useAwhinaVoice(options: UseAwhinaVoiceOptions = {}) {
       setTranscript(formatUtteranceDisplay(display));
       if (voiceModeRef.current) setHint(VOICE_MODE_ON_HINT);
 
+      // Premium path: fire high-confidence local commands as soon as STT has a complete phrase —
+      // do not wait for browser "final" or silence timers.
+      if (!isIncompleteUtterance(trimmed) && !isListingSpeech(trimmed)) {
+        const snap = resolveVoiceCommand(trimmed, pathname, { isAdmin: options.isAdmin });
+        if (
+          snap?.confidence === "high" &&
+          (snap.type === "navigate" ||
+            snap.type === "search" ||
+            snap.type === "page" ||
+            snap.type === "resume" ||
+            snap.type === "voice_off" ||
+            (snap.type === "listing" && snap.path === "/post/ai"))
+        ) {
+          if (runVoiceCommandNow(trimmed)) return;
+        }
+      }
+
       // Complete local commands should run instantly — even on interim STT.
       if (
         isExactNavShortcut(trimmed) ||
@@ -1157,20 +1174,28 @@ export function useAwhinaVoice(options: UseAwhinaVoiceOptions = {}) {
         return;
       }
 
+      // Final STT for a finished thought → process immediately (no extra silence pad).
       if (meta.hadFinalChunk && !isIncompleteUtterance(trimmed)) {
         flushUtterance(trimmed);
         return;
       }
 
       if (textChanged || meta.hadFinalChunk) {
-        scheduleEndOfSpeech(display, { hadFinalChunk: meta.hadFinalChunk });
+        scheduleEndOfSpeech(display, {
+          hadFinalChunk: meta.hadFinalChunk,
+          quickCommand: false,
+        });
       } else if (!endOfSpeechTimerRef.current) {
         scheduleEndOfSpeech(display, { force: true });
       }
     },
     [
       bumpActivity,
+      clearBusy,
+      clearEndOfSpeechTimers,
+      clearInactivityTimer,
       flushUtterance,
+      options.isAdmin,
       pathname,
       runVoiceCommandNow,
       scheduleEndOfSpeech,
@@ -1345,7 +1370,7 @@ export function useAwhinaVoice(options: UseAwhinaVoiceOptions = {}) {
     const t = window.setTimeout(() => {
       if (cancelled || !voiceModeRef.current || pausedRef.current || busyRef.current) return;
       scheduleMicRestart();
-    }, 200);
+    }, 40);
 
     return () => {
       cancelled = true;

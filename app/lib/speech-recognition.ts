@@ -234,9 +234,13 @@ export function createSpeechRecognition(
   return recognition;
 }
 
+/** Cached after first successful grant — avoids getUserMedia on every mic restart. */
+let _micPermissionGranted = false;
+
 /**
  * Request microphone permission explicitly before SpeechRecognition.
  * Site-wide Permissions-Policy must allow microphone=(self) — see next.config.ts.
+ * After the first grant, subsequent calls are instant (no getUserMedia round-trip).
  */
 export async function ensureMicrophonePermission(): Promise<
   { ok: true } | { ok: false; code: SpeechRecognitionErrorCode; message: string }
@@ -249,9 +253,34 @@ export async function ensureMicrophonePermission(): Promise<
     };
   }
 
+  if (_micPermissionGranted) return { ok: true };
+
+  // Permissions API — skip the stream dance when already allowed.
+  try {
+    const perms = navigator.permissions;
+    if (perms?.query) {
+      const status = await perms.query({ name: "microphone" as PermissionName });
+      if (status.state === "granted") {
+        _micPermissionGranted = true;
+        return { ok: true };
+      }
+      if (status.state === "denied") {
+        return {
+          ok: false,
+          code: "not-allowed",
+          message:
+            "Microphone blocked. Allow mic for Sky Drop in your browser (site settings). In Brave: click the lock icon → allow microphone, or lower Shields for this site.",
+        };
+      }
+    }
+  } catch {
+    /* Permissions API unsupported for microphone in some browsers — fall through */
+  }
+
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     stream.getTracks().forEach((track) => track.stop());
+    _micPermissionGranted = true;
     return { ok: true };
   } catch (err) {
     const name = err instanceof DOMException ? err.name : "";
