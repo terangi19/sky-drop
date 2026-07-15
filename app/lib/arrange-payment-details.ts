@@ -37,16 +37,10 @@ export function buildArrangePaymentDetailsMessage(
 
   if (!hasArrangePaymentDetails(details)) {
     return [
-      "💳 Payment details",
-      "",
-      `Listing: "${listingTitle}"`,
+      `Purchase request: "${listingTitle}"`,
       `Price: ${priceLabel}`,
       "",
-      "The seller has not added bank transfer info on their profile yet.",
-      "Ask them to add it under Profile → Payment settings,",
-      "or agree payment method here in chat (cash, bank transfer, etc.).",
-      "",
-      "Sky Drop does not process Arrange Purchase payments.",
+      "Agree how to pay in this chat (bank transfer, cash, or pickup).",
       "",
       arrangePurchaseBuyerReminder(),
     ].join("\n");
@@ -68,9 +62,7 @@ export function buildArrangePaymentDetailsMessage(
 
   lines.push(
     "",
-    "Copy the lines above into your banking app. Only pay after you and the seller agree pickup or shipping in chat.",
-    "",
-    "Sky Drop does not handle this payment — you pay the seller directly.",
+    "Only pay after you agree pickup or shipping in this chat.",
     "",
     arrangePurchaseBuyerReminder()
   );
@@ -81,7 +73,7 @@ export function buildArrangePaymentDetailsMessage(
 export function buildArrangePurchaseSellerMessage(
   buyerHandle: string,
   listingTitle: string,
-  sellerHasPaymentDetails: boolean
+  _sellerHasPaymentDetails = false
 ): string {
   const handle =
     buyerHandle === "Buyer" || buyerHandle === "User"
@@ -90,13 +82,7 @@ export function buildArrangePurchaseSellerMessage(
         ? buyerHandle
         : `@${buyerHandle}`;
 
-  const paymentTip = sellerHasPaymentDetails
-    ? "Your bank details from Profile were sent to the buyer in chat."
-    : "Add bank account details in Profile → Payment settings so buyers see how to pay you automatically.";
-
   return `${handle} wants to purchase "${listingTitle}"
-
-${paymentTip}
 
 ${arrangePurchaseChatFooter()}`;
 }
