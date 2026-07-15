@@ -334,7 +334,7 @@ export default function Home() {
 
         if (!mounted) return;
 
-        // Map only essential fields to reduce memory usage
+        // Map fields the marketplace card needs (do not strip watchlistCount/views)
         const listingItems = listingsSnap.docs.map((d) => {
           const data = d.data();
           return {
@@ -343,12 +343,26 @@ export default function Home() {
             price: data.price,
             image: data.image,
             imageUrl: data.imageUrl,
+            images: data.images,
             category: data.category,
+            condition: data.condition,
+            location: data.location,
             sellerEmail: data.sellerEmail,
             sellerUsername: data.sellerUsername,
+            sellerId: data.sellerId,
             createdAt: data.createdAt,
             status: data.status,
             type: data.type,
+            saleType: data.saleType,
+            pricingType: data.pricingType,
+            paymentType: data.paymentType,
+            stockQuantity: data.stockQuantity,
+            views: data.views,
+            watchlistCount: data.watchlistCount,
+            expiresAt: data.expiresAt,
+            promotedUntil: data.promotedUntil,
+            promoted: data.promoted,
+            isDemo: data.isDemo,
           };
         });
         const tradeItems = tradePostsSnap.docs.map((d) => {
@@ -358,11 +372,15 @@ export default function Home() {
             title: data.title,
             price: data.price,
             image: data.image,
+            imageUrl: data.imageUrl,
+            images: data.images,
             sellerEmail: data.sellerEmail,
             sellerUsername: data.sellerUsername,
             createdAt: data.createdAt,
             status: data.status,
             type: data.type,
+            views: data.views,
+            watchlistCount: data.watchlistCount,
           };
         });
 
