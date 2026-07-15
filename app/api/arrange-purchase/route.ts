@@ -65,12 +65,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Could not determine buyer email" }, { status: 400 });
     }
 
-    const { listingId, collectionName: colBody } = await req.json();
+    const body = await req.json();
+    const { listingId, collectionName: colBody, deliveryMethod: deliveryMethodBody } = body;
     const collectionName =
       typeof colBody === "string" && colBody ? colBody : "listings";
     if (!listingId) {
       return NextResponse.json({ error: "Missing listingId" }, { status: 400 });
     }
+    const preferredDelivery =
+      typeof deliveryMethodBody === "string" ? deliveryMethodBody : null;
 
     const listing = await adminGetListing(collectionName, listingId);
     if (!listing) {
@@ -285,7 +288,8 @@ export async function POST(req: NextRequest) {
           buyerEmail,
           convId,
           collectionName,
-          buyerName
+          buyerName,
+          preferredDelivery
         )
       );
     });

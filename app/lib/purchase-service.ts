@@ -15,6 +15,7 @@ import {
   listingTracksStock,
 } from "./listing-stock";
 import { incrementProfileSalesCount } from "./seller-sales-admin";
+import { resolveDeliveryMethodFromListing } from "./purchase-order-actions";
 
 function listingPrimaryImage(listing: Record<string, unknown>): string {
   const images = Array.isArray(listing.images) ? listing.images : [];
@@ -1345,7 +1346,8 @@ export function buildArrangePurchaseData(
   buyerEmail: string,
   conversationId: string,
   collectionName: string,
-  buyerPublicName = "Buyer"
+  buyerPublicName = "Buyer",
+  preferredDeliveryMethod?: string | null
 ): Record<string, unknown> {
   const sellerEmail = String(listing.sellerEmail || "");
   const price = String(listing.price || "0");
@@ -1353,6 +1355,16 @@ export function buildArrangePurchaseData(
     (Array.isArray(listing.images) ? listing.images[0] : "") ||
     String(listing.imageUrl || listing.image || "");
   const now = new Date();
+  const pickupAvailable = listing.pickupAvailable === true;
+  const shippingAvailable = listing.shippingAvailable === true;
+  const deliveryMethod = resolveDeliveryMethodFromListing(
+    {
+      pickupAvailable,
+      shippingAvailable,
+      type: String(listing.type || ""),
+    },
+    preferredDeliveryMethod
+  );
 
   return {
     listingId,
@@ -1363,7 +1375,9 @@ export function buildArrangePurchaseData(
     buyerEmail,
     buyerName: buyerPublicName,
     buyerPhone: "",
-    deliveryMethod: "pickup",
+    deliveryMethod,
+    pickupAvailable,
+    shippingAvailable,
     shippingAddress: "",
     shippingFee: 0,
     processingFee: 0,

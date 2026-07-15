@@ -21,6 +21,8 @@ interface ListingData {
   sellerUsername?: string;
   pickupArea?: string;
   paymentType?: string;
+  pickupAvailable?: boolean;
+  shippingAvailable?: boolean;
 }
 
 interface ArrangePurchaseModalProps {
@@ -46,6 +48,14 @@ export default function ArrangePurchaseModal({ listing, buyerEmail, onClose, onS
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [conversationId, setConversationId] = useState("");
+  const offersPickup = listing.pickupAvailable === true;
+  const offersShipping = listing.shippingAvailable === true;
+  const needsDeliveryChoice = offersPickup && offersShipping;
+  const [deliveryMethod, setDeliveryMethod] = useState<"pickup" | "shipping" | null>(() => {
+    if (offersPickup && !offersShipping) return "pickup";
+    if (offersShipping && !offersPickup) return "shipping";
+    return null;
+  });
 
   const imageSrc = listing.images?.[0] || listing.imageUrl || listing.image || "";
 
@@ -64,6 +74,10 @@ export default function ArrangePurchaseModal({ listing, buyerEmail, onClose, onS
   async function handleArrangePurchase() {
     if (!message.trim()) {
       setError("Please enter a message for the seller");
+      return;
+    }
+    if (needsDeliveryChoice && !deliveryMethod) {
+      setError("Choose pickup or shipping");
       return;
     }
 
@@ -89,6 +103,7 @@ export default function ArrangePurchaseModal({ listing, buyerEmail, onClose, onS
         body: JSON.stringify({
           listingId: listing.id,
           collectionName: "listings",
+          deliveryMethod: deliveryMethod || undefined,
         }),
       });
 
@@ -302,6 +317,43 @@ export default function ArrangePurchaseModal({ listing, buyerEmail, onClose, onS
                   </div>
                 </div>
               </div>
+
+              {/* Delivery choice when listing offers both */}
+              {needsDeliveryChoice && (
+                <div>
+                  <label className="mb-2 block text-[11px] font-bold uppercase tracking-wider text-[var(--muted)]">
+                    How do you want it?
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDeliveryMethod("pickup")}
+                      className={`rounded-lg border px-3 py-2.5 text-left text-xs font-bold transition ${
+                        deliveryMethod === "pickup"
+                          ? "border-sky-500/50 bg-sky-500/15 text-sky-300"
+                          : "border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--muted)] hover:border-sky-500/30"
+                      }`}
+                    >
+                      📍 Pickup
+                      {listing.pickupArea ? (
+                        <span className="mt-0.5 block text-[10px] font-medium opacity-80">{listing.pickupArea}</span>
+                      ) : null}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeliveryMethod("shipping")}
+                      className={`rounded-lg border px-3 py-2.5 text-left text-xs font-bold transition ${
+                        deliveryMethod === "shipping"
+                          ? "border-sky-500/50 bg-sky-500/15 text-sky-300"
+                          : "border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--muted)] hover:border-sky-500/30"
+                      }`}
+                    >
+                      🚚 Shipping
+                      <span className="mt-0.5 block text-[10px] font-medium opacity-80">Seller ships to you</span>
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Message Input */}
               <div>

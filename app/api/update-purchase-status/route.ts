@@ -139,9 +139,16 @@ export async function POST(req: NextRequest) {
       patch.deliveredAt = FieldValue.serverTimestamp();
     }
 
-    if (status === "shipped" && tracking) {
-      patch.tracking = tracking;
-      patch.trackingNumber = tracking;
+    if (status === "shipped") {
+      patch.deliveryMethod = "shipping";
+      if (tracking) {
+        patch.tracking = tracking;
+        patch.trackingNumber = tracking;
+      }
+    }
+
+    if (status === "ready_for_pickup") {
+      patch.deliveryMethod = "pickup";
     }
 
     await purchaseRef.update(patch);

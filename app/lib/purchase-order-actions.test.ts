@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   getBuyerNextAction,
   getSellerNextAction,
+  getSellerOrderActions,
   getSellerWaitingMessage,
   isSellerWaitingForBuyer,
+  resolveDeliveryMethodFromListing,
+  sellerOffersBothFulfillmentPaths,
 } from "./purchase-order-actions";
 
 describe("purchase-order-actions", () => {
@@ -18,7 +21,7 @@ describe("purchase-order-actions", () => {
   });
 
   it("seller progresses pickup order through preparing to ready_for_pickup", () => {
-    expect(getSellerNextAction({ status: "preparing", deliveryMethod: "pickup" })).toMatchObject({
+    expect(getSellerNextAction({ status: "preparing", deliveryMethod: "pickup", shippingAvailable: false })).toMatchObject({
       status: "ready_for_pickup",
       label: "Mark Ready for Pickup",
     });
@@ -29,6 +32,32 @@ describe("purchase-order-actions", () => {
       status: "shipped",
       needsTracking: true,
     });
+  });
+
+  it("arrange purchase preparing offers both pickup and ship", () => {
+    const actions = getSellerOrderActions({
+      status: "preparing",
+      deliveryMethod: "pickup",
+      paymentType: "contact",
+    });
+    expect(actions.map((a) => a.status)).toEqual(["ready_for_pickup", "shipped"]);
+    expect(sellerOffersBothFulfillmentPaths({
+      status: "preparing",
+      deliveryMethod: "pickup",
+      paymentType: "contact",
+    })).toBe(true);
+  });
+
+  it("listing with both fulfillment options resolves to either", () => {
+    expect(
+      resolveDeliveryMethodFromListing({ pickupAvailable: true, shippingAvailable: true })
+    ).toBe("either");
+    expect(
+      resolveDeliveryMethodFromListing(
+        { pickupAvailable: true, shippingAvailable: true },
+        "shipping"
+      )
+    ).toBe("shipping");
   });
 
   it("seller never gets mark delivered after ready or shipped", () => {

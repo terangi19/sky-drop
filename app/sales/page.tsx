@@ -19,9 +19,10 @@ import { buildSalesInsight } from "../lib/awhina-insights";
 import RefundStatusCard from "../components/RefundStatusCard";
 import { REFUND_BADGE_CLASS } from "../lib/refund-display";
 import {
-  getSellerNextAction,
+  getSellerOrderActions,
   getSellerWaitingMessage,
   isSellerWaitingForBuyer,
+  sellerOffersBothFulfillmentPaths,
 } from "../lib/purchase-order-actions";
 import { purchaseStatusLabel } from "../lib/purchase-status";
 import OrderReviewModal from "../components/OrderReviewModal";
@@ -54,6 +55,8 @@ interface Purchase {
   refundAmount?: number;
   refundedAt?: any;
   sellerReviewed?: boolean;
+  pickupAvailable?: boolean;
+  shippingAvailable?: boolean;
 }
 
 const statusStyles: Record<string, string> = {
@@ -83,10 +86,23 @@ function statusLabel(status: string): string {
   return purchaseStatusLabel(status);
 }
 
-function sellerActionForSale(s: Purchase) {
-  const action = getSellerNextAction(s);
-  if (!action) return null;
-  return { label: action.label, status: action.status, needsTracking: action.needsTracking };
+function deliveryMethodLabel(s: Purchase): string {
+  const method = String(s.deliveryMethod || "").toLowerCase();
+  if (method === "either" || method === "arrange" || method === "undecided") {
+    return "Pickup or shipping";
+  }
+  if (method === "shipping") return "Shipping";
+  if (method === "pickup") {
+    if (sellerOffersBothFulfillmentPaths(s)) return "Pickup or shipping";
+    return "Pickup";
+  }
+  if (method === "digital") return "Digital";
+  if (method === "badge") return "Badge transfer";
+  return method || "—";
+}
+
+function sellerActionsForSale(s: Purchase) {
+  return getSellerOrderActions(s);
 }
 
 export default function SalesPage() {
@@ -412,7 +428,7 @@ export default function SalesPage() {
           <div className="space-y-3">
             {filtered.map((s) => {
               const isRefunded = s.status === "refunded";
-              const sellerAction = sellerActionForSale(s);
+              const sellerActions = sellerActionsForSale(s);
               const waitingForBuyer = isSellerWaitingForBuyer(s);
               return (
               <div key={s.id} className="group relative overflow-hidden rounded-2xl border border-white/[0.06] bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-4 sm:p-5 transition-all duration-200 hover:bg-white/[0.06] hover:border-white/[0.10] hover:shadow-lg hover:shadow-black/20">
@@ -441,7 +457,7 @@ export default function SalesPage() {
                                 : `@${s.buyerName}`
                               : "Buyer"}
                           </span>
-                          <span>· {s.deliveryMethod}</span>
+                          <span>· {deliveryMethodLabel(s)}</span>
                           {s.createdAt && <span>· {formatDate(s.createdAt)}</span>}
                         </div>
                       </div>
@@ -481,12 +497,24 @@ export default function SalesPage() {
                           {confirmingSaleId === s.id ? "Updating…" : "Mark sold to buyer"}
                         </button>
                       ) : null}
-                      {sellerAction && !s.disputeStatus && !isRefunded ? (
-                        <button onClick={() => setConfirmAction({ id: s.id, status: sellerAction.status, label: sellerAction.label, needsTracking: sellerAction.needsTracking })}
-                          className="rounded-lg bg-gradient-to-r from-sky-500 to-sky-500 px-4 py-1.5 text-[11px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">
-                          {sellerAction.label}
-                        </button>
-                      ) : null}
+                      {sellerActions.length > 0 && !s.disputeStatus && !isRefunded
+                        ? sellerActions.map((sellerAction) => (
+                            <button
+                              key={sellerAction.status}
+                              onClick={() =>
+                                setConfirmAction({
+                                  id: s.id,
+                                  status: sellerAction.status,
+                                  label: sellerAction.label,
+                                  needsTracking: sellerAction.needsTracking,
+                                })
+                              }
+                              className="rounded-lg bg-gradient-to-r from-sky-500 to-sky-500 px-4 py-1.5 text-[11px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]"
+                            >
+                              {sellerAction.label}
+                            </button>
+                          ))
+                        : null}
                       {waitingForBuyer && !isRefunded && (
                         <span className="text-[11px] font-bold text-amber-400/90">
                           ⏳ {getSellerWaitingMessage(s)}
