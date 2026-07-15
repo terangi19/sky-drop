@@ -12,7 +12,7 @@ import { getLevelInfo, setUserLevel } from "../lib/xp";
 import { trackChallenge } from "../lib/challenges";
 import { isAdminEmail } from "../lib/admin-check";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
-import { sumStripeCheckoutEarnings, sellerHasStripeConfigured } from "../lib/seller-payments";
+import { sellerHasStripeConfigured } from "../lib/seller-payments";
 import { REVIEW_STAR_CLASS } from "../components/SellerReviewStars";
 import BrowseMarketplaceHero from "../components/BrowseMarketplaceHero";
 import { HOME_MARKETPLACE_THEME as t } from "../lib/browse-category-config";
@@ -159,7 +159,6 @@ export default function DashboardPage() {
   const stats = useMemo(() => {
     const completed = sales.filter((s) => s.status === "delivered");
     const pending = sales.filter((s) => !["delivered", "cancelled"].includes(s.status));
-    const stripeEarnings = sumStripeCheckoutEarnings(sales, ["delivered"]);
     const avgRating = reviews.length > 0
       ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
       : "—";
@@ -168,7 +167,6 @@ export default function DashboardPage() {
       totalSales: sales.length,
       completedSales: completed.length,
       pendingOrders: pending.length,
-      stripeEarnings,
       activeListings: listings.filter((l) => isListingVisibleInMarketplace(l)).length,
       avgRating,
       reviewCount: reviews.length,
@@ -543,24 +541,6 @@ export default function DashboardPage() {
           </div>
 
           <aside className="space-y-4">
-            <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-5 transition-all duration-300 hover:border-white/[0.12]">
-              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/10 to-transparent" />
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-500/10 text-lg ring-1 ring-emerald-500/20">💰</div>
-                <h3 className="text-sm font-black text-white">Payouts</h3>
-              </div>
-              <p className="mt-3 text-2xl font-black text-emerald-400">${stats.stripeEarnings.toFixed(2)}</p>
-              <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
-                Stripe earnings from delivered orders. Arrange Purchase sales are paid off-platform.
-              </p>
-              <Link
-                href="/profile"
-                className="mt-4 inline-flex w-full items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-xs font-bold text-zinc-200 transition hover:border-emerald-500/25 hover:bg-white/[0.06] hover:text-white"
-              >
-                Payout settings
-              </Link>
-            </div>
-
             <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-5 transition-all duration-300 hover:border-white/[0.12]">
               <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-400/10 to-transparent" />
               <div className="flex items-center gap-3">
