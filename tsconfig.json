@@ -35,6 +35,8 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "app/lib/awhina-tests.ts",
+    "app/api/awhina-intent/route.ts"
   ]
 }

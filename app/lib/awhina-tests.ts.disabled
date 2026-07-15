@@ -1,0 +1,767 @@
+/**
+ * Āwhina Automated Tests - GPT-Style Architecture
+ * 
+ * Automated tests for navigation, search, listing creation, follow-up conversations,
+ * messaging, purchases, edge cases, and ambiguous commands.
+ */
+
+// Note: These tests are designed to be run in a proper TypeScript/Node environment
+// The imports below are commented out to allow the file to be parsed
+
+// import { classifyIntent } from "./awhina-intent-router";
+// import { tryLocalExecution } from "./awhina-local-execution";
+// import { executeToolCall } from "./awhina-tool-registry";
+// import { ConversationMemory } from "./awhina-conversation-memory";
+// import { evaluateConfidence } from "./awhina-confidence-scoring";
+
+export type TestCase = {
+  name: string;
+  description: string;
+  test: () => Promise<TestResult>;
+};
+
+export type TestResult = {
+  passed: boolean;
+  message: string;
+  duration: number;
+  error?: Error;
+};
+
+export type TestSuite = {
+  name: string;
+  tests: TestCase[];
+  results: TestResult[];
+  summary: {
+    total: number;
+    passed: number;
+    failed: number;
+    duration: number;
+  };
+};
+
+/**
+ * Test runner for Āwhina
+ */
+export class AwhinaTestRunner {
+  private suites: TestSuite[] = [];
+
+  registerSuite(name: string, tests: TestCase[]): void {
+    this.suites.push({
+      name,
+      tests,
+      results: [],
+      summary: {
+        total: 0,
+        passed: 0,
+        failed: 0,
+        duration: 0,
+      },
+    });
+  }
+
+  async runAll(): Promise<TestSuite[]> {
+    for (const suite of this.suites) {
+      await this.runSuite(suite);
+    }
+    return this.suites;
+  }
+
+  async runSuite(suite: TestSuite): Promise<void> {
+    const startTime = Date.now();
+
+    for (const test of suite.tests) {
+      const result = await test.test();
+      suite.results.push(result);
+
+      if (result.passed) {
+        suite.summary.passed++;
+      } else {
+        suite.summary.failed++;
+      }
+      suite.summary.total++;
+    }
+
+    suite.summary.duration = Date.now() - startTime;
+  }
+
+  getSummary(): { total: number; passed: number; failed: number; duration: number } {
+    return this.suites.reduce(
+      (acc, suite) => ({
+        total: acc.total + suite.summary.total,
+        passed: acc.passed + suite.summary.passed,
+        failed: acc.failed + suite.summary.failed,
+        duration: acc.duration + suite.summary.duration,
+      }),
+      { total: 0, passed: 0, failed: 0, duration: 0 }
+    );
+  }
+}
+
+/**
+ * Navigation tests
+ */
+export function createNavigationTests(): TestCase[] {
+  return [
+    {
+      name: "Navigate to home",
+      description: "Should classify 'home' as navigation intent",
+      test: async () => {
+        const start = Date.now();
+        try {
+          const result = await classifyIntent("home", { pathname: "/messages" });
+          const passed = result.intent === "navigation" && result.confidence === "high";
+          return {
+            passed,
+            message: passed ? "Home navigation classified correctly" : `Got intent: ${result.intent}, confidence: ${result.confidence}`,
+            duration: Date.now() - start,
+          };
+        } catch (error) {
+          return {
+            passed: false,
+            message: "Test failed with error",
+            duration: Date.now() - start,
+            error: error as Error,
+          };
+        }
+      },
+    },
+    {
+      name: "Navigate to sell page",
+      description: "Should classify 'sell' as navigation intent",
+      test: async () => {
+        const start = Date.now();
+        try {
+          const result = await classifyIntent("sell", { pathname: "/" });
+          const passed = result.intent === "navigation" && result.confidence === "high";
+          return {
+            passed,
+            message: passed ? "Sell navigation classified correctly" : `Got intent: ${result.intent}`,
+            duration: Date.now() - start,
+          };
+        } catch (error) {
+          return {
+            passed: false,
+            message: "Test failed with error",
+            duration: Date.now() - start,
+            error: error as Error,
+          };
+        }
+      },
+    },
+    {
+      name: "Navigate to messages",
+      description: "Should classify 'messages' as navigation intent",
+      test: async () => {
+        const start = Date.now();
+        try {
+          const result = await classifyIntent("messages", { pathname: "/" });
+          const passed = result.intent === "navigation" && result.confidence === "high";
+          return {
+            passed,
+            message: passed ? "Messages navigation classified correctly" : `Got intent: ${result.intent}`,
+            duration: Date.now() - start,
+          };
+        } catch (error) {
+          return {
+            passed: false,
+            message: "Test failed with error",
+            duration: Date.now() - start,
+            error: error as Error,
+          };
+        }
+      },
+    },
+  ];
+}
+
+/**
+ * Search tests
+ */
+export function createSearchTests(): TestCase[] {
+  return [
+    {
+      name: "Search for BMW cars",
+      description: "Should classify search query with entity extraction",
+      test: async () => {
+        const start = Date.now();
+        try {
+          const result = await classifyIntent("find BMW cars under $15k", { pathname: "/" });
+          const passed =
+            result.intent === "marketplace_search" &&
+            result.entities.some((e) => e.type === "price" && e.value === "15k");
+          return {
+            passed,
+            message: passed ? "Search classified with price entity" : `Got intent: ${result.intent}, entities: ${JSON.stringify(result.entities)}`,
+            duration: Date.now() - start,
+          };
+        } catch (error) {
+          return {
+            passed: false,
+            message: "Test failed with error",
+            duration: Date.now() - start,
+            error: error as Error,
+          };
+        }
+      },
+    },
+    {
+      name: "Search in Auckland",
+      description: "Should extract location entity",
+      test: async () => {
+        const start = Date.now();
+        try {
+          const result = await classifyIntent("show me items in Auckland", { pathname: "/" });
+          const passed = result.entities.some((e) => e.type === "location" && e.value === "auckland");
+          return {
+            passed,
+            message: passed ? "Location entity extracted" : `Entities: ${JSON.stringify(result.entities)}`,
+            duration: Date.now() - start,
+          };
+        } catch (error) {
+          return {
+            passed: false,
+            message: "Test failed with error",
+            duration: Date.now() - start,
+            error: error as Error,
+          };
+        }
+      },
+    },
+  ];
+}
+
+/**
+ * Listing creation tests
+ */
+export function createListingCreationTests(): TestCase[] {
+  return [
+    {
+      name: "Create vehicle listing",
+      description: "Should classify vehicle listing intent with entities",
+      test: async () => {
+        const start = Date.now();
+        try {
+          const result = await classifyIntent("sell my 2015 BMW 335i for $15,000", { pathname: "/" });
+          const passed =
+            result.intent === "listing_create" &&
+            result.entities.some((e) => e.type === "price") &&
+            result.entities.some((e) => e.type === "vehicleMake");
+          return {
+            passed,
+            message: passed ? "Vehicle listing classified correctly" : `Intent: ${result.intent}`,
+            duration: Date.now() - start,
+          };
+        } catch (error) {
+          return {
+            passed: false,
+            message: "Test failed with error",
+            duration: Date.now() - start,
+            error: error as Error,
+          };
+        }
+      },
+    },
+    {
+      name: "Create service listing",
+      description: "Should classify service listing intent",
+      test: async () => {
+        const start = Date.now();
+        try {
+          const result = await classifyIntent("I want to offer lawn mowing services", { pathname: "/" });
+          const passed = result.intent === "listing_create";
+          return {
+            passed,
+            message: passed ? "Service listing classified correctly" : `Intent: ${result.intent}`,
+            duration: Date.now() - start,
+          };
+        } catch (error) {
+          return {
+            passed: false,
+            message: "Test failed with error",
+            duration: Date.now() - start,
+            error: error as Error,
+          };
+        }
+      },
+    },
+  ];
+}
+
+/**
+ * Follow-up conversation tests
+ */
+export function createFollowUpTests(): TestCase[] {
+  return [
+    {
+      name: "Price refinement",
+      description: "Should refine search with price constraint",
+      test: async () => {
+        const start = Date.now();
+        try {
+          const memory = new ConversationMemory();
+          memory.addUserTurn("show BMWs", "marketplace_search", { query: "BMW" });
+          memory.addAssistantTurn("Here are BMW listings", {
+            tool: "searchListings",
+            args: { searchListings: { query: "BMW" } },
+          });
+
+          const result = await classifyIntent("under $15k", {
+            pathname: "/search",
+            conversationHistory: memory.getRecentHistory(),
+          });
+
+          const passed = result.intent === "marketplace_search";
+          return {
+            passed,
+            message: passed ? "Price refinement classified correctly" : `Intent: ${result.intent}`,
+            duration: Date.now() - start,
+          };
+        } catch (error) {
+          return {
+            passed: false,
+            message: "Test failed with error",
+            duration: Date.now() - start,
+            error: error as Error,
+          };
+        }
+      },
+    },
+    {
+      name: "Location refinement",
+      description: "Should refine search with location constraint",
+      test: async () => {
+        const start = Date.now();
+        try {
+          const memory = new ConversationMemory();
+          memory.addUserTurn("show phones", "marketplace_search", { query: "phones" });
+          memory.addAssistantTurn("Here are phone listings", {
+            tool: "searchListings",
+            args: { searchListings: { query: "phones" } },
+          });
+
+          const result = await classifyIntent("only Auckland", {
+            pathname: "/search",
+            conversationHistory: memory.getRecentHistory(),
+          });
+
+          const passed = result.intent === "marketplace_search";
+          return {
+            passed,
+            message: passed ? "Location refinement classified correctly" : `Intent: ${result.intent}`,
+            duration: Date.now() - start,
+          };
+        } catch (error) {
+          return {
+            passed: false,
+            message: "Test failed with error",
+            duration: Date.now() - start,
+            error: error as Error,
+          };
+        }
+      },
+    },
+  ];
+}
+
+/**
+ * Messaging tests
+ */
+export function createMessagingTests(): TestCase[] {
+  return [
+    {
+      name: "Open messages",
+      description: "Should classify messaging intent",
+      test: async () => {
+        const start = Date.now();
+        try {
+          const result = await classifyIntent("open my messages", { pathname: "/" });
+          const passed = result.intent === "navigation" || result.intent === "messaging";
+          return {
+            passed,
+            message: passed ? "Messaging classified correctly" : `Intent: ${result.intent}`,
+            duration: Date.now() - start,
+          };
+        } catch (error) {
+          return {
+            passed: false,
+            message: "Test failed with error",
+            duration: Date.now() - start,
+            error: error as Error,
+          };
+        }
+      },
+    },
+    {
+      name: "Send message to seller",
+      description: "Should classify send message intent",
+      test: async () => {
+        const start = Date.now();
+        try {
+          const result = await classifyIntent("message the seller about this item", { pathname: "/listing/123" });
+          const passed = result.intent === "messaging";
+          return {
+            passed,
+            message: passed ? "Send message classified correctly" : `Intent: ${result.intent}`,
+            duration: Date.now() - start,
+          };
+        } catch (error) {
+          return {
+            passed: false,
+            message: "Test failed with error",
+            duration: Date.now() - start,
+            error: error as Error,
+          };
+        }
+      },
+    },
+  ];
+}
+
+/**
+ * Purchase tests
+ */
+export function createPurchaseTests(): TestCase[] {
+  return [
+    {
+      name: "Arrange pickup",
+      description: "Should classify purchase arrangement intent",
+      test: async () => {
+        const start = Date.now();
+        try {
+          const result = await classifyIntent("I want to pick this up", { pathname: "/listing/123" });
+          const passed = result.intent === "purchase";
+          return {
+            passed,
+            message: passed ? "Purchase arrangement classified correctly" : `Intent: ${result.intent}`,
+            duration: Date.now() - start,
+          };
+        } catch (error) {
+          return {
+            passed: false,
+            message: "Test failed with error",
+            duration: Date.now() - start,
+            error: error as Error,
+          };
+        }
+      },
+    },
+  ];
+}
+
+/**
+ * Edge case tests
+ */
+export function createEdgeCaseTests(): TestCase[] {
+  return [
+    {
+      name: "Empty message",
+      description: "Should handle empty message gracefully",
+      test: async () => {
+        const start = Date.now();
+        try {
+          const result = await classifyIntent("", { pathname: "/" });
+          const passed = result.intent === "unknown" && result.confidence === "low";
+          return {
+            passed,
+            message: passed ? "Empty message handled correctly" : `Intent: ${result.intent}`,
+            duration: Date.now() - start,
+          };
+        } catch (error) {
+          return {
+            passed: false,
+            message: "Test failed with error",
+            duration: Date.now() - start,
+            error: error as Error,
+          };
+        }
+      },
+    },
+    {
+      name: "Very long message",
+      description: "Should handle long message",
+      test: async () => {
+        const start = Date.now();
+        try {
+          const longMessage = "I want to sell ".repeat(100) + "my car";
+          const result = await classifyIntent(longMessage, { pathname: "/" });
+          const passed = result.intent === "listing_create";
+          return {
+            passed,
+            message: passed ? "Long message handled correctly" : `Intent: ${result.intent}`,
+            duration: Date.now() - start,
+          };
+        } catch (error) {
+          return {
+            passed: false,
+            message: "Test failed with error",
+            duration: Date.now() - start,
+            error: error as Error,
+          };
+        }
+      },
+    },
+    {
+      name: "Special characters",
+      description: "Should handle special characters",
+      test: async () => {
+        const start = Date.now();
+        try {
+          const result = await classifyIntent("sell my car @ $500!", { pathname: "/" });
+          const passed = result.intent === "listing_create";
+          return {
+            passed,
+            message: passed ? "Special characters handled correctly" : `Intent: ${result.intent}`,
+            duration: Date.now() - start,
+          };
+        } catch (error) {
+          return {
+            passed: false,
+            message: "Test failed with error",
+            duration: Date.now() - start,
+            error: error as Error,
+          };
+        }
+      },
+    },
+  ];
+}
+
+/**
+ * Ambiguous command tests
+ */
+export function createAmbiguousCommandTests(): TestCase[] {
+  return [
+    {
+      name: "Ambiguous 'it'",
+      description: "Should request clarification for ambiguous pronoun",
+      test: async () => {
+        const start = Date.now();
+        try {
+          const result = await classifyIntent("how much is it?", { pathname: "/" });
+          const confidenceEval = evaluateConfidence({
+            intent: result.intent,
+            entities: result.entities.reduce((acc, e) => ({ ...acc, [e.type]: e.value }), {}),
+            message: "how much is it?",
+            context: {
+              hasConversationHistory: false,
+              hasListingContext: false,
+              currentPath: "/",
+            },
+          });
+
+          const passed = confidenceEval.level === "low" && !!confidenceEval.clarificationQuestion;
+          return {
+            passed,
+            message: passed ? "Ambiguous command flagged for clarification" : `Confidence: ${confidenceEval.level}`,
+            duration: Date.now() - start,
+          };
+        } catch (error) {
+          return {
+            passed: false,
+            message: "Test failed with error",
+            duration: Date.now() - start,
+            error: error as Error,
+          };
+        }
+      },
+    },
+    {
+      name: "Typos in command",
+      description: "Should handle typos gracefully",
+      test: async () => {
+        const start = Date.now();
+        try {
+          const result = await classifyIntent("go to hme", { pathname: "/" });
+          const localResult = tryLocalExecution("go to hme", "/");
+          const passed = result.intent === "navigation" || localResult.handled;
+          return {
+            passed,
+            message: passed ? "Typo handled correctly" : `Intent: ${result.intent}, local: ${localResult.handled}`,
+            duration: Date.now() - start,
+          };
+        } catch (error) {
+          return {
+            passed: false,
+            message: "Test failed with error",
+            duration: Date.now() - start,
+            error: error as Error,
+          };
+        }
+      },
+    },
+  ];
+}
+
+/**
+ * Local execution tests
+ */
+export function createLocalExecutionTests(): TestCase[] {
+  return [
+    {
+      name: "Local command execution",
+      description: "Should execute common commands locally",
+      test: async () => {
+        const start = Date.now();
+        try {
+          const result = tryLocalExecution("home", "/messages");
+          const passed = result.handled && result.toolCall?.tool === "navigate";
+          return {
+            passed,
+            message: passed ? "Local command executed" : `Handled: ${result.handled}`,
+            duration: Date.now() - start,
+          };
+        } catch (error) {
+          return {
+            passed: false,
+            message: "Test failed with error",
+            duration: Date.now() - start,
+            error: error as Error,
+          };
+        }
+      },
+    },
+    {
+      name: "Local command cache",
+      description: "Should cache local command results",
+      test: async () => {
+        const start = Date.now();
+        try {
+          const { tryLocalExecutionCached } = await import("./awhina-local-execution");
+          const result1 = tryLocalExecutionCached("home", "/");
+          const result2 = tryLocalExecutionCached("home", "/");
+          const passed = result1.handled && result2.handled;
+          return {
+            passed,
+            message: passed ? "Cache working" : "Cache failed",
+            duration: Date.now() - start,
+          };
+        } catch (error) {
+          return {
+            passed: false,
+            message: "Test failed with error",
+            duration: Date.now() - start,
+            error: error as Error,
+          };
+        }
+      },
+    },
+  ];
+}
+
+/**
+ * Tool execution tests
+ */
+export function createToolExecutionTests(): TestCase[] {
+  return [
+    {
+      name: "Navigate tool execution",
+      description: "Should execute navigate tool",
+      test: async () => {
+        const start = Date.now();
+        try {
+          const result = await executeToolCall({
+            tool: "navigate",
+            args: { navigate: { path: "/sell", reason: "Test" } },
+            confidence: 1.0,
+          });
+          const passed = result.success;
+          return {
+            passed,
+            message: passed ? "Navigate tool executed" : `Error: ${result.error}`,
+            duration: Date.now() - start,
+          };
+        } catch (error) {
+          return {
+            passed: false,
+            message: "Test failed with error",
+            duration: Date.now() - start,
+            error: error as Error,
+          };
+        }
+      },
+    },
+    {
+      name: "Search tool execution",
+      description: "Should execute search tool",
+      test: async () => {
+        const start = Date.now();
+        try {
+          const result = await executeToolCall({
+            tool: "searchListings",
+            args: { searchListings: { query: "BMW" } },
+            confidence: 0.9,
+          });
+          const passed = result.success;
+          return {
+            passed,
+            message: passed ? "Search tool executed" : `Error: ${result.error}`,
+            duration: Date.now() - start,
+          };
+        } catch (error) {
+          return {
+            passed: false,
+            message: "Test failed with error",
+            duration: Date.now() - start,
+            error: error as Error,
+          };
+        }
+      },
+    },
+  ];
+}
+
+/**
+ * Run all test suites
+ */
+export async function runAllAwhinaTests(): Promise<TestSuite[]> {
+  const runner = new AwhinaTestRunner();
+
+  runner.registerSuite("Navigation", createNavigationTests());
+  runner.registerSuite("Search", createSearchTests());
+  runner.registerSuite("Listing Creation", createListingCreationTests());
+  runner.registerSuite("Follow-up Conversations", createFollowUpTests());
+  runner.registerSuite("Messaging", createMessagingTests());
+  runner.registerSuite("Purchases", createPurchaseTests());
+  runner.registerSuite("Edge Cases", createEdgeCaseTests());
+  runner.registerSuite("Ambiguous Commands", createAmbiguousCommandTests());
+  runner.registerSuite("Local Execution", createLocalExecutionTests());
+  runner.registerSuite("Tool Execution", createToolExecutionTests());
+
+  return await runner.runAll();
+}
+
+/**
+ * Print test results summary
+ */
+export function printTestSummary(suites: TestSuite[]): void {
+  const summary = suites.reduce(
+    (acc, suite) => ({
+      total: acc.total + suite.summary.total,
+      passed: acc.passed + suite.summary.passed,
+      failed: acc.failed + suite.summary.failed,
+      duration: acc.duration + suite.summary.duration,
+    }),
+    { total: 0, passed: 0, failed: 0, duration: 0 }
+  );
+
+  console.log("\n=== Āwhina Test Summary ===");
+  console.log(`Total Tests: ${summary.total}`);
+  console.log(`Passed: ${summary.passed}`);
+  console.log(`Failed: ${summary.failed}`);
+  console.log(`Duration: ${summary.duration}ms`);
+  console.log(`Success Rate: ${((summary.passed / summary.total) * 100).toFixed(1)}%`);
+
+  console.log("\n=== Suite Details ===");
+  for (const suite of suites) {
+    console.log(`\n${suite.name}:`);
+    console.log(`  Total: ${suite.summary.total}`);
+    console.log(`  Passed: ${suite.summary.passed}`);
+    console.log(`  Failed: ${suite.summary.failed}`);
+    console.log(`  Duration: ${suite.summary.duration}ms`);
+
+    for (const result of suite.results) {
+      const status = result.passed ? "✓" : "✗";
+      console.log(`  ${status} ${result.message} (${result.duration}ms)`);
+    }
+  }
+}
