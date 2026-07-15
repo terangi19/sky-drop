@@ -635,11 +635,14 @@ export default function ListingPage() {
     ]
   );
 
+  // Guests get "Sign in"; signed-in buyers (including first order) get Buy Now / Contact Seller.
+  // Do NOT require role === "buyer" with a prior order — that hid CTAs for first-time buyers.
   const canShowBuyerPurchaseCta =
     !!listing &&
-    purchaseView.role === "buyer" &&
+    purchaseView.role !== "seller" &&
     !purchaseView.hasActiveOrder &&
-    (purchaseUi.canPurchaseMore ||
+    (purchaseView.role === "guest" ||
+      purchaseUi.canPurchaseMore ||
       (isContactListing && buyerArrangeRequestCount > 0) ||
       (!isContactListing &&
         isListingAvailableForPurchase(listing) &&
@@ -2656,7 +2659,7 @@ Service Status: 🟢 Inquiry Active`;
       )}
 
       {/* STICKY MOBILE CTA BAR — hidden on lg+, hidden when native buttons are in view */}
-      {listing && stickyBarVisible && purchaseView.role === "buyer" && !purchaseView.hasActiveOrder && isListingVisibleInMarketplace(listing) && !isExpired && listing.type !== "job" && (
+      {listing && stickyBarVisible && purchaseView.role !== "seller" && !purchaseView.hasActiveOrder && isListingVisibleInMarketplace(listing) && !isExpired && listing.type !== "job" && (
         <div className="fixed bottom-0 inset-x-0 z-40 lg:hidden border-t border-white/[0.06] bg-zinc-950/95 backdrop-blur-xl px-4 py-3 flex gap-3" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
           {user ? (
             <>

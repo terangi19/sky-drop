@@ -118,15 +118,16 @@ function listingIsSold(listing: ListingPurchaseLimitFields | null | undefined): 
 }
 
 export function resolveListingViewerRole(
-  listing: { sellerId?: string; sellerEmail?: string } | null | undefined,
+  listing: { sellerId?: string; sellerEmail?: string; userId?: string } | null | undefined,
   uid?: string | null,
   email?: string | null,
-  listingOrders: ListingOrderSlice[] = []
+  _listingOrders: ListingOrderSlice[] = []
 ): ListingViewerRole {
   if (!uid && !email) return "guest";
   if (listing && matchesListingSeller(listing, uid, email)) return "seller";
-  if (listingOrders.some((o) => matchesBuyer(o, uid, email))) return "buyer";
-  if (uid || email) return "public";
+  // Signed-in non-sellers are buyers for purchase CTAs — including first-time buyers
+  // with no prior order on this listing. (Previously these were "public", which hid Buy Now.)
+  if (uid || email) return "buyer";
   return "guest";
 }
 
@@ -200,11 +201,10 @@ export function getListingPurchaseViewState(opts: {
 
   const hideBuyerPurchaseCta =
     role === "seller" ||
-    role === "public" ||
-    role === "guest" ||
     hasActiveOrder ||
-    hasRefundedOrder ||
-    (buyerPurchasedQuantity === 0 &&
+    (role === "buyer" && hasRefundedOrder && buyerPurchasedQuantity === 0) ||
+    (role === "buyer" &&
+      buyerPurchasedQuantity === 0 &&
       arrangeRequestCount === 0 &&
       !buyerUi.canPurchaseMore);
 
@@ -220,8 +220,14 @@ export function getListingPurchaseViewState(opts: {
     !!buyerUi.bannerText;
 
   const showSellerSoldUi = role === "seller" && hasActiveOrder && !showSellerRefundedBanner;
+  // Sold to someone else — guests and signed-in viewers who didn't buy this listing
   const showPublicSoldUi =
-    (role === "public" || role === "guest") && hasActiveOrder;
+    (role === "guest" ||
+      (role === "buyer" &&
+        buyerPurchasedQuantity === 0 &&
+        arrangeRequestCount === 0 &&
+        !buyerRefundedOrder)) &&
+    hasActiveOrder;
 
   const showOrderStatusSection =
     showBuyerPurchasedBanner ||

@@ -94,4 +94,47 @@ describe("listing-purchase-state", () => {
     expect(state.buyerBannerText).toBeNull();
     expect(state.orderStatusLabel).toBe("This order has been fully refunded");
   });
+
+  it("first-time signed-in viewer is buyer and can purchase", () => {
+    const state = getListingPurchaseViewState({
+      listing: { status: "active" },
+      userUid: "new-buyer-uid",
+      userEmail: "newbuyer@test.com",
+      listingSellerId: "seller-uid",
+      listingSellerEmail: "seller@test.com",
+      buyerPurchasedQuantity: 0,
+      arrangeRequestCount: 0,
+      listingOrders: [],
+    });
+
+    expect(state.role).toBe("buyer");
+    expect(state.hideBuyerPurchaseCta).toBe(false);
+    expect(state.canPurchaseMore).toBe(true);
+    expect(state.hasActiveOrder).toBe(false);
+  });
+
+  it("signed-in stranger viewing sold listing sees public sold ui not purchase cta", () => {
+    const state = getListingPurchaseViewState({
+      listing: { status: "sold" },
+      userUid: "stranger-uid",
+      userEmail: "stranger@test.com",
+      listingSellerId: "seller-uid",
+      listingSellerEmail: "seller@test.com",
+      buyerPurchasedQuantity: 0,
+      arrangeRequestCount: 0,
+      listingOrders: [
+        {
+          buyerId: "other-uid",
+          buyerEmail: "other@test.com",
+          status: "delivered",
+          paymentType: "stripe",
+        },
+      ],
+    });
+
+    expect(state.role).toBe("buyer");
+    expect(state.showPublicSoldUi).toBe(true);
+    expect(state.hideBuyerPurchaseCta).toBe(true);
+    expect(state.canPurchaseMore).toBe(false);
+  });
 });
