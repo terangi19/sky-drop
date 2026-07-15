@@ -38,6 +38,7 @@ import {
 } from "../../../lib/listing-purchase-state";
 import RefundStatusCard from "../../../components/RefundStatusCard";
 import { ReviewStars } from "../../../components/SellerReviewStars";
+import { adjustListingWatchlistCount } from "../../../lib/listing-watchlist-count";
 import ServicePricingBadge from "../../../components/ServicePricingBadge";
 import { formatServicePriceDisplay } from "../../../lib/service-pricing";
 import { sendMessage } from "../../../lib/api-send-message";
@@ -811,6 +812,17 @@ export default function ListingPage() {
       showToast("Already in watchlist", "info");
       return;
     }
+    if (user?.uid) {
+      try {
+        const snap = await getDoc(doc(db, "users", user.uid, "watchlist", listing.id));
+        if (snap.exists()) {
+          showToast("Already in watchlist", "info");
+          return;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
     localStorage.setItem("watchlist", JSON.stringify([...existingWatchlist, listing]));
     if (user?.uid) {
       setDoc(doc(db, "users", user.uid, "watchlist", listing.id), {
@@ -819,6 +831,12 @@ export default function ListingPage() {
         savedAt: new Date().toISOString(),
       }).catch((e) => console.error("Watchlist save failed:", e));
     }
+    void adjustListingWatchlistCount(listing.id, 1);
+    setListing((prev) =>
+      prev
+        ? { ...prev, watchlistCount: Math.max(0, (Number((prev as any).watchlistCount) || 0) + 1) }
+        : prev
+    );
     showToast("Added to watchlist!");
   }
 

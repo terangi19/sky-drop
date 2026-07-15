@@ -9,6 +9,7 @@ import { useListings } from "../useListings";
 import { useAuth } from "../contexts/AuthContext";
 import { listingBuyHref } from "../lib/buy-listing-route";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
+import { adjustListingWatchlistCount } from "../lib/listing-watchlist-count";
 import { rankListingsBySearch } from "../lib/marketplace-fuzzy-search";
 import { normalizeMarketplaceSearchQuery, processVoiceSearchTranscript } from "../lib/voice-search-pipeline";
 import { logVoiceSearch } from "../lib/voice-search-logger";
@@ -169,11 +170,13 @@ export default function SearchPage() {
 
   const toggleWatchlist = (item: Listing) => {
     if (!user) return;
-    const newWatchlist = isInWatchlist(item.id)
-      ? watchlist.filter((id) => id !== item.id)
-      : [...watchlist, item.id];
+    const adding = !isInWatchlist(item.id);
+    const newWatchlist = adding
+      ? [...watchlist, item.id]
+      : watchlist.filter((id) => id !== item.id);
     setWatchlist(newWatchlist);
     localStorage.setItem(`watchlist_${user.uid}`, JSON.stringify(newWatchlist));
+    void adjustListingWatchlistCount(item.id, adding ? 1 : -1);
   };
 
   const handleBuyNow = (item: Listing) => {

@@ -542,11 +542,24 @@ export default function Home() {
        }).catch((e) => { console.error("Watchlist save failed:", e); showToast("Failed to save to watchlist", "error"); });
      }
 
+     void adjustListingWatchlistCount(item.id, 1);
+     setListings((prev) =>
+       prev.map((l) =>
+         l.id === item.id
+           ? { ...l, watchlistCount: Math.max(0, (Number((l as any).watchlistCount) || 0) + 1) }
+           : l
+       )
+     );
+     setWatchlistTick((t) => t + 1);
      showToast("Added to watchlist!");
   }, [user]);
 
   async function toggleWatchlist(item: any) {
+    const wasSaved = JSON.parse(localStorage.getItem("watchlist") || "[]").some(
+      (fav: any) => fav.id === item.id
+    );
     const now = new Date().toISOString();
+
     if (user?.uid) {
       try {
         const snap = await getDoc(doc(db, "users", user.uid, "watchlist", item.id));
@@ -555,7 +568,9 @@ export default function Home() {
           await deleteDoc(doc(db, "users", user.uid, "watchlist", item.id));
           await deleteDoc(doc(db, "watchlist", `${user.uid}_${item.id}`));
         }
-        } catch (e) { console.error(e); }
+      } catch (e) {
+        console.error(e);
+      }
     }
 
     const existing = JSON.parse(localStorage.getItem("watchlist") || "[]");
@@ -565,6 +580,16 @@ export default function Home() {
       existing.splice(index, 1);
       localStorage.setItem("watchlist", JSON.stringify(existing));
       showToast("Removed from watchlist", "info");
+      if (wasSaved) {
+        void adjustListingWatchlistCount(item.id, -1);
+        setListings((prev) =>
+          prev.map((l) =>
+            l.id === item.id
+              ? { ...l, watchlistCount: Math.max(0, (Number((l as any).watchlistCount) || 0) - 1) }
+              : l
+          )
+        );
+      }
     } else {
       existing.unshift(item);
       localStorage.setItem("watchlist", JSON.stringify(existing));
@@ -583,7 +608,16 @@ export default function Home() {
         }).catch((e) => { console.error("Watchlist index save failed:", e); });
       }
       showToast("Added to watchlist!");
+      void adjustListingWatchlistCount(item.id, 1);
+      setListings((prev) =>
+        prev.map((l) =>
+          l.id === item.id
+            ? { ...l, watchlistCount: Math.max(0, (Number((l as any).watchlistCount) || 0) + 1) }
+            : l
+        )
+      );
     }
+    setWatchlistTick((t) => t + 1);
   }
 
   const filteredListings =

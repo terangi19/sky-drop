@@ -12,6 +12,7 @@ import { useAwhinaInsightEffect } from "../contexts/AwhinaPageInsightContext";
 import { buildWatchlistInsight } from "../lib/awhina-insights";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
 import ListingImage, { listingHasImage } from "../components/ListingImage";
+import { adjustListingWatchlistCount } from "../lib/listing-watchlist-count";
 
 interface WatchlistItem {
   id: string;
@@ -120,6 +121,7 @@ export default function WatchlistPage() {
         console.error("Failed to remove from Firestore:", err);
       }
     }
+    void adjustListingWatchlistCount(id, -1);
   };
 
   const clearAll = async () => {
@@ -128,6 +130,7 @@ export default function WatchlistPage() {
         try { await deleteDoc(doc(db, "users", user.uid, "watchlist", item.id)); } catch {}
         try { await deleteDoc(doc(db, "watchlist", `${user.uid}_${item.id}`)); } catch {}
       }
+      void adjustListingWatchlistCount(item.id, -1);
     }
     setWatchlist([]);
     try { localStorage.setItem("watchlist", "[]"); } catch (e) { console.error("Failed to clear watchlist:", e); }
@@ -159,6 +162,7 @@ export default function WatchlistPage() {
     for (const id of selectedItems) {
       try { await deleteDoc(doc(db, "users", user.uid, "watchlist", id)); } catch {}
       try { await deleteDoc(doc(db, "watchlist", `${user.uid}_${id}`)); } catch {}
+      void adjustListingWatchlistCount(id, -1);
     }
     setWatchlist((prev) => prev.filter((i) => !selectedItems.has(i.id)));
     try { localStorage.setItem("watchlist", JSON.stringify(watchlist.filter((i) => !selectedItems.has(i.id)))); } catch (e) { console.error("Failed to save watchlist:", e); }

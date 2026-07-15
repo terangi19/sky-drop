@@ -348,6 +348,7 @@ export async function POST(req: NextRequest) {
       sellerId: token.uid,
       status,
       views: 0,
+      watchlistCount: 0,
       bidCount: 0,
       createdAt: now,
       expiresAt,
@@ -367,6 +368,8 @@ export async function POST(req: NextRequest) {
     }
 
     delete finalData.expiresInDays;
+    finalData.views = 0;
+    finalData.watchlistCount = Number(finalData.watchlistCount) || 0;
     delete finalData.listingType;
 
     // Strip undefined — Firestore rejects undefined field values
