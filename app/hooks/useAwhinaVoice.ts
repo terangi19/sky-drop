@@ -31,7 +31,6 @@ import { stripSkyAiMachineTags, type SkyAiListingFill } from "../lib/sky-ai-list
 import { isSpeechRecognitionSupported } from "../lib/speech-recognition";
 import { showToast } from "../components/Toast";
 import { useVoiceInput, type UtteranceUpdateMeta } from "./useVoiceInput";
-import { processAwhinaRequest } from "../lib/awhina-integration";
 
 export type AwhinaVoicePhase =
   | "idle"
@@ -71,7 +70,6 @@ const INACTIVITY_MS = 45_000;
 const BUSY_RECOVERY_MS = 15_000;
 const CONFIRMATION_TIMEOUT_MS = 30_000;
 const VOICE_MODE_STORAGE_KEY = "awhina-voice-mode-on";
-const ENABLE_NEW_ARCHITECTURE = true; // Feature flag for new architecture
 
 function isSellVoiceDestination(path?: string): boolean {
   return path === "/post/ai";
@@ -638,49 +636,6 @@ export function useAwhinaVoice(options: UseAwhinaVoiceOptions = {}) {
         return true;
       }
 
-      // NEW ARCHITECTURE: Try new integration layer first
-      if (ENABLE_NEW_ARCHITECTURE) {
-        processAwhinaRequest(trimmed, {
-          pathname,
-          isAdmin: options.isAdmin,
-          hasListingContext: pathname === "/post/ai",
-          conversationHistory: [], // TODO: Add conversation history
-        }).then((integrationResult) => {
-          console.log("[Awhina New Architecture]", {
-            routingMode: integrationResult.routingMode,
-            intent: integrationResult.intent,
-            selectedTool: integrationResult.data.toolCall?.tool || "none",
-            usedLocalExecution: integrationResult.usedLocalExecution,
-            confidence: integrationResult.confidence,
-            executionTime: integrationResult.executionTime,
-          });
-
-          // If new architecture handled it with local execution, use that result and skip old system
-          if (integrationResult.routingMode === "local" && integrationResult.data.toolCall) {
-            const toolCall = integrationResult.data.toolCall;
-            if (toolCall.tool === "navigate") {
-              const navArgs = toolCall.args as { navigate?: { path?: string } };
-              if (navArgs.navigate?.path) {
-                const path = navArgs.navigate.path;
-                if (path === "BACK") {
-                  router.back();
-                } else {
-                  router.push(path);
-                }
-                setHeardText(trimmed);
-                setActionText(`Navigating to ${path}`);
-                showToast("Navigating…", "info");
-                afterCommandCycle();
-              }
-            }
-          }
-        }).catch((error) => {
-          console.error("[Awhina New Architecture Error]", error);
-          // Fall back to old system on error
-        });
-      }
-
-      // OLD ARCHITECTURE: Fallback to existing system
       const cmd = resolveVoiceCommand(trimmed, pathname, { isAdmin: options.isAdmin });
       if (!cmd) return false;
 
