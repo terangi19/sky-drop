@@ -322,9 +322,9 @@ export default function BrowseCategoryPage({ configKey }: Props) {
             )}
           </div>
 
-          <div className="relative overflow-visible px-6 py-10 sm:px-10 sm:py-12">
+          <div className="relative overflow-visible px-4 py-8 sm:px-10 sm:py-12">
             <div className="mx-auto max-w-3xl text-center">
-              <h1 className="text-4xl font-black tracking-tight sm:text-5xl lg:text-6xl leading-none">
+              <h1 className="text-3xl font-black tracking-tight sm:text-5xl lg:text-6xl leading-none">
                 <span
                   className={`bg-gradient-to-r bg-clip-text text-transparent ${t.titleGradient} ${t.titleDropShadow}`}
                 >
@@ -361,14 +361,15 @@ export default function BrowseCategoryPage({ configKey }: Props) {
                     placeholder={config.searchPlaceholder}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="flex-1 bg-transparent px-3 py-3.5 text-[15px] text-[var(--foreground)] outline-none placeholder:text-[var(--muted)]"
+                    className="flex-1 bg-transparent px-3 py-3.5 text-base text-[var(--foreground)] outline-none placeholder:text-[var(--muted)] sm:text-[15px]"
                   />
                   <div className="mr-1.5 flex gap-1.5">
                     {searchQuery && (
                       <button
                         type="button"
                         onClick={() => setSearchQuery("")}
-                        className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-white/[0.06] hover:text-white"
+                        aria-label="Clear search"
+                        className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl text-zinc-500 transition hover:bg-white/[0.06] hover:text-white"
                       >
                         <svg
                           className="h-4 w-4"
@@ -650,7 +651,7 @@ export default function BrowseCategoryPage({ configKey }: Props) {
                 </p>
               </div>
             </div>
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+            <div className="mobile-h-scroll gap-3">
               {typeRecentlyViewed.map((item: any) => {
                 const live = listings.find((l) => l.id === item.id);
                 const card = live ? { ...item, ...live } : item;

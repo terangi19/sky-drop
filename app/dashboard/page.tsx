@@ -557,10 +557,10 @@ export default function DashboardPage() {
                   <Link
                     key={link.href}
                     href={link.href}
-                    className="flex items-center justify-between rounded-xl border border-white/[0.05] bg-white/[0.02] px-3.5 py-2.5 transition hover:border-sky-500/20 hover:bg-white/[0.04]"
+                    className="flex min-h-[44px] items-center justify-between rounded-xl border border-white/[0.05] bg-white/[0.02] px-3.5 py-3 transition hover:border-sky-500/20 hover:bg-white/[0.04] active:scale-[0.99]"
                   >
                     <span className="text-sm font-semibold text-zinc-200">{link.label}</span>
-                    <span className="text-[10px] text-zinc-500">{link.meta}</span>
+                    <span className="text-[11px] text-zinc-500">{link.meta}</span>
                   </Link>
                 ))}
               </div>

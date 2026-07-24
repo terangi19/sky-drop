@@ -441,7 +441,7 @@ export default function SearchPage() {
               <div className="h-2 w-2 animate-pulse rounded-full bg-sky-400" />
               Updating results...
             </div>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((_, i) => (
               <div key={i} className="relative overflow-hidden rounded-2xl bg-[var(--card)] border border-white/[0.04]">
                 <div className="aspect-[4/3] w-full bg-gradient-to-br from-sky-500/[0.05] via-sky-500/[0.02] to-transparent animate-shimmer" />
@@ -494,7 +494,7 @@ export default function SearchPage() {
             </div>
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid items-stretch gap-4 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {filteredListings.map((item, cardIndex) => (
               <MarketplaceListingCard
                 key={item.id}

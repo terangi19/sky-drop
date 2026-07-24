@@ -1534,14 +1534,14 @@ const tabGroups = [
                 </div>
               </div>
 
-              <div className="mt-6 grid grid-cols-3 gap-3 sm:gap-4">
+              <div className="mt-6 grid grid-cols-3 gap-2 sm:gap-4">
                 {statItems.map((s) => (
-                  <div key={s.label} className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.06] to-white/[0.01] px-4 py-4 text-center transition-all duration-300 hover:border-white/[0.14] hover:shadow-lg hover:shadow-black/20 hover:-translate-y-0.5">
+                  <div key={s.label} className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.06] to-white/[0.01] px-2 py-3 text-center transition-all duration-300 hover:border-white/[0.14] hover:shadow-lg hover:shadow-black/20 sm:rounded-2xl sm:px-4 sm:py-4 sm:hover:-translate-y-0.5">
                     <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${s.accent}`} />
                     <div className="flex flex-col items-center">
-                      <span className="text-2xl opacity-90">{s.icon}</span>
-                      <p className="mt-1 text-lg font-black text-white sm:text-xl">{s.value}</p>
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">{s.label}</p>
+                      <span className="text-xl opacity-90 sm:text-2xl">{s.icon}</span>
+                      <p className="mt-1 text-base font-black text-white sm:text-xl">{s.value}</p>
+                      <p className="text-[9px] font-semibold uppercase tracking-wider text-zinc-500 sm:text-[10px]">{s.label}</p>
                     </div>
                   </div>
                 ))}
@@ -1552,12 +1552,12 @@ const tabGroups = [
           <div className="grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
           {/* Tabs - Grouped */}
           <nav
-            className="flex gap-1 overflow-x-auto rounded-2xl border border-white/[0.06] bg-white/[0.015] p-1.5 scrollbar-none lg:sticky lg:top-24 lg:flex-col lg:overflow-visible"
+            className="mobile-h-scroll rounded-2xl border border-white/[0.06] bg-white/[0.015] p-1.5 lg:sticky lg:top-24 lg:flex-col lg:overflow-visible lg:gap-1"
             role="tablist"
             aria-label="Profile sections"
           >
             {tabGroups.map((group) => (
-              <div key={group.id} className="lg:w-full">
+              <div key={group.id} className="flex shrink-0 gap-1 lg:w-full lg:flex-col">
                 <div className="hidden lg:block px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
                   {group.label}
                 </div>
@@ -1568,7 +1568,7 @@ const tabGroups = [
                       onClick={() => setActiveTab(tab.id)}
                       role="tab"
                       aria-selected={activeTab === tab.id}
-                      className={`shrink-0 rounded-xl px-3.5 py-2.5 text-left text-xs font-semibold transition-all duration-200 sm:text-sm lg:w-full ${
+                      className={`shrink-0 rounded-xl px-4 py-3 text-left text-xs font-semibold transition-all duration-200 min-h-[44px] sm:text-sm lg:w-full ${
                         activeTab === tab.id
                           ? tab.id === "danger"
                             ? "bg-red-500/15 text-red-300 border border-red-500/20"
