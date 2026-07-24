@@ -88,6 +88,26 @@ const BROWSE_LINKS = [
   { href: "/wanted", label: "Wanted Ads", desc: "Items people are looking for" },
 ] as const;
 
+const MOBILE_MENU_BROWSE = [
+  { href: "/", label: "Marketplace", desc: "All listings" },
+  { href: "/vehicles", label: "Vehicles", desc: "Cars & motorbikes" },
+  { href: "/services", label: "Services", desc: "Gigs & trades" },
+  { href: "/rentals", label: "Rentals", desc: "Hire gear & property" },
+  { href: "/property", label: "Property", desc: "Homes & rooms" },
+  { href: "/wanted", label: "Wanted", desc: "Buyer requests" },
+  { href: "/trade-feed", label: "Trade Feed", desc: "Community trades" },
+  { href: "/jobs", label: "Jobs", desc: "Work listings" },
+  { href: "/events", label: "Events", desc: "Local events" },
+] as const;
+
+function MenuIcon({ d }: { d: string }) {
+  return (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d={d} />
+    </svg>
+  );
+}
+
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -224,16 +244,27 @@ export default function Navbar() {
   useEffect(() => {
     if (!mobileMenuOpen) return;
     function handleClickOutside(e: MouseEvent) {
-      const target = e.target as Node;
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
       const isInsideMenu = mobileMenuRef.current?.contains(target);
       const isInsideToggle = hamburgerRef.current?.contains(target);
-      if (!isInsideMenu && !isInsideToggle) {
+      const isMoreTab = Boolean(target.closest("[data-mobile-more-tab]"));
+      if (!isInsideMenu && !isInsideToggle && !isMoreTab) {
         closeMobileMenu();
       }
     }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [mobileMenuOpen, closeMobileMenu]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileMenuOpen]);
 
   useEffect(() => {
     if (!mobileMenuOpen) return;
@@ -347,117 +378,45 @@ export default function Navbar() {
             )}
           </nav>
 
-          {/* HAMBURGER BUTTON */}
-            <button
-              ref={hamburgerRef}
-              onClick={toggleMobileMenu}
-              aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-              className="lg:hidden relative flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-white/[0.1] bg-white/[0.05] text-[var(--nav-ice)] active:scale-95 transition-all duration-200 hover:bg-white/[0.1] hover:border-white/[0.15]"
-            >
-              <div className="relative h-5 w-5">
-                <svg
-                  className={`absolute inset-0 h-5 w-5 transition-all duration-200 ${
-                    mobileMenuOpen ? 'opacity-0 rotate-90 scale-75' : 'opacity-100 rotate-0 scale-100'
-                  }`}
-                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-                <svg
-                  className={`absolute inset-0 h-5 w-5 transition-all duration-200 ${
-                    mobileMenuOpen ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-90 scale-75'
-                  }`}
-                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </div>
-            </button>
-          {/* MOBILE DROPDOWN */}
-            <div
-              ref={mobileMenuRef}
-              className={`absolute top-full left-0 right-0 z-50 border-b border-white/[0.06] bg-zinc-950/98 backdrop-blur-2xl lg:hidden shadow-2xl shadow-black/40 light:border-black/[0.12] light:bg-white/98 light:shadow-black/20 transition-all duration-200 ease-out ${
-                mobileMenuOpen
-                  ? 'opacity-100 translate-y-0 visible pointer-events-auto'
-                  : 'opacity-0 -translate-y-1.5 invisible pointer-events-none'
-              }`}>
-              <div className="flex flex-col gap-1 p-3 max-h-[80vh] overflow-y-auto">
-                <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400 light:text-gray-500">Actions</div>
-                <Link href={user ? "/post/ai" : "/signup?redirect=/post/ai"} className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/post/ai") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm light:bg-sky-500/10">Sell</span>
-                  Sell
-                </Link>
-
-                <div className="my-1.5 mx-3 border-t border-white/[0.04] light:border-black/[0.08]" />
-                <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400 light:text-gray-500">Browse</div>
-                <Link href="/" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors ${isActive("/") && pathname === "/" ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-sm light:bg-black/[0.04]">Box</span><div><div className="font-bold">Physical Goods</div><div className="text-[10px] text-gray-400 light:text-gray-500">Electronics, fashion, home</div></div></Link>
-                <Link href="/services" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors ${isActive("/services") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-sm light:bg-black/[0.04]">Service</span><div><div className="font-bold">Services</div><div className="text-[10px] text-gray-400 light:text-gray-500">Freelance, consulting, gigs</div></div></Link>
-                <Link href="/rentals" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors ${isActive("/rentals") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-sm light:bg-black/[0.04]">Key</span><div><div className="font-bold">Rentals</div><div className="text-[10px] text-gray-400 light:text-gray-500">Tools, equipment, cameras</div></div></Link>
-                <Link href="/wanted" className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors ${isActive("/wanted") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-sm light:bg-black/[0.04]">List</span><div><div className="font-bold">Wanted</div><div className="text-[10px] text-gray-400 light:text-gray-500">People looking to buy, hire, rent</div></div></Link>
-
-                <div className="my-1.5 mx-3 border-t border-white/[0.04] light:border-black/[0.08]" />
-                <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400 light:text-gray-500">Your Stuff</div>
-                <Link href="/list-list" className={`rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/list-list") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>My Listings</Link>
-                <Link href="/watchlist" className={`rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/watchlist") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>Watchlist</Link>
-                <Link href="/purchases" className={`rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/purchases") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>Purchases</Link>
-                <Link href="/sales" className={`rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/sales") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>Sales</Link>
-
-                <div className="my-1.5 mx-3 border-t border-white/[0.04] light:border-black/[0.08]" />
-                <button
-                  onClick={toggleTheme}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-bold text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] transition-colors light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"
-                >
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-sm light:bg-black/[0.04]">☀</span>
-                  Toggle theme
-                </button>
-                <div className="my-1.5 mx-3 border-t border-white/[0.04] light:border-black/[0.08]" />
-                {authLoading ? (
-                  <div className="px-3 py-3">
-                    <div className="h-10 animate-pulse rounded-xl bg-white/[0.06]" />
-                  </div>
-                ) : user ? (
-                  <>
-                    <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400 light:text-gray-500">Account</div>
-                    <div className="px-1">
-                      <AccountMenuContent
-                      pathname={pathname}
-                      username={username}
-                      userEmail={user.email}
-                      isAdmin={isAdmin}
-                      onLogout={handleLogout}
-                        onNavigate={closeMobileMenu}
-                      />
-                    </div>
-                    <div className="my-1.5 mx-3 border-t border-white/[0.04] light:border-black/[0.08]" />
-                    <Link href="/messages" className={`rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/messages") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>
-                      Messages
-                      {msgCount > 0 && (
-                        <span className="ml-2 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-sky-500 px-1.5 text-[10px] font-bold text-white">
-                          {msgCount > 9 ? "9+" : msgCount}
-                        </span>
-                      )}
-                    </Link>
-                    <Link href="/faqs" className={`rounded-xl px-3 py-3 text-sm font-bold transition-colors ${isActive("/faqs") ? "text-sky-300 bg-sky-500/10 light:text-sky-600 light:bg-sky-500/10" : "text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]"}`} onClick={() => setMobileMenuOpen(false)}>
-                      Help
-                    </Link>
-                    <button onClick={() => { openFeedback(); setMobileMenuOpen(false); }} className="flex w-full rounded-xl px-3 py-3 text-left text-sm font-bold text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] transition-colors light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]">
-                      Feedback
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <Link href="/login" className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold text-gray-200 hover:text-white hover:bg-white/[0.06] active:bg-white/[0.08] transition-colors light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]" onClick={() => setMobileMenuOpen(false)}>
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm light:bg-sky-500/10">Key</span>
-                      Login
-                    </Link>
-                    <Link href="/signup" className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold text-sky-400 hover:text-sky-300 hover:bg-white/[0.06] active:bg-white/[0.08] transition-colors light:text-sky-600 light:hover:text-sky-700 light:hover:bg-black/[0.06] light:active:bg-black/[0.08]" onClick={() => setMobileMenuOpen(false)}>
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/10 text-sm">Plus</span>
-                      Create Account
-                    </Link>
-                  </>
-                )}
-              </div>
+          {/* Hamburger — opens full mobile menu */}
+          <button
+            ref={hamburgerRef}
+            type="button"
+            onClick={toggleMobileMenu}
+            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileMenuOpen}
+            aria-controls="mobile-nav-menu"
+            className={`lg:hidden relative flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border transition-all duration-200 active:scale-95 ${
+              mobileMenuOpen
+                ? "border-sky-400/40 bg-sky-500/15 text-sky-200"
+                : "border-white/[0.12] bg-white/[0.06] text-[var(--nav-ice)] hover:bg-white/[0.1] hover:border-white/[0.18]"
+            }`}
+          >
+            <div className="relative h-5 w-5">
+              <svg
+                className={`absolute inset-0 h-5 w-5 transition-all duration-200 ${
+                  mobileMenuOpen ? "opacity-0 rotate-90 scale-75" : "opacity-100 rotate-0 scale-100"
+                }`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+              <svg
+                className={`absolute inset-0 h-5 w-5 transition-all duration-200 ${
+                  mobileMenuOpen ? "opacity-100 rotate-0 scale-100" : "opacity-0 -rotate-90 scale-75"
+                }`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </div>
+          </button>
 
           {/* RIGHT ICONS */}
           <div className="hidden md:flex items-center gap-1">
@@ -500,7 +459,7 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* PROFILE — desktop only */}
+          {/* PROFILE — desktop */}
           <div className="hidden md:flex items-center gap-2">
             {authLoading ? (
               <div className="h-9 w-28 animate-pulse rounded-xl bg-white/[0.06]" />
@@ -519,7 +478,7 @@ export default function Navbar() {
                 </button>
                 <div className="absolute top-full right-0 z-50 mt-2 w-[220px] opacity-0 invisible translate-y-2 transition-all duration-200 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:translate-y-0">
                   <AppMenuPanel arrow="top-right">
-                      <AccountMenuContent
+                    <AccountMenuContent
                       pathname={pathname}
                       username={username}
                       userEmail={user.email}
@@ -541,9 +500,6 @@ export default function Navbar() {
                   href="/login"
                   className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/25 hover:brightness-110 active:scale-[0.97]"
                 >
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                  </svg>
                   Login
                 </Link>
               </div>
@@ -551,8 +507,183 @@ export default function Navbar() {
           </div>
         </div>
       </div>
+
+      {/* Mobile menu sheet */}
+      {mobileMenuOpen && (
+        <button
+          type="button"
+          aria-label="Close menu"
+          className="fixed inset-0 z-[10000] bg-black/50 backdrop-blur-[2px] lg:hidden"
+          onClick={closeMobileMenu}
+        />
+      )}
+      <div
+        id="mobile-nav-menu"
+        ref={mobileMenuRef}
+        className={`fixed inset-x-0 top-16 z-[10001] max-h-[min(80vh,calc(100dvh-4rem-var(--mobile-nav-offset,0px)))] overflow-y-auto overscroll-contain border-b border-white/[0.08] bg-zinc-950/98 backdrop-blur-2xl shadow-2xl shadow-black/50 lg:hidden light:border-black/[0.1] light:bg-white/98 transition-all duration-200 ease-out ${
+          mobileMenuOpen
+            ? "opacity-100 translate-y-0 visible pointer-events-auto"
+            : "opacity-0 -translate-y-2 invisible pointer-events-none"
+        }`}
+        style={{ backgroundColor: "var(--nav-bg)" }}
+      >
+        <div className="flex flex-col gap-0.5 p-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
+          <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400 light:text-gray-500">
+            Browse
+          </div>
+          {MOBILE_MENU_BROWSE.map((item) => {
+            const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+            return (
+              <Link
+                key={`${item.href}-${item.label}`}
+                href={item.href}
+                onClick={closeMobileMenu}
+                className={`flex min-h-[48px] items-center gap-3 rounded-xl px-3 py-2.5 transition-colors ${
+                  active
+                    ? "bg-sky-500/15 text-sky-200 border border-sky-500/25"
+                    : "text-gray-200 hover:bg-white/[0.06] light:text-gray-800 light:hover:bg-black/[0.04]"
+                }`}
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.05] text-sky-400 light:bg-black/[0.04]">
+                  <MenuIcon d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-bold">{item.label}</span>
+                  <span className="block text-[11px] text-gray-500">{item.desc}</span>
+                </span>
+              </Link>
+            );
+          })}
+
+          <div className="my-2 mx-3 border-t border-white/[0.06] light:border-black/[0.08]" />
+          <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400 light:text-gray-500">
+            Your stuff
+          </div>
+          {(
+            [
+              { href: "/dashboard", label: "Dashboard", d: "M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" },
+              { href: "/list-list", label: "My Listings", d: "M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" },
+              { href: "/watchlist", label: "Watchlist", d: "M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" },
+              { href: "/purchases", label: "Purchases", d: "M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007z" },
+              { href: "/sales", label: "Sales", d: "M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" },
+              { href: "/notifications", label: "Notifications", d: "M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" },
+              { href: "/post/ai", label: "Sell with Āwhina", d: "M12 4.5v15m7.5-7.5h-15" },
+            ] as const
+          ).map((item) => (
+            <Link
+              key={item.href}
+              href={user || item.href === "/post/ai" ? item.href : `/login?redirect=${encodeURIComponent(item.href)}`}
+              onClick={closeMobileMenu}
+              className={`flex min-h-[48px] items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition-colors ${
+                isActive(item.href)
+                  ? "bg-sky-500/15 text-sky-200 border border-sky-500/25"
+                  : "text-gray-200 hover:bg-white/[0.06] light:text-gray-800 light:hover:bg-black/[0.04]"
+              }`}
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.05] text-sky-400 light:bg-black/[0.04]">
+                <MenuIcon d={item.d} />
+              </span>
+              {item.label}
+              {item.href === "/notifications" && activityCount > 0 && (
+                <span className="ml-auto rounded-full bg-sky-500 px-2 py-0.5 text-[10px] font-bold text-white">
+                  {activityCount > 9 ? "9+" : activityCount}
+                </span>
+              )}
+            </Link>
+          ))}
+
+          <div className="my-2 mx-3 border-t border-white/[0.06] light:border-black/[0.08]" />
+          <button
+            type="button"
+            onClick={() => {
+              toggleTheme();
+            }}
+            className="flex min-h-[48px] w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-bold text-gray-200 hover:bg-white/[0.06] light:text-gray-800 light:hover:bg-black/[0.04]"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.05] text-sky-400 light:bg-black/[0.04]">
+              ☀
+            </span>
+            Toggle theme
+          </button>
+
+          {authLoading ? (
+            <div className="px-3 py-3">
+              <div className="h-10 animate-pulse rounded-xl bg-white/[0.06]" />
+            </div>
+          ) : user ? (
+            <>
+              <div className="my-2 mx-3 border-t border-white/[0.06] light:border-black/[0.08]" />
+              <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400 light:text-gray-500">
+                Account
+              </div>
+              <div className="px-1">
+                <AccountMenuContent
+                  pathname={pathname}
+                  username={username}
+                  userEmail={user.email}
+                  isAdmin={isAdmin}
+                  onLogout={handleLogout}
+                  onNavigate={closeMobileMenu}
+                />
+              </div>
+              <Link
+                href="/messages"
+                onClick={closeMobileMenu}
+                className={`flex min-h-[48px] items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition-colors ${
+                  isActive("/messages")
+                    ? "bg-sky-500/15 text-sky-200 border border-sky-500/25"
+                    : "text-gray-200 hover:bg-white/[0.06] light:text-gray-800 light:hover:bg-black/[0.04]"
+                }`}
+              >
+                Messages
+                {msgCount > 0 && (
+                  <span className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-sky-500 px-1.5 text-[10px] font-bold text-white">
+                    {msgCount > 9 ? "9+" : msgCount}
+                  </span>
+                )}
+              </Link>
+              <Link
+                href="/faqs"
+                onClick={closeMobileMenu}
+                className="flex min-h-[48px] items-center rounded-xl px-3 py-2.5 text-sm font-bold text-gray-200 hover:bg-white/[0.06] light:text-gray-800 light:hover:bg-black/[0.04]"
+              >
+                Help
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  openFeedback();
+                  closeMobileMenu();
+                }}
+                className="flex min-h-[48px] w-full items-center rounded-xl px-3 py-2.5 text-left text-sm font-bold text-gray-200 hover:bg-white/[0.06] light:text-gray-800 light:hover:bg-black/[0.04]"
+              >
+                Feedback
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="my-2 mx-3 border-t border-white/[0.06] light:border-black/[0.08]" />
+              <Link
+                href="/login"
+                onClick={closeMobileMenu}
+                className="flex min-h-[48px] items-center justify-center rounded-xl border border-white/[0.1] bg-white/[0.04] px-3 py-3 text-sm font-bold text-white light:text-gray-900"
+              >
+                Login
+              </Link>
+              <Link
+                href="/signup"
+                onClick={closeMobileMenu}
+                className="flex min-h-[48px] items-center justify-center rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-3 py-3 text-sm font-bold text-white"
+              >
+                Create account
+              </Link>
+            </>
+          )}
+        </div>
+      </div>
+
       {/* Mobile bottom bar — icon + label, 44px+ touch targets */}
-      {!authLoading && user && (
+      {!authLoading && (
         <nav
           className="fixed bottom-0 left-0 right-0 z-[9999] border-t border-white/[0.06] bg-zinc-950/95 backdrop-blur-xl lg:hidden"
           style={{ backgroundColor: "var(--nav-bg)" }}
@@ -562,7 +693,7 @@ export default function Navbar() {
             className="mx-auto flex max-w-lg items-stretch justify-around px-1"
             style={{ paddingBottom: "max(6px, env(safe-area-inset-bottom, 0px))" }}
           >
-            {MOBILE_NAV_ITEMS.map((item) => {
+            {(user ? MOBILE_NAV_ITEMS : MOBILE_NAV_ITEMS.filter((item) => item.href === "/" || item.href === "/post/ai")).map((item) => {
               const active =
                 item.href === "/"
                   ? pathname === "/" ||
@@ -571,12 +702,16 @@ export default function Navbar() {
                     )
                   : pathname.startsWith(item.href);
               const showBadge = item.href === "/messages" && msgCount > 0;
+              const href =
+                !user && item.href === "/post/ai"
+                  ? "/signup?redirect=/post/ai"
+                  : item.href;
               return (
                 <Link
                   key={item.href}
-                  href={item.href}
+                  href={href}
                   aria-current={active ? "page" : undefined}
-                  className={`relative flex min-h-[52px] min-w-[64px] flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1 pt-1.5 transition-colors duration-200 active:scale-[0.96] ${
+                  className={`relative flex min-h-[52px] min-w-[56px] flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1 pt-1.5 transition-colors duration-200 active:scale-[0.96] ${
                     active
                       ? "text-sky-300"
                       : "text-[var(--nav-ice-faint)] hover:text-[var(--nav-ice-muted)]"
@@ -599,35 +734,49 @@ export default function Navbar() {
                 </Link>
               );
             })}
+            <button
+              type="button"
+              data-mobile-more-tab
+              onClick={toggleMobileMenu}
+              aria-label={mobileMenuOpen ? "Close menu" : "More menu"}
+              aria-expanded={mobileMenuOpen}
+              className={`relative flex min-h-[52px] min-w-[56px] flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1 pt-1.5 transition-colors duration-200 active:scale-[0.96] ${
+                mobileMenuOpen
+                  ? "text-sky-300"
+                  : "text-[var(--nav-ice-faint)] hover:text-[var(--nav-ice-muted)]"
+              }`}
+            >
+              {mobileMenuOpen && (
+                <span className="absolute top-0 left-1/2 h-[2px] w-8 -translate-x-1/2 rounded-full bg-gradient-to-r from-sky-400 to-sky-300 shadow-[0_0_8px_rgba(56,189,248,0.45)]" />
+              )}
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+              </svg>
+              <span className={`text-[10px] font-semibold tracking-wide ${mobileMenuOpen ? "text-sky-200" : ""}`}>
+                More
+              </span>
+            </button>
           </div>
         </nav>
       )}
-      {user ? (
-        <style jsx global>{`
-          :root {
-            --mobile-nav-height: 56px;
+      <style jsx global>{`
+        :root {
+          --mobile-nav-height: 56px;
+        }
+        @media (max-width: 1023px) {
+          main {
+            padding-bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px) + 8px);
           }
-          @media (max-width: 1023px) {
-            main {
-              padding-bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px) + 8px);
-            }
-          }
-          @media (min-width: 1024px) {
-            :root {
-              --mobile-nav-height: 0px;
-            }
-            main {
-              padding-bottom: 0;
-            }
-          }
-        `}</style>
-      ) : (
-        <style jsx global>{`
+        }
+        @media (min-width: 1024px) {
           :root {
             --mobile-nav-height: 0px;
           }
-        `}</style>
-      )}
+          main {
+            padding-bottom: 0;
+          }
+        }
+      `}</style>
 
     </header>
   );
