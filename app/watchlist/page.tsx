@@ -367,7 +367,7 @@ export default function WatchlistPage() {
               </div>
             </div>
 
-            <div className="grid gap-4 sm:gap-5 grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+            <div className="grid items-stretch gap-3 grid-cols-1 min-[380px]:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
               {filteredWatchlist.map((item) => {
                 const hasImage = listingHasImage(item);
                 const isExpired = item.expiresAt?.toMillis?.() < currentTime;
@@ -380,20 +380,20 @@ export default function WatchlistPage() {
                         ? "border border-sky-500/20 bg-gradient-to-b from-sky-500/[0.04] to-transparent shadow-[0_0_25px_rgba(14,165,233,0.08)] hover:border-sky-500/40 hover:shadow-[0_0_35px_rgba(14,165,233,0.15)]"
                         : "border border-white/[0.04] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.08] hover:shadow-[0_10px_40px_-10px_rgba(0,0,0,0.3)]"
                     } ${selectedItems.has(item.id) ? "ring-2 ring-sky-500/50" : ""}`}>
-                      <label className="absolute top-2.5 left-2.5 z-20 cursor-pointer">
+                      <label className="absolute top-2 left-2 z-20 flex h-11 w-11 min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center md:h-auto md:w-auto md:min-h-0 md:min-w-0">
                         <input
                           type="checkbox"
                           checked={selectedItems.has(item.id)}
                           onChange={() => toggleSelection(item.id)}
                           className="sr-only"
                         />
-                        <div className={`h-5 w-5 rounded border-2 flex items-center justify-center transition-all ${
+                        <div className={`h-6 w-6 rounded border-2 flex items-center justify-center transition-all ${
                           selectedItems.has(item.id)
                             ? "bg-sky-500 border-sky-500"
                             : "bg-black/60 backdrop-blur-sm border-white/30 hover:bg-black/80"
                         }`}>
                           {selectedItems.has(item.id) && (
-                            <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <svg className="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                             </svg>
                           )}
@@ -420,7 +420,7 @@ export default function WatchlistPage() {
                       <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
                       <button onClick={(e) => removeItem(item.id, e)}
-                        className="absolute top-2.5 right-2.5 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-white/70 transition hover:bg-red-500/80 hover:text-white md:opacity-0 md:group-hover:opacity-100"
+                        className="absolute top-2 right-2 z-10 flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-black/60 backdrop-blur-sm text-white/80 transition hover:bg-red-500/80 hover:text-white md:h-9 md:w-9 md:min-h-0 md:min-w-0 md:opacity-0 md:group-hover:opacity-100"
                         title="Remove">
                         <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />

@@ -1224,19 +1224,19 @@ function MessagesPage() {
           </div>
         </div>
       )}
-      <section className={`${PAGE_SHELL_CHAT} py-6 sm:py-8`}>
+      <section className={`${PAGE_SHELL_CHAT} py-4 sm:py-8`}>
         <div
-          className={`flex w-full overflow-hidden rounded-[40px] border border-[var(--card-border)] bg-[var(--card)] shadow-2xl backdrop-blur-xl ${
+          className={`flex w-full overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--card)] shadow-2xl backdrop-blur-xl sm:rounded-[40px] ${
             !isMobile || mobileView === "list"
-              ? "h-[calc(100dvh-17rem)] sm:h-[calc(100dvh-18rem)]"
-              : "h-[calc(100dvh-10rem)]"
+              ? "h-[calc(100dvh-8.5rem-var(--mobile-nav-offset,0px))] sm:h-[calc(100dvh-18rem)]"
+              : "h-[calc(100dvh-5.5rem-var(--mobile-nav-offset,0px))] sm:h-[calc(100dvh-10rem)]"
           }`}
         >
           {/* SIDEBAR */}
           <div className={`flex w-[340px] flex-col border-r border-[var(--card-border)] ${isMobile && mobileView === "chat" ? "hidden" : "flex"} ${isMobile ? "w-full" : ""}`}>
-            <div className="border-b border-[var(--card-border)] p-5">
+            <div className="border-b border-[var(--card-border)] p-4 sm:p-5">
               <div className="flex items-start justify-between gap-3">
-                <h1 className="text-2xl font-black text-sky-400">Inbox</h1>
+                <h1 className="text-xl font-black text-sky-400 sm:text-2xl">Inbox</h1>
                 {messages.length > 0 && (
                   <button
                     onClick={() => setClearAllConfirm(true)}
@@ -1365,8 +1365,12 @@ function MessagesPage() {
             <div className="flex items-center justify-between border-b border-[var(--card-border)] bg-white/[0.01] px-5 py-3.5">
               <div className="flex items-center gap-3 min-w-0">
                 {isMobile && (
-                  <button onClick={() => setMobileView("list")} className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-white/[0.05] hover:text-[var(--foreground)]">
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <button
+                    onClick={() => setMobileView("list")}
+                    aria-label="Back to conversations"
+                    className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl text-[var(--muted)] hover:bg-white/[0.05] hover:text-[var(--foreground)] active:scale-[0.96]"
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
                     </svg>
                   </button>

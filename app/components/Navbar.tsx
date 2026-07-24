@@ -42,11 +42,43 @@ import AccountMenuContent from "./AccountMenu";
 import { AppMenuPanel } from "./ui/AppMenu";
 
 const MOBILE_NAV_ITEMS = [
-  { href: "/", label: "Browse" },
-  { href: "/purchases", label: "Purchases" },
-  { href: "/post/ai", label: "Sell" },
-  { href: "/messages", label: "Messages" },
-];
+  {
+    href: "/",
+    label: "Browse",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+      </svg>
+    ),
+  },
+  {
+    href: "/purchases",
+    label: "Buys",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+      </svg>
+    ),
+  },
+  {
+    href: "/post/ai",
+    label: "Sell",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+      </svg>
+    ),
+  },
+  {
+    href: "/messages",
+    label: "Inbox",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.75 15.75v-.75a5.25 5.25 0 0110.5 0v.75c0 .728-.195 1.413-.536 2.005A8.966 8.966 0 0121 12z" />
+      </svg>
+    ),
+  },
+] as const;
 
 const BROWSE_LINKS = [
   { href: "/", label: "All Items", desc: "Browse the full marketplace" },
@@ -320,7 +352,7 @@ export default function Navbar() {
               ref={hamburgerRef}
               onClick={toggleMobileMenu}
               aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-              className="lg:hidden relative flex h-10 w-10 items-center justify-center rounded-lg border border-white/[0.1] bg-white/[0.05] text-[var(--nav-ice)] active:scale-95 transition-all duration-200 hover:bg-white/[0.1] hover:border-white/[0.15]"
+              className="lg:hidden relative flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-white/[0.1] bg-white/[0.05] text-[var(--nav-ice)] active:scale-95 transition-all duration-200 hover:bg-white/[0.1] hover:border-white/[0.15]"
             >
               <div className="relative h-5 w-5">
                 <svg
@@ -519,24 +551,83 @@ export default function Navbar() {
           </div>
         </div>
       </div>
-      {/* Mobile bottom bar */}
+      {/* Mobile bottom bar — icon + label, 44px+ touch targets */}
       {!authLoading && user && (
-        <nav className="fixed bottom-0 left-0 right-0 z-[9999] border-t border-white/[0.04] bg-zinc-950/90 backdrop-blur-xl lg:hidden" style={{ backgroundColor: "var(--nav-bg)" }}>
-          <div className="flex items-center justify-around py-1.5" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 4px) + 4px)" }}>
+        <nav
+          className="fixed bottom-0 left-0 right-0 z-[9999] border-t border-white/[0.06] bg-zinc-950/95 backdrop-blur-xl lg:hidden"
+          style={{ backgroundColor: "var(--nav-bg)" }}
+          aria-label="Primary"
+        >
+          <div
+            className="mx-auto flex max-w-lg items-stretch justify-around px-1"
+            style={{ paddingBottom: "max(6px, env(safe-area-inset-bottom, 0px))" }}
+          >
             {MOBILE_NAV_ITEMS.map((item) => {
-              const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+              const active =
+                item.href === "/"
+                  ? pathname === "/" ||
+                    ["/services", "/rentals", "/wanted", "/vehicles", "/property", "/jobs", "/events", "/search"].some(
+                      (p) => pathname.startsWith(p)
+                    )
+                  : pathname.startsWith(item.href);
+              const showBadge = item.href === "/messages" && msgCount > 0;
               return (
-                <Link key={item.href} href={item.href}
-                  className={`relative flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all duration-200 active:scale-90 ${active ? "text-sky-300 bg-white/[0.06]" : "text-[var(--nav-ice-faint)] hover:text-[var(--nav-ice-muted)]"}`}>
-                  {active && <span className="absolute -top-1 left-1/2 -translate-x-1/2 h-[3px] w-6 rounded-full bg-gradient-to-r from-sky-400 to-sky-300 shadow-[0_0_6px_rgba(56,189,248,0.4)]" />}
-                  <span className="text-[9px] font-semibold tracking-wide">{item.label}</span>
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  className={`relative flex min-h-[52px] min-w-[64px] flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1 pt-1.5 transition-colors duration-200 active:scale-[0.96] ${
+                    active
+                      ? "text-sky-300"
+                      : "text-[var(--nav-ice-faint)] hover:text-[var(--nav-ice-muted)]"
+                  }`}
+                >
+                  {active && (
+                    <span className="absolute top-0 left-1/2 h-[2px] w-8 -translate-x-1/2 rounded-full bg-gradient-to-r from-sky-400 to-sky-300 shadow-[0_0_8px_rgba(56,189,248,0.45)]" />
+                  )}
+                  <span className={`relative ${active ? "text-sky-300" : ""}`}>
+                    {item.icon}
+                    {showBadge && (
+                      <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-sky-500 px-1 text-[9px] font-bold text-white">
+                        {msgCount > 9 ? "9+" : msgCount}
+                      </span>
+                    )}
+                  </span>
+                  <span className={`text-[10px] font-semibold tracking-wide ${active ? "text-sky-200" : ""}`}>
+                    {item.label}
+                  </span>
                 </Link>
               );
             })}
           </div>
         </nav>
       )}
-      <style jsx global>{`main { padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px)); } @media (min-width: 1024px) { main { padding-bottom: 0; } }`}</style>
+      {user ? (
+        <style jsx global>{`
+          :root {
+            --mobile-nav-height: 56px;
+          }
+          @media (max-width: 1023px) {
+            main {
+              padding-bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px) + 8px);
+            }
+          }
+          @media (min-width: 1024px) {
+            :root {
+              --mobile-nav-height: 0px;
+            }
+            main {
+              padding-bottom: 0;
+            }
+          }
+        `}</style>
+      ) : (
+        <style jsx global>{`
+          :root {
+            --mobile-nav-height: 0px;
+          }
+        `}</style>
+      )}
 
     </header>
   );

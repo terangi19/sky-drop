@@ -51,6 +51,7 @@ import {
   sellerProfileDisplayName,
   sellerProfileSlug,
 } from "../../../lib/public-display";
+import { MOBILE_STICKY_CTA } from "../../../lib/page-layout";
 
 function getBidIncrement(price: number): number {
   if (price < 50) return 1;
@@ -1059,7 +1060,9 @@ export default function ListingPage() {
   }
 
   return (
-    <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)] animate-page-enter">
+    <main className={`relative min-h-screen bg-[var(--background)] text-[var(--foreground)] animate-page-enter ${
+      stickyBarVisible && purchaseView.role !== "seller" && !purchaseView.hasActiveOrder ? "max-lg:pb-24" : ""
+    }`}>
       <Background />
       <Navbar />
 
@@ -2676,15 +2679,15 @@ Service Status: 🟢 Inquiry Active`;
         </div>
       )}
 
-      {/* STICKY MOBILE CTA BAR — hidden on lg+, hidden when native buttons are in view */}
+      {/* STICKY MOBILE CTA BAR — sits above bottom nav; hidden on lg+ */}
       {listing && stickyBarVisible && purchaseView.role !== "seller" && !purchaseView.hasActiveOrder && isListingVisibleInMarketplace(listing) && !isExpired && listing.type !== "job" && (
-        <div className="fixed bottom-0 inset-x-0 z-40 lg:hidden border-t border-white/[0.06] bg-zinc-950/95 backdrop-blur-xl px-4 py-3 flex gap-3" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
+        <div className={MOBILE_STICKY_CTA}>
           {user ? (
             <>
               <button
                 onClick={() => void openPurchaseFlow("sticky-mobile")}
                 title={purchaseButtonTitle(effectivePaymentType)}
-                className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-white"
+                className="flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 active:scale-[0.98]"
               >
                 {primaryPurchaseLabel({
                   paymentType: effectivePaymentType,
@@ -2695,9 +2698,9 @@ Service Status: 🟢 Inquiry Active`;
               </button>
               <button
                 onClick={() => router.push(sellerMessagesHref)}
-                className="flex items-center justify-center gap-2 rounded-xl border border-white/[0.10] bg-white/[0.04] px-4 py-3 text-sm font-bold text-[var(--foreground)]"
+                className="flex min-h-[48px] min-w-[48px] items-center justify-center gap-2 rounded-xl border border-white/[0.10] bg-white/[0.04] px-4 py-3 text-sm font-bold text-[var(--foreground)] active:scale-[0.98]"
               >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
                 Message
@@ -2706,7 +2709,7 @@ Service Status: 🟢 Inquiry Active`;
           ) : (
             <button
               onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))}
-              className="flex-1 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-white"
+              className="flex min-h-[48px] flex-1 items-center justify-center rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 active:scale-[0.98]"
             >
               Sign in to buy
             </button>

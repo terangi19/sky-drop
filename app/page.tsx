@@ -994,12 +994,12 @@ export default function Home() {
                         router.push(`/search?q=${encodeURIComponent(search.trim())}`);
                       }
                     }}
-                    className="hero-search-input flex-1 bg-transparent px-4 py-2.5 text-[15px] text-[var(--foreground)] outline-none placeholder:text-[var(--muted)]"
+                    className="hero-search-input flex-1 bg-transparent px-4 py-3.5 text-base text-[var(--foreground)] outline-none placeholder:text-[var(--muted)] sm:py-2.5 sm:text-[15px]"
                   />
                   <div className="mr-2 flex items-center gap-1.5">
                     {search && (
-                      <button onClick={() => setSearch("")} className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--muted)] transition-colors duration-200 hover:bg-[var(--card-hover)] hover:text-[var(--foreground)]" aria-label="Clear search">
-                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                      <button onClick={() => setSearch("")} className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl text-[var(--muted)] transition-colors duration-200 hover:bg-[var(--card-hover)] hover:text-[var(--foreground)]" aria-label="Clear search">
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                       </button>
                     )}
                     <button
@@ -1012,17 +1012,17 @@ export default function Home() {
                         }
                       }}
                       disabled={!search.trim()}
-                      className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-500 text-always-white transition-colors duration-200 hover:bg-sky-400 disabled:opacity-30 disabled:bg-sky-500/50 disabled:hover:bg-sky-500/50"
+                      className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl bg-sky-500 text-always-white transition-colors duration-200 hover:bg-sky-400 disabled:opacity-30 disabled:bg-sky-500/50 disabled:hover:bg-sky-500/50"
                       title="Search"
                       aria-label="Search"
                     >
-                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                       </svg>
                     </button>
                     {(search || selectedCategory !== "All") && (
-                      <button onClick={saveSearch} className="flex h-9 w-9 items-center justify-center rounded-lg text-sky-400 transition-colors duration-200 hover:bg-sky-500/20 hover:text-sky-300" title="Save search" aria-label="Save search">
-                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <button onClick={saveSearch} className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl text-sky-400 transition-colors duration-200 hover:bg-sky-500/20 hover:text-sky-300" title="Save search" aria-label="Save search">
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                         </svg>
                       </button>
@@ -1049,14 +1049,14 @@ export default function Home() {
               </div>
 
               {/* Category pills - connected to search */}
-              <div className="hero-search-pills mt-2.5 flex justify-center">
-                <div className="relative flex max-w-full gap-1.5 overflow-x-auto px-0.5 pb-0 scrollbar-none">
+              <div className="hero-search-pills mt-3 flex justify-center">
+                <div className="mobile-h-scroll max-w-full px-0.5">
                   <button
                     onClick={() => setSelectedCategory("All")}
-                    className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1.5 text-xs font-medium transition-colors duration-200 ${
+                    className={`mobile-chip border transition-colors duration-200 ${
                       selectedCategory === "All"
-                        ? "border-sky-400/30 bg-sky-500/10 text-white"
-                        : "bg-[var(--card)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-hover)]"
+                        ? "border-sky-400/40 bg-sky-500/15 text-white"
+                        : "border-transparent bg-[var(--card)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-hover)]"
                     }`}
                   >
                     All
@@ -1065,10 +1065,10 @@ export default function Home() {
                     <button
                       key={cat.name}
                       onClick={() => setSelectedCategory(cat.name)}
-                      className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1.5 text-xs font-medium transition-colors duration-200 ${
+                      className={`mobile-chip border transition-colors duration-200 ${
                         selectedCategory === cat.name
-                          ? "border-sky-400/30 bg-sky-500/10 text-white"
-                          : "bg-[var(--card)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-hover)]"
+                          ? "border-sky-400/40 bg-sky-500/15 text-white"
+                          : "border-transparent bg-[var(--card)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-hover)]"
                       }`}
                     >
                       {cat.name}
@@ -1101,30 +1101,30 @@ export default function Home() {
           </div>
 
           {/* Filters */}
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="relative">
               <select value={selectedCondition} onChange={(e) => setSelectedCondition(e.target.value)}
-                className="appearance-none rounded-full border border-[var(--border)] bg-[var(--card)] px-4 py-2 pr-8 text-xs text-[var(--foreground)] outline-none transition hover:border-[var(--border-hover)] focus:border-sky-500/30 cursor-pointer">
+                className="appearance-none rounded-full border border-[var(--border)] bg-[var(--card)] px-4 py-2.5 pr-8 text-sm text-[var(--foreground)] outline-none transition hover:border-[var(--border-hover)] focus:border-sky-500/30 cursor-pointer min-h-[40px]">
                 <option value="All" className="bg-[var(--card)]">Condition</option>
                 {["New", "Used - Like New", "Used - Good", "Used - Fair"].map((c) => (
                   <option key={c} value={c} className="bg-[var(--card)]">{c}</option>
                 ))}
               </select>
-              <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+              <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
             </div>
             <div className="relative">
               <select value={selectedRegion} onChange={(e) => setSelectedRegion(e.target.value)}
-                className="appearance-none rounded-full border border-[var(--border)] bg-[var(--card)] px-4 py-2 pr-8 text-xs text-[var(--foreground)] outline-none transition hover:border-[var(--border-hover)] focus:border-sky-500/30 cursor-pointer">
+                className="appearance-none rounded-full border border-[var(--border)] bg-[var(--card)] px-4 py-2.5 pr-8 text-sm text-[var(--foreground)] outline-none transition hover:border-[var(--border-hover)] focus:border-sky-500/30 cursor-pointer min-h-[40px]">
                 <option value="All" className="bg-[var(--card)]">Region</option>
                 {["Northland","Auckland","Waikato","Bay of Plenty","Gisborne","Hawke's Bay","Taranaki","Manawatu","Wellington","Nelson","Marlborough","West Coast","Canterbury","Otago","Southland"].map((r) => (
                   <option key={r} value={r} className="bg-[var(--card)]">{r}</option>
                 ))}
               </select>
-              <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+              <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
             </div>
             <div className="relative">
               <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
-                className="appearance-none rounded-full border border-[var(--border)] bg-[var(--card)] px-4 py-2 pr-8 text-xs text-[var(--foreground)] outline-none transition hover:border-[var(--border-hover)] focus:border-sky-500/30 cursor-pointer">
+                className="appearance-none rounded-full border border-[var(--border)] bg-[var(--card)] px-4 py-2.5 pr-8 text-sm text-[var(--foreground)] outline-none transition hover:border-[var(--border-hover)] focus:border-sky-500/30 cursor-pointer min-h-[40px]">
                 <option value="newest" className="bg-[var(--card)]">Newest</option>
                 <option value="oldest" className="bg-[var(--card)]">Oldest</option>
                 <option value="low-high" className="bg-[var(--card)]">Price Low → High</option>

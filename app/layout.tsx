@@ -53,6 +53,7 @@ export const viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: "#0a0a0a",
+  viewportFit: "cover" as const,
 };
 
 export const metadata: Metadata = {
@@ -144,7 +145,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body className="min-h-full flex flex-col bg-[var(--background)] text-[var(--foreground)]">
+      <body className="min-h-full flex flex-col bg-[var(--background)] text-[var(--foreground)] font-sans">
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var t=localStorage.getItem("theme");if(t==="light")document.documentElement.classList.add("light");}catch(e){}})();`,

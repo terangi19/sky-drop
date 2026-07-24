@@ -498,10 +498,10 @@ export default function PurchasesPage() {
           </div>
         </div>
 
-        <div className="flex gap-1 overflow-x-auto mb-6 rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] p-1">
+        <div className="mobile-h-scroll mb-6 rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] p-1.5">
           {FILTER_TABS.map((tab) => (
             <button key={tab.key} onClick={() => setFilter(tab.key)}
-              className={`shrink-0 rounded-lg px-3.5 py-2 text-xs font-bold transition-all duration-200 ${
+              className={`shrink-0 rounded-xl px-4 py-2.5 text-xs font-bold transition-all duration-200 min-h-[40px] ${
                 filter === tab.key ? "bg-sky-500/15 text-sky-300 border border-sky-500/20" : "text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-white/[0.03]"
               }`}>
               {tab.label}{counts[tab.key] > 0 ? ` (${counts[tab.key]})` : ""}

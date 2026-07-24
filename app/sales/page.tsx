@@ -370,7 +370,7 @@ export default function SalesPage() {
 
         <div ref={ordersRef} />
         {/* Status filter tabs */}
-        <div className="flex gap-1 overflow-x-auto mb-6 rounded-xl border border-white/[0.08] bg-white/[0.02] p-1">
+        <div className="mobile-h-scroll mb-6 rounded-xl border border-white/[0.08] bg-white/[0.02] p-1.5">
           {[
             { key: "active", label: "Active" },
             { key: "completed", label: "Completed" },
@@ -378,7 +378,7 @@ export default function SalesPage() {
             { key: "all", label: "All" },
           ].map((tab) => (
             <button key={tab.key} onClick={() => setFilter(tab.key)}
-              className={`shrink-0 rounded-lg px-3.5 py-2 text-xs font-bold transition-all duration-200 ${
+              className={`shrink-0 rounded-xl px-4 py-2.5 text-xs font-bold transition-all duration-200 min-h-[40px] ${
                 filter === tab.key ? "bg-sky-500/15 text-sky-300 border border-sky-500/20" : "text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.03]"
               }`}>
               {tab.label}{counts[tab.key] > 0 ? ` (${counts[tab.key]})` : ""}

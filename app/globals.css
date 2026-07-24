@@ -40,6 +40,12 @@
   --radius-xl: 16px;
   --radius-2xl: 24px;
 
+  /* Mobile chrome — bottom nav + safe area (updated by Navbar when logged in) */
+  --mobile-nav-height: 0px;
+  --mobile-nav-offset: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px));
+  --touch-min: 44px;
+  --page-gutter-mobile: 16px;
+
   /* Theme tokens */
   --background: #111118;
   --foreground: #f0f0f5;
@@ -177,6 +183,7 @@
 html {
   scroll-behavior: smooth;
   font-size: 100%;
+  overflow-x: clip;
 }
 
 @media (min-width: 2560px) {
@@ -194,10 +201,11 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   transition: background 0.3s ease, color 0.3s ease;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: clip;
 }
 
 /* ── Listing card design system (theme-aware) ── */
@@ -397,19 +405,73 @@ body {
   color: #ffffff !important;
 }
 
-/* Mobile performance optimizations */
+/* Mobile performance + premium touch UX */
 @media (max-width: 640px) {
   * {
     -webkit-tap-highlight-color: transparent;
   }
-  
+
   body {
     text-rendering: optimizeSpeed;
   }
-  
+
   img {
     content-visibility: auto;
   }
+
+  /* Comfortable form controls on narrow screens */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input[type="tel"],
+  input[type="number"],
+  input[type="url"],
+  textarea,
+  select {
+    font-size: 16px; /* prevents iOS zoom-on-focus */
+  }
+}
+
+/* Shared mobile utilities */
+.touch-target {
+  min-height: var(--touch-min);
+  min-width: var(--touch-min);
+}
+
+.mobile-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0.5rem 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.mobile-sticky-cta {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: var(--mobile-nav-offset, 0px);
+  z-index: 40;
+}
+
+.mobile-h-scroll {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.mobile-h-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 /* Accessibility - Focus visible styles */
