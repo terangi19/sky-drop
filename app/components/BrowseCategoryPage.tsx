@@ -24,6 +24,8 @@ import {
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
 import { listingBuyHref } from "../lib/buy-listing-route";
+import { listingPrimaryActionHref } from "../lib/listing-message-href";
+import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
 import {
   BROWSE_CATEGORY_CONFIGS,
   HOME_MARKETPLACE_THEME,
@@ -158,7 +160,11 @@ export default function BrowseCategoryPage({ configKey }: Props) {
 
   function handleBuyNow(item: any) {
     if (!isListingVisibleInMarketplace(item)) return;
-    router.push(listingBuyHref(item.id));
+    router.push(
+      isStripeCheckoutVisibleClient()
+        ? listingBuyHref(item.id)
+        : listingPrimaryActionHref(item)
+    );
   }
 
   async function toggleWatchlist(item: any) {

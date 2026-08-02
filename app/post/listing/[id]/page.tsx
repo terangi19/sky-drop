@@ -52,7 +52,7 @@ import {
   sellerProfileSlug,
 } from "../../../lib/public-display";
 import { MOBILE_STICKY_CTA } from "../../../lib/page-layout";
-import { isFeatureEnabled } from "../../../lib/feature-flags";
+import { isStripeCheckoutVisibleClient } from "../../../lib/stripe-checkout-flags";
 
 function getBidIncrement(price: number): number {
   if (price < 50) return 1;
@@ -220,24 +220,24 @@ export default function ListingPage() {
       serverPaymentType?: string | null;
     }
   ) {
-    // V1: Always use ArrangePurchaseModal when Stripe is disabled
+    // V1: Message Seller — never open purchase modals when checkout UI is off
     if (stripeDisabledV1) {
-      modal = "ArrangePurchaseModal";
-    } else {
-      const serverStripe =
-        trace.serverPaymentType === "stripe" ||
-        authoritativePaymentTypeRef.current === "stripe" ||
-        checkoutPaymentType === "stripe";
+      router.push(sellerMessagesHref);
+      return;
+    }
+    const serverStripe =
+      trace.serverPaymentType === "stripe" ||
+      authoritativePaymentTypeRef.current === "stripe" ||
+      checkoutPaymentType === "stripe";
 
-      if (modal === "ArrangePurchaseModal" && serverStripe) {
-        logPurchaseFlow("modal-blocked", {
-          attempted: "ArrangePurchaseModal",
-          reason: "server/ref paymentType is stripe",
-          source,
-          ...trace,
-        });
-        modal = "CheckoutModal";
-      }
+    if (modal === "ArrangePurchaseModal" && serverStripe) {
+      logPurchaseFlow("modal-blocked", {
+        attempted: "ArrangePurchaseModal",
+        reason: "server/ref paymentType is stripe",
+        source,
+        ...trace,
+      });
+      modal = "CheckoutModal";
     }
 
     logPurchaseFlow("modal-chosen", { modal, source, ...trace });
@@ -285,12 +285,29 @@ export default function ListingPage() {
 
   const buyAutoOpenedRef = useRef(false);
   
-  // V1: Check if Stripe is disabled
-  const stripeDisabledV1 = isFeatureEnabled("DISABLE_STRIPE_CHECKOUT_V1");
-  const buyNowDisabledV1 = isFeatureEnabled("DISABLE_BUY_NOW_V1");
+  // V1: UI visibility only — server STRIPE_CHECKOUT_ENABLED authorizes charges.
+  const stripeCheckoutVisible = isStripeCheckoutVisibleClient();
+  const stripeDisabledV1 = !stripeCheckoutVisible;
+  const buyNowDisabledV1 = !stripeCheckoutVisible;
+
+  const sellerMessagesHref = useMemo(() => {
+    if (!listing) return "/messages";
+    return sellerMessagesUrl(listing, listingId, {
+      title: listing.title || "",
+      price: listing.price != null ? String(listing.price) : "",
+      image: listing.images?.[0] || listing.imageUrl || listing.image || "",
+      source: "listing-detail",
+    });
+  }, [listing, listingId]);
 
   async function openPurchaseFlow(source: string) {
     if (!user?.email || !listing) return;
+
+    // V1 messaging-first: primary action opens chat with listing context.
+    if (!stripeCheckoutVisible) {
+      router.push(sellerMessagesHref);
+      return;
+    }
 
     const reactListingPt = (listing as { paymentType?: string }).paymentType;
     const buttonPt = effectivePaymentType;
@@ -407,6 +424,12 @@ export default function ListingPage() {
     if (listing.pricingType === "quote") return;
     if (isListingOwner(listing, user)) return;
     if (!isListingAvailableForPurchase(listing)) return;
+    // V1: ?buy=1 opens Message Seller, not checkout
+    if (stripeDisabledV1) {
+      buyAutoOpenedRef.current = true;
+      router.push(sellerMessagesHref);
+      return;
+    }
 
     let cancelled = false;
     void (async () => {
@@ -422,7 +445,7 @@ export default function ListingPage() {
     return () => {
       cancelled = true;
     };
-  }, [user, listing, listingId]);
+  }, [user, listing, listingId, stripeDisabledV1, sellerMessagesHref, router]);
 
   // Notify winner + seller when auction ends
   const prevAuctionEndedRef = useRef(false);
@@ -1046,7 +1069,6 @@ export default function ListingPage() {
 
   const sellerName = sellerProfileDisplayName(listing, "Seller");
   const sellerInitial = sellerName.charAt(0).toUpperCase();
-  const sellerMessagesHref = sellerMessagesUrl(listing, listingId);
   const sellerSlug = sellerProfileSlug(listing);
   async function sendMessageToSeller() {
     if (!user?.email || !listing?.sellerEmail || !messageText.trim()) return;

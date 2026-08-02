@@ -297,7 +297,9 @@ export async function POST(req: NextRequest) {
     }
 
     const requestedPaymentType = String(clientData.paymentType || "contact");
-    if (requestedPaymentType === "stripe") {
+    const { resolveListingPaymentTypeForWrite } = await import("../../lib/listing-payment-type-write");
+    const paymentType = resolveListingPaymentTypeForWrite(requestedPaymentType);
+    if (paymentType === "stripe") {
       let profileForStripe: Record<string, unknown> | null = null;
       if (isAdminInitialized()) {
         profileForStripe = await getSellerProfileForUid(token.uid, token.email);
@@ -355,7 +357,7 @@ export async function POST(req: NextRequest) {
       visibilityRank: shadowRank,
       ...clientData,
       saleType,
-      paymentType: String(clientData.paymentType || "contact"),
+      paymentType,
       type: listingType,
     };
 

@@ -31,6 +31,8 @@ const MarketplaceListingCard = lazy(() => import("./components/MarketplaceListin
 const ArrangePurchaseModal = lazy(() => import("./components/ArrangePurchaseModal"));
 const HotThisWeek = lazy(() => import("./components/HotThisWeek"));
 import { listingBuyHref } from "./lib/buy-listing-route";
+import { listingPrimaryActionHref } from "./lib/listing-message-href";
+import { isStripeCheckoutVisibleClient } from "./lib/stripe-checkout-flags";
 import { LISTING_GRID, LISTING_GRID_MT, PAGE_SHELL_MARKETPLACE, PAGE_SHELL_WIDE } from "./lib/page-layout";
 import { funnel } from "./lib/funnel-events";
 import {
@@ -507,7 +509,11 @@ export default function Home() {
 
     const handleBuyNow = useCallback(async (item: Listing) => {
     if (!isListingVisibleInMarketplace(item)) return;
-    router.push(listingBuyHref(item.id));
+    router.push(
+      isStripeCheckoutVisibleClient()
+        ? listingBuyHref(item.id)
+        : listingPrimaryActionHref(item as Listing & { id: string })
+    );
   }, [router]);
 
     const saveToWatchlist = useCallback(async (item: any) => {
@@ -616,6 +622,9 @@ export default function Home() {
           id: item.id, title: item.title, price: item.price, imageUrl: item.imageUrl || item.image || "",
           savedPrice: item.price,
           savedAt: now,
+          sellerEmail: item.sellerEmail || "",
+          sellerUsername: item.sellerUsername || "",
+          sellerId: item.sellerId || "",
         };
         setDoc(doc(db, "users", user.uid, "watchlist", item.id), watchData).catch((e) => { console.error("Watchlist save failed:", e); showToast("Failed to save to watchlist", "error"); });
         setDoc(doc(db, "watchlist", `${user.uid}_${item.id}`), {

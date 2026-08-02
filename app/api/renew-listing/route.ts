@@ -59,10 +59,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "You can only renew your own listings" }, { status: 403 });
     }
 
+    const { resolveListingPaymentTypeForWrite } = await import("../../lib/listing-payment-type-write");
     await listingRef.update({
       expiresAt,
       status: "live",
       updatedAt: new Date(),
+      paymentType: resolveListingPaymentTypeForWrite(data.paymentType),
     });
 
     return NextResponse.json({

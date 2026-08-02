@@ -510,20 +510,28 @@ export default function SellerPage() {
                   ))}
                 </div>
 
-                {/* Follow button */}
+                {/* Follow + Message */}
                 {!isOwn && currentUser ? (
-                  <button onClick={toggleFollow} disabled={followLoading}
-                    className={`mt-3 rounded-xl px-5 py-2.5 text-xs font-bold transition-all duration-200 ${
-                      following
-                        ? "border border-white/[0.08] bg-white/[0.03] text-[var(--foreground)] hover:bg-white/[0.06]"
-                        : "bg-gradient-to-r from-sky-500 to-sky-400 text-white shadow-lg shadow-sky-500/20 hover:brightness-110 hover:shadow-xl"
-                    }`}>
-                    {followLoading ? "..." : following ? "Following" : "Follow"}
-                  </button>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button onClick={toggleFollow} disabled={followLoading}
+                      className={`rounded-xl px-5 py-2.5 text-xs font-bold transition-all duration-200 ${
+                        following
+                          ? "border border-white/[0.08] bg-white/[0.03] text-[var(--foreground)] hover:bg-white/[0.06]"
+                          : "bg-gradient-to-r from-sky-500 to-sky-400 text-white shadow-lg shadow-sky-500/20 hover:brightness-110 hover:shadow-xl"
+                      }`}>
+                      {followLoading ? "..." : following ? "Following" : "Follow"}
+                    </button>
+                    <a
+                      href={`/messages?user=${encodeURIComponent(profile.email || profile.username || "")}&source=seller-profile`}
+                      className="rounded-xl border border-sky-500/30 bg-sky-500/10 px-5 py-2.5 text-xs font-bold text-sky-400 transition hover:bg-sky-500/20"
+                    >
+                      Message Seller
+                    </a>
+                  </div>
                 ) : !isOwn && (
                   <a href="/login"
                     className="mt-3 inline-block rounded-xl border border-white/[0.08] bg-white/[0.03] px-5 py-2.5 text-xs font-bold text-zinc-400 transition hover:border-sky-500/30 hover:text-[var(--foreground)]">
-                    Log in to follow
+                    Log in to follow or message
                   </a>
                 )}
 

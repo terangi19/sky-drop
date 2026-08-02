@@ -13,6 +13,7 @@ import { buildWatchlistInsight } from "../lib/awhina-insights";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
 import ListingImage, { listingHasImage } from "../components/ListingImage";
 import { adjustListingWatchlistCount } from "../lib/listing-watchlist-count";
+import { listingMessageSellerHref } from "../lib/listing-message-href";
 
 interface WatchlistItem {
   id: string;
@@ -469,6 +470,29 @@ export default function WatchlistPage() {
                       </div>
                     </div>
                   </Link>
+                      {isListingVisibleInMarketplace(item) && (
+                        <div className="px-3 pb-3 sm:px-4 sm:pb-4">
+                          <Link
+                            href={listingMessageSellerHref(
+                              {
+                                id: item.id,
+                                title: item.title,
+                                price: item.price,
+                                images: item.images,
+                                imageUrl: item.imageUrl,
+                                image: item.image,
+                                sellerEmail: typeof item.sellerEmail === "string" ? item.sellerEmail : undefined,
+                                sellerUsername: typeof item.sellerUsername === "string" ? item.sellerUsername : undefined,
+                                sellerId: typeof item.sellerId === "string" ? item.sellerId : undefined,
+                              },
+                              "watchlist"
+                            )}
+                            className="inline-flex w-full items-center justify-center rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 px-3 py-2 text-xs font-bold text-white shadow-md shadow-sky-500/20 transition hover:brightness-110"
+                          >
+                            Message Seller
+                          </Link>
+                        </div>
+                      )}
                 </div>
               </div>
                 );

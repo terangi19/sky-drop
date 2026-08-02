@@ -60,8 +60,12 @@ export async function GET(req: NextRequest) {
       const seller = sellers[i % sellers.length];
       const expiresAt = new Date(now + 60 * 86400000);
       const createdAt = new Date(now - (listings.length - i) * 3600000);
+      const { resolveListingPaymentTypeForWrite } = await import("../../lib/listing-payment-type-write");
       await getAdminDb().collection("listings").add({
         ...data,
+        paymentType: resolveListingPaymentTypeForWrite(
+          (data as { paymentType?: string }).paymentType
+        ),
         sellerEmail: seller.email,
         sellerUsername: seller.name,
         sellerId: seller.uid,

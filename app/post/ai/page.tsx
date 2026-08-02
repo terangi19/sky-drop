@@ -48,7 +48,7 @@ import {
 import { compressImage, generateThumbnail, type CompressedImage, type Thumbnail } from "../../lib/image-optimization";
 import { withTimeout } from "../../lib/with-timeout";
 import { getClientCsrfToken } from "../../lib/csrf-client";
-import { isFeatureEnabled } from "../../lib/feature-flags";
+import { isStripeCheckoutVisibleClient } from "../../lib/stripe-checkout-flags";
 
 function sentenceCaseFragment(text: string): string {
   const trimmed = text.trim();
@@ -167,8 +167,8 @@ export default function AIPostPage() {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [autoPublish, setAutoPublish] = useState(false);
 
-  // V1: Check if Stripe is disabled
-  const stripeDisabledV1 = isFeatureEnabled("DISABLE_STRIPE_CHECKOUT_V1");
+  // V1: UI visibility — server STRIPE_CHECKOUT_ENABLED authorizes charges
+  const stripeDisabledV1 = !isStripeCheckoutVisibleClient();
 
   // Form completion progress (honest, field-based — not a fake stepper)
   const formProgress = useMemo(() => {
@@ -1194,7 +1194,7 @@ export default function AIPostPage() {
       };
 
       // Check Stripe Connect BEFORE creating/updating listing
-      if (paymentType === "stripe") {
+      if (paymentType === "stripe" && !stripeDisabledV1) {
         if (!stripeConnected) {
           showToast(STRIPE_CONNECT_REQUIRED_MSG, "error");
           setTimeout(() => { window.location.href = "/profile?tab=payouts"; }, 1500);
@@ -1202,6 +1202,9 @@ export default function AIPostPage() {
           setConfirmedSubmit(false);
           return;
         }
+      }
+      if (stripeDisabledV1) {
+        listingData.paymentType = "contact";
       }
 
       let newId = editId;

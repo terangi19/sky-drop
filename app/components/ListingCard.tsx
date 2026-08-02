@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import type { User } from "firebase/auth";
 import { ARRANGE_PURCHASE_CARD_LABEL } from "../lib/arrange-purchase-copy";
+import { shortPurchaseLabel } from "../lib/purchase-button-labels";
+import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
 import { timeAgo } from "../lib/listing-card-utils";
 import { sellerProfileDisplayName, sellerProfileSlug } from "../lib/public-display";
@@ -297,7 +299,11 @@ export default function ListingCard({
                         }}
                         className="lc-btn-primary flex-1 rounded-xl py-2.5 text-xs font-bold active:scale-[0.97]"
                       >
-                        {item.paymentType === "contact" ? ARRANGE_PURCHASE_CARD_LABEL : "Buy Now"}
+                        {isStripeCheckoutVisibleClient()
+                          ? item.paymentType === "contact"
+                            ? ARRANGE_PURCHASE_CARD_LABEL
+                            : "Buy Now"
+                          : shortPurchaseLabel(item.paymentType)}
                       </button>
                       {(item.saleType === "auction" || item.saleType === "auction_buy_now") && (
                         <Link
@@ -308,7 +314,7 @@ export default function ListingCard({
                           Bid Now
                         </Link>
                       )}
-                      {item.acceptOffers && item.paymentType !== "contact" && (
+                      {item.acceptOffers && item.paymentType !== "contact" && isStripeCheckoutVisibleClient() && (
                         <button
                           type="button"
                           onClick={(e) => {

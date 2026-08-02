@@ -48,7 +48,9 @@ export function listingBuyHref(listingId: string): string {
 export async function resolvePurchaseCheckoutAction(
   listingId: string,
   fallbackPaymentType?: string | null
-): Promise<"arrange" | "stripe"> {
+): Promise<"arrange" | "stripe" | "message"> {
+  const { isStripeCheckoutVisibleClient } = await import("./stripe-checkout-flags");
+  if (!isStripeCheckoutVisibleClient()) return "message";
   const fresh = await fetchListingPaymentType(listingId);
   const action = purchaseCheckoutAction(fresh ?? fallbackPaymentType);
   logPurchaseFlow("routing-decision", {
@@ -63,8 +65,8 @@ export async function resolvePurchaseCheckoutAction(
 /** Server stripe always wins — arrange modal must never open when API says stripe. */
 export function purchaseModalForPaymentType(
   paymentType: string | undefined | null
-): "CheckoutModal" | "ArrangePurchaseModal" {
-  return purchaseCheckoutAction(paymentType) === "stripe"
-    ? "CheckoutModal"
-    : "ArrangePurchaseModal";
+): "CheckoutModal" | "ArrangePurchaseModal" | "message" {
+  const action = purchaseCheckoutAction(paymentType);
+  if (action === "message") return "message";
+  return action === "stripe" ? "CheckoutModal" : "ArrangePurchaseModal";
 }

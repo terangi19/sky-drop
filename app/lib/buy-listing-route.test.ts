@@ -9,7 +9,9 @@ describe("listingBuyHref", () => {
 });
 
 describe("purchase routing contract", () => {
-  it("stripe listings must not use arrange action", () => {
-    expect(purchaseCheckoutAction("stripe")).toBe("stripe");
+  it("V1 messaging-first routes stripe paymentType to message when UI checkout is off", () => {
+    // NEXT_PUBLIC_STRIPE_CHECKOUT_ENABLED unset/false → message (not arrange/stripe UI)
+    expect(purchaseCheckoutAction("stripe")).toBe("message");
+    expect(purchaseCheckoutAction("contact")).toBe("message");
   });
 });

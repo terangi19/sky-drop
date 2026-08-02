@@ -8,6 +8,8 @@ import MarketplaceListingCard from "../components/MarketplaceListingCard";
 import { useListings } from "../useListings";
 import { useAuth } from "../contexts/AuthContext";
 import { listingBuyHref } from "../lib/buy-listing-route";
+import { listingPrimaryActionHref } from "../lib/listing-message-href";
+import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
 import { adjustListingWatchlistCount } from "../lib/listing-watchlist-count";
 import { rankListingsBySearch } from "../lib/marketplace-fuzzy-search";
@@ -204,7 +206,11 @@ export default function SearchPage() {
   };
 
   const handleBuyNow = (item: Listing) => {
-    router.push(listingBuyHref(item.id));
+    router.push(
+      isStripeCheckoutVisibleClient()
+        ? listingBuyHref(item.id)
+        : listingPrimaryActionHref(item as Listing & { id: string })
+    );
   };
 
   const handleMakeOffer = (listing: Listing) => {

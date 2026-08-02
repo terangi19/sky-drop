@@ -99,10 +99,8 @@ export async function PUT(req: NextRequest) {
     for (const key of allowedFields) {
       if (key in body) {
         if (key === "paymentType") {
-          const val = body[key];
-          if (val === "contact" || val === "stripe") {
-            updateData[key] = val;
-          }
+          const { resolveListingPaymentTypeForWrite } = await import("../../lib/listing-payment-type-write");
+          updateData[key] = resolveListingPaymentTypeForWrite(body[key]);
           continue;
         }
         if (key === "stockQuantity") {
@@ -119,7 +117,15 @@ export async function PUT(req: NextRequest) {
     updateData.imageUrl = (updateData.images as string[])?.[0] || (existingData.imageUrl as string) || "";
 
     const nextPaymentType = updateData.paymentType ?? existingData.paymentType;
-    if (nextPaymentType === "stripe") {
+    // When Stripe Checkout is disabled, force contact even if the field was omitted from the patch.
+    {
+      const { resolveListingPaymentTypeForWrite } = await import("../../lib/listing-payment-type-write");
+      const enforced = resolveListingPaymentTypeForWrite(nextPaymentType);
+      if (enforced !== nextPaymentType) {
+        updateData.paymentType = enforced;
+      }
+    }
+    if ((updateData.paymentType ?? existingData.paymentType) === "stripe") {
       let profileForStripe: Record<string, unknown> | null = null;
       if (isAdminInitialized()) {
         const snap = await getAdminDb().collection("profiles").doc(token.uid).get();
