@@ -30,6 +30,7 @@ export default function SignupPage() {
   const [showVerificationSent, setShowVerificationSent] = useState(false);
   const [resendDisabled, setResendDisabled] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
+  const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -50,7 +51,11 @@ export default function SignupPage() {
   }, [resendTimer]);
 
   useEffect(() => {
-    return onAuthStateChanged(auth, (u) => setUser(u));
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -149,7 +154,13 @@ export default function SignupPage() {
             <p className="mt-2 text-sm text-[var(--muted)]">Free to join — browse and buy straight away.</p>
           </div>
 
-          {showVerificationSent ? (
+          {authLoading ? (
+            <div className="mt-6 flex items-center justify-center py-12">
+              <svg className="h-8 w-8 animate-spin text-sky-400" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" strokeDasharray="80" strokeDashoffset="60" />
+              </svg>
+            </div>
+          ) : showVerificationSent ? (
             <div className="mt-6 space-y-4">
               <div className="flex items-center justify-center w-12 h-12 rounded-full bg-sky-500/20 mx-auto">
                 <svg className="w-6 h-6 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

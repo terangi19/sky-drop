@@ -44,6 +44,7 @@ export default function LoginPage() {
   const [redirectTo, setRedirectTo] = useState("");
   const [user, setUser] = useState<User | null>(null);
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -57,9 +58,11 @@ export default function LoginPage() {
   }, [router]);
 
   useEffect(() => {
-    return onAuthStateChanged(auth, (u) => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
+      setAuthLoading(false);
     });
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -114,7 +117,13 @@ export default function LoginPage() {
             <p className="mt-2 text-sm text-[var(--muted)]">Welcome back to Sky Drop.</p>
           </div>
 
-          {user ? (
+          {authLoading ? (
+            <div className="mt-6 flex items-center justify-center py-12">
+              <svg className="h-8 w-8 animate-spin text-sky-400" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" strokeDasharray="80" strokeDashoffset="60" />
+              </svg>
+            </div>
+          ) : user ? (
             <div className="mt-6 space-y-4">
               <p className="text-sm text-[var(--muted)]">
                 Signed in as <span className="font-medium text-white">{user.email}</span>
