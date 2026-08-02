@@ -9,6 +9,7 @@ import { User } from "firebase/auth";
 import { collection, onSnapshot, orderBy, query, where } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import { sellerMessagesUrl, sellerProfileDisplayName } from "../lib/public-display";
+import HistoricalOrdersNotice from "../components/HistoricalOrdersNotice";
 
 const DISPUTE_LABELS: Record<string, string> = {
   open: "Open",
@@ -81,6 +82,8 @@ export default function DisputesPage() {
           <AwhinaUnderHeader centered />
           <p className="relative mt-2 text-sm text-zinc-500">{disputes.length} total</p>
         </div>
+
+        <HistoricalOrdersNotice audience="dispute" />
 
         {loading ? (
           <div className="space-y-3">

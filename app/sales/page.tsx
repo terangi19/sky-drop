@@ -27,6 +27,7 @@ import {
 import { purchaseStatusLabel } from "../lib/purchase-status";
 import OrderReviewModal from "../components/OrderReviewModal";
 import { canSellerReview } from "../lib/order-reviews";
+import HistoricalOrdersNotice from "../components/HistoricalOrdersNotice";
 
 interface Purchase {
   id: string;
@@ -367,6 +368,8 @@ export default function SalesPage() {
           </h1>
           <BrowseAwhinaAssistantPanel className="mt-4 mb-0 mx-auto w-full max-w-2xl text-left" />
         </div>
+
+        <HistoricalOrdersNotice audience="seller" />
 
         <div ref={ordersRef} />
         {/* Status filter tabs */}

@@ -18,6 +18,7 @@ import { showToast } from "../components/Toast";
 import { sellerMessagesUrl, sellerProfileSlug } from "../lib/public-display";
 import OrderReviewModal from "../components/OrderReviewModal";
 import RefundStatusCard from "../components/RefundStatusCard";
+import HistoricalOrdersNotice from "../components/HistoricalOrdersNotice";
 import { REFUND_BADGE_CLASS } from "../lib/refund-display";
 import { getBuyerNextAction } from "../lib/purchase-order-actions";
 import { normalizePurchaseStatus, purchaseStatusLabel } from "../lib/purchase-status";
@@ -478,6 +479,8 @@ export default function PurchasesPage() {
           <BrowseAwhinaAssistantPanel className="mt-4 mb-0 mx-auto w-full max-w-2xl text-left" />
           <p className="relative mt-3 text-sm text-[var(--muted)]">{purchases.length} total · {counts.active || 0} active</p>
         </div>
+
+        <HistoricalOrdersNotice audience="buyer" />
 
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
           <div className="relative flex-1 max-w-xs">
