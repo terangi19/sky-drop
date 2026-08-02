@@ -124,7 +124,7 @@ Completion endpoints:
 | Path | Status |
 |------|--------|
 | Separate charges + later `transfers.create` for listings | **Removed** from `/api/release-payment` and dispute resolve |
-| Deployed `autoReleaseEscrow` | Remove both `asia-southeast1` and `us-central1` instances; do not redeploy escrow-named jobs |
+| Deployed `autoReleaseEscrow` | **Removed** from both regions: `asia-southeast1` (already gone) and `us-central1` (FAILED orphan deleted via Cloud Functions API v2 after CLI scheduler 404). Replaced by `autoCompleteDeliveredOrders`. Do not redeploy escrow-named jobs. |
 | User copy implying "we release funds after delivery" | **Rewritten** |
 
 If a purchase has `stripePaymentIntentId` and `destinationCharge === false`, completion/dispute-resolve APIs return **400** (retired path — contact support). No manual transfer is created.

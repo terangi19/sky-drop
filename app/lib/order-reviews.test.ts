@@ -106,7 +106,8 @@ describe("evaluateReviewEligibility — integrity cases", () => {
     const result = evaluateReviewEligibility(completedOrder, "buyer@example.com", {
       reviewDocExists: true,
     });
-    expect(result.status).toBe(409);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.status).toBe(409);
   });
 
   it("unauthorized party match fails for empty email", () => {
