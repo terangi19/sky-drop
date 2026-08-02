@@ -1,9 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminDb, isAdminInitialized } from "../../lib/firebase-admin";
+import { verifyIdToken, getAdminDb, isAdminInitialized } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    let decoded;
+    try {
+      decoded = await verifyIdToken(authHeader.slice(7));
+    } catch {
+      return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
+    }
+
     const body = await req.json();
     const listingId =
       typeof body?.listingId === "string" ? body.listingId.trim() : "";
@@ -20,13 +32,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const ip =
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      req.headers.get("x-real-ip") ||
-      "unknown";
     const rl = await rateLimit(
-      `listing-watchlist-count:${listingId}:${ip}`,
-      30,
+      `listing-watchlist-count:${decoded.uid}:${listingId}`,
+      20,
       60_000
     );
     if (!rl.allowed) {

@@ -12,6 +12,7 @@ import {
   resolvePurchaseDocRef,
 } from "../../lib/purchase-service";
 import { listingTracksStock } from "../../lib/listing-stock";
+import { isContactPaymentType } from "../../lib/listing-payment-type";
 import {
   adminGetProfileByEmail,
   adminGetPublicHandle,
@@ -80,8 +81,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Listing not found" }, { status: 404 });
     }
 
-    const paymentType = String(listing.paymentType || "stripe");
-    if (paymentType !== "contact") {
+    if (!isContactPaymentType(listing.paymentType)) {
       return NextResponse.json(
         {
           error:

@@ -14,57 +14,7 @@ service cloud.firestore {
 
     }
 
-    function isAuctionBidUpdate() {
-
-      return request.auth != null
-
-        // highestBidder must be the bidding user
-
-        && request.resource.data.highestBidder == request.auth.token.email
-
-        // currentBid must be increasing (or this is the first bid)
-
-        && (!('currentBid' in resource.data)
-
-          || request.resource.data.currentBid > resource.data.currentBid)
-
-        // Only these fields allowed in an auction bid update
-
-        && request.resource.data.diff(resource.data).affectedKeys()
-
-          .hasOnly(['currentBid', 'currentMaxBid', 'secondMaxBid', 'highestBidder', 'bidCount', 'auctionEndsAt', 'auctionExtended', 'reservePrice'])
-
-        // auctionEndsAt can only extend, never shorten
-
-        && (!('auctionEndsAt' in request.resource.data)
-
-          || !('auctionEndsAt' in resource.data)
-
-          || request.resource.data.auctionEndsAt >= resource.data.auctionEndsAt)
-
-        // Must not touch reservation fields (separate flow)
-
-        && !('reservedAt' in request.resource.data)
-
-        && !('reservedBy' in request.resource.data);
-
-    }
-
-    // Buyer checkout: hold listing for 15 minutes (see CheckoutModal / create-payment-intent)
-
-    function isCheckoutReservationUpdate() {
-
-      return request.auth != null
-
-        && (!('status' in resource.data) || resource.data.status != 'sold')
-
-        && request.resource.data.reservedBy == request.auth.uid
-
-        && request.resource.data.diff(resource.data).affectedKeys()
-
-          .hasOnly(['reservedAt', 'reservedBy']);
-
-    }
+    // Auction bids and checkout reservations are Admin SDK only (/api/place-bid, /api/create-payment-intent).
 
     function isAdmin() {
 
@@ -126,10 +76,6 @@ service cloud.firestore {
 
         && (isSeller()
 
-          || (resource.data.saleType is string && resource.data.saleType.matches('auction.*') && isAuctionBidUpdate())
-
-          || isCheckoutReservationUpdate()
-
           || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views', 'updatedAt'])
 
             && request.resource.data.views == resource.data.views + 1));
@@ -175,7 +121,9 @@ service cloud.firestore {
 
           .hasAny(['kycStatus', 'kycReviewedAt', 'kycReviewedBy', 'kycBannedReason',
 
-            'trustedSeller', 'verified', 'topTrader', 'profileBadge', 'fastReply', 'riskFlag'])
+            'trustedSeller', 'verified', 'topTrader', 'profileBadge', 'fastReply', 'riskFlag',
+
+            'badges', 'xp', 'level', 'salesCount', 'averageRating', 'reviewCount'])
 
           || isKycPendingSelfSubmit());
 
@@ -330,13 +278,11 @@ service cloud.firestore {
 
         && request.resource.data.diff(resource.data).affectedKeys()
 
-          .hasOnly(['tracking', 'trackingNumber', 'updatedAt', 'reviewed', 'shippingAddress', 'disputeStatus'])
+          .hasOnly(['tracking', 'trackingNumber', 'updatedAt', 'reviewed', 'shippingAddress'])
 
-        // During active dispute, only disputeStatus field may change
+        // disputeStatus is server-only (open-dispute / admin APIs)
 
-        && (!isDisputeActive()
-
-          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['disputeStatus', 'updatedAt']));
+        && !isDisputeActive();
 
     }
 
@@ -594,13 +540,11 @@ service cloud.firestore {
 
           || resource.data.referredEmail == request.auth.token.email);
 
-      allow create: if request.auth != null
+      // Commissions are written by Admin SDK only — clients must not mint payouts.
 
-        && request.resource.data.referrerEmail == request.auth.token.email;
+      allow create: if false;
 
-      allow update: if request.auth != null
-
-        && resource.data.referrerEmail == request.auth.token.email;
+      allow update: if false;
 
     }
 

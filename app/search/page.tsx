@@ -14,6 +14,8 @@ import { rankListingsBySearch } from "../lib/marketplace-fuzzy-search";
 import { normalizeMarketplaceSearchQuery, processVoiceSearchTranscript } from "../lib/voice-search-pipeline";
 import { logVoiceSearch } from "../lib/voice-search-logger";
 import type { Listing } from "../../types/firestore";
+import { db } from "../lib/firebase";
+import { deleteDoc, doc, serverTimestamp, setDoc } from "firebase/firestore";
 
 type SavedSearch = {
   key: string;
@@ -168,8 +170,8 @@ export default function SearchPage() {
 
   const isInWatchlist = (id: string) => watchlist.includes(id);
 
-  const toggleWatchlist = (item: Listing) => {
-    if (!user) return;
+  const toggleWatchlist = async (item: Listing) => {
+    if (!user?.uid) return;
     const adding = !isInWatchlist(item.id);
     const newWatchlist = adding
       ? [...watchlist, item.id]
@@ -177,6 +179,28 @@ export default function SearchPage() {
     setWatchlist(newWatchlist);
     localStorage.setItem(`watchlist_${user.uid}`, JSON.stringify(newWatchlist));
     void adjustListingWatchlistCount(item.id, adding ? 1 : -1);
+
+    try {
+      if (adding) {
+        const watchData = {
+          listingId: item.id,
+          title: item.title || "",
+          price: item.price ?? "",
+          image: item.images?.[0] || item.imageUrl || "",
+          savedAt: serverTimestamp(),
+        };
+        await setDoc(doc(db, "users", user.uid, "watchlist", item.id), watchData);
+        await setDoc(doc(db, "watchlist", `${user.uid}_${item.id}`), {
+          ...watchData,
+          userId: user.uid,
+        });
+      } else {
+        await deleteDoc(doc(db, "users", user.uid, "watchlist", item.id));
+        await deleteDoc(doc(db, "watchlist", `${user.uid}_${item.id}`));
+      }
+    } catch (e) {
+      console.error("Search watchlist sync failed:", e);
+    }
   };
 
   const handleBuyNow = (item: Listing) => {

@@ -12,6 +12,7 @@ import {
   requireAdminForCheckout,
 } from "../../lib/checkout-server";
 import { sanitizeCheckoutCollectionName } from "../../lib/payment-checkout";
+import { isContactPaymentType } from "../../lib/listing-payment-type";
 
 const PROCESSING_FEE = 1.0;
 const RESERVATION_MS = 15 * 60 * 1000;
@@ -130,7 +131,7 @@ export async function POST(req: NextRequest) {
     if (!listingData) {
       return NextResponse.json({ error: "Listing not found" }, { status: 404 });
     }
-    if (String(listingData.paymentType || "stripe") === "contact") {
+    if (isContactPaymentType(listingData.paymentType)) {
       return NextResponse.json(
         {
           error:

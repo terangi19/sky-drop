@@ -28,17 +28,23 @@ export function sellerAlreadyReviewed(p: OrderReviewPurchase): boolean {
   return Boolean(p.sellerReviewed);
 }
 
+const ACTIVE_DISPUTE_STATUSES = new Set(["open", "pending", "under_review"]);
+
+export function hasActiveDispute(disputeStatus?: string): boolean {
+  return ACTIVE_DISPUTE_STATUSES.has(String(disputeStatus || "").toLowerCase());
+}
+
 export function canBuyerReview(p: OrderReviewPurchase): boolean {
   if (!isReviewEligibleStatus(p.status)) return false;
   if (["cancelled", "refunded"].includes(String(p.status || "").toLowerCase())) return false;
-  if (p.disputeStatus) return false;
+  if (hasActiveDispute(p.disputeStatus)) return false;
   return !buyerAlreadyReviewed(p);
 }
 
 export function canSellerReview(p: OrderReviewPurchase): boolean {
   if (!isReviewEligibleStatus(p.status)) return false;
   if (["cancelled", "refunded"].includes(String(p.status || "").toLowerCase())) return false;
-  if (p.disputeStatus) return false;
+  if (hasActiveDispute(p.disputeStatus)) return false;
   return !sellerAlreadyReviewed(p);
 }
 

@@ -17,6 +17,7 @@ import {
   requireAdminForCheckout,
 } from "../../lib/checkout-server";
 import { sanitizeCheckoutCollectionName } from "../../lib/payment-checkout";
+import { isContactPaymentType } from "../../lib/listing-payment-type";
 
 export async function POST(req: NextRequest) {
   let stripePaymentIntentIdForRecovery = "";
@@ -94,7 +95,7 @@ export async function POST(req: NextRequest) {
     if (!listingData) {
       return NextResponse.json({ error: "Listing not found" }, { status: 404 });
     }
-    if (String(listingData.paymentType || "stripe") === "contact") {
+    if (isContactPaymentType(listingData.paymentType)) {
       return NextResponse.json(
         {
           error:

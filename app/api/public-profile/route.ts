@@ -8,7 +8,6 @@ const PUBLIC_FIELDS = [
   "profileBadge", "profileViews", "salesCount",
   "averageRating", "reviewCount",
   "responseTime", "hideOnline",
-  "email", // already public via listings
 ];
 
 export async function GET(req: NextRequest) {

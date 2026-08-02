@@ -9,9 +9,10 @@ export type PurchaseEarningsSlice = {
 
 /** True when the buyer paid through Stripe Checkout (not Arrange Purchase). */
 export function isStripeCheckoutPurchase(purchase: PurchaseEarningsSlice): boolean {
-  if (String(purchase.paymentType || "") === "contact") return false;
+  // Explicit Arrange Purchase — never count as Stripe earnings.
+  if (String(purchase.paymentType || "").trim().toLowerCase() === "contact") return false;
   if (purchase.stripePaymentIntentId) return true;
-  return String(purchase.paymentType || "stripe") !== "contact";
+  return String(purchase.paymentType || "").trim().toLowerCase() === "stripe";
 }
 
 /** Sum order totals for Stripe Checkout sales in the given statuses (e.g. delivered). */

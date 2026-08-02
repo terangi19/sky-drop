@@ -127,8 +127,15 @@ export async function POST(req: NextRequest) {
         const collectionName = sanitizeCheckoutCollectionName(meta.collectionName || "listings");
         const listingDoc = await db.collection(collectionName).doc(meta.listingId).get();
         if (!listingDoc.exists) {
-          await eventRef.update({ status: "completed", processedAt: new Date() });
-          return NextResponse.json({ received: true });
+          console.error(
+            `[stripe-webhook] Listing ${meta.listingId} missing for PI ${pi.id} — marking failed for retry`
+          );
+          await eventRef.update({
+            status: "failed",
+            error: "listing_not_found",
+            processedAt: new Date(),
+          });
+          return NextResponse.json({ received: true, error: "listing_not_found" }, { status: 500 });
         }
         const listing = listingDoc.data()!;
 

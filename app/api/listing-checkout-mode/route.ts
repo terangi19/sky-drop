@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb, isAdminInitialized } from "../../lib/firebase-admin";
+import { normalizePaymentType } from "../../lib/listing-payment-type";
 
 /** Authoritative paymentType for buyer checkout — never trust client Firestore cache. */
 export async function GET(req: NextRequest) {
@@ -17,8 +18,7 @@ export async function GET(req: NextRequest) {
     if (!snap.exists) {
       return NextResponse.json({ error: "Listing not found" }, { status: 404 });
     }
-    const raw = snap.data()?.paymentType;
-    const paymentType = raw === "stripe" ? "stripe" : "contact";
+    const paymentType = normalizePaymentType(snap.data()?.paymentType);
     return NextResponse.json(
       { listingId, paymentType },
       { headers: { "Cache-Control": "no-store, max-age=0" } }

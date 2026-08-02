@@ -12,9 +12,10 @@ describe("order-reviews", () => {
     expect(canBuyerReview({ status: "completed" })).toBe(true);
   });
 
-  it("blocks reviews on refunded or disputed orders", () => {
+  it("blocks reviews on refunded or active disputed orders", () => {
     expect(canBuyerReview({ status: "refunded" })).toBe(false);
     expect(canSellerReview({ status: "delivered", disputeStatus: "open" })).toBe(false);
+    expect(canBuyerReview({ status: "delivered", disputeStatus: "resolved_seller" })).toBe(true);
   });
 
   it("allows one review per role", () => {

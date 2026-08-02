@@ -457,7 +457,8 @@ body {
   left: 0;
   right: 0;
   bottom: var(--mobile-nav-offset, 0px);
-  z-index: 40;
+  /* Above bottom nav (z-9999) so CTAs remain tappable on mobile */
+  z-index: 10000;
 }
 
 .mobile-h-scroll {

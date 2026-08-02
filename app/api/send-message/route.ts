@@ -57,7 +57,6 @@ export async function POST(req: NextRequest) {
     const listingImage = typeof body.listingImage === "string" ? body.listingImage : "";
     const listingPrice = typeof body.listingPrice === "string" ? body.listingPrice : "";
     const turnstileToken = typeof body.turnstileToken === "string" ? body.turnstileToken : "";
-    const requestId = typeof body.requestId === "string" ? body.requestId : undefined;
     const createConversation = body.createConversation === true;
     const convKey = typeof body.convKey === "string" ? body.convKey.trim() : "";
     const buyerEmail = typeof body.buyerEmail === "string" ? body.buyerEmail.trim() : "";
@@ -66,16 +65,11 @@ export async function POST(req: NextRequest) {
     const offerType = typeof body.offerType === "string" ? body.offerType : "";
     const offerStatus = typeof body.offerStatus === "string" ? body.offerStatus : "pending";
 
-    if (!["text", "image", "file", "offer", "system"].includes(msgType)) {
+    if (!["text", "image", "file", "offer"].includes(msgType)) {
       return NextResponse.json({ error: "Invalid message type" }, { status: 400 });
     }
     if (msgType === "text" && (!text || text.length > 2000)) {
       return NextResponse.json({ error: "Message must be 1\u20132000 characters" }, { status: 400 });
-    }
-    if (msgType === "system") {
-      if (!text || text.length > 2000) {
-        return NextResponse.json({ error: "System message must be 1\u20132000 characters" }, { status: 400 });
-      }
     }
     if (!receiver) {
       return NextResponse.json({ error: "Receiver is required" }, { status: 400 });
@@ -101,6 +95,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Message flagged as suspicious" }, { status: 400 });
     }
 
+    if (decision.captchaRequired && isTurnstileConfigured()) {
+      if (!turnstileToken || !(await verifyTurnstileToken(turnstileToken))) {
+        recordTurnstileAttempt(decoded.uid, false);
+        return NextResponse.json(
+          { error: "Security check failed. Please refresh and try again.", captchaRequired: true },
+          { status: 403 }
+        );
+      }
+      recordTurnstileAttempt(decoded.uid, true);
+    }
+
     if (decision.verdict === "block") {
       await persistRiskFlag(decoded.uid, `message_blocked:${decision.reason}`);
       return NextResponse.json({ error: "Message could not be sent" }, { status: 403 });
@@ -116,12 +121,34 @@ export async function POST(req: NextRequest) {
     }
 
     const db = getAdminDb();
-    const participants = [decoded.email, receiver];
+    const senderEmail = decoded.email || "";
+    if (!senderEmail) {
+      return NextResponse.json({ error: "Could not determine sender email" }, { status: 400 });
+    }
+    if (receiver.toLowerCase() === senderEmail.toLowerCase()) {
+      return NextResponse.json({ error: "Cannot message yourself" }, { status: 400 });
+    }
+
+    // Existing conversations: sender must be a participant.
+    if (conversationId) {
+      const convSnap = await db.collection("conversations").doc(conversationId).get();
+      if (!convSnap.exists) {
+        return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
+      }
+      const participants = Array.isArray(convSnap.data()?.participants)
+        ? (convSnap.data()!.participants as string[])
+        : [];
+      if (!participants.includes(senderEmail)) {
+        return NextResponse.json({ error: "Not a participant in this conversation" }, { status: 403 });
+      }
+    }
+
+    const participants = [senderEmail, receiver];
 
     if (createConversation && !conversationId) {
       const convData: Record<string, unknown> = {
         participants,
-        buyerEmail: buyerEmail || decoded.email,
+        buyerEmail: buyerEmail || senderEmail,
         sellerEmail: sellerEmail || receiver,
         listingTitle: listingTitle || null,
         listingPrice: listingPrice || null,
@@ -140,7 +167,7 @@ export async function POST(req: NextRequest) {
     const messageData: Record<string, unknown> = {
       type: msgType,
       text: text || null,
-      sender: decoded.email,
+      sender: senderEmail,
       receiver,
       participants,
       conversationId: conversationId || null,
@@ -169,7 +196,7 @@ export async function POST(req: NextRequest) {
     await clearHiddenConversationForUser(
       db,
       receiver,
-      decoded.email || "",
+      senderEmail,
       listingId || null
     ).catch(() => {});
 
