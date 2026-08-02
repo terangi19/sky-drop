@@ -48,6 +48,7 @@ import {
 import { compressImage, generateThumbnail, type CompressedImage, type Thumbnail } from "../../lib/image-optimization";
 import { withTimeout } from "../../lib/with-timeout";
 import { getClientCsrfToken } from "../../lib/csrf-client";
+import { isFeatureEnabled } from "../../lib/feature-flags";
 
 function sentenceCaseFragment(text: string): string {
   const trimmed = text.trim();
@@ -165,6 +166,9 @@ export default function AIPostPage() {
   const [showStockSettings, setShowStockSettings] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [autoPublish, setAutoPublish] = useState(false);
+
+  // V1: Check if Stripe is disabled
+  const stripeDisabledV1 = isFeatureEnabled("DISABLE_STRIPE_CHECKOUT_V1");
 
   // Form completion progress (honest, field-based — not a fake stepper)
   const formProgress = useMemo(() => {
@@ -1888,6 +1892,7 @@ export default function AIPostPage() {
                     <span className="ml-1 rounded bg-sky-500/20 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-sky-300">Default</span>
                     <p className="mt-1 text-[9px] font-normal text-[var(--muted)]">Bank transfer, cash, or pickup — agree payment in Messages</p>
                   </button>
+                  {!stripeDisabledV1 && (
                   <button
                     type="button"
                     onClick={() => choosePaymentType("stripe")}
@@ -1913,8 +1918,9 @@ export default function AIPostPage() {
                         : "Connect Stripe in Profile → Payouts to enable"}
                     </p>
                   </button>
+                  )}
                 </div>
-                {!stripeConnected && (
+                {!stripeDisabledV1 && !stripeConnected && (
                   <p className="text-[10px] text-amber-400/90 leading-relaxed">
                     Stripe Checkout is locked until you connect payouts.{" "}
                     <Link href="/profile?tab=payouts" className="underline hover:text-amber-300">
