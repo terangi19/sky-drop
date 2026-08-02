@@ -33,10 +33,12 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.cleanupOldData = exports.autoReleaseFunds = exports.onReportCreated = exports.onMessageCreated = exports.onListingCreated = exports.onListingUpdated = void 0;
+exports.cleanupOldData = exports.autoCompleteDeliveredOrders = exports.onReportCreated = exports.onMessageCreated = exports.onListingCreated = exports.onListingUpdated = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
+const v2_1 = require("firebase-functions/v2");
 const admin = __importStar(require("firebase-admin"));
+(0, v2_1.setGlobalOptions)({ region: "asia-southeast1" });
 admin.initializeApp();
 const db = admin.firestore();
 const RISKY_KEYWORDS = [
@@ -206,32 +208,35 @@ exports.onReportCreated = (0, firestore_1.onDocumentCreated)("reports/{reportId}
         console.error("[onReportCreated] Auto-moderation failed:", e);
     }
 });
-// Auto-release funds 14 days after delivery if no dispute
-exports.autoReleaseFunds = (0, scheduler_1.onSchedule)("every 24 hours", async () => {
+// Auto-complete delivered orders 14 days after delivery if no dispute.
+// Does NOT move Stripe funds — destination charges already paid the seller at checkout.
+exports.autoCompleteDeliveredOrders = (0, scheduler_1.onSchedule)("every 24 hours", async () => {
     const cutoff = admin.firestore.Timestamp.fromMillis(Date.now() - 14 * 24 * 60 * 60 * 1000);
     try {
         const snapshot = await db
             .collection("purchases")
             .where("status", "==", "delivered")
-            .where("fundsReleased", "==", false)
             .where("deliveredAt", "<=", cutoff)
+            .limit(200)
             .get();
         for (const doc of snapshot.docs) {
             const purchase = doc.data();
+            if (purchase.orderCompleted === true || purchase.fundsReleased === true)
+                continue;
             const disputeStatus = purchase.disputeStatus;
             if (["open", "pending", "under_review"].includes(disputeStatus))
                 continue;
             await doc.ref.update({
-                fundsReleased: true,
-                fundsReleasedAt: admin.firestore.FieldValue.serverTimestamp(),
+                orderCompleted: true,
+                orderCompletedAt: admin.firestore.FieldValue.serverTimestamp(),
                 status: "completed",
-                autoReleased: true,
+                autoCompleted: true,
             });
-            console.log("[autoReleaseFunds] Released funds for purchase:", doc.id);
+            console.log("[autoCompleteDeliveredOrders] Completed order:", doc.id);
         }
     }
     catch (e) {
-        console.error("[autoReleaseFunds] Failed:", e);
+        console.error("[autoCompleteDeliveredOrders] Failed:", e);
     }
 });
 // Automatic cleanup of old notifications and logs (30 days)

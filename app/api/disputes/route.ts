@@ -3,11 +3,15 @@ import type { QueryDocumentSnapshot } from "firebase-admin/firestore";
 import { getStripe } from "../../lib/stripe-server";
 import { verifyIdToken, getServerDb } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
-import { sellerPayoutCents } from "../../lib/purchase-service";
 import { isAdminEmail } from "../../lib/admin-check";
 import { writeAuditLog } from "../../lib/admin-utils";
 import { notifyAdmin } from "../../lib/admin-alerts";
 import { logSecurityWarning } from "../../lib/security-log";
+import {
+  isOrderCompleted,
+  isStripeListingCheckout,
+  orderCompletedPatch,
+} from "../../lib/payment-order-completion";
 
 export async function POST(req: NextRequest) {
   try {
@@ -76,9 +80,8 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "No PaymentIntent on this purchase" }, { status: 400 });
       }
 
-      if (purchaseData.fundsReleased) {
-        return NextResponse.json({ error: "Funds already released, cannot refund" }, { status: 400 });
-      }
+      // Refund eligibility is based on Stripe PI + dispute state — not orderCompleted.
+      // Destination charges reverse from the connected account via Stripe refunds.
 
       const parsedAmount = Number(amount);
       const refundAmount = amount && !isNaN(parsedAmount) ? Math.round(parsedAmount * 100) : undefined;
@@ -99,6 +102,10 @@ export async function POST(req: NextRequest) {
         status: "refunded",
         refundedAt: new Date(),
         refundId: refund.id,
+        orderCompleted: false,
+        disputeStatus: "refunded",
+        disputeResolvedAt: new Date(),
+        disputeResolvedBy: decodedToken.email,
       });
 
       await logSecurityWarning("dispute_refund_issued", `Refund of ${refundAmount ? (refundAmount/100).toFixed(2) : "full"} issued for purchase ${purchaseId}`, {
@@ -142,6 +149,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "release") {
+      // Admin resolves dispute in seller's favor — completes the order.
+      // Does NOT create Stripe transfers (destination charges already paid the seller).
       const { purchaseId } = body;
       if (!purchaseId) {
         return NextResponse.json({ error: "Missing purchase ID" }, { status: 400 });
@@ -156,99 +165,63 @@ export async function POST(req: NextRequest) {
       }
       const purchaseData = purchaseDoc.data()!;
 
-      if (purchaseData.fundsReleased) {
-        return NextResponse.json({ error: "Funds already released" }, { status: 400 });
+      if (isOrderCompleted(purchaseData) && purchaseData.disputeStatus === "resolved_seller") {
+        return NextResponse.json({ error: "Dispute already resolved for the seller" }, { status: 400 });
       }
 
-      // Look up seller's Stripe Connect account
-      const sellerProfileDocs = await db.collection("profiles").where("email", "==", purchaseData.sellerEmail).limit(1).get();
-      const sellerProfile = sellerProfileDocs.docs[0]?.data();
-      const sellerStripeAccountId = sellerProfile?.stripeAccountId;
-      if (!sellerStripeAccountId) {
-        return NextResponse.json({ error: "Seller has not set up payouts" }, { status: 400 });
+      if (
+        String(purchaseData.paymentType || "").toLowerCase() !== "contact" &&
+        !isStripeListingCheckout(purchaseData) &&
+        purchaseData.destinationCharge === false &&
+        purchaseData.stripePaymentIntentId
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "This order used a retired payment path. Contact engineering — manual Stripe transfers are disabled.",
+          },
+          { status: 400 }
+        );
       }
-
-      // Destination charges already transfer funds to the seller automatically.
-      // Do not create a second transfer here or the seller gets paid twice.
-      if (purchaseData.destinationCharge) {
-        await db.collection("purchases").doc(purchaseId).update({
-          fundsReleased: true,
-          fundsReleasedAt: new Date(),
-          status: "completed",
-          disputeStatus: "resolved_seller",
-          disputeResolvedAt: new Date(),
-          disputeResolvedBy: decodedToken.email,
-        });
-
-        await writeAuditLog({
-          action: "admin_dispute_release_payment",
-          actorEmail: decodedToken.email || "",
-          purchaseId,
-          metadata: { disputeResolution: "seller_wins", destinationCharge: true },
-        });
-
-        return NextResponse.json({
-          success: true,
-          message: "Funds already transferred to seller via Stripe",
-        });
-      }
-
-      const amount = sellerPayoutCents(purchaseData);
-      if (amount <= 0) {
-        return NextResponse.json({ error: "No funds to release" }, { status: 400 });
-      }
-
-      if (!process.env.STRIPE_SECRET_KEY) {
-        return NextResponse.json({ error: "Payments not configured" }, { status: 500 });
-      }
-
-      const idempotencyKey = `dispute-release-${purchaseId}`;
-      const transfer = await getStripe().transfers.create(
-        {
-          amount,
-          currency: "nzd",
-          destination: sellerStripeAccountId,
-          metadata: { purchaseId, listingTitle: purchaseData.listingTitle || "", disputeRelease: "true" },
-        },
-        { idempotencyKey }
-      );
 
       await db.collection("purchases").doc(purchaseId).update({
-        fundsReleased: true,
-        fundsReleasedAt: new Date(),
-        stripeTransferId: transfer.id,
-        status: "completed",
+        ...orderCompletedPatch(),
         disputeStatus: "resolved_seller",
         disputeResolvedAt: new Date(),
         disputeResolvedBy: decodedToken.email,
       });
 
       await writeAuditLog({
-        action: "admin_dispute_release_payment",
+        action: "admin_dispute_resolve_seller",
         actorEmail: decodedToken.email || "",
         purchaseId,
-        amount: Math.round(amount / 100),
-        metadata: { transferId: transfer.id, disputeResolution: "seller_wins" },
+        metadata: {
+          disputeResolution: "seller_wins",
+          destinationCharge: purchaseData.destinationCharge === true,
+        },
       });
 
       await notifyAdmin({
         type: "dispute_resolved",
-        title: "Dispute Resolved — Payment Released to Seller",
-        message: `Purchase ${purchaseId}: $${(amount / 100).toFixed(2)} released to seller.`,
-        metadata: { purchaseId, transferId: transfer.id, amount: Math.round(amount / 100) },
+        title: "Dispute Resolved — Seller Wins",
+        message: `Purchase ${purchaseId}: dispute resolved in seller's favor. Order marked completed.`,
+        metadata: { purchaseId },
       });
 
-      const db2 = db;
       const now2 = new Date();
       for (const email of [purchaseData.buyerEmail, purchaseData.sellerEmail]) {
-        await db2.collection("notifications").add({
+        await db.collection("notifications").add({
           targetEmail: email,
           fromEmail: "system@skydrop.nz",
           type: "dispute_resolved",
-          title: email === purchaseData.sellerEmail ? "Dispute Resolved — Payment Released" : "Dispute Resolved — Funds Released to Seller",
-          message: email === purchaseData.sellerEmail
-            ? `The dispute for "${purchaseData.listingTitle || ""}" has been resolved in your favor. Payment of $${(amount / 100).toFixed(2)} has been released.`
-            : `The dispute for "${purchaseData.listingTitle || ""}" has been resolved. Funds have been released to the seller.`,
+          title:
+            email === purchaseData.sellerEmail
+              ? "Dispute Resolved in Your Favor"
+              : "Dispute Resolved — Seller Wins",
+          message:
+            email === purchaseData.sellerEmail
+              ? `The dispute for "${purchaseData.listingTitle || ""}" was resolved in your favor. The order is complete. (Stripe Checkout payments already went to your connected account at purchase time.)`
+              : `The dispute for "${purchaseData.listingTitle || ""}" was resolved in the seller's favor.`,
           listingId: purchaseData.listingId || "",
           listingTitle: purchaseData.listingTitle || "",
           read: false,
@@ -256,13 +229,17 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      return NextResponse.json({ success: true, transferId: transfer.id });
+      return NextResponse.json({
+        success: true,
+        message: isStripeListingCheckout(purchaseData)
+          ? "Dispute resolved. Payment already went to the seller via Stripe at checkout."
+          : "Dispute resolved. Order completed.",
+      });
     }
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
-  } catch (e: any) {
-    console.error("[disputes] Error:", e?.code || e?.message || e);
+  } catch (e: unknown) {
+    console.error("[disputes] Error:", e instanceof Error ? e.message : e);
     return NextResponse.json({ error: "Could not process request. Please try again." }, { status: 500 });
   }
 }
-

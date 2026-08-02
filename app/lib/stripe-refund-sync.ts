@@ -109,8 +109,8 @@ export async function applyStripeRefundToPurchase(
 
   if (input.fullyRefunded) {
     purchasePatch.status = "refunded";
-    purchasePatch.fundsReleased = false;
-    purchasePatch.destinationCharge = false;
+    purchasePatch.orderCompleted = false;
+    // Preserve destinationCharge — refunds do not change the original charge model.
     if (data.disputeStatus) {
       purchasePatch.disputeStatus = "refunded";
       purchasePatch.disputeResolvedAt = now;

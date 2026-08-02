@@ -1,32 +1,32 @@
+/**
+ * Completes a delivered purchase order.
+ *
+ * Stripe Checkout uses destination charges: funds already went to the seller at
+ * payment time. This endpoint only marks the order complete — it never creates
+ * Stripe transfers.
+ */
 import { NextRequest, NextResponse } from "next/server";
-import { getStripe } from "../../lib/stripe-server";
 import { verifyIdToken, getAdminDb, getServerDb, isAdminInitialized } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
-import { sellerPayoutCents } from "../../lib/purchase-service";
 import { isAdminEmail } from "../../lib/admin-check";
 import { writeAuditLog } from "../../lib/admin-utils";
-import { notifyAdmin, writeFailureRecord } from "../../lib/admin-alerts";
-import { logSecurityCritical } from "../../lib/security-log";
+import {
+  isActiveDisputeStatus,
+  isOrderCompleted,
+  isStripeListingCheckout,
+  orderCompletedPatch,
+} from "../../lib/payment-order-completion";
 import * as Sentry from "@sentry/nextjs";
 
-function isDisputeActive(disputeStatus?: string): boolean {
-  return !!disputeStatus && ["open", "pending", "under_review"].includes(disputeStatus);
-}
-
 export async function POST(req: NextRequest) {
-  let decodedToken: any;
+  let decodedToken: { email?: string } | undefined;
   let purchaseId: string | undefined;
-  let purchase: any;
 
   try {
     const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const { allowed } = await rateLimit(`release:${ip}`, 30, 60_000);
+    const { allowed } = await rateLimit(`complete-order:${ip}`, 30, 60_000);
     if (!allowed) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-    }
-
-    if (!process.env.STRIPE_SECRET_KEY) {
-      return NextResponse.json({ error: "Payments not configured" }, { status: 500 });
     }
 
     const authHeader = req.headers.get("authorization");
@@ -40,24 +40,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
     }
 
-    // Payment state transitions MUST use Admin SDK to bypass Firestore rules.
-    // Fall back to client-scoped REST only in dev when Admin SDK unavailable.
     const db = isAdminInitialized() ? getAdminDb() : getServerDb(idToken);
 
     const body = await req.json();
-    purchaseId = body.purchaseId;
+    purchaseId = typeof body.purchaseId === "string" ? body.purchaseId : "";
     if (!purchaseId) {
       return NextResponse.json({ error: "Missing purchaseId" }, { status: 400 });
     }
-    const purchaseIdSafe = purchaseId;
 
-    const purchaseDoc = await db.collection("purchases").doc(purchaseIdSafe).get();
+    const purchaseDoc = await db.collection("purchases").doc(purchaseId).get();
     if (!purchaseDoc.exists) {
       return NextResponse.json({ error: "Purchase not found" }, { status: 404 });
     }
-    purchase = purchaseDoc.data()!;
+    const purchase = purchaseDoc.data()!;
 
-    // Must be either the seller, the buyer, or an admin
     const isSeller = purchase.sellerEmail === decodedToken.email;
     const isBuyer = purchase.buyerEmail === decodedToken.email;
     const isAdmin = isAdminEmail(decodedToken.email || "");
@@ -65,60 +61,66 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Not authorized for this purchase" }, { status: 403 });
     }
 
+    if (isOrderCompleted(purchase)) {
+      return NextResponse.json({
+        success: true,
+        message: "Order already completed",
+      });
+    }
+
     if (purchase.status !== "delivered") {
-      return NextResponse.json({ error: "Purchase must be in 'delivered' status to release funds" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Purchase must be in 'delivered' status to complete the order" },
+        { status: 400 }
+      );
     }
 
-    if (purchase.fundsReleased || purchase.stripeTransferId) {
-      return NextResponse.json({
-        success: true,
-        transferId: purchase.stripeTransferId || null,
-        message: "Funds already released",
-      });
+    if (isActiveDisputeStatus(purchase.disputeStatus) && !isAdmin) {
+      return NextResponse.json(
+        { error: "Order is in dispute — completion is paused until the dispute is resolved" },
+        { status: 400 }
+      );
     }
 
-    // Block release during active dispute (unless admin overriding)
-    if (isDisputeActive(purchase.disputeStatus) && !isAdmin) {
-      return NextResponse.json({ error: "Funds frozen — a dispute is in progress" }, { status: 400 });
+    // Arrange Purchase: off-platform money — completion is status-only.
+    // Stripe Checkout: destination charges already paid the seller at PI success.
+    if (
+      String(purchase.paymentType || "").toLowerCase() !== "contact" &&
+      !isStripeListingCheckout(purchase) &&
+      purchase.destinationCharge === false &&
+      purchase.stripePaymentIntentId
+    ) {
+      // Legacy separate-charges purchases are no longer supported.
+      return NextResponse.json(
+        {
+          error:
+            "This order used a retired payment path. Contact support@skydrop.co.nz — Sky Drop no longer creates manual Stripe transfers.",
+        },
+        { status: 400 }
+      );
     }
 
-    // Check if this was a destination charge — funds already with seller
-    if (purchase.destinationCharge) {
-      await db.collection("purchases").doc(purchaseId).update({
-        fundsReleased: true,
-        fundsReleasedAt: new Date(),
-        status: "completed",
-      });
-      return NextResponse.json({
-        success: true,
-        message: "Funds already transferred to seller via Stripe",
-      });
-    }
-
-    // Legacy flow (separate charges and transfers) — below
-    // Only the buyer can trigger release (they confirmed receipt)
-    // Seller cannot trigger release — must wait for buyer confirmation or auto-release
-    // Admin can bypass all restrictions
-    if (isAdmin) {
-      // Admin can release regardless of dispute or timing
-    } else if (isSeller) {
-      // Check if auto-release window has passed (14 days after deliveredAt or 14 days after createdAt)
-      const deliveredAt = purchase.deliveredAt?.toMillis?.() || purchase.deliveredAt?.seconds * 1000;
-      const createdAt = purchase.createdAt?.toMillis?.() || purchase.createdAt?.seconds * 1000;
+    if (!isAdmin && isSeller) {
+      const deliveredAt =
+        purchase.deliveredAt?.toMillis?.() ||
+        (purchase.deliveredAt?.seconds ? purchase.deliveredAt.seconds * 1000 : 0);
+      const createdAt =
+        purchase.createdAt?.toMillis?.() ||
+        (purchase.createdAt?.seconds ? purchase.createdAt.seconds * 1000 : 0);
       const now = Date.now();
-      const autoReleaseElapsed = deliveredAt
-        ? (now - deliveredAt) > 14 * 86400000  // 14 days after delivery confirmation
-        : (now - createdAt) > 14 * 86400000;   // 14 days after purchase
-
-      if (!autoReleaseElapsed) {
-        return NextResponse.json({ error: "Payment is being processed. Auto-release will trigger after 14 days." }, { status: 400 });
-      }
-
-      // Double-check no dispute was opened since the start of this request
-      const freshDoc = await db.collection("purchases").doc(purchaseId).get();
-      const freshData = freshDoc.data()!;
-      if (isDisputeActive(freshData.disputeStatus)) {
-        return NextResponse.json({ error: "Cannot release — dispute in progress" }, { status: 400 });
+      const elapsed = deliveredAt
+        ? now - deliveredAt > 14 * 86400000
+        : createdAt
+          ? now - createdAt > 14 * 86400000
+          : false;
+      if (!elapsed) {
+        return NextResponse.json(
+          {
+            error:
+              "Sellers can mark the order complete 14 days after delivery, or wait for the buyer / auto-complete.",
+          },
+          { status: 400 }
+        );
       }
     }
 
@@ -129,129 +131,31 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const amount = sellerPayoutCents(purchase);
-    if (amount <= 0) {
-      return NextResponse.json({ error: "No funds to release" }, { status: 400 });
-    }
-
-    // Admin always pays to the seller; seller uses own account; buyer pays to seller
-    let sellerStripeAccountId: string | undefined;
-    if (isAdmin || isBuyer) {
-      const sellerProfileDocs = await db.collection("profiles").where("email", "==", purchase.sellerEmail).limit(1).get();
-      const sellerProfile = sellerProfileDocs.docs[0]?.data();
-      sellerStripeAccountId = sellerProfile?.stripeAccountId;
-    } else {
-      const profileDoc = await db.collection("profiles").doc(decodedToken.uid).get();
-      sellerStripeAccountId = profileDoc.data()?.stripeAccountId;
-    }
-    if (!sellerStripeAccountId) {
-      return NextResponse.json({ error: "Seller has not set up payouts." }, { status: 400 });
-    }
-
-    const idempotencyKey = `release-${purchaseIdSafe}`;
-
-    // Step 1: Verify purchase state atomically (read-only Firestore transaction)
-    await db.runTransaction(async (transaction) => {
-      const purchaseTx = await transaction.get(db.collection("purchases").doc(purchaseIdSafe));
-      if (!purchaseTx.exists) {
-        throw new Error("Purchase not found");
-      }
-      const purchaseTxData = purchaseTx.data()!;
-      if (purchaseTxData.fundsReleased || purchaseTxData.stripeTransferId) {
-        throw new Error("Funds already released for this purchase");
-      }
-      if (purchaseTxData.status !== "delivered") {
-        throw new Error("Purchase must be in 'delivered' status to release funds");
-      }
-      if (isDisputeActive(purchaseTxData.disputeStatus) && !isAdmin) {
-        throw new Error("Funds frozen — dispute in progress");
-      }
-    });
-
-    // Step 2: Create Stripe transfer (outside transaction — point of no return)
-    const transfer = await getStripe().transfers.create(
-      {
-        amount,
-        currency: "nzd",
-        destination: sellerStripeAccountId,
-        metadata: { purchaseId, listingTitle: purchase.listingTitle },
-      },
-      { idempotencyKey }
-    );
-
-    // Step 3: Update purchase record with retry (outside transaction; idempotent re-attempt possible)
-    let updated = false;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        await db.collection("purchases").doc(purchaseId).update({
-          fundsReleased: true,
-          fundsReleasedAt: new Date(),
-          stripeTransferId: transfer.id,
-          status: "completed",
-        });
-        updated = true;
-        break;
-      } catch (writeErr) {
-        if (attempt < 2) await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
-        else throw writeErr;
-      }
-    }
-
-    if (!updated) {
-      // Last resort: try to persist at least stripeTransferId so future retries are idempotent
-      try {
-        await db.collection("purchases").doc(purchaseId).update({
-          stripeTransferId: transfer.id,
-        });
-      } catch {}
-      throw new Error("Failed to update purchase record after Stripe transfer succeeded");
-    }
+    await db.collection("purchases").doc(purchaseId).update(orderCompletedPatch());
 
     await writeAuditLog({
-      action: isAdmin ? "admin_force_release_payment" : "release_payment",
+      action: isAdmin ? "admin_complete_order" : "complete_order",
       actorEmail: decodedToken.email || "",
       purchaseId,
-      amount: Math.round(amount / 100),
-      metadata: { transferId: transfer.id, stripeTransferId: transfer.id, adminOverride: isAdmin },
-    });
-
-    return NextResponse.json({ success: true, transferId: transfer.id });
-  } catch (e: any) {
-    console.error("[release-payment] Error:", e?.code || e?.message || e);
-    Sentry.captureException(e, { tags: { type: "payment-release" }, extra: { purchaseId, listingTitle: purchase?.listingTitle } });
-
-    const errorMsg = e?.message || e?.code || "Unknown error";
-    await writeFailureRecord("paymentReleaseFailures", {
-      purchaseId,
-      sellerEmail: purchase?.sellerEmail || "unknown",
-      buyerEmail: purchase?.buyerEmail || "unknown",
-      stripeTransferError: errorMsg,
-    });
-    await writeAuditLog({
-      action: "release_payment_failed",
-      actorEmail: decodedToken?.email || "unknown",
-      purchaseId,
-      metadata: { error: errorMsg, listingTitle: purchase?.listingTitle },
-    });
-    await notifyAdmin({
-      type: "payment_release_failure",
-      title: "Payment Release Failed",
-      message: `Purchase ${purchaseId}: ${errorMsg}`,
       metadata: {
-        purchaseId,
-        sellerEmail: purchase?.sellerEmail,
-        buyerEmail: purchase?.buyerEmail,
-        listingTitle: purchase?.listingTitle,
-        amount: purchase?.total,
-        error: errorMsg,
+        destinationCharge: purchase.destinationCharge === true,
+        paymentType: purchase.paymentType || null,
       },
     });
 
-    await logSecurityCritical("payment_release_failed", `Payment release failed for purchase ${purchaseId}`, {
-      actorEmail: decodedToken?.email,
-      metadata: { purchaseId, error: e.message, sellerEmail: purchase?.sellerEmail, buyerEmail: purchase?.buyerEmail },
+    return NextResponse.json({
+      success: true,
+      message: isStripeListingCheckout(purchase)
+        ? "Order completed. Payment already went to the seller via Stripe at checkout."
+        : "Order completed.",
     });
-    return NextResponse.json({ error: e.message || "Failed to release funds" }, { status: 500 });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[release-payment/complete-order] Error:", msg);
+    Sentry.captureException(e, {
+      tags: { type: "order-completion" },
+      extra: { purchaseId },
+    });
+    return NextResponse.json({ error: msg || "Failed to complete order" }, { status: 500 });
   }
 }
-

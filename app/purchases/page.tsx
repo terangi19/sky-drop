@@ -55,6 +55,7 @@ interface Purchase {
   disputeDeadline?: any;
   disputeStatus?: string;
   fundsReleased?: boolean;
+  orderCompleted?: boolean;
   refundAmount?: number;
   refundedAt?: any;
   stripePaymentIntentId?: string;
@@ -586,9 +587,9 @@ export default function PurchasesPage() {
                               {displayStatus.label}
                             </span>
                           )}
-                                                    {(p as any).destinationCharge && !p.fundsReleased && p.status !== "completed" && p.status !== "refunded" && (
+                                                    {(p as any).destinationCharge && !p.orderCompleted && !p.fundsReleased && p.status !== "completed" && p.status !== "refunded" && (
                             <span className="shrink-0 rounded-full border border-sky-500/15 bg-sky-500/[0.04] px-2.5 py-0.5 text-[9px] font-medium text-sky-400/70">
-                              💳 Paid to Seller
+                              💳 Paid to Seller at Checkout
                             </span>
                           )}
                         </div>
@@ -617,7 +618,7 @@ export default function PurchasesPage() {
                           </span>
                         </div>
                       )}
-                      {p.status === "delivered" && !p.disputeStatus && !p.fundsReleased && (() => {
+                      {p.status === "delivered" && !p.disputeStatus && !p.orderCompleted && !p.fundsReleased && (() => {
                         const countdown = getDisputeDeadlineCountdown(p.disputeDeadline);
                         if (!countdown) return null;
                         return (
@@ -650,7 +651,7 @@ export default function PurchasesPage() {
                             Edit Address
                           </button>
                         )}
-                        {["delivered", "shipped", "seller_confirming"].includes(p.status) && p.status !== "refunded" && !p.disputeStatus && !p.fundsReleased && (!p.disputeDeadline || new Date(p.disputeDeadline.seconds * 1000 || p.disputeDeadline) > new Date()) && (
+                        {["delivered", "shipped", "seller_confirming"].includes(p.status) && p.status !== "refunded" && !p.disputeStatus && !p.orderCompleted && !p.fundsReleased && (!p.disputeDeadline || new Date(p.disputeDeadline.seconds * 1000 || p.disputeDeadline) > new Date()) && (
                           <button onClick={() => { setDisputeModal(p); setDisputeReason(""); setDisputeDescription(""); }}
                             className="rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-1.5 text-[11px] font-bold text-red-400 transition hover:bg-red-500/10 active:scale-[0.97]">
                             ⚠️ Dispute

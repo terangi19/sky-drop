@@ -119,7 +119,7 @@ These operations must go through API routes for security, validation, or complex
 - **Operations**: Create and manage disputes
 - **Collection**: `disputes/{id}`, `purchases/{id}`
 - **Why API Required**:
-  - Payment release logic
+  - Order completion tracking (`orderCompleted`; no Stripe transfer)
   - Evidence collection
   - Admin review workflow
 

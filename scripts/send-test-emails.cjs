@@ -86,11 +86,11 @@ const emails = [
     }),
   },
   {
-    subject: "5/8 — Payment Released",
+    subject: "5/8 — Order Complete",
     html: buildHtml({
-      title: "Payment Released! 💰",
+      title: "Order Complete ✅",
       badge: { bg: "#0a1f12", text: "#34d399", border: "#1a3a22", icon: "✓", label: "Completed" },
-      message: "**$9,200** has been released to your account for **Toyota Corolla 2020**.\n\nFunds are available in your Sky Drop balance. Withdraw to your bank account via Stripe Connect.",
+      message: "The order for **Toyota Corolla 2020** ($9,200) is complete. For Stripe Checkout, payment went to your connected account at purchase time — bank payouts follow your Stripe schedule.",
       summaryRows: [
         { label: "Listing", value: "Toyota Corolla 2020" },
         { label: "Amount released", value: "$9,200", highlight: true },

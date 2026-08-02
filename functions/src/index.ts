@@ -1,6 +1,9 @@
 import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
+import { setGlobalOptions } from "firebase-functions/v2";
 import * as admin from "firebase-admin";
+
+setGlobalOptions({ region: "asia-southeast1" });
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -189,33 +192,35 @@ export const onReportCreated = onDocumentCreated("reports/{reportId}", async (ev
   }
 });
 
-// Auto-release funds 14 days after delivery if no dispute
-export const autoReleaseFunds = onSchedule("every 24 hours", async () => {
+// Auto-complete delivered orders 14 days after delivery if no dispute.
+// Does NOT move Stripe funds — destination charges already paid the seller at checkout.
+export const autoCompleteDeliveredOrders = onSchedule("every 24 hours", async () => {
   const cutoff = admin.firestore.Timestamp.fromMillis(Date.now() - 14 * 24 * 60 * 60 * 1000);
   try {
     const snapshot = await db
       .collection("purchases")
       .where("status", "==", "delivered")
-      .where("fundsReleased", "==", false)
       .where("deliveredAt", "<=", cutoff)
+      .limit(200)
       .get();
 
     for (const doc of snapshot.docs) {
       const purchase = doc.data();
+      if (purchase.orderCompleted === true || purchase.fundsReleased === true) continue;
       const disputeStatus = purchase.disputeStatus;
       if (["open", "pending", "under_review"].includes(disputeStatus)) continue;
 
       await doc.ref.update({
-        fundsReleased: true,
-        fundsReleasedAt: admin.firestore.FieldValue.serverTimestamp(),
+        orderCompleted: true,
+        orderCompletedAt: admin.firestore.FieldValue.serverTimestamp(),
         status: "completed",
-        autoReleased: true,
+        autoCompleted: true,
       });
 
-      console.log("[autoReleaseFunds] Released funds for purchase:", doc.id);
+      console.log("[autoCompleteDeliveredOrders] Completed order:", doc.id);
     }
   } catch (e) {
-    console.error("[autoReleaseFunds] Failed:", e);
+    console.error("[autoCompleteDeliveredOrders] Failed:", e);
   }
 });
 

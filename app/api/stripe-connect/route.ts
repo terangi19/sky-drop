@@ -175,6 +175,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "withdraw") {
+      // Platform earningsBalance ledger only — not listing checkout.
+      // Listing sales use destination charges (seller paid at PI success).
       const profileRef = db.collection("profiles").doc(uid);
       const profileDoc = await profileRef.get();
       if (!profileDoc.exists || profileDoc.data()!.stripeAccountId !== accountId) {

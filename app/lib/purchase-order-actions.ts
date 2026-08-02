@@ -2,7 +2,7 @@
  * Role-specific purchase order actions — single source of truth for Sales & Purchases UI.
  *
  * Seller flow: Confirmed → Preparing → Ready for Pickup / Shipped → (wait for buyer)
- * Buyer flow:  Confirm Receipt → delivered (funds release path)
+ * Buyer flow:  Confirm Receipt → delivered (order completion tracking)
  */
 import { normalizePurchaseStatus } from "./purchase-status";
 

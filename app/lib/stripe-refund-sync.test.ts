@@ -150,8 +150,7 @@ describe("applyStripeRefundToPurchase", () => {
     expect(purchaseUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
         status: "refunded",
-        fundsReleased: false,
-        destinationCharge: false,
+        orderCompleted: false,
         refundAmount: 25,
       })
     );

@@ -108,7 +108,7 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 - For fixed/hourly: seller sends a formal offer in chat → buyer pays via Stripe checkout.
 - For quote: seller quotes a price → buyer accepts → payment via Stripe or arrange in chat.
 - Service status after payment: Pending → In Progress → Completed → Confirmed.
-- Buyer confirms completion to release funds. Review can then be left.
+- Buyer confirms completion to finish the order. Payment already went to the seller via Stripe at checkout. Review can then be left.
 - Service categories: Trades & Repairs, Cleaning & Maintenance, Tutoring & Lessons, Photography, Personal Training, Events & Catering, Other Services.
 
 ## RENTAL LISTINGS

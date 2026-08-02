@@ -524,13 +524,13 @@ const WHAT_HAPPENS_NEXT: Record<string, string[]> = {
     "Review the order details in your Sales Dashboard",
     "Prepare the item and get it ready for shipment",
     "Mark the order as shipped once it's on its way",
-    "Funds will be released to you after buyer confirms delivery",
+    "Payment already went to your Stripe account at checkout — confirm fulfillment with the buyer",
   ],
   purchase_confirmation: [
     "The seller will prepare your item for delivery",
     "You'll receive a notification when it's shipped",
     "Inspect your item carefully upon arrival",
-    "Confirm delivery to release funds to the seller — you're protected until then",
+    "Confirm delivery to complete your order — payment already went to the seller via Stripe",
   ],
   order_confirmed: [
     "Your seller is preparing your item for shipment",
@@ -595,13 +595,13 @@ const WHAT_HAPPENS_NEXT: Record<string, string[]> = {
     "Try messaging the seller to negotiate",
   ],
   payment_released: [
-    "Funds are now available in your Sky Drop balance",
-    "Withdraw to your bank account via Stripe Connect",
-    "Check your profile for withdrawal options",
+    "Your order is complete",
+    "For Stripe Checkout sales, payment was already in your connected Stripe account from checkout",
+    "Payouts to your bank follow your Stripe Express schedule",
   ],
   service_completed: [
     "Review the completed service carefully",
-    "Confirm you're satisfied to release payment",
+    "Confirm you're satisfied to complete the order — payment already went to the seller via Stripe",
     "Leave a review for the service provider",
   ],
   item_returned: [
@@ -669,7 +669,7 @@ export function notificationToEmail(type: string, title: string, listingTitle?: 
         subject: `🚚 Item Shipped — ${listingTitle || ""}`,
         title: "Item Shipped! 🚚",
         message: listingTitle
-          ? `Your item **${listingTitle}** is on its way!\n\nTrack your delivery and get ready to receive it. Once it arrives, inspect the item and **confirm delivery** on Sky Drop to release payment to the seller.`
+          ? `Your item **${listingTitle}** is on its way!\n\nTrack your delivery and get ready to receive it. Once it arrives, inspect the item and **confirm delivery** on Sky Drop to complete your order. Payment already went to the seller via Stripe at checkout.`
           : `Your item has been shipped!`,
         statusBadge: badge,
         whatHappensNext: steps,
@@ -680,7 +680,7 @@ export function notificationToEmail(type: string, title: string, listingTitle?: 
         subject: `✅ Delivered — ${listingTitle || ""}`,
         title: "Item Delivered 📬",
         message: listingTitle
-          ? `Your purchase **${listingTitle}** has been marked as delivered.\n\n**Please confirm receipt** to release funds to the seller. If something isn't right, open a dispute within 7 days through your purchases page.`
+          ? `Your purchase **${listingTitle}** has been marked as delivered.\n\n**Please confirm receipt** to complete the order. Payment already went to the seller via Stripe at checkout. If something isn't right, open a dispute within 7 days through your purchases page.`
           : `Your item has been delivered.`,
         statusBadge: badge,
         summaryRows: listingTitle && total ? [
@@ -696,7 +696,7 @@ export function notificationToEmail(type: string, title: string, listingTitle?: 
         subject: `✅ Service Completed — ${listingTitle || ""}`,
         title: "Service Completed ✅",
         message: listingTitle
-          ? `The service **${listingTitle}** has been marked as complete by the seller.\n\nPlease review the work and confirm you're satisfied to release payment. If there are any issues, open a dispute within 7 days.`
+          ? `The service **${listingTitle}** has been marked as complete by the seller.\n\nPlease review the work and confirm you're satisfied to complete the order. Payment already went to the seller via Stripe at checkout. If there are any issues, open a dispute within 7 days.`
           : `The service has been marked as complete.`,
         statusBadge: badge,
         whatHappensNext: steps,
@@ -844,17 +844,17 @@ export function notificationToEmail(type: string, title: string, listingTitle?: 
       };
     case "payment_released":
       return {
-        subject: `💰 Payment Released — ${listingTitle || ""}`,
-        title: "Payment Released! 💰",
+        subject: `✅ Order Complete — ${listingTitle || ""}`,
+        title: "Order Complete ✅",
         message: listingTitle
           ? total
-            ? `**$${total.toFixed(2)}** has been released to your account for **${listingTitle}**.`
-            : `Payment for **${listingTitle}** has been released to your account.`
-          : `Payment has been released to your account.`,
+            ? `The order for **${listingTitle}** ($${total.toFixed(2)}) is complete. For Stripe Checkout, payment went to your connected account at purchase time — bank payouts follow your Stripe schedule.`
+            : `The order for **${listingTitle}** is complete.`
+          : `Your order is complete.`,
         statusBadge: badge,
         summaryRows: listingTitle && total ? [
           { label: "Listing", value: listingTitle },
-          { label: "Amount released", value: `$${total.toFixed(2)}`, highlight: true },
+          { label: "Order total", value: `$${total.toFixed(2)}`, highlight: true },
           { label: "Status", value: "Completed ✅" },
         ] : undefined,
         whatHappensNext: steps,

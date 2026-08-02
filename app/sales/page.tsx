@@ -333,7 +333,7 @@ export default function SalesPage() {
           fromEmail: currentEmail,
           type: "service_completed",
           title: "Service Completed",
-          message: `Your service "${purchase.listingTitle}" has been marked as complete by the seller. Please confirm you're satisfied to release payment.`,
+          message: `Your service "${purchase.listingTitle}" has been marked as complete by the seller. Please confirm you're satisfied to complete the order. Payment already went to the seller via Stripe at checkout.`,
           listingId: purchase.listingId,
           listingTitle: purchase.listingTitle,
           listingImage: purchase.listingImage,
@@ -523,12 +523,12 @@ export default function SalesPage() {
                       {(s as any).paymentType === "contact" && !isRefunded ? (
                         <span className="text-[11px] text-sky-400/80 font-bold">🤝 Arrange Purchase — payment off-platform</span>
                       ) : (s as any).destinationCharge && s.status !== "refunded" ? (
-                        <span className="text-[11px] text-sky-400 font-bold">✅ Funds sent to your Stripe account</span>
-                      ) : s.status === "delivered" && !(s as any).fundsReleased ? (
-                        <span className="text-[11px] text-sky-400 font-bold">🔒 Payment Processing</span>
+                        <span className="text-[11px] text-sky-400 font-bold">✅ Paid to your Stripe account at checkout</span>
+                      ) : s.status === "delivered" && !(s as any).orderCompleted && !(s as any).fundsReleased ? (
+                        <span className="text-[11px] text-sky-400 font-bold">⏳ Awaiting order completion</span>
                       ) : null}
-                      {(s as any).fundsReleased && !(s as any).destinationCharge && s.status !== "refunded" && (
-                        <span className="text-[11px] text-sky-400 font-bold">✅ Funds Released</span>
+                      {((s as any).orderCompleted || (s as any).fundsReleased) && !isRefunded && (
+                        <span className="text-[11px] text-sky-400 font-bold">✅ Order complete</span>
                       )}
                       {canSellerReview(s) && (
                         <button

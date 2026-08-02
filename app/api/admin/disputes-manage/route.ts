@@ -66,7 +66,12 @@ export async function POST(req: NextRequest) {
         updatedAt: FieldValue.serverTimestamp(),
       }, { merge: true });
       if (purchaseId) {
-        await db.collection("purchases").doc(purchaseId).set({ disputeStatus: "resolved_seller" }, { merge: true });
+        await db.collection("purchases").doc(purchaseId).set({
+          disputeStatus: "resolved_seller",
+          orderCompleted: true,
+          orderCompletedAt: FieldValue.serverTimestamp(),
+          status: "completed",
+        }, { merge: true });
       }
     } else if (action === "refund") {
       const stripePaymentIntentId = typeof body.stripePaymentIntentId === "string" ? body.stripePaymentIntentId.trim() : "";

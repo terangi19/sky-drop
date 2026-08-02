@@ -98,7 +98,7 @@ export const SEED_KNOWLEDGE: Omit<KnowledgeDoc, "id">[] = [
   },
   {
     title: "Services on Sky Drop",
-    content: "Services use a messaging-first flow. Buyers browse /services and find a listing. When they click 'Request Quote' or 'Hire', a conversation opens between buyer and seller. They discuss scope, pricing, and timeline in Messages. For fixed-price services, the seller sends an offer and the buyer pays via Card Checkout. For request-quote services, the seller sends a formal quote and the buyer accepts and pays. After payment, the service status follows: Pending → In Progress → Completed → Confirmed. The buyer confirms completion to release payment. Reviews can be left after completion.",
+    content: "Services use a messaging-first flow. Buyers browse /services and find a listing. When they click 'Request Quote' or 'Hire', a conversation opens between buyer and seller. They discuss scope, pricing, and timeline in Messages. For fixed-price services, the seller sends an offer and the buyer pays via Card Checkout. For request-quote services, the seller sends a formal quote and the buyer accepts and pays. After payment, the service status follows: Pending → In Progress → Completed → Confirmed. The buyer confirms completion to finish the order — Stripe Checkout payment already went to the seller at checkout. Reviews can be left after completion.",
     category: "services",
     tags: ["service", "hire", "freelance", "quote", "request quote", "scope"],
     keywords: ["hire a freelancer", "service inquiry", "request a quote", "book a service"],
