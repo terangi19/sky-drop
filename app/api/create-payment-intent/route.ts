@@ -13,6 +13,10 @@ import {
 } from "../../lib/checkout-server";
 import { sanitizeCheckoutCollectionName } from "../../lib/payment-checkout";
 import { isContactPaymentType } from "../../lib/listing-payment-type";
+import {
+  isStripeCheckoutEnabledServer,
+  listingCheckoutUnavailableBody,
+} from "../../lib/stripe-checkout-flags";
 
 const PROCESSING_FEE = 1.0;
 const RESERVATION_MS = 15 * 60 * 1000;
@@ -72,6 +76,10 @@ function computeCheckoutTotal(
 export async function POST(req: NextRequest) {
   try {
     requireAdminForCheckout();
+
+    if (!isStripeCheckoutEnabledServer()) {
+      return NextResponse.json(listingCheckoutUnavailableBody(), { status: 503 });
+    }
 
     const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
     const { allowed } = await rateLimit(`payment:${ip}`, 10, 60_000);

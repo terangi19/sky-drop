@@ -5,9 +5,17 @@ import { rateLimit } from "../../lib/rate-limit";
 import { payOfferWithAdmin } from "../../lib/purchase-service";
 import type { PayOfferInput } from "../../lib/purchase-service";
 import { requireVerifiedEmail } from "../../lib/require-verified";
+import {
+  isStripeCheckoutEnabledServer,
+  listingCheckoutUnavailableBody,
+} from "../../lib/stripe-checkout-flags";
 
 export async function POST(req: NextRequest) {
   try {
+    if (!isStripeCheckoutEnabledServer()) {
+      return NextResponse.json(listingCheckoutUnavailableBody(), { status: 503 });
+    }
+
     const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
     const { allowed } = await rateLimit(`pay-offer:${ip}`, 10, 60_000);
     if (!allowed) {

@@ -5,9 +5,17 @@ import { acceptOfferWithAdmin } from "../../lib/purchase-service";
 import type { AcceptOfferInput } from "../../lib/purchase-service";
 import { requireVerifiedEmail } from "../../lib/require-verified";
 import { requireKycApproved } from "../../lib/require-kyc";
+import {
+  isStripeCheckoutEnabledServer,
+  listingCheckoutUnavailableBody,
+} from "../../lib/stripe-checkout-flags";
 
 export async function POST(req: NextRequest) {
   try {
+    if (!isStripeCheckoutEnabledServer()) {
+      return NextResponse.json(listingCheckoutUnavailableBody(), { status: 503 });
+    }
+
     const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
     const { allowed } = await rateLimit(`accept-offer:${ip}`, 8, 60_000);
     if (!allowed) {

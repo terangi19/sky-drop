@@ -18,11 +18,19 @@ import {
 } from "../../lib/checkout-server";
 import { sanitizeCheckoutCollectionName } from "../../lib/payment-checkout";
 import { isContactPaymentType } from "../../lib/listing-payment-type";
+import {
+  isStripeCheckoutEnabledServer,
+  listingCheckoutUnavailableBody,
+} from "../../lib/stripe-checkout-flags";
 
 export async function POST(req: NextRequest) {
   let stripePaymentIntentIdForRecovery = "";
   try {
     requireAdminForCheckout();
+
+    if (!isStripeCheckoutEnabledServer()) {
+      return NextResponse.json(listingCheckoutUnavailableBody(), { status: 503 });
+    }
 
     const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
     const { allowed } = await rateLimit(`create-purchase:${ip}`, 8, 60_000);
