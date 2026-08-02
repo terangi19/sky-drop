@@ -171,6 +171,7 @@ function MessagesPage() {
   const [fileAttachment, setFileAttachment] = useState<{ name: string; size: number; data: string } | null>(null);
   const fileAttachInputRef = useRef<HTMLInputElement>(null);
   const [sendingAttachment, setSendingAttachment] = useState(false);
+  const [sendingMessage, setSendingMessage] = useState(false);
   const [blockConfirmTarget, setBlockConfirmTarget] = useState<string | null>(null);
   const [clearAllConfirm, setClearAllConfirm] = useState(false);
   const messageInputRef = useRef<HTMLInputElement>(null);
@@ -705,6 +706,7 @@ function MessagesPage() {
 
   // Send text message
   async function sendMessage(skipSafety = false) {
+    if (sendingMessage) return;
     if (!message.trim()) return;
     if (!user?.email) { showToast("Please log in first", "info"); return; }
     if (!chatUser.trim()) { showToast("Select a conversation", "info"); return; }
@@ -723,6 +725,7 @@ function MessagesPage() {
       if (kw) { setRiskyKeyword(kw); setShowSafetyWarning(true); return; }
     }
 
+    setSendingMessage(true);
     const activeListingTitle = listingCard?.title || null;
     const activeListingImage = listingCard?.images?.[0] || listingCard?.image || listingCard?.imageUrl || null;
     const activeListingPrice = listingCard?.price || null;
@@ -772,6 +775,8 @@ function MessagesPage() {
       console.error(e);
       showToast("Failed to send", "error");
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
+    } finally {
+      setSendingMessage(false);
     }
   }
   async function sendPendingMessage() {
@@ -2188,10 +2193,16 @@ function MessagesPage() {
                       }}
                       onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
                       className="flex-1 rounded-2xl border border-[var(--card-border)] bg-[var(--soft-card)] px-4 py-3 text-[14px] text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-400" />
-                    <button onClick={() => sendMessage()} className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-sky-500 text-white transition hover:bg-sky-400">
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M12 5l7 7-7 7" />
-                      </svg>
+                    <button onClick={() => sendMessage()} disabled={sendingMessage || !message.trim()} className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-sky-500 text-white transition hover:bg-sky-400 disabled:opacity-50 disabled:cursor-not-allowed">
+                      {sendingMessage ? (
+                        <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      ) : (
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M12 5l7 7-7 7" />
+                        </svg>
+                      )}
                     </button>
                   </div>
                 </div>
