@@ -146,22 +146,52 @@ export async function POST(req: NextRequest) {
     const participants = [senderEmail, receiver];
 
     if (createConversation && !conversationId) {
-      const convData: Record<string, unknown> = {
-        participants,
-        buyerEmail: buyerEmail || senderEmail,
-        sellerEmail: sellerEmail || receiver,
-        listingTitle: listingTitle || null,
-        listingPrice: listingPrice || null,
-        listingImage: listingImage || null,
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-        lastMessage: text.slice(0, 100),
-      };
-      if (convKey) convData.convKey = convKey;
-      if (listingId) convData.listingId = listingId;
+      if (convKey) {
+        const existing = await db
+          .collection("conversations")
+          .where("convKey", "==", convKey)
+          .limit(5)
+          .get();
+        const match = existing.docs.find((d) => {
+          const parts = (d.data().participants as string[] | undefined) || [];
+          return participants.every((p) => parts.includes(p));
+        });
+        if (match) {
+          conversationId = match.id;
+        }
+      }
+      if (!conversationId && listingId) {
+        const byListing = await db
+          .collection("conversations")
+          .where("listingId", "==", listingId)
+          .limit(20)
+          .get();
+        const match = byListing.docs.find((d) => {
+          const parts = (d.data().participants as string[] | undefined) || [];
+          return participants.every((p) => parts.includes(p));
+        });
+        if (match) {
+          conversationId = match.id;
+        }
+      }
+      if (!conversationId) {
+        const convData: Record<string, unknown> = {
+          participants,
+          buyerEmail: buyerEmail || senderEmail,
+          sellerEmail: sellerEmail || receiver,
+          listingTitle: listingTitle || null,
+          listingPrice: listingPrice || null,
+          listingImage: listingImage || null,
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+          lastMessage: text.slice(0, 100),
+        };
+        if (convKey) convData.convKey = convKey;
+        if (listingId) convData.listingId = listingId;
 
-      const convRef = await db.collection("conversations").add(convData);
-      conversationId = convRef.id;
+        const convRef = await db.collection("conversations").add(convData);
+        conversationId = convRef.id;
+      }
     }
 
     const messageData: Record<string, unknown> = {

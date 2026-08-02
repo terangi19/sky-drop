@@ -56,6 +56,7 @@ import { purchaseStatusLabel } from "../lib/purchase-status";
 import { getFreshIdToken } from "../lib/api-auth";
 import { trackFunnelEvent } from "../lib/funnel-events";
 import NegotiationAssistant from "../components/NegotiationAssistant";
+import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
 import {
   blockedEmailsFromDocs,
   conversationKey,
@@ -81,11 +82,23 @@ function containsRiskyKeywords(text: string): string | null {
   return null;
 }
 
-const QUICK_REPLIES = [
+const BUYER_QUICK_REPLIES = [
   "Is this still available?",
-  "Can you ship to my area?",
   "When can I pick up?",
+  "Can we meet in a public place?",
+  "Can you ship to my area?",
   "Would you accept a lower offer?",
+];
+const SELLER_QUICK_REPLIES = [
+  "Yes, still available.",
+  "Pickup works — when suits you?",
+  "Happy to meet somewhere public for pickup.",
+  "I can ship — what's your suburb?",
+  "Happy to negotiate on price.",
+];
+const PUBLIC_MEETING_CHIPS = [
+  "Let's meet in a public place.",
+  "Happy to do a public pickup.",
 ];
 function formatTime(timestamp: any) {
   if (!timestamp?.seconds) return "";
@@ -258,7 +271,23 @@ function MessagesPage() {
           setChatUser(profileEmail);
         }).catch(() => setChatUser(param));
       }
-      setChatListingId(getSearchParam("listing") || null);
+      const listingParam = getSearchParam("listing");
+      setChatListingId(listingParam || null);
+      const title = getSearchParam("title");
+      const image = getSearchParam("image");
+      const price = getSearchParam("price");
+      if (listingParam && (title || image || price)) {
+        setListingCard((prev: any) =>
+          prev?.id === listingParam
+            ? prev
+            : {
+                id: listingParam,
+                title: title || "",
+                image: image || "",
+                price: price || "",
+              }
+        );
+      }
       if (isMobile) setMobileView("chat");
     }
   }, [isMobile, user?.email]);
@@ -347,7 +376,16 @@ function MessagesPage() {
     getDoc(doc(db, "listings", chatListingId)).then((snap) => {
       if (cancelled) return;
       if (snap.exists()) {
-        setListingCard({ id: snap.id, ...snap.data() });
+        const data = snap.data() as Record<string, unknown>;
+        setListingCard({
+          id: snap.id,
+          ...data,
+          image:
+            (Array.isArray(data.images) && data.images[0]) ||
+            data.imageUrl ||
+            data.image ||
+            "",
+        });
       }
     }).catch((err) => {
       if (cancelled) return;
@@ -598,8 +636,14 @@ function MessagesPage() {
     } catch { return null; }
   }
 
+  const lastSendAtRef = useRef(0);
   function checkMessageRateLimit(): boolean {
-    // Rate limiter disabled - causing issues with messaging
+    const now = Date.now();
+    if (now - lastSendAtRef.current < 1500) {
+      showToast("Please wait a moment before sending again", "info");
+      return false;
+    }
+    lastSendAtRef.current = now;
     return true;
   }
 
@@ -703,15 +747,24 @@ function MessagesPage() {
     setSendingAttachment(false);
   }
   const MAX_MESSAGE_LENGTH = 2000;
+  const isOwnListing = listingCard?.sellerEmail === user?.email;
+  const stripeCheckoutVisible = isStripeCheckoutVisibleClient();
+  const quickReplies = [
+    ...(isOwnListing ? SELLER_QUICK_REPLIES : BUYER_QUICK_REPLIES),
+    ...PUBLIC_MEETING_CHIPS.filter(
+      (chip) => !(isOwnListing ? SELLER_QUICK_REPLIES : BUYER_QUICK_REPLIES).includes(chip)
+    ),
+  ];
 
   // Send text message
-  async function sendMessage(skipSafety = false) {
+  async function sendMessage(skipSafety = false, textOverride?: string) {
     if (sendingMessage) return;
-    if (!message.trim()) return;
+    const textToSend = (textOverride ?? message).trim();
+    if (!textToSend) return;
     if (!user?.email) { showToast("Please log in first", "info"); return; }
     if (!chatUser.trim()) { showToast("Select a conversation", "info"); return; }
     if (blockedUsers.includes(chatUser)) { showToast("This user is blocked", "error"); return; }
-    if (message.length > MAX_MESSAGE_LENGTH) {
+    if (textToSend.length > MAX_MESSAGE_LENGTH) {
       showToast(`Message is too long. Max ${MAX_MESSAGE_LENGTH} characters.`, "error");
       return;
     }
@@ -719,22 +772,24 @@ function MessagesPage() {
     if (!checkMessageRateLimit()) return;
 
     if (!skipSafety) {
-      const result = detectScam(message);
-      if (result.isScam && !pendingMessage) { setPendingMessage(message); setScamWarning(true); return; }
-      const kw = containsRiskyKeywords(message);
+      const result = detectScam(textToSend);
+      if (result.isScam && !pendingMessage) { setPendingMessage(textToSend); setScamWarning(true); return; }
+      const kw = containsRiskyKeywords(textToSend);
       if (kw) { setRiskyKeyword(kw); setShowSafetyWarning(true); return; }
     }
 
     setSendingMessage(true);
+    const ownListing = listingCard?.sellerEmail === user.email;
     const activeListingTitle = listingCard?.title || null;
     const activeListingImage = listingCard?.images?.[0] || listingCard?.image || listingCard?.imageUrl || null;
     const activeListingPrice = listingCard?.price || null;
+    const convKey = chatListingId ? conversationKey(chatUser, chatListingId) : undefined;
     const tempId = "temp_" + Date.now();
     try {
       // Optimistic update - show message instantly
       const optimisticMsg = {
         id: tempId,
-        text: message,
+        text: textToSend,
         sender: user.email,
         receiver: chatUser,
         participants: [user.email, chatUser],
@@ -750,9 +805,13 @@ function MessagesPage() {
       await fetch("/api/send-message", {
         method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${sendToken}` },
         body: JSON.stringify({
-          text: message, receiver: chatUser,
+          text: textToSend, receiver: chatUser,
           listingId: chatListingId || undefined, listingTitle: activeListingTitle || undefined,
           listingImage: activeListingImage || undefined, listingPrice: activeListingPrice || undefined,
+          createConversation: !!chatListingId,
+          convKey,
+          buyerEmail: ownListing ? chatUser : user.email,
+          sellerEmail: ownListing ? user.email : chatUser,
         }),
       });
       trackFunnelEvent({
@@ -765,7 +824,7 @@ function MessagesPage() {
         fromEmail: user.email,
         type: "message",
         title: "New message from " + notificationSenderLabel(),
-        message: message.length > 100 ? message.slice(0, 100) + "..." : message,
+        message: textToSend.length > 100 ? textToSend.slice(0, 100) + "..." : textToSend,
         listingId: chatListingId || undefined,
         listingTitle: activeListingTitle || undefined,
         listingImage: activeListingImage || undefined,
@@ -778,6 +837,11 @@ function MessagesPage() {
     } finally {
       setSendingMessage(false);
     }
+  }
+
+  async function sendQuickReply(reply: string) {
+    if (sendingMessage || !reply.trim()) return;
+    await sendMessage(false, reply);
   }
   async function sendPendingMessage() {
     if (!pendingMessage || !user?.email || !chatUser) return;
@@ -1085,7 +1149,6 @@ function MessagesPage() {
     if (handle && handle !== "User") return handle.startsWith("@") ? handle.slice(1) : handle;
     return "Someone";
   }
-  const isOwnListing = listingCard?.sellerEmail === user?.email;
   const isAuction = listingCard?.saleType === "auction" || listingCard?.saleType === "auction_buy_now" || !!listingCard?.auctionEndsAt;
   const auctionEnded = (() => {
     if (listingCard?.status === "sold") return true;
@@ -1813,8 +1876,8 @@ function MessagesPage() {
                                       <button disabled={sendingOffer} onClick={() => sendOffer("counter", msg.offerAmount)} className="flex-1 rounded-lg bg-sky-500 py-2.5 text-[10px] font-bold text-white transition hover:bg-sky-400 disabled:opacity-50">Counter</button>
                                     </div>
                                   )}
-                                  {/* Pay Now for accepted offers */}
-                                  {!isOwn && msg.offerStatus === "accepted" && !hasPurchaseInChat && (
+                                  {/* Pay Now for accepted offers — Stripe UI only when checkout visible */}
+                                  {stripeCheckoutVisible && !isOwn && msg.offerStatus === "accepted" && !hasPurchaseInChat && (
                                     <div className="mt-3">
                                       <button onClick={() => setPendingPayment({
                                         amount: msg.offerAmount,
@@ -2156,12 +2219,13 @@ function MessagesPage() {
                   )}
                   {!message.trim() && (
                     <div className="mb-2 flex flex-wrap gap-1.5">
-                      {QUICK_REPLIES.map((reply) => (
+                      {quickReplies.map((reply) => (
                         <button
                           key={reply}
                           type="button"
-                          onClick={() => setMessage(reply)}
-                          className="rounded-full border border-[var(--card-border)] bg-[var(--soft-card)] px-2.5 py-1 text-[10px] font-medium text-[var(--muted)] transition hover:border-sky-500/30 hover:text-sky-400"
+                          disabled={sendingMessage}
+                          onClick={() => sendQuickReply(reply)}
+                          className="rounded-full border border-[var(--card-border)] bg-[var(--soft-card)] px-2.5 py-1 text-[10px] font-medium text-[var(--muted)] transition hover:border-sky-500/30 hover:text-sky-400 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {reply}
                         </button>
@@ -2211,7 +2275,7 @@ function MessagesPage() {
           </div>
         </div>
       </section>
-      {pendingPayment && (
+      {stripeCheckoutVisible && pendingPayment && (
         <OfferPaymentModal
           amount={Number(pendingPayment.amount)}
           listingTitle={pendingPayment.listingTitle}

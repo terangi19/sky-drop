@@ -3,6 +3,8 @@ import Background from "../components/Background";
 import { AwhinaUnderHeader } from "../components/AwhinaOnlineBadge";
 import Link from "next/link";
 import { Metadata } from "next";
+import MessagingFirstSoftBlock from "../components/MessagingFirstSoftBlock";
+import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
 
 export const metadata: Metadata = {
   title: "How Payments Work — Sky Drop NZ",
@@ -11,6 +13,15 @@ export const metadata: Metadata = {
 };
 
 export default function PaymentsPage() {
+  if (!isStripeCheckoutVisibleClient()) {
+    return (
+      <MessagingFirstSoftBlock
+        title="How to buy on Sky Drop"
+        description="Sky Drop V1 does not process online checkout for listings. Message the seller to agree on payment, pickup or delivery."
+      />
+    );
+  }
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
       <Background />

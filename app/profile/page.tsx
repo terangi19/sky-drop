@@ -37,6 +37,7 @@ import {
 import { getListingBlockReason } from "../lib/seller-eligibility";
 import { isFullyVerifiedSeller, profilePhoneVerified, verifiedFlagAfterUpdate } from "../lib/seller-verified";
 import { isAdminEmail } from "../lib/admin-check";
+import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { auth, db, storage, onAuthStateChanged } from "../lib/firebase";
 import { sendPhoneCode, verifyPhoneCode, maskPhone, isPhoneDevMode, formatNZPhone } from "../lib/phone-auth";
@@ -467,13 +468,19 @@ const tabGroups = [
     if (loading) return;
     if (typeof window !== "undefined") {
       const tab = new URLSearchParams(window.location.search).get("tab");
-      if (tab === "payouts" || tab === "payments") setActiveTab("payments");
+      if (tab === "payouts" || tab === "payments") {
+        if (isStripeCheckoutVisibleClient()) {
+          setActiveTab("payments");
+        } else {
+          setActiveTab("profile");
+        }
+      }
     }
     const hash = typeof window !== "undefined" ? window.location.hash.slice(1) : "";
     if (!hash) return;
     const tabFromHash: Record<string, string> = {
       settings: "settings",
-      "payment-settings": "payments",
+      "payment-settings": isStripeCheckoutVisibleClient() ? "payments" : "profile",
       verification: "verification",
       notifications: "notifications",
     };
@@ -637,6 +644,7 @@ const tabGroups = [
   }, [profile.memberSince, activeListings.length]);
 
   const tabs = useMemo(() => {
+    const stripeVisible = isStripeCheckoutVisibleClient();
     // Simplified tabs for new users
     if (isNewUser) {
       return [
@@ -644,11 +652,11 @@ const tabGroups = [
         { id: "verification", label: "Verification", group: "account" },
       ] as const;
     }
-    // Full tabs for established users
+    // Full tabs for established users — hide Connect Stripe / payouts when checkout UI off
     return [
       { id: "profile", label: "Profile", group: "account" },
       { id: "verification", label: "Verification", group: "account" },
-      { id: "payments", label: "Payments", group: "account" },
+      ...(stripeVisible ? [{ id: "payments", label: "Payments", group: "account" } as const] : []),
       { id: "notifications", label: "Notifications", group: "account" },
       { id: "settings", label: "Settings", group: "account" },
       { id: "danger", label: "Delete", group: "account" },
@@ -2005,7 +2013,7 @@ const tabGroups = [
           )}
 
           {/* ===== TAB: PAYMENTS ===== */}
-          {activeTab === "payments" && (
+          {activeTab === "payments" && isStripeCheckoutVisibleClient() && (
             <div id="payment-settings" className={settingsSection}>
               <h2 className="mb-1 text-base font-bold text-white">Payments</h2>
               <p className="mb-5 text-sm text-zinc-500">Set up how you want to receive payments when you sell items. Stripe for instant card checkout.</p>

@@ -2,6 +2,8 @@ import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import Link from "next/link";
 import { Metadata } from "next";
+import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
+import { V1_ARRANGE_SAFETY_ONE_LINER } from "../lib/conversation-safety";
 
 export const metadata: Metadata = {
   title: "Buyer Protection — Sky Drop NZ",
@@ -10,6 +12,74 @@ export const metadata: Metadata = {
 };
 
 export default function BuyerProtectionPage() {
+  if (!isStripeCheckoutVisibleClient()) {
+    return (
+      <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
+        <Background />
+        <Navbar />
+        <section className="relative z-10 mx-auto max-w-3xl px-6 py-16 sm:py-24">
+          <Link href="/" className="mb-8 inline-flex items-center gap-2 text-sm text-[var(--muted)] hover:text-sky-400 transition-colors">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+            Back to Marketplace
+          </Link>
+
+          <h1 className="text-4xl sm:text-5xl font-black tracking-tight">Stay safe on Sky Drop</h1>
+          <p className="mt-4 text-lg text-[var(--muted)] leading-relaxed">
+            Sky Drop V1 is messaging-first. We do not process online checkout for marketplace listings.
+            Arrange payment and pickup directly with the seller in Messages.
+          </p>
+
+          <div className="mt-8 rounded-2xl border border-sky-500/25 bg-sky-500/[0.06] p-5">
+            <p className="text-sm font-bold text-sky-400">Safety first</p>
+            <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">{V1_ARRANGE_SAFETY_ONE_LINER}</p>
+          </div>
+
+          <div className="mt-10 space-y-4">
+            <div className="rounded-xl border border-zinc-800/50 bg-zinc-900/60 p-5">
+              <h3 className="text-sm font-bold text-[var(--foreground)]">Message the seller</h3>
+              <p className="mt-1 text-xs text-[var(--muted)] leading-relaxed">
+                Use Messages to agree on price, pickup or delivery, and payment. Keep the conversation on Sky Drop so you both have a record.
+              </p>
+            </div>
+            <div className="rounded-xl border border-zinc-800/50 bg-zinc-900/60 p-5">
+              <h3 className="text-sm font-bold text-[var(--foreground)]">Meet in public</h3>
+              <p className="mt-1 text-xs text-[var(--muted)] leading-relaxed">
+                For physical items, meet somewhere public and verify the item before paying. Do not share bank passwords or one-time codes.
+              </p>
+            </div>
+            <div className="rounded-xl border border-zinc-800/50 bg-zinc-900/60 p-5">
+              <h3 className="text-sm font-bold text-[var(--foreground)]">No escrow or payment guarantees</h3>
+              <p className="mt-1 text-xs text-[var(--muted)] leading-relaxed">
+                Sky Drop does not hold funds, process listing payments, or guarantee outcomes for V1 marketplace transactions. Report scams via Reports.
+              </p>
+            </div>
+            <div className="rounded-xl border border-zinc-800/50 bg-zinc-900/60 p-5">
+              <h3 className="text-sm font-bold text-[var(--foreground)]">Verified sellers</h3>
+              <p className="mt-1 text-xs text-[var(--muted)] leading-relaxed">
+                Prefer sellers with identity verification. New sellers may have limits until they build history.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-10 flex flex-wrap gap-3">
+            <Link
+              href="/messages"
+              className="inline-flex rounded-xl bg-sky-500 px-6 py-3 text-sm font-bold text-white transition hover:bg-sky-400"
+            >
+              Open Messages
+            </Link>
+            <Link
+              href="/"
+              className="inline-flex rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] px-6 py-3 text-sm font-semibold transition hover:border-sky-500/30"
+            >
+              Browse Listings
+            </Link>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
       <Background />

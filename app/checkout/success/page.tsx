@@ -5,10 +5,13 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { auth } from "../../lib/firebase";
 import stripePromise from "../../lib/stripe-client";
+import MessagingFirstSoftBlock from "../../components/MessagingFirstSoftBlock";
+import { isStripeCheckoutVisibleClient } from "../../lib/stripe-checkout-flags";
 
 function SuccessInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const stripeVisible = isStripeCheckoutVisibleClient();
   const [status, setStatus] = useState<"loading" | "done" | "error">("loading");
   const [purchaseData, setPurchaseData] = useState<{ purchaseId: string; orderId: string; conversationId: string; title: string; price: string } | null>(null);
 
@@ -24,6 +27,7 @@ function SuccessInner() {
   const hasRun = useRef(false);
 
   useEffect(() => {
+    if (!stripeVisible) return;
     if (hasRun.current) return;
     hasRun.current = true;
     let cancelled = false;
@@ -121,7 +125,16 @@ function SuccessInner() {
 
     verifyAndDisplay();
     return () => { cancelled = true; };
-  }, [listingId, purchaseId, title, price, badgeForSale, digitalParam, digitalStoragePath, digitalFileName, searchParams]);
+  }, [stripeVisible, listingId, purchaseId, title, price, badgeForSale, digitalParam, digitalStoragePath, digitalFileName, searchParams]);
+
+  if (!stripeVisible) {
+    return (
+      <MessagingFirstSoftBlock
+        title="Checkout unavailable"
+        description="Online checkout is not available in Sky Drop V1. Message the seller to arrange the purchase."
+      />
+    );
+  }
 
   const redirectToMessages = () => {
     const url = purchaseData?.conversationId
