@@ -94,14 +94,37 @@ export default function SignupPage() {
 
   async function handleResendVerification() {
     if (resendDisabled) return;
+    if (!user) {
+      showToast("Please sign in again", "error");
+      return;
+    }
+    setLoading(true);
     try {
-      // Resend verification email logic would go here
-      // For now, just show a toast
+      const token = await user.getIdToken();
+      const res = await fetch("/api/send-verification-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ email: user.email }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 429) {
+          showToast("Too many attempts. Please wait a few minutes.", "error");
+        } else {
+          showToast(data.error || "Failed to resend verification email.", "error");
+        }
+        return;
+      }
       showToast("Verification email resent!", "success");
       setResendDisabled(true);
       setResendTimer(60);
     } catch (error) {
       showToast("Failed to resend verification email.", "error");
+    } finally {
+      setLoading(false);
     }
   }
 
