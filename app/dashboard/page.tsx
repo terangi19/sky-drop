@@ -13,6 +13,7 @@ import { trackChallenge } from "../lib/challenges";
 import { isAdminEmail } from "../lib/admin-check";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
 import { sellerHasStripeConfigured } from "../lib/seller-payments";
+import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
 import { REVIEW_STAR_CLASS } from "../components/SellerReviewStars";
 import BrowseMarketplaceHero from "../components/BrowseMarketplaceHero";
 import { HOME_MARKETPLACE_THEME as t } from "../lib/browse-category-config";
@@ -376,7 +377,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {!sellerHasStripeConfigured(sellerProfile) && (
+        {isStripeCheckoutVisibleClient() && !sellerHasStripeConfigured(sellerProfile) && (
           <div className="mb-5 rounded-2xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-4 sm:px-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>

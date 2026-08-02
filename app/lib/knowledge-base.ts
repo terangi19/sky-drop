@@ -61,8 +61,17 @@ export function matchKnowledge(query: string, docs: KnowledgeDoc[]): KnowledgeDo
 
 export const SEED_KNOWLEDGE: Omit<KnowledgeDoc, "id">[] = [
   {
+    title: "V1 messaging-first buying",
+    content: "Sky Drop V1 is messaging-first. Browse a listing, tap Message Seller, and arrange payment, pickup or delivery directly in chat. Sky Drop does not process online checkout for marketplace listings while Stripe Checkout is disabled. Prefer verified sellers, meet in a public place for physical items, and verify the item before paying. Keep agreements in Messages for a clear record.",
+    category: "payments",
+    tags: ["message seller", "arrange", "v1", "pickup", "meet", "messaging"],
+    keywords: ["message seller", "how to buy", "arrange purchase", "pay outside", "pickup"],
+    priority: 11,
+    updatedAt: Date.now(),
+  },
+  {
     title: "Card Checkout payments",
-    content: "Stripe Checkout lets buyers pay instantly by card. The seller must connect a payout account in Profile → Payment settings. When a buyer clicks Buy Now, they go to secure card checkout. After payment, funds go directly to the seller's connected payout account — Sky Drop never holds the money. A $1 buyer protection fee is added at checkout. Standard Stripe processing fees apply. For Arrange Purchase listings, payment is agreed in Messages (bank transfer, cash, etc.) with no Stripe fees.",
+    content: "When Stripe Checkout is enabled, buyers can pay by card. The seller must connect a payout account in Profile → Payment settings. When a buyer clicks Buy Now, they go to secure card checkout. After payment, funds go directly to the seller's connected payout account — Sky Drop never holds the money. A $1 buyer protection fee is added at checkout. Standard Stripe processing fees apply. For Arrange Purchase / contact listings, payment is agreed in Messages (bank transfer, cash, etc.) with no Stripe fees.",
     category: "payments",
     tags: ["stripe", "checkout", "card", "credit card", "pay", "payment", "buy now"],
     keywords: ["card checkout", "card payment", "buy now", "pay online", "payout account"],
@@ -71,7 +80,7 @@ export const SEED_KNOWLEDGE: Omit<KnowledgeDoc, "id">[] = [
   },
   {
     title: "Arrange Purchase (bank transfer / cash)",
-    content: "Arrange Purchase lets buyers and sellers agree payment off-platform (bank transfer, cash, pickup). The buyer taps 'Purchase' on the listing, which marks it as sold and opens a chat in Messages. The seller can save their bank account name and number in Profile → Payment settings. When saved, the buyer sees bank details in Messages with copy buttons. There are no card fees, no payout account required, and no dispute protection for Arrange purchases. This is best for local pickup, large items, or when buyer and seller already trust each other.",
+    content: "Arrange Purchase / Message Seller lets buyers and sellers agree payment off-platform (bank transfer, cash, pickup). In V1, Message Seller is the primary CTA. Agree terms in Messages. Prefer meeting in a public place and verifying the item before paying. There are no card fees and no platform escrow. Keep communication on Sky Drop so there is a record if something goes wrong.",
     category: "payments",
     tags: ["arrange", "bank transfer", "cash", "pickup", "off-platform", "bank deposit"],
     keywords: ["arrange purchase", "bank transfer", "pay by bank", "cash payment", "local pickup"],
@@ -125,10 +134,10 @@ export const SEED_KNOWLEDGE: Omit<KnowledgeDoc, "id">[] = [
   },
   {
     title: "Buying an item (Card Checkout)",
-    content: "When you click Buy Now on a Stripe Checkout listing, you go to a secure checkout page where you enter your card details. A $1 buyer protection fee is added. After payment, the order appears in Purchases with status 'Pending'. The seller confirms the order → 'Confirmed'. The seller marks as shipped → 'Shipped'. You receive the item, inspect it, and confirm delivery → 'Delivered'. You can then leave a review. If you don't confirm delivery within 7 days, it auto-confirms. You can open a dispute within 7 days of delivery for Stripe Checkout purchases. For Arrange Purchase, payment is agreed directly in Messages and no Stripe checkout is involved.",
+    content: "In V1, Message Seller is the primary way to buy — agree payment and pickup in chat. When Stripe Checkout is enabled on a listing, Buy Now opens secure card checkout with a $1 buyer protection fee; after payment the order appears in Purchases. For contact / Arrange Purchase listings, payment is agreed directly in Messages and no Stripe checkout is involved. Reviews are available after the order is delivered or completed.",
     category: "buying",
-    tags: ["buy", "purchase", "order", "checkout", "stripe", "card", "shipping"],
-    keywords: ["how to buy", "make a purchase", "buy an item", "checkout process", "order status"],
+    tags: ["buy", "purchase", "order", "checkout", "stripe", "card", "shipping", "message seller"],
+    keywords: ["how to buy", "make a purchase", "buy an item", "checkout process", "order status", "message seller"],
     priority: 9,
     updatedAt: Date.now(),
   },
@@ -161,7 +170,7 @@ export const SEED_KNOWLEDGE: Omit<KnowledgeDoc, "id">[] = [
   },
   {
     title: "Reviews and ratings",
-    content: "Only verified buyers who completed a Card Checkout purchase can leave a review. The review prompt appears after delivery is confirmed. Reviews are 1-5 stars with optional text. They appear on seller profiles and listing pages. The seller rating shows as an average with count (e.g. ★ 4.2 · 15 reviews). If there are no reviews yet, it shows 'No reviews'. Reviews cannot be edited after submission. Higher ratings improve seller trust signals.",
+    content: "Reviews use the completed-transaction model. After an order reaches delivered, completed, or returned (Arrange Purchase or Stripe), the buyer and seller may each leave one review. Unauthorized users, duplicate reviews, self-reviews, and unrelated parties are rejected. Reviews are 1-5 stars with optional text. They appear on seller profiles. Reviews cannot be edited after submission.",
     category: "general",
     tags: ["review", "rating", "feedback", "star", "review seller"],
     keywords: ["leave a review", "seller rating", "rate a seller", "feedback", "reviews"],
@@ -197,7 +206,7 @@ export const SEED_KNOWLEDGE: Omit<KnowledgeDoc, "id">[] = [
   },
   {
     title: "About Sky Drop — who we are",
-    content: "Sky Drop is a New Zealand-owned community marketplace (skydrop.co.nz) for Kiwis to buy and sell locally and nationwide. Not an auction site — sellers list at a clear NZD price. How it works: browse → message seller → buy (Stripe Checkout or Arrange Purchase) → leave a review. Mission: simple, safe, modern marketplace; fees shown upfront at checkout. Stripe Checkout: card payment, $1 buyer protection fee, disputes within 7 days. Arrange Purchase: agree payment in Messages (bank/cash/pickup), no Stripe processing fees; ID-verified sellers — buyers can email support@skydrop.co.nz if item doesn't arrive. Also covers moderation, messaging safety, NZ-owned, built-in Messages, reviews, watchlist, and Āwhina. Full overview: /about. Questions: support@skydrop.co.nz.",
+    content: "Sky Drop is a New Zealand-owned community marketplace (skydrop.co.nz) for Kiwis to buy and sell locally and nationwide. Not an auction site — sellers list at a clear NZD price. How it works in V1: browse → Message Seller → agree payment/pickup in chat → leave a review after a completed transaction. Mission: simple, safe, modern marketplace. Sky Drop does not process listing payments in V1; Stripe Checkout remains recoverable behind flags for V2. Prefer ID-verified sellers. Full overview: /about. Questions: support@skydrop.co.nz.",
     category: "general",
     tags: ["about", "who", "created", "founder", "built", "sky drop", "company", "mission"],
     keywords: ["who created sky drop", "who made sky drop", "who built sky drop", "who owns sky drop", "about sky drop", "what is sky drop"],
@@ -206,7 +215,7 @@ export const SEED_KNOWLEDGE: Omit<KnowledgeDoc, "id">[] = [
   },
   {
     title: "Fees and costs",
-    content: "Listing on Sky Drop is free. Optional paid boost costs $5 for ~7 days of top search placement. For Stripe Checkout purchases, standard Stripe processing fees apply and a $1 buyer protection fee is added. Arrange Purchase transactions have no Stripe processing fees — payment is agreed directly in Messages. There are no monthly subscription fees or membership costs.",
+    content: "Listing on Sky Drop is free. Optional paid boost costs $5 for ~7 days of top search placement. V1 marketplace transactions are arranged in Messages with no Stripe processing fees. When Stripe Checkout is enabled, standard Stripe processing fees apply and a $1 buyer protection fee is added. There are no monthly subscription fees or membership costs.",
     category: "general",
     tags: ["fee", "cost", "price", "boost", "listing fee", "commission"],
     keywords: ["how much does it cost", "fees", "listing fees", "boost cost", "processing fee"],

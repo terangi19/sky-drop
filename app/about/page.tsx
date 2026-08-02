@@ -3,8 +3,12 @@
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
+import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
+import { V1_ARRANGE_SAFETY_ONE_LINER } from "../lib/conversation-safety";
 
 export default function AboutPage() {
+  const stripeVisible = isStripeCheckoutVisibleClient();
+
   return (
     <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <Background /><Navbar /><div className="relative z-10 mx-auto max-w-3xl px-6 py-10">
@@ -36,7 +40,11 @@ export default function AboutPage() {
           <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-6">
             <h2 className="text-sm font-bold text-[var(--foreground)]">Our Mission</h2>
             <p className="mt-2 text-sm text-[var(--muted)] leading-relaxed">
-              Sky Drop is a New Zealand marketplace built on transparency, trust, and fairness. We believe buying and selling should be straightforward — list at a clear price, message the seller directly, and choose the payment method that works for you, whether that&apos;s Stripe Checkout or Arrange Purchase. Any fees are disclosed upfront before you complete a transaction, never hidden in fine print. Our mission is to provide Kiwis with a modern, secure, and honest platform to trade with confidence.
+              Sky Drop is a New Zealand marketplace built on transparency, trust, and fairness. We believe buying and selling should be straightforward — list at a clear price, message the seller directly, and{" "}
+              {stripeVisible
+                ? "choose the payment method that works for you, whether that's Stripe Checkout or Arrange Purchase. Any fees are disclosed upfront before you complete a transaction, never hidden in fine print."
+                : "arrange payment, pickup or delivery directly in Messages. Sky Drop does not process listing payments in V1."}{" "}
+              Our mission is to provide Kiwis with a modern, secure, and honest platform to trade with confidence.
             </p>
           </div>
 
@@ -47,8 +55,14 @@ export default function AboutPage() {
               {[
                 { step: "1", title: "Browse or Search", desc: "Find what you need across categories like Cars, Tech, Gaming, Fashion, Home, Sports, and more." },
                 { step: "2", title: "Message the Seller", desc: "Ask questions, negotiate, or arrange pickup — all through the built-in messaging system." },
-                { step: "3", title: "Buy with Confidence", desc: "Pay with Stripe Checkout on supported listings, or use Arrange Purchase to agree payment directly in chat." },
-                { step: "4", title: "Leave a Review", desc: "Help the community by rating your experience. Only verified buyers can leave reviews." },
+                {
+                  step: "3",
+                  title: stripeVisible ? "Buy with Confidence" : "Arrange in chat",
+                  desc: stripeVisible
+                    ? "Pay with Stripe Checkout on supported listings, or use Arrange Purchase to agree payment directly in chat."
+                    : "Agree on payment, pickup or delivery directly with the seller in Messages.",
+                },
+                { step: "4", title: "Leave a Review", desc: "After a completed transaction, leave a review to help the community." },
               ].map((item) => (
                 <div key={item.step} className="flex gap-3">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-500/20 text-sm font-bold text-sky-400">{item.step}</div>
@@ -66,9 +80,9 @@ export default function AboutPage() {
                 { icon: "🇳🇿", title: "New Zealand Owned", desc: "Built for Kiwis, by Kiwis. All prices in NZD." },
                 { icon: "🤖", title: "AI-Powered Listing", desc: "Āwhina helps you create professional listings in seconds. Describe what you're selling and she fills in the details." },
                 { icon: "🪪", title: "Verified Sellers", desc: "Sellers complete identity verification before listing. This helps prevent fraud and ensures buyers are dealing with real, accountable people." },
-                { icon: "🔒", title: "Flexible Payments", desc: "Stripe Checkout on-platform with dispute protection, or Arrange Purchase when you prefer bank transfer or cash." },
-                { icon: "💬", title: "Built-in Messaging", desc: "Chat with buyers and sellers without leaving the platform. All communication stays on Sky Drop for your protection." },
-                { icon: "💰", title: "Transparent Pricing", desc: "Free to list today. Buyer and platform fees (when they apply) are shown clearly at checkout." },
+                { icon: "🔒", title: stripeVisible ? "Flexible Payments" : "Messaging-first deals", desc: stripeVisible ? "Stripe Checkout on-platform with dispute protection, or Arrange Purchase when you prefer bank transfer or cash." : "Message Seller to arrange purchase in chat. Agree on pickup, delivery and payment directly." },
+                { icon: "💬", title: "Built-in Messaging", desc: "Chat with buyers and sellers without leaving the platform. Keep agreements on Sky Drop for a clear record." },
+                { icon: "💰", title: "Transparent Pricing", desc: stripeVisible ? "Free to list today. Buyer and platform fees (when they apply) are shown clearly at checkout." : "Free to list. V1 marketplace transactions are arranged directly between buyer and seller." },
               ].map((item) => (
                 <div key={item.title} className="flex gap-3"><span className="text-lg">{item.icon}</span><div><p className="text-sm font-bold text-[var(--foreground)]">{item.title}</p><p className="text-xs text-[var(--muted)]">{item.desc}</p></div></div>
               ))}
@@ -79,18 +93,33 @@ export default function AboutPage() {
           <div className="rounded-xl border border-sky-500/10 bg-gradient-to-b from-sky-500/[0.03] to-transparent p-6">
             <div className="flex items-center gap-2 mb-4">
               <span className="text-lg">🛡️</span>
-              <h2 className="text-sm font-bold text-[var(--foreground)]">How Payments & Protection Work</h2>
+              <h2 className="text-sm font-bold text-[var(--foreground)]">{stripeVisible ? "How Payments & Protection Work" : "How buying works in V1"}</h2>
             </div>
-            <p className="text-xs text-[var(--muted)] mb-4">Sellers choose how buyers pay when listing an item. All card payments go directly to the seller&apos;s Stripe Express account — Sky Drop never holds your money.</p>
+            <p className="text-xs text-[var(--muted)] mb-4">
+              {stripeVisible
+                ? "Sellers choose how buyers pay when listing an item. All card payments go directly to the seller's Stripe Express account — Sky Drop never holds your money."
+                : "Sky Drop V1 does not process online checkout for marketplace listings. Message the seller to arrange the purchase."}
+            </p>
             <div className="space-y-4">
-              <div className="rounded-lg bg-zinc-900/40 px-4 py-3">
-                <p className="text-sm font-bold text-sky-400">💳 Stripe Checkout</p>
-                <p className="mt-1 text-xs text-[var(--muted)]">Pay by card with a $1 buyer protection fee. Funds go straight to the seller&apos;s Stripe Express account. Disputes handled from your Purchases page within 7 days.</p>
-              </div>
+              {stripeVisible ? (
+                <div className="rounded-lg bg-zinc-900/40 px-4 py-3">
+                  <p className="text-sm font-bold text-sky-400">💳 Stripe Checkout</p>
+                  <p className="mt-1 text-xs text-[var(--muted)]">Pay by card with a $1 buyer protection fee. Funds go straight to the seller&apos;s Stripe Express account. Disputes handled from your Purchases page within 7 days.</p>
+                </div>
+              ) : (
+                <div className="rounded-lg bg-zinc-900/40 px-4 py-3">
+                  <p className="text-sm font-bold text-sky-400">💬 Message Seller</p>
+                  <p className="mt-1 text-xs text-[var(--muted)]">{V1_ARRANGE_SAFETY_ONE_LINER}</p>
+                </div>
+              )}
 
               <div className="rounded-lg bg-zinc-900/40 px-4 py-3">
                 <p className="text-sm font-bold text-sky-400">🤝 Arrange Purchase</p>
-                <p className="mt-1 text-xs text-[var(--muted)]">Tap Purchase to open a chat and agree payment — bank transfer, cash, or pickup. Payment happens directly between you and the seller. Keep communication on Sky Drop so we can review evidence if something goes wrong.</p>
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  {stripeVisible
+                    ? "Tap Purchase to open a chat and agree payment — bank transfer, cash, or pickup. Payment happens directly between you and the seller. Keep communication on Sky Drop so we can review evidence if something goes wrong."
+                    : "Open Messages, agree terms with the seller, and complete payment outside Sky Drop. Keep the conversation here for a clear record."}
+                </p>
               </div>
 
               <div className="rounded-lg bg-zinc-900/40 px-4 py-3">
@@ -114,8 +143,12 @@ export default function AboutPage() {
               </div>
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
-              <Link href="/buyer-protection" className="rounded-lg border border-sky-500/20 bg-sky-500/10 px-3 py-1.5 text-[11px] font-bold text-sky-400 transition hover:bg-sky-500/20">Buyer Protection →</Link>
-              <Link href="/payments" className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-[11px] font-bold text-[var(--muted)] transition hover:text-[var(--foreground)]">Payment Details →</Link>
+              <Link href="/buyer-protection" className="rounded-lg border border-sky-500/20 bg-sky-500/10 px-3 py-1.5 text-[11px] font-bold text-sky-400 transition hover:bg-sky-500/20">{stripeVisible ? "Buyer Protection →" : "Stay Safe →"}</Link>
+              {stripeVisible ? (
+                <Link href="/payments" className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-[11px] font-bold text-[var(--muted)] transition hover:text-[var(--foreground)]">Payment Details →</Link>
+              ) : (
+                <Link href="/messages" className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-[11px] font-bold text-[var(--muted)] transition hover:text-[var(--foreground)]">Open Messages →</Link>
+              )}
               <Link href="/faqs" className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-[11px] font-bold text-[var(--muted)] transition hover:text-[var(--foreground)]">FAQs →</Link>
               <Link href="/terms" className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-[11px] font-bold text-[var(--muted)] transition hover:text-[var(--foreground)]">Terms →</Link>
               <Link href="/privacy" className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-[11px] font-bold text-[var(--muted)] transition hover:text-[var(--foreground)]">Privacy →</Link>
