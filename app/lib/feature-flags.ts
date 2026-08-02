@@ -18,6 +18,27 @@ export const FEATURE_FLAGS: Record<string, FeatureFlag> = {
     userWhitelist: [], // Add specific users for testing
     metricsEnabled: true,
   },
+  
+  // V1: Disable Stripe Checkout (use Arrange Purchase / Message Seller instead)
+  DISABLE_STRIPE_CHECKOUT_V1: {
+    enabled: true,
+    rolloutPercentage: 100, // All users in V1
+    metricsEnabled: false,
+  },
+  
+  // V1: Disable Buy Now buttons (use Message Seller instead)
+  DISABLE_BUY_NOW_V1: {
+    enabled: true,
+    rolloutPercentage: 100, // All users in V1
+    metricsEnabled: false,
+  },
+  
+  // V1: Disable Stripe onboarding screens
+  DISABLE_STRIPE_ONBOARDING_V1: {
+    enabled: true,
+    rolloutPercentage: 100, // All users in V1
+    metricsEnabled: false,
+  },
 };
 
 /**

@@ -52,6 +52,7 @@ import {
   sellerProfileSlug,
 } from "../../../lib/public-display";
 import { MOBILE_STICKY_CTA } from "../../../lib/page-layout";
+import { isFeatureEnabled } from "../../../lib/feature-flags";
 
 function getBidIncrement(price: number): number {
   if (price < 50) return 1;
@@ -219,19 +220,24 @@ export default function ListingPage() {
       serverPaymentType?: string | null;
     }
   ) {
-    const serverStripe =
-      trace.serverPaymentType === "stripe" ||
-      authoritativePaymentTypeRef.current === "stripe" ||
-      checkoutPaymentType === "stripe";
+    // V1: Always use ArrangePurchaseModal when Stripe is disabled
+    if (stripeDisabledV1) {
+      modal = "ArrangePurchaseModal";
+    } else {
+      const serverStripe =
+        trace.serverPaymentType === "stripe" ||
+        authoritativePaymentTypeRef.current === "stripe" ||
+        checkoutPaymentType === "stripe";
 
-    if (modal === "ArrangePurchaseModal" && serverStripe) {
-      logPurchaseFlow("modal-blocked", {
-        attempted: "ArrangePurchaseModal",
-        reason: "server/ref paymentType is stripe",
-        source,
-        ...trace,
-      });
-      modal = "CheckoutModal";
+      if (modal === "ArrangePurchaseModal" && serverStripe) {
+        logPurchaseFlow("modal-blocked", {
+          attempted: "ArrangePurchaseModal",
+          reason: "server/ref paymentType is stripe",
+          source,
+          ...trace,
+        });
+        modal = "CheckoutModal";
+      }
     }
 
     logPurchaseFlow("modal-chosen", { modal, source, ...trace });
@@ -278,6 +284,10 @@ export default function ListingPage() {
   }
 
   const buyAutoOpenedRef = useRef(false);
+  
+  // V1: Check if Stripe is disabled
+  const stripeDisabledV1 = isFeatureEnabled("DISABLE_STRIPE_CHECKOUT_V1");
+  const buyNowDisabledV1 = isFeatureEnabled("DISABLE_BUY_NOW_V1");
 
   async function openPurchaseFlow(source: string) {
     if (!user?.email || !listing) return;
@@ -1908,17 +1918,17 @@ Property Status: 🟢 Inquiry Active`;
                         e.stopPropagation();
                         void openPurchaseFlow("primary-desktop");
                       }}
-                      title={purchaseButtonTitle(effectivePaymentType)}
+                      title={stripeDisabledV1 ? "Message Seller" : purchaseButtonTitle(effectivePaymentType)}
                       className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-5 text-base font-bold text-white shadow-xl shadow-sky-500/25 transition-all duration-200 hover:shadow-2xl hover:shadow-sky-500/35 hover:brightness-110 active:scale-[0.98]"
                     >
                       <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        {isContactListing ? (
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        {stripeDisabledV1 || isContactListing ? (
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9 8s9 3.582 9 8z" />
                         ) : (
                           <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                         )}
                       </svg>
-                      {primaryPurchaseLabel({
+                      {stripeDisabledV1 ? "Message Seller" : primaryPurchaseLabel({
                         paymentType: effectivePaymentType,
                         price: listing.price,
                         pricingType: listing.pricingType as string | undefined,
@@ -1926,7 +1936,7 @@ Property Status: 🟢 Inquiry Active`;
                       })}
                     </button>
                     <p className="mt-2 text-center text-[10px] leading-relaxed text-[var(--muted)]">
-                      {purchaseButtonTitle(effectivePaymentType)}
+                      {stripeDisabledV1 ? "Arrange payment and delivery in Messages" : purchaseButtonTitle(effectivePaymentType)}
                     </p>
                   </div>
 
@@ -1964,8 +1974,8 @@ Property Status: 🟢 Inquiry Active`;
                     </button>
                   </div>
 
-                  {/* SECURE PAYMENT INFO CARD */}
-                  {(listing as any).paymentType !== "contact" && (
+                  {/* SECURE PAYMENT INFO CARD - Hidden in V1 */}
+                  {!stripeDisabledV1 && (listing as any).paymentType !== "contact" && (
                     <div className="rounded-lg border border-sky-500/10 bg-sky-500/5 px-4 py-3">
                       <div className="flex items-start gap-3">
                         <div className="flex-shrink-0 mt-0.5">
@@ -2621,7 +2631,7 @@ Service Status: 🟢 Inquiry Active`;
         </section>
       )}
 
-      {showCheckout && user?.email && listing.pricingType !== "quote" && (
+      {showCheckout && !stripeDisabledV1 && user?.email && listing.pricingType !== "quote" && (
         <CheckoutModal
           listing={{ ...listing, rentalDays, pickupDate, returnDate }}
           buyerEmail={user.email}
@@ -2686,10 +2696,10 @@ Service Status: 🟢 Inquiry Active`;
             <>
               <button
                 onClick={() => void openPurchaseFlow("sticky-mobile")}
-                title={purchaseButtonTitle(effectivePaymentType)}
+                title={stripeDisabledV1 ? "Message Seller" : purchaseButtonTitle(effectivePaymentType)}
                 className="flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 active:scale-[0.98]"
               >
-                {primaryPurchaseLabel({
+                {stripeDisabledV1 ? "Message Seller" : primaryPurchaseLabel({
                   paymentType: effectivePaymentType,
                   price: listing.price,
                   pricingType: listing.pricingType as string | undefined,
