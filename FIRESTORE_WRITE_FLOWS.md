@@ -159,7 +159,7 @@ These operations must go through API routes for security, validation, or complex
 4. **Optimistic UI**: Updates that need immediate feedback
 
 ### When to Use API Routes:
-1. **Financial operations**: Payments, purchases, escrow
+1. **Financial operations**: Payments, purchases, refunds
 2. **Security-sensitive**: KYC, verification, admin actions
 3. **Complex validation**: Multi-step business logic
 4. **External integrations**: Stripe, SMS, email

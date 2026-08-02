@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.autoReleaseEscrow = exports.onReportCreated = exports.onMessageCreated = exports.onListingCreated = exports.onListingUpdated = void 0;
+exports.onReportCreated = exports.onMessageCreated = exports.onListingCreated = exports.onListingUpdated = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const admin = __importStar(require("firebase-admin"));

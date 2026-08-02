@@ -254,7 +254,7 @@
 ### P0: No explanation of what Arrange Purchase is
 **Evidence:** No onboarding or help text about this feature
 **User Impact:** Users don't understand when to use this vs regular payment
-**Recommended Fix:** Add tooltip or help text: "Arrange Purchase allows you to pay outside Sky Drop while still using our escrow protection"
+**Recommended Fix:** Add tooltip or help text: "Arrange Purchase allows you to pay outside Sky Drop while still using our messaging and dispute resolution features"
 **Code Location:** Where Arrange Purchase option appears
 
 ---

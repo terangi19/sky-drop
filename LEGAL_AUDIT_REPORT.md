@@ -192,19 +192,10 @@ A comprehensive audit was conducted on all legal, help, and policy pages linked 
 
 **Content Review After Fix:**
 - Consistent terminology throughout
-- No escrow mentions
 - No remaining KYC terminology
 - Trust score system clearly explained
 - Account progression rules are clear
 - Professional tone maintained
-
----
-
-## Escrow Audit
-
-**Search Results:** No mentions of "escrow" found in any reviewed pages.
-
-**Status:** ✅ PASS - No escrow references to remove
 
 ---
 

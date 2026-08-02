@@ -35,7 +35,7 @@ const emails = [
     subject: "1/8 — Welcome to Sky Drop",
     html: buildHtml({
       title: "Welcome to Sky Drop!",
-      message: "Hi there,\n\nThanks for joining **Sky Drop** — New Zealand's community marketplace.\n\nHere's how to get started:\n\n• **Browse listings** — Find what you need across 8 categories\n• **List an item** — Post your first listing for free\n• **Buy with confidence** — All payments protected by escrow\n\nYour account is ready. Now go explore.",
+      message: "Hi there,\n\nThanks for joining **Sky Drop** — New Zealand's community marketplace.\n\nHere's how to get started:\n\n• **Browse listings** — Find what you need across 8 categories\n• **List an item** — Post your first listing for free\n• **Buy with confidence** — Secure payments through Stripe Checkout or arrange directly with sellers\n\nYour account is ready. Now go explore.",
       ctas: [{ label: "Browse Listings", url: BASE_URL, primary: true }],
     }),
   },
@@ -71,14 +71,14 @@ const emails = [
     html: buildHtml({
       title: "Item Sold! 🎉",
       badge: { bg: "#0a1f12", text: "#10b981", border: "#1a3a22", icon: "✓", label: "Sold" },
-      message: "Great news! **Toyota Corolla 2020** has been purchased for **$9,200**.\n\nThe buyer's payment is being held securely in escrow.",
+      message: "Great news! **Toyota Corolla 2020** has been purchased for **$9,200**.\n\nThe buyer has completed payment through Stripe Checkout.",
       summaryRows: [
         { label: "Listing", value: "Toyota Corolla 2020" },
         { label: "Sale price", value: "$9,200", highlight: true },
         { label: "Buyer", value: "j****n@gmail.com" },
         { label: "Order ID", value: "SD-7F3K2P" },
       ],
-      steps: ["Confirm the order to notify the buyer", "Coordinate delivery or pickup with the buyer", "Payment is released after buyer confirms receipt", "Funds are transferred to your Stripe account"],
+      steps: ["Confirm the order to notify the buyer", "Coordinate delivery or pickup with the buyer", "Payment is processed through Stripe", "Funds are transferred to your Stripe account"],
       ctas: [
         { label: "Open Sales", url: `${BASE_URL}/sales`, primary: true },
         { label: "Open Messages", url: `${BASE_URL}/messages` },
@@ -108,7 +108,7 @@ const emails = [
       message: "A dispute has been opened for **Sony WH-1000XM4 Headphones**.\n\nAn admin will review the case and contact both parties. You can expect a response within 48 hours.",
       summaryRows: [
         { label: "Listing", value: "Sony WH-1000XM4 Headphones" },
-        { label: "Amount in escrow", value: "$320.00", highlight: true },
+        { label: "Amount", value: "$320.00", highlight: true },
         { label: "Status", value: "Under Review" },
       ],
       steps: ["An admin will review the case details", "Both parties may be contacted for more information", "A decision will be made within 48 hours"],

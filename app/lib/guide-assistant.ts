@@ -258,7 +258,7 @@ export const GUIDE_DESTINATIONS: GuideDestination[] = [
     id: "payments",
     title: "Payments",
     path: "/payments",
-    keywords: ["payments", "payment methods", "how to pay", "escrow", "secure payment", "held payment"],
+    keywords: ["payments", "payment methods", "how to pay", "stripe connect", "payout", "get paid"],
     blurb: "Learn how Stripe Checkout and Arrange Purchase work.",
   },
   {

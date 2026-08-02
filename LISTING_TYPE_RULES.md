@@ -68,7 +68,7 @@ Digital products and online services delivered remotely (software, templates, e-
 
 ### Available Payment Types
 - **Arrange Purchase** (contact): Default
-- **Stripe Checkout**: Card payment with escrow
+- **Stripe Checkout**: Card payment through Stripe Connect
 
 ### Sale Types
 - **Buy Now** only (no auctions)

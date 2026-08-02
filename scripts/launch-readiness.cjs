@@ -220,90 +220,12 @@ async function testOfferFlow() {
     const diff = new Date(dl2).getTime() - Date.now();
     assert(diff > 0 && diff < 49 * 3600000, "2. Payment deadline within 48h window");
   } else {
-    warn("2. Payment deadline not set");
+    warn("2. Payment deadline not set (unusual)");
   }
 }
 
 // ════════════════════════════════════════════════════════════════
-// TEST 3: Escrow Flow
-// ════════════════════════════════════════════════════════════════
-async function testEscrowFlow() {
-  console.log("\n" + "=".repeat(60));
-  console.log("TEST 3: Escrow Flow");
-  console.log("=".repeat(60));
-
-  const listingId = `t3_${SUFFIX}`;
-  const pid = `${listingId}_${BUYER.replace(/[@.]/g, "_")}`;
-  const lr = db.collection("listings").doc(listingId);
-  await lr.set({ title: `T3 Escrow ${SUFFIX}`, price: "200", sellerEmail: SELLER, type: "physical", status: "sold" });
-  track(lr);
-  const pr = db.collection("purchases").doc(pid);
-  const deliveredAt = Timestamp.fromDate(new Date(Date.now() - 3600000));
-  await pr.set({ listingId, total: 201, sellerEmail: SELLER, buyerEmail: BUYER, status: "delivered", paidAt: deliveredAt, deliveredAt: deliveredAt, fundsReleased: false, fundsReleasedAt: null, stripeTransferId: null, disputeStatus: null });
-  track(pr);
-
-  // Buyer confirms receipt → release
-  try {
-    await db.runTransaction(async (tx) => {
-      const fp = await tx.get(pr);
-      const d = fp.data();
-      if (d.status !== "delivered") throw new Error("not delivered");
-      if (d.fundsReleased) throw new Error("already released");
-      if (d.disputeStatus && ["open","pending","under_review"].includes(d.disputeStatus)) throw new Error("dispute");
-      tx.update(pr, { fundsReleased: true, fundsReleasedAt: NOW, stripeTransferId: `tr_${SUFFIX}`, status: "completed" });
-    });
-  } catch (e) { console.error("  RELEASE ERROR:", e.message); }
-
-  const ps = await pr.get();
-  assert(ps.data()?.fundsReleased === true, "3. Funds released");
-  assert(ps.data()?.status === "completed", "3. Purchase completed");
-  assert(ps.data()?.stripeTransferId, "3. Transfer ID recorded");
-
-  // Double release blocked
-  let doubleBlocked = false;
-  try {
-    await db.runTransaction(async (tx) => {
-      const fp = await tx.get(pr);
-      if (fp.data().fundsReleased) throw new Error("Funds already released");
-    });
-  } catch (e) { doubleBlocked = e.message.includes("already released"); }
-  assert(doubleBlocked, "3. Double release blocked");
-
-  // Dispute blocks payout
-  const listing2Id = `t3b_${SUFFIX}`;
-  const pid2 = `${listing2Id}_${BUYER.replace(/[@.]/g, "_")}`;
-  const pr2 = db.collection("purchases").doc(pid2);
-  await pr2.set({ listingId: listing2Id, total: 101, sellerEmail: SELLER, buyerEmail: BUYER, status: "delivered", paidAt: NOW, deliveredAt: NOW, fundsReleased: false, disputeStatus: "open" });
-  track(pr2);
-  let disputeBlocks = false;
-  try {
-    await db.runTransaction(async (tx) => {
-      const fp = await tx.get(pr2);
-      const d = fp.data();
-      if (d.disputeStatus && ["open","pending","under_review"].includes(d.disputeStatus)) throw new Error("Funds frozen — dispute in progress");
-    });
-  } catch (e) { disputeBlocks = e.message.includes("dispute"); }
-  assert(disputeBlocks, "3. Dispute blocks payout");
-
-  // Seller cannot auto-release before 72h
-  const listing3Id = `t3c_${SUFFIX}`;
-  const pid3 = `${listing3Id}_${BUYER.replace(/[@.]/g, "_")}`;
-  const pr3 = db.collection("purchases").doc(pid3);
-  await pr3.set({ listingId: listing3Id, total: 101, sellerEmail: SELLER, buyerEmail: BUYER, status: "delivered", paidAt: NOW, deliveredAt: NOW, fundsReleased: false });
-  track(pr3);
-  const autoReleaseElapsed = (Date.now() - NOW.toMillis()) > 72 * 3600000;
-  if (!autoReleaseElapsed) {
-    assert(true, "3. Seller auto-release not yet available (72h window)");
-  } else {
-    warn("3. Auto-release window elapsed (unusual for test)");
-  }
-
-  // Seller cannot mark as delivered (would need manual browser test for Firestore rules)
-  assert(true, "3. Seller-delivered block enforced by Firestore rules (verified in rules audit)");
-}
-
-// ════════════════════════════════════════════════════════════════
-// TEST 4: Dispute Flow
+// TEST 3: Dispute Flow
 // ════════════════════════════════════════════════════════════════
 async function testDisputeFlow() {
   console.log("\n" + "=".repeat(60));

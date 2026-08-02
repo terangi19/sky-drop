@@ -356,8 +356,7 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
     title: "Payments",
     aliases: [
       "payments", "payment methods", "how to pay",
-      "escrow", "secure payment", "held payment",
-      "escrow service", "payment protection",
+      "stripe connect", "payout", "get paid",
     ],
   },
 
