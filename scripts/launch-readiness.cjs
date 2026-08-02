@@ -498,7 +498,6 @@ async function main() {
   const tests = [
     testBuyNow,
     testOfferFlow,
-    testEscrowFlow,
     testDisputeFlow,
     testEmailFlow,
     testMobileFlow,

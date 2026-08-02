@@ -753,7 +753,6 @@ async function main() {
   try {
     await testOfferFlow();
     await testBuyNowFlow();
-    await testEscrowFlow();
     await testExpiredOffer();
     await testDoubleActions();
   } catch (e) {

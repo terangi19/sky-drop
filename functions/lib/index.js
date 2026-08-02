@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onReportCreated = exports.onMessageCreated = exports.onListingCreated = exports.onListingUpdated = void 0;
+exports.cleanupOldData = exports.autoReleaseFunds = exports.onReportCreated = exports.onMessageCreated = exports.onListingCreated = exports.onListingUpdated = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const admin = __importStar(require("firebase-admin"));
@@ -54,7 +54,7 @@ async function createNotification(input) {
     const doc = Object.assign(Object.assign({}, input), { read: false, createdAt: admin.firestore.FieldValue.serverTimestamp() });
     await db.collection("notifications").add(doc);
 }
-exports.onListingUpdated = (0, firestore_1.onDocumentUpdated)({ document: "listings/{listingId}", region: "asia-southeast1" }, async (event) => {
+exports.onListingUpdated = (0, firestore_1.onDocumentUpdated)("listings/{listingId}", async (event) => {
     var _a, _b, _c, _d, _e;
     const before = (_b = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before) === null || _b === void 0 ? void 0 : _b.data();
     const after = (_d = (_c = event.data) === null || _c === void 0 ? void 0 : _c.after) === null || _d === void 0 ? void 0 : _d.data();
@@ -88,7 +88,7 @@ exports.onListingUpdated = (0, firestore_1.onDocumentUpdated)({ document: "listi
         }
     }
 });
-exports.onListingCreated = (0, firestore_1.onDocumentCreated)({ document: "listings/{listingId}", region: "asia-southeast1" }, async (event) => {
+exports.onListingCreated = (0, firestore_1.onDocumentCreated)("listings/{listingId}", async (event) => {
     var _a, _b;
     const data = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
     const listingId = event.params.listingId;
@@ -130,7 +130,7 @@ exports.onListingCreated = (0, firestore_1.onDocumentCreated)({ document: "listi
         console.error("[onListingCreated] Saved-search notification failed:", e);
     }
 });
-exports.onMessageCreated = (0, firestore_1.onDocumentCreated)({ document: "messages/{messageId}", region: "asia-southeast1" }, async (event) => {
+exports.onMessageCreated = (0, firestore_1.onDocumentCreated)("messages/{messageId}", async (event) => {
     var _a;
     const data = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
     if (!data)
@@ -165,7 +165,7 @@ exports.onMessageCreated = (0, firestore_1.onDocumentCreated)({ document: "messa
     }
 });
 // Auto-hide listings when they receive multiple verified reports
-exports.onReportCreated = (0, firestore_1.onDocumentCreated)({ document: "reports/{reportId}", region: "asia-southeast1" }, async (event) => {
+exports.onReportCreated = (0, firestore_1.onDocumentCreated)("reports/{reportId}", async (event) => {
     var _a;
     const data = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
     if (!data || data.status !== "pending")
@@ -207,7 +207,7 @@ exports.onReportCreated = (0, firestore_1.onDocumentCreated)({ document: "report
     }
 });
 // Auto-release funds 14 days after delivery if no dispute
-exports.autoReleaseFunds = (0, scheduler_1.onSchedule)({ schedule: "every 24 hours", region: "asia-southeast1" }, async () => {
+exports.autoReleaseFunds = (0, scheduler_1.onSchedule)("every 24 hours", async () => {
     const cutoff = admin.firestore.Timestamp.fromMillis(Date.now() - 14 * 24 * 60 * 60 * 1000);
     try {
         const snapshot = await db
@@ -232,6 +232,45 @@ exports.autoReleaseFunds = (0, scheduler_1.onSchedule)({ schedule: "every 24 hou
     }
     catch (e) {
         console.error("[autoReleaseFunds] Failed:", e);
+    }
+});
+// Automatic cleanup of old notifications and logs (30 days)
+exports.cleanupOldData = (0, scheduler_1.onSchedule)("every 24 hours", async () => {
+    const cutoff = admin.firestore.Timestamp.fromMillis(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    try {
+        // Clean up old notifications
+        const notificationsSnap = await db
+            .collection("notifications")
+            .where("createdAt", "<", cutoff)
+            .limit(1000)
+            .get();
+        const batch = db.batch();
+        notificationsSnap.docs.forEach(doc => batch.delete(doc.ref));
+        await batch.commit();
+        console.log("[cleanupOldData] Deleted old notifications:", notificationsSnap.size);
+        // Clean up old security events
+        const securitySnap = await db
+            .collection("securityEvents")
+            .where("timestamp", "<", cutoff)
+            .limit(1000)
+            .get();
+        const batch2 = db.batch();
+        securitySnap.docs.forEach(doc => batch2.delete(doc.ref));
+        await batch2.commit();
+        console.log("[cleanupOldData] Deleted old security events:", securitySnap.size);
+        // Clean up old admin notifications
+        const adminNotifSnap = await db
+            .collection("adminNotifications")
+            .where("createdAt", "<", cutoff)
+            .limit(500)
+            .get();
+        const batch3 = db.batch();
+        adminNotifSnap.docs.forEach(doc => batch3.delete(doc.ref));
+        await batch3.commit();
+        console.log("[cleanupOldData] Deleted old admin notifications:", adminNotifSnap.size);
+    }
+    catch (e) {
+        console.error("[cleanupOldData] Failed:", e);
     }
 });
 //# sourceMappingURL=index.js.map
