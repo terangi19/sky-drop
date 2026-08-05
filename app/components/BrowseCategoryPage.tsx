@@ -8,7 +8,7 @@ import Navbar from "./Navbar";
 import Background from "./Background";
 import BrowseAwhinaAssistantPanel from "./BrowseAwhinaAssistantPanel";
 import HotThisWeek from "./HotThisWeek";
-import ListingCard from "./ListingCard";
+import MarketplaceListingCard from "./MarketplaceListingCard";
 import ListingImage, { listingHasImage } from "./ListingImage";
 import { showToast } from "./Toast";
 import {
@@ -116,7 +116,7 @@ export default function BrowseCategoryPage({ configKey }: Props) {
   const [watchlistTick, setWatchlistTick] = useState(0);
   const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
 
-  const { sellerReviewStats, sellerBadges, sellerHandles, sellerFullyVerified } = useSellerListingMeta(listings);
+  const { sellerReviewStats, sellerBadges, sellerFullyVerified } = useSellerListingMeta(listings);
 
   useEffect(() => {
     const refreshRecentlyViewed = () => setRecentlyViewed(getRecentlyViewed());
@@ -321,7 +321,7 @@ export default function BrowseCategoryPage({ configKey }: Props) {
             </span>
             {trendingLiveTitles ? (
               <span className="truncate text-[11px] font-medium text-white">
-                🔥 {trendingLiveTitles}
+                {trendingLiveTitles}
               </span>
             ) : (
               <span className="text-[11px] font-medium text-white">{config.trendingFallback}</span>
@@ -553,25 +553,27 @@ export default function BrowseCategoryPage({ configKey }: Props) {
         />
 
         {listings.length === 0 ? (
-          <div className="mx-auto max-w-md mt-12 text-center">
-            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/[0.03] border border-white/[0.06]">
-              <span className="text-3xl">{config.emoji}</span>
+          <div className="mx-auto mt-12 max-w-md text-center">
+            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] text-lg font-semibold text-sky-400">
+              {config.emoji}
             </div>
-            <h2 className="text-2xl font-black tracking-tight text-white">{config.emptyTitle}</h2>
+            <h2 className="text-2xl font-semibold tracking-tight text-white">{config.emptyTitle}</h2>
             <p className="mt-2 text-sm text-zinc-500">{config.emptySubtitle}</p>
             <Link
               href={`/post/ai?type=${config.postAiType}`}
-              className={`mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r ${t.listBtn} px-5 py-2.5 text-sm font-bold text-white shadow-lg transition-all duration-200 hover:shadow-xl hover:scale-105 active:scale-95`}
+              className="btn btn-primary mt-5"
             >
               {config.listCtaLong}
             </Link>
           </div>
         ) : filteredListings.length === 0 ? (
-          <div className="mx-auto max-w-md mt-12 text-center">
-            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/[0.03] border border-white/[0.06]">
-              <span className="text-3xl">🔍</span>
+          <div className="mx-auto mt-12 max-w-md text-center">
+            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] text-sky-400">
+              <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+              </svg>
             </div>
-            <h2 className="text-2xl font-black tracking-tight text-white">
+            <h2 className="text-2xl font-semibold tracking-tight text-white">
               {searchQuery.trim()
                 ? `No matching ${config.itemPlural}`
                 : config.filterMode === "region" && selectedCity !== "All"
@@ -623,7 +625,7 @@ export default function BrowseCategoryPage({ configKey }: Props) {
               className={LISTING_GRID_MT}
             >
               {filteredListings.map((item, cardIndex) => (
-                <ListingCard
+                <MarketplaceListingCard
                   key={item.id}
                   item={item}
                   cardIndex={cardIndex}
@@ -638,8 +640,7 @@ export default function BrowseCategoryPage({ configKey }: Props) {
                   onMakeOffer={(listing) => router.push(`/post/listing/${listing.id}`)}
                   sellerReviewStats={sellerReviewStats}
                   sellerBadges={sellerBadges}
-          sellerFullyVerified={sellerFullyVerified}
-                  sellerHandles={sellerHandles}
+                  sellerFullyVerified={sellerFullyVerified}
                 />
               ))}
             </div>
@@ -669,7 +670,7 @@ export default function BrowseCategoryPage({ configKey }: Props) {
                       saveRecentlyViewed(card);
                       router.push(`/post/listing/${item.id}`);
                     }}
-                    className={`group w-56 shrink-0 cursor-pointer rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 transition-all duration-300 hover:-translate-y-0.5 ${t.recentHover}`}
+                    className={`group w-56 shrink-0 cursor-pointer rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 transition-colors ${t.recentHover}`}
                   >
                     {hasImage ? (
                       <ListingImage
@@ -680,15 +681,15 @@ export default function BrowseCategoryPage({ configKey }: Props) {
                       />
                     ) : (
                       <div
-                        className={`flex h-20 items-center justify-center rounded-lg bg-gradient-to-br ${t.placeholderGradient} text-2xl`}
+                        className={`flex h-20 items-center justify-center rounded-lg bg-gradient-to-br ${t.placeholderGradient} text-sm font-semibold text-sky-400`}
                       >
                         {config.emoji}
                       </div>
                     )}
-                    <p className="mt-2 truncate text-xs font-bold text-always-white">
+                    <p className="mt-2 truncate text-xs font-semibold text-always-white">
                       {card.title}
                     </p>
-                    <p className={`text-sm font-black ${t.recentPrice}`}>${card.price}</p>
+                    <p className={`text-sm font-bold ${t.recentPrice}`}>${card.price}</p>
                   </div>
                 );
               })}

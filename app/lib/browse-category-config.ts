@@ -1,34 +1,33 @@
 /** Shared Sky Drop marketplace theme — matches the homepage (`/`). */
 export const HOME_MARKETPLACE_THEME = {
   accentRgb: "14, 165, 233",
-  heroShadow: "shadow-[0_0_150px_-20px_rgba(14,165,233,0.12)]",
+  heroShadow: "shadow-sm",
   radial:
-    "bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(14,165,233,0.12),transparent)]",
+    "bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(14,165,233,0.08),transparent)]",
   badge:
-    "inline-flex items-center gap-2 rounded-full border border-sky-400/30 bg-sky-500/[0.07] px-3.5 py-1 text-[11px] font-bold text-sky-300 mb-3 tracking-wider uppercase backdrop-blur-sm shadow-[0_0_20px_rgba(56,189,248,0.15)] ring-1 ring-sky-400/10",
-  titleGradient: "from-white via-sky-200 to-white",
-  titleDropShadow: "drop-shadow-[0_0_12px_rgba(56,189,248,0.25)]",
-  searchGlow: "from-sky-500/40 via-sky-500/40 to-sky-500/40",
+    "inline-flex items-center gap-2 rounded-full border border-sky-400/25 bg-sky-500/[0.07] px-3.5 py-1 text-[11px] font-semibold text-sky-300 mb-3 tracking-wider uppercase",
+  titleGradient: "from-white via-sky-100 to-white",
+  titleDropShadow: "",
+  searchGlow: "from-sky-500/20 via-sky-500/20 to-sky-500/20",
   searchFocus:
-    "focus-within:ring-2 focus-within:ring-sky-500/30 focus-within:border-sky-500/40",
-  listBtn: "from-sky-500 to-sky-400 shadow-sky-500/20",
+    "focus-within:ring-2 focus-within:ring-sky-500/25 focus-within:border-sky-500/35",
+  listBtn: "from-sky-500 to-sky-400",
   sellLink:
     "border-sky-400/25 from-sky-500/10 via-sky-500/5 to-sky-500/10 text-sky-200 ring-sky-400/10 hover:border-sky-400/40 hover:bg-sky-500/15",
   barGradient: "from-sky-500 to-sky-400",
   hotBarGradient: "from-sky-500 to-sky-400",
   filterLabel: "text-sky-400/90",
   filterFocus: "focus:border-sky-500/40",
-  hotBadge: "bg-gradient-to-r from-sky-500/90 to-sky-400/90",
+  hotBadge: "bg-sky-500/90",
   recentPrice: "text-white",
-  recentHover:
-    "hover:border-sky-500/40 hover:shadow-[0_8px_25px_rgba(14,165,233,0.15)]",
+  recentHover: "hover:border-sky-500/35 hover:shadow-[var(--shadow-sm)]",
   placeholderGradient: "from-sky-500/10 via-sky-500/5 to-sky-500/10",
-  hotCardHover:
-    "hover:border-white/[0.12] hover:shadow-[0_0_30px_rgba(14,165,233,0.12),0_0_60px_rgba(14,165,233,0.04)]",
+  hotCardHover: "hover:border-white/[0.12] hover:shadow-[var(--shadow-md)]",
 } as const;
 
 export type BrowseCategoryConfig = {
   listingType: string;
+  /** Optional short label for empty states (no emoji). */
   emoji: string;
   pageTitle: string;
   subtitle: string;
@@ -51,7 +50,7 @@ export type BrowseCategoryConfig = {
 export const BROWSE_CATEGORY_CONFIGS: Record<string, BrowseCategoryConfig> = {
   rental: {
     listingType: "rental",
-    emoji: "🔑",
+    emoji: "R",
     pageTitle: "Rentals Marketplace",
     subtitle:
       "Rent vehicles, tools, and equipment. Message the owner to arrange pickup and return.",
@@ -60,7 +59,7 @@ export const BROWSE_CATEGORY_CONFIGS: Record<string, BrowseCategoryConfig> = {
     listCtaLong: "List a Rental with Awhina",
     sellCta: "List a Rental with Awhina",
     postAiType: "rental",
-    trendingFallback: "🔥 Trending rentals across New Zealand",
+    trendingFallback: "Trending rentals across New Zealand",
     itemSingular: "rental",
     itemPlural: "rentals",
     listingsHeading: "Rental Listings",
@@ -68,14 +67,14 @@ export const BROWSE_CATEGORY_CONFIGS: Record<string, BrowseCategoryConfig> = {
     emptySubtitle: "Be the first to list a rental.",
     filterMode: "region",
     trustRow: [
-      "🔍 Browse & filter by region",
-      "💬 Message owners directly",
-      "🛡️ Secure booking through Sky Drop",
+      "Browse & filter by region",
+      "Message owners directly",
+      "Secure booking through Sky Drop",
     ],
   },
   service: {
     listingType: "service",
-    emoji: "🛠️",
+    emoji: "S",
     pageTitle: "Services Marketplace",
     subtitle:
       "Find local services across New Zealand — trades, cleaning, tutoring, photography, and more.",
@@ -84,7 +83,7 @@ export const BROWSE_CATEGORY_CONFIGS: Record<string, BrowseCategoryConfig> = {
     listCtaLong: "List a Service with Awhina",
     sellCta: "Offer a Service with Awhina",
     postAiType: "service",
-    trendingFallback: "🔥 Trending services across New Zealand",
+    trendingFallback: "Trending services across New Zealand",
     itemSingular: "service",
     itemPlural: "services",
     listingsHeading: "Service Listings",
@@ -102,14 +101,14 @@ export const BROWSE_CATEGORY_CONFIGS: Record<string, BrowseCategoryConfig> = {
       "Other Services",
     ],
     trustRow: [
-      "🔍 Browse by category",
-      "💬 Discuss scope in chat",
-      "🛡️ Pay securely with Card Checkout",
+      "Browse by category",
+      "Discuss scope in chat",
+      "Pay securely with Card Checkout",
     ],
   },
   job: {
     listingType: "job",
-    emoji: "💼",
+    emoji: "J",
     pageTitle: "Jobs Marketplace",
     subtitle:
       "Find your next role — browse job listings across New Zealand and apply directly.",
@@ -118,7 +117,7 @@ export const BROWSE_CATEGORY_CONFIGS: Record<string, BrowseCategoryConfig> = {
     listCtaLong: "Post a Job with Awhina",
     sellCta: "Post a Job with Awhina",
     postAiType: "job",
-    trendingFallback: "🔥 Trending jobs across New Zealand",
+    trendingFallback: "Trending jobs across New Zealand",
     itemSingular: "job",
     itemPlural: "jobs",
     listingsHeading: "Job Listings",
@@ -136,14 +135,14 @@ export const BROWSE_CATEGORY_CONFIGS: Record<string, BrowseCategoryConfig> = {
       "Other",
     ],
     trustRow: [
-      "🔍 Browse by industry",
-      "💬 Apply directly in chat",
-      "🛡️ Verified employer profiles",
+      "Browse by industry",
+      "Apply directly in chat",
+      "Verified employer profiles",
     ],
   },
   event: {
     listingType: "event",
-    emoji: "🎟",
+    emoji: "E",
     pageTitle: "Events Marketplace",
     subtitle:
       "Find tickets for concerts, festivals, workshops, sports, and local events near you.",
@@ -152,7 +151,7 @@ export const BROWSE_CATEGORY_CONFIGS: Record<string, BrowseCategoryConfig> = {
     listCtaLong: "List an Event with Awhina",
     sellCta: "List an Event with Awhina",
     postAiType: "event",
-    trendingFallback: "🔥 Trending events across New Zealand",
+    trendingFallback: "Trending events across New Zealand",
     itemSingular: "event",
     itemPlural: "events",
     listingsHeading: "Event Listings",
@@ -170,14 +169,14 @@ export const BROWSE_CATEGORY_CONFIGS: Record<string, BrowseCategoryConfig> = {
       "Other",
     ],
     trustRow: [
-      "🔍 Browse by category",
-      "🎟 Buy tickets securely",
-      "🛡️ Buyer protection included",
+      "Browse by category",
+      "Buy tickets securely",
+      "Buyer protection included",
     ],
   },
   vehicle: {
     listingType: "vehicle",
-    emoji: "🚗",
+    emoji: "V",
     pageTitle: "Vehicles Marketplace",
     subtitle:
       "Buy and sell cars, utes, vans, motorcycles, and boats across New Zealand.",
@@ -186,7 +185,7 @@ export const BROWSE_CATEGORY_CONFIGS: Record<string, BrowseCategoryConfig> = {
     listCtaLong: "List a Vehicle with Awhina",
     sellCta: "Sell a Vehicle with Awhina",
     postAiType: "vehicle",
-    trendingFallback: "🔥 Trending vehicles across New Zealand",
+    trendingFallback: "Trending vehicles across New Zealand",
     itemSingular: "vehicle",
     itemPlural: "vehicles",
     listingsHeading: "Vehicle Listings",
@@ -194,14 +193,14 @@ export const BROWSE_CATEGORY_CONFIGS: Record<string, BrowseCategoryConfig> = {
     emptySubtitle: "Be the first to list a vehicle.",
     filterMode: "region",
     trustRow: [
-      "🔍 Browse by region",
-      "💬 Message sellers directly",
-      "🛡️ Buyer protection on card checkout",
+      "Browse by region",
+      "Message sellers directly",
+      "Buyer protection on card checkout",
     ],
   },
   property: {
     listingType: "property",
-    emoji: "🏠",
+    emoji: "P",
     pageTitle: "Property Marketplace",
     subtitle:
       "Browse property listings for sale across New Zealand.",
@@ -210,7 +209,7 @@ export const BROWSE_CATEGORY_CONFIGS: Record<string, BrowseCategoryConfig> = {
     listCtaLong: "List a Property with Awhina",
     sellCta: "List a Property with Awhina",
     postAiType: "property",
-    trendingFallback: "🔥 Trending property across New Zealand",
+    trendingFallback: "Trending property across New Zealand",
     itemSingular: "property",
     itemPlural: "properties",
     listingsHeading: "Property Listings",
@@ -218,9 +217,9 @@ export const BROWSE_CATEGORY_CONFIGS: Record<string, BrowseCategoryConfig> = {
     emptySubtitle: "Be the first to list a property.",
     filterMode: "region",
     trustRow: [
-      "🔍 Browse by region",
-      "💬 Contact agents & sellers",
-      "🛡️ Secure messaging on Sky Drop",
+      "Browse by region",
+      "Contact agents & sellers",
+      "Secure messaging on Sky Drop",
     ],
   },
 };

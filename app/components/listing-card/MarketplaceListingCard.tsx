@@ -8,7 +8,6 @@ import { isListingVisibleInMarketplace } from "../../lib/listing-availability";
 import { timeAgo } from "../../lib/listing-card-utils";
 import {
   listingWatchlistCount,
-  listingWatchlistGlowIntensity,
 } from "../../lib/listing-watchlist-count";
 import { SellerReviewSummary } from "../SellerReviewStars";
 import ListingImage, { listingHasImage } from "../ListingImage";
@@ -34,43 +33,18 @@ export type MarketplaceListingCardProps = {
   sellerListingCount?: Record<string, number>;
   onPromote?: (item: Record<string, any>) => void;
   onDelete?: (item: Record<string, any>) => void;
-  accent?: "sky" | "sky" | "sky";
-  /** Homepage-style neon blue card glow */
+  accent?: "sky";
+  /** Soft border accent — prefer off; elevation comes from tokens */
   neonGlow?: boolean;
   loading?: boolean;
 };
 
 const IMG_BADGE = "lc-img-badge rounded-full px-2.5 py-0.5 text-[9px] font-bold";
 
-function listingCardGlowStyle(
-  saveGlow: number,
-  isPopular: boolean,
-  isVisible: boolean,
-  neonGlow?: boolean
-): CSSProperties | undefined {
-  const glow = Math.max(saveGlow, isPopular ? 0.35 : 0, neonGlow ? 0.3 : 0);
-  if (!neonGlow && !isVisible) return undefined;
-  if (!neonGlow && glow < 0.05) return undefined;
-
-  if (neonGlow) {
-    return {
-      borderColor: `rgba(56, 189, 248, ${0.5 + glow * 0.35})`,
-      backgroundImage: `linear-gradient(to bottom, rgba(56, 189, 248, ${0.06 + glow * 0.12}), transparent)`,
-    };
-  }
-
+function listingCardAccentStyle(neonGlow?: boolean): CSSProperties | undefined {
+  if (!neonGlow) return undefined;
   return {
-    borderColor: `rgba(56, 189, 248, ${0.12 + glow * 0.45})`,
-    boxShadow: `0 0 ${Math.round(10 + glow * 50)}px rgba(56, 189, 248, ${0.08 + glow * 0.38})`,
-    backgroundImage: `linear-gradient(to bottom, rgba(56, 189, 248, ${0.02 + glow * 0.07}), transparent)`,
-  };
-}
-
-function watchlistBadgeStyle(saveGlow: number): CSSProperties {
-  return {
-    borderColor: `rgba(56, 189, 248, ${0.22 + saveGlow * 0.55})`,
-    boxShadow: `0 0 ${Math.round(6 + saveGlow * 20)}px rgba(56, 189, 248, ${0.18 + saveGlow * 0.5})`,
-    textShadow: `0 0 ${Math.round(4 + saveGlow * 12)}px rgba(56, 189, 248, ${0.35 + saveGlow * 0.55})`,
+    borderColor: "rgba(56, 189, 248, 0.36)",
   };
 }
 
@@ -82,7 +56,7 @@ export default memo(function MarketplaceListingCard({
   onToggleWatchlist,
   onCardClick,
   onBuyNow,
-  onMakeOffer,
+  onMakeOffer: _onMakeOffer,
   sellerReviewStats,
   sellerBadges,
   sellerFullyVerified = {},
@@ -91,40 +65,40 @@ export default memo(function MarketplaceListingCard({
   onPromote,
   onDelete,
   accent = "sky",
-  neonGlow = true,
+  neonGlow = false,
   loading = false,
 }: MarketplaceListingCardProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const themed = accent === "sky" || accent === "sky";
+  const themed = accent === "sky";
   const isVisible = isListingVisibleInMarketplace(item);
   const saves = themed ? listingWatchlistCount(item) : 0;
-  const saveGlow = listingWatchlistGlowIntensity(saves);
-  const isPopular = isVisible && (item.views || 0) > 3;
   const hasImage = listingHasImage(item);
 
-  const cardGlowStyle = listingCardGlowStyle(saveGlow, isPopular, isVisible, neonGlow);
+  const cardAccentStyle = listingCardAccentStyle(neonGlow);
   const categoryLabel =
     item.type === "vehicle"
       ? "Cars"
       : item.category || "Other";
-  const offerCategory =
-    item.category === "Cars" || item.category === "Property";
 
   return (
     <div className="relative h-full">
       <div
-        className={`listing-card group relative z-[1] flex h-full flex-col overflow-hidden rounded-2xl border cursor-pointer animate-fade-in-up hover:-translate-y-1 ${neonGlow ? "listing-card--neon" : ""}`}
+        role="button"
+        tabIndex={0}
+        aria-label={`View listing: ${item.title}. ${item.price ? `Price: $${item.price}.` : ""} ${categoryLabel}`}
+        className={`listing-card group relative z-[1] flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl border animate-fade-in-up focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)] ${neonGlow ? "listing-card--neon" : ""}`}
         style={{
           animationDelay: `${Math.min(cardIndex, 10) * 40}ms`,
-          ...cardGlowStyle,
+          ...cardAccentStyle,
         }}
         onClick={onCardClick}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onCardClick();
+          }
+        }}
       >
-      <div
-        className={`pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-transparent ${
-          neonGlow ? "to-sky-500/[0.06]" : "to-sky-500/[0.02]"
-        }`}
-      />
 
       {hasImage ? (
         <>
@@ -134,12 +108,12 @@ export default memo(function MarketplaceListingCard({
               alt={item.title}
               fill
               context={`MarketplaceListingCard:${item.id}`}
-              className="transition-all duration-500 group-hover:scale-105"
+              className="transition-transform duration-300 ease-out group-hover:scale-[1.02]"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
             {!isVisible && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-                <span className="rounded-lg bg-red-600 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-white shadow-lg">
+              <div className="absolute inset-0 flex items-center justify-center bg-black/70">
+                <span className="rounded-lg bg-red-600 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-white">
                   {item.pricingType === "quote" ? "Sold · Quote" : `Sold · $${item.price}`}
                 </span>
               </div>
@@ -170,11 +144,8 @@ export default memo(function MarketplaceListingCard({
                 <span className={IMG_BADGE}>Vehicle</span>
               )}
             </div>
-            {themed && isVisible && (
-              <div
-                className="lc-saves-badge absolute bottom-3 right-3 rounded-full px-2.5 py-1 text-[10px] font-bold"
-                style={watchlistBadgeStyle(saveGlow)}
-              >
+            {themed && isVisible && saves > 0 && (
+              <div className="lc-saves-badge absolute bottom-3 right-3 rounded-full px-2.5 py-1 text-[10px] font-semibold">
                 {saves.toLocaleString()} {saves === 1 ? "save" : "saves"}
               </div>
             )}
@@ -197,8 +168,8 @@ export default memo(function MarketplaceListingCard({
                 {item.images.slice(0, 5).map((_: string, i: number) => (
                   <div
                     key={i}
-                    className={`h-1 rounded-full transition-all duration-300 ${
-                      i === 0 ? "w-4 bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.45)]" : "w-1 bg-zinc-700"
+                    className={`h-1 rounded-full ${
+                      i === 0 ? "w-4 bg-sky-400" : "w-1 bg-zinc-700"
                     }`}
                   />
                 ))}
@@ -265,7 +236,7 @@ export default memo(function MarketplaceListingCard({
               e.stopPropagation();
               onToggleWatchlist(item);
             }}
-            className={`lc-watchlist relative text-base transition-all duration-200 hover:scale-110 active:scale-95 ${
+            className={`lc-watchlist touch-target relative inline-flex items-center justify-center text-base ${
               isInWatchlist(item.id) ? "lc-watchlist--active" : ""
             }`}
             aria-label={isInWatchlist(item.id) ? "Remove from watchlist" : "Add to watchlist"}
@@ -283,7 +254,7 @@ export default memo(function MarketplaceListingCard({
         </div>
 
         <div className="flex items-center gap-2 mt-2.5">
-          <h2 className="lc-title flex-1 line-clamp-1 text-[17px] font-black tracking-tight">
+          <h2 className="lc-title flex-1 line-clamp-1 text-[17px] font-semibold tracking-tight">
             {item.title}
           </h2>
         </div>
@@ -311,11 +282,11 @@ export default memo(function MarketplaceListingCard({
         <div className="mt-3 flex items-baseline gap-2">
           {item.pricingType === "quote" ? (
             <>
-              <p className="lc-price text-3xl font-black tracking-tight">Contact Seller for Quote</p>
-              <span className="lc-quote-badge rounded-full px-2 py-0.5 text-[9px] font-bold">Quote Required</span>
+              <p className="lc-price text-2xl font-bold tracking-tight sm:text-3xl">Contact Seller for Quote</p>
+              <span className="lc-quote-badge rounded-full px-2 py-0.5 text-[9px] font-semibold">Quote Required</span>
             </>
           ) : (
-            <p className="lc-price text-3xl font-black tracking-tight">${item.price}</p>
+            <p className="lc-price text-2xl font-bold tracking-tight sm:text-3xl">${item.price}</p>
           )}
           {(item.saleType === "auction" || item.saleType === "auction_buy_now") && (
             <span className="lc-bid rounded-md px-2 py-0.5 text-sm font-bold">
@@ -332,14 +303,7 @@ export default memo(function MarketplaceListingCard({
           {item.pickupAvailable && <span>Pickup</span>}
           {item.shippingAvailable && <span>Shipping</span>}
           {themed ? (
-            <span
-              className={`lc-accent ml-auto flex items-center gap-1 font-semibold`}
-              style={
-                saveGlow > 0.2
-                  ? { textShadow: `0 0 ${Math.round(4 + saveGlow * 10)}px rgba(56, 189, 248, ${saveGlow * 0.55})` }
-                  : undefined
-              }
-            >
+            <span className="lc-accent ml-auto flex items-center gap-1 font-semibold">
               {saves.toLocaleString()} {saves === 1 ? "save" : "saves"}
             </span>
           ) : (
@@ -489,14 +453,20 @@ export default memo(function MarketplaceListingCard({
     
     {showDeleteConfirm && (
       <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setShowDeleteConfirm(false)}>
-        <div className="mx-4 max-w-sm rounded-2xl border border-zinc-700/50 bg-zinc-900/95 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-          <h3 className="text-xl font-bold text-white">Delete Listing?</h3>
-          <p className="mt-2 text-sm text-zinc-400">Are you sure you want to delete "{item.title}"? This action cannot be undone.</p>
+        <div
+          className="mx-4 max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[var(--shadow-lg)]"
+          onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-listing-title"
+        >
+          <h3 id="delete-listing-title" className="text-xl font-semibold text-[var(--foreground)]">Delete Listing?</h3>
+          <p className="mt-2 text-sm text-[var(--muted)]">Are you sure you want to delete &ldquo;{item.title}&rdquo;? This action cannot be undone.</p>
           <div className="mt-6 flex gap-3">
             <button
               type="button"
               onClick={() => setShowDeleteConfirm(false)}
-              className="flex-1 rounded-xl border border-zinc-700 px-4 py-2.5 text-sm font-semibold text-zinc-300 transition-all hover:bg-zinc-800"
+              className="btn btn-secondary flex-1"
             >
               Cancel
             </button>
@@ -506,7 +476,7 @@ export default memo(function MarketplaceListingCard({
                 setShowDeleteConfirm(false);
                 onDelete?.(item);
               }}
-              className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-red-700"
+              className="btn btn-danger flex-1"
             >
               Delete
             </button>

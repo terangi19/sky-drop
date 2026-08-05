@@ -19,22 +19,18 @@ export default function BrowseMarketplaceHero({
   showAssistantPanel = true,
 }: Props) {
   return (
-    <div
-      className={`mb-5 relative overflow-hidden rounded-3xl border border-sky-500/20 bg-gradient-to-b from-sky-500/10 via-transparent to-transparent ${t.heroShadow}`}
+    <header
+      className={`relative mb-5 overflow-hidden rounded-2xl border border-sky-500/15 bg-gradient-to-b from-sky-500/[0.07] via-transparent to-transparent ${t.heroShadow}`}
     >
-      <div className={`absolute inset-0 ${t.radial} pointer-events-none`} />
-      <div className="relative flex flex-col items-center px-5 py-5 sm:px-8 sm:py-7 text-center">
+      <div className={`pointer-events-none absolute inset-0 ${t.radial}`} />
+      <div className="relative flex flex-col items-center px-5 py-5 text-center sm:px-8 sm:py-7">
         <div className={t.badge}>{badge}</div>
-        <h1 className="text-3xl font-black tracking-tight sm:text-4xl lg:text-5xl 3xl:text-6xl 4xl:text-7xl leading-none">
-          <span
-            className={`bg-gradient-to-r bg-clip-text text-transparent ${t.titleGradient} ${t.titleDropShadow}`}
-          >
-            {title}
-          </span>
+        <h1 className="text-3xl font-semibold tracking-tight text-[var(--foreground)] sm:text-4xl lg:text-5xl">
+          {title}
         </h1>
         {showAssistantPanel && <BrowseAwhinaAssistantPanel />}
         {children}
       </div>
-    </div>
+    </header>
   );
 }
