@@ -1138,7 +1138,7 @@ export default function Home() {
                 <option value="oldest" className="bg-[var(--card)]">Oldest</option>
                 <option value="low-high" className="bg-[var(--card)]">Price Low → High</option>
                 <option value="high-low" className="bg-[var(--card)]">Price High → Low</option>
-                <option value="trending" className="bg-[var(--card)]">🔥 Trending</option>
+                <option value="trending" className="bg-[var(--card)]">Trending</option>
               </select>
               <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
             </div>
@@ -1177,33 +1177,31 @@ export default function Home() {
           <div className="relative mx-auto max-w-md mt-16 text-center">
             {listings.length === 0 ? (
               <>
-                <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-3xl bg-sky-500/20 border border-sky-500/30">
-                  <svg className="h-10 w-10 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-xl border border-sky-500/25 bg-sky-500/10">
+                  <svg className="h-8 w-8 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                   </svg>
                 </div>
-                <h2 className="text-2xl font-black tracking-tight text-white mb-2">Welcome to Sky Drop</h2>
-                <p className="text-sm text-[var(--muted)] mb-6">No listings yet — be the first to list something and start selling! It's free and takes seconds with AI.</p>
-                <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                  <Link href="/post/ai"
-                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.97]">
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                <h2 className="mb-2 text-2xl font-semibold tracking-tight text-white">Welcome to Sky Drop</h2>
+                <p className="mb-6 text-sm text-[var(--muted)]">No listings yet — be the first to list something and start selling. It&apos;s free and takes seconds with AI.</p>
+                <div className="flex flex-col justify-center gap-3 sm:flex-row">
+                  <Link href="/post/ai" className="btn btn-primary">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
                     Create a Listing
                   </Link>
-                  <Link href="/about"
-                    className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-[var(--card)] px-6 py-3.5 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:bg-[var(--card-hover)] hover:border-white/[0.15] active:scale-[0.97]">
+                  <Link href="/about" className="btn btn-secondary">
                     Learn More
                   </Link>
                 </div>
               </>
             ) : (
               <>
-                <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-sky-500/[0.15] to-sky-500/[0.05] border border-sky-500/30 shadow-[0_0_30px_rgba(14,165,233,0.15)]">
-                  <svg className="h-10 w-10 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-xl border border-sky-500/25 bg-sky-500/10">
+                  <svg className="h-8 w-8 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
-                <h2 className="text-2xl font-black tracking-tight text-white mb-2">No listings found</h2>
+                <h2 className="mb-2 text-2xl font-semibold tracking-tight text-white">No listings found</h2>
                 <p className="text-sm text-[var(--muted)] mb-4">
                   {search ? <>Nothing matched <span className="font-semibold text-white">&ldquo;{search}&rdquo;</span> with the current filters.</> : "No listings match your current filters."}
                 </p>

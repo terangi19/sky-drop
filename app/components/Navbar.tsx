@@ -91,9 +91,10 @@ const MOBILE_NAV_ITEMS = [
 
 const BROWSE_LINKS = [
   { href: "/", label: "All Items", desc: "Browse the full marketplace" },
-  { href: "/", label: "Physical Items", desc: "Cars, tech, fashion, home & more" },
+  { href: "/vehicles", label: "Vehicles", desc: "Cars, utes, bikes & boats" },
   { href: "/services", label: "Services & Gigs", desc: "Freelance work, consulting, help" },
   { href: "/rentals", label: "Rentals", desc: "Tools, equipment, cameras for rent" },
+  { href: "/property", label: "Property", desc: "Homes, rooms & land" },
   { href: "/wanted", label: "Wanted Ads", desc: "Items people are looking for" },
 ] as const;
 
@@ -346,20 +347,19 @@ export default function Navbar() {
           {/* NAV */}
           <nav className="hidden lg:flex items-center gap-1 text-sm font-medium">
             {user && (
-              <Link href="/post/ai" className={`relative px-3 py-2 rounded-lg transition-all duration-200 ${isActive("/post/ai") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
+              <Link href="/post/ai" className={`relative px-3 py-2 rounded-lg transition-colors duration-200 ${isActive("/post/ai") ? "text-white bg-sky-500 light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
                 Sell
-                {isActive("/post/ai") && <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-gradient-to-r from-sky-400 to-sky-300 shadow-[0_0_6px_rgba(56,189,248,0.4)]" />}
               </Link>
             )}
             <div className="relative group px-1">
-              <Link href="/" className={`flex items-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 ${browseActive ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
+              <Link href="/" className={`flex items-center gap-1 px-3 py-2 rounded-lg transition-colors duration-200 ${browseActive ? "text-white bg-sky-500 light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
                 <span>Browse</span>
-                <svg className="h-3 w-3 transition-transform duration-300 group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                <svg className="h-3 w-3 transition-transform duration-200 group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
               </Link>
-              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-56 rounded-2xl border border-white/[0.08] bg-zinc-950/95 backdrop-blur-xl p-2 shadow-2xl shadow-black/40 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 translate-y-2 group-hover:translate-y-0 z-50 light:border-black/[0.12] light:bg-white/95 light:shadow-black/20">
-                <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 h-3 w-3 rotate-45 border-t border-l border-white/[0.08] bg-zinc-950/95 light:border-black/[0.12] light:bg-white/95" />
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-56 rounded-2xl border border-[var(--border)] bg-[var(--nav-bg)] backdrop-blur-xl p-2 shadow-[var(--shadow-lg)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 translate-y-1 group-hover:translate-y-0 z-50">
+                <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 h-3 w-3 rotate-45 border-t border-l border-[var(--border)] bg-[var(--nav-bg)]" />
                 {BROWSE_LINKS.map((item) => (
-                  <Link key={item.label} href={item.href} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-gray-200 hover:text-white hover:bg-white/[0.06] transition-all duration-200 group/dd light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]">
+                  <Link key={item.label} href={item.href} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-gray-200 hover:text-white hover:bg-white/[0.06] transition-colors duration-150 light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]">
                     <div><div className="text-sm font-medium">{item.label}</div><div className="text-[10px] text-gray-400 light:text-gray-500">{item.desc}</div></div>
                   </Link>
                 ))}
@@ -367,17 +367,14 @@ export default function Navbar() {
             </div>
             {user && (
               <>
-                <Link href="/list-list" className={`relative px-3 py-2 rounded-lg transition-all duration-200 ${isActive("/list-list") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
+                <Link href="/list-list" className={`relative px-3 py-2 rounded-lg transition-colors duration-200 ${isActive("/list-list") ? "text-white bg-sky-500 light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
                   My Listings
-                  {isActive("/list-list") && <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-gradient-to-r from-sky-400 to-sky-300 shadow-[0_0_6px_rgba(56,189,248,0.4)]" />}
                 </Link>
-                <Link href="/watchlist" className={`relative px-3 py-2 rounded-lg transition-all duration-200 ${isActive("/watchlist") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
+                <Link href="/watchlist" className={`relative px-3 py-2 rounded-lg transition-colors duration-200 ${isActive("/watchlist") ? "text-white bg-sky-500 light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
                   Watchlist
-                  {isActive("/watchlist") && <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-gradient-to-r from-sky-400 to-sky-300 shadow-[0_0_6px_rgba(56,189,248,0.4)]" />}
                 </Link>
-                <Link href="/messages" className={`relative px-3 py-2 rounded-lg transition-all duration-200 ${isActive("/messages") ? "text-white bg-sky-500 shadow-[0_0_12px_rgba(56,189,248,0.3)] light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
+                <Link href="/messages" className={`relative px-3 py-2 rounded-lg transition-colors duration-200 ${isActive("/messages") ? "text-white bg-sky-500 light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
                   Messages
-                  {isActive("/messages") && <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-gradient-to-r from-sky-400 to-sky-300 shadow-[0_0_6px_rgba(56,189,248,0.4)]" />}
                 </Link>
               </>
             )}
@@ -606,8 +603,10 @@ export default function Navbar() {
             }}
             className="flex min-h-[48px] w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-bold text-gray-200 hover:bg-white/[0.06] light:text-gray-800 light:hover:bg-black/[0.04]"
           >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.05] text-sky-400 light:bg-black/[0.04]">
-              ☀
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.05] text-sky-400 light:bg-black/[0.04]" aria-hidden>
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364 1.386l-1.591 1.591M21 12h-2.25m-1.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
+              </svg>
             </span>
             Toggle theme
           </button>
@@ -632,22 +631,6 @@ export default function Navbar() {
                   onNavigate={closeMobileMenu}
                 />
               </div>
-              <Link
-                href="/messages"
-                onClick={closeMobileMenu}
-                className={`flex min-h-[48px] items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition-colors ${
-                  isActive("/messages")
-                    ? "bg-sky-500/15 text-sky-200 border border-sky-500/25"
-                    : "text-gray-200 hover:bg-white/[0.06] light:text-gray-800 light:hover:bg-black/[0.04]"
-                }`}
-              >
-                Messages
-                {msgCount > 0 && (
-                  <span className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-sky-500 px-1.5 text-[10px] font-bold text-white">
-                    {msgCount > 9 ? "9+" : msgCount}
-                  </span>
-                )}
-              </Link>
               <Link
                 href="/faqs"
                 onClick={closeMobileMenu}

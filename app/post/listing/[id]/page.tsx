@@ -1762,7 +1762,7 @@ Property Status: 🟢 Inquiry Active`;
                         }
                         router.push(sellerMessagesHref);
                       }}
-                      className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-5 text-base font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98]"
+                      className="btn btn-primary w-full h-14 text-base"
                     >
                       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03 8 9 8s9 3.582 9 8z" />
@@ -1849,7 +1849,7 @@ Property Status: 🟢 Inquiry Active`;
                         });
                         router.push(sellerMessagesHref);
                       }}
-                      className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 text-base font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-200 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:brightness-110 active:scale-[0.98]"
+                      className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 text-base font-bold text-white shadow-md shadow-sky-500/15 transition-all duration-200 hover:brightness-105 active:scale-[0.98]"
                     >
                       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -1941,7 +1941,7 @@ Property Status: 🟢 Inquiry Active`;
                         void openPurchaseFlow("primary-desktop");
                       }}
                       title={stripeDisabledV1 ? "Message Seller" : purchaseButtonTitle(effectivePaymentType)}
-                      className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 px-5 text-base font-bold text-white shadow-xl shadow-sky-500/25 transition-all duration-200 hover:shadow-2xl hover:shadow-sky-500/35 hover:brightness-110 active:scale-[0.98]"
+                      className="btn btn-primary w-full h-14 text-base"
                     >
                       <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         {stripeDisabledV1 || isContactListing ? (
@@ -2106,7 +2106,7 @@ Application Status: 🟢 Active`;
                         try { localStorage.setItem("skyJobPrefill", `Hi, I'm interested in this job 👋`); } catch {}
                         router.push(sellerMessagesHref);
                       }}
-                      className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 text-base font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-200 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:brightness-110 active:scale-[0.98]"
+                      className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 text-base font-bold text-white shadow-md shadow-sky-500/15 transition-all duration-200 hover:brightness-105 active:scale-[0.98]"
                     >
                       Apply Now
                     </button>
@@ -2192,7 +2192,7 @@ Service Status: 🟢 Inquiry Active`;
                         }
                         router.push(sellerMessagesHref)
                       }}
-                      className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-fuchsia-500 px-5 text-base font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:brightness-110 active:scale-[0.98]"
+                      className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 text-base font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:brightness-105 active:scale-[0.98]"
                     >
                       Message Seller
                     </button>
@@ -2212,7 +2212,7 @@ Service Status: 🟢 Inquiry Active`;
                 </>
               ) : user?.email === listing.sellerEmail ? (
                 <div className="flex gap-3 w-full">
-                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 h-11 flex items-center justify-center rounded-lg bg-gradient-to-r from-sky-500 to-fuchsia-500 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:brightness-110 active:scale-[0.98]">
+                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 h-11 flex items-center justify-center rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:brightness-110 active:scale-[0.98]">
                     Edit Listing
                   </Link>
                   <button onClick={() => setShowPromote(true)} className="h-11 px-4 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sm font-bold text-sky-400 transition hover:bg-sky-500/20 hover:border-sky-500/50">
@@ -2291,7 +2291,7 @@ Service Status: 🟢 Inquiry Active`;
                       if (rentalDays < 1) { showToast("Select pickup and return dates", "info"); return; }
                       void openPurchaseFlow("rent-now");
                     }}
-                      className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 text-base font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-200 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:brightness-110 active:scale-[0.98]">
+                      className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 text-base font-bold text-white shadow-md shadow-sky-500/15 transition-all duration-200 hover:brightness-105 active:scale-[0.98]">
                       Rent Now {rentalDays > 0 ? `— $${(Number(listing.price) * rentalDays + 1).toFixed(2)}` : ""}
                     </button>
                   </div>
@@ -2719,7 +2719,7 @@ Service Status: 🟢 Inquiry Active`;
               <button
                 onClick={() => void openPurchaseFlow("sticky-mobile")}
                 title={stripeDisabledV1 ? "Message Seller" : purchaseButtonTitle(effectivePaymentType)}
-                className="flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 active:scale-[0.98]"
+                className="btn btn-primary flex-1 min-h-[48px]"
               >
                 {stripeDisabledV1 ? "Message Seller" : primaryPurchaseLabel({
                   paymentType: effectivePaymentType,
@@ -2730,7 +2730,7 @@ Service Status: 🟢 Inquiry Active`;
               </button>
               <button
                 onClick={() => router.push(sellerMessagesHref)}
-                className="flex min-h-[48px] min-w-[48px] items-center justify-center gap-2 rounded-xl border border-white/[0.10] bg-white/[0.04] px-4 py-3 text-sm font-bold text-[var(--foreground)] active:scale-[0.98]"
+                className="btn btn-secondary min-h-[48px] min-w-[48px] px-4"
               >
                 <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />

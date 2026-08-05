@@ -253,11 +253,10 @@ export default function RentalsPage() {
                 onClick={() => setSelectedCategory(cat)}
                 className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-medium transition-all ${
                   selectedCategory === cat
-                    ? "border-sky-400/30 bg-sky-500/10 text-white shadow-[0_0_24px_rgba(14,165,233,0.1)]"
+                    ? "border-sky-400/30 bg-sky-500/10 text-white"
                     : "border-white/[0.06] bg-white/[0.02] text-[var(--muted)] hover:border-white/10 hover:text-[var(--foreground)]"
                 }`}
               >
-                {cat === "All" ? <span className="text-sm leading-none">✨</span> : null}
                 {cat}
               </button>
             ))}
@@ -391,7 +390,7 @@ export default function RentalsPage() {
                       <p className="mt-1 truncate text-[10px] text-always-white">{card.category}</p>
                     )}
                     <p className="mt-1 text-[10px] text-always-white">
-                      ⭐ {listingWatchlistCount(card).toLocaleString()}{" "}
+                      {listingWatchlistCount(card).toLocaleString()}{" "}
                       {listingWatchlistCount(card) === 1 ? "save" : "saves"}
                     </p>
                   </div>

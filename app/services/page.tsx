@@ -42,14 +42,14 @@ import { HOME_MARKETPLACE_THEME as t } from "../lib/browse-category-config";
 import { LISTING_GRID_MT, PAGE_SHELL_MARKETPLACE } from "../lib/page-layout";
 
 const CATEGORIES = [
-  { emoji: "✨", name: "All" },
-  { emoji: "🔧", name: "Trades & Repairs" },
-  { emoji: "🧹", name: "Cleaning & Maintenance" },
-  { emoji: "📖", name: "Tutoring & Lessons" },
-  { emoji: "📷", name: "Photography" },
-  { emoji: "💪", name: "Personal Training" },
-  { emoji: "🎉", name: "Events & Catering" },
-  { emoji: "🛠️", name: "Other Services" },
+  { name: "All" },
+  { name: "Trades & Repairs" },
+  { name: "Cleaning & Maintenance" },
+  { name: "Tutoring & Lessons" },
+  { name: "Photography" },
+  { name: "Personal Training" },
+  { name: "Events & Catering" },
+  { name: "Other Services" },
 ];
 
 function serviceSearchText(item: Record<string, unknown>): string {
@@ -280,11 +280,10 @@ export default function ServicesPage() {
                 onClick={() => setSelectedCategory(cat.name)}
                 className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-medium transition-all ${
                   selectedCategory === cat.name
-                    ? "border-sky-400/30 bg-sky-500/10 text-white shadow-[0_0_24px_rgba(14,165,233,0.1)]"
+                    ? "border-sky-400/30 bg-sky-500/10 text-white"
                     : "border-white/[0.06] bg-white/[0.02] text-[var(--muted)] hover:border-white/10 hover:text-[var(--foreground)]"
                 }`}
               >
-                <span className="text-sm leading-none">{cat.emoji}</span>
                 {cat.name}
               </button>
             ))}

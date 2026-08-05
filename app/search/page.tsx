@@ -18,6 +18,8 @@ import { logVoiceSearch } from "../lib/voice-search-logger";
 import type { Listing } from "../../types/firestore";
 import { db } from "../lib/firebase";
 import { deleteDoc, doc, serverTimestamp, setDoc } from "firebase/firestore";
+import EmptyState from "../components/EmptyState";
+import { LoadingCard } from "../components/LoadingSpinner";
 
 type SavedSearch = {
   key: string;
@@ -467,62 +469,32 @@ export default function SearchPage() {
 
         {loading ? (
           <div>
-            <div className="mb-4 flex items-center gap-2 text-sm text-[var(--muted)]">
-              <div className="h-2 w-2 animate-pulse rounded-full bg-sky-400" />
-              Updating results...
+            <div className="mb-4 flex items-center gap-2 text-sm text-[var(--muted)]" role="status">
+              <span className="h-2 w-2 rounded-full bg-[var(--info)]" aria-hidden />
+              Updating results…
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((_, i) => (
-              <div key={i} className="relative overflow-hidden rounded-2xl bg-[var(--card)] border border-white/[0.04]">
-                <div className="aspect-[4/3] w-full bg-gradient-to-br from-sky-500/[0.05] via-sky-500/[0.02] to-transparent animate-shimmer" />
-                <div className="p-4 space-y-3">
-                  <div className="h-5 w-3/4 rounded bg-gradient-to-r from-sky-500/[0.1] to-sky-500/[0.05] animate-shimmer" />
-                  <div className="h-4 w-1/2 rounded bg-[var(--card)] animate-shimmer" />
-                </div>
-              </div>
-            ))}
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                <LoadingCard key={i} />
+              ))}
             </div>
           </div>
         ) : filteredListings.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-3xl border border-white/[0.06] bg-white/[0.02] px-6 py-16 text-center sm:px-10">
-            <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-sky-500/[0.15] to-sky-500/[0.05] border border-sky-500/30 shadow-[0_0_30px_rgba(14,165,233,0.15)]">
-              <svg className="h-10 w-10 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <EmptyState
+            title="No listings found"
+            description={
+              query
+                ? `No results for “${normalizeMarketplaceSearchQuery(query)}”. Try widening filters or browsing the marketplace.`
+                : "No listings match your current search. Try clearing filters or browsing all listings."
+            }
+            actionLabel="Browse all listings"
+            actionHref="/"
+            icon={
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
-            </div>
-            <h2 className="text-2xl font-black tracking-tight text-white mb-2">No listings found</h2>
-            <p className="mb-2 text-sm text-[var(--muted)]">
-              {query
-                ? `No results found for "${normalizeMarketplaceSearchQuery(query)}".`
-                : "No listings match your current search right now."}
-            </p>
-            <p className="mb-6 text-xs text-[var(--muted)]">
-              Try widening your price range, removing a filter, or browsing the full marketplace.
-            </p>
-            <div className="flex flex-col gap-3 sm:flex-row">
-              {hasActiveFilters && (
-                <button
-                  onClick={() => {
-                    setMinPrice("");
-                    setMaxPrice("");
-                    setCondition("all");
-                    setLocation("");
-                    setSortBy("newest");
-                    setSaleType("all");
-                  }}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/[0.1] bg-white/[0.03] px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/[0.06]"
-                >
-                  Clear filters
-                </button>
-              )}
-              <button
-                onClick={() => router.push("/")}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:brightness-110 active:scale-[0.97]"
-              >
-                Browse all listings
-              </button>
-            </div>
-          </div>
+            }
+          />
         ) : (
           <div className="grid items-stretch gap-4 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {filteredListings.map((item, cardIndex) => (
@@ -541,7 +513,7 @@ export default function SearchPage() {
                 sellerFullyVerified={sellerFullyVerified}
                 onPromote={handlePromote}
                 onDelete={handleDelete}
-                neonGlow={true}
+                neonGlow={false}
               />
             ))}
           </div>

@@ -1362,7 +1362,7 @@ function MessagesPage() {
                   </div>
                   <p className="mt-4 text-[13px] font-medium text-[var(--foreground)]">No conversations yet</p>
                   <p className="mt-1 text-[11px] text-[var(--muted)]">Messages about listings will appear here.</p>
-                  <Link href="/" className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 px-3 py-1.5 text-[11px] font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">
+                  <Link href="/" className="btn btn-primary btn-sm mt-4">
                     Browse Marketplace
                   </Link>
                 </div>
@@ -1377,7 +1377,7 @@ function MessagesPage() {
                         setChatListingId(convo.listingId); 
                         if (isMobile) setMobileView("chat"); 
                       }}
-                      className={`flex w-full items-start gap-3 border-b border-[var(--card-border)] px-4 py-3.5 text-left transition-all duration-200 hover:bg-sky-500/5 ${chatUser === convo.participant && chatListingId === convo.listingId ? "bg-sky-500/10 shadow-[0_0_20px_rgba(56,189,248,0.15)]" : "hover:shadow-[0_0_15px_rgba(56,189,248,0.1)]"}`}>
+                      className={`flex w-full items-start gap-3 border-b border-[var(--card-border)] px-4 py-3.5 text-left transition-all duration-200 hover:bg-sky-500/5 ${chatUser === convo.participant && chatListingId === convo.listingId ? "bg-sky-500/10" : ""}`}>
                       {/* Thumbnail */}
                       <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-600/10 ring-2 ring-white/[0.04]">
                         {convo.msg.listingImage ? (
@@ -1579,7 +1579,7 @@ function MessagesPage() {
                     <StayOnSkyDropNotice paymentType={purchaseData?.paymentType} />
                   )}
                   {listingCard && hasPurchaseInChat && (
-                    <div className={`mb-2 overflow-hidden rounded-xl border shadow-[0_0_20px_rgba(56,189,248,0.15)] ${
+                    <div className={`mb-2 overflow-hidden rounded-xl border ${
                       isRefundedStatus(purchaseData?.status)
                         ? "border-violet-500/25 bg-[var(--soft-card)]"
                         : "border-[var(--card-border)]/50 bg-[var(--soft-card)]"
@@ -1677,7 +1677,7 @@ function MessagesPage() {
                   {listingCard && !hasPurchaseInChat && auctionEnded && (
                     <div className={`mb-3 overflow-hidden rounded-2xl border ${
                       isAuctionWinner ? "border-sky-500/30 bg-sky-500/5" : "border-sky-500/10 bg-[var(--soft-card)]"
-                    } shadow-[0_0_20px_rgba(56,189,248,0.15)]`}>
+                    }`}>
                       {/* Winner banner */}
                       {isAuctionWinner && (
                         <div className="flex items-center justify-center gap-2 bg-gradient-to-r from-sky-600/20 via-sky-500/30 to-sky-600/20 px-4 py-3">
@@ -1723,7 +1723,7 @@ function MessagesPage() {
                   )}
                   {/* Listing context card — buy now */}
                   {listingCard && !hasPurchaseInChat && !auctionEnded && listingCard?.saleType === "buy_now" && (
-                    <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-[var(--soft-card)]/80 shadow-[0_0_20px_rgba(56,189,248,0.15)]">
+                    <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-[var(--soft-card)]/80">
                       <div className="flex items-center gap-3 p-3">
                         {listingCard.image ? (
                           <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-[var(--soft-card)]">
@@ -1748,7 +1748,7 @@ function MessagesPage() {
                   )}
                   {/* Listing context card — active auction */}
                   {listingCard && !hasPurchaseInChat && !auctionEnded && isAuction && listingCard?.saleType !== "buy_now" && (
-                    <div className="mb-3 overflow-hidden rounded-2xl border border-sky-500/10 bg-[var(--soft-card)] shadow-[0_0_20px_rgba(56,189,248,0.15)]">
+                    <div className="mb-3 overflow-hidden rounded-2xl border border-sky-500/10 bg-[var(--soft-card)]">
                       <div className="flex items-center gap-3 p-3">
                         {listingCard.image ? (
                           <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-xl bg-[var(--soft-card)] shadow-md">
@@ -1774,7 +1774,7 @@ function MessagesPage() {
                   )}
                   {/* Listing context card — other listing type */}
                   {listingCard && !hasPurchaseInChat && !auctionEnded && listingCard?.saleType && listingCard?.saleType !== "buy_now" && !isAuction && (
-                    <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-[var(--soft-card)]/80 shadow-[0_0_20px_rgba(56,189,248,0.15)]">
+                    <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-[var(--soft-card)]/80">
                       <div className="flex items-center gap-3 p-3">
                         {listingCard.image ? (
                           <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-[var(--soft-card)]">
@@ -1799,7 +1799,7 @@ function MessagesPage() {
                   )}
                   {/* Listing context card — fallback */}
                   {listingCard && !hasPurchaseInChat && !auctionEnded && !listingCard?.saleType && !isAuction && (
-                    <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-[var(--soft-card)]/80 shadow-[0_0_20px_rgba(56,189,248,0.15)]">
+                    <div className="mb-2 overflow-hidden rounded-xl border border-[var(--card-border)]/50 bg-[var(--soft-card)]/80">
                       <div className="flex items-center gap-3 p-3">
                         {listingCard.image ? (
                           <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-[var(--soft-card)]">
