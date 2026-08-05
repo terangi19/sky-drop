@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+/** Subtle ambient backdrop — restrained sky wash, no drifting orb theater. */
 export default function Background() {
   const [isLight, setIsLight] = useState(false);
 
@@ -15,22 +16,17 @@ export default function Background() {
 
   if (isLight) {
     return (
-      <div className="fixed inset-0 -z-10 overflow-hidden">
+      <div className="fixed inset-0 -z-10 overflow-hidden" aria-hidden>
         <div className="absolute inset-0 bg-white" />
-        <div className="absolute top-[-30%] left-[-15%] h-[80%] w-[80%] rounded-full bg-sky-400/10 blur-[150px]" />
-        <div className="absolute bottom-[-20%] right-[-15%] h-[70%] w-[70%] rounded-full bg-blue-600/12 blur-[140px]" />
-        <div className="absolute top-[40%] left-[30%] h-[40%] w-[40%] rounded-full bg-sky-500/8 blur-[100px]" />
+        <div className="absolute inset-x-0 top-0 h-[42%] bg-[radial-gradient(ellipse_at_top,rgba(14,165,233,0.08),transparent_70%)]" />
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 -z-10 overflow-hidden">
+    <div className="fixed inset-0 -z-10 overflow-hidden" aria-hidden>
       <div className="absolute inset-0 bg-[#0a0a0f]" />
-      <div className="absolute top-[-20%] left-[-10%] h-[60%] w-[60%] rounded-full bg-sky-500/3 blur-[120px] animate-drift-slow" />
-      <div className="absolute bottom-[-15%] right-[-10%] h-[50%] w-[50%] rounded-full bg-sky-500/3 blur-[100px] animate-drift-slower" />
-      <div className="absolute top-[30%] right-[20%] h-[30%] w-[30%] rounded-full bg-sky-400/2 blur-[80px] animate-drift-slowest" />
-      <div className="absolute top-[-5%] right-[40%] h-[20%] w-[20%] rounded-full bg-sky-500/2 blur-[60px] animate-drift-slow" />
+      <div className="absolute inset-x-0 top-0 h-[50%] bg-[radial-gradient(ellipse_at_top,rgba(14,165,233,0.06),transparent_65%)]" />
     </div>
   );
 }

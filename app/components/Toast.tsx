@@ -22,6 +22,12 @@ const icons = {
   info: "i",
 };
 
+const typeClass = {
+  success: "border-[var(--success)]/25 bg-[var(--success-muted)] text-[var(--success)]",
+  error: "border-[var(--danger)]/25 bg-[var(--danger-muted)] text-[var(--danger)]",
+  info: "border-[var(--info)]/25 bg-[var(--info-muted)] text-[var(--info)]",
+};
+
 export default function ToastContainer() {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
@@ -34,29 +40,29 @@ export default function ToastContainer() {
         setToasts((prev) => prev.filter((t) => t.id !== id));
       }, duration);
     };
-    return () => { addToastFn = null; };
+    return () => {
+      addToastFn = null;
+    };
   }, []);
 
   if (toasts.length === 0) return null;
 
   return (
-    <div className={`${TOAST_STACK_POSITION} flex flex-col gap-2 pointer-events-none`}>
+    <div
+      className={`${TOAST_STACK_POSITION} pointer-events-none flex flex-col gap-2`}
+      role="region"
+      aria-label="Notifications"
+    >
       {toasts.map((t) => (
         <div
           key={t.id}
-          className={`flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-bold shadow-2xl backdrop-blur-xl pointer-events-auto ${
-            t.type === "success"
-              ? "bg-sky-500/15 text-sky-400"
-              : t.type === "error"
-                ? "bg-red-500/15 text-red-400"
-                : "bg-sky-500/15 text-sky-400"
-          } animate-toast-in`}
+          role="status"
+          className={`pointer-events-auto flex items-center gap-2.5 rounded-xl border px-4 py-3 text-sm font-semibold shadow-[var(--shadow-md)] backdrop-blur-xl animate-toast-in ${typeClass[t.type]}`}
         >
-          <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black ${
-            t.type === "success" ? "bg-sky-500/20" :
-            t.type === "error" ? "bg-red-500/20" :
-            "bg-sky-500/20"
-          }`}>
+          <span
+            className="flex h-5 w-5 items-center justify-center rounded-full bg-black/10 text-[10px] font-bold"
+            aria-hidden
+          >
             {icons[t.type]}
           </span>
           {t.message}
