@@ -1409,7 +1409,7 @@ export default function ListingPage() {
                 />
                 <Link
                   href={purchaseView.showSellerRefundedBanner ? "/sales" : "/purchases"}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-violet-400 hover:text-violet-300 transition-colors"
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--info)] hover:text-[var(--accent-hover)] transition-colors"
                 >
                   {purchaseView.showSellerRefundedBanner ? "View Sale" : "View Order"}
                 </Link>

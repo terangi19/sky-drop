@@ -330,7 +330,7 @@ export default function BrowseCategoryPage({ configKey }: Props) {
 
           <div className="relative overflow-visible px-4 py-8 sm:px-10 sm:py-12">
             <div className="mx-auto max-w-3xl text-center">
-              <h1 className="text-3xl font-black tracking-tight sm:text-5xl lg:text-6xl leading-none">
+              <h1 className="text-3xl font-semibold tracking-tight sm:text-5xl lg:text-6xl leading-none">
                 <span
                   className={`bg-gradient-to-r bg-clip-text text-transparent ${t.titleGradient} ${t.titleDropShadow}`}
                 >
@@ -400,7 +400,7 @@ export default function BrowseCategoryPage({ configKey }: Props) {
             <div className="mt-4 flex justify-center">
               <Link
                 href={`/post/ai?type=${config.postAiType}`}
-                className={`inline-flex items-center gap-2 rounded-xl border bg-gradient-to-r px-5 py-2.5 text-sm font-bold shadow-[0_0_20px_rgba(0,0,0,0.08)] ring-1 transition hover:text-white active:scale-[0.97] ${t.sellLink}`}
+                className={`btn btn-primary inline-flex items-center gap-2 ${t.sellLink}`}
               >
                 <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-sky-500/20 text-xs">
                   ✦
@@ -601,7 +601,7 @@ export default function BrowseCategoryPage({ configKey }: Props) {
               <div className="flex items-center gap-3">
                 <div className={`h-7 w-1 rounded-full bg-gradient-to-b ${t.barGradient}`} />
                 <div>
-                  <h2 className="text-lg font-black tracking-tight text-[var(--foreground)]">
+                  <h2 className="text-lg font-semibold tracking-tight text-[var(--foreground)]">
                     {config.listingsHeading}
                   </h2>
                   <p className="text-[11px] text-zinc-500">

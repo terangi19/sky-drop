@@ -42,6 +42,7 @@ import {
 } from "../lib/conversation-order-status";
 import { isRefundedStatus } from "../lib/refund-display";
 import BraveWarning from "../components/BraveWarning";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { STAY_ON_SKY_DROP_HEADLINE } from "../lib/conversation-safety";
 import { extractEmailsFromText,
   isEmailLike,
@@ -119,7 +120,7 @@ export default function MessagesPageWrapper() {
       <BraveWarning />
       <Background />
       <Navbar />
-      <Suspense fallback={<div className="flex h-full items-center justify-center p-12"><span className="text-[var(--muted)]">Loading...</span></div>}>
+      <Suspense fallback={<div className="flex h-full items-center justify-center p-12"><LoadingSpinner text="Loading messages" /></div>}>
         <MessagesPage />
       </Suspense>
     </main>
@@ -1352,7 +1353,7 @@ function MessagesPage() {
             </div>
             <div className="flex-1 overflow-y-auto scrollbar-thin">
               {loading ? (
-                <div className="p-6 text-center text-[13px] text-[var(--muted)]">Loading...</div>
+                <div className="flex justify-center p-6"><LoadingSpinner text="Loading conversations" /></div>
               ) : conversations.length === 0 ? (
                 <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.04]">

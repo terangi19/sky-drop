@@ -34,6 +34,7 @@ import { listingBuyHref } from "./lib/buy-listing-route";
 import { listingPrimaryActionHref } from "./lib/listing-message-href";
 import { isStripeCheckoutVisibleClient } from "./lib/stripe-checkout-flags";
 import { LISTING_GRID, LISTING_GRID_MT, PAGE_SHELL_MARKETPLACE, PAGE_SHELL_WIDE } from "./lib/page-layout";
+import { LoadingCard } from "./components/LoadingSpinner";
 import { funnel } from "./lib/funnel-events";
 import {
   addDoc,
@@ -1153,24 +1154,10 @@ export default function Home() {
 
           {loading && (
             <div className={LISTING_GRID_MT}>
-              {[1,2,3,4,5,6,7,8].map((_, i) => (
-                <div key={i} className="relative overflow-hidden rounded-2xl bg-[var(--card)] border border-white/[0.04]">
-                  <div className="aspect-[4/3] w-full bg-gradient-to-br from-sky-500/[0.05] via-sky-500/[0.02] to-transparent animate-shimmer" />
-                  <div className="p-4 space-y-3">
-                    <div className="flex gap-2">
-                      <div className="h-4 w-14 rounded-md bg-gradient-to-r from-sky-500/[0.1] to-sky-500/[0.05] animate-shimmer" />
-                      <div className="h-4 w-10 rounded-md bg-gradient-to-r from-sky-500/[0.1] to-sky-500/[0.05] animate-shimmer" />
-                    </div>
-                    <div className="h-5 w-3/4 rounded bg-gradient-to-r from-sky-500/[0.1] to-sky-500/[0.05] animate-shimmer" />
-                    <div className="h-4 w-1/2 rounded bg-[var(--card)] animate-shimmer" />
-                    <div className="flex gap-2">
-                      <div className="h-9 flex-1 rounded-lg bg-gradient-to-r from-sky-500/[0.1] to-sky-500/[0.05] animate-shimmer" />
-                      <div className="h-9 w-20 rounded-lg bg-gradient-to-r from-sky-500/[0.1] to-sky-500/[0.05] animate-shimmer" />
-                    </div>
-                  </div>
-               </div>
-            ))}
-          </div>
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                <LoadingCard key={i} />
+              ))}
+            </div>
           )}
 
         {!loading && filteredListings.length === 0 && (
