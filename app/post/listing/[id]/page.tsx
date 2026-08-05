@@ -2192,7 +2192,7 @@ Service Status: 🟢 Inquiry Active`;
                         }
                         router.push(sellerMessagesHref)
                       }}
-                      className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 text-base font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:brightness-105 active:scale-[0.98]"
+                      className="btn btn-primary w-full h-14 text-base"
                     >
                       Message Seller
                     </button>
@@ -2741,9 +2741,9 @@ Service Status: 🟢 Inquiry Active`;
           ) : (
             <button
               onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))}
-              className="flex min-h-[48px] flex-1 items-center justify-center rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 active:scale-[0.98]"
+              className="btn btn-primary flex-1 min-h-[48px]"
             >
-              Sign in to buy
+              {stripeDisabledV1 ? "Sign in to message" : "Sign in to continue"}
             </button>
           )}
         </div>
