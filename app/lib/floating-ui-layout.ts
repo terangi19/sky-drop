@@ -1,6 +1,10 @@
-/** Shared positioning for bottom-right floating controls (above mobile nav). */
+/** Shared positioning for bottom-right floating controls (above mobile nav + sticky CTAs). */
+
+/** FAB sits above sticky listing CTAs (z-10000) and bottom nav (z-9999); below Āwhina sheet. */
+export const FAB_Z = "z-[10020]";
+
 export const FAB_DOCK_POSITION =
-  "fixed z-[9998] right-[calc(1rem+env(safe-area-inset-right,0px))] bottom-[calc(1.25rem+var(--mobile-nav-offset,0px))] max-md:right-4";
+  `fixed ${FAB_Z} right-[calc(1rem+env(safe-area-inset-right,0px))] bottom-[calc(1.25rem+var(--mobile-nav-offset,0px))] max-md:right-4`;
 
 /** Āwhina chat sheet — always above FAB dock and bottom chrome. */
 export const AWHINA_CHAT_SHEET_Z = "z-[10050]";

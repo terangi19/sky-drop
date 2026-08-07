@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
-import { PAGE_SHELL_CHAT } from "../lib/page-layout";
+import { MOBILE_FAB_CLEARANCE, PAGE_SHELL_CHAT } from "../lib/page-layout";
 import {
   addDoc,
   collection,
@@ -52,7 +52,6 @@ import { extractEmailsFromText,
   sellerProfileSlug,
 } from "../lib/public-display";
 import { fetchPublicProfileBySlug } from "../lib/fetch-public-profile-client";
-import { sellerMessagesUrl } from "../lib/public-display";
 import { canSellerConfirmArrangeSale, countSellerSales } from "../lib/arrange-purchase-status";
 import { purchaseStatusLabel } from "../lib/purchase-status";
 import { getFreshIdToken } from "../lib/api-auth";
@@ -1435,7 +1434,7 @@ function MessagesPage() {
                       </div>
                       {/* Unread badge */}
                       {unreadCount > 0 && (
-                        <span className="flex h-5 min-w-[18px] items-center justify-center rounded-full bg-sky-500 px-1.5 text-[9px] font-bold text-white shrink-0 mt-0.5 shadow-[0_0_8px_rgba(56,189,248,0.3)]">
+                        <span className="flex h-5 min-w-[18px] items-center justify-center rounded-full bg-sky-500 px-1.5 text-[9px] font-bold text-always-white shrink-0 mt-0.5">
                           {unreadCount > 9 ? "9+" : unreadCount}
                         </span>
                       )}
@@ -1486,8 +1485,8 @@ function MessagesPage() {
                                 <div className="mt-1 flex flex-wrap items-center justify-center gap-1 text-[10px] text-[var(--muted)]">
                                   {sellerProfile.verified && <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-sky-400">Verified</span>}
                                   {sellerProfile.trustedSeller && <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-sky-400">Trusted</span>}
-                                  {sellerProfile.profileBadge === "epic" && <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-sky-400 font-bold">💎 Epic</span>}
-                                  {sellerProfile.profileBadge === "legendary" && <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-sky-400 font-bold animate-pulse">👑 The Five</span>}
+                                  {sellerProfile.profileBadge === "epic" && <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-sky-400 font-semibold">Epic</span>}
+                                  {sellerProfile.profileBadge === "legendary" && <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-sky-400 font-semibold">The Five</span>}
                                 </div>
                                 <p className="mt-2 text-[11px] text-[var(--muted)]">{sellerProfile.sales || 0} sales</p>
                                 {sellerProfile.memberSince && (
@@ -1646,7 +1645,7 @@ function MessagesPage() {
                               </span>
                               {purchaseData?.disputeStatus && (
                                 <span className="text-[10px] font-bold text-red-400">
-                                  {purchaseData.disputeStatus === "refunded" ? "✅ Refunded" : "⚠️ Disputed"}
+                                  {purchaseData.disputeStatus === "refunded" ? "Refunded" : "Disputed"}
                                 </span>
                               )}
                             </div>
@@ -1700,10 +1699,8 @@ function MessagesPage() {
                     }`}>
                       {/* Winner banner */}
                       {isAuctionWinner && (
-                        <div className="flex items-center justify-center gap-2 bg-gradient-to-r from-sky-600/20 via-sky-500/30 to-sky-600/20 px-4 py-3">
-                          <span className="text-lg">🎉</span>
-                          <span className="text-sm font-black tracking-wide text-sky-300">CONGRATULATIONS! YOU WON</span>
-                          <span className="text-lg">🎉</span>
+                        <div className="flex items-center justify-center bg-sky-500/10 px-4 py-2.5 border-b border-sky-500/20">
+                          <span className="text-sm font-semibold tracking-wide text-sky-400">You won this auction</span>
                         </div>
                       )}
                       <div className="flex items-center gap-3 p-3">
@@ -1899,7 +1896,7 @@ function MessagesPage() {
                                   {!isOwn && msg.offerStatus === "pending" && (
                                     <div className="mt-3 flex gap-1.5">
                                       <button disabled={sendingOffer} onClick={() => sendOffer("accept", msg.offerAmount)} className="flex-1 rounded-lg bg-sky-500 py-2.5 text-[10px] font-bold text-white transition hover:bg-sky-400 disabled:opacity-50">Accept</button>
-                                      <button disabled={sendingOffer} onClick={() => sendOffer("decline")} className="flex-1 rounded-lg bg-zinc-700 py-2.5 text-[10px] font-bold text-[var(--foreground)] transition hover:bg-zinc-600 disabled:opacity-50">Decline</button>
+                                      <button disabled={sendingOffer} onClick={() => sendOffer("decline")} className="flex-1 rounded-lg border border-[var(--card-border)] bg-[var(--soft-card)] py-2.5 text-[10px] font-bold text-[var(--foreground)] transition hover:bg-[var(--card-hover)] disabled:opacity-50">Decline</button>
                                       <button disabled={sendingOffer} onClick={() => sendOffer("counter", msg.offerAmount)} className="flex-1 rounded-lg bg-sky-500 py-2.5 text-[10px] font-bold text-white transition hover:bg-sky-400 disabled:opacity-50">Counter</button>
                                     </div>
                                   )}
@@ -1974,109 +1971,78 @@ function MessagesPage() {
 
                           const isWantedListing = listingCard?.type === "wanted" || msg.listingType === "wanted";
                           const getStatusConfig = (status?: string) => {
-                            const configs: Record<string, { icon: string; label: string; color: string; bg: string; border: string }> = {
-                              paid: { icon: "✅", label: "Payment Confirmed", color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/20" },
-                              awaiting_seller: { icon: "⏳", label: "Awaiting Seller", color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/20" },
-                              pickup_arranged: { icon: "📍", label: "Pickup Arranged", color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/20" },
-                              shipped: { icon: "🚚", label: "Shipped", color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/20" },
-                              delivered: { icon: "✅", label: "Delivered", color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/20" },
-                              completed: { icon: "✨", label: "Completed", color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/20" },
-                              disputed: { icon: "⚠️", label: "Disputed", color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20" },
+                            const configs: Record<string, { label: string; color: string }> = {
+                              paid: { label: "Payment confirmed", color: "text-sky-400" },
+                              awaiting_seller: { label: "Awaiting seller", color: "text-sky-400" },
+                              pickup_arranged: { label: "Pickup arranged", color: "text-sky-400" },
+                              shipped: { label: "Shipped", color: "text-sky-400" },
+                              delivered: { label: "Delivered", color: "text-sky-400" },
+                              completed: { label: "Completed", color: "text-sky-400" },
+                              disputed: { label: "Disputed", color: "text-red-400" },
                             };
                             return configs[status || "paid"] || configs.paid;
                           };
-                          const statusConfig = isWantedListing ? { icon: "📋", label: "Wanted", color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/20" } : getStatusConfig(effectiveOrderStatus);
+                          const statusConfig = isWantedListing
+                            ? { label: "Wanted", color: "text-sky-400" }
+                            : getStatusConfig(effectiveOrderStatus);
                           const isDisputed = !isWantedListing && effectiveOrderStatus === "disputed";
                           const isPaid = !isWantedListing && effectiveOrderStatus === "paid";
 
                           return (
                             <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
                               <div className="w-full max-w-md">
-                                <div className={`overflow-hidden rounded-2xl bg-[var(--card)] shadow-lg hover:shadow-xl transition-shadow duration-200`}>
-                                  {/* Header with status */}
-                                  <div className="flex items-center justify-between p-4 border-b border-white/[0.04]">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-lg">{statusConfig.icon}</span>
-                                      <span className={`text-sm font-bold ${statusConfig.color}`}>{statusConfig.label}</span>
-                                    </div>
+                                <div className="overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--card)]">
+                                  <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--card-border)]">
+                                    <span className={`text-sm font-semibold ${statusConfig.color}`}>{statusConfig.label}</span>
                                     <div className="text-[10px] text-[var(--muted)]">
                                       {(msg.purchaseId || msg.id).slice(-8).toUpperCase()}
                                     </div>
                                   </div>
 
-                                  {/* Order summary */}
                                   <div className="p-4">
                                     <div className="flex gap-3">
-                                      {/* Thumbnail */}
-                                      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[var(--soft-card)]">
+                                      <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-[var(--soft-card)]">
                                         {msg.listingImage ? (
                                           <img src={msg.listingImage} alt="" className="h-full w-full object-cover" />
                                         ) : (
-                                          <div className="flex h-full w-full items-center justify-center text-[var(--muted)]">
-                                            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-                                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                            </svg>
-                                          </div>
+                                          <div className="flex h-full w-full items-center justify-center text-[var(--muted)] text-[10px]">No image</div>
                                         )}
                                       </div>
-                                      {/* Listing info */}
                                       <div className="min-w-0 flex-1">
-                                        <h3 className="truncate text-sm font-bold text-[var(--foreground)]">{msg.listingTitle || "Listing"}</h3>
+                                        <h3 className="truncate text-sm font-semibold text-[var(--foreground)]">{msg.listingTitle || "Listing"}</h3>
                                         <div className="mt-1 flex items-baseline gap-2">
                                           <span className="text-sm font-semibold text-[var(--foreground)]">${msg.listingPrice || "—"}</span>
-                                          <span className="text-xs text-[var(--muted)]">·</span>
                                           <span className="text-xs text-[var(--muted)]">{formatTime(msg.createdAt)}</span>
                                         </div>
                                         {isPaid && (
-                                          <p className="mt-2 text-xs text-sky-400">
-                                            Next: Message the seller to arrange pickup or shipping.
+                                          <p className="mt-2 text-xs text-[var(--muted)]">
+                                            Next: arrange pickup or shipping in this chat.
                                           </p>
                                         )}
                                       </div>
                                     </div>
                                   </div>
 
-                                  {/* Actions */}
-                                  <div className="flex items-center gap-2 p-4 border-t border-white/[0.04]">
-                                    <button
-                                      onClick={() =>
-                                        router.push(
-                                          sellerMessagesUrl(
-                                            {
-                                              sellerUsername: sellerProfile?.username,
-                                              sellerId: sellerProfile?.id,
-                                            },
-                                            chatListingId
-                                          )
-                                        )
-                                      }
-                                      className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-sky-500 px-3 py-2.5 text-[11px] font-bold text-white transition hover:bg-sky-400"
-                                    >
-                                      <span>💬</span>
-                                      <span>Message Seller</span>
-                                    </button>
+                                  <div className="flex items-center gap-2 px-4 py-3 border-t border-[var(--card-border)]">
                                     <button
                                       onClick={() =>
                                         router.push(isSellerViewer ? "/sales" : "/purchases")
                                       }
-                                      className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2.5 text-[11px] font-bold text-[var(--foreground)] transition hover:border-sky-500/20 hover:bg-[var(--card-hover)]"
+                                      className="flex-1 rounded-lg border border-[var(--card-border)] bg-[var(--soft-card)] px-3 py-2.5 text-[11px] font-semibold text-[var(--foreground)] transition hover:bg-[var(--card-hover)]"
                                     >
-                                      <span>📋</span>
-                                      <span>View Order</span>
+                                      View order
                                     </button>
                                     <button
                                       onClick={() => router.push(`/post/listing/${chatListingId}`)}
-                                      className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2.5 text-[11px] font-bold text-[var(--foreground)] transition hover:border-sky-500/20 hover:bg-[var(--card-hover)]"
+                                      className="flex-1 rounded-lg border border-[var(--card-border)] bg-[var(--soft-card)] px-3 py-2.5 text-[11px] font-semibold text-[var(--foreground)] transition hover:bg-[var(--card-hover)]"
                                     >
-                                      <span>🔗</span>
-                                      <span>View Listing</span>
+                                      View listing
                                     </button>
                                     {isDisputed && (
                                       <button
-                                        className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-[11px] font-bold text-red-400 transition hover:bg-red-500/20"
+                                        className="flex-1 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-[11px] font-semibold text-red-400 transition hover:bg-red-500/20"
                                       >
-                                        <span>⚠️</span>
-                                        <span>Dispute</span>
+                                        Dispute
                                       </button>
                                     )}
                                   </div>
@@ -2095,9 +2061,9 @@ function MessagesPage() {
                                     <img src={msg.imageUrl || msg.imageData} alt="Shared image" className="max-h-80 w-full object-cover"
                                       onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                                   )}
-                                  {msg.text && <div className={`px-4 py-3 text-[14px] ${isOwn ? "text-white" : "text-[var(--foreground)]"}`}><p>{msg.text}</p></div>}
+                                  {msg.text && <div className={`px-4 py-3 text-[14px] ${isOwn ? "text-always-white" : "text-[var(--foreground)]"}`}><p>{msg.text}</p></div>}
                                   <div className={`flex items-center justify-end gap-1 px-4 pb-3 ${isOwn ? "" : ""}`}>
-                                    <span className={`text-[9px] ${isOwn ? "text-white/60" : "text-[var(--muted)]"}`}>{formatFullTime(msg.createdAt) || formatTime(msg.createdAt)}</span>
+                                    <span className={`text-[9px] ${isOwn ? "text-always-white/80" : "text-[var(--muted)]"}`}>{formatFullTime(msg.createdAt) || formatTime(msg.createdAt)}</span>
                                   </div>
                                 </div>
                               </div>
@@ -2112,10 +2078,14 @@ function MessagesPage() {
                               <div className="max-w-[75%]">
                                 <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer"
                                   className={`flex items-center gap-3 rounded-2xl px-4 py-3 shadow-lg transition hover:opacity-80 ${
-                                    isOwn ? "rounded-br-md bg-gradient-to-br from-sky-500 to-sky-600 text-white" : "rounded-bl-md bg-[var(--card)] text-[var(--foreground)]"
+                                    isOwn ? "rounded-br-md bg-gradient-to-br from-sky-500 to-sky-600 text-always-white" : "rounded-bl-md bg-[var(--card)] text-[var(--foreground)]"
                                   }`}>
-                                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--soft-card)] text-lg">
-                                    {isPdf ? "📄" : "📎"}
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--soft-card)] text-[var(--muted)]">
+                                    {isPdf ? (
+                                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75"><path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                                    ) : (
+                                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75"><path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                                    )}
                                   </div>
                                   <div className="min-w-0 flex-1">
                                     <p className="truncate text-[13px] font-medium text-[var(--foreground)]">{msg.fileName}</p>
@@ -2129,7 +2099,7 @@ function MessagesPage() {
                                   </svg>
                                 </a>
                                 <div className="mt-1 flex justify-end px-1">
-                                  <span className={`text-[9px] ${isOwn ? "text-white/60" : "text-[var(--muted)]"}`}>{formatFullTime(msg.createdAt) || formatTime(msg.createdAt)}</span>
+                                  <span className={`text-[9px] ${isOwn ? "text-always-white/80" : "text-[var(--muted)]"}`}>{formatFullTime(msg.createdAt) || formatTime(msg.createdAt)}</span>
                                 </div>
                               </div>
                             </div>
@@ -2139,10 +2109,9 @@ function MessagesPage() {
                         if (msg.type === "order_event") {
                           return (
                             <div key={msg.id} className="flex justify-center">
-                              <div className="w-full max-w-sm rounded-xl bg-sky-500/5 px-4 py-3 my-2">
+                              <div className="w-full max-w-sm rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] px-4 py-3 my-2">
                                 <div className="flex items-center gap-2 mb-1.5">
-                                  <span className="text-sm">📦</span>
-                                  <span className="text-[11px] font-bold text-sky-400">Order Event</span>
+                                  <span className="text-[11px] font-semibold text-sky-400">Order update</span>
                                 </div>
                                 <p className="text-xs text-[var(--foreground)] leading-relaxed">{formatMessageText(msg.text)}</p>
                                 {msg.shippingAddress && (
@@ -2187,7 +2156,7 @@ function MessagesPage() {
                         return (
                           <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
                             <div className="max-w-[75%]">
-                              <div className={`rounded-2xl px-4 py-3 text-[14px] shadow-lg transition-all duration-200 hover:shadow-xl ${isOwn ? "rounded-br-md bg-gradient-to-br from-sky-500 to-sky-600 text-white" : "rounded-bl-md bg-[var(--card)] text-[var(--foreground)]"}`}>
+                              <div className={`rounded-2xl px-4 py-3 text-[14px] shadow-lg transition-all duration-200 hover:shadow-xl ${isOwn ? "rounded-br-md bg-gradient-to-br from-sky-500 to-sky-600 text-always-white" : "rounded-bl-md bg-[var(--card)] text-[var(--foreground)]"}`}>
                                 {!isOwn && (() => { const check = detectScam(msg.text || ""); return check.isScam ? (
                                   <span className="mb-2 inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2.5 py-1 text-[9px] font-bold text-red-400 border border-red-500/20" title={`Flagged: ${check.keywords.join(", ")}`}>&#9888;&#65039; Caution</span>
                                 ) : null; })()}
@@ -2197,13 +2166,13 @@ function MessagesPage() {
                                 <p className="break-words whitespace-pre-line text-[14px] leading-relaxed">{formatMessageText(msg.text)}</p>
                                 {/* Status + timestamp */}
                                 <div className="mt-2 flex items-center justify-end gap-1">
-                                  <span className={`text-[9px] ${isOwn ? "text-white/60" : "text-[var(--muted)]"}`}>{formatTime(msg.createdAt)}</span>
+                                  <span className={`text-[9px] ${isOwn ? "text-always-white/80" : "text-[var(--muted)]"}`}>{formatTime(msg.createdAt)}</span>
                                   {isOwn && (
                                     <span className="text-[10px]">
                                       {msg.read ? (
                                         <svg className="h-3.5 w-3.5 text-sky-400" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 7.5l-12 12L5 13l1.5-1.5 5 5 10.5-10.5L23.5 7.5zM17.5 7.5l-6 6-1.5-1.5 6-6 1.5 1.5z" /></svg>
                                       ) : (
-                                        <svg className="h-3.5 w-3.5 text-white/50" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" /></svg>
+                                        <svg className="h-3.5 w-3.5 text-always-white/80" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" /></svg>
                                       )}
                                     </span>
                                   )}
@@ -2222,7 +2191,7 @@ function MessagesPage() {
                   <StayOnSkyDropNotice paymentType={purchaseData?.paymentType} compact />
                 </div>
                 {/* Input area */}
-                <div className="px-5 py-2.5">
+                <div className={`px-5 py-2.5 ${MOBILE_FAB_CLEARANCE}`}>
                   {/* Image preview */}
                   {imagePreview && (
                     <div className="mb-2 flex items-center gap-3 rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] p-2">
@@ -2235,7 +2204,11 @@ function MessagesPage() {
                   {/* File attachment preview */}
                   {fileAttachment && (
                     <div className="mb-2 flex items-center gap-3 rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] p-2">
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--soft-card)] text-lg">📎</span>
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--soft-card)] text-[var(--muted)]">
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                        </svg>
+                      </span>
                       <div className="flex-1 min-w-0">
                         <p className="truncate text-[11px] font-medium text-[var(--foreground)]">{fileAttachment.name}</p>
                         <p className="text-[9px] text-[var(--muted)]">{(fileAttachment.size / 1024).toFixed(1)} KB</p>

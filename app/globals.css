@@ -66,6 +66,8 @@
   /* Mobile chrome — bottom nav + safe area (updated by Navbar when logged in) */
   --mobile-nav-height: 0px;
   --mobile-nav-offset: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px));
+  --fab-size: 3.625rem;
+  --fab-clearance: 5.25rem;
   --touch-min: 44px;
   --page-gutter-mobile: 16px;
 
@@ -510,15 +512,20 @@ body {
 .mobile-sticky-cta {
   position: fixed;
   left: 0;
-  right: 0;
+  /* Leave a FAB-sized hole on the right so the dock stays tappable */
+  right: calc(var(--fab-clearance) + env(safe-area-inset-right, 0px));
   bottom: var(--mobile-nav-offset, 0px);
-  /* Above bottom nav (z-9999) so CTAs remain tappable on mobile */
+  /* Above bottom nav (z-9999); below FAB dock (z-10020) */
   z-index: 10000;
+  background-color: color-mix(in srgb, var(--card) 96%, transparent);
+  border-color: var(--card-border);
+  box-shadow: var(--shadow-sm);
 }
 
-:root.light .mobile-sticky-cta {
-  background-color: rgba(255, 255, 255, 0.96) !important;
-  border-color: rgba(0, 0, 0, 0.1) !important;
+@media (min-width: 1024px) {
+  .mobile-sticky-cta {
+    right: 0;
+  }
 }
 
 .mobile-h-scroll {
@@ -637,43 +644,43 @@ select:focus-visible {
   font-size: var(--text-base);
 }
 
-/* ── LIGHT MODE GLOBAL OVERRIDES (navy + white + sky blue) ── */
-:root.light .bg-zinc-950 { background-color: #ffffff !important; }
-:root.light .bg-zinc-900 { background-color: #ffffff !important; }
-:root.light .bg-zinc-900\/80 { background-color: #ffffff !important; }
-:root.light .bg-zinc-900\/60 { background-color: #ffffff !important; }
-:root.light .bg-zinc-900\/50 { background-color: #ffffff !important; }
-:root.light .bg-zinc-900\/40 { background-color: #fafafa !important; }
-:root.light .bg-zinc-900\/30 { background-color: #ffffff !important; }
-:root.light .bg-zinc-900\/20 { background-color: #fafafa !important; }
-:root.light .bg-zinc-800 { background-color: #f5f5f5 !important; }
-:root.light .bg-zinc-800\/80 { background-color: rgba(245, 245, 245, 0.95) !important; }
-:root.light .bg-zinc-800\/60 { background-color: rgba(245, 245, 245, 0.88) !important; }
-:root.light .bg-zinc-800\/50 { background-color: rgba(245, 245, 245, 0.78) !important; }
-:root.light .bg-zinc-800\/40 { background-color: rgba(245, 245, 245, 0.68) !important; }
-:root.light .bg-zinc-700 { background-color: #eeeeee !important; }
-:root.light .bg-zinc-700\/50 { background-color: rgba(238, 238, 238, 0.72) !important; }
-:root.light .bg-black\/40 { background-color: rgba(255, 255, 255, 0.94) !important; }
-:root.light .bg-black\/60 { background-color: #f0f7ff !important; }
-:root:not(.light) .bg-white { background-color: rgba(25, 25, 33, 0.7) !important; }
-:root.light .bg-white\/\[0\.02\] { background-color: #ffffff !important; }
-:root.light .bg-white\/\[0\.03\] { background-color: #ffffff !important; }
-:root.light .bg-white\/\[0\.04\] { background-color: #fafafa !important; }
-:root.light .bg-white\/\[0\.06\] { background-color: #f5f5f5 !important; }
-:root.light .hover\:bg-white\/\[0\.06\]:hover { background-color: #eeeeee !important; }
+/* ── LIGHT MODE FALLBACKS (prefer CSS vars in components; shrink this wall over time) ── */
+:root.light .bg-zinc-950,
+:root.light .bg-zinc-900,
+:root.light .bg-zinc-900\/80,
+:root.light .bg-zinc-900\/60,
+:root.light .bg-zinc-900\/50,
+:root.light .bg-zinc-900\/30 { background-color: var(--background) !important; }
+:root.light .bg-zinc-900\/40,
+:root.light .bg-zinc-900\/20 { background-color: var(--soft-card) !important; }
+:root.light .bg-zinc-800,
+:root.light .bg-zinc-800\/80,
+:root.light .bg-zinc-800\/60 { background-color: var(--soft-card) !important; }
+:root.light .bg-zinc-800\/50,
+:root.light .bg-zinc-800\/40 { background-color: var(--pill-bg) !important; }
+:root.light .bg-zinc-700,
+:root.light .bg-zinc-700\/50 { background-color: var(--pill-bg) !important; }
+:root.light .bg-black\/40 { background-color: color-mix(in srgb, var(--card) 94%, transparent) !important; }
+:root.light .bg-black\/60 { background-color: var(--soft-card) !important; }
+:root:not(.light) .bg-white { background-color: var(--card) !important; }
+:root.light .bg-white\/\[0\.02\],
+:root.light .bg-white\/\[0\.03\] { background-color: var(--card) !important; }
+:root.light .bg-white\/\[0\.04\] { background-color: var(--soft-card) !important; }
+:root.light .bg-white\/\[0\.06\] { background-color: var(--pill-bg) !important; }
+:root.light .hover\:bg-white\/\[0\.06\]:hover { background-color: var(--card-hover) !important; }
 :root.light .hover\:text-white:hover { color: var(--foreground) !important; }
 :root.light .bg-gradient-to-r.from-sky-500 {
-  background-image: linear-gradient(to right, #0ea5e9, #38bdf8) !important;
+  background-image: linear-gradient(to right, var(--accent-primary), #38bdf8) !important;
 }
-:root.light .border-zinc-800 { border-color: rgba(0, 0, 0, 0.1) !important; }
-:root.light .border-zinc-800\/50 { border-color: rgba(0, 0, 0, 0.07) !important; }
-:root.light .border-zinc-800\/30 { border-color: rgba(0, 0, 0, 0.12) !important; }
-:root.light .border-zinc-700 { border-color: rgba(0, 0, 0, 0.12) !important; }
-:root.light .border-zinc-700\/50 { border-color: rgba(0, 0, 0, 0.16) !important; }
-:root.light .border-zinc-700\/40 { border-color: rgba(0, 0, 0, 0.14) !important; }
-:root.light .border-white\/10 { border-color: rgba(0, 0, 0, 0.14) !important; }
-:root.light .border-white\/\[0\.04\] { border-color: rgba(0, 0, 0, 0.12) !important; }
-:root.light .border-white\/\[0\.06\] { border-color: rgba(0, 0, 0, 0.16) !important; }
+:root.light .border-zinc-800,
+:root.light .border-zinc-800\/50,
+:root.light .border-zinc-800\/30,
+:root.light .border-zinc-700,
+:root.light .border-zinc-700\/50,
+:root.light .border-zinc-700\/40,
+:root.light .border-white\/10,
+:root.light .border-white\/\[0\.04\],
+:root.light .border-white\/\[0\.06\] { border-color: var(--card-border) !important; }
 :root:not(.light) .text-\[\#111827\] { color: #ffffff !important; }
 :root:not(.light) .text-\[\#6B7280\] { color: rgba(255, 255, 255, 0.7) !important; }
 :root:not(.light) .text-\[\#0a1628\] { color: #ffffff !important; }
@@ -1246,38 +1253,39 @@ select:focus-visible {
 :root.light header .text-white\/30 { color: #ffffff !important; }
 :root.light .text-white\/20 { color: #000000 !important; }
 :root.light .text-white\/10 { color: #000000 !important; }
-:root.light .text-zinc-200 { color: #000000 !important; }
-:root.light .text-zinc-300 { color: #000000 !important; }
-:root.light .text-zinc-400 { color: #000000 !important; }
-:root.light .text-zinc-500 { color: #000000 !important; }
-:root.light .text-zinc-600 { color: #000000 !important; }
-:root.light .text-zinc-700 { color: #000000 !important; }
-:root.light .text-zinc-800 { color: #000000 !important; }
-:root.light .text-zinc-900 { color: #000000 !important; }
-:root.light .text-zinc-950 { color: #000000 !important; }
-:root.light .text-neutral-400 { color: #000000 !important; }
-:root.light .text-neutral-500 { color: #000000 !important; }
-:root.light .text-gray-400 { color: #000000 !important; }
-:root.light .text-gray-500 { color: #000000 !important; }
-:root.light .text-black { color: #000000 !important; }
-:root.light .text-zinc-100 { color: #000000 !important; }
-:root.light .text-slate-300,
+/* Preserve muted hierarchy — do not flatten all grays to pure black */
+:root.light .text-zinc-100,
+:root.light .text-zinc-200,
+:root.light .text-zinc-300 { color: var(--foreground) !important; }
+:root.light .text-zinc-400,
+:root.light .text-zinc-500,
+:root.light .text-zinc-600,
+:root.light .text-neutral-400,
+:root.light .text-neutral-500,
+:root.light .text-gray-400,
+:root.light .text-gray-500,
 :root.light .text-slate-400,
-:root.light .text-slate-500,
+:root.light .text-slate-500 { color: var(--muted) !important; }
+:root.light .text-zinc-700,
+:root.light .text-zinc-800,
+:root.light .text-zinc-900,
+:root.light .text-zinc-950,
+:root.light .text-black { color: var(--foreground) !important; }
+:root.light .text-slate-300 { color: var(--foreground) !important; }
 :root.light .text-slate-600,
 :root.light .text-slate-700,
 :root.light .text-slate-800,
-:root.light .text-slate-900 { color: #000000 !important; }
-:root.light .text-gray-300,
+:root.light .text-slate-900 { color: var(--foreground) !important; }
+:root.light .text-gray-300 { color: var(--foreground) !important; }
 :root.light .text-gray-600,
 :root.light .text-gray-700,
 :root.light .text-gray-800,
-:root.light .text-gray-900 { color: #000000 !important; }
-:root.light .text-neutral-300,
+:root.light .text-gray-900 { color: var(--foreground) !important; }
+:root.light .text-neutral-300 { color: var(--foreground) !important; }
 :root.light .text-neutral-600,
 :root.light .text-neutral-700,
 :root.light .text-neutral-800,
-:root.light .text-neutral-900 { color: #000000 !important; }
+:root.light .text-neutral-900 { color: var(--foreground) !important; }
 :root.light .text-emerald-300,
 :root.light .text-emerald-400 { color: #059669 !important; }
 :root.light .text-emerald-500,

@@ -325,11 +325,11 @@ export default function SellerPage() {
   const pinnedListings = useMemo(() => listings.filter((l) => l.pinned), [listings]);
 
   const avgRating = useMemo(() => {
-    if (typeof profile?.averageRating === "number" && profile.reviewCount) {
+    if (typeof profile?.averageRating === "number" && profile?.reviewCount) {
       return profile.averageRating;
     }
     return reviews.length > 0 ? reviews.reduce((t, r) => t + r.rating, 0) / reviews.length : 0;
-  }, [profile?.averageRating, profile?.reviewCount, reviews]);
+  }, [profile, reviews]);
 
   const reviewCount =
     typeof profile?.reviewCount === "number" ? profile.reviewCount : reviews.length;
@@ -340,8 +340,7 @@ export default function SellerPage() {
     return date
       ? date.toLocaleDateString("en-NZ", { year: "numeric", month: "short" })
       : "";
-  }, [profile?.memberSince]);
-  const sellerEmail = profile?.email || "";
+  }, [profile]);
   const displayName = sellerProfileDisplayName(profile, "Seller");
   const displayHandle = displayName === "Seller" ? displayName : `@${displayName}`;
   const initial = displayName.charAt(0).toUpperCase();
@@ -374,10 +373,10 @@ export default function SellerPage() {
       <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
         <Background /><Navbar />
         <div className="relative z-10 mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
-          <div className="rounded-2xl border border-zinc-700/50 bg-zinc-900/70 p-12 text-center shadow-[0_2px_12px_rgba(0,0,0,0.3)]">
+          <div className="rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-12 text-center shadow-[0_2px_12px_rgba(0,0,0,0.3)]">
             <h2 className="text-xl font-bold text-[var(--foreground)] mb-2">Seller not found</h2>
             <p className="text-[var(--muted)] mb-6">
-              The seller profile you're looking for doesn't exist or has been removed.
+              The seller profile you&apos;re looking for doesn&apos;t exist or has been removed.
             </p>
             <Link
               href="/search"
@@ -416,9 +415,9 @@ export default function SellerPage() {
               {/* Avatar */}
               <div className="absolute -top-11 left-5 sm:-top-14 sm:left-6">
                 {profile.photoURL ? (
-                  <img src={profile.photoURL} alt="" className="h-[72px] w-[72px] sm:h-24 sm:w-24 rounded-xl border-[3px] border-zinc-900 object-cover shadow-[0_0_20px_rgba(14,165,233,0.2)]" />
+                  <img src={profile.photoURL} alt="" className="h-[72px] w-[72px] sm:h-24 sm:w-24 rounded-xl border-[3px] border-[var(--card)] object-cover shadow-[var(--shadow-sm)]" />
                 ) : (
-                  <div className="flex h-[72px] w-[72px] sm:h-24 sm:w-24 items-center justify-center rounded-xl border-[3px] border-zinc-900 bg-gradient-to-br from-sky-500 via-sky-500 to-sky-600 text-2xl sm:text-3xl font-black text-[var(--foreground)] shadow-[0_0_20px_rgba(14,165,233,0.2)]">{initial}</div>
+                  <div className="flex h-[72px] w-[72px] sm:h-24 sm:w-24 items-center justify-center rounded-xl border-[3px] border-[var(--card)] bg-gradient-to-br from-sky-500 via-sky-500 to-sky-600 text-2xl sm:text-3xl font-black text-[var(--foreground)] shadow-[var(--shadow-sm)]">{initial}</div>
                 )}
               </div>
 
@@ -436,7 +435,7 @@ export default function SellerPage() {
                   {isNotVerified && (
                     <span className="group relative inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-bold text-red-400 ring-1 ring-red-500/20" title="This seller has not completed email, phone, and ID verification yet.">
                       Not Verified
-                      <span className="invisible group-hover:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-44 rounded-lg bg-zinc-800 px-2.5 py-1.5 text-[10px] text-[var(--foreground)] shadow-lg pointer-events-none z-10">
+                      <span className="invisible group-hover:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-44 rounded-lg bg-[var(--card)] px-2.5 py-1.5 text-[10px] text-[var(--foreground)] shadow-lg pointer-events-none z-10">
                         This seller has not completed email, phone, and ID verification yet.
                       </span>
                     </span>
@@ -548,7 +547,7 @@ export default function SellerPage() {
               {profile.bio && (
                 <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.25)]">
                   <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent" />
-                  <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.15em] text-white">About</h2>
+                  <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.15em] text-[var(--foreground)]">About</h2>
                   <p className="text-sm leading-relaxed text-[var(--foreground)]">{profile.bio}</p>
                 </div>
               )}
@@ -557,7 +556,7 @@ export default function SellerPage() {
               {pinnedListings.length > 0 && (
                 <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.25)]">
                   <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent" />
-                  <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.15em] text-white">📌 Pinned</h2>
+                  <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.15em] text-[var(--foreground)]">Pinned</h2>
                   <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
                     {pinnedListings.map((item) => (
                       <div key={item.id} onClick={() => router.push(`/post/listing/${item.id}`)}
@@ -614,7 +613,7 @@ export default function SellerPage() {
                         <div className="p-3">
                           <div className="flex items-center gap-1.5">
                             {item.category && <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-2 py-0.5 text-[9px] font-bold text-sky-400">{item.category}</span>}
-                            {item.condition && <span className="rounded-full border border-white/[0.06] bg-zinc-800/80 px-2 py-0.5 text-[9px] font-medium text-[var(--muted)]">{item.condition}</span>}
+                            {item.condition && <span className="rounded-full border border-white/[0.06] bg-[var(--soft-card)] px-2 py-0.5 text-[9px] font-medium text-[var(--muted)]">{item.condition}</span>}
                           </div>
                           <p className="mt-1.5 truncate text-sm font-bold text-[var(--foreground)] group-hover/card:text-sky-300 transition-colors">{item.title}</p>
                           <p className="mt-0.5 text-sm font-bold text-sky-400">${item.price}</p>
@@ -630,7 +629,7 @@ export default function SellerPage() {
               {soldListings.length > 0 && (
                 <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.25)]">
                   <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent" />
-                  <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.15em] text-white">
+                  <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.15em] text-[var(--foreground)]">
                     Sold ({soldListings.length})
                   </h2>
                   <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
@@ -666,7 +665,7 @@ export default function SellerPage() {
               {/* Trust Panel */}
               <div className={`relative overflow-hidden rounded-xl border bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.25)] ${isNotVerified ? 'border-red-500/30 animate-breathe-border' : 'border-white/[0.08]'}`}>
                 <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent" />
-                <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.15em] text-white">Trust &amp; Safety</h2>
+                <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.15em] text-[var(--foreground)]">Trust &amp; Safety</h2>
                 <div className="space-y-3">
                   {isFullyVerified ? (
                     <div className="flex items-center gap-2">
@@ -695,7 +694,7 @@ export default function SellerPage() {
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-800/60 text-[10px] ring-1 ring-white/[0.06]">✉</span>
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--soft-card)] text-[10px] ring-1 ring-white/[0.06]">✉</span>
                       <div>
                         <p className="text-xs font-bold text-[var(--muted)]">Email Not Verified</p>
                         <p className="text-[10px] text-zinc-600">Email address not confirmed</p>
@@ -712,7 +711,7 @@ export default function SellerPage() {
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-800/60 text-[10px] ring-1 ring-white/[0.06]">📱</span>
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--soft-card)] text-[10px] ring-1 ring-white/[0.06]">📱</span>
                       <div>
                         <p className="text-xs font-bold text-[var(--muted)]">Phone Not Verified</p>
                         <p className="text-[10px] text-zinc-600">Phone number not confirmed</p>
@@ -729,7 +728,7 @@ export default function SellerPage() {
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-800/60 text-[10px] ring-1 ring-white/[0.06]">🪪</span>
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--soft-card)] text-[10px] ring-1 ring-white/[0.06]">🪪</span>
                       <div>
                         <p className="text-xs font-bold text-[var(--muted)]">ID Not Verified</p>
                         <p className="text-[10px] text-zinc-600">Identity verification not completed</p>
@@ -785,7 +784,7 @@ export default function SellerPage() {
                       return (
                         <div key={n} className="flex items-center gap-2 text-[11px]">
                           <span className="w-4 font-bold text-[var(--muted)]">{n}</span>
-                          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-700/40">
+                          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--pill-bg)]">
                             <div className="h-full rounded-full bg-sky-500/70 transition-all duration-300" style={{ width: `${pct}%` }} />
                           </div>
                           <span className="w-4 text-right font-medium text-[var(--muted)]">{count}</span>
@@ -804,7 +803,7 @@ export default function SellerPage() {
                     />
                   ) : (
                     reviews.map((r) => (
-                      <div key={r.id} className="rounded-lg border border-zinc-700/30 bg-zinc-800/25 p-3">
+                      <div key={r.id} className="rounded-lg border border-[var(--card-border)] bg-[var(--soft-card)] p-3">
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] font-bold text-[var(--foreground)]">
                             {reviewerDisplayName(r)}

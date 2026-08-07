@@ -307,7 +307,7 @@ export default function SearchPage() {
       <section className="relative z-10 mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-10">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-2xl font-black text-white sm:text-3xl">
+            <h1 className="text-2xl font-bold text-[var(--foreground)] sm:text-3xl">
               {query ? `Results for "${normalizeMarketplaceSearchQuery(query)}"` : "All Listings"}
             </h1>
             {heardRaw && heardRaw.toLowerCase() !== normalizeMarketplaceSearchQuery(query) && (
@@ -351,7 +351,7 @@ export default function SearchPage() {
               {checkIfSearchSaved() && (
                 <button
                   onClick={removeSavedSearch}
-                  className="inline-flex items-center gap-2 rounded-xl border border-white/[0.1] bg-white/[0.03] px-4 py-2 text-sm font-semibold text-[var(--muted)] transition hover:bg-white/[0.06] hover:text-white"
+                  className="inline-flex items-center gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] px-4 py-2 text-sm font-semibold text-[var(--muted)] transition hover:bg-white/[0.06] hover:text-[var(--foreground)]"
                 >
                   Remove
                 </button>
@@ -364,7 +364,7 @@ export default function SearchPage() {
         <div className="mb-6 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-sm font-bold text-white">Refine results</h2>
+              <h2 className="text-sm font-semibold text-[var(--foreground)]">Refine results</h2>
               <p className="mt-1 text-xs text-[var(--muted)]">Filters update instantly and stay in the URL.</p>
             </div>
             {hasActiveFilters && (
@@ -393,7 +393,7 @@ export default function SearchPage() {
                   placeholder="Min"
                   value={minPrice}
                   onChange={(e) => setMinPrice(e.target.value)}
-                  className="w-full min-w-0 rounded-lg border border-white/[0.06] bg-[var(--card)] px-3 py-2 text-sm text-white outline-none focus:border-sky-500/40"
+                  className="w-full min-w-0 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-sky-500/40"
                 />
                 <span className="text-[var(--muted)]">-</span>
                 <input
@@ -401,7 +401,7 @@ export default function SearchPage() {
                   placeholder="Max"
                   value={maxPrice}
                   onChange={(e) => setMaxPrice(e.target.value)}
-                  className="w-full min-w-0 rounded-lg border border-white/[0.06] bg-[var(--card)] px-3 py-2 text-sm text-white outline-none focus:border-sky-500/40"
+                  className="w-full min-w-0 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-sky-500/40"
                 />
               </div>
             </div>
@@ -412,7 +412,7 @@ export default function SearchPage() {
               <select
                 value={condition}
                 onChange={(e) => setCondition(e.target.value)}
-                className="w-full rounded-lg border border-white/[0.06] bg-[var(--card)] px-3 py-2 text-sm text-white outline-none focus:border-sky-500/40"
+                className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-sky-500/40"
               >
                 <option value="all">All</option>
                 <option value="New">New</option>
@@ -430,7 +430,7 @@ export default function SearchPage() {
                 placeholder="Any city or region"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                className="w-full rounded-lg border border-white/[0.06] bg-[var(--card)] px-3 py-2 text-sm text-white outline-none focus:border-sky-500/40"
+                className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-sky-500/40"
               />
             </div>
 
@@ -440,7 +440,7 @@ export default function SearchPage() {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="w-full rounded-lg border border-white/[0.06] bg-[var(--card)] px-3 py-2 text-sm text-white outline-none focus:border-sky-500/40"
+                className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-sky-500/40"
               >
                 <option value="newest">Newest</option>
                 <option value="price-low">Price: Low to High</option>
@@ -455,7 +455,7 @@ export default function SearchPage() {
               <select
                 value={saleType}
                 onChange={(e) => setSaleType(e.target.value)}
-                className="w-full rounded-lg border border-white/[0.06] bg-[var(--card)] px-3 py-2 text-sm text-white outline-none focus:border-sky-500/40"
+                className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-sky-500/40"
               >
                 <option value="all">All</option>
                 <option value="auction">Auctions</option>

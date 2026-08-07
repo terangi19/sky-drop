@@ -1026,7 +1026,7 @@ export default function Home() {
                     onClick={() => setSelectedCategory("All")}
                     className={`mobile-chip border transition-colors duration-200 ${
                       selectedCategory === "All"
-                        ? "border-sky-400/40 bg-sky-500/15 text-white"
+                        ? "border-sky-400/40 bg-sky-500/15 text-[var(--foreground)]"
                         : "border-transparent bg-[var(--card)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-hover)]"
                     }`}
                   >
@@ -1038,7 +1038,7 @@ export default function Home() {
                       onClick={() => setSelectedCategory(cat.name)}
                       className={`mobile-chip border transition-colors duration-200 ${
                         selectedCategory === cat.name
-                          ? "border-sky-400/40 bg-sky-500/15 text-white"
+                          ? "border-sky-400/40 bg-sky-500/15 text-[var(--foreground)]"
                           : "border-transparent bg-[var(--card)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-hover)]"
                       }`}
                     >

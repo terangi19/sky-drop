@@ -433,7 +433,7 @@ export default function Navbar() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
                 {msgCount > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-sky-500 px-1 text-[8px] font-bold text-white shadow-[0_0_6px_rgba(56,189,248,0.4)]">
+                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-sky-500 px-1 text-[8px] font-bold text-always-white">
                     {msgCount > 9 ? "9+" : msgCount}
                   </span>
                 )}
@@ -522,7 +522,7 @@ export default function Navbar() {
       <div
         id="mobile-nav-menu"
         ref={mobileMenuRef}
-        className={`fixed inset-x-0 top-16 z-[10001] max-h-[min(80vh,calc(100dvh-4rem-var(--mobile-nav-offset,0px)))] overflow-y-auto overscroll-contain border-b border-white/[0.08] bg-zinc-950/98 backdrop-blur-2xl shadow-2xl shadow-black/50 lg:hidden light:border-black/[0.1] light:bg-white/98 transition-all duration-200 ease-out ${
+        className={`fixed inset-x-0 top-16 z-[10001] max-h-[min(80vh,calc(100dvh-4rem-var(--mobile-nav-offset,0px)))] overflow-y-auto overscroll-contain border-b border-white/[0.08] bg-[var(--nav-bg)] backdrop-blur-2xl shadow-2xl shadow-black/50 lg:hidden light:border-black/[0.1] light:bg-white/98 transition-all duration-200 ease-out ${
           mobileMenuOpen
             ? "opacity-100 translate-y-0 visible pointer-events-auto"
             : "opacity-0 -translate-y-2 invisible pointer-events-none"
@@ -674,7 +674,7 @@ export default function Navbar() {
       {/* Mobile bottom bar — icon + label, 44px+ touch targets */}
       {!authLoading && (
         <nav
-          className="fixed bottom-0 left-0 right-0 z-[9999] border-t border-white/[0.06] bg-zinc-950/95 backdrop-blur-xl lg:hidden"
+          className="fixed bottom-0 left-0 right-0 z-[9999] border-t border-white/[0.06] bg-[var(--nav-bg)] backdrop-blur-xl lg:hidden light:border-black/[0.08]"
           style={{ backgroundColor: "var(--nav-bg)" }}
           aria-label="Primary"
         >

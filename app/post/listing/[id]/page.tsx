@@ -1773,31 +1773,17 @@ Property Status: 🟢 Inquiry Active`;
                       Contact Owner
                     </button>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    {listing.acceptOffers && (
-                      <button onClick={() => setShowOffer(true)}
-                        className="h-11 flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06]"
-                      >
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
-                        </svg>
-                        Make Offer
-                      </button>
-                    )}
-                    <button
-                      onClick={() => router.push(sellerMessagesHref)}
-                      className="h-11 flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06]"
+                  {listing.acceptOffers && (
+                    <button onClick={() => setShowOffer(true)}
+                      className="h-11 w-full flex items-center justify-center gap-2 rounded-lg border border-[var(--card-border)] bg-[var(--soft-card)] px-4 text-sm font-semibold text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-[var(--card-hover)]"
                     >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03 8 9 8s9 3.582 9 8z" />
-                      </svg>
-                      Message Seller
+                      Make Offer
                     </button>
-                  </div>
+                  )}
                 </>
               ) : user?.email === listing.sellerEmail ? (
                 <div className="flex gap-3 w-full">
-                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 h-11 flex items-center justify-center rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:brightness-110 active:scale-[0.98]">
+                  <Link href={`/post/ai?edit=${listingId}`} className="btn btn-primary flex-1 h-11">
                     Edit Listing
                   </Link>
                   <button onClick={() => setShowPromote(true)}
@@ -1806,7 +1792,7 @@ Property Status: 🟢 Inquiry Active`;
                   </button>
                 </div>
               ) : (
-                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="w-full h-11 rounded-lg border border-white/[0.08] bg-white/[0.03] text-sm font-bold text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-white/[0.06]">
+                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="btn btn-secondary w-full h-11">
                   Sign in to continue
                 </button>
               )}
@@ -1860,21 +1846,10 @@ Property Status: 🟢 Inquiry Active`;
                       Request Quote
                     </button>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      onClick={() => router.push(sellerMessagesHref)}
-                      className="h-11 flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06]"
-                    >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03 8 9 8s9 3.582 9 8z" />
-                      </svg>
-                      Message Seller
-                    </button>
-                  </div>
                 </>
               ) : user?.email === listing.sellerEmail ? (
                 <div className="flex gap-3 w-full">
-                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 h-11 flex items-center justify-center rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:brightness-110 active:scale-[0.98]">
+                  <Link href={`/post/ai?edit=${listingId}`} className="btn btn-primary flex-1 h-11">
                     Edit Listing
                   </Link>
                   <button onClick={() => setShowPromote(true)} className="h-11 px-4 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sm font-bold text-sky-400 transition hover:bg-sky-500/20 hover:border-sky-500/50">
@@ -1882,7 +1857,7 @@ Property Status: 🟢 Inquiry Active`;
                   </button>
                 </div>
               ) : (
-                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="w-full h-11 rounded-lg border border-white/[0.08] bg-white/[0.03] text-sm font-bold text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-white/[0.06]">
+                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="btn btn-secondary w-full h-11">
                   Sign in to continue
                 </button>
               )}
@@ -2256,7 +2231,7 @@ Service Status: 🟢 Inquiry Active`;
                         </div>
                         <div className="mt-1.5 flex items-center justify-between text-[var(--muted)]">
                           <span>${Number(listing.price)}/day × {rentalDays} day{rentalDays > 1 ? "s" : ""}</span>
-                          <span className="text-white font-bold">${(Number(listing.price) * rentalDays).toFixed(2)}</span>
+                          <span className="font-bold text-[var(--foreground)]">${(Number(listing.price) * rentalDays).toFixed(2)}</span>
                         </div>
                         {!!listing.rentalDeposit && (
                           <div className="mt-0.5 flex items-center justify-between text-[var(--muted)]">
@@ -2270,7 +2245,7 @@ Service Status: 🟢 Inquiry Active`;
                             <span>$1.00</span>
                           </div>
                         )}
-                        <div className="mt-1 flex items-center justify-between border-t border-zinc-700 pt-1 text-sm font-bold text-white">
+                        <div className="mt-1 flex items-center justify-between border-t border-[var(--card-border)] pt-1 text-sm font-bold text-[var(--foreground)]">
                           <span>{stripeDisabledV1 ? "Estimated total" : "Total"}</span>
                           <span>${(Number(listing.price) * rentalDays + (stripeDisabledV1 ? 0 : 1)).toFixed(2)}</span>
                         </div>
@@ -2332,7 +2307,7 @@ Service Status: 🟢 Inquiry Active`;
                 className="block rounded-xl border border-sky-500/20 bg-sky-500/5 p-5 transition-all duration-200 hover:border-sky-500/30 hover:bg-sky-500/10 hover:shadow-lg hover:shadow-sky-500/5"
               >
                 <div className="flex items-center gap-4">
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-xl font-bold text-[var(--foreground)]">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[var(--soft-card)] text-xl font-bold text-[var(--foreground)]">
                     {sellerInitial}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -2382,18 +2357,18 @@ Service Status: 🟢 Inquiry Active`;
                         <>
                           <div className="flex items-center gap-1">
                             <ReviewStars rating={sellerStatsData.avg} />
-                            <span className="font-semibold text-white">{sellerStatsData.avg.toFixed(1)}</span>
+                            <span className="font-semibold text-[var(--foreground)]">{sellerStatsData.avg.toFixed(1)}</span>
                           </div>
-                          <span className="text-zinc-500">{sellerStatsData.count} review{sellerStatsData.count !== 1 ? "s" : ""}</span>
+                          <span className="text-[var(--muted)]">{sellerStatsData.count} review{sellerStatsData.count !== 1 ? "s" : ""}</span>
                         </>
                       ) : (
-                        <span className="text-zinc-500 text-[11px]">No reviews yet</span>
+                        <span className="text-[var(--muted)] text-[11px]">No reviews yet</span>
                       )}
                       {sellerSalesCount !== null && sellerSalesCount > 0 && (
-                        <span className="text-zinc-500">· {sellerSalesCount} sale{sellerSalesCount !== 1 ? "s" : ""}</span>
+                        <span className="text-[var(--muted)]">· {sellerSalesCount} sale{sellerSalesCount !== 1 ? "s" : ""}</span>
                       )}
                       {sellerProfile?.memberSince && (
-                        <span className="text-zinc-500">· {(sellerProfile.memberSince as any).seconds ? new Date((sellerProfile.memberSince as any).seconds * 1000).getFullYear() : ""}</span>
+                        <span className="text-[var(--muted)]">· {(sellerProfile.memberSince as any).seconds ? new Date((sellerProfile.memberSince as any).seconds * 1000).getFullYear() : ""}</span>
                       )}
                     </div>
                   </div>
@@ -2435,15 +2410,15 @@ Service Status: 🟢 Inquiry Active`;
                 Share listing
               </button>
 
-              {/* 8. Message Seller */}
-              {user && user.email !== listing.sellerEmail && (
-                <div id="contact" className="mt-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
+              {/* Inline ask box only when Stripe checkout UI is on — V1 uses primary Message Seller CTA */}
+              {!stripeDisabledV1 && user && user.email !== listing.sellerEmail && (
+                <div id="contact" className="mt-3 rounded-lg border border-[var(--card-border)] bg-[var(--soft-card)] p-3">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold text-[var(--foreground)]">Message Seller</span>
                   </div>
                   {messageSent ? (
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-sky-400">✓ Message sent!</span>
+                      <span className="text-xs text-sky-400">Message sent</span>
                       <button onClick={() => setMessageSent(false)} className="ml-auto text-[10px] text-[var(--muted)] underline hover:text-[var(--foreground)]">Send another</button>
                     </div>
                   ) : (
@@ -2453,13 +2428,13 @@ Service Status: 🟢 Inquiry Active`;
                         value={messageText}
                         onChange={(e) => setMessageText(e.target.value)}
                         placeholder={`Ask about this listing...`}
-                        className="flex-1 rounded-lg border border-zinc-700/40 bg-zinc-800/50 px-3 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500/40 placeholder:text-[var(--muted)]"
+                        className="flex-1 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500/40 placeholder:text-[var(--muted)]"
                         onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessageToSeller(); } }}
                       />
                       <button
                         onClick={sendMessageToSeller}
                         disabled={!messageText.trim() || sendingMessage}
-                        className="shrink-0 rounded-lg bg-sky-500 px-3 py-2 text-[11px] font-bold text-[var(--foreground)] transition hover:bg-sky-400 disabled:opacity-50"
+                        className="shrink-0 rounded-lg bg-sky-500 px-3 py-2 text-[11px] font-bold text-always-white transition hover:bg-sky-400 disabled:opacity-50"
                       >
                         {sendingMessage ? "..." : "Send"}
                       </button>
@@ -2470,7 +2445,7 @@ Service Status: 🟢 Inquiry Active`;
             </div>
 
             {/* 8. Q&A */}
-            <div className="border-t border-zinc-800 pt-5 pb-2">
+            <div className="border-t border-[var(--card-border)] pt-5 pb-2">
               <h3 className="mb-4 text-sm font-bold text-[var(--foreground)]">Questions & Answers</h3>
 
               {questions.length === 0 && (
@@ -2479,7 +2454,7 @@ Service Status: 🟢 Inquiry Active`;
 
               <div className="space-y-3 mb-4">
                 {questions.map((q: any) => (
-                  <div key={q.id} className="rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-4">
+                  <div key={q.id} className="rounded-xl border border-[var(--card-border)]/60 bg-[var(--soft-card)] p-4">
                     <div className="flex items-start gap-3">
                       <span className="text-sm mt-0.5">❓</span>
                       <div className="min-w-0 flex-1">
@@ -2502,7 +2477,7 @@ Service Status: 🟢 Inquiry Active`;
                           <div className="flex gap-2">
                             <input type="text" value={answerText} onChange={(e) => setAnswerText(e.target.value)}
                               placeholder="Type your answer..." maxLength={500}
-                              className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800/80 px-3 py-1.5 text-[11px] text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                              className="flex-1 rounded-lg border border-[var(--card-border)] bg-[var(--input-bg)] px-3 py-1.5 text-[11px] text-[var(--foreground)] outline-none transition focus:border-sky-500" />
                             <button onClick={async () => {
                               if (!answerText.trim()) return;
                               try {
@@ -2517,7 +2492,7 @@ Service Status: 🟢 Inquiry Active`;
                                 setAnswerText(""); setAnsweringId(null);
                               } catch {}
                             }} className="rounded-lg bg-sky-500 px-3 py-1.5 text-[10px] font-bold text-white hover:bg-sky-400">Answer</button>
-                            <button onClick={() => { setAnsweringId(null); setAnswerText(""); }} className="text-[10px] text-[var(--muted)] hover:text-white px-1">✕</button>
+                            <button onClick={() => { setAnsweringId(null); setAnswerText(""); }} className="text-[10px] text-[var(--muted)] hover:text-[var(--foreground)] px-1">✕</button>
                           </div>
                         ) : (
                           <button onClick={() => { setAnsweringId(q.id); setAnswerText(""); }}
@@ -2539,7 +2514,7 @@ Service Status: 🟢 Inquiry Active`;
                 <div className="flex gap-2">
                   <input type="text" value={newQuestion} onChange={(e) => setNewQuestion(e.target.value)}
                     placeholder="Ask a question..."
-                    className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800/80 px-3 py-2 text-[11px] text-[var(--foreground)] outline-none transition placeholder:text-zinc-500 focus:border-sky-500" />
+                    className="flex-1 rounded-lg border border-[var(--card-border)] bg-[var(--input-bg)] px-3 py-2 text-[11px] text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-500" />
                     <button onClick={async () => {
                       if (!newQuestion.trim() || !listing) return;
                       setSendingQuestion(true);
@@ -2622,7 +2597,7 @@ Service Status: 🟢 Inquiry Active`;
         <section className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 pb-8">
           <div className="flex items-center gap-3 mb-6">
             <div className="h-5 w-0.5 rounded-full bg-gradient-to-b from-sky-500 to-sky-500" />
-            <h2 className="text-base font-bold text-white">More from {sellerProfileDisplayName(listing, "this seller")}</h2>
+            <h2 className="text-base font-bold text-[var(--foreground)]">More from {sellerProfileDisplayName(listing, "this seller")}</h2>
           </div>
           <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
             {sellerListings.map((l: any) => (
@@ -2672,7 +2647,7 @@ Service Status: 🟢 Inquiry Active`;
       )}
       {showBidModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setShowBidModal(false)}>
-          <div className="mx-4 w-full max-w-sm rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="mx-4 w-full max-w-sm rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-black text-[var(--foreground)]">Place Bid</h3>
             <p className="mt-1 text-sm text-[var(--muted)]">{listing.title}</p>
             <p className="mt-1 text-xs text-[var(--muted)]">Current bid: ${listing.currentBid || listing.startingBid || 0}</p>
@@ -2683,18 +2658,18 @@ Service Status: 🟢 Inquiry Active`;
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg text-[var(--muted)]">$</span>
               <input type="number" value={bidAmount} onChange={(e) => setBidAmount(e.target.value)}
                 placeholder={String(getMinimumNextBid(listing.currentBid || listing.startingBid || 0))}
-                className="w-full rounded-xl border border-zinc-700 bg-zinc-800 py-3.5 pl-9 pr-4 text-lg text-[var(--foreground)] outline-none focus:border-sky-500" />
+                className="w-full rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] py-3.5 pl-9 pr-4 text-lg text-[var(--foreground)] outline-none focus:border-sky-500" />
             </div>
             <div className="mt-1 text-right text-[9px] text-[var(--muted)]">
               Min: ${getMinimumNextBid(listing.currentBid || listing.startingBid || 0)}
             </div>
             <label className="mt-3 flex cursor-pointer items-center gap-2.5">
               <input type="checkbox" checked={autoBidEnabled} onChange={(e) => setAutoBidEnabled(e.target.checked)}
-                className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-sky-500 focus:ring-sky-500/30" />
+                className="h-4 w-4 rounded border-[var(--input-border)] bg-[var(--soft-card)] text-sky-500 focus:ring-sky-500/30" />
               <span className="text-xs text-[var(--muted)]">Auto bid <span className="text-[var(--foreground)]">— automatically bid up to this amount if outbid</span></span>
             </label>
             <div className="mt-5 flex gap-3">
-              <button onClick={() => setShowBidModal(false)} className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-zinc-700">Cancel</button>
+              <button onClick={() => setShowBidModal(false)} className="flex-1 rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] py-3 text-sm font-bold text-[var(--foreground)] hover:bg-[var(--card-hover)]">Cancel</button>
               <button onClick={submitBid} disabled={!bidAmount}
                 className="flex-1 rounded-xl bg-sky-500 py-3 text-sm font-bold text-[var(--foreground)] hover:bg-sky-400 disabled:opacity-50">{autoBidEnabled ? "Auto Bid" : "Place Bid"}</button>
             </div>
