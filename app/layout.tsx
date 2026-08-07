@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import dynamic from "next/dynamic";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "./components/AuthProvider";
@@ -12,10 +11,9 @@ import ToastContainer from "./components/Toast";
 import Footer from "./components/Footer";
 import ScrollToTop from "./components/ScrollToTop";
 import { TourGuideProvider } from "./contexts/TourGuideContext";
-import GuestTourFab from "./components/GuestTourFab";
 import PageEnter from "./components/PageEnter";
-import PWAProvider from "./components/PWAProvider";
 import ChunkLoadRecovery from "./components/ChunkLoadRecovery";
+import DeferredAppChrome from "./components/DeferredAppChrome";
 import { validateEnv } from "./lib/env-validation";
 
 // Validate environment variables on startup
@@ -30,10 +28,6 @@ if (!envValidation.valid) {
 if (envValidation.warnings.length > 0) {
   console.warn("Environment warnings:", envValidation.warnings);
 }
-
-const Spotlight = dynamic(() => import("./components/Spotlight"));
-const SkyAiChat = dynamic(() => import("./components/SkyAiChat"));
-const PlatformAnnouncement = dynamic(() => import("./components/PlatformAnnouncement"));
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -212,7 +206,7 @@ export default function RootLayout({
           `,
         }} />
         <ChunkLoadRecovery />
-        <AuthProvider><ProfileProvider><AwhinaPageInsightProvider><FeedbackProvider><TourGuideProvider><VerificationBanner /><RouteGuard><PageEnter>{children}</PageEnter><Footer /><Spotlight /><ScrollToTop /></RouteGuard><SkyAiChat /><GuestTourFab /><ToastContainer /><PlatformAnnouncement /><PWAProvider /></TourGuideProvider></FeedbackProvider></AwhinaPageInsightProvider></ProfileProvider></AuthProvider>
+        <AuthProvider><ProfileProvider><AwhinaPageInsightProvider><FeedbackProvider><TourGuideProvider><VerificationBanner /><RouteGuard><PageEnter>{children}</PageEnter><Footer /><ScrollToTop /></RouteGuard><ToastContainer /><DeferredAppChrome /></TourGuideProvider></FeedbackProvider></AwhinaPageInsightProvider></ProfileProvider></AuthProvider>
       </body>
     </html>
   );

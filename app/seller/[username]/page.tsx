@@ -346,7 +346,6 @@ export default function SellerPage() {
   const initial = displayName.charAt(0).toUpperCase();
 
   const isFullyVerified = isFullyVerifiedSeller(profile);
-  const isNotVerified = !isFullyVerified;
 
   // Rating distribution
   const ratingCounts = useMemo(() => {
@@ -432,12 +431,9 @@ export default function SellerPage() {
                       Verified
                     </span>
                   )}
-                  {isNotVerified && (
-                    <span className="group relative inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-bold text-red-400 ring-1 ring-red-500/20" title="This seller has not completed email, phone, and ID verification yet.">
-                      Not Verified
-                      <span className="invisible group-hover:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-44 rounded-lg bg-[var(--card)] px-2.5 py-1.5 text-[10px] text-[var(--foreground)] shadow-lg pointer-events-none z-10">
-                        This seller has not completed email, phone, and ID verification yet.
-                      </span>
+                  {!isFullyVerified && (
+                    <span className="inline-flex items-center rounded-full bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium text-[var(--muted)] ring-1 ring-white/[0.06]" title="This seller has not completed full verification yet.">
+                      New seller
                     </span>
                   )}
                   {!profile.hideOnline && (
@@ -496,29 +492,44 @@ export default function SellerPage() {
                     </a>
                   </div>
                 ) : !isOwn && (
-                  <a href="/login"
-                    className="mt-3 inline-block rounded-xl border border-white/[0.08] bg-white/[0.03] px-5 py-2.5 text-xs font-bold text-zinc-400 transition hover:border-sky-500/30 hover:text-[var(--foreground)]">
-                    Log in to follow or message
-                  </a>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <a
+                      href={"/login?redirect=" + encodeURIComponent(`/seller/${profile.username || ""}`) + "&intent=message"}
+                      className="rounded-xl bg-sky-500 px-5 py-2.5 text-xs font-bold text-white transition hover:bg-sky-400"
+                    >
+                      Message Seller
+                    </a>
+                  </div>
                 )}
 
-                {/* Report + Block */}
-                {!isOwn && currentUser && (
+                {/* Report — visible logged out; auth required to submit. Block stays signed-in only. */}
+                {!isOwn && (
                   <div className="mt-3 flex items-center gap-3">
-                    <button onClick={() => setShowReportModal(true)}
-                      className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-[var(--muted)] transition hover:bg-white/[0.03] hover:text-sky-400">
+                    <button
+                      onClick={() => {
+                        if (!currentUser) {
+                          const next = typeof window !== "undefined" ? window.location.pathname + window.location.search : "/";
+                          window.location.href = "/login?redirect=" + encodeURIComponent(next) + "&intent=report";
+                          return;
+                        }
+                        setShowReportModal(true);
+                      }}
+                      className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-[var(--muted)] transition hover:bg-white/[0.03] hover:text-sky-400"
+                    >
                       <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0l2.77-.693a9 9 0 016.208.682l.108.054a9 9 0 006.086.71l3.114-.732a48.524 48.524 0 01-.005-10.499l-3.11.732a9 9 0 01-6.085-.711l-.108-.054a9 9 0 00-6.208-.682L3 4.5M3 15V4.5" />
                       </svg>
                       Report
                     </button>
-                    <button onClick={toggleBlock}
-                      className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-[var(--muted)] transition hover:bg-red-500/10 hover:text-red-400">
-                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                      </svg>
-                      {isBlocked ? "Unblock" : "Block"}
-                    </button>
+                    {currentUser && (
+                      <button onClick={toggleBlock}
+                        className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-[var(--muted)] transition hover:bg-red-500/10 hover:text-red-400">
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                        </svg>
+                        {isBlocked ? "Unblock" : "Block"}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -663,7 +674,7 @@ export default function SellerPage() {
             <div className="space-y-6">
 
               {/* Trust Panel */}
-              <div className={`relative overflow-hidden rounded-xl border bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.25)] ${isNotVerified ? 'border-red-500/30 animate-breathe-border' : 'border-white/[0.08]'}`}>
+              <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.25)]">
                 <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent" />
                 <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.15em] text-[var(--foreground)]">Trust &amp; Safety</h2>
                 <div className="space-y-3">
@@ -677,14 +688,14 @@ export default function SellerPage() {
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-red-500/30 to-red-500/20 text-[10px] ring-1 ring-red-500/30 animate-pulse-dot">!</span>
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/[0.04] text-[10px] ring-1 ring-white/[0.06] text-[var(--muted)]">·</span>
                       <div>
-                        <p className="text-xs font-bold text-red-400">Not Verified</p>
-                        <p className="text-[10px] text-[var(--muted)]">Complete email, phone, and ID verification</p>
+                        <p className="text-xs font-bold text-[var(--foreground)]">New seller</p>
+                        <p className="text-[10px] text-[var(--muted)]">Keep agreements in Messages</p>
                       </div>
                     </div>
                   )}
-                  {profileEmailVerified(profile) ? (
+                  {profileEmailVerified(profile) && (
                     <div className="flex items-center gap-2">
                       <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-sky-500/30 to-sky-500/20 text-[10px] ring-1 ring-sky-500/30">✉</span>
                       <div>
@@ -692,16 +703,8 @@ export default function SellerPage() {
                         <p className="text-[10px] text-[var(--muted)]">Email address confirmed</p>
                       </div>
                     </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--soft-card)] text-[10px] ring-1 ring-white/[0.06]">✉</span>
-                      <div>
-                        <p className="text-xs font-bold text-[var(--muted)]">Email Not Verified</p>
-                        <p className="text-[10px] text-zinc-600">Email address not confirmed</p>
-                      </div>
-                    </div>
                   )}
-                  {profilePhoneVerified(profile) ? (
+                  {profilePhoneVerified(profile) && (
                     <div className="flex items-center gap-2">
                       <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-sky-500/30 to-sky-500/20 text-[10px] ring-1 ring-sky-500/30">📱</span>
                       <div>
@@ -709,29 +712,13 @@ export default function SellerPage() {
                         <p className="text-[10px] text-[var(--muted)]">Phone number confirmed</p>
                       </div>
                     </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--soft-card)] text-[10px] ring-1 ring-white/[0.06]">📱</span>
-                      <div>
-                        <p className="text-xs font-bold text-[var(--muted)]">Phone Not Verified</p>
-                        <p className="text-[10px] text-zinc-600">Phone number not confirmed</p>
-                      </div>
-                    </div>
                   )}
-                  {profileIdVerified(profile) ? (
+                  {profileIdVerified(profile) && (
                     <div className="flex items-center gap-2">
                       <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-sky-500/30 to-sky-500/20 text-[10px] ring-1 ring-sky-500/30">🪪</span>
                       <div>
                         <p className="text-xs font-bold text-sky-400">ID Verified</p>
                         <p className="text-[10px] text-[var(--muted)]">Identity documents approved</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--soft-card)] text-[10px] ring-1 ring-white/[0.06]">🪪</span>
-                      <div>
-                        <p className="text-xs font-bold text-[var(--muted)]">ID Not Verified</p>
-                        <p className="text-[10px] text-zinc-600">Identity verification not completed</p>
                       </div>
                     </div>
                   )}
@@ -741,6 +728,15 @@ export default function SellerPage() {
                       <div>
                         <p className="text-xs font-bold text-sky-400">Trusted Trader</p>
                         <p className="text-[10px] text-[var(--muted)]">Recognized for reliable sales</p>
+                      </div>
+                    </div>
+                  )}
+                  {memberDate && (
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/[0.04] text-[10px] ring-1 ring-white/[0.06] text-[var(--muted)]">📅</span>
+                      <div>
+                        <p className="text-xs font-bold text-[var(--foreground)]">Member since</p>
+                        <p className="text-[10px] text-[var(--muted)]">{memberDate}</p>
                       </div>
                     </div>
                   )}

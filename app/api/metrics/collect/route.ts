@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
-import { db } from "../../../lib/firebase";
+import { FieldValue } from "firebase-admin/firestore";
+import { getAdminDb, isAdminInitialized } from "../../../lib/firebase-admin";
 
 /**
  * Metrics Collection API Endpoint
- * 
+ *
  * This endpoint collects metrics from various services and stores them for the dashboard.
  * Call this endpoint from your production monitoring system or cron job.
- * 
+ *
  * Metrics tracked:
  * - Firestore reads/writes
  * - Storage bandwidth/usage
@@ -36,30 +36,43 @@ interface MetricsData {
   };
 }
 
+function authorizeMetrics(request: NextRequest): NextResponse | null {
+  const key = process.env.METRICS_API_KEY?.trim();
+  if (!key) {
+    return NextResponse.json({ error: "Metrics unavailable" }, { status: 503 });
+  }
+  const authHeader = request.headers.get("authorization");
+  if (!authHeader || authHeader !== `Bearer ${key}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  return null;
+}
+
 export async function POST(request: NextRequest) {
   try {
-    // Verify authentication (admin only)
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader || authHeader !== `Bearer ${process.env.METRICS_API_KEY}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const denied = authorizeMetrics(request);
+    if (denied) return denied;
+
+    if (!isAdminInitialized()) {
+      return NextResponse.json({ error: "Metrics unavailable" }, { status: 503 });
     }
 
     const body: MetricsData = await request.json();
 
-    // Validate required fields
     if (!body.firestore || !body.storage) {
       return NextResponse.json({ error: "Missing required metrics" }, { status: 400 });
     }
 
-    // Store daily metrics
     const today = new Date().toISOString().split("T")[0];
-    const metricsRef = doc(db, "metrics", today);
-
-    await setDoc(metricsRef, {
-      ...body,
-      date: today,
-      collectedAt: serverTimestamp(),
-    }, { merge: true });
+    const db = getAdminDb();
+    await db.collection("metrics").doc(today).set(
+      {
+        ...body,
+        date: today,
+        collectedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
 
     return NextResponse.json({ success: true, date: today });
   } catch (error) {
@@ -70,13 +83,14 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    // Verify authentication
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader || authHeader !== `Bearer ${process.env.METRICS_API_KEY}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const denied = authorizeMetrics(request);
+    if (denied) return denied;
+
+    if (!isAdminInitialized()) {
+      return NextResponse.json({ error: "Metrics unavailable" }, { status: 503 });
     }
 
-    // Get metrics for the last 30 days
+    const db = getAdminDb();
     const metrics: any[] = [];
     const today = new Date();
 
@@ -85,10 +99,9 @@ export async function GET(request: NextRequest) {
       date.setDate(date.getDate() - i);
       const dateStr = date.toISOString().split("T")[0];
 
-      const docRef = doc(db, "metrics", dateStr);
-      const docSnap = await getDoc(docRef);
+      const docSnap = await db.collection("metrics").doc(dateStr).get();
 
-      if (docSnap.exists()) {
+      if (docSnap.exists) {
         metrics.push({
           date: dateStr,
           ...docSnap.data(),

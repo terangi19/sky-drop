@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyIdToken } from "../../lib/firebase-admin";
 import { rateLimit } from "../../lib/rate-limit";
+import { RATE_LIMITS } from "../../lib/rate-limit-config";
 import { isAdminEmail } from "../../lib/admin-check";
+import { parseIpFromRequest } from "../../lib/geo-check";
 
 interface PushPayload {
   targetEmail: string;
@@ -12,13 +14,6 @@ interface PushPayload {
 
 export async function POST(req: NextRequest) {
   try {
-    // Rate limiting disabled - causing 403 errors
-    // const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    // const { allowed } = await rateLimit(`push:${ip}`, 20, 60_000);
-    // if (!allowed) {
-    //   return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-    // }
-
     const authHeader = req.headers.get("authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -31,7 +26,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
     }
 
-    const { targetEmail, title, message, url } = await req.json() as PushPayload;
+    const rule = RATE_LIMITS.sendPush;
+    const uidKey = decoded.uid || decoded.email || "unknown";
+    const { allowed: uidAllowed } = await rateLimit(
+      `push:uid:${uidKey}`,
+      rule.max,
+      rule.windowMs
+    );
+    if (!uidAllowed) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+
+    const ip = parseIpFromRequest(req.headers);
+    const { allowed: ipAllowed } = await rateLimit(`push:ip:${ip}`, 40, 60_000);
+    if (!ipAllowed) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+
+    const { targetEmail, title, message, url } = (await req.json()) as PushPayload;
     if (!targetEmail || !title) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
@@ -88,4 +100,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Failed to send push" }, { status: 500 });
   }
 }
-

@@ -173,6 +173,8 @@ export default function Home() {
 
   const [loading, setLoading] =
     useState(true);
+  const [loadError, setLoadError] =
+    useState(false);
 
   const [search, setSearch] =
     useState("");
@@ -206,6 +208,7 @@ export default function Home() {
   const lastOfferTime = useRef(0);
   const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
   const [authReady, setAuthReady] = useState(false);
+  const [listingsRetry, setListingsRetry] = useState(0);
   const { sellerReviewStats, sellerBadges, sellerFullyVerified, sellerJoinedDate, sellerListingCount } = useSellerListingMeta(listings);
   const [savedSearches, setSavedSearches] = useState<Array<{query: string; category: string; label: string}>>([]);
   const [showSaveSearch, setShowSaveSearch] = useState(false);
@@ -390,10 +393,14 @@ export default function Home() {
         const filtered = combined.filter((i: any) => i.status !== "flagged" && i.status !== "pending_review");
         filtered.sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
         setListings(filtered.slice(0, 100));
+        setLoadError(false);
         setLoading(false);
       } catch (error) {
         console.error("Failed to fetch listings:", error);
-        if (mounted) setLoading(false);
+        if (mounted) {
+          setLoadError(true);
+          setLoading(false);
+        }
       }
     }
 
@@ -414,7 +421,7 @@ export default function Home() {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [user, authReady]);
+  }, [user, authReady, listingsRetry]);
 
   // Infinite scroll via IntersectionObserver
   useEffect(() => {
@@ -1127,7 +1134,27 @@ export default function Home() {
             </div>
           )}
 
-        {!loading && filteredListings.length === 0 && (
+        {!loading && loadError && (
+          <div className="mx-auto mt-10 max-w-md">
+            <EmptyState
+              title="Couldn't load listings"
+              description="Something went wrong loading the marketplace. Check your connection and try again."
+              actionLabel="Retry"
+              onAction={() => {
+                setLoading(true);
+                setLoadError(false);
+                setListingsRetry((n) => n + 1);
+              }}
+              icon={
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                </svg>
+              }
+            />
+          </div>
+        )}
+
+        {!loading && !loadError && filteredListings.length === 0 && (
           <div className="mx-auto mt-10 max-w-md">
             {listings.length === 0 ? (
               <EmptyState
@@ -1167,7 +1194,7 @@ export default function Home() {
           </div>
         )}
 
-        {!loading && filteredListings.length > 0 && (
+        {!loading && !loadError && filteredListings.length > 0 && (
         <div key={watchlistTick} className={LISTING_GRID}>
           {filteredListings.slice(0, visibleCount).map((item: any, cardIndex: number) => (
             <Suspense key={item.id} fallback={

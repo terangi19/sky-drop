@@ -588,7 +588,17 @@ export async function transcribeAudioOnServer(blob: Blob): Promise<
   form.append("audio", blob, `voice.${ext}`);
 
   try {
-    const res = await fetch("/api/sky-ai/transcribe", { method: "POST", body: form });
+    const { auth } = await import("./firebase");
+    const user = auth.currentUser;
+    if (!user) {
+      return { ok: false, message: "Sign in to use voice transcription." };
+    }
+    const token = await user.getIdToken();
+    const res = await fetch("/api/sky-ai/transcribe", {
+      method: "POST",
+      body: form,
+      headers: { Authorization: `Bearer ${token}` },
+    });
     const data = (await res.json().catch(() => ({}))) as { text?: string; error?: string };
     if (!res.ok) {
       return {

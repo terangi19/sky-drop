@@ -8,6 +8,7 @@ import { Listing } from "../types/firestore";
 export function useListings(sellerEmail?: string) {
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     const constraints: Array<ReturnType<typeof where> | ReturnType<typeof orderBy> | ReturnType<typeof limit>> = [];
@@ -25,14 +26,16 @@ export function useListings(sellerEmail?: string) {
         ...(doc.data() as Omit<Listing, "id">),
       })) as Listing[];
       setListings(items);
+      setError(false);
       setLoading(false);
     }, (err) => {
       console.error("Listings snapshot error:", err);
+      setError(true);
       setLoading(false);
     });
 
     return () => unsubscribe();
   }, [sellerEmail]);
 
-  return { listings, loading };
+  return { listings, loading, error };
 }

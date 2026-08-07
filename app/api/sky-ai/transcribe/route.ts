@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { parseIpFromRequest } from "../../../lib/geo-check";
 import { rateLimit } from "../../../lib/rate-limit";
+import { RATE_LIMITS } from "../../../lib/rate-limit-config";
 import { openaiErrorResponse } from "../../../lib/openai-errors";
+import { verifyIdToken } from "../../../lib/firebase-admin";
 
 export const runtime = "nodejs";
 
@@ -10,9 +12,36 @@ const MAX_AUDIO_BYTES = 8 * 1024 * 1024; // 8 MB
 
 /** Fallback STT when browser Web Speech API is blocked (e.g. Brave cloud STT). */
 export async function POST(req: NextRequest) {
+  const authHeader = req.headers.get("authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return NextResponse.json({ error: "Sign in to use voice transcription." }, { status: 401 });
+  }
+
+  let decoded: { uid: string };
+  try {
+    decoded = await verifyIdToken(authHeader.slice(7));
+  } catch {
+    return NextResponse.json({ error: "Invalid or expired session." }, { status: 401 });
+  }
+
+  const uid = decoded.uid;
+  if (!uid) {
+    return NextResponse.json({ error: "Sign in to use voice transcription." }, { status: 401 });
+  }
+
+  const rule = RATE_LIMITS.skyAiTranscribe;
+  const { allowed: uidAllowed } = await rateLimit(
+    `sky-ai-transcribe:uid:${uid}`,
+    rule.max,
+    rule.windowMs
+  );
+  if (!uidAllowed) {
+    return NextResponse.json({ error: "Too many requests — wait a moment." }, { status: 429 });
+  }
+
   const ip = parseIpFromRequest(req.headers);
-  const { allowed } = await rateLimit(`sky-ai-transcribe:${ip}`, 30, 60_000);
-  if (!allowed) {
+  const { allowed: ipAllowed } = await rateLimit(`sky-ai-transcribe:ip:${ip}`, 40, 60_000);
+  if (!ipAllowed) {
     return NextResponse.json({ error: "Too many requests — wait a moment." }, { status: 429 });
   }
 

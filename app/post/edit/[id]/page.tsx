@@ -21,6 +21,7 @@ import {
   db,
   onAuthStateChanged,
 } from "../../../lib/firebase";
+import { isStripeCheckoutVisibleClient } from "../../../lib/stripe-checkout-flags";
 
 export default function EditListingPage({
   params,
@@ -83,6 +84,7 @@ export default function EditListingPage({
   const [startingBid, setStartingBid] = useState("");
   const [reservePrice, setReservePrice] = useState("");
   const [auctionDuration, setAuctionDuration] = useState("3");
+  const stripeDisabledV1 = !isStripeCheckoutVisibleClient();
 
   useEffect(() => {
 
@@ -383,23 +385,36 @@ export default function EditListingPage({
           {/* SALE TYPE */}
           <div>
             <label className="block text-xs font-bold text-[var(--foreground)] uppercase tracking-wider mb-2">Sale Type</label>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { id: "buy_now", label: "Fixed price" },
-                { id: "buy_now_offers", label: "Fixed price + Offers" },
-                { id: "auction", label: "Auction" },
-                { id: "auction_buy_now", label: "Auction + fixed price" },
-              ].map((opt) => (
-                <button key={opt.id} type="button" onClick={() => setSaleType(opt.id)}
-                  className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold text-left transition ${
-                    saleType === opt.id ? "border-sky-500/40 bg-sky-500/10 text-sky-400" : "border-zinc-700 bg-zinc-800/50 text-[var(--muted)] hover:border-zinc-600"
-                  }`}>{opt.label}</button>
-              ))}
-            </div>
+            {stripeDisabledV1 ? (
+              <div className="rounded-xl border border-zinc-700/50 bg-zinc-900/40 px-3.5 py-3">
+                <p className="text-xs font-bold text-[var(--foreground)]">
+                  {String(saleType).includes("auction") ? "Auction (existing listing)" : "Fixed price"}
+                </p>
+                <p className="mt-1 text-[10px] text-[var(--muted)]">
+                  {String(saleType).includes("auction")
+                    ? "Auction settings are preserved for this listing. New listings use fixed price only."
+                    : "Buyers message you to arrange purchase at your asking price."}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { id: "buy_now", label: "Fixed price" },
+                  { id: "buy_now_offers", label: "Fixed price + Offers" },
+                  { id: "auction", label: "Auction" },
+                  { id: "auction_buy_now", label: "Auction + fixed price" },
+                ].map((opt) => (
+                  <button key={opt.id} type="button" onClick={() => setSaleType(opt.id)}
+                    className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold text-left transition ${
+                      saleType === opt.id ? "border-sky-500/40 bg-sky-500/10 text-sky-400" : "border-zinc-700 bg-zinc-800/50 text-[var(--muted)] hover:border-zinc-600"
+                    }`}>{opt.label}</button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Auction settings */}
-          {(saleType === "auction" || saleType === "auction_buy_now") && (
+          {/* Auction settings — only when checkout/auction UI enabled, or preserving legacy auction */}
+          {!stripeDisabledV1 && (saleType === "auction" || saleType === "auction_buy_now") && (
             <div className="rounded-xl border border-zinc-700/50 bg-zinc-900/40 p-4 space-y-3">
               <p className="text-xs font-bold text-[var(--foreground)]">Auction Settings</p>
               <div className="grid grid-cols-2 gap-3">

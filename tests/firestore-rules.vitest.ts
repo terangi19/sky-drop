@@ -261,4 +261,72 @@ describe("Firestore Security Rules", () => {
       );
     });
   });
+
+  describe("Typing indicators", () => {
+    it("authenticated user can write own typing doc", async () => {
+      const db = testEnv
+        .authenticatedContext("user1", { email: "alice@test.com", email_verified: true })
+        .firestore();
+      const ref = db.collection("typing").doc("alice@test.com_bob@test.com_general");
+      await assertSucceeds(
+        ref.set({ typing: true, user: "alice@test.com", at: new Date() })
+      );
+    });
+
+    it("cannot write typing doc as another user", async () => {
+      const db = testEnv
+        .authenticatedContext("user1", { email: "alice@test.com", email_verified: true })
+        .firestore();
+      const ref = db.collection("typing").doc("bob@test.com_alice@test.com_general");
+      await assertFails(
+        ref.set({ typing: true, user: "bob@test.com", at: new Date() })
+      );
+    });
+
+    it("cannot spoof user field on own doc id", async () => {
+      const db = testEnv
+        .authenticatedContext("user1", { email: "alice@test.com", email_verified: true })
+        .firestore();
+      const ref = db.collection("typing").doc("alice@test.com_bob@test.com_general");
+      await assertFails(
+        ref.set({ typing: true, user: "bob@test.com", at: new Date() })
+      );
+    });
+
+    it("peer can read typing doc addressed to them", async () => {
+      const alice = testEnv
+        .authenticatedContext("user1", { email: "alice@test.com", email_verified: true })
+        .firestore();
+      const ref = alice.collection("typing").doc("alice@test.com_bob@test.com_general");
+      await assertSucceeds(
+        ref.set({ typing: true, user: "alice@test.com", at: new Date() })
+      );
+
+      const bob = testEnv
+        .authenticatedContext("user2", { email: "bob@test.com", email_verified: true })
+        .firestore();
+      await assertSucceeds(
+        bob.collection("typing").doc("alice@test.com_bob@test.com_general").get()
+      );
+    });
+
+    it("unrelated user cannot read typing doc", async () => {
+      const alice = testEnv
+        .authenticatedContext("user1", { email: "alice@test.com", email_verified: true })
+        .firestore();
+      await assertSucceeds(
+        alice
+          .collection("typing")
+          .doc("alice@test.com_bob@test.com_general")
+          .set({ typing: true, user: "alice@test.com", at: new Date() })
+      );
+
+      const eve = testEnv
+        .authenticatedContext("user3", { email: "eve@test.com", email_verified: true })
+        .firestore();
+      await assertFails(
+        eve.collection("typing").doc("alice@test.com_bob@test.com_general").get()
+      );
+    });
+  });
 });

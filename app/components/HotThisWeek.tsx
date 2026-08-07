@@ -175,11 +175,14 @@ function HotWeekCard({
                     listing={item}
                     alt={item.title}
                     context={`HotThisWeek:${item.id}`}
-                    className="h-32 w-full rounded-xl object-cover transition-transform duration-500 group-hover:scale-[1.03] sm:h-36"
+                    className="h-32 w-full rounded-xl object-cover transition-transform duration-500 group-hover:scale-[1.03] sm:h-36 aspect-[4/3]"
                   />
                 ) : (
-                  <div className="lc-placeholder flex h-32 items-center justify-center rounded-xl sm:h-36">
-                    <span className="lc-meta text-[10px] font-medium">No image</span>
+                  <div className="lc-placeholder relative flex aspect-[4/3] w-full items-center justify-center rounded-xl">
+                    <div className="text-center">
+                      <div className="lc-title text-2xl font-black tracking-tighter mb-0.5">SD</div>
+                      <div className="lc-meta text-[9px] uppercase tracking-widest">Sky Drop</div>
+                    </div>
                   </div>
                 )}
                 <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none" />

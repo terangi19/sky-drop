@@ -404,10 +404,10 @@ function MessagesPage() {
     });
     return () => { cancelled = true; };
   }, [chatListingId, messages]);
-  // Typing listener
+  // Typing listener — peer writes to peerEmail_myEmail_listingId
   useEffect(() => {
     if (!chatUser || !user?.email) { setOtherTyping(false); return; }
-    const typingRef = doc(db, "typing", `${user.email}_${chatUser}_${chatListingId || "general"}`);
+    const typingRef = doc(db, "typing", `${chatUser}_${user.email}_${chatListingId || "general"}`);
     const unsub = onSnapshot(typingRef, (snap) => {
       if (snap.exists()) {
         const data = snap.data();
@@ -673,13 +673,17 @@ function MessagesPage() {
       const snap = await uploadBytes(storageRef, blob);
       const imageUrl = await getDownloadURL(snap.ref);
       const token = await user.getIdToken();
-      await fetch("/api/send-message", {
+      const imgRes = await fetch("/api/send-message", {
         method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           type: "image", imageUrl, text: "", receiver: chatUser,
           listingId: chatListingId || undefined, listingTitle: activeListingTitle || undefined,
         }),
       });
+      if (!imgRes.ok) {
+        const errData = await imgRes.json().catch(() => ({}));
+        throw new Error((errData as { error?: string }).error || "Failed to send image");
+      }
       createNotification({
         targetEmail: chatUser,
         fromEmail: user.email,
@@ -728,7 +732,7 @@ function MessagesPage() {
       const snap = await uploadBytes(storageRef, blob);
       const fileUrl = await getDownloadURL(snap.ref);
       const token = await user.getIdToken();
-      await fetch("/api/send-message", {
+      const fileRes = await fetch("/api/send-message", {
         method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           type: "file", fileUrl, fileName: fileAttachment.name, fileSize: fileAttachment.size,
@@ -736,6 +740,10 @@ function MessagesPage() {
           listingId: chatListingId || undefined, listingTitle: activeListingTitle || undefined,
         }),
       });
+      if (!fileRes.ok) {
+        const errData = await fileRes.json().catch(() => ({}));
+        throw new Error((errData as { error?: string }).error || "Failed to send file");
+      }
       createNotification({
         targetEmail: chatUser,
         fromEmail: user.email,
@@ -806,7 +814,7 @@ function MessagesPage() {
       setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
 
       const sendToken = await user.getIdToken();
-      await fetch("/api/send-message", {
+      const sendRes = await fetch("/api/send-message", {
         method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${sendToken}` },
         body: JSON.stringify({
           text: textToSend, receiver: chatUser,
@@ -818,6 +826,10 @@ function MessagesPage() {
           sellerEmail: ownListing ? user.email : chatUser,
         }),
       });
+      if (!sendRes.ok) {
+        const errData = await sendRes.json().catch(() => ({}));
+        throw new Error((errData as { error?: string }).error || "Failed to send");
+      }
       trackFunnelEvent({
         event: "message_sent",
         userId: user.uid,
@@ -836,8 +848,9 @@ function MessagesPage() {
       await emitTyping(false);
     } catch (e) {
       console.error(e);
-      showToast("Failed to send", "error");
+      showToast(e instanceof Error ? e.message : "Failed to send", "error");
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      setMessage(textToSend);
     } finally {
       setSendingMessage(false);
     }
@@ -850,23 +863,32 @@ function MessagesPage() {
   async function sendPendingMessage() {
     if (!pendingMessage || !user?.email || !chatUser) return;
     if (!checkMessageRateLimit()) return;
+    const textToSend = pendingMessage;
     setScamWarning(false);
     setMessage("");
+    setPendingMessage("");
     try {
       const sendToken = await user.getIdToken();
-      await fetch("/api/send-message", {
+      const sendRes = await fetch("/api/send-message", {
         method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${sendToken}` },
-        body: JSON.stringify({ text: pendingMessage, receiver: chatUser }),
+        body: JSON.stringify({ text: textToSend, receiver: chatUser }),
       });
+      if (!sendRes.ok) {
+        const errData = await sendRes.json().catch(() => ({}));
+        throw new Error((errData as { error?: string }).error || "Failed to send");
+      }
       createNotification({
         targetEmail: chatUser,
         fromEmail: user.email,
         type: "message",
         title: "New message from " + notificationSenderLabel(),
-        message: pendingMessage.length > 100 ? pendingMessage.slice(0, 100) + "..." : pendingMessage,
+        message: textToSend.length > 100 ? textToSend.slice(0, 100) + "..." : textToSend,
       });
-    } catch (e) { console.error(e); }
-    setPendingMessage("");
+    } catch (e) {
+      console.error(e);
+      showToast(e instanceof Error ? e.message : "Failed to send", "error");
+      setMessage(textToSend);
+    }
   }
   async function blockUser(email: string) {
     if (!user?.uid || blockedUsers.includes(email)) {

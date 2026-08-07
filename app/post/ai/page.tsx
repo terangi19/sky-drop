@@ -170,6 +170,13 @@ export default function AIPostPage() {
   // V1: UI visibility — server STRIPE_CHECKOUT_ENABLED authorizes charges
   const stripeDisabledV1 = !isStripeCheckoutVisibleClient();
 
+  // V1 messaging-first: new listings are fixed-price only (do not rewrite historical auction edits)
+  useEffect(() => {
+    if (stripeDisabledV1 && !editId && saleType !== "buy_now") {
+      setSaleType("buy_now");
+    }
+  }, [stripeDisabledV1, editId, saleType]);
+
   // Form completion progress (honest, field-based — not a fake stepper)
   const formProgress = useMemo(() => {
     let total = 0;
@@ -1839,7 +1846,7 @@ export default function AIPostPage() {
           )}
 
 
-          {listingType === "physical" && (
+          {listingType === "physical" && !stripeDisabledV1 && (
           <div className="space-y-4">
             <label className="text-sm font-bold text-[var(--foreground)]">How would you like to sell this?</label>
             <div className="grid grid-cols-2 gap-3">
@@ -1856,6 +1863,12 @@ export default function AIPostPage() {
                 </button>
               ))}
             </div>
+          </div>
+          )}
+          {listingType === "physical" && stripeDisabledV1 && (
+          <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3">
+            <p className="text-sm font-bold text-[var(--foreground)]">Fixed price</p>
+            <p className="mt-1 text-[10px] text-[var(--muted)] leading-relaxed">Buyers message you to arrange purchase. Set your asking price below.</p>
           </div>
           )}
 

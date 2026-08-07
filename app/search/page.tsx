@@ -39,7 +39,7 @@ export default function SearchPage() {
   const heardRaw = searchParams.get("heard") || "";
   const categoryFilter = searchParams.get("category") || "";
   const { user } = useAuth();
-  const { listings, loading } = useListings();
+  const { listings, loading, error: listingsError } = useListings();
   const skipNextUrlSyncRef = useRef(true);
 
   const [watchlist, setWatchlist] = useState<string[]>([]);
@@ -479,6 +479,18 @@ export default function SearchPage() {
               ))}
             </div>
           </div>
+        ) : listingsError ? (
+          <EmptyState
+            title="Couldn't load listings"
+            description="Something went wrong loading search results. Check your connection and try again."
+            actionLabel="Browse marketplace"
+            actionHref="/"
+            icon={
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+              </svg>
+            }
+          />
         ) : filteredListings.length === 0 ? (
           <EmptyState
             title="No listings found"

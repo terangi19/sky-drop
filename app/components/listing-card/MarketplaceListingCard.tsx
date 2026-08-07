@@ -16,6 +16,7 @@ import {
   sellerProfileDisplayName,
   sellerProfileSlug,
 } from "../../lib/public-display";
+import { isStripeCheckoutVisibleClient } from "../../lib/stripe-checkout-flags";
 
 export type MarketplaceListingCardProps = {
   item: Record<string, any>;
@@ -133,6 +134,7 @@ export default memo(function MarketplaceListingCard({
                   <span className={IMG_BADGE}>New</span>
                 )}
               {isVisible &&
+                isStripeCheckoutVisibleClient() &&
                 item.saleType &&
                 String(item.saleType).includes("auction") && (
                   <span className={IMG_BADGE}>Auction</span>

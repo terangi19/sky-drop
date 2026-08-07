@@ -1792,8 +1792,8 @@ Property Status: 🟢 Inquiry Active`;
                   </button>
                 </div>
               ) : (
-                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="btn btn-secondary w-full h-11">
-                  Sign in to continue
+                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="btn btn-primary w-full h-11">
+                  Message Seller
                 </button>
               )}
             </div>
@@ -1857,8 +1857,8 @@ Property Status: 🟢 Inquiry Active`;
                   </button>
                 </div>
               ) : (
-                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="btn btn-secondary w-full h-11">
-                  Sign in to continue
+                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="btn btn-primary w-full h-11">
+                  Message Seller
                 </button>
               )}
             </div>
@@ -2008,7 +2008,7 @@ Property Status: 🟢 Inquiry Active`;
                 </div>
               ) : (
                 <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="w-full h-11 rounded-lg border border-white/[0.08] bg-white/[0.03] text-sm font-bold text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-white/[0.06]">
-                  Sign in to continue
+                  Message Seller
                 </button>
               )}
             </div>
@@ -2096,7 +2096,7 @@ Application Status: 🟢 Active`;
                 </div>
               ) : (
                 <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="w-full h-11 rounded-lg border border-white/[0.08] bg-white/[0.03] text-sm font-bold text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-white/[0.06]">
-                  Sign in to continue
+                  Message Seller
                 </button>
               )}
             </div>
@@ -2183,7 +2183,7 @@ Service Status: 🟢 Inquiry Active`;
                 </div>
               ) : (
                 <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="w-full h-11 rounded-lg border border-white/[0.08] bg-white/[0.03] text-sm font-bold text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-white/[0.06]">
-                  Sign in to continue
+                  Message Seller
                 </button>
               )}
             </div>
@@ -2284,7 +2284,7 @@ Service Status: 🟢 Inquiry Active`;
                 </div>
               ) : (
                 <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="w-full h-11 rounded-lg border border-white/[0.08] bg-white/[0.03] text-sm font-bold text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-white/[0.06]">
-                  Sign in to continue
+                  Message Seller
                 </button>
               )}
             </div>
@@ -2375,10 +2375,17 @@ Service Status: 🟢 Inquiry Active`;
                 </div>
               </Link>
 
-              {/* Report Button */}
-              {user && user.email !== listing.sellerEmail && (
+              {/* Report Button — visible logged out; auth required to submit */}
+              {(!user || user.email !== listing.sellerEmail) && (
                 <button
-                  onClick={() => setShowReportModal(true)}
+                  onClick={() => {
+                    if (!user) {
+                      const next = window.location.pathname + window.location.search;
+                      router.push("/login?redirect=" + encodeURIComponent(next) + "&intent=report");
+                      return;
+                    }
+                    setShowReportModal(true);
+                  }}
                   className="mt-2 flex items-center gap-1.5 text-xs text-[var(--muted)] transition hover:text-sky-400"
                 >
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -2698,7 +2705,7 @@ Service Status: 🟢 Inquiry Active`;
               onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))}
               className="btn btn-primary flex-1 min-h-[48px]"
             >
-              {stripeDisabledV1 ? "Sign in to message" : "Sign in to continue"}
+              {stripeDisabledV1 ? "Message Seller" : "Sign in to continue"}
             </button>
           )}
         </div>
