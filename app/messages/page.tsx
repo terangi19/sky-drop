@@ -258,7 +258,9 @@ function MessagesPage() {
         if (other) {
           setChatUser(other);
           setChatListingId(data.listingId || null);
-          if (isMobile) setMobileView("chat");
+          if (isMobile || (typeof window !== "undefined" && window.innerWidth < 768)) {
+            setMobileView("chat");
+          }
         }
       }).catch(() => {});
       return;
@@ -308,7 +310,9 @@ function MessagesPage() {
               }
         );
       }
-      if (isMobile) setMobileView("chat");
+      if (isMobile || (typeof window !== "undefined" && window.innerWidth < 768)) {
+        setMobileView("chat");
+      }
     }
   }, [isMobile, user?.email]);
 
