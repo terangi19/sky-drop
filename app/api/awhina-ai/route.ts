@@ -7,6 +7,7 @@ import {
   processAndExecuteAIRequest,
   type AwhinaAIRequest,
 } from "../../lib/awhina-ai-server";
+import { processCanonicalAwhina } from "../../lib/awhina-canonical";
 
 async function checkRateLimit(req: NextRequest) {
   const ip = parseIpFromRequest(req.headers);
@@ -58,6 +59,42 @@ export async function POST(req: NextRequest) {
         { error: "Message required (max 2000 chars)" },
         { status: 400 }
       );
+    }
+
+    // Canonical local / search-memory / tools path (same brain as /api/sky-ai wrapper)
+    const canonical = processCanonicalAwhina(message, {
+      pathname,
+      uid,
+      isAdmin,
+      history: conversationHistory,
+      source: body.source === "voice" ? "voice" : "text",
+    });
+    if (canonical.handled && canonical.reply) {
+      return NextResponse.json({
+        reply: canonical.reply,
+        navigateTo: canonical.navigateTo,
+        listingFill: canonical.listingFill,
+        source: canonical.source,
+        awhina: {
+          intent: canonical.intent,
+          tool: canonical.tool,
+          confidence: canonical.confidence,
+          usedLocalExecution: canonical.usedLocalExecution,
+          avoidedAi: canonical.avoidedAi,
+          routing: "canonical",
+        },
+        aiResponse: {
+          toolCall: canonical.toolCall || null,
+          textReply: canonical.reply,
+          confidence: canonical.confidence,
+          executionTime: canonical.executionTimeMs,
+        },
+        toolResult: canonical.navigateTo
+          ? { success: true, navigateTo: canonical.navigateTo }
+          : null,
+        uid: uid || undefined,
+        timestamp: Date.now(),
+      });
     }
 
     const request: AwhinaAIRequest = {

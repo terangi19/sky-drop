@@ -3,7 +3,7 @@
  * Used before OpenAI so find/sell/troubleshoot never dead-end or mis-route.
  */
 
-import { isSkyAiGeneralQuestion, skyAiCapabilitiesReply } from "./sky-ai-prompts";
+import { isSkyAiGeneralQuestion } from "./sky-ai-prompts";
 import { detectSkyAiIntent, hasListingSellIntent } from "./sky-ai-intent";
 import {
   extractFindSearchTerm,
@@ -12,6 +12,7 @@ import {
   resolveFindBrowseRoute,
   type FindBrowseRoute,
 } from "./sky-ai-find-routing";
+import { awhinaArrangePurchaseReply, awhinaCapabilitiesReply } from "./awhina-personality";
 
 const FIND_RE =
   /\b(find(?: me| a| an)?|show me|looking for|search for|want to buy|wanna buy|need a|need an|iso\b|in search of|hunting for|where can i (find|get)|anyone selling|under \$?\d)\b/i;
@@ -154,8 +155,8 @@ export function tryArrangePurchaseReply(message: string): { text: string; naviga
   if (!/\b(arrange purchase|how do i pay|bank transfer|contact seller|message seller|how to buy)\b/i.test(message)) return null;
   if (detectSkyAiIntent(message) === "sell_list") return null;
   return {
-    text: `**Message the seller and arrange the purchase directly.** Agree on payment (bank transfer, cash, pickup), delivery, and timing in **Messages**. Prefer verified sellers, meet in public, and verify the item before paying. [[NAV:/payments]] Safety tips: [[NAV:/buyer-protection]]`,
-    navigateTo: "/payments",
+    text: awhinaArrangePurchaseReply(),
+    navigateTo: "/messages",
   };
 }
 
@@ -166,7 +167,7 @@ export function trySkyAiTaskReply(
   context?: SkyAiTaskContext
 ): { text: string; navigateTo?: string; source: "rules" } | null {
   if (isSkyAiGeneralQuestion(message)) {
-    return { text: skyAiCapabilitiesReply(), source: "rules" };
+    return { text: awhinaCapabilitiesReply(), source: "rules" };
   }
 
   const find = tryFindBrowseReply(message, context);

@@ -1,4 +1,5 @@
 import { AWHINA_NAME } from "./awhina-brand";
+import { awhinaCapabilitiesReply } from "./awhina-personality";
 
 
 
@@ -139,38 +140,6 @@ export function isSkyAiGeneralQuestion(message: string): boolean {
 
 
 export function skyAiCapabilitiesReply(): string {
-
-  return `Here's what I do on **Sky Drop** — always toward an outcome:
-
-
-
-**Sell & list**
-
-• Describe your item → I **fill the Sell form** (vehicle, rental, service, digital, physical)
-
-• Improve title & description · suggest **NZD prices** (quick sale / fair / optimistic)
-
-
-
-**Buy & find**
-
-• Help you **search and browse** the right category — I can't invent live listings
-
-
-
-**Your account**
-
-• **Edit listings** → My Listings · **Orders** → Purchases / Sales · **Messages** for buyers & sellers
-
-
-
-**Trust & payments**
-
-• Stripe card checkout vs **contact seller** (bank transfer in Messages) · safety tips · disputes (Stripe, 7 days)
-
-
-
-Say what you want to do — e.g. *"sell my Mazda"*, *"price my PS5"*, *"take me to messages"* — and I'll get you there.`;
-
+  return awhinaCapabilitiesReply();
 }
 

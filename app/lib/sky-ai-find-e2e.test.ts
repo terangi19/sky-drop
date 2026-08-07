@@ -94,11 +94,12 @@ describe("find/search UX e2e", () => {
       expect(reply!.text).toContain("Here's what I do");
       expect(reply!.text).not.toContain("Done! I've filled your listing");
       expect(reply!.text).toContain("Sell");
-      expect(reply!.text).toContain("Buy & find");
+      expect(reply!.text).toMatch(/Buy & find|find/i);
     });
 
-    it("capabilities reply is not flagged as welcome bleed", () => {
-      expect(skyAiCapabilitiesReply()).toContain("safety tips");
+    it("capabilities reply is messaging-first", () => {
+      expect(skyAiCapabilitiesReply()).toMatch(/Message Seller/i);
+      expect(skyAiCapabilitiesReply()).not.toMatch(/Stripe/i);
     });
   });
 

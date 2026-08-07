@@ -885,6 +885,8 @@ export function useAwhinaVoice(options: UseAwhinaVoiceOptions = {}) {
               pathname,
               listingContext: readListingDraftFromSkyAi(),
               stream: false,
+              source: "voice",
+              voiceConfidence: "medium",
             }),
             signal: controller.signal,
           });

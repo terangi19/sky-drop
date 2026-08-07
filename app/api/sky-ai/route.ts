@@ -36,6 +36,9 @@ import {
 } from "../../lib/sky-ai-intent";
 import { trySkyAiTaskReply } from "../../lib/sky-ai-task-replies";
 import { logAwhinaQualityIfNeeded } from "../../lib/sky-ai-quality-log";
+import { processCanonicalAwhina } from "../../lib/awhina-canonical";
+import { awhinaPersonalityPromptBlock } from "../../lib/awhina-personality";
+import { recordAwhinaObs } from "../../lib/awhina-observability";
 
 function listingFillConfirmReply(fill: SkyAiListingFill | undefined): string {
   if (!fill) return "";
@@ -222,6 +225,7 @@ function buildMessages(
           hasImages: images.length > 0,
           justGeneratedListing,
         }) +
+        `\n\n${awhinaPersonalityPromptBlock()}` +
         (message ? `\n\n${getSkyAiIntentHint(message, pathname, priorAssistant)}` : ""),
     },
     ...history.map((h) => ({
@@ -291,7 +295,11 @@ export async function POST(req: NextRequest) {
     if (uid && conversationId) {
       try {
         const stored = await loadSkyAiMessages(conversationId, uid, 30);
-        history = stored.map((m) => ({ role: m.role, content: m.content }));
+        // Trim to last useful turns for latency/tokens (keep more on sell page for draft edits)
+        const keep = pathname.startsWith("/post/ai") ? 12 : 8;
+        history = stored
+          .map((m) => ({ role: m.role, content: m.content }))
+          .slice(-keep);
       } catch {
         conversationId = "";
       }
@@ -306,10 +314,10 @@ export async function POST(req: NextRequest) {
             (h as SkyAiHistoryItem).role &&
             typeof (h as SkyAiHistoryItem).content === "string"
         )
-        .slice(-20)
+        .slice(-8)
         .map((h: SkyAiHistoryItem) => ({
           role: h.role === "assistant" ? "assistant" : "user",
-          content: String(h.content).slice(0, 4000),
+          content: String(h.content).slice(0, 2000),
         }));
     }
 
@@ -343,11 +351,76 @@ export async function POST(req: NextRequest) {
     pathname.startsWith("/post/ai") || !isNewTaskSwitch ? listingContext : null;
   const effectiveJustGeneratedListing = justGeneratedListing && !isNewTaskSwitch;
 
-  // Capabilities + find always win over stale post-listing menu
+  // ── Canonical Āwhina path (local + search memory + structured tools) ──
+  // Skip when images present or sell-page listing fill needs OpenAI.
+  const skipCanonical =
+    images.length > 0 ||
+    (pathname.startsWith("/post/ai") && hasListingIntent) ||
+    (pathname === "/profile" && message.length > 0 && !isSkyAiGeneralQuestion(message) && !/^(messages|home|sell|profile|back|go back)$/i.test(message.trim()));
+
+  if (!skipCanonical && message) {
+    const canonical = processCanonicalAwhina(message, {
+      pathname,
+      uid,
+      conversationId: conversationId || undefined,
+      history,
+      source: body.source === "voice" ? "voice" : "text",
+      voiceConfidence:
+        body.voiceConfidence === "medium" || body.voiceConfidence === "low"
+          ? body.voiceConfidence
+          : body.voiceConfidence === "high"
+            ? "high"
+            : undefined,
+    });
+
+    if (canonical.handled && canonical.reply) {
+      const reply = stripBold(canonical.reply);
+      recordAwhinaQuality(req, message, pathname, reply, "rules", undefined, uid);
+      if (uid && conversationId) {
+        await safePersist(() =>
+          appendSkyAiExchange(conversationId, uid, message, reply, canonical.navigateTo)
+        );
+      }
+      const payload = {
+        reply,
+        navigateTo: canonical.navigateTo,
+        source: canonical.source === "local" ? ("rules" as const) : ("rules" as const),
+        conversationId: conversationId || undefined,
+        awhina: {
+          intent: canonical.intent,
+          tool: canonical.tool,
+          confidence: canonical.confidence,
+          usedLocalExecution: canonical.usedLocalExecution,
+          avoidedAi: canonical.avoidedAi,
+          routing: "canonical",
+        },
+      };
+      if (stream) {
+        return new Response(
+          sseLine({ type: "delta", text: reply }) +
+            sseLine({ type: "done", ...payload }),
+          { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } }
+        );
+      }
+      return NextResponse.json(payload);
+    }
+  }
+
+  // Remaining deterministic task replies (visibility, price, cancel, buy trouble)
+  // Find / capabilities / arrange purchase handled by canonical above.
   const taskReply = trySkyAiTaskReply(message, pathname, taskContext);
   if (taskReply) {
     const reply = stripBold(taskReply.text);
     recordAwhinaQuality(req, message, pathname, reply, taskReply.source, undefined, uid);
+    recordAwhinaObs({
+      intent: "task_reply",
+      localVsAi: "rules",
+      success: true,
+      latencyMs: 0,
+      clarification: false,
+      pathname,
+      source: "text",
+    });
     if (uid && conversationId) {
       await safePersist(() =>
         appendSkyAiExchange(conversationId, uid, message, reply, taskReply.navigateTo)

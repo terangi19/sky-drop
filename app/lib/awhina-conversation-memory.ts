@@ -348,26 +348,28 @@ export function extractEntitiesFromMessage(message: string): Record<string, stri
  * (e.g., "under $15k" after "show BMWs")
  */
 export function isFollowUpRefinement(message: string, memory: ConversationMemory): boolean {
-  const lower = message.toLowerCase();
-  
-  // Price refinements
-  if (/under|below|less than|max|over|above|more than|min/i.test(lower)) {
-    const lastIntent = memory.getCurrentIntent();
-    if (lastIntent === "marketplace_search" || lastIntent === "listing_create") {
-      return true;
-    }
+  const lower = message.toLowerCase().trim();
+  const lastIntent = memory.getCurrentIntent();
+  const searching =
+    lastIntent === "marketplace_search" || lastIntent === "listing_create";
+
+  if (/under|below|less than|max|over|above|more than|min/i.test(lower) && searching) {
+    return true;
   }
 
-  // Location refinements
-  if (/only|just|filter|show only/i.test(lower)) {
-    const hasLocation = locations.includes(lower);
-    if (hasLocation && memory.getCurrentIntent() === "marketplace_search") {
-      return true;
-    }
+  if (
+    searching &&
+    locations.some((loc) => lower.includes(loc)) &&
+    /only|just|filter|show only|in |near /i.test(lower)
+  ) {
+    return true;
   }
 
-  // Short messages (likely refinements)
-  if (message.split(/\s+/).length <= 3 && memory.getTurnCount() > 0) {
+  if (/\b(manual|automatic|auto|cvt)\b/i.test(lower) && searching) {
+    return true;
+  }
+
+  if (message.split(/\s+/).length <= 3 && memory.getTurnCount() > 0 && searching) {
     return true;
   }
 

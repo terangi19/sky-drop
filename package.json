@@ -18,7 +18,7 @@
     "test": "playwright test",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",
-    "test:awhina": "vitest run app/lib/sky-ai-evaluation.test.ts app/lib/sky-ai-conversation-stress.test.ts app/lib/sky-ai-task-replies.test.ts app/lib/sky-ai-find-routing.test.ts app/lib/sky-ai-find-e2e.test.ts app/lib/sky-ai-prompts.test.ts",
+    "test:awhina": "vitest run app/lib/sky-ai-evaluation.test.ts app/lib/sky-ai-conversation-stress.test.ts app/lib/sky-ai-task-replies.test.ts app/lib/sky-ai-find-routing.test.ts app/lib/sky-ai-find-e2e.test.ts app/lib/sky-ai-prompts.test.ts app/lib/awhina-canonical.test.ts app/lib/awhina-voice-command.test.ts",
     "test:awhina:live": "vitest run app/lib/sky-ai-live-eval.test.ts",
     "test:awhina:smoke": "node scripts/smoke-awhina-manual.cjs",
     "test:awhina:live:compare": "cross-env SKY_AI_COMPARE_PRODUCTION=1 vitest run app/lib/sky-ai-live-eval.test.ts",

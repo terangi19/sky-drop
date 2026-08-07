@@ -21,16 +21,19 @@ const LOCAL_COMMANDS = {
   home: /^(home|go home|take me home|back to home)$/i,
   sell: /^(sell|go to sell|take me to sell|create listing|new listing|list something|post)$/i,
   sales: /^(sales|my sales|go to sales|take me to sales)$/i,
-  messages: /^(messages|go to messages|take me to messages|inbox)$/i,
+  messages: /^(messages|go to messages|take me to messages|inbox|open messages|go messages)$/i,
   search: /^(search|go to search|take me to search)$/i,
   watchlist: /^(watchlist|my watchlist|go to watchlist|take me to watchlist|saved|favorites)$/i,
-  profile: /^(profile|my profile|go to profile|take me to profile|account)$/i,
+  profile: /^(profile|my profile|go to profile|take me to profile|open profile|account)$/i,
   admin: /^(admin|go to admin|take me to admin|dashboard)$/i,
-  
+  vehicles: /^(vehicles?|cars?|open vehicles?|show vehicles?|go to vehicles?|take me to vehicles?)$/i,
+  services: /^(services?|open services?|go to services?)$/i,
+  rentals: /^(rentals?|open rentals?|go to rentals?)$/i,
+
   // Voice control
   stopListening: /^(stop listening|stop voice|turn off voice|voice off|exit voice)$/i,
   resumeListening: /^(resume listening|continue listening|keep listening|unpause)$/i,
-  
+
   // Context actions
   goBack: /^(go back|back|previous|go back a page)$/i,
   refresh: /^(refresh|reload|refresh page)$/i,
@@ -52,6 +55,9 @@ const ROUTE_MAPPINGS: Record<string, string> = {
   watchlist: "/watchlist",
   profile: "/profile",
   admin: "/admin",
+  vehicles: "/vehicles",
+  services: "/services",
+  rentals: "/rentals",
 };
 
 /**
@@ -108,7 +114,10 @@ function executeLocalCommand(
     case "search":
     case "watchlist":
     case "profile":
-    case "admin": {
+    case "admin":
+    case "vehicles":
+    case "services":
+    case "rentals": {
       const path = ROUTE_MAPPINGS[command];
       if (currentPath === path) {
         return { reason: `Already on ${command} page` };

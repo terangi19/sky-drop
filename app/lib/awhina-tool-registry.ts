@@ -282,14 +282,121 @@ export const AWHINA_TOOLS = {
   },
 } as const;
 
+const READ_ONLY_TOOLS = new Set<AwhinaToolName>([
+  "navigate",
+  "searchListings",
+  "openMessages",
+  "openConversation",
+  "viewProfile",
+  "voiceSearch",
+  "openCategory",
+  "reply",
+  "naturalConversation",
+]);
+
+const STATE_CHANGING_TOOLS = new Set<AwhinaToolName>([
+  "createListing",
+  "editListing",
+  "sendMessage",
+  "arrangePurchase",
+  "updateProfile",
+  "adminAction",
+  "confirmAction",
+]);
+
+export function isStateChangingTool(toolCall: Pick<AwhinaToolCall, "tool">): boolean {
+  return STATE_CHANGING_TOOLS.has(toolCall.tool);
+}
+
+export function isReadOnlyTool(toolCall: Pick<AwhinaToolCall, "tool">): boolean {
+  return READ_ONLY_TOOLS.has(toolCall.tool);
+}
+
+export type ToolValidationResult =
+  | { ok: true; toolCall: AwhinaToolCall }
+  | { ok: false; error: string };
+
+/** Validate tool name + required args. Never invent missing IDs. */
+export function validateToolCall(toolCall: AwhinaToolCall | null | undefined): ToolValidationResult {
+  if (!toolCall || !toolCall.tool) {
+    return { ok: false, error: "Missing tool call" };
+  }
+  if (!(toolCall.tool in AWHINA_TOOLS) && !["openConversation", "viewProfile", "adminAction", "naturalConversation"].includes(toolCall.tool)) {
+    return { ok: false, error: `Unknown tool: ${toolCall.tool}` };
+  }
+  const args = toolCall.args || {};
+  switch (toolCall.tool) {
+    case "navigate": {
+      const path = args.navigate?.path;
+      if (!path || typeof path !== "string") return { ok: false, error: "navigate requires path" };
+      if (path !== "BACK" && !path.startsWith("/")) return { ok: false, error: "navigate path must start with /" };
+      break;
+    }
+    case "searchListings": {
+      if (typeof args.searchListings?.query !== "string") {
+        return { ok: false, error: "searchListings requires query string" };
+      }
+      break;
+    }
+    case "createListing": {
+      if (!args.createListing) return { ok: false, error: "createListing requires args" };
+      break;
+    }
+    case "editListing": {
+      if (!args.editListing?.listingId || !args.editListing?.updates) {
+        return { ok: false, error: "editListing requires listingId and updates" };
+      }
+      break;
+    }
+    case "sendMessage": {
+      if (!args.sendMessage?.conversationId || !args.sendMessage?.message) {
+        return { ok: false, error: "sendMessage requires conversationId and message" };
+      }
+      break;
+    }
+    case "arrangePurchase": {
+      if (!args.arrangePurchase?.listingId || !args.arrangePurchase?.method) {
+        return { ok: false, error: "arrangePurchase requires listingId and method" };
+      }
+      break;
+    }
+    case "updateProfile": {
+      if (!args.updateProfile?.field || args.updateProfile.value === undefined) {
+        return { ok: false, error: "updateProfile requires field and value" };
+      }
+      break;
+    }
+    case "openCategory": {
+      if (!args.openCategory?.category) return { ok: false, error: "openCategory requires category" };
+      break;
+    }
+    case "reply": {
+      if (!args.reply?.message) return { ok: false, error: "reply requires message" };
+      break;
+    }
+    case "confirmAction": {
+      if (!args.confirmAction?.action || typeof args.confirmAction.confirmed !== "boolean") {
+        return { ok: false, error: "confirmAction requires action and confirmed" };
+      }
+      break;
+    }
+    default:
+      break;
+  }
+  return { ok: true, toolCall };
+}
+
 /**
- * Execute a tool call
- * This is the actual execution layer - the AI selects tools, the app executes them
+ * Execute a tool call (server-safe: returns navigateTo / data — no window mutation).
  */
 export async function executeToolCall(
   toolCall: AwhinaToolCall
 ): Promise<AwhinaToolResult> {
   const startTime = Date.now();
+  const validated = validateToolCall(toolCall);
+  if (!validated.ok) {
+    return { success: false, error: validated.error, executionTime: Date.now() - startTime };
+  }
 
   try {
     switch (toolCall.tool) {
@@ -302,7 +409,7 @@ export async function executeToolCall(
       case "editListing":
         return await executeEditListing(toolCall.args.editListing!);
       case "openMessages":
-        return await executeOpenMessages(toolCall.args.openMessages!);
+        return await executeOpenMessages(toolCall.args.openMessages || {});
       case "sendMessage":
         return await executeSendMessage(toolCall.args.sendMessage!);
       case "arrangePurchase":
@@ -338,10 +445,7 @@ export async function executeToolCall(
  */
 
 async function executeNavigate(args: NavigateArgs): Promise<AwhinaToolResult> {
-  // Integrate with existing navigation logic
-  if (typeof window !== "undefined") {
-    window.location.href = args.path;
-  }
+  // Server-safe: callers perform navigation from navigateTo
   return {
     success: true,
     data: { navigatedTo: args.path },
@@ -351,22 +455,17 @@ async function executeNavigate(args: NavigateArgs): Promise<AwhinaToolResult> {
 }
 
 async function executeSearchListings(args: SearchListingsArgs): Promise<AwhinaToolResult> {
-  // Integrate with existing search logic
-  const params = new URLSearchParams({ q: args.query });
+  const params = new URLSearchParams();
+  if (args.query) params.set("q", args.query);
   if (args.filters) {
     Object.entries(args.filters).forEach(([key, value]) => {
-      if (value) params.set(key, String(value));
+      if (value !== undefined && value !== null && value !== "") params.set(key, String(value));
     });
   }
   const searchPath = `/search?${params.toString()}`;
-  
-  if (typeof window !== "undefined") {
-    window.location.href = searchPath;
-  }
-  
   return {
     success: true,
-    data: { searchPath },
+    data: { searchPath, query: args.query, filters: args.filters },
     navigateTo: searchPath,
     executionTime: 0,
   };
@@ -393,10 +492,6 @@ async function executeEditListing(args: EditListingArgs): Promise<AwhinaToolResu
 }
 
 async function executeOpenMessages(args: OpenMessagesArgs): Promise<AwhinaToolResult> {
-  // Integrate with existing messages logic
-  if (typeof window !== "undefined") {
-    window.location.href = "/messages";
-  }
   return {
     success: true,
     data: { opened: args.conversationId || "messages" },
