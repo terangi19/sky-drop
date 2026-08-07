@@ -241,6 +241,7 @@ export async function POST(req: NextRequest) {
     const numericPrice = Number(price) || 0;
     let salesCount = 0;
     let kycApproved = false;
+    let profileUsername = "";
 
     if (isAdminInitialized()) {
       const sellerProfile = await getSellerProfileForUid(token.uid, token.email);
@@ -249,6 +250,7 @@ export async function POST(req: NextRequest) {
         salesCount = Number(sellerProfile.salesCount) || 0;
         reportsCount = Number(sellerProfile.reportsCount) || 0;
         kycApproved = sellerProfile.kycStatus === "approved";
+        profileUsername = String(sellerProfile.username || "").trim();
         if (sellerProfile.restricted) {
           return NextResponse.json({ error: "Your account is restricted. Contact support." }, { status: 403 });
         }
@@ -360,6 +362,20 @@ export async function POST(req: NextRequest) {
       paymentType,
       type: listingType,
     };
+
+    // Authoritative seller identity — never keep email-local-part placeholders
+    // from the client form (breaks Message Seller + /seller/[slug]).
+    finalData.sellerEmail = token.email;
+    finalData.sellerId = token.uid;
+    if (profileUsername && !profileUsername.includes("@")) {
+      finalData.sellerUsername = profileUsername;
+    } else {
+      const clientU = String(finalData.sellerUsername || "").trim();
+      const local = String(token.email || "").split("@")[0] || "";
+      if (!clientU || clientU.toLowerCase() === local.toLowerCase()) {
+        finalData.sellerUsername = local;
+      }
+    }
 
     if (clientData.stockQuantity != null) {
       finalData.stockQuantity = Number(clientData.stockQuantity);

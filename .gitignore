@@ -37,6 +37,9 @@ app (3).zip
 
 # Local audit / smoke artifacts
 prod-smoke-results.json
+prod-e2e-signed-in-results.json
+.tmp-e2e-creds.json
+.tmp-e2e-pixel.png
 ux-audit-runtime.json
 ux-audit-runtime-deep.json
 ux-audit-screenshots/

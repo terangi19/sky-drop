@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyIdToken, getAdminDb, isAdminInitialized } from "../../lib/firebase-admin";
+import { verifyIdToken, getAdminDb, isAdminInitialized, getAdminAuth } from "../../lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import {
   decide,
@@ -125,7 +125,47 @@ export async function POST(req: NextRequest) {
     if (!senderEmail) {
       return NextResponse.json({ error: "Could not determine sender email" }, { status: 400 });
     }
-    if (receiver.toLowerCase() === senderEmail.toLowerCase()) {
+
+    // Resolve username / uid / email-local-part placeholders to a real email so
+    // participants stay deliverable for both buyer and seller inboxes.
+    let resolvedReceiver = receiver;
+    if (!receiver.includes("@")) {
+      const lower = receiver.toLowerCase();
+      const unameSnap = await db.collection("usernames").doc(lower).get();
+      if (unameSnap.exists) {
+        const uid = String(unameSnap.data()?.uid || "");
+        if (uid) {
+          const profileSnap = await db.collection("profiles").doc(uid).get();
+          const email = String(profileSnap.data()?.email || "").trim();
+          if (email.includes("@")) resolvedReceiver = email;
+        }
+      }
+      if (!resolvedReceiver.includes("@")) {
+        try {
+          const userRec = await getAdminAuth().getUser(receiver);
+          if (userRec.email) resolvedReceiver = userRec.email;
+        } catch {
+          /* not a uid */
+        }
+      }
+      if (!resolvedReceiver.includes("@") && listingId) {
+        const listingSnap = await db.collection("listings").doc(listingId).get();
+        const listing = listingSnap.data() || {};
+        const listingEmail = String(listing.sellerEmail || "").trim();
+        const listingUser = String(listing.sellerUsername || "").trim().toLowerCase();
+        const listingUid = String(listing.sellerId || "").trim();
+        if (
+          listingEmail.includes("@") &&
+          (lower === listingUser ||
+            lower === listingUid.toLowerCase() ||
+            lower === listingEmail.split("@")[0]?.toLowerCase())
+        ) {
+          resolvedReceiver = listingEmail;
+        }
+      }
+    }
+
+    if (resolvedReceiver.toLowerCase() === senderEmail.toLowerCase()) {
       return NextResponse.json({ error: "Cannot message yourself" }, { status: 400 });
     }
 
@@ -143,7 +183,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const participants = [senderEmail, receiver];
+    const participants = [senderEmail, resolvedReceiver];
 
     if (createConversation && !conversationId) {
       if (convKey) {
@@ -178,7 +218,7 @@ export async function POST(req: NextRequest) {
         const convData: Record<string, unknown> = {
           participants,
           buyerEmail: buyerEmail || senderEmail,
-          sellerEmail: sellerEmail || receiver,
+          sellerEmail: sellerEmail || resolvedReceiver,
           listingTitle: listingTitle || null,
           listingPrice: listingPrice || null,
           listingImage: listingImage || null,
@@ -198,7 +238,7 @@ export async function POST(req: NextRequest) {
       type: msgType,
       text: text || null,
       sender: senderEmail,
-      receiver,
+      receiver: resolvedReceiver,
       participants,
       conversationId: conversationId || null,
       listingId: listingId || null,

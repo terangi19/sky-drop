@@ -19,18 +19,34 @@ export function listingStockCount(listing: ListingAvailabilityFields): number | 
   return Number.isFinite(qty) ? qty : 0;
 }
 
+const MARKETPLACE_HIDDEN_STATUSES = new Set([
+  "sold",
+  "ended",
+  "expired",
+  "deleted",
+  "removed",
+  "unpublished",
+  "draft",
+]);
+
+function isHiddenListingStatus(status: string | undefined): boolean {
+  return MARKETPLACE_HIDDEN_STATUSES.has(String(status || "live").toLowerCase());
+}
+
 /** Listing should appear in marketplace browse/search. */
 export function isListingVisibleInMarketplace(listing: ListingAvailabilityFields): boolean {
+  if (isHiddenListingStatus(listing.status)) return false;
   const stock = listingStockCount(listing);
   if (stock !== null) return stock > 0;
-  return listing.status !== "sold";
+  return true;
 }
 
 /** Buyer can still purchase (stock or single-unit not sold). */
 export function isListingAvailableForPurchase(listing: ListingAvailabilityFields): boolean {
+  if (isHiddenListingStatus(listing.status)) return false;
   const stock = listingStockCount(listing);
   if (stock !== null) return stock > 0;
-  return listing.status !== "sold";
+  return true;
 }
 
 export function formatStockLabel(listing: ListingAvailabilityFields): string | null {

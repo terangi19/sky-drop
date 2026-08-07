@@ -5,6 +5,7 @@ import { rateLimit } from "../../lib/rate-limit";
 /**
  * Authenticated unread counts for the signed-in user (not admin-only).
  * Navbar currently uses Firestore snapshots; this route is the server-side poll path.
+ * Uses simple equality queries (no not-in/orderBy composites) to avoid index 500s.
  */
 export async function GET(req: NextRequest) {
   const startTime = Date.now();
@@ -44,9 +45,8 @@ export async function GET(req: NextRequest) {
 
     const inboxSnap = await db
       .collection("messages")
-      .where("participants", "array-contains", email)
-      .where("read", "==", false)
       .where("receiver", "==", email)
+      .where("read", "==", false)
       .count()
       .get();
 
@@ -57,11 +57,13 @@ export async function GET(req: NextRequest) {
       .collection("notifications")
       .where("targetEmail", "==", email)
       .where("read", "==", false)
-      .where("type", "not-in", ["message", "offer"])
-      .count()
+      .limit(50)
       .get();
 
-    const activityUnread = activitySnap.data().count;
+    const activityUnread = activitySnap.docs.filter((d) => {
+      const type = String(d.data()?.type || "");
+      return type !== "message" && type !== "offer";
+    }).length;
     const totalTime = Date.now() - startTime;
 
     if (process.env.NEXT_PUBLIC_ENABLE_METRICS === "true") {

@@ -59,6 +59,14 @@ export function publicNameFromProfile(
 export function sellerProfileSlug(
   fields: SellerLinkFields | null | undefined
 ): string {
+  const emailLocalParts = new Set(
+    [fields?.sellerEmail, fields?.buyerEmail, fields?.email]
+      .map((raw) => String(raw || "").trim())
+      .filter((v) => v && isEmailLike(v))
+      .map((e) => e.split("@")[0]?.toLowerCase())
+      .filter(Boolean)
+  );
+
   for (const raw of [
     fields?.sellerUsername,
     fields?.buyerUsername,
@@ -67,7 +75,10 @@ export function sellerProfileSlug(
     fields?.username,
   ]) {
     const v = String(raw || "").trim();
-    if (v && !isEmailLike(v)) return stripAtPrefix(v);
+    if (!v || isEmailLike(v)) continue;
+    const handle = stripAtPrefix(v);
+    if (emailLocalParts.has(handle.toLowerCase())) continue;
+    return handle;
   }
   for (const raw of [
     fields?.sellerId,
@@ -100,6 +111,17 @@ export function sellerProfileDisplayName(
 export function sellerMessageTarget(
   fields: SellerLinkFields | null | undefined
 ): string {
+  const emails = [
+    fields?.sellerEmail,
+    fields?.buyerEmail,
+    fields?.email,
+  ]
+    .map((raw) => String(raw || "").trim())
+    .filter((v) => v && isEmailLike(v));
+  const emailLocalParts = new Set(
+    emails.map((e) => e.split("@")[0]?.toLowerCase()).filter(Boolean)
+  );
+
   for (const raw of [
     fields?.sellerUsername,
     fields?.buyerUsername,
@@ -108,7 +130,12 @@ export function sellerMessageTarget(
     fields?.username,
   ]) {
     const v = String(raw || "").trim();
-    if (v && !isEmailLike(v)) return stripAtPrefix(v);
+    if (!v || isEmailLike(v)) continue;
+    const handle = stripAtPrefix(v);
+    // Email local-part placeholders are not real handles — skip so messaging
+    // can resolve via uid/email instead of writing undeliverable participants.
+    if (emailLocalParts.has(handle.toLowerCase())) continue;
+    return handle;
   }
   for (const raw of [
     fields?.sellerId,
@@ -121,14 +148,7 @@ export function sellerMessageTarget(
     if (v) return v;
   }
   // Fallback to email for messaging (acceptable since messages page handles emails)
-  for (const raw of [
-    fields?.sellerEmail,
-    fields?.buyerEmail,
-    fields?.email,
-  ]) {
-    const v = String(raw || "").trim();
-    if (v && isEmailLike(v)) return v;
-  }
+  if (emails[0]) return emails[0];
   return "";
 }
 

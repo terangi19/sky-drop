@@ -1133,10 +1133,30 @@ const tabGroups = [
   async function deleteListing(id: string) {
     if (!user) return;
     try {
-      await deleteDoc(doc(db, "listings", id));
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) {
+        showToast("Please sign in again to delete this listing.", "error");
+        return;
+      }
+      const res = await fetch("/api/delete-listing", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ listingId: id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error((data as { error?: string }).error || "Delete failed");
+      }
       setListingToDelete(null);
+      setListings((prev) => prev.filter((l) => l.id !== id));
       showToast("Listing deleted successfully", "success");
-    } catch (e) { console.error(e); showToast("Could not delete listing. Please refresh and try again.", "error"); }
+    } catch (e) {
+      console.error(e);
+      showToast("Could not delete listing. Please refresh and try again.", "error");
+    }
   }
 
   async function refreshStripeStatus() {

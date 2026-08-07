@@ -12,20 +12,34 @@ export function listingStockCount(listing: Record<string, unknown>): number | nu
   return Number.isFinite(qty) ? qty : 0;
 }
 
+const PURCHASE_HIDDEN_STATUSES = new Set([
+  "sold",
+  "ended",
+  "expired",
+  "deleted",
+  "removed",
+  "unpublished",
+  "draft",
+]);
+
 /** Can a buyer complete a purchase right now? */
 export function isListingAvailableForPurchase(listing: Record<string, unknown>): boolean {
+  const status = String(listing.status || "live").toLowerCase();
+  if (PURCHASE_HIDDEN_STATUSES.has(status)) return false;
   const stock = listingStockCount(listing);
   if (stock !== null) return stock > 0;
-  return listing.status !== "sold";
+  return true;
 }
 
 export function assertListingAvailableForPurchase(listing: Record<string, unknown>): void {
+  const status = String(listing.status || "live").toLowerCase();
+  if (status === "sold") throw new Error("This listing has already been sold");
+  if (PURCHASE_HIDDEN_STATUSES.has(status)) throw new Error("This listing is no longer available");
   const stock = listingStockCount(listing);
   if (stock !== null) {
     if (stock <= 0) throw new Error("This item is out of stock");
     return;
   }
-  if (listing.status === "sold") throw new Error("This listing has already been sold");
 }
 
 export type ListingSaleUpdateOptions = {

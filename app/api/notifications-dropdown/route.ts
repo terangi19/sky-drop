@@ -4,6 +4,8 @@ import { rateLimit } from "../../lib/rate-limit";
 
 /**
  * Authenticated notification dropdown payload for the signed-in user (not admin-only).
+ * Queries are intentionally simple (no composite not-in + orderBy) so missing indexes
+ * cannot 500 the navbar; filtering/sorting happens in memory.
  */
 export async function GET(req: NextRequest) {
   const startTime = Date.now();
@@ -43,27 +45,35 @@ export async function GET(req: NextRequest) {
 
     const messagesSnap = await db
       .collection("messages")
-      .where("participants", "array-contains", email)
-      .where("read", "==", false)
       .where("receiver", "==", email)
-      .orderBy("createdAt", "desc")
-      .limit(5)
+      .where("read", "==", false)
+      .limit(20)
       .get();
 
     const messagesReadTime = Date.now() - startTime;
-    const messages = messagesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    type NotifRow = { id: string; createdAt?: unknown; type?: unknown; [key: string]: unknown };
+
+    const messages: NotifRow[] = messagesSnap.docs
+      .map((d) => ({ id: d.id, ...(d.data() as object) } as NotifRow))
+      .sort((a, b) => createdAtMs(b.createdAt) - createdAtMs(a.createdAt))
+      .slice(0, 5);
 
     const notificationsSnap = await db
       .collection("notifications")
       .where("targetEmail", "==", email)
       .where("read", "==", false)
-      .where("type", "not-in", ["message", "offer"])
-      .orderBy("createdAt", "desc")
-      .limit(5)
+      .limit(20)
       .get();
 
     const notificationsReadTime = Date.now() - startTime - messagesReadTime;
-    const notifications = notificationsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const notifications: NotifRow[] = notificationsSnap.docs
+      .map((d) => ({ id: d.id, ...(d.data() as object) } as NotifRow))
+      .filter((n) => {
+        const type = String(n.type || "");
+        return type !== "message" && type !== "offer";
+      })
+      .sort((a, b) => createdAtMs(b.createdAt) - createdAtMs(a.createdAt))
+      .slice(0, 5);
 
     const totalTime = Date.now() - startTime;
 
@@ -90,4 +100,12 @@ export async function GET(req: NextRequest) {
     console.error("[notifications-dropdown]", e);
     return NextResponse.json({ error: "Failed to fetch notifications" }, { status: 500 });
   }
+}
+
+function createdAtMs(value: unknown): number {
+  if (!value || typeof value !== "object") return 0;
+  const v = value as { toMillis?: () => number; seconds?: number };
+  if (typeof v.toMillis === "function") return v.toMillis();
+  if (typeof v.seconds === "number") return v.seconds * 1000;
+  return 0;
 }

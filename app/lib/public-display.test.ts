@@ -45,4 +45,17 @@ describe("public display privacy helpers", () => {
       )
     ).toBe("/messages?user=uid-123&listing=listing-1&purchased=1");
   });
+
+  it("skips email-local-part usernames so Message Seller stays deliverable", () => {
+    expect(
+      sellerMessagesUrl(
+        {
+          sellerUsername: "seller",
+          sellerEmail: "seller@example.com",
+          sellerId: "uid-123",
+        },
+        "listing-9"
+      )
+    ).toBe("/messages?user=uid-123&listing=listing-9");
+  });
 });

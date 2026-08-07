@@ -268,10 +268,28 @@ function MessagesPage() {
       if (isEmailLike(param)) {
         setChatUser(param);
       } else {
-        fetchPublicProfileBySlug(param).then((profile) => {
-          const profileEmail = profile?.email || param;
-          setChatUser(profileEmail);
-        }).catch(() => setChatUser(param));
+        const listingParam = getSearchParam("listing");
+        fetchPublicProfileBySlug(param)
+          .then(async (profile) => {
+            if (profile?.email) {
+              setChatUser(profile.email);
+              return;
+            }
+            if (listingParam) {
+              try {
+                const snap = await getDoc(doc(db, "listings", listingParam));
+                const listingEmail = String(snap.data()?.sellerEmail || "").trim();
+                if (listingEmail.includes("@")) {
+                  setChatUser(listingEmail);
+                  return;
+                }
+              } catch {
+                /* fall through */
+              }
+            }
+            setChatUser(param);
+          })
+          .catch(() => setChatUser(param));
       }
       const listingParam = getSearchParam("listing");
       setChatListingId(listingParam || null);
