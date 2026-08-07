@@ -26,6 +26,7 @@ import { auth, db } from "../../lib/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { useParams } from "next/navigation";
 import ReportModal from "../../components/ReportModal";
+import EmptyState from "../../components/EmptyState";
 import { REVIEW_STAR_CLASS, ReviewStars } from "../../components/SellerReviewStars";
 import { isListingVisibleInMarketplace } from "../../lib/listing-availability";
 import { countSellerSales } from "../../lib/arrange-purchase-status";
@@ -588,13 +589,13 @@ export default function SellerPage() {
                   Listings ({activeListings.length})
                 </h2>
                 {activeListings.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-8 text-center">
-                    <svg className="mb-2 h-8 w-8 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
-                    <p className="text-sm font-medium text-[var(--muted)]">No active listings</p>
-                    <button onClick={() => router.push("/")} className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">
-                      Browse Marketplace
-                    </button>
-                  </div>
+                  <EmptyState
+                    className="border-0 bg-transparent py-8"
+                    title="No active listings"
+                    description="This seller has no listings available right now."
+                    actionLabel="Browse marketplace"
+                    actionHref="/"
+                  />
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-2">
                     {activeListings.map((item) => (
@@ -617,7 +618,7 @@ export default function SellerPage() {
                           </div>
                           <p className="mt-1.5 truncate text-sm font-bold text-[var(--foreground)] group-hover/card:text-sky-300 transition-colors">{item.title}</p>
                           <p className="mt-0.5 text-sm font-bold text-sky-400">${item.price}</p>
-                          {item.location && <p className="text-[11px] font-medium text-[var(--muted)]">📍 {item.location}</p>}
+                          {item.location && <p className="text-[11px] font-medium text-[var(--muted)]">{item.location}</p>}
                         </div>
                       </div>
                     ))}
@@ -751,11 +752,11 @@ export default function SellerPage() {
               {(profile.discord || profile.instagram || profile.tiktok) && (
                 <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-5 shadow-[0_2px_12px_rgba(0,0,0,0.25)]">
                   <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/10 to-transparent" />
-                  <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.15em] text-white">Links</h2>
+                  <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.15em] text-[var(--muted)]">Links</h2>
                   <div className="space-y-2">
-                    {profile.discord && <p className="text-sm font-medium text-[var(--foreground)]">💬 Discord: {profile.discord}</p>}
-                    {profile.instagram && <p className="text-sm font-medium text-[var(--foreground)]">📸 Instagram: {profile.instagram}</p>}
-                    {profile.tiktok && <p className="text-sm font-medium text-[var(--foreground)]">🎵 TikTok: {profile.tiktok}</p>}
+                    {profile.discord && <p className="text-sm font-medium text-[var(--foreground)]">Discord: {profile.discord}</p>}
+                    {profile.instagram && <p className="text-sm font-medium text-[var(--foreground)]">Instagram: {profile.instagram}</p>}
+                    {profile.tiktok && <p className="text-sm font-medium text-[var(--foreground)]">TikTok: {profile.tiktok}</p>}
                   </div>
                 </div>
               )}
@@ -770,7 +771,7 @@ export default function SellerPage() {
                   {avgRating > 0 && (
                     <span className="inline-flex items-center gap-1 text-xs font-bold">
                       <ReviewStars rating={avgRating} />
-                      <span className="text-white">{avgRating.toFixed(1)}</span>
+                      <span className="text-[var(--foreground)]">{avgRating.toFixed(1)}</span>
                     </span>
                   )}
                 </div>
@@ -796,10 +797,11 @@ export default function SellerPage() {
 
                 <div className="max-h-48 space-y-3 overflow-y-auto scrollbar-none">
                   {reviews.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-8 text-center">
-                      <svg className="mb-2 h-8 w-8 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
-                      <p className="text-sm font-medium text-[var(--muted)]">No reviews yet</p>
-                    </div>
+                    <EmptyState
+                      className="border-0 bg-transparent py-6"
+                      title="No reviews yet"
+                      description="Reviews from buyers and sellers will show up here."
+                    />
                   ) : (
                     reviews.map((r) => (
                       <div key={r.id} className="rounded-lg border border-zinc-700/30 bg-zinc-800/25 p-3">

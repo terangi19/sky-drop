@@ -54,6 +54,7 @@ import {
 import { MOBILE_STICKY_CTA } from "../../../lib/page-layout";
 import { isStripeCheckoutVisibleClient } from "../../../lib/stripe-checkout-flags";
 import { V1_ARRANGE_SAFETY_ONE_LINER } from "../../../lib/conversation-safety";
+import EmptyState from "../../../components/EmptyState";
 
 function getBidIncrement(price: number): number {
   if (price < 50) return 1;
@@ -1094,7 +1095,7 @@ export default function ListingPage() {
 
   return (
     <main className={`relative min-h-screen bg-[var(--background)] text-[var(--foreground)] animate-page-enter ${
-      stickyBarVisible && purchaseView.role !== "seller" && !purchaseView.hasActiveOrder ? "max-lg:pb-24" : ""
+      stickyBarVisible && purchaseView.role !== "seller" && !purchaseView.hasActiveOrder ? "max-lg:pb-32" : ""
     }`}>
       <Background />
       <Navbar />
@@ -1198,9 +1199,17 @@ export default function ListingPage() {
       })()}
 
       {!listing ? (
-        <div className="flex flex-col items-center justify-center py-24">
-          <p className="text-lg font-bold text-[var(--foreground)]">{loading ? "Loading..." : "Listing not found"}</p>
-          {!loading && <Link href="/" className="mt-6 inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 px-3 py-1.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">Browse Marketplace</Link>}
+        <div className="mx-auto max-w-md px-4 py-16">
+          {loading ? (
+            <p className="text-center text-base font-medium text-[var(--muted)]">Loading listing…</p>
+          ) : (
+            <EmptyState
+              title="Listing not found"
+              description="This listing may have been removed or the link is incorrect."
+              actionLabel="Browse marketplace"
+              actionHref="/"
+            />
+          )}
         </div>
       ) : (<>
       <section className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 py-3 lg:py-4">
@@ -1303,35 +1312,35 @@ export default function ListingPage() {
             );
           })()}
 
-          {/* ── RIGHT COLUMN: PURCHASE CARD ── */}
-          <div className="relative flex flex-col gap-3 overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] p-4 sm:p-5 shadow-2xl shadow-black/20 lg:sticky lg:top-[4.5rem] lg:max-h-[calc(100vh-5.5rem)] lg:overflow-y-auto lg:overscroll-contain">
+          {/* ── RIGHT COLUMN: DETAILS + CTA ── */}
+          <div className="relative flex flex-col gap-3 overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4 sm:p-5 shadow-[var(--shadow-md)] lg:sticky lg:top-[4.5rem] lg:max-h-[calc(100vh-5.5rem)] lg:overflow-y-auto lg:overscroll-contain">
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
             
             {/* 1. PILLS: Category / Condition / Time */}
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-[11px] font-bold text-sky-400">{listing.category || "Other"}</span>
+              <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-[11px] font-semibold text-sky-400">{listing.category || "Other"}</span>
               {listing.condition && (
-                <span className={`rounded-full border px-3 py-1 text-[11px] font-bold ${listing.condition === "New" ? "border-sky-500/20 bg-sky-500/10 text-sky-400" : "border-white/[0.08] bg-[var(--soft-card)] text-[var(--foreground)]"}`}>
+                <span className={`rounded-full border px-3 py-1 text-[11px] font-semibold ${listing.condition === "New" ? "border-sky-500/20 bg-sky-500/10 text-sky-400" : "border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--foreground)]"}`}>
                   {listing.condition}
                 </span>
               )}
               {listing.createdAt?.seconds != null && (
-                <span className="rounded-full border border-white/[0.08] bg-[var(--soft-card)] px-3 py-1 text-[11px] text-[var(--muted)]">{timeAgo(listing.createdAt.seconds)}</span>
+                <span className="rounded-full border border-[var(--card-border)] bg-[var(--soft-card)] px-3 py-1 text-[11px] text-[var(--muted)]">{timeAgo(listing.createdAt.seconds)}</span>
               )}
               {listing.location && (
-                <span className="rounded-full border border-white/[0.08] bg-[var(--soft-card)] px-3 py-1 text-[11px] text-[var(--muted)]">{listing.location}</span>
+                <span className="rounded-full border border-[var(--card-border)] bg-[var(--soft-card)] px-3 py-1 text-[11px] text-[var(--muted)]">{listing.location}</span>
               )}
             </div>
 
             {/* 2. TITLE */}
-            <h1 className="text-2xl font-black tracking-tight text-[var(--foreground)] leading-tight">
+            <h1 className="text-2xl font-bold tracking-tight text-[var(--foreground)] leading-tight">
               {listing.title ? String(listing.title) : ""}
             </h1>
 
             {/* 3. PRICE */}
             <div className="flex flex-wrap items-baseline gap-3">
               {listing.type === "service" && <ServicePricingBadge listing={listing} />}
-              <span className="text-4xl font-black text-[var(--foreground)] tracking-tight">
+              <span className="text-3xl font-bold text-[var(--foreground)] tracking-tight sm:text-4xl">
                 {listing.type === "service"
                   ? formatServicePriceDisplay(listing)
                   : listing.pricingType === "quote"
@@ -1341,13 +1350,13 @@ export default function ListingPage() {
                       : "Price on request"}
               </span>
               {!isListingVisibleInMarketplace(listing) && (
-                <span className="rounded-lg bg-red-600/90 px-3 py-1 text-xs font-black uppercase tracking-wider text-white">Sold</span>
+                <span className="rounded-lg bg-red-600/90 px-3 py-1 text-xs font-bold uppercase tracking-wider text-always-white">Sold</span>
               )}
               {isListingVisibleInMarketplace(listing) && Boolean(listing.expiresAt?.toMillis?.() && listing.expiresAt.toMillis() < Date.now()) && (
-                <span className="rounded-lg bg-[var(--soft-card)] px-3 py-1 text-xs font-black uppercase tracking-wider text-[var(--muted)]">Expired</span>
+                <span className="rounded-lg bg-[var(--soft-card)] px-3 py-1 text-xs font-bold uppercase tracking-wider text-[var(--muted)]">Expired</span>
               )}
               {Boolean((listing as any).promotedUntil?.toMillis?.() && (listing as any).promotedUntil.toMillis() > Date.now()) && (
-                <span className="rounded-lg bg-sky-500/90 px-3 py-1 text-xs font-black uppercase tracking-wider text-white">Promoted</span>
+                <span className="rounded-lg bg-sky-500/90 px-3 py-1 text-xs font-bold uppercase tracking-wider text-always-white">Promoted</span>
               )}
             </div>
 
@@ -1368,35 +1377,28 @@ export default function ListingPage() {
               </div>
             )}
 
-            {/* Price display — fees only when Stripe checkout UI is on */}
+            {/* Fee breakdown — only when Stripe checkout UI is on */}
             {listing.price && 
              listing.type !== "service" && 
              listing.pricingType !== "quote" && 
              listing.saleType !== "auction" && 
              listing.saleType !== "auction_buy_now" &&
-             isListingVisibleInMarketplace(listing) && (
+             isListingVisibleInMarketplace(listing) &&
+             !stripeDisabledV1 &&
+             (listing as any).paymentType !== "contact" && (
               <div className="mt-3 rounded-xl border border-sky-500/20 bg-sky-500/5 px-4 py-3">
-                {!stripeDisabledV1 && (listing as any).paymentType !== "contact" ? (
-                  <>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-[var(--muted)]">Item price</span>
-                      <span className="font-semibold">${listing.price}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-[var(--muted)]">Platform fee</span>
-                      <span className="font-semibold">$1.00</span>
-                    </div>
-                    <div className="mt-2 flex items-center justify-between border-t border-sky-500/20 pt-2">
-                      <span className="text-sm font-bold text-[var(--foreground)]">Total you'll pay</span>
-                      <span className="text-xl font-black text-sky-400">${(Number(listing.price) + 1).toFixed(2)}</span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-[var(--muted)]">Listed price</span>
-                    <span className="font-bold text-[var(--foreground)]">${listing.price}</span>
-                  </div>
-                )}
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-[var(--muted)]">Item price</span>
+                  <span className="font-semibold">${listing.price}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-[var(--muted)]">Platform fee</span>
+                  <span className="font-semibold">$1.00</span>
+                </div>
+                <div className="mt-2 flex items-center justify-between border-t border-sky-500/20 pt-2">
+                  <span className="text-sm font-bold text-[var(--foreground)]">Total you'll pay</span>
+                  <span className="text-xl font-bold text-sky-400">${(Number(listing.price) + 1).toFixed(2)}</span>
+                </div>
               </div>
             )}
 
@@ -1929,10 +1931,11 @@ Property Status: 🟢 Inquiry Active`;
                     )}
                   </div>
 
-                  {/* Payment Helper Row */}
-                  <div className="text-[11px] font-medium text-[var(--muted)]">
-                    Payment: {paymentMethodSummary(effectivePaymentType)}
-                  </div>
+                  {!stripeDisabledV1 && (
+                    <div className="text-[11px] font-medium text-[var(--muted)]">
+                      Payment: {paymentMethodSummary(effectivePaymentType)}
+                    </div>
+                  )}
 
                   {/* PRIMARY CTA */}
                   <div className="w-full">
@@ -1959,11 +1962,22 @@ Property Status: 🟢 Inquiry Active`;
                       })}
                     </button>
                     <p className="mt-2 text-center text-xs leading-relaxed text-[var(--muted)]">
-                      {stripeDisabledV1 ? V1_ARRANGE_SAFETY_ONE_LINER : purchaseButtonTitle(effectivePaymentType)}
+                      {stripeDisabledV1 ? (
+                        <>
+                          {V1_ARRANGE_SAFETY_ONE_LINER}{" "}
+                          <Link href="/buyer-protection" className="font-semibold text-sky-400 hover:text-sky-300">
+                            Safety tips
+                          </Link>
+                        </>
+                      ) : (
+                        purchaseButtonTitle(effectivePaymentType)
+                      )}
                     </p>
                   </div>
 
-                  {/* SECONDARY BUTTONS - Responsive grid */}
+                  {((!auctionEnded && (listing.saleType === "auction" || listing.saleType === "auction_buy_now")) ||
+                    ((listing as any).paymentType !== "contact" && listing.acceptOffers) ||
+                    !stripeDisabledV1) && (
                   <div className="grid grid-cols-2 gap-2">
                     {!auctionEnded && (listing.saleType === "auction" || listing.saleType === "auction_buy_now") && (
                       <button onClick={() => { setShowBidModal(true); setBidAmount(String(getMinimumNextBid(listing.currentBid || listing.startingBid || 0))); }}
@@ -1998,39 +2012,12 @@ Property Status: 🟢 Inquiry Active`;
                       </button>
                     )}
                   </div>
-
-                  {/* Stay-safe card — always show in messaging-first V1 */}
-                  {(stripeDisabledV1 || (listing as any).paymentType === "contact") && (
-                    <div className="rounded-lg border border-white/[0.06] bg-[var(--soft-card)] px-4 py-3">
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 mt-0.5">
-                          <svg className="h-5 w-5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
-                          </svg>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-sky-300">Message seller to arrange</p>
-                          <p className="mt-1 text-sm leading-relaxed text-[var(--muted)]">{V1_ARRANGE_SAFETY_ONE_LINER}</p>
-                          <Link href="/buyer-protection" className="mt-2 inline-flex text-xs font-semibold text-sky-400 hover:text-sky-300 transition-colors">
-                            Stay safe tips →
-                          </Link>
-                        </div>
-                      </div>
-                    </div>
                   )}
+
                   {!stripeDisabledV1 && (listing as any).paymentType !== "contact" && (
                     <div className="rounded-lg border border-sky-500/10 bg-sky-500/5 px-4 py-3">
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 mt-0.5">
-                          <svg className="h-5 w-5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.745 3.745 0 011.043 3.296A3.745 3.745 0 0121 12z" />
-                          </svg>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-sky-300">Card checkout</p>
-                          <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">Review the listing carefully before purchasing. Keep agreements in Messages.</p>
-                        </div>
-                      </div>
+                      <p className="text-sm font-medium text-sky-300">Card checkout</p>
+                      <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">Review the listing carefully before purchasing. Keep agreements in Messages.</p>
                     </div>
                   )}
                 </>
@@ -2503,7 +2490,7 @@ Service Status: 🟢 Inquiry Active`;
 
                     {q.answer ? (
                       <div className="mt-3 ml-7 flex items-start gap-3 border-l-2 border-sky-500/30 pl-4">
-                        <span className="text-sm mt-0.5">💬</span>
+                        <span className="mt-0.5 text-xs font-semibold text-sky-400">A</span>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm text-sky-300">{q.answer}</p>
                           <p className="mt-1 text-xs text-[var(--muted)]">Seller · {q.answeredAt?.toDate?.() ? new Date(q.answeredAt.toDate()).toLocaleDateString() : ""}</p>

@@ -29,12 +29,12 @@ import {
 const PromoteModal = lazy(() => import("./components/PromoteModal"));
 const MarketplaceListingCard = lazy(() => import("./components/MarketplaceListingCard"));
 const ArrangePurchaseModal = lazy(() => import("./components/ArrangePurchaseModal"));
-const HotThisWeek = lazy(() => import("./components/HotThisWeek"));
 import { listingBuyHref } from "./lib/buy-listing-route";
 import { listingPrimaryActionHref } from "./lib/listing-message-href";
 import { isStripeCheckoutVisibleClient } from "./lib/stripe-checkout-flags";
 import { LISTING_GRID, LISTING_GRID_MT, PAGE_SHELL_MARKETPLACE, PAGE_SHELL_WIDE } from "./lib/page-layout";
 import { LoadingCard } from "./components/LoadingSpinner";
+import EmptyState from "./components/EmptyState";
 import { funnel } from "./lib/funnel-events";
 import {
   addDoc,
@@ -60,7 +60,6 @@ import ListingImage, { listingHasImage } from "./components/ListingImage";
 import { isHomeBrowseListing, isPhysicalHomeCategoryListing } from "./lib/listing-types";
 import { isDemoListing } from "./lib/marketplace-display";
 import { adjustListingWatchlistCount } from "./lib/listing-watchlist-count";
-import { HOME_MARKETPLACE_THEME as t } from "./lib/browse-category-config";
 import { useSellerListingMeta } from "./lib/useSellerListingMeta";
 import { sellerMessagesUrl } from "./lib/public-display";
 
@@ -849,7 +848,7 @@ export default function Home() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in-backdrop">
           <div className="relative mx-4 w-full max-w-md overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-2xl shadow-black/40 backdrop-blur-xl animate-fade-in-scale">
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
-            <h3 className="text-xl font-black text-white">Make an Offer</h3>
+            <h3 className="text-xl font-semibold text-[var(--foreground)]">Make an Offer</h3>
             <p className="mt-2 text-sm text-[var(--muted)]">Make an offer for "{offerListing.title}"</p>
             <div className="mt-6">
               <label className="block text-sm font-bold text-[var(--muted)]">Your Offer ($)</label>
@@ -936,49 +935,19 @@ export default function Home() {
         </div>
       )}
 
-      {/* HERO / SEARCH SECTION */}
+      {/* HERO / SEARCH — inventory-first: search above fold, calm branding */}
       <section className={`${PAGE_SHELL_WIDE} pt-0 pb-0`}>
-        <div className="relative overflow-hidden rounded-2xl bg-[var(--card)]">
-          <div className="relative z-10 px-5 py-4 sm:px-6 sm:py-5">
+        <div className="relative overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--card)]">
+          <div className="relative z-10 px-4 py-3 sm:px-5 sm:py-3.5">
             <div className="mx-auto max-w-2xl text-center">
-              <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl lg:text-4xl">
-                Buy & Sell in New Zealand
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-400">Sky Drop</p>
+              <h1 className="mt-1 text-lg font-semibold tracking-tight text-[var(--foreground)] sm:text-xl">
+                Local listings across New Zealand
               </h1>
-              <p className="mt-3 text-base text-[var(--muted)] sm:text-lg">
-                Local marketplace for New Zealand
-              </p>
-              {user ? (
-                <div className="mt-4 flex justify-center">
-                  <Link
-                    href="/post/ai"
-                    className="inline-flex items-center gap-2 rounded-2xl bg-sky-500 px-6 py-3 text-base font-bold text-white shadow-lg transition-all duration-200 hover:bg-sky-400 hover:shadow-xl active:scale-[0.98]"
-                  >
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                    </svg>
-                    Start Selling
-                  </Link>
-                </div>
-              ) : (
-                <div className="mt-4 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                  <Link
-                    href="/signup"
-                    className="inline-flex items-center gap-2 rounded-2xl bg-sky-500 px-6 py-3 text-base font-bold text-white shadow-lg transition-all duration-200 hover:bg-sky-400 hover:shadow-xl active:scale-[0.98]"
-                  >
-                    Join Free
-                  </Link>
-                  <Link
-                    href="/#listings"
-                    className="inline-flex items-center gap-2 rounded-2xl bg-white/[0.04] px-6 py-3 text-base font-bold text-white transition-colors duration-200 hover:bg-white/[0.06]"
-                  >
-                    Browse Items
-                  </Link>
-                </div>
-              )}
             </div>
 
-            {/* Search and Category Pills - integrated into hero */}
-            <div className="hero-search-shell relative mx-auto mt-4 max-w-2xl px-0.5">
+            {/* Search and Category Pills */}
+            <div className="hero-search-shell relative mx-auto mt-3 max-w-2xl px-0.5">
               {/* Search */}
               <div className="relative">
                 <div className="hero-search-field group relative flex items-center">
@@ -1084,22 +1053,28 @@ export default function Home() {
       </section>
 
       {/* LISTINGS */}
-      <section id="listings" className={`${PAGE_SHELL_MARKETPLACE} pb-6`}>
+      <section id="listings" className={`${PAGE_SHELL_MARKETPLACE} pb-6 pt-3 sm:pt-4`}>
         <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-          <div className="flex items-center gap-4">
-            <h2 className="text-xl font-bold tracking-tight text-white sm:text-2xl">
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-lg font-semibold tracking-tight text-[var(--foreground)] sm:text-xl">
               {selectedCategory !== "All" ? selectedCategory : "Latest listings"}
             </h2>
             {(selectedCategory !== "All" || selectedCondition !== "All" || selectedRegion !== "All" || search) ? (
               <div className="flex items-center gap-2 rounded-full bg-sky-500/10 px-3 py-1 border border-sky-500/20">
                 <span className="text-[10px] font-bold text-sky-400 uppercase tracking-wider">Results</span>
-                <span className="text-sm font-bold text-white">{animatedCount}</span>
+                <span className="text-sm font-semibold text-[var(--foreground)]">{animatedCount}</span>
               </div>
             ) : (
-              <p className="mt-0.5 text-[11px] text-white">
+              <p className="text-[12px] text-[var(--muted)]">
                 {animatedCount} listing{animatedCount !== 1 ? "s" : ""}
               </p>
             )}
+            <Link
+              href={user ? "/post/ai" : "/signup"}
+              className="ml-auto text-sm font-semibold text-sky-400 transition hover:text-sky-300"
+            >
+              {user ? "Sell an item" : "Join to sell"}
+            </Link>
           </div>
 
           {/* Filters */}
@@ -1112,7 +1087,7 @@ export default function Home() {
                   <option key={c} value={c} className="bg-[var(--card)]">{c}</option>
                 ))}
               </select>
-              <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+              <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
             </div>
             <div className="relative">
               <select value={selectedRegion} onChange={(e) => setSelectedRegion(e.target.value)}
@@ -1122,7 +1097,7 @@ export default function Home() {
                   <option key={r} value={r} className="bg-[var(--card)]">{r}</option>
                 ))}
               </select>
-              <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+              <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
             </div>
             <div className="relative">
               <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
@@ -1133,7 +1108,7 @@ export default function Home() {
                 <option value="high-low" className="bg-[var(--card)]">Price High → Low</option>
                 <option value="trending" className="bg-[var(--card)]">Trending</option>
               </select>
-              <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+              <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-[var(--muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
             </div>
             {(selectedCategory !== "All" || selectedCondition !== "All" || selectedRegion !== "All" || search) && (
               <button onClick={() => { setSelectedCategory("All"); setSelectedCondition("All"); setSelectedRegion("All"); setSearch(""); setSortBy("newest"); }}
@@ -1153,62 +1128,41 @@ export default function Home() {
           )}
 
         {!loading && filteredListings.length === 0 && (
-          <div className="relative mx-auto max-w-md mt-16 text-center">
+          <div className="mx-auto mt-10 max-w-md">
             {listings.length === 0 ? (
-              <>
-                <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-xl border border-sky-500/25 bg-sky-500/10">
-                  <svg className="h-8 w-8 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>
+              <EmptyState
+                title="No listings yet"
+                description="Be the first to list something local. It takes a minute and messaging starts the deal."
+                actionLabel="Create a listing"
+                actionHref="/post/ai"
+                icon={
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                   </svg>
-                </div>
-                <h2 className="mb-2 text-2xl font-semibold tracking-tight text-white">Welcome to Sky Drop</h2>
-                <p className="mb-6 text-sm text-[var(--muted)]">No listings yet — be the first to list something and start selling. It&apos;s free and takes seconds with AI.</p>
-                <div className="flex flex-col justify-center gap-3 sm:flex-row">
-                  <Link href="/post/ai" className="btn btn-primary">
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                    Create a Listing
-                  </Link>
-                  <Link href="/about" className="btn btn-secondary">
-                    Learn More
-                  </Link>
-                </div>
-              </>
+                }
+              />
             ) : (
-              <>
-                <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-xl border border-sky-500/25 bg-sky-500/10">
-                  <svg className="h-8 w-8 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>
+              <EmptyState
+                title="No listings found"
+                description={
+                  search
+                    ? `Nothing matched “${search}” with the current filters. Clear filters or try a broader search.`
+                    : "No listings match your current filters. Clear filters to see more."
+                }
+                actionLabel="Clear filters"
+                onAction={() => {
+                  setSelectedCategory("All");
+                  setSelectedCondition("All");
+                  setSelectedRegion("All");
+                  setSearch("");
+                  setSortBy("newest");
+                }}
+                icon={
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
-                </div>
-                <h2 className="mb-2 text-2xl font-semibold tracking-tight text-white">No listings found</h2>
-                <p className="text-sm text-[var(--muted)] mb-4">
-                  {search ? <>Nothing matched <span className="font-semibold text-white">&ldquo;{search}&rdquo;</span> with the current filters.</> : "No listings match your current filters."}
-                </p>
-                <div className="mb-6 rounded-xl border border-sky-500/20 bg-sky-500/5 p-4 text-left">
-                  <p className="text-xs font-bold text-sky-400 mb-2">Try these:</p>
-                  <ul className="space-y-1.5 text-xs text-[var(--muted)]">
-                    {selectedCategory !== "All" && <li>• Browse <button onClick={() => setSelectedCategory("All")} className="text-sky-400 hover:underline">all categories</button> instead of "{selectedCategory}"</li>}
-                    {selectedRegion !== "All" && <li>• Expand search to <button onClick={() => setSelectedRegion("All")} className="text-sky-400 hover:underline">all of New Zealand</button></li>}
-                    {selectedCondition !== "All" && <li>• Include <button onClick={() => setSelectedCondition("All")} className="text-sky-400 hover:underline">all conditions</button></li>}
-                    {search && <li>• Try <button onClick={() => setSearch("")} className="text-sky-400 hover:underline">clearing your search</button> and browsing</li>}
-                    <li>• <Link href="/post/ai?type=wanted" className="text-sky-400 hover:underline">Post a Wanted ad</Link> so sellers can find you</li>
-                  </ul>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                  <button onClick={() => { setSelectedCategory("All"); setSelectedCondition("All"); setSelectedRegion("All"); setSearch(""); }}
-                    className="rounded-xl border border-sky-500/30 bg-sky-500/10 px-6 py-3.5 text-sm font-bold text-sky-400 transition-all duration-200 hover:bg-sky-500/15 hover:border-sky-500/40 active:scale-[0.97]">
-                    Clear all filters
-                  </button>
-                  <Link href="/post/ai?type=wanted"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-[var(--card)] px-6 py-3.5 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:bg-[var(--card-hover)] active:scale-[0.97]">
-                    Post a Wanted ad
-                  </Link>
-                  <Link href="/"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-[var(--card)] px-6 py-3.5 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:bg-[var(--card-hover)] active:scale-[0.97]">
-                    Browse All Listings
-                  </Link>
-                </div>
-              </>
+                }
+              />
             )}
           </div>
         )}
@@ -1316,7 +1270,7 @@ export default function Home() {
       {/* RECENTLY VIEWED */}
       {recentlyViewed.length > 0 && (
         <section className={`${PAGE_SHELL_MARKETPLACE} pb-2`}>
-          <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.12em] text-white">Recently viewed</p>
+          <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.12em] text-[var(--muted)]">Recently viewed</p>
           <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
             {recentlyViewed.map((item) => (
               <div
@@ -1345,7 +1299,7 @@ export default function Home() {
       {/* RECENTLY SOLD */}
       {listings.filter((l) => !isListingVisibleInMarketplace(l)).length > 0 && (
         <section className={`${PAGE_SHELL_MARKETPLACE} pb-2`}>
-          <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.12em] text-white">Recently sold</p>
+          <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.12em] text-[var(--muted)]">Recently sold</p>
           <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
             {listings.filter((l) => !isListingVisibleInMarketplace(l)).slice(0, 6).map((item) => (
               <div key={item.id} className="relative shrink-0 w-40 rounded-xl border border-white/[0.04] bg-[var(--card)] p-2.5 opacity-75">
@@ -1360,7 +1314,7 @@ export default function Home() {
                   <div className="flex h-16 w-full items-center justify-center rounded-lg bg-[var(--card)] text-[10px] text-[var(--muted)]">No image</div>
                 )}
                 <p className="mt-2 truncate text-[11px] text-[var(--muted)]">{item.title}</p>
-                <p className="text-[11px] font-medium text-white">Sold · ${item.price}</p>
+                <p className="text-[11px] font-medium text-[var(--muted)]">Sold · ${item.price}</p>
               </div>
             ))}
           </div>

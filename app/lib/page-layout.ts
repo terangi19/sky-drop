@@ -40,6 +40,6 @@ export const LISTING_GRID_MT = `mt-4 ${LISTING_GRID}`;
 export const LISTING_GRID_DENSE =
   "grid items-stretch gap-3 grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4";
 
-/** Sticky mobile CTA sits above the bottom nav via --mobile-nav-offset. */
+/** Sticky mobile CTA sits above the bottom nav via --mobile-nav-offset; leave room for FAB. */
 export const MOBILE_STICKY_CTA =
-  "mobile-sticky-cta border-t border-white/[0.06] bg-zinc-950/95 backdrop-blur-xl px-4 py-3 flex gap-3 lg:hidden";
+  "mobile-sticky-cta border-t border-[var(--card-border)] bg-[var(--card)]/95 backdrop-blur-xl px-4 py-3 pr-[4.75rem] flex gap-3 lg:hidden";
