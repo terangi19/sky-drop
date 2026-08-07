@@ -28,3 +28,16 @@ shutdown_log.txt
 # TypeScript
 tsconfig.tsbuildinfo
 .env*
+
+# Redundant local archives (not part of build/deploy)
+app.zip
+app (2).zip
+app (3).zip
+*.zip
+
+# Local audit / smoke artifacts
+prod-smoke-results.json
+ux-audit-runtime.json
+ux-audit-runtime-deep.json
+ux-audit-screenshots/
+build-verify.txt

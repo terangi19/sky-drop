@@ -348,11 +348,10 @@ service cloud.firestore {
 
       allow create: if false;
 
+      // Checkout reservations are Admin SDK only (/api/create-payment-intent) — not client-writable.
       allow update: if request.auth != null
 
         && (resource.data.sellerEmail == request.auth.token.email
-
-          || isCheckoutReservationUpdate()
 
           || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views']));
 

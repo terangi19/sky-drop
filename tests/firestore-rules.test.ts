@@ -3,7 +3,7 @@
  *
  * Run with Firebase Emulator Suite:
  *   1. npx firebase emulators:start --only firestore
- *   2. npx vitest run tests/firestore-rules.vitest.ts
+ *   2. npx vitest run tests/firestore-rules.test.ts
  */
 import { readFileSync } from "fs";
 import { join } from "path";
@@ -70,44 +70,42 @@ describe("Firestore Security Rules", () => {
     });
 
     it("cannot delete another user's listing", async () => {
-      const db = testEnv
-        .authenticatedContext("user1", { email: "seller@test.com" })
-        .firestore();
-      const ref = db.collection("listings").doc("test");
-      await ref.set({ title: "Item", sellerEmail: "seller@test.com" });
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.firestore().collection("listings").doc("test").set({
+          title: "Item",
+          sellerEmail: "seller@test.com",
+        });
+      });
 
       const db2 = testEnv
-        .authenticatedContext("user2", { email: "attacker@test.com" })
+        .authenticatedContext("user2", { email: "attacker@test.com", email_verified: true })
         .firestore();
-      const ref2 = db2.collection("listings").doc("test");
-      await assertFails(ref2.delete());
+      await assertFails(db2.collection("listings").doc("test").delete());
     });
   });
 
   describe("Messages", () => {
     it("can only read messages where user is participant", async () => {
-      const db = testEnv
-        .authenticatedContext("user1", { email: "user1@test.com" })
-        .firestore();
-
-      const msgRef = db.collection("messages").doc("msg1");
-      await msgRef.set({
-        participants: ["user1@test.com", "user2@test.com"],
-        text: "Hello",
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.firestore().collection("messages").doc("msg1").set({
+          participants: ["user1@test.com", "user2@test.com"],
+          sender: "user1@test.com",
+          receiver: "user2@test.com",
+          text: "Hello",
+        });
       });
 
       const db2 = testEnv
-        .authenticatedContext("user3", { email: "user3@test.com" })
+        .authenticatedContext("user3", { email: "user3@test.com", email_verified: true })
         .firestore();
-      const msgRef2 = db2.collection("messages").doc("msg1");
-      await assertFails(msgRef2.get());
+      await assertFails(db2.collection("messages").doc("msg1").get());
     });
   });
 
   describe("Purchases", () => {
     it("client cannot create purchases directly", async () => {
       const db = testEnv
-        .authenticatedContext("user1", { email: "buyer@test.com" })
+        .authenticatedContext("user1", { email: "buyer@test.com", email_verified: true })
         .firestore();
       const ref = db.collection("purchases").doc("test");
       await assertFails(
@@ -116,42 +114,52 @@ describe("Firestore Security Rules", () => {
     });
 
     it("buyer can read own purchase", async () => {
-      const admin = testEnv.unauthenticatedContext().firestore();
-      const ref = admin.collection("purchases").doc("test");
-      await ref.set({
-        buyerEmail: "buyer@test.com",
-        sellerEmail: "seller@test.com",
-        listingId: "test",
-        status: "pending",
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.firestore().collection("purchases").doc("purchase-read").set({
+          buyerEmail: "buyer@test.com",
+          sellerEmail: "seller@test.com",
+          listingId: "test",
+          status: "pending",
+        });
       });
 
       const db = testEnv
-        .authenticatedContext("buyer", { email: "buyer@test.com" })
+        .authenticatedContext("buyer", { email: "buyer@test.com", email_verified: true })
         .firestore();
-      await assertSucceeds(db.collection("purchases").doc("test").get());
+      await assertSucceeds(db.collection("purchases").doc("purchase-read").get());
     });
 
     it("other user cannot read someone else's purchase", async () => {
-      const db = testEnv
-        .authenticatedContext("attacker", { email: "attacker@test.com" })
-        .firestore();
-      await assertFails(db.collection("purchases").doc("test").get());
-    });
-
-    it("buyer cannot set purchase status to delivered via client", async () => {
-      const admin = testEnv.unauthenticatedContext().firestore();
-      await admin.collection("purchases").doc("test").set({
-        buyerEmail: "buyer@test.com",
-        sellerEmail: "seller@test.com",
-        listingId: "test",
-        status: "shipped",
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.firestore().collection("purchases").doc("purchase-other").set({
+          buyerEmail: "buyer@test.com",
+          sellerEmail: "seller@test.com",
+          listingId: "test",
+          status: "pending",
+        });
       });
 
       const db = testEnv
-        .authenticatedContext("buyer", { email: "buyer@test.com" })
+        .authenticatedContext("attacker", { email: "attacker@test.com", email_verified: true })
+        .firestore();
+      await assertFails(db.collection("purchases").doc("purchase-other").get());
+    });
+
+    it("buyer cannot set purchase status to delivered via client", async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.firestore().collection("purchases").doc("purchase-status").set({
+          buyerEmail: "buyer@test.com",
+          sellerEmail: "seller@test.com",
+          listingId: "test",
+          status: "shipped",
+        });
+      });
+
+      const db = testEnv
+        .authenticatedContext("buyer", { email: "buyer@test.com", email_verified: true })
         .firestore();
       await assertFails(
-        db.collection("purchases").doc("test").update({ status: "delivered" })
+        db.collection("purchases").doc("purchase-status").update({ status: "delivered" })
       );
     });
   });
@@ -216,9 +224,9 @@ describe("Firestore Security Rules", () => {
   describe("SavedSearches", () => {
     it("user can create own saved search", async () => {
       const db = testEnv
-        .authenticatedContext("user1", { email: "user1@test.com" })
+        .authenticatedContext("user1", { email: "user1@test.com", email_verified: true })
         .firestore();
-      const ref = db.collection("savedSearches").doc("search1");
+      const ref = db.collection("savedSearches").doc(`search-own-${Date.now()}`);
       await assertSucceeds(
         ref.set({ userId: "user1", userEmail: "user1@test.com", query: "ps5", createdAt: new Date() })
       );
@@ -236,21 +244,21 @@ describe("Firestore Security Rules", () => {
   });
 
   describe("Reviews", () => {
-    it("only buyer of completed purchase can review", async () => {
-      const admin = testEnv.unauthenticatedContext().firestore();
-
-      const purchaseRef = admin.collection("purchases").doc("purchase1");
-      await purchaseRef.set({
-        buyerEmail: "buyer@test.com",
-        sellerEmail: "seller@test.com",
-        status: "completed",
+    it("client cannot create reviews directly (server-mediated)", async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.firestore().collection("purchases").doc("purchase1").set({
+          buyerEmail: "buyer@test.com",
+          sellerEmail: "seller@test.com",
+          status: "completed",
+        });
       });
 
       const db = testEnv
         .authenticatedContext("buyer1", { email: "buyer@test.com", email_verified: true })
         .firestore();
       const ref = db.collection("reviews").doc();
-      await assertSucceeds(
+      // Reviews are Admin SDK only (allow create: if false)
+      await assertFails(
         ref.set({
           reviewerEmail: "buyer@test.com",
           sellerEmail: "seller@test.com",
@@ -326,6 +334,81 @@ describe("Firestore Security Rules", () => {
         .firestore();
       await assertFails(
         eve.collection("typing").doc("alice@test.com_bob@test.com_general").get()
+      );
+    });
+
+    it("anonymous cannot write typing", async () => {
+      const db = testEnv.unauthenticatedContext().firestore();
+      await assertFails(
+        db
+          .collection("typing")
+          .doc("anon@test.com_bob@test.com_general")
+          .set({ typing: true, user: "anon@test.com", at: new Date() })
+      );
+    });
+
+    it("anonymous cannot read typing", async () => {
+      const alice = testEnv
+        .authenticatedContext("user1", { email: "alice@test.com", email_verified: true })
+        .firestore();
+      await assertSucceeds(
+        alice
+          .collection("typing")
+          .doc("alice@test.com_bob@test.com_general")
+          .set({ typing: true, user: "alice@test.com", at: new Date() })
+      );
+
+      const anon = testEnv.unauthenticatedContext().firestore();
+      await assertFails(
+        anon.collection("typing").doc("alice@test.com_bob@test.com_general").get()
+      );
+    });
+  });
+
+  describe("Conversations", () => {
+    it("participant can read conversation", async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.firestore().collection("conversations").doc("conv1").set({
+          participants: ["alice@test.com", "bob@test.com"],
+          lastMessage: "hi",
+        });
+      });
+
+      const alice = testEnv
+        .authenticatedContext("user1", { email: "alice@test.com", email_verified: true })
+        .firestore();
+      await assertSucceeds(alice.collection("conversations").doc("conv1").get());
+    });
+
+    it("unrelated auth user cannot read conversation", async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.firestore().collection("conversations").doc("conv2").set({
+          participants: ["alice@test.com", "bob@test.com"],
+          lastMessage: "hi",
+        });
+      });
+
+      const eve = testEnv
+        .authenticatedContext("user3", { email: "eve@test.com", email_verified: true })
+        .firestore();
+      await assertFails(eve.collection("conversations").doc("conv2").get());
+    });
+
+    it("anonymous cannot read or write conversations", async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await ctx.firestore().collection("conversations").doc("conv3").set({
+          participants: ["alice@test.com", "bob@test.com"],
+          lastMessage: "hi",
+        });
+      });
+
+      const anon = testEnv.unauthenticatedContext().firestore();
+      await assertFails(anon.collection("conversations").doc("conv3").get());
+      await assertFails(
+        anon.collection("conversations").doc("conv4").set({
+          participants: ["anon@test.com", "bob@test.com"],
+          lastMessage: "hi",
+        })
       );
     });
   });
