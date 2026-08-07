@@ -1,20 +1,12 @@
 /**
- * Āwhina AI Server - GPT-Style Architecture
- * 
- * Uses OpenAI function calling to return typed tool calls instead of free-form text.
- * The AI never directly manipulates UI - it selects tools only.
- * The application executes the tools.
+ * Āwhina AI Server — thin wrapper around free-form capability (single model call).
+ * Prefer importing from awhina-freeform-capability / awhina-llm-capability directly.
  */
 
-import OpenAI from "openai";
-import {
-  AwhinaToolCall,
-  AwhinaToolResult,
-  AwhinaConversationContext,
-  AwhinaAIResponse as SharedAIResponse,
-} from "./awhina-types";
-import { AWHINA_TOOLS } from "./awhina-tool-registry";
-import { classifyIntentWithOpenAI, type AwhinaIntentContext } from "./awhina-intent-router-server";
+import { runLlmCapability } from "./awhina-llm-capability";
+import type { AwhinaToolCall, AwhinaToolResult } from "./awhina-types";
+import type { AwhinaIntentContext } from "./awhina-intent-router-server";
+import { confidenceLevelToScore } from "./awhina-confidence-levels";
 
 export type AwhinaAIRequest = {
   message: string;
@@ -30,156 +22,34 @@ export type AwhinaAIResponse = {
   executionTime: number;
 };
 
-const AWHINA_SYSTEM_PROMPT = `You are Āwhina, the AI assistant for Sky Drop marketplace (New Zealand).
-
-Your role is to help users with:
-- Finding and searching for listings
-- Creating and editing listings
-- Messaging and communication
-- Arranging purchases via Message Seller (messaging-first — no Buy Now / Stripe / escrow pitches)
-- Profile management
-- Navigation and general assistance
-
-IMPORTANT RULES:
-1. NEVER directly manipulate UI or provide raw JSON to users
-2. ALWAYS use function calls for actions (navigate, searchListings, createListing, etc.)
-3. Use the 'reply' tool only for text-only responses that don't require action
-4. If you need more information, ask a single specific clarification — do not guess state-changing actions
-5. Be concise — NZ English, NZD, no emoji spam
-6. NEVER invent listings, sellers, prices, ratings, availability, messages, or policies
-7. Tool results are the only source of listing truth
-8. Buying flow: Browse → Listing → Message Seller → arrange payment/pickup in Messages
-
-When users provide listing details, use createListing.
-When users want to search, use searchListings with query and filters.
-When users want to go somewhere, use navigate.
-If intent is unclear, ask one clarification question.`;
-
-/**
- * Process AI request using OpenAI function calling
- * Returns structured tool calls instead of free-form text
- */
 export async function processAwhinaAIRequest(
   request: AwhinaAIRequest
 ): Promise<AwhinaAIResponse> {
-  const startTime = Date.now();
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
-  
-  if (!apiKey) {
-    throw new Error("OPENAI_API_KEY not configured");
-  }
+  const result = await runLlmCapability({
+    message: request.message,
+    pathname: request.context.pathname,
+    history: request.conversationHistory,
+    listingContext: request.context.listingContext as never,
+    isAdmin: request.context.isAdmin,
+  });
 
-  const openai = new OpenAI({ apiKey });
-  const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
-
-  try {
-    // First, classify intent for better routing
-    const intentResult = await classifyIntentWithOpenAI(request.message, request.context);
-    
-    // Build messages with context
-    const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-      {
-        role: "system",
-        content: AWHINA_SYSTEM_PROMPT,
-      },
-    ];
-
-    // Add conversation history (last 6 useful turns — latency/token trim)
-    if (request.conversationHistory && request.conversationHistory.length > 0) {
-      const recentHistory = request.conversationHistory.slice(-6);
-      messages.push(...recentHistory.map((msg) => ({
-        role: msg.role as "user" | "assistant",
-        content: msg.content,
-      })));
-    }
-
-    // Add current user message with context
-    let contextInfo = "";
-    if (request.context.pathname) {
-      contextInfo += `\nCurrent page: ${request.context.pathname}`;
-    }
-    if (request.context.isAdmin) {
-      contextInfo += "\nUser has admin access";
-    }
-    if (request.context.listingContext && Object.keys(request.context.listingContext).length > 0) {
-      contextInfo += "\nUser has an active listing draft";
-    }
-
-    messages.push({
-      role: "user",
-      content: `${request.message}${contextInfo}`,
-    });
-
-    // Call OpenAI with function calling
-    const response = await openai.chat.completions.create({
-      model,
-      messages,
-      functions: Object.values(AWHINA_TOOLS),
-      function_call: "auto", // Let AI decide whether to call a function
-      temperature: 0.3, // Lower temperature for more deterministic tool selection
-      max_tokens: 1000,
-    });
-
-    const choice = response.choices[0];
-    const functionCall = choice?.message?.function_call;
-    const content = choice?.message?.content;
-
-    if (functionCall && functionCall.arguments) {
-      // AI returned a tool call
-      const toolCall: AwhinaToolCall = {
-        tool: functionCall.name as any,
-        args: JSON.parse(functionCall.arguments),
-        confidence: intentResult.confidence === "high" ? 0.9 : intentResult.confidence === "medium" ? 0.7 : 0.5,
-        reasoning: intentResult.reasoning,
-      };
-
-      return {
-        toolCall,
-        reasoning: intentResult.reasoning,
-        confidence: toolCall.confidence ?? 0.5,
-        executionTime: Date.now() - startTime,
-      };
-    }
-
-    // AI returned text only (no tool call)
-    if (content) {
-      return {
-        toolCall: null,
-        textReply: content,
-        reasoning: intentResult.reasoning,
-        confidence: 0.8,
-        executionTime: Date.now() - startTime,
-      };
-    }
-
-    // No response
-    return {
-      toolCall: null,
-      textReply: "I'm not sure how to help with that. Could you rephrase?",
-      reasoning: "No tool call or text response from AI",
-      confidence: 0.3,
-      executionTime: Date.now() - startTime,
-    };
-  } catch (error) {
-    console.error("Awhina AI request failed:", error);
-    throw error;
-  }
+  return {
+    toolCall: result.toolCall || null,
+    textReply: result.reply,
+    reasoning: result.routing,
+    confidence: confidenceLevelToScore(result.confidence),
+    executionTime: result.latencyMs,
+  };
 }
 
-/**
- * Process AI request and execute the tool call
- * Convenience function that combines AI processing and tool execution
- */
 export async function processAndExecuteAIRequest(
   request: AwhinaAIRequest
 ): Promise<{ aiResponse: AwhinaAIResponse; toolResult: AwhinaToolResult | null }> {
   const aiResponse = await processAwhinaAIRequest(request);
-  
   let toolResult: AwhinaToolResult | null = null;
   if (aiResponse.toolCall) {
     const { executeToolCall } = await import("./awhina-tool-registry");
     toolResult = await executeToolCall(aiResponse.toolCall);
   }
-
   return { aiResponse, toolResult };
 }

@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
 import { verifyIdToken } from "../../lib/firebase-admin";
 import { frictionLimit } from "../../lib/rate-limit";
 import { parseIpFromRequest } from "../../lib/geo-check";
 import {
   findBestDestination,
-  getGuideReply,
   scoreDestination,
 } from "../../lib/guide-assistant";
 import {
@@ -13,21 +11,13 @@ import {
   createSkyAiConversation,
   loadSkyAiMessages,
 } from "../../lib/sky-ai-firestore";
-import { buildSkyAiSystemPrompt } from "../../lib/sky-ai-prompt";
 import { mergeListingFillWithDraft } from "../../lib/sky-ai-draft-merge";
-import {
-  extractSkyAiReply,
-  type SkyAiListingFill,
-} from "../../lib/sky-ai-listing-fill";
+import { type SkyAiListingFill } from "../../lib/sky-ai-listing-fill";
 import type { SkyAiHistoryItem, SkyAiListingContext } from "../../lib/sky-ai-types";
-import {
-  isSkyAiGeneralQuestion,
-  skyAiCapabilitiesReply,
-} from "../../lib/sky-ai-prompts";
+import { isSkyAiGeneralQuestion } from "../../lib/sky-ai-prompts";
 import { openaiErrorResponse } from "../../lib/openai-errors";
 import { enhanceListingFillFromMessage } from "../../lib/sky-ai-form-actions";
 import {
-  getSkyAiIntentHint,
   hasListingSellIntent,
   isSkyAiAdviceQuestion,
   shouldBypassNavigationShortcut,
@@ -36,10 +26,8 @@ import {
 import { trySkyAiTaskReply } from "../../lib/sky-ai-task-replies";
 import { logAwhinaQualityIfNeeded } from "../../lib/sky-ai-quality-log";
 import { processCanonicalAwhina } from "../../lib/awhina-canonical";
-import { awhinaPersonalityPromptBlock } from "../../lib/awhina-personality";
 import { recordAwhinaObs } from "../../lib/awhina-observability";
 import {
-  extractProfileFill,
   hasProfileFillContent,
   type SkyAiProfileFill,
 } from "../../lib/sky-ai-profile-fill";
@@ -47,6 +35,9 @@ import { finalizePageAwareResponse } from "../../lib/sky-ai-page-intent";
 import { validateListingFillFields } from "../../lib/awhina-listing-fill-tools";
 import { sanitizeProfileFillProposal } from "../../lib/awhina-profile-tools";
 import type { SkyAiProfileContext } from "../../lib/sky-ai-profile-context";
+import { runVisionCapability } from "../../lib/awhina-vision-capability";
+import { runFreeformCapability } from "../../lib/awhina-freeform-capability";
+import { confidenceLevelToScore } from "../../lib/awhina-confidence-levels";
 
 function listingFillConfirmReply(fill: SkyAiListingFill | undefined): string {
   if (!fill) return "";
@@ -221,52 +212,26 @@ function parseSkyAiImages(body: unknown): string[] {
   return out;
 }
 
-function buildMessages(
-  message: string,
-  pathname: string,
-  history: SkyAiHistoryItem[],
-  listingContext: SkyAiListingContext | null,
-  images: string[],
-  justGeneratedListing: boolean,
-  priorAssistant?: string
-): OpenAI.Chat.ChatCompletionMessageParam[] {
-  const userContent: OpenAI.Chat.ChatCompletionMessageParam["content"] =
-    images.length > 0
-      ? [
-          {
-            type: "text",
-            text:
-              message ||
-              "The user uploaded product photo(s) for their Sky Drop listing. Describe what you see and fill the sell form with LISTING_FILL.",
-          },
-          ...images.map((url) => ({
-            type: "image_url" as const,
-            image_url: { url, detail: "low" as const },
-          })),
-        ]
-      : message;
-
-  return [
-    {
-      role: "system",
-      content:
-        buildSkyAiSystemPrompt(pathname, listingContext, {
-          hasImages: images.length > 0,
-          justGeneratedListing,
-        }) +
-        `\n\n${awhinaPersonalityPromptBlock()}` +
-        (message ? `\n\n${getSkyAiIntentHint(message, pathname, priorAssistant)}` : ""),
-    },
-    ...history.map((h) => ({
-      role: h.role as "user" | "assistant",
-      content: h.content,
-    })),
-    { role: "user", content: userContent },
-  ];
-}
-
 function sseLine(obj: Record<string, unknown>) {
   return `data: ${JSON.stringify(obj)}\n\n`;
+}
+
+function respondPayload(
+  stream: boolean,
+  payload: Record<string, unknown>,
+  status = 200
+) {
+  const reply = typeof payload.reply === "string" ? payload.reply : "";
+  if (stream) {
+    return new Response(
+      sseLine({ type: "delta", text: reply }) + sseLine({ type: "done", ...payload }),
+      {
+        status,
+        headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+      }
+    );
+  }
+  return NextResponse.json(payload, { status });
 }
 
 async function safePersist(
@@ -380,13 +345,56 @@ export async function POST(req: NextRequest) {
 
   const contextualListingContext =
     pathname.startsWith("/post/ai") || !isNewTaskSwitch ? listingContext : null;
-  const effectiveJustGeneratedListing = justGeneratedListing && !isNewTaskSwitch;
+
+  // ── Vision capability (images → structured extraction → draft proposal) ──
+  if (images.length > 0) {
+    const vision = await runVisionCapability({
+      images,
+      message,
+      listingContext: contextualListingContext,
+      pathname,
+    });
+    let listingFill = vision.listingFill
+      ? finalizeListingFill(message || "photo upload", listingContext, vision.listingFill)
+      : undefined;
+    if (listingFill) {
+      const validated = validateListingFillFields(listingFill);
+      listingFill = validated.ok ? validated.fill : undefined;
+    }
+    const reply = stripBold(
+      vision.reply || listingFillConfirmReply(listingFill) || "Add photos, then hit **Publish**."
+    );
+    if (uid && conversationId) {
+      await safePersist(() =>
+        appendSkyAiExchange(conversationId, uid, message || "[image]", reply, undefined)
+      );
+    }
+    recordAwhinaQuality(req, message || "[image]", pathname, reply, vision.ok ? "ai" : "rules", listingFill, uid);
+    const payload = {
+      reply,
+      listingFill,
+      source: vision.degraded ? ("rules" as const) : ("ai" as const),
+      conversationId: conversationId || undefined,
+      awhina: {
+        intent: "vision",
+        tool: vision.tool,
+        confidence: confidenceLevelToScore(vision.confidence),
+        confidenceLevel: vision.confidence,
+        routing: "vision_capability",
+        avoidedAi: false,
+        usedLocalExecution: false,
+        degraded: vision.degraded,
+        latencyMs: vision.latencyMs,
+        promptTokens: vision.promptTokens,
+        completionTokens: vision.completionTokens,
+      },
+      ...(vision.degraded && vision.errorCode ? { code: vision.errorCode } : {}),
+    };
+    return respondPayload(stream, payload, vision.degraded && vision.errorCode === "missing_openai_key" ? 503 : 200);
+  }
 
   // ── Canonical Āwhina (local + search + sell draft + profile) ──
-  // Images still need vision OpenAI; everything else prefers canonical first.
-  const skipCanonical = images.length > 0;
-
-  if (!skipCanonical && message) {
+  if (message) {
     const canonical = processCanonicalAwhina(message, {
       pathname,
       uid,
@@ -437,7 +445,8 @@ export async function POST(req: NextRequest) {
       recordAwhinaQuality(req, message, pathname, reply, "rules", listingFill, uid);
       recordAwhinaObs({
         intent: canonical.intent,
-        localVsAi: "rules",
+        localVsAi: canonical.usedLocalExecution ? "local" : "rules",
+        capability: "local",
         tool: canonical.tool,
         success: true,
         latencyMs: canonical.executionTimeMs,
@@ -450,7 +459,7 @@ export async function POST(req: NextRequest) {
           appendSkyAiExchange(conversationId, uid, message, reply, navigateTo)
         );
       }
-      const payload = {
+      return respondPayload(stream, {
         reply,
         navigateTo,
         listingFill,
@@ -465,20 +474,11 @@ export async function POST(req: NextRequest) {
           avoidedAi: canonical.avoidedAi,
           routing: "canonical",
         },
-      };
-      if (stream) {
-        return new Response(
-          sseLine({ type: "delta", text: reply }) +
-            sseLine({ type: "done", ...payload }),
-          { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } }
-        );
-      }
-      return NextResponse.json(payload);
+      });
     }
   }
 
   // Remaining deterministic task replies (visibility, price, cancel, buy trouble)
-  // Find / capabilities / arrange purchase handled by canonical above.
   const taskReply = trySkyAiTaskReply(message, pathname, taskContext);
   if (taskReply) {
     const reply = stripBold(taskReply.text);
@@ -486,6 +486,7 @@ export async function POST(req: NextRequest) {
     recordAwhinaObs({
       intent: "task_reply",
       localVsAi: "rules",
+      capability: "rules",
       success: true,
       latencyMs: 0,
       clarification: false,
@@ -497,24 +498,12 @@ export async function POST(req: NextRequest) {
         appendSkyAiExchange(conversationId, uid, message, reply, taskReply.navigateTo)
       );
     }
-    if (stream) {
-      return new Response(
-        sseLine({ type: "delta", text: reply }) +
-          sseLine({
-            type: "done",
-            reply,
-            navigateTo: taskReply.navigateTo,
-            source: taskReply.source,
-            conversationId: conversationId || undefined,
-          }),
-        { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } }
-      );
-    }
-    return NextResponse.json({
+    return respondPayload(stream, {
       reply,
       navigateTo: taskReply.navigateTo,
       source: taskReply.source,
       conversationId: conversationId || undefined,
+      awhina: { routing: "task_reply", avoidedAi: true },
     });
   }
 
@@ -523,7 +512,6 @@ export async function POST(req: NextRequest) {
     message.length < 5 ||
     /^(help|help me|thanks|thank you|ok|okay|cool|nice|what next|what now)\??$/i.test(message);
 
-  // If a listing was just generated and the user sends a vague follow-up, show contextual actions
   if (justGeneratedListing && isVaguePostListingFollowUp && !isSkyAiGeneralQuestion(message)) {
     const contextualActions = `Here's what you can do next with your listing:\n\n• **Publish your listing** — Add photos above, then hit Publish below to go live\n• **Edit the title or description** — I can refine it for you\n• **Improve the description** — Add more details to attract buyers\n• **Generate keywords** — Add search terms for better visibility\n• **Price check** — Compare with similar listings\n• **Create Facebook Marketplace listing** — I can format it for FB\n• **Create Trade Me listing** — I can format it for Trade Me\n\nWhat would you like to do?`;
     if (uid && conversationId) {
@@ -531,24 +519,12 @@ export async function POST(req: NextRequest) {
         appendSkyAiExchange(conversationId, uid, message, contextualActions, undefined)
       );
     }
-    if (stream) {
-      return new Response(
-        sseLine({ type: "delta", text: contextualActions }) +
-          sseLine({
-            type: "done",
-            reply: contextualActions,
-            navigateTo: undefined,
-            source: "rules",
-            conversationId: conversationId || undefined,
-          }),
-        { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } }
-      );
-    }
-    return NextResponse.json({
+    return respondPayload(stream, {
       reply: contextualActions,
       navigateTo: undefined,
       source: "rules",
       conversationId: conversationId || undefined,
+      awhina: { routing: "post_listing_actions", avoidedAi: true },
     });
   }
 
@@ -560,221 +536,102 @@ export async function POST(req: NextRequest) {
     !shouldBypassNavigationShortcut(message)
       ? tryNavigationShortcut(message, pathname)
       : null;
-    if (shortcut) {
-      const reply = stripBold(shortcut.reply);
-      if (uid && conversationId) {
-        await safePersist(() =>
-          appendSkyAiExchange(conversationId, uid, message, reply, shortcut.navigateTo)
-        );
-      }
-      if (stream) {
-        return new Response(
-          sseLine({ type: "delta", text: reply }) +
-            sseLine({
-              type: "done",
-              reply,
-              navigateTo: shortcut.navigateTo,
-              source: shortcut.source,
-              conversationId: conversationId || undefined,
-            }),
-          { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } }
-        );
-      }
-      return NextResponse.json({
-        reply,
-        navigateTo: shortcut.navigateTo,
-        source: shortcut.source,
-        conversationId: conversationId || undefined,
-      });
-    }
-
-    const apiKey = process.env.OPENAI_API_KEY?.trim();
-    if (!apiKey) {
-      const ruleFallback = isSkyAiGeneralQuestion(message)
-        ? { text: skyAiCapabilitiesReply() }
-        : getGuideReply(message, pathname);
-      const reply = stripBold(ruleFallback.text);
-      const navigateTo = ruleFallback.navigateTo;
-      if (uid && conversationId) {
-        await safePersist(() =>
-          appendSkyAiExchange(conversationId, uid, message, reply, navigateTo)
-        );
-      }
-      const payload = {
-        type: "done" as const,
-        reply,
-        navigateTo,
-        source: "rules",
-        conversationId: conversationId || undefined,
-      };
-      if (stream) {
-        return new Response(sseLine({ type: "delta", text: reply }) + sseLine(payload), {
-          headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
-        });
-      }
-      return NextResponse.json(
-        { ...payload, code: "missing_openai_key" },
-        { status: 503 }
-      );
-    }
-
-    const openai = new OpenAI({ apiKey });
-    const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
-    const messages = buildMessages(
-      message,
-      pathname,
-      history,
-      contextualListingContext,
-      images,
-      effectiveJustGeneratedListing,
-      lastAssistantMessage
-    );
-
-    if (stream) {
-      let completion;
-      try {
-        completion = await openai.chat.completions.create({
-          model,
-          temperature: 0.7,
-          max_tokens: 2000,
-          stream: true,
-          messages,
-        });
-      } catch (openaiErr: unknown) {
-        const mapped = openaiErrorResponse(openaiErr);
-        return NextResponse.json(
-          { error: mapped.error, code: mapped.code },
-          { status: mapped.status }
-        );
-      }
-
-      const encoder = new TextEncoder();
-      let full = "";
-
-      const readable = new ReadableStream({
-        async start(controller) {
-          try {
-            for await (const chunk of completion) {
-              const delta = chunk.choices[0]?.delta?.content || "";
-              if (!delta) continue;
-              full += delta;
-              controller.enqueue(
-                encoder.encode(sseLine({ type: "delta", text: delta }))
-              );
-            }
-            const { text, navigateTo, listingFill } = extractSkyAiReply(full);
-            const mergedFill = finalizeListingFill(message, listingContext, listingFill);
-            const finalNav = pathname.startsWith("/post/ai") && navigateTo === "/post/ai" ? undefined : navigateTo;
-            if (listingFill || mergedFill) {
-              console.log(`[Awhina] Listing fill: type=${listingFill?.listingType || mergedFill?.listingType}, title=${listingFill?.title || mergedFill?.title}, nav=${finalNav || "none"}`);
-            }
-            if (uid && conversationId) {
-              await safePersist(() =>
-                appendSkyAiExchange(conversationId, uid, message, full, finalNav)
-              );
-            }
-            const displayReply = text || listingFillConfirmReply(mergedFill) || full.trim() || "Add photos, then hit **Publish**.";
-            recordAwhinaQuality(req, message, pathname, displayReply, "ai", mergedFill, uid);
-            controller.enqueue(
-              encoder.encode(
-                sseLine({
-                  type: "done",
-                  reply: displayReply,
-                  navigateTo: finalNav,
-                  listingFill: mergedFill,
-                  source: "ai",
-                  conversationId: conversationId || undefined,
-                })
-              )
-            );
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : "Stream failed";
-            controller.enqueue(encoder.encode(sseLine({ type: "error", error: msg })));
-          }
-          controller.close();
-        },
-      });
-
-      return new Response(readable, {
-        headers: {
-          "Content-Type": "text/event-stream",
-          "Cache-Control": "no-cache",
-          Connection: "keep-alive",
-        },
-      });
-    }
-
-    let completion;
-    try {
-      completion = await openai.chat.completions.create({
-        model,
-        temperature: 0.7,
-        max_tokens: 2000,
-        messages,
-      });
-    } catch (openaiErr: unknown) {
-      const mapped = openaiErrorResponse(openaiErr);
-      return NextResponse.json(
-        { error: mapped.error, code: mapped.code },
-        { status: mapped.status }
-      );
-    }
-
-    const raw = completion.choices[0]?.message?.content || "";
-    const { text, navigateTo, listingFill } = extractSkyAiReply(raw);
-    let mergedFill = finalizeListingFill(message, listingContext, listingFill);
-    if (mergedFill) {
-      const validated = validateListingFillFields(mergedFill);
-      mergedFill = validated.ok ? validated.fill : undefined;
-    }
-    const extractedProfile = extractProfileFill(raw);
-    let profileFill: SkyAiProfileFill | undefined;
-    if (extractedProfile) {
-      const sanitized = sanitizeProfileFillProposal(extractedProfile);
-      if (sanitized.ok) profileFill = sanitized.fill;
-    }
-    const pageAware = finalizePageAwareResponse(pathname, message, profileContext, {
-      reply: text || listingFillConfirmReply(mergedFill) || raw,
-      navigateTo:
-        pathname.startsWith("/post/ai") && navigateTo === "/post/ai" ? undefined : navigateTo,
-      profileFill,
-    });
-    const finalNav = pageAware.navigateTo;
-    if (pageAware.profileFill) profileFill = pageAware.profileFill;
-    if (listingFill || mergedFill) {
-      console.log(`[Awhina] Listing fill: type=${listingFill?.listingType || mergedFill?.listingType}, title=${listingFill?.title || mergedFill?.title}, nav=${finalNav || "none"}`);
-    }
-
+  if (shortcut) {
+    const reply = stripBold(shortcut.reply);
     if (uid && conversationId) {
       await safePersist(() =>
-        appendSkyAiExchange(conversationId, uid, message, raw, finalNav)
+        appendSkyAiExchange(conversationId, uid, message, reply, shortcut.navigateTo)
       );
     }
-
-    const finalReply =
-      stripBold(pageAware.reply) ||
-      listingFillConfirmReply(mergedFill) ||
-      "I didn't catch that — try again, or tell me what you want to sell or find.";
-    recordAwhinaQuality(req, message, pathname, finalReply, "ai", mergedFill, uid);
-    recordAwhinaObs({
-      intent: "legacy_openai",
-      localVsAi: "ai",
-      success: true,
-      latencyMs: 0,
-      clarification: false,
-      pathname,
-      source: "text",
+    return respondPayload(stream, {
+      reply,
+      navigateTo: shortcut.navigateTo,
+      source: shortcut.source,
+      conversationId: conversationId || undefined,
+      awhina: { routing: "navigation_shortcut", avoidedAi: true },
     });
+  }
 
-    return NextResponse.json({
+  // ── Free-form capability (structured tools only — no prose action parsing) ──
+  const llm = await runFreeformCapability({
+    message,
+    pathname,
+    history,
+    listingContext: contextualListingContext,
+    isAdmin: false,
+  });
+
+  let listingFill = llm.listingFill
+    ? finalizeListingFill(message, listingContext, llm.listingFill)
+    : undefined;
+  if (listingFill) {
+    const validated = validateListingFillFields(listingFill);
+    listingFill = validated.ok ? validated.fill : undefined;
+  }
+  let profileFill = llm.profileFill;
+  if (profileFill) {
+    const sanitized = sanitizeProfileFillProposal(profileFill);
+    profileFill = sanitized.ok ? sanitized.fill : undefined;
+  }
+
+  const pageAware = finalizePageAwareResponse(pathname, message, profileContext, {
+    reply: llm.reply,
+    navigateTo:
+      pathname.startsWith("/post/ai") && llm.navigateTo === "/post/ai"
+        ? undefined
+        : llm.navigateTo,
+    profileFill,
+  });
+  if (pageAware.profileFill) profileFill = pageAware.profileFill;
+  const finalReply =
+    stripBold(pageAware.reply) ||
+    listingFillConfirmReply(listingFill) ||
+    "I didn't catch that — try again, or tell me what you want to sell or find.";
+  const finalNav = pageAware.navigateTo;
+
+  if (uid && conversationId) {
+    await safePersist(() =>
+      appendSkyAiExchange(conversationId, uid, message, finalReply, finalNav)
+    );
+  }
+
+  recordAwhinaQuality(
+    req,
+    message,
+    pathname,
+    finalReply,
+    llm.degraded ? "rules" : "ai",
+    listingFill,
+    uid
+  );
+
+  return respondPayload(
+    stream,
+    {
       reply: finalReply,
       navigateTo: finalNav,
-      listingFill: mergedFill,
+      listingFill,
       profileFill: profileFill && hasProfileFillContent(profileFill) ? profileFill : undefined,
-      source: "ai",
+      source: llm.degraded ? ("rules" as const) : ("ai" as const),
       conversationId: conversationId || undefined,
-      awhina: { routing: "legacy_openai" },
-    });
+      awhina: {
+        intent: "free_form",
+        tool: llm.toolCall?.tool,
+        confidence: confidenceLevelToScore(llm.confidence),
+        confidenceLevel: llm.confidence,
+        routing: "freeform_capability",
+        avoidedAi: false,
+        usedLocalExecution: false,
+        degraded: llm.degraded,
+        latencyMs: llm.latencyMs,
+        promptTokens: llm.promptTokens,
+        completionTokens: llm.completionTokens,
+        clarification: llm.clarification,
+      },
+      ...(llm.degraded && llm.errorCode ? { code: llm.errorCode } : {}),
+    },
+    llm.degraded && llm.errorCode === "missing_openai_key" ? 503 : 200
+  );
   } catch (e: unknown) {
     console.error("sky-ai error:", e);
     const mapped = openaiErrorResponse(e);
