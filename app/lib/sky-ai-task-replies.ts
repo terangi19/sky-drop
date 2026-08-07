@@ -98,7 +98,7 @@ export function tryVisibilityReply(message: string): { text: string; navigateTo?
 export function tryBuyTroubleReply(message: string): { text: string; navigateTo?: string } | null {
   if (detectSkyAiIntent(message) !== "buy_trouble") return null;
   return {
-    text: `Usually it's one of these: you're the seller viewing your own listing, it's already sold, it's **Contact Seller** / Arrange Purchase only (no card checkout), or you need to sign in. Try **Contact Seller** in Messages, or sign in for **Buy Now (Card)**. Which button do you see on the page?`,
+    text: `Usually it's one of these: you're the seller viewing your own listing, it's already sold, or you need to sign in. Tap **Message Seller** to arrange the purchase in chat. Which button do you see on the page?`,
   };
 }
 
@@ -151,10 +151,10 @@ export function tryPriceValueReply(message: string): { text: string; navigateTo?
 }
 
 export function tryArrangePurchaseReply(message: string): { text: string; navigateTo?: string } | null {
-  if (!/\b(arrange purchase|how do i pay|bank transfer|contact seller)\b/i.test(message)) return null;
+  if (!/\b(arrange purchase|how do i pay|bank transfer|contact seller|message seller|how to buy)\b/i.test(message)) return null;
   if (detectSkyAiIntent(message) === "sell_list") return null;
   return {
-    text: `**Arrange Purchase** means you agree payment in **Messages** — bank transfer, cash on pickup, etc. No card checkout, no buyer-protection fee. Seller's bank details show in chat if they've saved them in Profile. [[NAV:/payments]] Want help with **Buy Now (Card)** instead?`,
+    text: `**Message the seller and arrange the purchase directly.** Agree on payment (bank transfer, cash, pickup), delivery, and timing in **Messages**. Prefer verified sellers, meet in public, and verify the item before paying. [[NAV:/payments]] Safety tips: [[NAV:/buyer-protection]]`,
     navigateTo: "/payments",
   };
 }

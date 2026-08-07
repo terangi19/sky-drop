@@ -401,7 +401,7 @@ export default function SellerPage() {
               The seller profile you're looking for doesn't exist or has been removed.
             </p>
             <Link
-              href="/browse"
+              href="/search"
               className="inline-flex items-center gap-2 rounded-xl bg-sky-500 px-5 py-2.5 text-sm font-bold text-white transition-all duration-200 hover:bg-sky-600 hover:scale-105 active:scale-95"
             >
               Browse Listings

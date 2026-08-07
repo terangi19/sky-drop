@@ -28,74 +28,71 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 - New sellers: max 5 active listings at once.
 - After 3 completed sales: limit increases to 25 active listings.
 - After 10 completed sales: unlimited active listings.
-- Sellers must connect Stripe Express (Profile → Payment settings) to accept card payments. Without it, only Arrange Purchase is available.
+- Sellers may optionally save bank details in Profile → Payment settings so buyers can copy them from Messages when arranging payment.
 - Sellers with unverified accounts show a warning to buyers.
 
 ## REVIEWS & RATINGS
-- Only verified buyers who completed a Stripe purchase can leave a review — not Arrange Purchase buyers.
-- Review prompt appears in Purchases after buyer confirms delivery.
+- Reviews are available after a completed transaction where supported — not only for card checkout.
+- Review prompts may appear in Purchases after a deal is completed.
 - 1–5 stars with optional written comment. Visible on seller profiles (/seller/[username]) and individual listing pages.
 - Seller rating shown as average star rating with review count (e.g. ★ 4.2 · 15 reviews).
 - Reviews cannot be edited after submission. Contact support@skydrop.co.nz for disputes about unfair reviews.
 - Sellers cannot delete reviews, but they can flag them for admin review.
 - "No reviews yet" shown for new sellers — normal and expected.
 
-## BUYING FLOW — STRIPE CHECKOUT
-- Buyer clicks **Buy Now** → Stripe Checkout opens → enters card details → payment completes.
-- Funds go directly to seller's connected Stripe Express account (destination charge).
-- For Stripe Checkout purchases, a $1 buyer protection fee is added at checkout. Arrange Purchase has no additional fees.
-- After payment: order appears in /purchases with status **Pending**.
-- Seller confirms → **Confirmed**. Seller ships → **Shipped** (buyer gets email). Buyer confirms receipt → **Delivered**.
-- If buyer doesn't confirm delivery within 7 days, status auto-confirms to Delivered.
-- After Delivered: buyer can leave a review.
-- Disputes: open from /purchases within 7 days of Delivered status. Admin reviews and may issue refund via Stripe.
-- Stripe listings show "Stripe Secure Checkout" badge on listing pages.
-- Buyer gets emailed receipt from Stripe directly plus Sky Drop order confirmation.
+## BUYING FLOW — MESSAGING-FIRST (V1)
+- Primary path: Browse/Search → open listing → **Message Seller** → agree price, pickup/delivery, and payment in chat → pay or meet outside Sky Drop → leave a review where supported.
+- Public product line: “Message the seller and arrange the purchase directly.”
+- Sky Drop does **not** process marketplace card checkout, hold funds, provide escrow, or guarantee refunds for deals arranged in chat.
+- Prefer verified sellers. Meet in a public place for physical items. Verify the item before paying. Keep agreements in Messages for a clear record.
+- Safety guidance: /buyer-protection (Stay Safe). How buying works: /payments (messaging-first soft-block when card UI is off).
 
-## BUYING FLOW — ARRANGE PURCHASE
-- Shown as "Arrange Purchase" in UI (paymentType: contact).
-- Buyer clicks **Purchase** (or "Arrange Purchase") → listing is marked as sold → conversation opens in /messages.
+## BUYING FLOW — HISTORICAL CARD CHECKOUT
+- Card checkout (Stripe) may exist behind feature flags for recovery / past orders. It is **not** the public V1 marketplace model.
+- When enabled historically: Buy Now opened card checkout; funds went to the seller's connected account; a $1 fee applied; disputes from /purchases within 7 days.
+- Do not present Stripe Checkout, Buy Now card payment, escrow, or buyer protection as how Sky Drop works today unless the user is asking about a past card order.
+- Past card orders may still appear in /purchases and /sales.
+
+## BUYING FLOW — ARRANGE IN CHAT
+- Buyer clicks **Message Seller** → conversation opens in /messages.
 - Buyer and seller agree on payment method (bank transfer, cash, or pickup) directly in chat.
-- If seller saved bank details in Profile → Payment settings, buyer sees them in Messages with copy buttons.
-- NO card payment, NO Stripe, NO dispute protection for Arrange purchases.
-- NO PayID — NZ bank transfers only.
-- Status tracking is manual between buyer and seller.
+- If seller saved bank details in Profile → Payment settings, buyer may see them in Messages with copy buttons.
+- No platform card payment, no escrow, no guaranteed refunds for chat-arranged deals.
+- NO PayID — NZ bank transfers only when using bank transfer.
 - Safer for high-value items where buyer wants to inspect before paying.
 
 ## MAKING AN OFFER
 - Available on listings where seller enabled "Accept Offers".
 - Buyer clicks **Make Offer** → enters amount → sends offer to seller.
-- Seller can Accept, Decline, or Counter-offer in /sales (seller) or /purchases (buyer).
-- If accepted, buyer receives a payment link to complete Stripe checkout at the agreed price.
+- Seller can Accept, Decline, or Counter-offer in Messages / Sales.
+- If accepted, complete the deal by arranging payment in Messages (messaging-first).
 - Offers expire after 48 hours if no response.
-- Offers are not available on Arrange Purchase listings.
 
 ## AUCTIONS
-- Sellers can list with **Auction**, **Auction + Buy Now**, or **Buy Now** (standard).
+- Sellers can list with **Auction**, **Auction + fixed price**, or **Fixed price** (standard).
 - Auction: buyers bid; highest bidder at end time wins. Minimum bid increment enforced.
-- Auction + Buy Now: buyers can bid OR pay the Buy Now price immediately to end auction.
+- Auction + fixed price: buyers can bid OR take the fixed price immediately to end auction.
 - Auction duration set by seller: 3, 5, 7, or 14 days.
 - Outbid notifications sent by email and in-app.
-- Auction winner receives payment prompt → pays via Stripe at winning bid price.
+- Auction winner should message the seller to arrange payment and pickup/delivery.
 - Reserve price: seller can set a minimum sale price; if not met, item doesn't sell.
 - Sellers cannot cancel an auction once bids have been placed.
 
 ## DIGITAL LISTINGS — FIXED PRICE
 - Digital product (e.g. template pack, ebook, Canva kit, preset, plugin, course).
 - Seller uploads the digital file on /post/ai before publishing.
-- Buyer pays via Stripe → file download link delivered automatically.
-- pricingType: "fixed". Shows **Buy Now** button.
-- Instant delivery — no shipping needed.
+- Buyer messages seller to arrange purchase; file delivery is agreed in chat (or delivered after payment as agreed).
+- pricingType: "fixed". Primary CTA is **Message Seller**.
+- Instant delivery when the seller provides the file as agreed — no shipping needed.
 - Seller cannot edit the file after first sale. Must create a new listing for an updated version.
 - Digital categories: Templates & Assets, E-books & Guides, Art & Photography, Software & Audio, Gaming & 3D, Web & App Development, Graphic Design, SEO & Digital Marketing, Other Digital Services.
 
 ## DIGITAL LISTINGS — QUOTE REQUIRED
 - Custom digital service (e.g. website build, logo design, SEO campaign, app development, branding).
-- pricingType: "quote". NO Buy Now button shown. NO Stripe checkout.
-- Shows **Request Quote** and **Message Seller** buttons instead.
+- pricingType: "quote". Shows **Request Quote** and **Message Seller**.
 - No file upload required — seller delivers work directly after agreeing scope and price in chat.
 - Buyer clicks Request Quote → auto-message sent to seller in /messages → they negotiate and agree price.
-- Payment arranged separately between buyer and seller (Stripe offer or bank transfer).
+- Payment arranged directly between buyer and seller in Messages.
 
 ## SERVICE LISTINGS
 - Local/in-person services only: lawn mowing, cleaning, handyman, tutoring, photography, personal training, catering, etc.
@@ -104,11 +101,7 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
   • **Hourly rate** — price per hour (e.g. "$60/hr")
   • **Quote Required** — buyer contacts seller for custom pricing
 - Buyer clicks **Hire** or **Request Quote** → conversation created in /messages with service inquiry details.
-- Both parties discuss scope, timeline, and requirements in Messages.
-- For fixed/hourly: seller sends a formal offer in chat → buyer pays via Stripe checkout.
-- For quote: seller quotes a price → buyer accepts → payment via Stripe or arrange in chat.
-- Service status after payment: Pending → In Progress → Completed → Confirmed.
-- Buyer confirms completion to finish the order. Payment already went to the seller via Stripe at checkout. Review can then be left.
+- Both parties discuss scope, timeline, requirements, and payment in Messages.
 - Service categories: Trades & Repairs, Cleaning & Maintenance, Tutoring & Lessons, Photography, Personal Training, Events & Catering, Other Services.
 
 ## RENTAL LISTINGS
@@ -116,9 +109,7 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 - All rentals show daily, weekly, and monthly rates plus refundable deposit.
 - Property rentals also show: bedrooms, bathrooms, parking, furnished status, pets policy, minimum tenancy, available from date, features (Heat Pump, Fibre Internet, etc.).
 - Equipment/vehicle rentals: daily/weekly/monthly rates, condition, deposit.
-- Buyer messages seller to arrange booking dates and confirm availability.
-- Payment via Arrange Purchase (bank transfer/cash) or Stripe if seller enabled it.
-- Buyer pays rental fee + deposit. Deposit refunded after return in good condition.
+- Buyer messages seller to arrange booking dates, deposit, and payment.
 - Property minimum tenancy options: Flexible, 3 Months, 6 Months, 12 Months.
 - Browse all rentals at /rentals.
 
@@ -128,7 +119,7 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 - Body types: SUV, Sedan, Hatchback, Wagon, Coupe, Convertible, Ute, Van, Truck, Motorcycle, Other.
 - Fuel types: Petrol, Diesel, Electric, Hybrid, Plug-in Hybrid, Other.
 - Transmission: Automatic, Manual, Other.
-- Payment: Arrange Purchase recommended for high-value vehicles (bank transfer/cash on inspection).
+- Payment: Message Seller recommended for high-value vehicles (bank transfer/cash on inspection).
 - Browse at /vehicles. Category is always "Cars" regardless of vehicle type.
 - Āwhina auto-fills all vehicle fields from a single description line (e.g. "2015 Mazda Axela blue 128,000km $11,500 Auckland").
 
@@ -176,19 +167,18 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 - Edit: click Edit Profile. Username must be unique and is used in public seller URLs (/seller/username).
 - Avatar: click current avatar → upload new image. Default = first letter of username.
 - Phone verification (optional): add phone number → receive SMS code → contributes to verified seller badge on listings.
-- Stripe Connect: Profile → Payment settings → click Connect with Stripe → complete Stripe Express onboarding.
-- Bank details (for Arrange Purchase): Profile → Payment settings → enter bank account name and number → Save.
+- Bank details (optional, for arranging payment in chat): Profile → Payment settings → enter bank account name and number → Save.
 - Following: view sellers you follow on the Following tab of Profile.
 - Notifications settings: /settings — toggle which email/in-app notifications you receive.
 
 ## MESSAGES
 - All conversations at /messages. Click a conversation to open it.
-- Start a conversation from a listing page (Message Seller button) or from a purchase/sale flow.
+- Start a conversation from a listing page (**Message Seller**) — this is the primary way to buy in V1.
 - Messages are real-time. **Unread message count** shows on the **Inbox icon** (chat bubble) in the navbar — this is separate from the **activity bell** (offers, orders, bids, etc.).
 - The activity bell dropdown does NOT include chat messages — those live in Inbox (/messages) only.
-- Sellers see bank details (their own) with copy buttons in relevant conversations.
-- System messages appear automatically for purchases, service inquiries, property inquiries, etc.
-- Keep all negotiation in Messages — it's the evidence trail for disputes.
+- Sellers may share bank details (their own) with copy buttons in relevant conversations.
+- System messages appear automatically for service inquiries, property inquiries, etc.
+- Keep all negotiation in Messages — it's the evidence trail for reports.
 - Cannot send files, only text. Share links or arrange file transfer separately.
 
 ## NOTIFICATIONS
@@ -224,7 +214,7 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 ## DASHBOARD
 - /dashboard: personal stats overview for sellers.
 - Shows: active listings count, total sales, earnings, pending orders, XP balance, level, loot drops.
-- Earnings are indicative only — actual payouts come from Stripe or bank transfer.
+- Earnings are indicative only — marketplace payments are arranged directly with buyers.
 - Quick links to: My Listings, Sales, Purchases, Messages.
 
 ## MY LISTINGS (/list-list)
@@ -236,37 +226,29 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 - Status indicators: Active (green), Sold (red), Expired (grey).
 
 ## SALES (/sales)
-- Seller's order dashboard. See all incoming orders from buyers.
-- For each order: confirm → mark shipped → track to delivered.
-- Orders from Arrange Purchase appear here too (manual tracking).
-- Download shipping label info if available.
-- Dispute notifications appear here if buyer opens one.
+- Seller's order dashboard. See deals and past orders from buyers.
+- Chat-arranged deals are coordinated in Messages.
+- Past card-checkout orders (if any) may still appear with status tracking.
 
 ## PURCHASES (/purchases)
-- Buyer's order history. Shows all Stripe and Arrange purchases.
-- Track order status for each purchase.
-- Confirm delivery to trigger auto-review prompt and release of funds.
-- Open a dispute within 7 days of Delivered status (Stripe purchases only).
-- Download receipts for Stripe purchases.
+- Buyer's order history, including past card orders when applicable.
+- For V1 deals, use Messages to arrange and complete purchases.
+- Past card orders may still show delivery confirmation and historical dispute options.
 
-## DISPUTES
-- Only available for Stripe purchases, within 7 days of Delivered.
-- Go to /purchases → find the order → Open Dispute.
-- Select a reason: item not received, not as described, damaged, counterfeit, other.
-- Admin reviews the case using Messages history and order details.
-- Resolution: full refund, partial refund, or no action — admin decides.
-- No dispute protection for Arrange Purchase transactions.
-- Sellers can respond to disputes via their /sales dashboard.
+## DISPUTES & REPORTS
+- V1 marketplace deals: no escrow or guaranteed refunds. Report problems via Reports with Messages history — Sky Drop may review and take account action.
+- Historical card-checkout orders may still support dispute flows from /purchases within the original window.
+- Prefer ID-verified sellers; meet in public; verify before paying.
 
 ## REPORTING & SAFETY
 - Report a listing: listing detail page → Report button → choose reason (scam, counterfeit, inappropriate, etc.) → submit.
 - Report a user: /seller/[username] → Report button.
 - Block a user: /seller/[username] → Block. Blocked users cannot message you. Manage blocked users at /blocked.
 - Scam detection: automated system flags unrealistic prices, suspicious text, duplicate listings, known scam patterns.
-- If pressured to pay outside Sky Drop (WhatsApp, PayPal, etc.) — refuse and report.
-- For pickups: meet in public (police station car parks are ideal), bring a friend, daytime only.
+- Prefer agreeing terms in Sky Drop Messages before paying. For pickups: meet in public (police station car parks are ideal), bring a friend, daytime only.
 - Admin reviews reports and can remove listings or suspend accounts.
 - For urgent safety concerns: contact support@skydrop.co.nz.
+- Full Stay Safe guide: /buyer-protection.
 
 ## PROHIBITED ITEMS & RULES
 - No illegal items (drugs, weapons, stolen goods, counterfeit products).
@@ -279,26 +261,23 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 - Full list at /terms.
 
 ## PAYMENTS — DETAILED
-**Stripe Checkout (recommended for most sellers)**
-- Seller must connect Stripe Express: Profile → Payment settings → Connect with Stripe.
-- Stripe processes card payments securely. Seller receives funds after buyer confirms delivery.
-- Payout time: Stripe typically pays out within 2–7 business days to seller's linked bank account.
-- Stripe Checkout: standard Stripe processing fees apply. A $1 buyer protection fee is added at checkout (paid by buyer).
-- Arrange Purchase: no Stripe processing fees. Payment is agreed directly in Messages.
-- Sellers can see payouts in their Stripe Express dashboard (linked from Profile).
+**V1 messaging-first (current public model)**
+- Message the seller and arrange the purchase directly.
+- Payment methods (bank transfer, cash, pickup) are agreed in Messages.
+- Sky Drop does not process marketplace listing payments, hold funds, or provide escrow.
+- Optional paid upgrades (e.g. promoted listings / boost) may use a payment processor — shown before you pay.
+- Historical card-checkout orders may still appear in Purchases/Sales; do not describe them as how new deals work.
 
-**Arrange Purchase (bank transfer / cash / pickup)**
-- No Stripe required. Seller adds bank account number in Profile → Payment settings.
-- Buyer sees account number in Messages with copy buttons.
-- Agree timeline and method in chat. No automatic order tracking — manual.
-- No dispute protection. Only use with buyers you trust, or meet in person for high-value items.
+**Optional seller bank details**
+- Seller may add bank account number in Profile → Payment settings.
+- Buyer may see account number in Messages with copy buttons when arranging payment.
+- Agree timeline and method in chat.
 
 ## FEES SUMMARY
 - Listing fee: FREE.
 - Boost: $5 per listing per ~7 days (or use a free boost token from rewards).
-- Stripe Checkout: $1 buyer protection fee (added to buyer's total) plus standard Stripe processing fees.
-- Arrange Purchase: no Stripe processing fees — payment agreed in Messages.
-- Arrange Purchase: no fees from Sky Drop.
+- Marketplace deals arranged in Messages: no Sky Drop checkout fee.
+- Optional paid upgrades: fee shown before you pay.
 
 ## EMAIL NOTIFICATIONS
 - Sent from noreply@skydrop.co.nz via MailerSend.
@@ -330,8 +309,8 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 | Seller guidelines | /seller-guidelines |
 | FAQs | /faqs |
 | About Sky Drop | /about |
-| How payments work | /payments |
-| Buyer protection | /buyer-protection |
+| How buying works | /payments |
+| Stay Safe | /buyer-protection |
 | Disputes | /disputes |
 | Reviews | /reviews |
 | Notifications | /notifications |
@@ -341,16 +320,15 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 | Terms of service | /terms |
 | Privacy policy | /privacy |
 | Seller public profile | /seller/[username] |
-| Checkout success | /checkout/success |
 | Admin panel | /admin |
 | Admin reports | /admin/reports |
 | Admin disputes | /admin/disputes |
 | Admin verification | /admin/verification |
 | Blocked users | /blocked |
 
-## TWO PAYMENT TYPES
-**Stripe Checkout** (paymentType: stripe) — card payment, on-platform, $1 buyer protection fee, dispute protection, Stripe Express required.
-**Arrange Purchase** (paymentType: contact) — payment agreed in Messages (bank transfer, cash, etc.), no Stripe processing fees, no card dispute protection, bank details in Profile.
+## HOW DEALS WORK (V1)
+**Message Seller** — browse a listing, open Messages, agree payment and delivery in chat, complete the deal outside Sky Drop. No marketplace escrow or card checkout for listings.
+Optional paid upgrades (boost/sponsor) are separate from marketplace purchase flow.
 
 ## WHAT SELLERS CAN LIST
 | Type | Browse | Notes |
@@ -395,28 +373,26 @@ export const SKY_AI_PROJECT_KNOWLEDGE = `
 - Always use NZD for prices. Always suggest realistic NZ market values with confidence when pricing.
 
 ## COMMON QUESTIONS — QUICK ANSWERS
-- **"How do I get paid?"** → Stripe: connect in Profile → Payment settings. Arrange: save bank details in Profile → Payment settings, buyer sees them in Messages.
-- **"Is it free to sell?"** → Yes, listing is free. Optional $5 boost. Stripe Checkout purchases incur standard Stripe processing fees plus a $1 buyer protection fee. Arrange Purchase has no Stripe fees.
-- **"Stripe vs Arrange?"** → Stripe = card payment, online, buyer protection, dispute available. Arrange = agree in chat, bank transfer or cash, no dispute protection.
-- **"How do I open a dispute?"** → Purchases → find the order → Open Dispute. Stripe purchases only, within 7 days of delivery.
+- **"How do I get paid?"** → Buyers message you and arrange payment in chat (bank transfer, cash, pickup). Optionally save bank details in Profile → Payment settings so buyers can copy them from Messages.
+- **"Is it free to sell?"** → Yes, listing is free. Optional $5 boost. Marketplace deals arranged in Messages have no Sky Drop checkout fee.
+- **"How do I buy?"** → Message the seller and arrange the purchase directly. Agree terms in Messages; pay or meet outside Sky Drop.
+- **"How do I open a dispute?"** → For chat-arranged deals, report via Reports with message history — Sky Drop may take account action but does not guarantee refunds. Past card orders may still use Purchases dispute flows.
 - **"How do I edit my listing?"** → My Listings (/list-list) → Edit, or from the listing page → Edit Listing.
 - **"Why can't I post a listing?"** → Complete email verification. Make sure you haven't hit the active listing limit (5 for new sellers).
-- **"How do I connect Stripe?"** → Profile → Payment settings → Connect with Stripe → complete Stripe Express onboarding.
-- **"Where do I see my orders?"** → Buying: /purchases. Selling: /sales.
+- **"Where do I see my orders?"** → Buying: /purchases (includes past orders). Selling: /sales. Active deals: /messages.
 - **"Can I sell pets?"** → Yes — Physical listing, category Other. Include breed, age, vaccinations. Must be legal in NZ.
 - **"Can I sell a rental property?"** → Yes — Rental listing, sub-type Property. Set weekly rent, bedrooms, bathrooms, etc.
 - **"How do I boost my listing?"** → Listing page → 📈 Promote, or My Listings → Boost. Costs $5 or use a free boost token.
 - **"I didn't get a verification email"** → Check spam/junk. Or click "Resend" on the verification banner. Add noreply@skydrop.co.nz to contacts.
-- **"Can I auction my item?"** → Yes — on /post/ai, change Sale Type to Auction or Auction + Buy Now. Set starting bid and duration.
+- **"Can I auction my item?"** → Yes — on /post/ai, change Sale Type to Auction or Auction + fixed price. Set starting bid and duration. Winner arranges payment in Messages.
 - **"What's the maximum listing duration?"** → 30 days. After expiry, relist from My Listings.
 - **"How do I delete a listing?"** → Listing page → Remove, or My Listings → Remove.
-- **"Is there buyer protection?"** → Yes for Stripe Checkout purchases — $1 buyer fee covers dispute admin. Open dispute in /purchases within 7 days of delivery. Arrange Purchase transactions are handled directly between buyer and seller.
-- **"How do I cancel an order?"** → Contact the other party in Messages. For Stripe: if not yet shipped, ask seller to cancel in /sales. For Arrange: agree to cancel in chat.
-- **"Can I leave a review?"** → Yes, after a completed Stripe purchase — prompt appears in /purchases after confirming delivery.
-- **"What happens if seller doesn't ship?"** → Open dispute in /purchases (Stripe only). Include message history as evidence.
+- **"Is there buyer protection / escrow?"** → No marketplace escrow or guaranteed refunds. Stay Safe tips at /buyer-protection. Prefer verified sellers; meet in public; verify before paying; keep agreements in Messages.
+- **"How do I cancel a deal?"** → Agree to cancel with the other party in Messages.
+- **"Can I leave a review?"** → Yes where supported after a completed transaction — check /purchases or the listing flow.
+- **"What happens if seller doesn't show?"** → Report via Reports with chat evidence. Prefer public meetups and verify before paying.
 - **"How do I report a scam?"** → Report button on the listing page. Also email support@skydrop.co.nz if urgent.
 - **"Can I sell internationally?"** → Sky Drop is NZ-only. All prices in NZD. Shipping to Australia or overseas is between buyer and seller but not officially supported.
-- **"How does the $1 fee work?"** → For Stripe Checkout purchases, the buyer pays $1 extra at checkout. Covers buyer protection and dispute admin. Arrange Purchase has no additional fees.
 - **"Can I change my username?"** → Yes — Profile → Edit Profile → change username (must be unique).
 - **"How do I follow a seller?"** → Go to their seller profile (/seller/username) → Follow button.
 `.trim();

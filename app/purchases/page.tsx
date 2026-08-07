@@ -592,7 +592,7 @@ export default function PurchasesPage() {
                           )}
                                                     {(p as any).destinationCharge && !p.orderCompleted && !p.fundsReleased && p.status !== "completed" && p.status !== "refunded" && (
                             <span className="shrink-0 rounded-full border border-sky-500/15 bg-sky-500/[0.04] px-2.5 py-0.5 text-[9px] font-medium text-sky-400/70">
-                              💳 Paid to Seller at Checkout
+                              💳 Card payment (past order)
                             </span>
                           )}
                         </div>

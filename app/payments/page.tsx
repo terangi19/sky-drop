@@ -7,9 +7,11 @@ import MessagingFirstSoftBlock from "../components/MessagingFirstSoftBlock";
 import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
 
 export const metadata: Metadata = {
-  title: "How Payments Work — Sky Drop NZ",
-  description: "Sky Drop payment methods: Stripe Checkout and Arrange Purchase. Direct payments to sellers, no marketplace wallet. Secure, transparent, and built for New Zealand buyers and sellers.",
-  keywords: "Sky Drop payments, Stripe Checkout NZ, Arrange Purchase, marketplace payments, how to get paid, secure payments NZ",
+  title: "How Buying Works — Sky Drop NZ",
+  description:
+    "Message the seller and arrange the purchase directly on Sky Drop. Browse listings, agree in chat, and pay or meet outside the platform. Built for New Zealand buyers and sellers.",
+  keywords:
+    "Sky Drop how to buy, Message Seller NZ, arrange purchase, marketplace messaging, buy sell New Zealand",
 };
 
 export default function PaymentsPage() {
@@ -17,7 +19,7 @@ export default function PaymentsPage() {
     return (
       <MessagingFirstSoftBlock
         title="How to buy on Sky Drop"
-        description="Sky Drop V1 does not process online checkout for listings. Message the seller to agree on payment, pickup or delivery."
+        description="Message the seller and arrange the purchase directly. Agree on payment, pickup or delivery in Messages — Sky Drop does not process marketplace checkout or hold funds."
       />
     );
   }

@@ -8,10 +8,10 @@ type Props = {
   description?: string;
 };
 
-/** Soft-block for new checkout UX when Stripe Checkout UI is off. */
+/** Messaging-first landing when marketplace card checkout UI is off. */
 export default function MessagingFirstSoftBlock({
   title,
-  description = "Online checkout is not available in Sky Drop V1. Message the seller to arrange the purchase.",
+  description = "Message the seller and arrange the purchase directly. Agree on payment, pickup or delivery in Messages.",
 }: Props) {
   return (
     <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)]">

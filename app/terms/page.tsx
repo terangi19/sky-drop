@@ -33,7 +33,7 @@ const sections = [
     id: "payments",
     title: "Payments",
     content:
-      "Payments are processed through Stripe and sent directly to the seller's Stripe account. Sky Drop only receives a platform fee per transaction. Optional upgrades (like promoted listings) may incur a fee, which is clearly shown before purchase. All payment disputes and refunds are handled directly with Stripe according to their policies. Any attempt to manipulate payments, commit chargeback fraud, or bypass the platform's payment system is strictly prohibited and will be reported to law enforcement.",
+      "Marketplace purchases on Sky Drop are arranged directly between buyer and seller in Messages. Sky Drop does not process card checkout, hold funds, or guarantee refunds for those deals. Optional paid upgrades (such as promoted listings) may incur a fee, which is shown before you pay. Attempting to scam other users, pressure off-platform payments before agreeing terms in chat, or abuse the platform is prohibited and may result in account removal.",
   },
   {
     id: "prohibited",
@@ -45,7 +45,7 @@ const sections = [
     id: "disputes",
     title: "Disputes & Reports",
     content:
-      "If something goes wrong, try to resolve it directly with the other party first. If you can't reach an agreement, contact Sky Drop support and we'll help mediate. We may step in to resolve disputes at our discretion, including issuing refunds or suspending accounts where necessary. All disputes are logged and may be used as evidence in the event of fraud or legal proceedings. Users who repeatedly receive verified reports of scam attempts will be permanently banned.",
+      "If something goes wrong, try to resolve it directly with the other party in Messages first. If you believe marketplace rules were broken, report the listing or user. Sky Drop may review available evidence and suspend or remove accounts at our discretion. Sky Drop does not process refunds for payments made outside the platform.",
   },
   {
     id: "liability",

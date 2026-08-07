@@ -8,10 +8,10 @@ export default function HistoricalOrdersNotice({
 }) {
   const body =
     audience === "seller"
-      ? "New listing checkout is not available in Sky Drop V1. Buyers message you to arrange payment and pickup outside the app. Past sales below remain available to you."
+      ? "Sky Drop is messaging-first: buyers message you to arrange payment and pickup. Past sales below remain available to you."
       : audience === "dispute"
-        ? "New listing checkout is not available in Sky Drop V1. This page is for past orders only. Agree on payment and delivery directly with the other party in Messages."
-        : "New listing checkout is not available in Sky Drop V1. Message sellers to arrange purchases. Past orders below remain available to you.";
+        ? "Sky Drop is messaging-first. This page is for past orders. Agree on payment and delivery directly with the other party in Messages."
+        : "Sky Drop is messaging-first: message sellers and arrange the purchase directly. Past orders below remain available to you.";
 
   return (
     <div

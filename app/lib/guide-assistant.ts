@@ -25,24 +25,24 @@ export const GUIDE_DESTINATIONS: GuideDestination[] = [
   },
   {
     id: "arrange-payment",
-    title: "Bank transfer setup (Arrange Purchase)",
+    title: "How deals work (Message Seller)",
     path: "/seller-guidelines#arrange-payment",
-    keywords: ["arrange purchase", "bank transfer", "bank details", "pay seller", "bank account setup"],
-    blurb: "Set up bank details for Arrange Purchase listings.",
+    keywords: ["arrange purchase", "bank transfer", "bank details", "pay seller", "bank account setup", "message seller"],
+    blurb: "Buyers message you to arrange payment and pickup in chat.",
   },
   {
     id: "payment-settings",
     title: "Payment settings (Profile)",
     path: "/profile#payment-settings",
     keywords: ["payment settings", "bank account", "save bank", "stripe connect", "payout", "get paid"],
-    blurb: "Add bank details for Arrange Purchase or connect Stripe.",
+    blurb: "Optional bank details and account settings for arranging deals in Messages.",
   },
   {
     id: "profile",
     title: "Your profile",
     path: "/profile",
     keywords: ["profile", "my account", "settings", "username", "bio", "my profile", "go to profile"],
-    blurb: "Edit your profile, verification, and payment settings.",
+    blurb: "Edit your profile, verification, and account settings.",
   },
   {
     id: "post-ai",
@@ -84,14 +84,14 @@ export const GUIDE_DESTINATIONS: GuideDestination[] = [
     title: "About Sky Drop",
     path: "/about",
     keywords: ["about", "what is sky drop", "mission"],
-    blurb: "What Sky Drop is and how payments work.",
+    blurb: "What Sky Drop is and how messaging-first deals work.",
   },
   {
     id: "payments",
-    title: "How payments work",
+    title: "How buying works",
     path: "/payments",
-    keywords: ["payments", "stripe checkout", "payment types", "how to pay", "buyer protection"],
-    blurb: "Stripe Checkout vs Arrange Purchase explained.",
+    keywords: ["payments", "how to pay", "how to buy", "message seller", "arrange purchase", "buyer protection"],
+    blurb: "Message the seller and arrange the purchase directly.",
   },
   {
     id: "messages",
@@ -151,10 +151,10 @@ export const GUIDE_DESTINATIONS: GuideDestination[] = [
   },
   {
     id: "buyer-protection",
-    title: "Buyer protection",
+    title: "Stay Safe",
     path: "/buyer-protection",
-    keywords: ["buyer protection", "safe buying", "scam"],
-    blurb: "How Sky Drop helps protect buyers.",
+    keywords: ["buyer protection", "safe buying", "scam", "stay safe"],
+    blurb: "Safety tips for messaging-first deals on Sky Drop.",
   },
   {
     id: "trade-feed",
@@ -242,24 +242,24 @@ export const GUIDE_DESTINATIONS: GuideDestination[] = [
   },
   {
     id: "checkout",
-    title: "Checkout",
-    path: "/checkout",
+    title: "Messages",
+    path: "/messages",
     keywords: ["checkout", "buy", "purchase now", "pay", "complete purchase", "check out"],
-    blurb: "Complete your purchase.",
+    blurb: "Message the seller to arrange the purchase — Sky Drop does not run marketplace card checkout in V1.",
   },
   {
     id: "checkout-success",
-    title: "Purchase complete",
-    path: "/checkout/success",
+    title: "Purchases",
+    path: "/purchases",
     keywords: ["purchase complete", "order success", "payment success", "checkout success", "order confirmed"],
-    blurb: "Your purchase was successful.",
+    blurb: "View past orders and order history.",
   },
   {
-    id: "payments",
-    title: "Payments",
+    id: "payments-alt",
+    title: "How buying works",
     path: "/payments",
-    keywords: ["payments", "payment methods", "how to pay", "stripe connect", "payout", "get paid"],
-    blurb: "Learn how Stripe Checkout and Arrange Purchase work.",
+    keywords: ["payment methods", "stripe connect", "payout", "get paid", "how do i pay"],
+    blurb: "Message the seller and arrange payment directly in chat.",
   },
   {
     id: "reports",
@@ -588,9 +588,9 @@ export function getGuideReply(query: string, currentPath: string): GuideReply {
 
   if (/stay on sky drop|keep chat|dispute/.test(normalized)) {
     return {
-      text: "Keep deals in **Messages** so disputes and reports have a record. Stripe buyers: open disputes from **Purchases** within 7 days.",
-      navigateTo: "/faqs",
-      destination: GUIDE_DESTINATIONS.find((d) => d.id === "faqs"),
+      text: "Keep deals in **Messages** so reports have a clear record. Message the seller and arrange the purchase directly — prefer verified sellers, meet in public, and verify the item before paying. See **Stay Safe** for tips.",
+      navigateTo: "/buyer-protection",
+      destination: GUIDE_DESTINATIONS.find((d) => d.id === "buyer-protection"),
     };
   }
 

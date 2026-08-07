@@ -2,178 +2,128 @@ import Navbar from "../components/Navbar";
 import Background from "../components/Background";
 import Link from "next/link";
 import { Metadata } from "next";
-import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
 import { V1_ARRANGE_SAFETY_ONE_LINER } from "../lib/conversation-safety";
 
 export const metadata: Metadata = {
   title: "Seller Guidelines — Sky Drop NZ",
-  description: "Learn how to sell on Sky Drop, New Zealand's community marketplace. Free to list, Message Seller to arrange purchases. Start selling cars, tech, fashion and more today.",
-  keywords: "seller guidelines, how to sell on Sky Drop, sell online NZ, free listings NZ, NZ marketplace selling, sell cars NZ, sell tech NZ",
+  description:
+    "How to sell on Sky Drop. Free to list. Buyers message you to arrange payment and pickup. Start selling cars, tech, fashion and more.",
+  keywords:
+    "seller guidelines, how to sell on Sky Drop, sell online NZ, free listings NZ, message seller, NZ marketplace",
 };
 
-export default function SellerGuidelinesPage() {
-  const stripeVisible = isStripeCheckoutVisibleClient();
+function Section({
+  title,
+  children,
+  id,
+}: {
+  title: string;
+  children: React.ReactNode;
+  id?: string;
+}) {
+  return (
+    <section id={id} className="mt-10 scroll-mt-24">
+      <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">{title}</h2>
+      <div className="mt-3 text-sm leading-relaxed text-[var(--muted)]">{children}</div>
+    </section>
+  );
+}
 
+export default function SellerGuidelinesPage() {
   return (
     <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
       <Background />
       <Navbar />
       <section className="relative z-10 mx-auto max-w-3xl px-6 py-16 sm:py-24">
-        <Link href="/" className="mb-8 inline-flex items-center gap-2 text-sm text-[var(--muted)] hover:text-sky-400 transition-colors">
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+        <Link
+          href="/"
+          className="mb-8 inline-flex items-center gap-2 text-sm text-[var(--muted)] transition-colors hover:text-sky-400"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
           Back to Marketplace
         </Link>
 
-        <div className="mb-8 flex h-16 w-16 items-center justify-center rounded-2xl bg-sky-500/20">
-          <span className="text-3xl">📋</span>
-        </div>
-
-        <h1 className="text-4xl sm:text-5xl font-black tracking-tight">Seller Guidelines</h1>
-        <p className="mt-4 text-lg text-[var(--muted)] leading-relaxed">
-          Start selling on Sky Drop — New Zealand&apos;s community marketplace. Here&apos;s everything you need to know about listing items and providing a great experience.
+        <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Seller Guidelines</h1>
+        <p className="mt-4 text-lg leading-relaxed text-[var(--muted)]">
+          Sell on Sky Drop by listing clearly and messaging buyers. Purchases are arranged directly in chat —
+          not through online checkout.
         </p>
 
-        <Section title="Getting Started" icon="🚀">
-          <p>Create a listing in under a minute using our AI assistant or manual form. Add clear photos, an accurate description, and set a fair price. All listings are reviewed for quality and safety.</p>
+        <Section title="Getting started">
+          <p>
+            Create a listing with Āwhina or the manual form. Add clear photos, an honest description, and a fair
+            NZD price. Identity verification is required before you can list.
+          </p>
         </Section>
 
-        <Section title="Fees" icon="💰">
-          <p>Selling is <strong className="text-white">free to list</strong>. There are no subscription fees or hidden costs.</p>
-          {stripeVisible ? (
-            <>
-              <p className="mt-2">For purchases completed through <strong className="text-white">Stripe Checkout</strong>, a $1.00 buyer protection fee is added to help cover dispute resolution and platform operations. Standard Stripe payment processing fees also apply.</p>
-              <p className="mt-2"><strong className="text-white">Arrange Purchase</strong> transactions do not incur Stripe processing fees and are handled directly between the buyer and seller. Payment methods like bank transfer, cash, or in-person payment are agreed in Messages.</p>
-            </>
-          ) : (
-            <p className="mt-2">
-              Sky Drop V1 is messaging-first. Buyers message you to arrange payment and pickup. There are no Stripe processing fees for marketplace transactions.
-            </p>
-          )}
+        <Section title="Fees">
+          <p>
+            Listing is <strong className="text-[var(--foreground)]">free</strong>. There are no subscription fees.
+            Optional paid boosts may be available for top placement — fees are shown before you pay.
+          </p>
+          <p className="mt-2">
+            Marketplace deals are messaging-first. Sky Drop does not charge Stripe-style processing fees on listing
+            sales because we do not process those payments.
+          </p>
         </Section>
 
-        <Section title="Getting Paid" icon="🏦">
-          {stripeVisible ? (
-            <>
-              <p>When creating a listing, choose how buyers pay:</p>
-              <ul className="list-disc pl-5 mt-2 space-y-1">
-                <li><strong className="text-white">Stripe Checkout</strong> — buyers pay by card. Connect Stripe Express in Profile so payouts go <strong className="text-white">directly to your Stripe account</strong> (2–7 business days to your bank).</li>
-                <li><strong className="text-white">Arrange Purchase</strong> — buyers tap Purchase and chat with you. You agree bank transfer, cash, pickup, etc. <strong className="text-white">No Stripe required</strong> for this listing type.</li>
-              </ul>
-            </>
-          ) : (
-            <>
-              <p>Buyers use <strong className="text-white">Message Seller</strong> to start a conversation. Agree on price, payment method, and pickup or delivery in chat.</p>
-              <p className="mt-2 text-[var(--muted)]">{V1_ARRANGE_SAFETY_ONE_LINER}</p>
-              <p className="mt-2">
-                Keep communication on Sky Drop so both of you have a record. Sky Drop does not process listing payments in V1.
-              </p>
-            </>
-          )}
+        <Section title="Getting paid" id="arrange-payment">
+          <p>
+            Buyers tap <strong className="text-[var(--foreground)]">Message Seller</strong>. Agree on price,
+            payment method, and pickup or delivery in Messages.
+          </p>
+          <p className="mt-2">{V1_ARRANGE_SAFETY_ONE_LINER}</p>
+          <p className="mt-2">
+            Optional: add bank account name and number in Profile so buyers can copy details in chat. Keep
+            communication on Sky Drop so both of you have a record.
+          </p>
         </Section>
 
-        <Section title="Listing Rules" icon="⚖️">
-          <ul className="list-disc pl-5 space-y-1">
-            <li>All items must be legal to buy and sell in New Zealand</li>
-            <li>Listings must accurately represent the item — use real photos, not stock images</li>
-            <li>Price must be in NZD and include all applicable taxes</li>
-            <li>Prohibited items: weapons, drugs, counterfeit goods, stolen property, hazardous materials</li>
+        <Section title="Listing rules">
+          <ul className="list-disc space-y-1 pl-5">
+            <li>Items must be legal to buy and sell in New Zealand</li>
+            <li>Use accurate photos and descriptions — no stock images for used goods</li>
+            <li>Price in NZD</li>
+            <li>No weapons, drugs, counterfeit or stolen goods, or other prohibited items</li>
             <li>No duplicate listings for the same item</li>
           </ul>
         </Section>
 
-        <Section title="Order Management" icon="📦">
-          <p>When someone buys your item, you&apos;ll see it in your Sales page. Update the order status as you go:</p>
-          <ul className="list-disc pl-5 mt-2 space-y-1">
-            <li><strong className="text-white">Confirm Order</strong> — acknowledge the purchase and prepare the item</li>
-            <li><strong className="text-white">Mark Shipped</strong> — update when the item is dispatched (for physical goods)</li>
-            <li><strong className="text-white">Communicate</strong> — use Messages to coordinate pickup or answer questions</li>
+        <Section title="After someone messages you">
+          <ul className="list-disc space-y-1 pl-5">
+            <li>Reply promptly and keep agreements clear in chat</li>
+            <li>Confirm pickup time/place or shipping details before payment</li>
+            <li>For physical goods, meet in public when possible</li>
           </ul>
         </Section>
 
-        {stripeVisible && (
-          <>
-            <Section title="Payments" icon="💳">
-              <p><strong className="text-white">Stripe Checkout listings:</strong></p>
-              <ul className="list-disc pl-5 mt-2 space-y-1">
-                <li>Buyer pays via Buy Now; funds go to your Stripe Express account</li>
-                <li>$1 buyer protection fee per sale; Stripe charges standard processing</li>
-                <li>Disputes on Purchases can result in refunds through Stripe</li>
-              </ul>
-              <p className="mt-3"><strong className="text-white">Arrange Purchase listings:</strong></p>
-              <ul className="list-disc pl-5 mt-2 space-y-1">
-                <li>Buyer taps Purchase; you arrange payment in Messages</li>
-                <li>Sky Drop does not process card payments for these sales</li>
-                <li>Keep all communication on Sky Drop Messages — admins use chat history for Stripe disputes and reports</li>
-              </ul>
-            </Section>
-
-            <Section title="Arrange Purchase — bank transfer" icon="🏦" id="arrange-payment">
-              <p className="text-zinc-400">Set up once so buyers are not lost after they tap Purchase.</p>
-              <ol className="list-decimal pl-5 mt-3 space-y-2 text-sm">
-                <li>Open <strong className="text-white">Profile</strong> (menu → your username).</li>
-                <li>Scroll to <strong className="text-white">Payment settings</strong>.</li>
-                <li>Under <strong className="text-white">Arrange Purchase — bank transfer</strong>, add your <strong className="text-white">bank account name</strong> and <strong className="text-white">account number</strong> (NZ format).</li>
-                <li>Click <strong className="text-white">Save bank details</strong> in Payment settings (or Save changes at the top of Profile).</li>
-                <li>When you create a listing, choose <strong className="text-white">Arrange Purchase</strong> as payment type.</li>
-              </ol>
-              <p className="mt-3 text-xs text-zinc-500">Stripe Connect is not required for Arrange Purchase. Stripe Checkout disputes use Messages as evidence (buyer opens from Purchases within 7 days).</p>
-            </Section>
-          </>
-        )}
-
-        <Section title="Prohibited Conduct" icon="🚫">
-          <ul className="list-disc pl-5 space-y-1">
-            {stripeVisible ? (
-              <li>For Stripe listings, buyers must use Buy Now — do not ask for off-platform card payments</li>
-            ) : null}
-            <li>Agree payment in Messages — stay on Sky Drop so there is a record if either side reports a problem</li>
-            <li>No fake listings, bidding manipulation, or deceptive pricing</li>
-            <li>No harassment, abuse, or spam in messages</li>
-            <li>No sharing of personal contact info before a sale is confirmed</li>
-            <li>Violations may result in account suspension or permanent ban</li>
+        <Section title="Prohibited conduct">
+          <ul className="list-disc space-y-1 pl-5">
+            <li>Do not pressure buyers to leave Sky Drop Messages before terms are agreed</li>
+            <li>No fake listings, deceptive pricing, harassment, or spam</li>
+            <li>Violations may result in suspension or permanent ban</li>
           </ul>
         </Section>
 
-        <Section title="Tips for Success" icon="⭐">
-          <ul className="list-disc pl-5 space-y-1">
-            <li>Take high-quality photos in good lighting — listings with photos sell 3x faster</li>
-            <li>Respond to messages quickly — buyers appreciate fast communication</li>
-            <li>Price competitively — check similar listings before setting your price</li>
-            <li>Keep your listings updated — mark items as sold when they&apos;re gone</li>
-            <li>Build your reputation — good reviews lead to more sales</li>
+        <Section title="Tips">
+          <ul className="list-disc space-y-1 pl-5">
+            <li>Clear photos sell faster</li>
+            <li>Respond quickly</li>
+            <li>Be honest about condition and flaws</li>
           </ul>
         </Section>
 
-        <div className="mt-12 rounded-2xl border border-sky-500/15 bg-sky-500/[0.04] p-6 text-center">
-          <h2 className="text-lg font-bold text-sky-400">Ready to start selling?</h2>
-          <p className="mt-2 text-sm text-[var(--muted)]">Create your first listing in under a minute.</p>
-          <Link href="/post/ai" className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">
-            Create a Listing
+        <div className="mt-12 flex flex-wrap gap-3">
+          <Link href="/post/ai" className="btn btn-primary">
+            Create a listing
+          </Link>
+          <Link href="/faqs" className="btn btn-secondary">
+            FAQs
           </Link>
         </div>
       </section>
     </main>
-  );
-}
-
-function Section({
-  title,
-  icon,
-  id,
-  children,
-}: {
-  title: string;
-  icon: string;
-  id?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div id={id} className="mt-10 scroll-mt-24">
-      <div className="flex items-center gap-3 mb-3">
-        <span className="text-2xl">{icon}</span>
-        <h2 className="text-xl font-black tracking-tight text-white">{title}</h2>
-      </div>
-      <div className="text-sm text-[var(--muted)] leading-relaxed">{children}</div>
-    </div>
   );
 }

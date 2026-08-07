@@ -335,7 +335,7 @@ export default function SalesPage() {
           fromEmail: currentEmail,
           type: "service_completed",
           title: "Service Completed",
-          message: `Your service "${purchase.listingTitle}" has been marked as complete by the seller. Please confirm you're satisfied to complete the order. Payment already went to the seller via Stripe at checkout.`,
+          message: `Your service "${purchase.listingTitle}" has been marked as complete by the seller. Please confirm you're satisfied to complete the order.`,
           listingId: purchase.listingId,
           listingTitle: purchase.listingTitle,
           listingImage: purchase.listingImage,

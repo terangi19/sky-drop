@@ -385,10 +385,10 @@ export default function EditListingPage({
             <label className="block text-xs font-bold text-[var(--foreground)] uppercase tracking-wider mb-2">Sale Type</label>
             <div className="grid grid-cols-2 gap-2">
               {[
-                { id: "buy_now", label: "Buy Now" },
-                { id: "buy_now_offers", label: "Buy Now + Offers" },
+                { id: "buy_now", label: "Fixed price" },
+                { id: "buy_now_offers", label: "Fixed price + Offers" },
                 { id: "auction", label: "Auction" },
-                { id: "auction_buy_now", label: "Auction + Buy Now" },
+                { id: "auction_buy_now", label: "Auction + fixed price" },
               ].map((opt) => (
                 <button key={opt.id} type="button" onClick={() => setSaleType(opt.id)}
                   className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold text-left transition ${

@@ -459,8 +459,8 @@ export default function SearchPage() {
               >
                 <option value="all">All</option>
                 <option value="auction">Auctions</option>
-                <option value="buy_now">Buy Now</option>
-                <option value="auction_buy_now">Auction + Buy Now</option>
+                <option value="buy_now">Fixed price</option>
+                <option value="auction_buy_now">Auction + fixed price</option>
               </select>
             </div>
 

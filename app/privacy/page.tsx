@@ -27,7 +27,7 @@ const sections = [
     id: "sharing",
     title: "Data Sharing",
     content:
-      "We share your information with other Sky Drop users only as needed for transactions — for example, your username and contact details are visible to someone you're buying from or selling to. We may share data with trusted service providers who help us run the platform (payment processors like Stripe, hosting, fraud detection services), and with law enforcement or government agencies when required by New Zealand law or when investigating fraud.",
+      "We share your information with other Sky Drop users only as needed for transactions — for example, your username and contact details are visible to someone you're buying from or selling to. Marketplace purchases are arranged between buyers and sellers in Messages; Sky Drop does not process those payments. We may share data with trusted service providers who help us run the platform (hosting, fraud detection, email delivery, and payment processors for optional paid upgrades or any historical card orders), and with law enforcement or government agencies when required by New Zealand law or when investigating fraud.",
   },
   {
     id: "cookies",

@@ -103,7 +103,7 @@ export const BROWSE_CATEGORY_CONFIGS: Record<string, BrowseCategoryConfig> = {
     trustRow: [
       "Browse by category",
       "Discuss scope in chat",
-      "Pay securely with Card Checkout",
+      "Message seller to arrange",
     ],
   },
   job: {

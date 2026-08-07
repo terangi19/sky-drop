@@ -403,8 +403,8 @@ export default function RentalsPage() {
         {/* Trust strip */}
         <div className="mt-8 flex flex-wrap items-center justify-center gap-x-10 gap-y-4 rounded-2xl border border-white/[0.04] bg-white/[0.015] px-6 py-4 sm:gap-x-14 lg:gap-x-20 backdrop-blur-sm">
           {[
-            { label: "Flexible payments", sub: "Stripe or Arrange Purchase" },
-            { label: "Dispute protection", sub: "7-day window" },
+            { label: "Message to arrange", sub: "Agree in chat" },
+            { label: "Stay safe", sub: "Verify before paying" },
             { label: "Verified sellers", sub: "Profiles & reviews" },
             { label: "NZ community", sub: "Built for Aotearoa" },
           ].map((item) => (

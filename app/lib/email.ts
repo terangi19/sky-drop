@@ -520,40 +520,41 @@ const STATUS_BADGES: Record<string, StatusBadge> = {
 };
 
 const WHAT_HAPPENS_NEXT: Record<string, string[]> = {
+  // Card-checkout order emails (historical / flag-gated CheckoutModal path — not V1 messaging deals)
   purchase: [
     "Review the order details in your Sales Dashboard",
     "Prepare the item and get it ready for shipment",
     "Mark the order as shipped once it's on its way",
-    "Payment already went to your Stripe account at checkout — confirm fulfillment with the buyer",
+    "For this card order, payment was already sent to your connected account — confirm fulfillment with the buyer",
   ],
   purchase_confirmation: [
     "The seller will prepare your item for delivery",
     "You'll receive a notification when it's shipped",
     "Inspect your item carefully upon arrival",
-    "Confirm delivery to complete your order — payment already went to the seller via Stripe",
+    "Confirm delivery to complete your order — for this card order, payment already went to the seller",
   ],
   order_confirmed: [
     "Your seller is preparing your item for shipment",
     "You'll be notified the moment it's on its way",
     "Track delivery and prepare to receive your item",
-    "Funds are sent directly to the seller via Stripe — Sky Drop never holds them",
+    "For this card order, funds were sent directly to the seller — Sky Drop does not hold them in a wallet",
   ],
   item_shipped: [
     "Your item is on its way to you",
     "Track delivery using the shipping details provided",
     "Inspect the item as soon as it arrives",
-    "Confirm delivery to complete your order — payment already went to the seller's Stripe account",
+    "Confirm delivery to complete your order",
   ],
   delivered: [
     "Inspect your item carefully",
-    "Payment already went to the seller — confirm delivery to complete the order",
+    "Confirm delivery to complete the order",
     "Leave a review for the seller to help the community",
   ],
   bid: [
     "Monitor bids as the auction progresses",
     "Respond to any buyer questions in messages",
     "The winning bidder will be notified when the auction ends",
-    "Coordinate delivery once payment is confirmed",
+    "Coordinate delivery once payment is arranged in Messages",
   ],
   outbid: [
     "Place a higher bid to regain your winning position",
@@ -564,13 +565,13 @@ const WHAT_HAPPENS_NEXT: Record<string, string[]> = {
     "Your bid is now active on this listing",
     "We'll notify you if you get outbid",
     "Increase your max bid anytime to stay ahead",
-    "If you win, you'll have 24 hours to complete payment",
+    "If you win, message the seller to arrange payment and pickup",
   ],
   auction_won: [
     "Congratulations on winning the auction!",
-    "Complete your purchase within 24 hours to secure the item",
-    "Coordinate delivery or pickup with the seller",
-    "Payment goes directly to the seller via Stripe",
+    "Message the seller to arrange payment and pickup or delivery",
+    "Keep agreements in Sky Drop Messages for a clear record",
+    "Prefer meeting in public and verifying the item before paying",
   ],
   auction_lost: [
     "Don't worry — there are plenty more listings to explore",
@@ -580,14 +581,14 @@ const WHAT_HAPPENS_NEXT: Record<string, string[]> = {
   offer: [
     "Review the offer amount and buyer details",
     "Accept, decline, or send a counteroffer",
-    "If accepted, the buyer will complete payment",
-    "Coordinate delivery once the order is confirmed",
+    "If accepted, arrange payment with the buyer in Messages",
+    "Coordinate delivery once terms are agreed",
   ],
   offer_accepted: [
     "Your offer has been accepted by the seller!",
-    "Complete your purchase to secure the item",
-    "Payment sent directly to seller via Stripe",
-    "Coordinate shipping or pickup with the seller",
+    "Message the seller to arrange payment and pickup or delivery",
+    "Keep agreements in Sky Drop Messages for a clear record",
+    "Prefer meeting in public and verifying the item before paying",
   ],
   offer_declined: [
     "Your offer was not accepted by the seller",
@@ -596,12 +597,12 @@ const WHAT_HAPPENS_NEXT: Record<string, string[]> = {
   ],
   payment_released: [
     "Your order is complete",
-    "For Stripe Checkout sales, payment was already in your connected Stripe account from checkout",
-    "Payouts to your bank follow your Stripe Express schedule",
+    "For historical card-checkout sales, payment was already in your connected account from that checkout",
+    "Payouts to your bank follow your connected account schedule when applicable",
   ],
   service_completed: [
     "Review the completed service carefully",
-    "Confirm you're satisfied to complete the order — payment already went to the seller via Stripe",
+    "Confirm you're satisfied to complete the order",
     "Leave a review for the service provider",
   ],
   item_returned: [
@@ -629,8 +630,6 @@ export function notificationToEmail(type: string, title: string, listingTitle?: 
         summaryRows: listingTitle ? [
           { label: "Item", value: listingTitle },
           ...(total ? [{ label: "Sale amount", value: `$${total.toFixed(2)}`, highlight: true }] : []),
-          { label: "Buyer protection fee", value: "$1.00" },
-          { label: "Net earnings", value: total ? `$${(total - 1).toFixed(2)}` : "—" },
         ] : undefined,
         whatHappensNext: steps,
       };
@@ -638,12 +637,12 @@ export function notificationToEmail(type: string, title: string, listingTitle?: 
       return {
         subject: `🛒 Order Confirmed — ${listingTitle || ""}`,
         title: "Purchase Confirmed 🛒",
-        message: `Your order has been confirmed and your payment has gone directly to the seller's Stripe account — Sky Drop never holds your money.\n\nKeep an eye on your messages — the seller may reach out with shipping or pickup details.`,
+        message: `Your order has been confirmed. For this card checkout order, payment went directly to the seller — Sky Drop does not hold it in a wallet.\n\nKeep an eye on your messages — the seller may reach out with shipping or pickup details.`,
         statusBadge: badge,
         summaryRows: listingTitle ? [
           { label: "Item", value: listingTitle },
           ...(total ? [{ label: "Total charged", value: `$${total.toFixed(2)}`, highlight: true }] : []),
-          { label: "Payment", value: "Sent to seller via Stripe 💳" },
+          { label: "Payment", value: "Sent to seller (card order)" },
         ] : undefined,
         whatHappensNext: steps,
         reviewPrompt: true,
@@ -653,13 +652,13 @@ export function notificationToEmail(type: string, title: string, listingTitle?: 
         subject: `📦 Order Confirmed — ${listingTitle || ""}`,
         title: "Order Confirmed ✅",
         message: listingTitle
-          ? `Your order for **${listingTitle}** has been confirmed by the seller — they're on it!\n\nYour payment has been sent directly to the seller via Stripe. If anything doesn't look right, you can open a dispute within 7 days of delivery.`
+          ? `Your order for **${listingTitle}** has been confirmed by the seller — they're on it!\n\nFor this card checkout order, payment was sent directly to the seller. If anything doesn't look right, check your Purchases page.`
           : `Your order has been confirmed by the seller.`,
         statusBadge: badge,
         summaryRows: listingTitle ? [
           { label: "Item", value: listingTitle },
           ...(total ? [{ label: "Total charged", value: `$${total.toFixed(2)}`, highlight: true }] : []),
-          { label: "Payment", value: "Sent to seller via Stripe 💳" },
+          { label: "Payment", value: "Sent to seller (card order)" },
           { label: "Status", value: "Preparing order" },
         ] : undefined,
         whatHappensNext: steps,
@@ -669,7 +668,7 @@ export function notificationToEmail(type: string, title: string, listingTitle?: 
         subject: `🚚 Item Shipped — ${listingTitle || ""}`,
         title: "Item Shipped! 🚚",
         message: listingTitle
-          ? `Your item **${listingTitle}** is on its way!\n\nTrack your delivery and get ready to receive it. Once it arrives, inspect the item and **confirm delivery** on Sky Drop to complete your order. Payment already went to the seller via Stripe at checkout.`
+          ? `Your item **${listingTitle}** is on its way!\n\nTrack your delivery and get ready to receive it. Once it arrives, inspect the item and **confirm delivery** on Sky Drop to complete your order.`
           : `Your item has been shipped!`,
         statusBadge: badge,
         whatHappensNext: steps,
@@ -680,7 +679,7 @@ export function notificationToEmail(type: string, title: string, listingTitle?: 
         subject: `✅ Delivered — ${listingTitle || ""}`,
         title: "Item Delivered 📬",
         message: listingTitle
-          ? `Your purchase **${listingTitle}** has been marked as delivered.\n\n**Please confirm receipt** to complete the order. Payment already went to the seller via Stripe at checkout. If something isn't right, open a dispute within 7 days through your purchases page.`
+          ? `Your purchase **${listingTitle}** has been marked as delivered.\n\n**Please confirm receipt** to complete the order. If something isn't right, check your Purchases page or report via Reports with your message history.`
           : `Your item has been delivered.`,
         statusBadge: badge,
         summaryRows: listingTitle && total ? [
@@ -696,7 +695,7 @@ export function notificationToEmail(type: string, title: string, listingTitle?: 
         subject: `✅ Service Completed — ${listingTitle || ""}`,
         title: "Service Completed ✅",
         message: listingTitle
-          ? `The service **${listingTitle}** has been marked as complete by the seller.\n\nPlease review the work and confirm you're satisfied to complete the order. Payment already went to the seller via Stripe at checkout. If there are any issues, open a dispute within 7 days.`
+          ? `The service **${listingTitle}** has been marked as complete by the seller.\n\nPlease review the work and confirm you're satisfied to complete the order. If there are any issues, message the seller or report via Reports.`
           : `The service has been marked as complete.`,
         statusBadge: badge,
         whatHappensNext: steps,
@@ -766,8 +765,8 @@ export function notificationToEmail(type: string, title: string, listingTitle?: 
         title: "You Won the Auction! 🎉",
         message: listingTitle
           ? total
-            ? `Congratulations! You won **${listingTitle}** with a winning bid of **$${total.toFixed(2)}**.\n\nComplete your purchase within **24 hours** to secure the item. Your payment will be sent directly to the seller via Stripe upon completion.`
-            : `Congratulations! You won the auction for **${listingTitle}**.`
+            ? `Congratulations! You won **${listingTitle}** with a winning bid of **$${total.toFixed(2)}**.\n\nMessage the seller to arrange payment and pickup or delivery. Keep agreements in Sky Drop Messages for a clear record.`
+            : `Congratulations! You won the auction for **${listingTitle}**. Message the seller to arrange payment and pickup.`
           : `Congratulations! You won the auction.`,
         statusBadge: badge,
         summaryRows: listingTitle ? [
@@ -808,13 +807,13 @@ export function notificationToEmail(type: string, title: string, listingTitle?: 
         title: "Offer Accepted! ✅",
         message: listingTitle
           ? total
-            ? `Your offer of **$${total.toFixed(2)}** on **${listingTitle}** has been accepted by the seller!\n\nComplete your purchase now to secure the item. Payment will be sent directly to the seller via Stripe.`
-            : `Your offer on **${listingTitle}** has been accepted!`
+            ? `Your offer of **$${total.toFixed(2)}** on **${listingTitle}** has been accepted by the seller!\n\nMessage the seller to arrange payment and pickup or delivery. Keep agreements in Sky Drop Messages for a clear record.`
+            : `Your offer on **${listingTitle}** has been accepted! Message the seller to arrange the purchase.`
           : `Your offer has been accepted!`,
         statusBadge: badge,
-        summaryRows: listingTitle && total ? [
+        summaryRows: listingTitle ? [
           { label: "Listing", value: listingTitle },
-          { label: "Offer amount", value: `$${total.toFixed(2)}`, highlight: true },
+          ...(total ? [{ label: "Offer amount", value: `$${total.toFixed(2)}`, highlight: true }] : []),
         ] : undefined,
         whatHappensNext: steps,
       };
@@ -848,7 +847,7 @@ export function notificationToEmail(type: string, title: string, listingTitle?: 
         title: "Order Complete ✅",
         message: listingTitle
           ? total
-            ? `The order for **${listingTitle}** ($${total.toFixed(2)}) is complete. For Stripe Checkout, payment went to your connected account at purchase time — bank payouts follow your Stripe schedule.`
+            ? `The order for **${listingTitle}** ($${total.toFixed(2)}) is complete. For historical card-checkout sales, payment went to your connected account at purchase time — bank payouts follow that account's schedule.`
             : `The order for **${listingTitle}** is complete.`
           : `Your order is complete.`,
         statusBadge: badge,
