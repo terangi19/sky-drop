@@ -5,10 +5,6 @@ import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
 
 export default function Footer() {
   const stripeVisible = isStripeCheckoutVisibleClient();
-  const showAnnouncement = () => {
-    if (typeof window === "undefined") return;
-    window.dispatchEvent(new CustomEvent("show-sky-drop-announcement"));
-  };
 
   return (
     <footer className="border-t border-zinc-800/50 py-8 mt-auto">
@@ -28,12 +24,6 @@ export default function Footer() {
           <Link href="/seller-guidelines" className="transition hover:text-[var(--foreground)]">Seller Guide</Link>
           <Link href="/terms" className="transition hover:text-[var(--foreground)]">Terms</Link>
           <Link href="/privacy" className="transition hover:text-[var(--foreground)]">Privacy</Link>
-          <button
-            onClick={showAnnouncement}
-            className="transition hover:text-[var(--foreground)] underline underline-offset-2"
-          >
-            Show announcement
-          </button>
         </div>
         <p className="text-[10px] text-zinc-700">
           {stripeVisible ? (

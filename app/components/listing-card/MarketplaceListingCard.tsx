@@ -396,7 +396,7 @@ export default memo(function MarketplaceListingCard({
             const initial = username.charAt(0).toUpperCase();
             const stats = sellerReviewStats[email || ""];
             const avgRating = stats ? stats.avg : 0;
-            const reviewCount = stats ? stats.count : 0;
+            const reviewCount = stats ? stats.count : null;
             const joinedDate = sellerJoinedDate[email || ""] || "";
             const listingCount = Math.max(0, sellerListingCount[email || ""] || 0);
             const isVerified = sellerFullyVerified?.[email || ""];
@@ -438,7 +438,7 @@ export default memo(function MarketplaceListingCard({
                       )}
                     </div>
                     <div className="lc-seller-meta flex items-center gap-x-2 gap-y-0.5 text-[10px] mt-0.5 opacity-70">
-                      {reviewCount > 0 && <span className="whitespace-nowrap">{avgRating.toFixed(1)}★ ({reviewCount})</span>}
+                      {reviewCount != null && reviewCount > 0 && <span className="whitespace-nowrap">{avgRating.toFixed(1)}★ ({reviewCount})</span>}
                       {reviewCount === 0 && <span className="whitespace-nowrap">New seller</span>}
                     </div>
                   </div>

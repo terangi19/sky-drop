@@ -32,12 +32,8 @@ if (envValidation.warnings.length > 0) {
 }
 
 const Spotlight = dynamic(() => import("./components/Spotlight"));
-const LegendaryClaimNotification = dynamic(() => import("./components/LegendaryClaimNotification"));
 const SkyAiChat = dynamic(() => import("./components/SkyAiChat"));
-const WantedLiveFeed = dynamic(() => import("./components/WantedLiveFeed"));
 const PlatformAnnouncement = dynamic(() => import("./components/PlatformAnnouncement"));
-const MarketplaceRadar = dynamic(() => import("./components/MarketplaceRadar"));
-const MatchmakingActivity = dynamic(() => import("./components/MatchmakingActivity"));
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -216,7 +212,7 @@ export default function RootLayout({
           `,
         }} />
         <ChunkLoadRecovery />
-        <AuthProvider><ProfileProvider><AwhinaPageInsightProvider><FeedbackProvider><TourGuideProvider><VerificationBanner /><RouteGuard><PageEnter>{children}</PageEnter><Footer /><Spotlight /><ScrollToTop /><MarketplaceRadar /><MatchmakingActivity /></RouteGuard><SkyAiChat /><GuestTourFab /><ToastContainer /><LegendaryClaimNotification /><WantedLiveFeed /><PlatformAnnouncement /><PWAProvider /></TourGuideProvider></FeedbackProvider></AwhinaPageInsightProvider></ProfileProvider></AuthProvider>
+        <AuthProvider><ProfileProvider><AwhinaPageInsightProvider><FeedbackProvider><TourGuideProvider><VerificationBanner /><RouteGuard><PageEnter>{children}</PageEnter><Footer /><Spotlight /><ScrollToTop /></RouteGuard><SkyAiChat /><GuestTourFab /><ToastContainer /><PlatformAnnouncement /><PWAProvider /></TourGuideProvider></FeedbackProvider></AwhinaPageInsightProvider></ProfileProvider></AuthProvider>
       </body>
     </html>
   );

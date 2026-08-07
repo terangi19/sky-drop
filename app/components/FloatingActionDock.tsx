@@ -41,14 +41,14 @@ function SpeedDialAction({
       aria-label={label}
       className={`group flex items-center gap-2.5 rounded-full border pl-1.5 pr-3 py-1.5 backdrop-blur-xl transition-all duration-200 animate-in fade-in slide-in-from-bottom-2 disabled:opacity-50 ${
         active
-          ? "border-violet-400/45 bg-violet-500/15 shadow-[0_0_20px_rgba(139,92,246,0.25)] light:border-violet-500/35 light:bg-violet-100 light:shadow-[0_4px_16px_rgba(139,92,246,0.15)]"
+          ? "border-sky-400/45 bg-sky-500/15 shadow-[var(--shadow-md)] light:border-sky-500/35 light:bg-sky-100 light:shadow-[0_4px_16px_rgba(14,165,233,0.12)]"
           : "awhina-fab-surface border-white/[0.08] bg-[#0c0e14]/90 hover:border-sky-400/30 hover:bg-[#12151c]/95 light:border-gray-200/90 light:bg-white/95 light:shadow-[0_4px_20px_rgba(15,23,42,0.08)] light:hover:border-sky-400/40 light:hover:bg-white"
       }`}
     >
       <span
         className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
           active
-            ? "bg-violet-500/25 text-violet-200 light:bg-violet-200 light:text-violet-700"
+            ? "bg-sky-500/25 text-sky-200 light:bg-sky-200 light:text-sky-700"
             : "bg-white/[0.05] text-sky-300 light:bg-sky-50 light:text-sky-600"
         }`}
       >
@@ -251,7 +251,6 @@ export default function FloatingActionDock({
 
             {showUnseenBadge && (
               <span className="absolute -right-0.5 -top-0.5 z-10 flex h-3 w-3">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-75" />
                 <span className="relative inline-flex h-3 w-3 rounded-full bg-sky-400" />
               </span>
             )}

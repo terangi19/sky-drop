@@ -27,7 +27,6 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useParams } from "next/navigation";
 import ReportModal from "../../components/ReportModal";
 import { REVIEW_STAR_CLASS, ReviewStars } from "../../components/SellerReviewStars";
-import { calculateTrustScore } from "../../lib/trustscore";
 import { isListingVisibleInMarketplace } from "../../lib/listing-availability";
 import { countSellerSales } from "../../lib/arrange-purchase-status";
 import {
@@ -125,7 +124,6 @@ export default function SellerPage() {
   const [sellerUid, setSellerUid] = useState("");
   const [followerCount, setFollowerCount] = useState(0);
   const [showReportModal, setShowReportModal] = useState(false);
-  const [sellerReportsCount, setSellerReportsCount] = useState(0);
   const [isBlocked, setIsBlocked] = useState(false);
 
   // Load profile by username (case-insensitive via usernames/) or email
@@ -231,13 +229,6 @@ export default function SellerPage() {
   }, [currentUser?.uid, sellerUid]);
 
   // Follower count comes from public profile API (updated after follow/unfollow)
-
-  // Count reports for this seller
-  useEffect(() => {
-    if (!profile?.email) return;
-    const q = query(collection(db, "reports"), where("reportedUserEmail", "==", profile.email), where("status", "==", "pending"), limit(50));
-    getDocs(q).then((snap) => setSellerReportsCount(snap.size));
-  }, [profile?.email]);
 
   useEffect(() => {
     if (!profile?.email) {
@@ -354,19 +345,6 @@ export default function SellerPage() {
   const displayHandle = displayName === "Seller" ? displayName : `@${displayName}`;
   const initial = displayName.charAt(0).toUpperCase();
 
-  const trustScore = useMemo(() => {
-    const memberDate = parseFirestoreDate(profile?.memberSince);
-    return calculateTrustScore({
-      emailVerified: profileEmailVerified(profile),
-      hasProfile: true,
-      hasBio: !!profile?.bio,
-      hasPhoto: !!profile?.photoURL,
-      memberSince: memberDate,
-      reportsCount: sellerReportsCount,
-      salesCount: completedSalesCount,
-    });
-  }, [profile, sellerReportsCount, completedSalesCount]);
-
   const isFullyVerified = isFullyVerifiedSeller(profile);
   const isNotVerified = !isFullyVerified;
 
@@ -449,31 +427,22 @@ export default function SellerPage() {
                     {displayName}
                   </h1>
                   {isFullyVerified && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold text-sky-400 ring-1 ring-sky-500/25 shadow-[0_0_10px_rgba(14,165,233,0.15)]">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold text-sky-400 ring-1 ring-sky-500/25">
                       <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
                       Verified
                     </span>
                   )}
                   {isNotVerified && (
-                    <span className="group relative inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-bold text-red-400 ring-1 ring-red-500/20 animate-breathe-border" title="This seller has not completed email, phone, and ID verification yet.">
+                    <span className="group relative inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-bold text-red-400 ring-1 ring-red-500/20" title="This seller has not completed email, phone, and ID verification yet.">
                       Not Verified
-                      <span className="invisible group-hover:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-44 rounded-lg bg-zinc-800 px-2.5 py-1.5 text-[10px] text-[var(--foreground)] shadow-lg animate-fade-in-up pointer-events-none z-10">
+                      <span className="invisible group-hover:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-44 rounded-lg bg-zinc-800 px-2.5 py-1.5 text-[10px] text-[var(--foreground)] shadow-lg pointer-events-none z-10">
                         This seller has not completed email, phone, and ID verification yet.
                       </span>
                     </span>
                   )}
-                  {profile.topTrader && (
-                    <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold text-sky-400 ring-1 ring-sky-500/25">Top Trader</span>
-                  )}
-                  {profile.profileBadge === "epic" && (
-                    <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold text-sky-400 ring-1 ring-sky-500/25">💎 Epic</span>
-                  )}
-                  {profile.profileBadge === "legendary" && (
-                    <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold text-sky-400 ring-1 ring-sky-500/25 shadow-[0_0_8px_rgba(251,146,60,0.2)] animate-breathe-sky">👑 The Five</span>
-                  )}
                   {!profile.hideOnline && (
                     <span className="flex items-center gap-1 rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold text-sky-400">
-                      <span className="h-1.5 w-1.5 rounded-full bg-sky-500 animate-pulse" /> Online
+                      <span className="h-1.5 w-1.5 rounded-full bg-sky-500" /> Online
                     </span>
                   )}
                 </div>
@@ -484,27 +453,25 @@ export default function SellerPage() {
                   {memberDate && <span>Joined {memberDate}</span>}
                 </p>
 
-                {/* Badges */}
+                {/* Trust signals */}
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   {profile.trustedSeller && <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[9px] font-bold text-sky-400">Trusted Seller</span>}
                   {profile.fastReply && <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[9px] font-bold text-sky-400">Fast Reply</span>}
-                  {profile.phoneVerified && <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[9px] font-bold text-sky-400">Phone ✓</span>}
-                  {profile.profileBadge === "epic" && <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[9px] font-bold text-sky-400 ring-1 ring-sky-500/25">💎 Epic</span>}
-                  {profile.profileBadge === "legendary" && <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[9px] font-bold text-sky-400 ring-1 ring-sky-500/25 shadow-[0_0_8px_rgba(251,146,60,0.2)] animate-breathe-sky">👑 The Five</span>}
+                  {profile.phoneVerified && <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[9px] font-bold text-sky-400">Phone verified</span>}
                 </div>
 
                 {/* Stats row */}
                 <div className="mt-4 grid grid-cols-4 gap-2">
                   {[
                     { icon: "rating", label: "Rating", value: avgRating > 0 ? avgRating.toFixed(1) : "—" },
-                    { icon: "💰", label: "Sales", value: String(completedSalesCount) },
-                    { icon: "📦", label: "Listings", value: String(activeListings.length) },
-                    { icon: "👥", label: "Followers", value: String(followerCount) },
+                    { icon: null, label: "Sales", value: String(completedSalesCount) },
+                    { icon: null, label: "Listings", value: String(activeListings.length) },
+                    { icon: null, label: "Followers", value: String(followerCount) },
                   ].map((s) => (
-                    <div key={s.label} className="rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] px-3 py-2.5 text-center transition-all duration-200 hover:bg-white/[0.07] hover:border-white/[0.12]">
-                      <p className="text-sm font-black text-white">{s.value}</p>
-                      <p className="text-[9px] font-medium text-zinc-500 uppercase tracking-wider">
-                        {s.icon === "rating" ? <span className={REVIEW_STAR_CLASS}>★</span> : s.icon} {s.label}
+                    <div key={s.label} className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2.5 text-center">
+                      <p className="text-sm font-bold text-[var(--foreground)]">{s.value}</p>
+                      <p className="text-[10px] font-medium text-[var(--muted)] uppercase tracking-wider">
+                        {s.icon === "rating" ? <span className={REVIEW_STAR_CLASS}>★ </span> : null}{s.label}
                       </p>
                     </div>
                   ))}
@@ -517,7 +484,7 @@ export default function SellerPage() {
                       className={`rounded-xl px-5 py-2.5 text-xs font-bold transition-all duration-200 ${
                         following
                           ? "border border-white/[0.08] bg-white/[0.03] text-[var(--foreground)] hover:bg-white/[0.06]"
-                          : "bg-gradient-to-r from-sky-500 to-sky-400 text-white shadow-lg shadow-sky-500/20 hover:brightness-110 hover:shadow-xl"
+                          : "btn btn-primary"
                       }`}>
                       {followLoading ? "..." : following ? "Following" : "Follow"}
                     </button>
@@ -534,12 +501,6 @@ export default function SellerPage() {
                     Log in to follow or message
                   </a>
                 )}
-
-                {/* Trust Score */}
-                <div className="mt-4 flex items-center gap-2 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.01] px-3.5 py-2.5">
-                  <span className={`text-xs font-bold ${trustScore.color}`}>Trust Score: {trustScore.score}%</span>
-                  <span className={`rounded-full px-2.5 py-0.5 text-[9px] font-bold ${trustScore.color} bg-current/10 border border-current/20`}>{trustScore.label}</span>
-                </div>
 
                 {/* Report + Block */}
                 {!isOwn && currentUser && (
@@ -776,28 +737,10 @@ export default function SellerPage() {
                   )}
                   {profile.trustedSeller && (
                     <div className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-sky-500/30 to-sky-500/20 text-[10px] ring-1 ring-sky-500/30">★</span>
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-500/20 text-[10px] ring-1 ring-sky-500/30 font-bold text-sky-400">★</span>
                       <div>
                         <p className="text-xs font-bold text-sky-400">Trusted Trader</p>
-                        <p className="text-[10px] text-[var(--muted)]">Elite seller status</p>
-                      </div>
-                    </div>
-                  )}
-                  {profile.profileBadge === "epic" && (
-                    <div className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-sky-500/30 to-sky-500/20 text-[10px] ring-1 ring-sky-500/30">💎</span>
-                      <div>
-                        <p className="text-xs font-bold text-sky-400">Epic Seller</p>
-                        <p className="text-[10px] text-[var(--muted)]">Earned from Sky Crate</p>
-                      </div>
-                    </div>
-                  )}
-                  {profile.profileBadge === "legendary" && (
-                    <div className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-sky-500/30 to-sky-500/20 text-[10px] ring-1 ring-sky-500/30 animate-breathe-sky">👑</span>
-                      <div>
-                        <p className="text-xs font-bold text-sky-400">The Five</p>
-                        <p className="text-[10px] text-[var(--muted)]">Ultimate Sky Crate reward</p>
+                        <p className="text-[10px] text-[var(--muted)]">Recognized for reliable sales</p>
                       </div>
                     </div>
                   )}

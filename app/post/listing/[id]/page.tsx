@@ -53,6 +53,7 @@ import {
 } from "../../../lib/public-display";
 import { MOBILE_STICKY_CTA } from "../../../lib/page-layout";
 import { isStripeCheckoutVisibleClient } from "../../../lib/stripe-checkout-flags";
+import { V1_ARRANGE_SAFETY_ONE_LINER } from "../../../lib/conversation-safety";
 
 function getBidIncrement(price: number): number {
   if (price < 50) return 1;
@@ -1367,7 +1368,7 @@ export default function ListingPage() {
               </div>
             )}
 
-            {/* Total cost display for non-quote, non-auction listings */}
+            {/* Price display — fees only when Stripe checkout UI is on */}
             {listing.price && 
              listing.type !== "service" && 
              listing.pricingType !== "quote" && 
@@ -1375,7 +1376,7 @@ export default function ListingPage() {
              listing.saleType !== "auction_buy_now" &&
              isListingVisibleInMarketplace(listing) && (
               <div className="mt-3 rounded-xl border border-sky-500/20 bg-sky-500/5 px-4 py-3">
-                {(listing as any).paymentType !== "contact" ? (
+                {!stripeDisabledV1 && (listing as any).paymentType !== "contact" ? (
                   <>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-[var(--muted)]">Item price</span>
@@ -1392,7 +1393,7 @@ export default function ListingPage() {
                   </>
                 ) : (
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-[var(--muted)]">Item price</span>
+                    <span className="text-[var(--muted)]">Listed price</span>
                     <span className="font-bold text-[var(--foreground)]">${listing.price}</span>
                   </div>
                 )}
@@ -1957,8 +1958,8 @@ Property Status: 🟢 Inquiry Active`;
                         hasExistingRequest: buyerArrangeRequestCount > 0,
                       })}
                     </button>
-                    <p className="mt-2 text-center text-[10px] leading-relaxed text-[var(--muted)]">
-                      {stripeDisabledV1 ? "Arrange payment and delivery in Messages" : purchaseButtonTitle(effectivePaymentType)}
+                    <p className="mt-2 text-center text-xs leading-relaxed text-[var(--muted)]">
+                      {stripeDisabledV1 ? V1_ARRANGE_SAFETY_ONE_LINER : purchaseButtonTitle(effectivePaymentType)}
                     </p>
                   </div>
 
@@ -1985,18 +1986,38 @@ Property Status: 🟢 Inquiry Active`;
                         Make Offer
                       </button>
                     )}
-                    <button
-                      onClick={() => router.push(sellerMessagesHref)}
-                      className="h-12 flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06]"
-                    >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03 8 9 8s9 3.582 9 8z" />
-                      </svg>
-                      Message Seller
-                    </button>
+                    {!stripeDisabledV1 && (
+                      <button
+                        onClick={() => router.push(sellerMessagesHref)}
+                        className="h-12 flex items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 text-sm font-bold text-[var(--foreground)] transition-all duration-200 hover:border-sky-500/30 hover:bg-white/[0.06]"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03 8 9 8s9 3.582 9 8z" />
+                        </svg>
+                        Message Seller
+                      </button>
+                    )}
                   </div>
 
-                  {/* SECURE PAYMENT INFO CARD - Hidden in V1 */}
+                  {/* Stay-safe card — always show in messaging-first V1 */}
+                  {(stripeDisabledV1 || (listing as any).paymentType === "contact") && (
+                    <div className="rounded-lg border border-white/[0.06] bg-[var(--soft-card)] px-4 py-3">
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 mt-0.5">
+                          <svg className="h-5 w-5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-sky-300">Message seller to arrange</p>
+                          <p className="mt-1 text-sm leading-relaxed text-[var(--muted)]">{V1_ARRANGE_SAFETY_ONE_LINER}</p>
+                          <Link href="/buyer-protection" className="mt-2 inline-flex text-xs font-semibold text-sky-400 hover:text-sky-300 transition-colors">
+                            Stay safe tips →
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   {!stripeDisabledV1 && (listing as any).paymentType !== "contact" && (
                     <div className="rounded-lg border border-sky-500/10 bg-sky-500/5 px-4 py-3">
                       <div className="flex items-start gap-3">
@@ -2006,29 +2027,8 @@ Property Status: 🟢 Inquiry Active`;
                           </svg>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-sky-300">Secure payment through Stripe</p>
-                          <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">Payments are processed securely through Stripe. Review the listing carefully before purchasing. Buyer protection applies where eligible.</p>
-                          <a href="https://stripe.com/payments/checkout" target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-sky-400 hover:text-sky-300 transition-colors">
-                            How it works
-                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                            </svg>
-                          </a>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  {(listing as any).paymentType === "contact" && (
-                    <div className="rounded-lg border border-white/[0.06] bg-[var(--soft-card)] px-4 py-3">
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 mt-0.5">
-                          <svg className="h-5 w-5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
-                          </svg>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-sky-300">Contact seller to buy</p>
-                          <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">Agree bank transfer, cash, or pickup in Messages. Keep the conversation on Sky Drop for your protection.</p>
+                          <p className="text-sm font-medium text-sky-300">Card checkout</p>
+                          <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">Review the listing carefully before purchasing. Keep agreements in Messages.</p>
                         </div>
                       </div>
                     </div>
@@ -2273,17 +2273,19 @@ Service Status: 🟢 Inquiry Active`;
                         </div>
                         {!!listing.rentalDeposit && (
                           <div className="mt-0.5 flex items-center justify-between text-[var(--muted)]">
-                            <span className="text-sky-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.3)]">🔒 Refundable Deposit</span>
+                            <span className="text-sky-400">Refundable deposit</span>
                             <span>${(Number(listing.rentalDeposit) || 0).toFixed(2)}</span>
                           </div>
                         )}
-                        <div className="mt-0.5 flex items-center justify-between text-[var(--muted)]">
-                          <span>Buyer Protection</span>
-                          <span>$1.00</span>
-                        </div>
+                        {!stripeDisabledV1 && (
+                          <div className="mt-0.5 flex items-center justify-between text-[var(--muted)]">
+                            <span>Platform fee</span>
+                            <span>$1.00</span>
+                          </div>
+                        )}
                         <div className="mt-1 flex items-center justify-between border-t border-zinc-700 pt-1 text-sm font-bold text-white">
-                          <span>Total</span>
-                          <span>${(Number(listing.price) * rentalDays + 1).toFixed(2)}</span>
+                          <span>{stripeDisabledV1 ? "Estimated total" : "Total"}</span>
+                          <span>${(Number(listing.price) * rentalDays + (stripeDisabledV1 ? 0 : 1)).toFixed(2)}</span>
                         </div>
                       </div>
                     )}
@@ -2291,8 +2293,10 @@ Service Status: 🟢 Inquiry Active`;
                       if (rentalDays < 1) { showToast("Select pickup and return dates", "info"); return; }
                       void openPurchaseFlow("rent-now");
                     }}
-                      className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 text-base font-bold text-white shadow-md shadow-sky-500/15 transition-all duration-200 hover:brightness-105 active:scale-[0.98]">
-                      Rent Now {rentalDays > 0 ? `— $${(Number(listing.price) * rentalDays + 1).toFixed(2)}` : ""}
+                      className="btn btn-primary w-full h-14 text-base">
+                      {stripeDisabledV1
+                        ? (rentalDays > 0 ? `Message to arrange — $${(Number(listing.price) * rentalDays).toFixed(2)}` : "Message Seller")
+                        : `Rent Now ${rentalDays > 0 ? `— $${(Number(listing.price) * rentalDays + 1).toFixed(2)}` : ""}`}
                     </button>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -2327,7 +2331,7 @@ Service Status: 🟢 Inquiry Active`;
             {/* Unverified Seller Notice */}
             {isNotVerified && user && user.email !== listing.sellerEmail && (
               <p className="text-[11px] text-[var(--muted)]">
-                New to Sky Drop — This seller recently joined. Keep all communication and payment within Sky Drop for protection. <Link href="#" className="text-sky-400/70 underline hover:text-sky-400/100">Learn about seller verification →</Link>
+                New to Sky Drop — This seller recently joined. Keep agreements in Messages. <Link href="/buyer-protection" className="text-sky-400/70 underline hover:text-sky-400">Stay safe tips →</Link>
               </p>
             )}
 
@@ -2715,29 +2719,18 @@ Service Status: 🟢 Inquiry Active`;
       {listing && stickyBarVisible && purchaseView.role !== "seller" && !purchaseView.hasActiveOrder && isListingVisibleInMarketplace(listing) && !isExpired && listing.type !== "job" && (
         <div className={MOBILE_STICKY_CTA}>
           {user ? (
-            <>
-              <button
-                onClick={() => void openPurchaseFlow("sticky-mobile")}
-                title={stripeDisabledV1 ? "Message Seller" : purchaseButtonTitle(effectivePaymentType)}
-                className="btn btn-primary flex-1 min-h-[48px]"
-              >
-                {stripeDisabledV1 ? "Message Seller" : primaryPurchaseLabel({
-                  paymentType: effectivePaymentType,
-                  price: listing.price,
-                  pricingType: listing.pricingType as string | undefined,
-                  hasExistingRequest: buyerArrangeRequestCount > 0,
-                })}
-              </button>
-              <button
-                onClick={() => router.push(sellerMessagesHref)}
-                className="btn btn-secondary min-h-[48px] min-w-[48px] px-4"
-              >
-                <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-                Message
-              </button>
-            </>
+            <button
+              onClick={() => void openPurchaseFlow("sticky-mobile")}
+              title={stripeDisabledV1 ? "Message Seller" : purchaseButtonTitle(effectivePaymentType)}
+              className="btn btn-primary flex-1 min-h-[48px]"
+            >
+              {stripeDisabledV1 ? "Message Seller" : primaryPurchaseLabel({
+                paymentType: effectivePaymentType,
+                price: listing.price,
+                pricingType: listing.pricingType as string | undefined,
+                hasExistingRequest: buyerArrangeRequestCount > 0,
+              })}
+            </button>
           ) : (
             <button
               onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))}

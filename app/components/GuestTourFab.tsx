@@ -16,14 +16,13 @@ export default function GuestTourFab() {
     <button
       type="button"
       onClick={startTour}
-      className={`${FAB_DOCK_POSITION} pointer-events-auto relative flex h-14 w-14 items-center justify-center rounded-full border border-sky-500/30 bg-gradient-to-br from-sky-500/20 to-sky-500/10 text-sky-300 shadow-lg shadow-sky-500/20 backdrop-blur-xl transition-all hover:scale-105 hover:border-sky-400/45 active:scale-95 light:border-sky-500/35 light:from-sky-100 light:to-white light:text-sky-700 light:shadow-[0_4px_20px_rgba(14,165,233,0.12)]`}
+      className={`${FAB_DOCK_POSITION} pointer-events-auto relative flex h-14 w-14 items-center justify-center rounded-full border border-sky-500/30 bg-[var(--card)] text-sky-400 shadow-[var(--shadow-md)] backdrop-blur-xl transition hover:border-sky-400/45 hover:bg-[var(--card-hover)] active:scale-95 light:border-sky-500/35 light:bg-white light:text-sky-700`}
       aria-label="Page tips"
       title="Take a tour"
     >
       <Lightbulb className="h-6 w-6" strokeWidth={1.75} />
       {hasUnseenTour && (
-        <span className="absolute flex h-3 w-3 -right-0.5 -top-0.5">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-75" />
+        <span className="absolute -right-0.5 -top-0.5 flex h-3 w-3">
           <span className="relative inline-flex h-3 w-3 rounded-full bg-sky-400" />
         </span>
       )}

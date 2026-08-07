@@ -10,20 +10,13 @@ export function isStripeCheckoutPurchase(paymentType?: string | null): boolean {
   return paymentType !== "contact";
 }
 
-export function stayOnSkyDropReasons(paymentType?: string | null): string[] {
-  if (paymentType === "contact") {
-    return [
-      "Your agreed price, pickup or shipping, and payment timing stay on record here.",
-      "If you report a problem, admins can review this chat — not SMS, WhatsApp, or email.",
-      "Scammers often move you off-platform so there is no proof of what was promised.",
-      V1_ARRANGE_SAFETY_ONE_LINER,
-    ];
-  }
+/** Messaging-first V1 reasons. Stripe dispute copy is intentionally omitted. */
+export function stayOnSkyDropReasons(_paymentType?: string | null): string[] {
   return [
-    "Stripe Checkout disputes are reviewed using your Sky Drop message history.",
-    "Open a dispute from Purchases within 7 days of delivery — include what was agreed in chat.",
-    "We cannot see texts or other apps; only Messages here count as evidence.",
-    "Moving off-platform weakens buyer protection and makes refunds harder to assess.",
+    "Your agreed price, pickup or shipping, and payment timing stay on record here.",
+    "If you report a problem, admins can review this chat — not SMS, WhatsApp, or email.",
+    "Scammers often move you off-platform so there is no proof of what was promised.",
+    V1_ARRANGE_SAFETY_ONE_LINER,
   ];
 }
 

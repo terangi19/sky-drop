@@ -675,6 +675,28 @@ select:focus-visible {
 :root:not(.light) .text-\[\#1e4976\] { color: rgba(255, 255, 255, 0.8) !important; }
 :root.light .text-white { color: #000000 !important; }
 :root.light header .text-white { color: #ffffff !important; }
+/* Keep white text on colored CTAs / badges in light mode */
+:root.light button.text-white,
+:root.light a.text-white,
+:root.light .btn.text-white,
+:root.light .btn-primary,
+:root.light .btn-primary *,
+:root.light [class*="bg-sky-"].text-white,
+:root.light [class*="from-sky-"].text-white,
+:root.light [class*="bg-red-"].text-white,
+:root.light [class*="from-red-"].text-white,
+:root.light [class*="bg-amber-"].text-white,
+:root.light [class*="bg-emerald-"].text-white,
+:root.light [class*="bg-gradient"].text-white,
+:root.light button .text-white,
+:root.light a.bg-sky-500,
+:root.light a[class*="from-sky-"],
+:root.light button[class*="from-sky-"],
+:root.light button[class*="bg-sky-"],
+:root.light button[class*="bg-red-"],
+:root.light a[class*="bg-sky-"] {
+  color: #ffffff !important;
+}
 /* Always-white utility — for dark surfaces only (nav, image overlays, chat) */
 .text-always-white { color: #ffffff !important; }
 :root.light .text-always-white { color: #ffffff !important; }
@@ -921,12 +943,11 @@ select:focus-visible {
 }
 
 .awhina-fab-primary.is-voice:not(.is-expanded) {
-  border-color: rgba(167, 139, 250, 0.45);
+  border-color: rgba(56, 189, 248, 0.4);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.07) inset,
     0 4px 18px rgba(0, 0, 0, 0.38),
-    0 0 0 3px rgba(139, 92, 246, 0.14),
-    0 10px 32px rgba(139, 92, 246, 0.18);
+    0 10px 32px rgba(14, 165, 233, 0.16);
 }
 
 .awhina-fab-gem {
@@ -1049,12 +1070,11 @@ select:focus-visible {
 }
 
 :root.light .awhina-fab-primary.is-voice:not(.is-expanded) {
-  border-color: rgba(139, 92, 246, 0.32);
+  border-color: rgba(14, 165, 233, 0.35);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.9) inset,
     0 2px 4px rgba(15, 23, 42, 0.05),
-    0 0 0 3px rgba(139, 92, 246, 0.08),
-    0 10px 28px rgba(139, 92, 246, 0.12);
+    0 10px 28px rgba(14, 165, 233, 0.12);
 }
 
 :root.light .awhina-fab-gem {

@@ -43,7 +43,7 @@ import {
 import { isRefundedStatus } from "../lib/refund-display";
 import BraveWarning from "../components/BraveWarning";
 import LoadingSpinner from "../components/LoadingSpinner";
-import { STAY_ON_SKY_DROP_HEADLINE } from "../lib/conversation-safety";
+import { STAY_ON_SKY_DROP_HEADLINE, V1_ARRANGE_SAFETY_ONE_LINER } from "../lib/conversation-safety";
 import { extractEmailsFromText,
   isEmailLike,
   publicHandleFromProfile,
@@ -1284,7 +1284,7 @@ function MessagesPage() {
               <button onClick={() => setShowSafetyWarning(false)} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
             </div>
             <p className="mt-2 text-sm text-[var(--foreground)]">
-              Your message mentions &ldquo;{riskyKeyword}&rdquo; — often used to move deals off Sky Drop. {STAY_ON_SKY_DROP_HEADLINE}: Stripe disputes need your chat history here (Purchases → Open dispute within 7 days). Off-platform chats cannot be reviewed.
+              Your message mentions &ldquo;{riskyKeyword}&rdquo; — often used to move deals off Sky Drop. {STAY_ON_SKY_DROP_HEADLINE} so there is a record of what you agreed. {V1_ARRANGE_SAFETY_ONE_LINER} Off-platform chats cannot be reviewed.
             </p>
             <div className="mt-4 flex gap-3">
               <button onClick={() => setShowSafetyWarning(false)} className="flex-1 rounded-xl border border-white/[0.08] bg-[var(--card)] py-3 text-sm font-bold text-[var(--foreground)] hover:bg-[var(--card-hover)]">Edit Message</button>
@@ -1715,7 +1715,7 @@ function MessagesPage() {
                                 ? listingCard.highestBidder ? "bg-sky-500 text-black" : "bg-[var(--soft-card)] text-[var(--foreground)]"
                                 : "bg-[var(--soft-card)] text-[var(--foreground)]"
                           }`}>
-                          {isAuctionWinner ? (listingCard.saleType === "auction_buy_now" ? "Proceed to Payment" : "Arrange Pickup")
+                          {isAuctionWinner ? (listingCard.saleType === "auction_buy_now" ? (stripeCheckoutVisible ? "Proceed to Payment" : "Message to arrange") : "Arrange Pickup")
                             : isAuctionSeller ? (listingCard.highestBidder ? "Awaiting Payment" : "View Listing")
                             : "View Listing"}
                         </Link>

@@ -69,7 +69,7 @@ export const BROWSE_CATEGORY_CONFIGS: Record<string, BrowseCategoryConfig> = {
     trustRow: [
       "Browse & filter by region",
       "Message owners directly",
-      "Secure booking through Sky Drop",
+      "Arrange pickup in chat",
     ],
   },
   service: {
@@ -170,8 +170,8 @@ export const BROWSE_CATEGORY_CONFIGS: Record<string, BrowseCategoryConfig> = {
     ],
     trustRow: [
       "Browse by category",
-      "Buy tickets securely",
-      "Buyer protection included",
+      "Message the organiser",
+      "Agree tickets in chat",
     ],
   },
   vehicle: {
@@ -195,7 +195,7 @@ export const BROWSE_CATEGORY_CONFIGS: Record<string, BrowseCategoryConfig> = {
     trustRow: [
       "Browse by region",
       "Message sellers directly",
-      "Buyer protection on card checkout",
+      "Arrange viewing in chat",
     ],
   },
   property: {

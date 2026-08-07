@@ -712,7 +712,7 @@ export default function Navbar() {
                   }`}
                 >
                   {active && (
-                    <span className="absolute top-0 left-1/2 h-[2px] w-8 -translate-x-1/2 rounded-full bg-gradient-to-r from-sky-400 to-sky-300 shadow-[0_0_8px_rgba(56,189,248,0.45)]" />
+                    <span className="absolute top-0 left-1/2 h-[2px] w-8 -translate-x-1/2 rounded-full bg-sky-400" />
                   )}
                   <span className={`relative ${active ? "text-sky-300" : ""}`}>
                     {item.icon}
@@ -741,7 +741,7 @@ export default function Navbar() {
               }`}
             >
               {mobileMenuOpen && (
-                <span className="absolute top-0 left-1/2 h-[2px] w-8 -translate-x-1/2 rounded-full bg-gradient-to-r from-sky-400 to-sky-300 shadow-[0_0_8px_rgba(56,189,248,0.45)]" />
+                <span className="absolute top-0 left-1/2 h-[2px] w-8 -translate-x-1/2 rounded-full bg-sky-400" />
               )}
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
