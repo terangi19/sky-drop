@@ -20,11 +20,25 @@ import {
   buildSearchFollowUpReply,
   rememberPrimarySearch,
 } from "./awhina-search-memory";
+import {
+  listingDraftSessionKey,
+  getListingDraftSession,
+  processListingFillMessage,
+  isListingFollowUp,
+} from "./awhina-listing-fill-tools";
+import {
+  profileDraftSessionKey,
+  processProfileMessage,
+} from "./awhina-profile-tools";
 import { awhinaArrangePurchaseReply, awhinaCapabilitiesReply } from "./awhina-personality";
 import { recordAwhinaObs } from "./awhina-observability";
 import { isSkyAiGeneralQuestion } from "./sky-ai-prompts";
 import { tryFindBrowseReply } from "./sky-ai-task-replies";
 import { hasListingSellIntent } from "./sky-ai-intent";
+import { hasActiveListingDraft } from "./sky-ai-draft-merge";
+import type { SkyAiListingContext } from "./sky-ai-types";
+import type { SkyAiProfileContext } from "./sky-ai-profile-context";
+import type { SkyAiProfileFill } from "./sky-ai-profile-fill";
 
 export type CanonicalContext = {
   pathname?: string;
@@ -35,6 +49,8 @@ export type CanonicalContext = {
   /** Voice / medium confidence — clarify before state-changing */
   source?: "text" | "voice";
   voiceConfidence?: "high" | "medium" | "low";
+  listingContext?: SkyAiListingContext | null;
+  profileContext?: SkyAiProfileContext | null;
 };
 
 export type CanonicalResult = {
@@ -42,6 +58,7 @@ export type CanonicalResult = {
   reply?: string;
   navigateTo?: string;
   listingFill?: Record<string, unknown>;
+  profileFill?: SkyAiProfileFill;
   source: "local" | "rules" | "tool" | "clarify";
   intent: string;
   tool?: string;
@@ -305,9 +322,11 @@ export function processCanonicalAwhina(
     }
   }
 
-  // Search follow-up memory (multi-turn refinements)
+  // Search follow-up memory (multi-turn refinements) — skip on sell/profile pages
+  const onSellPage = pathname.startsWith("/post/ai");
+  const onProfilePage = pathname === "/profile" || pathname.startsWith("/profile/");
   const session = getSearchSession(memKey);
-  if (isSearchFollowUp(trimmed, session) && session) {
+  if (!onSellPage && !onProfilePage && isSearchFollowUp(trimmed, session) && session) {
     const delta = extractSearchRefinement(trimmed);
     const merged = updateSearchSession(memKey, delta);
     if (merged.query || merged.location || merged.maxPrice) {
@@ -392,6 +411,83 @@ export function processCanonicalAwhina(
         usedLocalExecution: false,
         avoidedAi: true,
         toolCall: validated.ok ? toolCall : undefined,
+      });
+    }
+  }
+
+  // ── Sell listing-fill (partial draft updates + validation) ──
+  const onSell = pathname.startsWith("/post/ai");
+  const listKey = listingDraftSessionKey({
+    conversationId: context.conversationId,
+    uid: context.uid,
+    pathname,
+  });
+  const listSession = getListingDraftSession(listKey);
+  const hasListDraft =
+    hasActiveListingDraft(context.listingContext) || Boolean(listSession?.draft);
+  const sellCandidate =
+    onSell ||
+    hasListingSellIntent(trimmed) ||
+    isListingFollowUp(trimmed, hasListDraft);
+
+  if (sellCandidate) {
+    const listing = processListingFillMessage(trimmed, {
+      pathname: onSell ? pathname : "/post/ai",
+      listingContext: context.listingContext || (listSession?.draft as SkyAiListingContext) || null,
+      sessionKey: listKey,
+    });
+    if (listing.handled) {
+      const navigateTo =
+        !onSell && listing.listingFill
+          ? "/post/ai"
+          : undefined;
+      return finish({
+        handled: true,
+        reply: listing.reply,
+        listingFill: listing.listingFill,
+        navigateTo,
+        source: listing.clarify ? "clarify" : "tool",
+        intent: listing.intent,
+        tool: listing.toolCall?.tool || (listing.listingFill ? "createListing" : undefined),
+        confidence: listing.clarify ? 0.55 : 0.9,
+        usedLocalExecution: false,
+        avoidedAi: true,
+        clarificationQuestion: listing.clarify ? listing.reply : undefined,
+        toolCall: listing.toolCall,
+      });
+    }
+  }
+
+  // ── Profile AI (allowlisted fields only) ──
+  const onProfile = pathname === "/profile" || pathname.startsWith("/profile");
+  const profKey = profileDraftSessionKey({
+    conversationId: context.conversationId,
+    uid: context.uid,
+    pathname,
+  });
+  if (
+    onProfile ||
+    /\b(bio|username|instagram|my profile|update (my )?profile)\b/i.test(trimmed)
+  ) {
+    const profile = processProfileMessage(trimmed, {
+      pathname,
+      profileContext: context.profileContext || null,
+      sessionKey: profKey,
+    });
+    if (profile.handled) {
+      return finish({
+        handled: true,
+        reply: profile.reply,
+        profileFill: profile.profileFill,
+        navigateTo: profile.navigateTo,
+        source: profile.clarify ? "clarify" : "tool",
+        intent: profile.intent,
+        tool: profile.toolCall?.tool || (profile.profileFill ? "updateProfile" : undefined),
+        confidence: profile.clarify ? 0.55 : 0.9,
+        usedLocalExecution: false,
+        avoidedAi: true,
+        clarificationQuestion: profile.clarify ? profile.reply : undefined,
+        toolCall: profile.toolCall,
       });
     }
   }

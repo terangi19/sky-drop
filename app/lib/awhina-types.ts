@@ -88,6 +88,7 @@ export type AwhinaToolName =
   | "navigate"
   | "searchListings"
   | "createListing"
+  | "updateListingDraft"
   | "editListing"
   | "openMessages"
   | "openConversation"
@@ -113,6 +114,7 @@ export type AwhinaToolArguments = {
   navigate?: NavigateArgs;
   searchListings?: SearchListingsArgs;
   createListing?: CreateListingArgs;
+  updateListingDraft?: UpdateListingDraftArgs;
   editListing?: EditListingArgs;
   openMessages?: OpenMessagesArgs;
   openConversation?: OpenConversationArgs;
@@ -176,6 +178,21 @@ export interface CreateListingArgs {
   availableFrom?: string;
   minimumTenancy?: string;
   [key: string]: string | undefined;
+}
+
+/** Partial draft update — only provided fields change. */
+export interface UpdateListingDraftArgs {
+  title?: string;
+  description?: string;
+  category?: string;
+  subcategory?: string;
+  price?: string;
+  condition?: string;
+  location?: string;
+  pickupAvailable?: boolean;
+  shippingAvailable?: boolean;
+  keywords?: string[];
+  tags?: string[];
 }
 
 export interface EditListingArgs {

@@ -17,7 +17,6 @@ import { buildSkyAiSystemPrompt } from "../../lib/sky-ai-prompt";
 import { mergeListingFillWithDraft } from "../../lib/sky-ai-draft-merge";
 import {
   extractSkyAiReply,
-  stripSkyAiMachineTags,
   type SkyAiListingFill,
 } from "../../lib/sky-ai-listing-fill";
 import type { SkyAiHistoryItem, SkyAiListingContext } from "../../lib/sky-ai-types";
@@ -39,6 +38,15 @@ import { logAwhinaQualityIfNeeded } from "../../lib/sky-ai-quality-log";
 import { processCanonicalAwhina } from "../../lib/awhina-canonical";
 import { awhinaPersonalityPromptBlock } from "../../lib/awhina-personality";
 import { recordAwhinaObs } from "../../lib/awhina-observability";
+import {
+  extractProfileFill,
+  hasProfileFillContent,
+  type SkyAiProfileFill,
+} from "../../lib/sky-ai-profile-fill";
+import { finalizePageAwareResponse } from "../../lib/sky-ai-page-intent";
+import { validateListingFillFields } from "../../lib/awhina-listing-fill-tools";
+import { sanitizeProfileFillProposal } from "../../lib/awhina-profile-tools";
+import type { SkyAiProfileContext } from "../../lib/sky-ai-profile-context";
 
 function listingFillConfirmReply(fill: SkyAiListingFill | undefined): string {
   if (!fill) return "";
@@ -155,6 +163,27 @@ function parseListingContext(body: unknown): SkyAiListingContext | null {
     ([k, v]) => k !== "extras" && typeof v === "string" && v.length > 0
   );
   return hasScalar || (extras && extras.length > 0) ? draft : null;
+}
+
+function parseProfileContext(body: unknown): SkyAiProfileContext | null {
+  if (!body || typeof body !== "object") return null;
+  const c = body as Record<string, unknown>;
+  const fill: SkyAiProfileFill = {};
+  for (const key of [
+    "username",
+    "bio",
+    "region",
+    "discord",
+    "instagram",
+    "facebook",
+    "tiktok",
+    "youtube",
+    "website",
+    "businessName",
+  ] as const) {
+    if (typeof c[key] === "string" && c[key].trim()) fill[key] = c[key].trim();
+  }
+  return hasProfileFillContent(fill) ? fill : null;
 }
 
 function mergeFillWithContext(
@@ -281,6 +310,7 @@ export async function POST(req: NextRequest) {
     let conversationId =
       typeof body.conversationId === "string" ? body.conversationId.trim() : "";
     const listingContext = parseListingContext(body.listingContext);
+    const profileContext = parseProfileContext(body.profileContext);
     const images = parseSkyAiImages(body.images);
 
     if ((!message && images.length === 0) || message.length > 4000) {
@@ -295,8 +325,9 @@ export async function POST(req: NextRequest) {
     if (uid && conversationId) {
       try {
         const stored = await loadSkyAiMessages(conversationId, uid, 30);
-        // Trim to last useful turns for latency/tokens (keep more on sell page for draft edits)
-        const keep = pathname.startsWith("/post/ai") ? 12 : 8;
+        // Trim OpenAI context — sell/profile keep a few turns for follow-ups
+        const keep =
+          pathname.startsWith("/post/ai") || pathname.startsWith("/profile") ? 10 : 6;
         history = stored
           .map((m) => ({ role: m.role, content: m.content }))
           .slice(-keep);
@@ -314,10 +345,10 @@ export async function POST(req: NextRequest) {
             (h as SkyAiHistoryItem).role &&
             typeof (h as SkyAiHistoryItem).content === "string"
         )
-        .slice(-8)
+        .slice(-6)
         .map((h: SkyAiHistoryItem) => ({
           role: h.role === "assistant" ? "assistant" : "user",
-          content: String(h.content).slice(0, 2000),
+          content: String(h.content).slice(0, 1500),
         }));
     }
 
@@ -351,12 +382,9 @@ export async function POST(req: NextRequest) {
     pathname.startsWith("/post/ai") || !isNewTaskSwitch ? listingContext : null;
   const effectiveJustGeneratedListing = justGeneratedListing && !isNewTaskSwitch;
 
-  // ── Canonical Āwhina path (local + search memory + structured tools) ──
-  // Skip when images present or sell-page listing fill needs OpenAI.
-  const skipCanonical =
-    images.length > 0 ||
-    (pathname.startsWith("/post/ai") && hasListingIntent) ||
-    (pathname === "/profile" && message.length > 0 && !isSkyAiGeneralQuestion(message) && !/^(messages|home|sell|profile|back|go back)$/i.test(message.trim()));
+  // ── Canonical Āwhina (local + search + sell draft + profile) ──
+  // Images still need vision OpenAI; everything else prefers canonical first.
+  const skipCanonical = images.length > 0;
 
   if (!skipCanonical && message) {
     const canonical = processCanonicalAwhina(message, {
@@ -364,6 +392,8 @@ export async function POST(req: NextRequest) {
       uid,
       conversationId: conversationId || undefined,
       history,
+      listingContext: contextualListingContext,
+      profileContext,
       source: body.source === "voice" ? "voice" : "text",
       voiceConfidence:
         body.voiceConfidence === "medium" || body.voiceConfidence === "low"
@@ -374,17 +404,58 @@ export async function POST(req: NextRequest) {
     });
 
     if (canonical.handled && canonical.reply) {
-      const reply = stripBold(canonical.reply);
-      recordAwhinaQuality(req, message, pathname, reply, "rules", undefined, uid);
+      let reply = stripBold(canonical.reply);
+      let navigateTo = canonical.navigateTo;
+      let listingFill: SkyAiListingFill | undefined;
+      let profileFill: SkyAiProfileFill | undefined;
+
+      if (canonical.listingFill) {
+        const validated = validateListingFillFields(
+          canonical.listingFill as SkyAiListingFill
+        );
+        if (validated.ok) {
+          listingFill = finalizeListingFill(message, listingContext, validated.fill);
+        } else {
+          reply = validated.error;
+        }
+      }
+
+      if (canonical.profileFill) {
+        const sanitized = sanitizeProfileFillProposal(canonical.profileFill);
+        if (sanitized.ok) profileFill = sanitized.fill;
+      }
+
+      const pageAware = finalizePageAwareResponse(pathname, message, profileContext, {
+        reply,
+        navigateTo,
+        profileFill,
+      });
+      reply = stripBold(pageAware.reply);
+      navigateTo = pageAware.navigateTo;
+      if (pageAware.profileFill) profileFill = pageAware.profileFill;
+
+      recordAwhinaQuality(req, message, pathname, reply, "rules", listingFill, uid);
+      recordAwhinaObs({
+        intent: canonical.intent,
+        localVsAi: "rules",
+        tool: canonical.tool,
+        success: true,
+        latencyMs: canonical.executionTimeMs,
+        clarification: Boolean(canonical.clarificationQuestion),
+        pathname,
+        source: body.source === "voice" ? "voice" : "text",
+      });
       if (uid && conversationId) {
         await safePersist(() =>
-          appendSkyAiExchange(conversationId, uid, message, reply, canonical.navigateTo)
+          appendSkyAiExchange(conversationId, uid, message, reply, navigateTo)
         );
       }
       const payload = {
         reply,
-        navigateTo: canonical.navigateTo,
-        source: canonical.source === "local" ? ("rules" as const) : ("rules" as const),
+        navigateTo,
+        listingFill,
+        profileFill: profileFill && hasProfileFillContent(profileFill) ? profileFill : undefined,
+        source: "rules" as const,
         conversationId: conversationId || undefined,
         awhina: {
           intent: canonical.intent,
@@ -651,8 +722,25 @@ export async function POST(req: NextRequest) {
 
     const raw = completion.choices[0]?.message?.content || "";
     const { text, navigateTo, listingFill } = extractSkyAiReply(raw);
-    const mergedFill = finalizeListingFill(message, listingContext, listingFill);
-    const finalNav = pathname.startsWith("/post/ai") && navigateTo === "/post/ai" ? undefined : navigateTo;
+    let mergedFill = finalizeListingFill(message, listingContext, listingFill);
+    if (mergedFill) {
+      const validated = validateListingFillFields(mergedFill);
+      mergedFill = validated.ok ? validated.fill : undefined;
+    }
+    const extractedProfile = extractProfileFill(raw);
+    let profileFill: SkyAiProfileFill | undefined;
+    if (extractedProfile) {
+      const sanitized = sanitizeProfileFillProposal(extractedProfile);
+      if (sanitized.ok) profileFill = sanitized.fill;
+    }
+    const pageAware = finalizePageAwareResponse(pathname, message, profileContext, {
+      reply: text || listingFillConfirmReply(mergedFill) || raw,
+      navigateTo:
+        pathname.startsWith("/post/ai") && navigateTo === "/post/ai" ? undefined : navigateTo,
+      profileFill,
+    });
+    const finalNav = pageAware.navigateTo;
+    if (pageAware.profileFill) profileFill = pageAware.profileFill;
     if (listingFill || mergedFill) {
       console.log(`[Awhina] Listing fill: type=${listingFill?.listingType || mergedFill?.listingType}, title=${listingFill?.title || mergedFill?.title}, nav=${finalNav || "none"}`);
     }
@@ -664,17 +752,28 @@ export async function POST(req: NextRequest) {
     }
 
     const finalReply =
-      text ||
+      stripBold(pageAware.reply) ||
       listingFillConfirmReply(mergedFill) ||
       "I didn't catch that — try again, or tell me what you want to sell or find.";
     recordAwhinaQuality(req, message, pathname, finalReply, "ai", mergedFill, uid);
+    recordAwhinaObs({
+      intent: "legacy_openai",
+      localVsAi: "ai",
+      success: true,
+      latencyMs: 0,
+      clarification: false,
+      pathname,
+      source: "text",
+    });
 
     return NextResponse.json({
       reply: finalReply,
       navigateTo: finalNav,
       listingFill: mergedFill,
+      profileFill: profileFill && hasProfileFillContent(profileFill) ? profileFill : undefined,
       source: "ai",
       conversationId: conversationId || undefined,
+      awhina: { routing: "legacy_openai" },
     });
   } catch (e: unknown) {
     console.error("sky-ai error:", e);

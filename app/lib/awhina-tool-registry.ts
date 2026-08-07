@@ -14,6 +14,7 @@ import {
   NavigateArgs,
   SearchListingsArgs,
   CreateListingArgs,
+  UpdateListingDraftArgs,
   EditListingArgs,
   OpenMessagesArgs,
   OpenConversationArgs,
@@ -115,6 +116,27 @@ export const AWHINA_TOOLS = {
         },
       },
       required: ["listingType"],
+    },
+  },
+
+  updateListingDraft: {
+    name: "updateListingDraft",
+    description: "Partially update the active sell listing draft (only provided fields change)",
+    parameters: {
+      type: "object",
+      properties: {
+        title: { type: "string" },
+        description: { type: "string" },
+        category: { type: "string" },
+        subcategory: { type: "string" },
+        price: { type: "string" },
+        condition: { type: "string", enum: ["New", "Used - Like New", "Used - Good", "Used - Fair"] },
+        location: { type: "string" },
+        pickupAvailable: { type: "boolean" },
+        shippingAvailable: { type: "boolean" },
+        keywords: { type: "array", items: { type: "string" } },
+        tags: { type: "array", items: { type: "string" } },
+      },
     },
   },
 
@@ -296,6 +318,7 @@ const READ_ONLY_TOOLS = new Set<AwhinaToolName>([
 
 const STATE_CHANGING_TOOLS = new Set<AwhinaToolName>([
   "createListing",
+  "updateListingDraft",
   "editListing",
   "sendMessage",
   "arrangePurchase",
@@ -339,7 +362,39 @@ export function validateToolCall(toolCall: AwhinaToolCall | null | undefined): T
       break;
     }
     case "createListing": {
-      if (!args.createListing) return { ok: false, error: "createListing requires args" };
+      const cl = args.createListing;
+      if (!cl || typeof cl !== "object") return { ok: false, error: "createListing requires args" };
+      if (cl.listingType) {
+        const allowed = new Set(["physical", "digital", "service", "rental", "vehicle", "wanted"]);
+        if (!allowed.has(String(cl.listingType).toLowerCase())) {
+          return { ok: false, error: `Invalid listingType: ${cl.listingType}` };
+        }
+      }
+      if (cl.price !== undefined && cl.price !== "") {
+        const p = String(cl.price).replace(/,/g, "").trim();
+        if (!/^\d+(\.\d{1,2})?$/.test(p) || Number(p) < 0 || Number(p) > 10_000_000) {
+          return { ok: false, error: "Invalid listing price" };
+        }
+      }
+      break;
+    }
+    case "updateListingDraft": {
+      const u = args.updateListingDraft;
+      if (!u || typeof u !== "object") return { ok: false, error: "updateListingDraft requires args" };
+      const keys = Object.keys(u);
+      if (keys.length === 0) return { ok: false, error: "updateListingDraft requires at least one field" };
+      if (u.price !== undefined && u.price !== "") {
+        const p = String(u.price).replace(/,/g, "").trim();
+        if (!/^\d+(\.\d{1,2})?$/.test(p) || Number(p) < 0 || Number(p) > 10_000_000) {
+          return { ok: false, error: "Invalid listing price" };
+        }
+      }
+      if (u.condition) {
+        const allowed = new Set(["New", "Used - Like New", "Used - Good", "Used - Fair"]);
+        if (!allowed.has(String(u.condition))) {
+          return { ok: false, error: `Invalid condition: ${u.condition}` };
+        }
+      }
       break;
     }
     case "editListing": {
@@ -363,6 +418,42 @@ export function validateToolCall(toolCall: AwhinaToolCall | null | undefined): T
     case "updateProfile": {
       if (!args.updateProfile?.field || args.updateProfile.value === undefined) {
         return { ok: false, error: "updateProfile requires field and value" };
+      }
+      // Allowlist only — never admin/verification/ratings/trust/uid/role
+      const field = String(args.updateProfile.field).trim();
+      const ALLOWED = new Set([
+        "username",
+        "bio",
+        "region",
+        "discord",
+        "instagram",
+        "facebook",
+        "tiktok",
+        "youtube",
+        "website",
+        "businessName",
+        "favouriteCategories",
+      ]);
+      const FORBIDDEN = new Set([
+        "admin",
+        "role",
+        "verified",
+        "verification",
+        "trust",
+        "rating",
+        "ratings",
+        "reviews",
+        "uid",
+        "userId",
+        "permissions",
+        "isAdmin",
+        "kyc",
+      ]);
+      if (FORBIDDEN.has(field.toLowerCase()) || !ALLOWED.has(field)) {
+        return { ok: false, error: `updateProfile field not allowlisted: ${field}` };
+      }
+      if (typeof args.updateProfile.value !== "string" && typeof args.updateProfile.value !== "number") {
+        return { ok: false, error: "updateProfile value must be a string" };
       }
       break;
     }
@@ -406,6 +497,8 @@ export async function executeToolCall(
         return await executeSearchListings(toolCall.args.searchListings!);
       case "createListing":
         return await executeCreateListing(toolCall.args.createListing!);
+      case "updateListingDraft":
+        return await executeUpdateListingDraft(toolCall.args.updateListingDraft!);
       case "editListing":
         return await executeEditListing(toolCall.args.editListing!);
       case "openMessages":
@@ -478,6 +571,39 @@ async function executeCreateListing(args: CreateListingArgs): Promise<AwhinaTool
     data: { message: "Navigate to sell page with pre-filled data" },
     listingFill: args,
     navigateTo: "/post/ai",
+    executionTime: 0,
+  };
+}
+
+async function executeUpdateListingDraft(args: UpdateListingDraftArgs): Promise<AwhinaToolResult> {
+  const listingFill: CreateListingArgs = {};
+  if (args.title) listingFill.title = args.title;
+  if (args.description) listingFill.description = args.description;
+  if (args.category) listingFill.category = args.category;
+  if (args.price) listingFill.price = args.price;
+  if (args.condition) listingFill.condition = args.condition;
+  if (args.location) listingFill.location = args.location;
+  if (typeof args.pickupAvailable === "boolean") {
+    (listingFill as Record<string, string | undefined>).pickupAvailable = args.pickupAvailable
+      ? "true"
+      : "false";
+  }
+  if (typeof args.shippingAvailable === "boolean") {
+    (listingFill as Record<string, string | undefined>).shippingAvailable = args.shippingAvailable
+      ? "true"
+      : "false";
+  }
+  const tags = args.keywords || args.tags;
+  return {
+    success: true,
+    data: {
+      partial: true,
+      updates: args,
+      extras: tags,
+      pickupAvailable: args.pickupAvailable,
+      shippingAvailable: args.shippingAvailable,
+    },
+    listingFill,
     executionTime: 0,
   };
 }
