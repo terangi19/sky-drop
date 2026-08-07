@@ -30,6 +30,7 @@ import {
 import { hasListingSellIntent } from "./sky-ai-intent";
 import type { AwhinaToolCall } from "./awhina-types";
 import { validateToolCall } from "./awhina-tool-registry";
+import { suggestListingImprovements } from "./awhina-product-ux";
 
 const SESSION_TTL_MS = 30 * 60 * 1000;
 const MAX_SESSIONS = 400;
@@ -618,9 +619,16 @@ export function processListingFillMessage(
   const follow =
     !validated.fill.price || !validated.fill.condition
       ? ` Tell me price, condition, or pickup/shipping next — or add photos and publish when ready.`
-      : ` Add photos, then hit **Publish** when ready. Want any tweaks?`;
+      : ` Add photos, then hit **Publish** when ready.`;
 
-  return finishFill(`${changeNote}${follow}`, validated.fill, hasDraft ? "listing_update" : "listing_create");
+  // At most one useful improvement tip — don't overwhelm
+  const suggestion =
+    validated.fill.price && validated.fill.condition
+      ? suggestListingImprovements(validated.fill)
+      : null;
+  const tip = suggestion ? ` ${suggestion}` : "";
+
+  return finishFill(`${changeNote}${follow}${tip}`, validated.fill, hasDraft ? "listing_update" : "listing_create");
 }
 
 function finishFill(

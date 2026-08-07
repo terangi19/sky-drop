@@ -30,8 +30,12 @@ import {
   profileDraftSessionKey,
   processProfileMessage,
 } from "./awhina-profile-tools";
-import { awhinaArrangePurchaseReply, awhinaCapabilitiesReply } from "./awhina-personality";
-import { recordAwhinaObs } from "./awhina-observability";
+import {
+  awhinaArrangePurchaseReply,
+  awhinaCapabilitiesReply,
+  awhinaSafetyEducationReply,
+} from "./awhina-personality";
+import { recordAwhinaObs, inferQualityFromCanonical } from "./awhina-observability";
 import { isSkyAiGeneralQuestion } from "./sky-ai-prompts";
 import { tryFindBrowseReply } from "./sky-ai-task-replies";
 import { hasListingSellIntent } from "./sky-ai-intent";
@@ -39,6 +43,23 @@ import { hasActiveListingDraft } from "./sky-ai-draft-merge";
 import type { SkyAiListingContext } from "./sky-ai-types";
 import type { SkyAiProfileContext } from "./sky-ai-profile-context";
 import type { SkyAiProfileFill } from "./sky-ai-profile-fill";
+import {
+  taskScopeKey,
+  getTaskScope,
+  setActiveTask,
+  resolveTaskForMessage,
+  isRelativePricePhrase,
+} from "./awhina-task-scope";
+import {
+  isVagueShoppingNeed,
+  buildProactiveShoppingClarify,
+  isShoppingClarifyAnswer,
+  mergeClarifyIntoSearchMessage,
+  tryMarketplaceEducationReply,
+  isCompareRequest,
+  summarizeListingComparison,
+  parseCompareTitlesFromMessage,
+} from "./awhina-product-ux";
 
 export type CanonicalContext = {
   pathname?: string;
@@ -119,21 +140,33 @@ export function processCanonicalAwhina(
     uid: context.uid,
     pathname,
   });
+  const scopeKey = taskScopeKey({
+    conversationId: context.conversationId,
+    uid: context.uid,
+    pathname,
+  });
 
   const finish = (partial: Omit<CanonicalResult, "executionTimeMs">): CanonicalResult => {
     const result: CanonicalResult = {
       ...partial,
       executionTimeMs: Date.now() - start,
     };
+    const clarification = Boolean(result.clarificationQuestion);
     recordAwhinaObs({
       intent: result.intent,
       localVsAi: result.avoidedAi ? "local" : result.source === "rules" || result.source === "tool" ? "rules" : "ai",
       tool: result.tool,
       success: result.handled,
       latencyMs: result.executionTimeMs,
-      clarification: Boolean(result.clarificationQuestion),
+      clarification,
       pathname,
       source: context.source || "text",
+      quality: inferQualityFromCanonical({
+        intent: result.intent,
+        tool: result.tool,
+        clarification,
+        handled: result.handled,
+      }),
     });
     return result;
   };
@@ -200,6 +233,42 @@ export function processCanonicalAwhina(
         },
       });
     }
+  }
+
+  // Marketplace education — scam / safe pickup (messaging-first V1)
+  const edu = tryMarketplaceEducationReply(trimmed);
+  if (edu) {
+    setActiveTask(scopeKey, "help");
+    return finish({
+      handled: true,
+      reply: edu.includes("Stay on") ? edu : awhinaSafetyEducationReply(),
+      navigateTo: "/messages",
+      source: "rules",
+      intent: "education",
+      confidence: 0.95,
+      usedLocalExecution: false,
+      avoidedAi: true,
+    });
+  }
+
+  // Listing comparison — facts only, never invent
+  if (isCompareRequest(trimmed)) {
+    const titles = parseCompareTitlesFromMessage(trimmed);
+    const facts = titles.map((title) => ({ title }));
+    const reply = summarizeListingComparison(facts);
+    setActiveTask(scopeKey, "shopping", {
+      compareCandidates: titles.length ? titles : undefined,
+    });
+    return finish({
+      handled: true,
+      reply,
+      source: "rules",
+      intent: "compare",
+      confidence: 0.85,
+      usedLocalExecution: false,
+      avoidedAi: true,
+      clarificationQuestion: titles.length < 2 ? reply : undefined,
+    });
   }
 
   // Category / short nav locals beyond awhina-local-execution
@@ -325,11 +394,143 @@ export function processCanonicalAwhina(
   // Search follow-up memory (multi-turn refinements) — skip on sell/profile pages
   const onSellPage = pathname.startsWith("/post/ai");
   const onProfilePage = pathname === "/profile" || pathname.startsWith("/profile/");
+  const taskSession = getTaskScope(scopeKey);
+  const listKeyEarly = listingDraftSessionKey({
+    conversationId: context.conversationId,
+    uid: context.uid,
+    pathname,
+  });
+  const listSessionEarly = getListingDraftSession(listKeyEarly);
+  const hasListDraftEarly =
+    hasActiveListingDraft(context.listingContext) || Boolean(listSessionEarly?.draft);
+
+  // Task-scoped "make it cheaper": shopping → sort cheapest; selling → draft (later)
+  const taskForRelative = resolveTaskForMessage(trimmed, {
+    pathname,
+    hasListingDraft: hasListDraftEarly,
+    session: taskSession,
+    hasSellIntent: hasListingSellIntent(trimmed),
+    hasSearchIntent: false,
+  });
+  if (
+    !onSellPage &&
+    !onProfilePage &&
+    isRelativePricePhrase(trimmed) &&
+    taskForRelative === "shopping" &&
+    getSearchSession(memKey)?.filters?.query
+  ) {
+    const merged = updateSearchSession(memKey, { sortBy: "price-low" });
+    const { text, navigateTo } = buildSearchFollowUpReply(merged);
+    setActiveTask(scopeKey, "shopping");
+    const toolCall: AwhinaToolCall = {
+      tool: "searchListings",
+      args: {
+        searchListings: {
+          query: merged.query || "",
+          filters: {
+            maxPrice: merged.maxPrice ? Number(merged.maxPrice) : undefined,
+            location: merged.location,
+            condition: merged.condition,
+          },
+        },
+      },
+      confidence: 0.9,
+    };
+    return finish({
+      handled: true,
+      reply: text,
+      navigateTo,
+      source: "tool",
+      intent: "marketplace_search",
+      tool: "searchListings",
+      confidence: 0.9,
+      usedLocalExecution: false,
+      avoidedAi: true,
+      toolCall,
+    });
+  }
+
+  // Answer to proactive shopping clarification → search
+  if (
+    !onSellPage &&
+    !onProfilePage &&
+    taskSession?.task === "shopping" &&
+    taskSession.pendingItem &&
+    isShoppingClarifyAnswer(trimmed, taskSession.pendingItem)
+  ) {
+    const combined = mergeClarifyIntoSearchMessage(taskSession.pendingItem, trimmed);
+    rememberPrimarySearch(memKey, combined);
+    const delta = extractSearchRefinement(combined);
+    // Ensure query stays the pending item
+    if (!delta.query) delta.query = taskSession.pendingItem;
+    const merged = updateSearchSession(memKey, delta);
+    setActiveTask(scopeKey, "shopping", { pendingItem: undefined });
+    const { text, navigateTo } = buildSearchFollowUpReply(merged);
+    const toolCall: AwhinaToolCall = {
+      tool: "searchListings",
+      args: {
+        searchListings: {
+          query: merged.query || taskSession.pendingItem,
+          filters: {
+            maxPrice: merged.maxPrice ? Number(merged.maxPrice) : undefined,
+            location: merged.location,
+            condition: merged.condition,
+          },
+        },
+      },
+      confidence: 0.9,
+    };
+    return finish({
+      handled: true,
+      reply: text,
+      navigateTo,
+      source: "tool",
+      intent: "marketplace_search",
+      tool: "searchListings",
+      confidence: 0.9,
+      usedLocalExecution: false,
+      avoidedAi: true,
+      toolCall,
+    });
+  }
+
+  // Proactive clarify for vague shopping needs ("I need a PS5")
+  if (
+    !onSellPage &&
+    !onProfilePage &&
+    !hasListingSellIntent(trimmed) &&
+    isVagueShoppingNeed(trimmed)
+  ) {
+    const { reply, item } = buildProactiveShoppingClarify(trimmed);
+    setActiveTask(scopeKey, "shopping", { pendingItem: item });
+    return finish({
+      handled: true,
+      reply,
+      source: "clarify",
+      intent: "marketplace_search",
+      confidence: 0.7,
+      usedLocalExecution: false,
+      avoidedAi: true,
+      clarificationQuestion: reply,
+    });
+  }
+
   const session = getSearchSession(memKey);
-  if (!onSellPage && !onProfilePage && isSearchFollowUp(trimmed, session) && session) {
+  // Don't let search follow-ups steal selling relative-price when task is selling
+  const allowSearchFollowUp =
+    !onSellPage &&
+    !onProfilePage &&
+    !(
+      isRelativePricePhrase(trimmed) &&
+      taskForRelative === "selling" &&
+      hasListDraftEarly
+    );
+
+  if (allowSearchFollowUp && isSearchFollowUp(trimmed, session) && session) {
     const delta = extractSearchRefinement(trimmed);
     const merged = updateSearchSession(memKey, delta);
-    if (merged.query || merged.location || merged.maxPrice) {
+    setActiveTask(scopeKey, "shopping");
+    if (merged.query || merged.location || merged.maxPrice || merged.sortBy) {
       const { text, navigateTo } = buildSearchFollowUpReply(merged);
       const toolCall: AwhinaToolCall = {
         tool: "searchListings",
@@ -374,15 +575,16 @@ export function processCanonicalAwhina(
     });
     if (find) {
       rememberPrimarySearch(memKey, trimmed);
+      setActiveTask(scopeKey, "shopping");
       // Also merge any transmission from this message into session path
       const delta = extractSearchRefinement(trimmed);
       const merged = updateSearchSession(memKey, delta);
       const path =
-        merged.transmission || merged.condition
+        merged.transmission || merged.condition || merged.sortBy || merged.hideSold
           ? buildSearchFollowUpReply(merged).navigateTo
           : find.navigateTo;
       const text =
-        merged.transmission || merged.condition
+        merged.transmission || merged.condition || merged.sortBy || merged.hideSold
           ? buildSearchFollowUpReply(merged).text
           : find.text;
       const toolCall: AwhinaToolCall = {
@@ -417,18 +619,19 @@ export function processCanonicalAwhina(
 
   // ── Sell listing-fill (partial draft updates + validation) ──
   const onSell = pathname.startsWith("/post/ai");
-  const listKey = listingDraftSessionKey({
-    conversationId: context.conversationId,
-    uid: context.uid,
-    pathname,
-  });
-  const listSession = getListingDraftSession(listKey);
-  const hasListDraft =
-    hasActiveListingDraft(context.listingContext) || Boolean(listSession?.draft);
+  const listKey = listKeyEarly;
+  const listSession = listSessionEarly;
+  const hasListDraft = hasListDraftEarly;
   const sellCandidate =
     onSell ||
     hasListingSellIntent(trimmed) ||
-    isListingFollowUp(trimmed, hasListDraft);
+    (isListingFollowUp(trimmed, hasListDraft) &&
+      resolveTaskForMessage(trimmed, {
+        pathname,
+        hasListingDraft: hasListDraft,
+        session: taskSession,
+        hasSellIntent: hasListingSellIntent(trimmed),
+      }) === "selling");
 
   if (sellCandidate) {
     const listing = processListingFillMessage(trimmed, {
@@ -437,6 +640,7 @@ export function processCanonicalAwhina(
       sessionKey: listKey,
     });
     if (listing.handled) {
+      setActiveTask(scopeKey, "selling");
       const navigateTo =
         !onSell && listing.listingFill
           ? "/post/ai"

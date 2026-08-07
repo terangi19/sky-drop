@@ -12,6 +12,8 @@ import {
   resolveFindBrowseRoute,
 } from "./sky-ai-find-routing";
 
+export type SearchSortBy = "price-low" | "price-high" | "newest" | "distance" | "relevance";
+
 export type SearchSessionFilters = {
   query?: string;
   maxPrice?: string;
@@ -20,6 +22,12 @@ export type SearchSessionFilters = {
   category?: string;
   transmission?: string;
   condition?: string;
+  /** Natural sort: cheapest, newest, nearby */
+  sortBy?: SearchSortBy;
+  /** Hide sold / ended listings when true */
+  hideSold?: boolean;
+  /** Strict brand match e.g. "actually Xbox" */
+  brandStrict?: boolean;
 };
 
 export type SearchSession = {
@@ -40,7 +48,17 @@ const LOCATION_ONLY_RE =
 const BARE_CITY_RE =
   /^(only\s+)?(auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston north|new plymouth|rotorua|queenstown|invercargill|nelson|whangarei|gisborne)\s*(only)?$/i;
 const REFINEMENT_HINT =
-  /\b(under|up to|max|budget|only|just|filter|manual|automatic|auto|cvt|near|around|in|below|less than)\b/i;
+  /\b(under|up to|max|budget|only|just|filter|manual|automatic|auto|cvt|near|around|in|below|less than|cheapest|newest|nearby|hide sold|excellent|actually)\b/i;
+
+const CHEAPEST_RE =
+  /\b(cheapest|lowest price|best deals?|sort by price|price low to high|make it cheaper)\b/i;
+const NEWEST_RE = /\b(newest(?:\s+first)?|most recent|latest|just listed|newly listed)\b/i;
+const NEARBY_RE = /\b(nearby|closest|near me|close to me|nearest)\b/i;
+const HIDE_SOLD_RE = /\b(hide sold|without sold|exclude sold|active only|not sold|available only)\b/i;
+const BRAND_STRICT_RE =
+  /\b(?:actually|only|just|strictly)\s+(xbox|playstation|ps5|ps4|iphone|samsung|bmw|toyota|mazda|honda|nintendo|switch)\b/i;
+const EXCELLENT_ONLY_RE =
+  /\b(excellent(?:\s+condition)?(?:\s+only)?|only excellent|mint(?:\s+condition)?(?:\s+only)?)\b/i;
 
 function pruneSessions(): void {
   const now = Date.now();
@@ -90,8 +108,32 @@ export function parseTransmission(message: string): string | undefined {
 }
 
 export function parseConditionFilter(message: string): string | undefined {
+  if (EXCELLENT_ONLY_RE.test(message)) return "excellent";
   const m = message.match(CONDITION_RE);
   return m ? m[1].toLowerCase() : undefined;
+}
+
+export function parseSearchSort(message: string): SearchSortBy | undefined {
+  if (CHEAPEST_RE.test(message)) return "price-low";
+  if (NEWEST_RE.test(message)) return "newest";
+  if (NEARBY_RE.test(message)) return "distance";
+  return undefined;
+}
+
+export function parseHideSold(message: string): boolean | undefined {
+  if (HIDE_SOLD_RE.test(message)) return true;
+  return undefined;
+}
+
+export function parseBrandStrict(message: string): { brandStrict: true; query?: string } | undefined {
+  const m = message.match(BRAND_STRICT_RE);
+  if (!m) return undefined;
+  const brand = m[1];
+  const normalized =
+    /^ps/i.test(brand) || /playstation/i.test(brand)
+      ? brand.toUpperCase().replace("PLAYSTATION", "PlayStation")
+      : brand.charAt(0).toUpperCase() + brand.slice(1).toLowerCase();
+  return { brandStrict: true, query: normalized === "Xbox" ? "Xbox" : normalized };
 }
 
 /** Extract incremental filter deltas from a message. */
@@ -118,14 +160,32 @@ export function extractSearchRefinement(message: string): SearchSessionFilters {
   const condition = parseConditionFilter(message);
   if (condition) filters.condition = condition;
 
+  const sortBy = parseSearchSort(message);
+  if (sortBy) filters.sortBy = sortBy;
+
+  const hideSold = parseHideSold(message);
+  if (hideSold) filters.hideSold = true;
+
+  const brand = parseBrandStrict(message);
+  if (brand) {
+    filters.brandStrict = true;
+    if (brand.query) filters.query = brand.query;
+  }
+
   const term = extractFindSearchTerm(message);
   if (term !== "what you're after" && term.length >= 2) {
     // Don't treat pure refinement phrases as a new query
     const isPureRefine =
       REFINEMENT_HINT.test(message) &&
-      !/\b(bmw|bmws|toyota|mazda|honda|ford|iphone|ps5|laptop|cars?|utes?|vans?)\b/i.test(message) &&
-      (Boolean(budget) || Boolean(city) || Boolean(transmission) || BARE_CITY_RE.test(message.trim()));
-    if (!isPureRefine) {
+      !/\b(bmw|bmws|toyota|mazda|honda|ford|iphone|ps5|xbox|laptop|cars?|utes?|vans?)\b/i.test(message) &&
+      (Boolean(budget) ||
+        Boolean(city) ||
+        Boolean(transmission) ||
+        Boolean(sortBy) ||
+        Boolean(hideSold) ||
+        Boolean(condition) ||
+        BARE_CITY_RE.test(message.trim()));
+    if (!isPureRefine && !brand) {
       filters.query = term;
     }
   }
@@ -145,6 +205,9 @@ export function mergeSearchFilters(
     category: next.category ?? prior.category,
     transmission: next.transmission ?? prior.transmission,
     condition: next.condition ?? prior.condition,
+    sortBy: next.sortBy ?? prior.sortBy,
+    hideSold: next.hideSold ?? prior.hideSold,
+    brandStrict: next.brandStrict ?? prior.brandStrict,
   };
 }
 
@@ -163,14 +226,21 @@ export function isSearchFollowUp(
   message: string,
   session: SearchSession | null
 ): boolean {
-  if (!session?.filters?.query && !session?.filters?.location && !session?.filters?.maxPrice) {
+  if (
+    !session?.filters?.query &&
+    !session?.filters?.location &&
+    !session?.filters?.maxPrice &&
+    !session?.filters?.sortBy
+  ) {
     return false;
   }
   const m = message.trim();
   if (!m || m.length > 80) return false;
   if (BARE_CITY_RE.test(m)) return true;
   if (parseFindBudget(m) || parseFindCity(m) || parseTransmission(m)) return true;
-  if (REFINEMENT_HINT.test(m) && m.split(/\s+/).length <= 6) return true;
+  if (parseSearchSort(m) || parseHideSold(m) || parseBrandStrict(m)) return true;
+  if (EXCELLENT_ONLY_RE.test(m) || parseConditionFilter(m)) return true;
+  if (REFINEMENT_HINT.test(m) && m.split(/\s+/).length <= 8) return true;
   return false;
 }
 
@@ -183,6 +253,11 @@ export function buildSearchPathFromFilters(filters: SearchSessionFilters): strin
   if (filters.category) params.set("category", filters.category);
   if (filters.transmission) params.set("transmission", filters.transmission);
   if (filters.condition) params.set("condition", filters.condition);
+  if (filters.sortBy && filters.sortBy !== "relevance") {
+    params.set("sortBy", filters.sortBy);
+  }
+  if (filters.hideSold) params.set("hideSold", "1");
+  if (filters.brandStrict) params.set("brandStrict", "1");
   const qs = params.toString();
   return qs ? `/search?${qs}` : "/search";
 }
@@ -199,14 +274,26 @@ export function buildSearchFollowUpReply(filters: SearchSessionFilters): {
         location: filters.location,
       });
 
-  let line = filters.query
-    ? `Opening **${filters.query}** listings`
-    : "Opening search results";
+  // Natural / delight phrasing
+  let line: string;
+  if (filters.sortBy === "price-low" && filters.query) {
+    line = `Cheapest **${filters.query}** first`;
+  } else if (filters.sortBy === "newest" && filters.query) {
+    line = `Newest **${filters.query}** first`;
+  } else if (filters.sortBy === "distance" && filters.query) {
+    line = filters.location
+      ? `Closest **${filters.query}** near **${filters.location}**`
+      : `Closest **${filters.query}**`;
+  } else if (filters.query) {
+    line = `**${filters.query}** listings`;
+  } else {
+    line = "Search results";
+  }
 
   if (filters.maxPrice) {
     line += ` under **$${Number(filters.maxPrice).toLocaleString("en-NZ")}**`;
   }
-  if (filters.location) {
+  if (filters.location && filters.sortBy !== "distance") {
     line += ` in **${filters.location}**`;
   }
   if (filters.transmission) {
@@ -215,10 +302,24 @@ export function buildSearchFollowUpReply(filters: SearchSessionFilters): {
   if (filters.condition) {
     line += ` · **${filters.condition}**`;
   }
+  if (filters.hideSold) {
+    line += ` · hiding sold`;
+  }
+  if (filters.brandStrict) {
+    line += ` · exact brand`;
+  }
+
+  // Append sort params even when path came from buildFindSearchPath
+  let navigateTo = path;
+  if (!filters.query) {
+    navigateTo = buildSearchPathFromFilters(filters);
+  } else if (filters.sortBy || filters.hideSold || filters.brandStrict) {
+    navigateTo = buildSearchPathFromFilters(filters);
+  }
 
   return {
-    text: `${line}... [[NAV:${path}]]`,
-    navigateTo: path,
+    text: `${line}. [[NAV:${navigateTo}]]`,
+    navigateTo,
   };
 }
 
@@ -237,6 +338,11 @@ export function rememberPrimarySearch(
     location: parseFindCity(message),
     transmission: parseTransmission(message),
     condition: parseConditionFilter(message),
+    sortBy: parseSearchSort(message),
+    hideSold: parseHideSold(message),
+    brandStrict: parseBrandStrict(message)?.brandStrict,
   };
+  const brand = parseBrandStrict(message);
+  if (brand?.query) next.query = brand.query;
   return updateSearchSession(key, next);
 }
