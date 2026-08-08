@@ -20,6 +20,9 @@ import {
   categoriesForListingType,
   WANTED_LISTING_CATEGORIES,
   isMessagingOnlyListingType,
+  listingTypeHelperDescription,
+  LISTING_TYPE_HELPER_DESCRIPTIONS,
+  CANONICAL_LISTING_TYPES,
 } from "./listing-type-config";
 import { validateListingForPublish, clearCrossTypeFields } from "./listing-validation";
 import { normalizeServicePricingType, formatServicePriceDisplay } from "./service-pricing";
@@ -206,5 +209,20 @@ describe("CTA consistency", () => {
       "Message Provider"
     );
     expect(listingPrimaryCtaLabel({ type: "rental" })).toBe("Message Owner");
+  });
+});
+
+describe("listing type helper descriptions", () => {
+  it("covers every canonical type with the UX copy", () => {
+    for (const type of CANONICAL_LISTING_TYPES) {
+      expect(listingTypeHelperDescription(type)).toBe(LISTING_TYPE_HELPER_DESCRIPTIONS[type]);
+      expect(LISTING_TYPE_HELPER_DESCRIPTIONS[type].length).toBeGreaterThan(20);
+    }
+    expect(listingTypeHelperDescription("physical")).toContain("electronics");
+    expect(listingTypeHelperDescription("vehicle")).toContain("motorbike");
+    expect(listingTypeHelperDescription("service")).toContain("lawn mowing");
+    expect(listingTypeHelperDescription("rental")).toContain("temporary use");
+    expect(listingTypeHelperDescription("wanted")).toContain("looking to buy");
+    expect(listingTypeHelperDescription("event")).toBeUndefined();
   });
 });

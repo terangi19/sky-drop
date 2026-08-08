@@ -23,6 +23,7 @@ import {
   RENTAL_LISTING_CATEGORY_LIST,
   SERVICE_LISTING_CATEGORY_LIST,
   WANTED_LISTING_CATEGORIES,
+  listingTypeHelperDescription,
 } from "../../lib/listing-type-config";
 import { hasActiveListingDraft, mergeListingFillWithDraft } from "../../lib/sky-ai-draft-merge";
 import { readListingDraftFromSkyAi, syncListingDraftToSkyAi, clearListingDraftFromSkyAi } from "../../lib/sky-ai-listing-context";
@@ -399,6 +400,7 @@ export default function AIPostPage() {
               ? "Property"
               : "Physical";
 
+  const listingTypeHelper = listingTypeHelperDescription(listingType);
 
   const isVehicleListing =
     listingType === "vehicle" || (listingType === "physical" && category === "Cars");
@@ -1970,6 +1972,11 @@ export default function AIPostPage() {
                 </button>
               ))}
             </div>
+            {listingTypeHelper ? (
+              <p className="text-[11px] leading-relaxed text-zinc-500">
+                {listingTypeHelper}
+              </p>
+            ) : null}
           </div>
 
           <div className="space-y-4">

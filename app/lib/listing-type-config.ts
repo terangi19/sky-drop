@@ -13,6 +13,25 @@ export const CANONICAL_LISTING_TYPES = [
 
 export type CanonicalListingType = (typeof CANONICAL_LISTING_TYPES)[number];
 
+/** Short helper copy shown under the Type control on create/edit forms. */
+export const LISTING_TYPE_HELPER_DESCRIPTIONS: Record<CanonicalListingType, string> = {
+  physical:
+    "An item you're selling, such as electronics, clothing, furniture or collectibles.",
+  vehicle: "A car, motorbike, van or other vehicle you're selling.",
+  service:
+    "A service you provide, such as cleaning, lawn mowing, repairs or tutoring.",
+  rental: "Something you're offering for temporary use rather than selling.",
+  wanted: "Something you're looking to buy, find or hire.",
+};
+
+export function listingTypeHelperDescription(type?: string | null): string | undefined {
+  const t = (type || "").toLowerCase();
+  if ((CANONICAL_LISTING_TYPES as readonly string[]).includes(t)) {
+    return LISTING_TYPE_HELPER_DESCRIPTIONS[t as CanonicalListingType];
+  }
+  return undefined;
+}
+
 /** All persisted listing types (includes legacy verticals). */
 export const ALL_LISTING_TYPES = [
   ...CANONICAL_LISTING_TYPES,
