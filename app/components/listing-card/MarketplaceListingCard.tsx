@@ -254,7 +254,7 @@ export default memo(function MarketplaceListingCard({
         </div>
       )}
 
-      <div className="flex flex-1 flex-col p-3.5 sm:p-4">
+      <div className="flex flex-1 flex-col p-3 sm:p-4">
         <div className="flex min-h-6 items-center justify-between gap-2">
           <div className="flex gap-1.5 flex-wrap">
             <span className={`lc-chip rounded-md px-2 py-0.5 text-[10px] font-semibold`}>

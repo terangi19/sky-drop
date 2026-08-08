@@ -69,6 +69,7 @@ export default function SearchPage() {
   const [rentalPeriodFilter, setRentalPeriodFilter] = useState("all");
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [searchSaved, setSearchSaved] = useState(false);
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const urlFilterState = useMemo(
     () => ({
       maxPrice: searchParams.get("maxPrice") || "",
@@ -382,8 +383,43 @@ export default function SearchPage() {
           )}
         </div>
 
-        {/* Filter Controls */}
-        <div className="mb-6 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 sm:p-5">
+        {/* Mobile filter trigger */}
+        <div className="mb-4 flex items-center gap-2 sm:hidden">
+          <button
+            type="button"
+            onClick={() => setFilterSheetOpen(true)}
+            className="btn btn-secondary min-h-[44px] flex-1 gap-2"
+            aria-haspopup="dialog"
+            aria-expanded={filterSheetOpen}
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+            </svg>
+            Filters
+            {hasActiveFilters && (
+              <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-[10px] font-bold text-sky-400">On</span>
+            )}
+          </button>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={() => {
+                setMinPrice("");
+                setMaxPrice("");
+                setCondition("all");
+                setLocation("");
+                setSortBy("newest");
+                setSaleType("all");
+              }}
+              className="min-h-[44px] shrink-0 rounded-xl border border-red-500/20 bg-red-500/5 px-3 text-xs font-semibold text-red-400"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        {/* Desktop filter controls */}
+        <div className="mb-6 hidden rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 sm:block sm:p-5 light:border-black/[0.08] light:bg-[var(--soft-card)]">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-semibold text-[var(--foreground)]">Refine results</h2>
@@ -406,36 +442,17 @@ export default function SearchPage() {
             )}
           </div>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-            {/* Price Range */}
             <div className="flex flex-col gap-1.5">
               <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">{typeFilter === "wanted" ? "Budget" : typeFilter === "rental" ? "Rate" : "Price Range"}</label>
               <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  placeholder="Min"
-                  value={minPrice}
-                  onChange={(e) => setMinPrice(e.target.value)}
-                  className="w-full min-w-0 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-sky-500/40"
-                />
+                <input type="number" inputMode="decimal" placeholder="Min" value={minPrice} onChange={(e) => setMinPrice(e.target.value)} className="w-full min-w-0 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--foreground)] outline-none focus:border-sky-500/40" />
                 <span className="text-[var(--muted)]">-</span>
-                <input
-                  type="number"
-                  placeholder="Max"
-                  value={maxPrice}
-                  onChange={(e) => setMaxPrice(e.target.value)}
-                  className="w-full min-w-0 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-sky-500/40"
-                />
+                <input type="number" inputMode="decimal" placeholder="Max" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} className="w-full min-w-0 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--foreground)] outline-none focus:border-sky-500/40" />
               </div>
             </div>
-
-            {/* Condition */}
             <div className="flex flex-col gap-1.5">
               <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Condition</label>
-              <select
-                value={condition}
-                onChange={(e) => setCondition(e.target.value)}
-                className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-sky-500/40"
-              >
+              <select value={condition} onChange={(e) => setCondition(e.target.value)} className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--foreground)] outline-none focus:border-sky-500/40">
                 <option value="all">All</option>
                 <option value="New">New</option>
                 <option value="Used">Used</option>
@@ -443,51 +460,88 @@ export default function SearchPage() {
                 <option value="For parts">For parts</option>
               </select>
             </div>
-
-            {/* Location */}
             <div className="flex flex-col gap-1.5">
               <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Location</label>
-              <input
-                type="text"
-                placeholder="Any city or region"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-sky-500/40"
-              />
+              <input type="text" placeholder="Any city or region" value={location} onChange={(e) => setLocation(e.target.value)} className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--foreground)] outline-none focus:border-sky-500/40" />
             </div>
-
-            {/* Sort */}
             <div className="flex flex-col gap-1.5">
               <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Sort By</label>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-sky-500/40"
-              >
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--foreground)] outline-none focus:border-sky-500/40">
                 <option value="newest">Newest</option>
                 <option value="price-low">Price: Low to High</option>
                 <option value="price-high">Price: High to Low</option>
                 <option value="popular">Most Popular</option>
               </select>
             </div>
-
-            {/* Sale Type */}
             <div className="flex flex-col gap-1.5">
               <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Sale Type</label>
-              <select
-                value={saleType}
-                onChange={(e) => setSaleType(e.target.value)}
-                className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-sky-500/40"
-              >
+              <select value={saleType} onChange={(e) => setSaleType(e.target.value)} className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2.5 text-sm text-[var(--foreground)] outline-none focus:border-sky-500/40">
                 <option value="all">All</option>
                 <option value="auction">Auctions</option>
                 <option value="buy_now">Fixed price</option>
                 <option value="auction_buy_now">Auction + fixed price</option>
               </select>
             </div>
-
           </div>
         </div>
+
+        {/* Mobile filter bottom sheet */}
+        {filterSheetOpen && (
+          <div className="fixed inset-0 z-[10030] sm:hidden" role="dialog" aria-modal="true" aria-label="Filters">
+            <button type="button" className="absolute inset-0 bg-black/55 backdrop-blur-[2px]" aria-label="Close filters" onClick={() => setFilterSheetOpen(false)} />
+            <div className="absolute inset-x-0 bottom-0 max-h-[min(85dvh,640px)] overflow-y-auto overscroll-contain rounded-t-2xl border border-[var(--card-border)] bg-[var(--card)] px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px)+var(--mobile-nav-height,0px))] pt-3 shadow-[var(--shadow-lg)]">
+              <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[var(--border-subtle)]" aria-hidden />
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h2 className="text-base font-semibold text-[var(--foreground)]">Filters</h2>
+                <button type="button" onClick={() => setFilterSheetOpen(false)} className="touch-target rounded-xl px-3 text-sm font-semibold text-sky-400">
+                  Done
+                </button>
+              </div>
+              <div className="grid gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">{typeFilter === "wanted" ? "Budget" : typeFilter === "rental" ? "Rate" : "Price Range"}</label>
+                  <div className="flex items-center gap-2">
+                    <input type="number" inputMode="decimal" placeholder="Min" value={minPrice} onChange={(e) => setMinPrice(e.target.value)} className="w-full min-w-0 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-3 text-base text-[var(--foreground)] outline-none focus:border-sky-500/40" />
+                    <span className="text-[var(--muted)]">-</span>
+                    <input type="number" inputMode="decimal" placeholder="Max" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} className="w-full min-w-0 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-3 text-base text-[var(--foreground)] outline-none focus:border-sky-500/40" />
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Condition</label>
+                  <select value={condition} onChange={(e) => setCondition(e.target.value)} className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-3 text-base text-[var(--foreground)] outline-none focus:border-sky-500/40">
+                    <option value="all">All</option>
+                    <option value="New">New</option>
+                    <option value="Used">Used</option>
+                    <option value="Refurbished">Refurbished</option>
+                    <option value="For parts">For parts</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Location</label>
+                  <input type="text" placeholder="Any city or region" value={location} onChange={(e) => setLocation(e.target.value)} className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-3 text-base text-[var(--foreground)] outline-none focus:border-sky-500/40" />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Sort By</label>
+                  <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-3 text-base text-[var(--foreground)] outline-none focus:border-sky-500/40">
+                    <option value="newest">Newest</option>
+                    <option value="price-low">Price: Low to High</option>
+                    <option value="price-high">Price: High to Low</option>
+                    <option value="popular">Most Popular</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Sale Type</label>
+                  <select value={saleType} onChange={(e) => setSaleType(e.target.value)} className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-3 text-base text-[var(--foreground)] outline-none focus:border-sky-500/40">
+                    <option value="all">All</option>
+                    <option value="auction">Auctions</option>
+                    <option value="buy_now">Fixed price</option>
+                    <option value="auction_buy_now">Auction + fixed price</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div>

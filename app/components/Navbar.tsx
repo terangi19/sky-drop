@@ -133,7 +133,6 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const mobileMenuRef = useRef<HTMLDivElement>(null);
-  const hamburgerRef = useRef<HTMLButtonElement>(null);
   const toggleLockRef = useRef(false);
 
   const toggleMobileMenu = useCallback(() => {
@@ -257,9 +256,8 @@ export default function Navbar() {
       const target = e.target as HTMLElement | null;
       if (!target) return;
       const isInsideMenu = mobileMenuRef.current?.contains(target);
-      const isInsideToggle = hamburgerRef.current?.contains(target);
       const isMoreTab = Boolean(target.closest("[data-mobile-more-tab]"));
-      if (!isInsideMenu && !isInsideToggle && !isMoreTab) {
+      if (!isInsideMenu && !isMoreTab) {
         closeMobileMenu();
       }
     }
@@ -317,6 +315,7 @@ export default function Navbar() {
     "text-[var(--nav-ice)] bg-white/[0.08]";
 
   return (
+    <>
     <header className="site-navbar relative sticky top-0 z-[9999] border-b border-white/[0.06] backdrop-blur-xl light:border-black/[0.08]" style={{ backgroundColor: "var(--nav-bg)" }}>
       <div className="mx-auto flex h-14 items-center gap-3 px-4 md:h-16 md:gap-4 md:px-6 lg:max-w-7xl">
 
@@ -406,48 +405,31 @@ export default function Navbar() {
             )}
           </nav>
 
-          {/* Hamburger — opens full mobile menu */}
-          <button
-            ref={hamburgerRef}
-            type="button"
-            onClick={toggleMobileMenu}
-            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-            aria-expanded={mobileMenuOpen}
-            aria-controls="mobile-nav-menu"
-            className={`lg:hidden relative flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border transition-all duration-200 active:scale-95 ${
-              mobileMenuOpen
-                ? "border-sky-400/40 bg-sky-500/15 text-sky-200"
-                : "border-white/[0.12] bg-white/[0.06] text-[var(--nav-ice)] hover:bg-white/[0.1] hover:border-white/[0.18]"
-            }`}
-          >
-            <div className="relative h-5 w-5">
-              <svg
-                className={`absolute inset-0 h-5 w-5 transition-all duration-200 ${
-                  mobileMenuOpen ? "opacity-0 rotate-90 scale-75" : "opacity-100 rotate-0 scale-100"
-                }`}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+          {/* Mobile chrome — theme + notifications (More menu is bottom bar only; no duplicate hamburger) */}
+          <div className="flex items-center gap-0.5 lg:hidden">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl text-[var(--nav-ice-muted)] hover:bg-white/[0.06] hover:text-[var(--nav-ice)] transition-colors duration-150 active:scale-[0.97]"
+              aria-label="Toggle theme"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
               </svg>
-              <svg
-                className={`absolute inset-0 h-5 w-5 transition-all duration-200 ${
-                  mobileMenuOpen ? "opacity-100 rotate-0 scale-100" : "opacity-0 -rotate-90 scale-75"
-                }`}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth="2"
+            </button>
+            {!authLoading && user && (
+              <Link
+                href="/notifications"
+                aria-label={activityCount > 0 ? `Notifications, ${activityCount} unread` : "Notifications"}
+                className={`relative flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl transition-colors duration-150 ${isActive("/notifications") ? "bg-white/[0.08] text-[var(--nav-ice)]" : "text-[var(--nav-ice-muted)] hover:bg-white/[0.06] hover:text-[var(--nav-ice)]"}`}
               >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </div>
-          </button>
+                <NotificationBell count={activityCount} className="h-full w-full bg-transparent hover:bg-transparent" />
+              </Link>
+            )}
+          </div>
 
-          {/* RIGHT ICONS — theme + notifications only (messages live in nav / mobile bar) */}
-          <div className="hidden md:flex items-center gap-0.5">
+          {/* Desktop RIGHT ICONS — theme + notifications */}
+          <div className="hidden lg:flex items-center gap-0.5">
             <button
               onClick={toggleTheme}
               className="flex h-9 w-9 items-center justify-center rounded-xl text-[var(--nav-ice-muted)] hover:bg-white/[0.06] hover:text-[var(--nav-ice)] transition-all duration-200"
@@ -470,7 +452,7 @@ export default function Navbar() {
           </div>
 
           {/* PROFILE — desktop */}
-          <div className="hidden md:flex items-center gap-2">
+          <div className="hidden lg:flex items-center gap-2">
             {authLoading ? (
               <div className="h-9 w-28 animate-pulse rounded-xl bg-white/[0.06]" />
             ) : user ? (
@@ -517,8 +499,9 @@ export default function Navbar() {
           </div>
         </div>
       </div>
+    </header>
 
-      {/* Mobile menu sheet */}
+      {/* Mobile menu sheet — outside blurred header so fixed positions to viewport */}
       {mobileMenuOpen && (
         <button
           type="button"
@@ -530,7 +513,7 @@ export default function Navbar() {
       <div
         id="mobile-nav-menu"
         ref={mobileMenuRef}
-        className={`fixed inset-x-0 top-16 z-[10001] max-h-[min(80vh,calc(100dvh-4rem-var(--mobile-nav-offset,0px)))] overflow-y-auto overscroll-contain border-b border-white/[0.08] bg-[var(--nav-bg)] backdrop-blur-2xl shadow-2xl shadow-black/50 lg:hidden light:border-black/[0.1] light:bg-white/98 transition-all duration-200 ease-out ${
+        className={`fixed inset-x-0 top-14 z-[10001] max-h-[min(80vh,calc(100dvh-3.5rem-var(--mobile-nav-offset,0px)))] overflow-y-auto overscroll-contain border-b border-white/[0.08] bg-[var(--nav-bg)] backdrop-blur-2xl shadow-2xl shadow-black/50 md:top-16 lg:hidden light:border-black/[0.1] light:bg-white/98 transition-all duration-200 ease-out ${
           mobileMenuOpen
             ? "opacity-100 translate-y-0 visible pointer-events-auto"
             : "opacity-0 -translate-y-2 invisible pointer-events-none"
@@ -574,16 +557,13 @@ export default function Navbar() {
               { href: "/dashboard", label: "Dashboard", d: "M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" },
               { href: "/list-list", label: "My Listings", d: "M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" },
               { href: "/watchlist", label: "Watchlist", d: "M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" },
-              { href: "/messages", label: "Messages", d: "M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.75 15.75v-.75a5.25 5.25 0 0110.5 0v.75c0 .728-.195 1.413-.536 2.005A8.966 8.966 0 0121 12z" },
-              { href: "/notifications", label: "Notifications", d: "M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" },
-              { href: "/post/ai", label: "Sell with Āwhina", d: "M12 4.5v15m7.5-7.5h-15" },
               { href: "/purchases", label: "Past purchases", d: "M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007z" },
               { href: "/sales", label: "Past sales", d: "M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" },
             ] as const
           ).map((item) => (
             <Link
               key={item.href}
-              href={user || item.href === "/post/ai" ? item.href : `/login?redirect=${encodeURIComponent(item.href)}`}
+              href={user ? item.href : `/login?redirect=${encodeURIComponent(item.href)}`}
               onClick={closeMobileMenu}
               className={`flex min-h-[48px] items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition-colors ${
                 isActive(item.href)
@@ -595,34 +575,8 @@ export default function Navbar() {
                 <MenuIcon d={item.d} />
               </span>
               {item.label}
-              {item.href === "/messages" && msgCount > 0 && (
-                <span className="ml-auto rounded-full bg-sky-500/90 px-2 py-0.5 text-[10px] font-semibold text-white">
-                  {msgCount > 9 ? "9+" : msgCount}
-                </span>
-              )}
-              {item.href === "/notifications" && activityCount > 0 && (
-                <span className="ml-auto rounded-full bg-sky-500 px-2 py-0.5 text-[10px] font-bold text-white">
-                  {activityCount > 9 ? "9+" : activityCount}
-                </span>
-              )}
             </Link>
           ))}
-
-          <div className="my-2 mx-3 border-t border-white/[0.06] light:border-black/[0.08]" />
-          <button
-            type="button"
-            onClick={() => {
-              toggleTheme();
-            }}
-            className="flex min-h-[48px] w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-bold text-gray-200 hover:bg-white/[0.06] light:text-gray-800 light:hover:bg-black/[0.04]"
-          >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.05] text-sky-400 light:bg-black/[0.04]" aria-hidden>
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364 1.386l-1.591 1.591M21 12h-2.25m-1.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
-              </svg>
-            </span>
-            Toggle theme
-          </button>
 
           {authLoading ? (
             <div className="px-3 py-3">
@@ -684,9 +638,8 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile bottom bar — icon + label, 44px+ touch targets */}
-      {!authLoading && (
-        <nav
+      {/* Mobile bottom bar — icon + label, 44px+ touch targets (show during auth load as guest) */}
+      <nav
           className="fixed bottom-0 left-0 right-0 z-[9999] border-t border-white/[0.06] bg-[var(--nav-bg)] backdrop-blur-xl lg:hidden light:border-black/[0.08]"
           style={{ backgroundColor: "var(--nav-bg)" }}
           aria-label="Primary"
@@ -695,7 +648,7 @@ export default function Navbar() {
             className="mx-auto flex max-w-lg items-stretch justify-around px-1"
             style={{ paddingBottom: "max(6px, env(safe-area-inset-bottom, 0px))" }}
           >
-            {(user
+            {((!authLoading && user)
               ? MOBILE_NAV_ITEMS
               : MOBILE_NAV_ITEMS.filter(
                   (item) => item.href === "/" || item.href === "/search" || item.href === "/post/ai"
@@ -718,24 +671,27 @@ export default function Navbar() {
                   key={item.href}
                   href={href}
                   aria-current={active ? "page" : undefined}
-                  className={`relative flex min-h-[52px] min-w-[56px] flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1 pt-1.5 transition-colors duration-200 active:scale-[0.96] ${
+                  className={`relative flex min-h-[52px] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 pt-1.5 transition-colors duration-200 active:scale-[0.96] ${
                     active
                       ? "text-sky-300"
                       : "text-[var(--nav-ice-faint)] hover:text-[var(--nav-ice-muted)]"
                   }`}
                 >
                   {active && (
-                    <span className="absolute top-0 left-1/2 h-[2px] w-8 -translate-x-1/2 rounded-full bg-sky-400" />
+                    <span className="absolute top-0 left-1/2 h-[2px] w-7 -translate-x-1/2 rounded-full bg-sky-400" />
                   )}
                   <span className={`relative ${active ? "text-sky-300" : ""}`}>
                     {item.icon}
                     {showBadge && (
-                      <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-sky-500 px-1 text-[9px] font-bold text-white">
+                      <span
+                        className="absolute -right-1.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-sky-500/90 px-0.5 text-[8px] font-bold leading-none text-white"
+                        aria-hidden
+                      >
                         {msgCount > 9 ? "9+" : msgCount}
                       </span>
                     )}
                   </span>
-                  <span className={`text-[10px] font-semibold tracking-wide ${active ? "text-sky-200" : ""}`}>
+                  <span className={`max-w-full truncate text-[10px] font-semibold tracking-wide ${active ? "text-sky-200" : ""}`}>
                     {item.label}
                   </span>
                 </Link>
@@ -747,7 +703,8 @@ export default function Navbar() {
               onClick={toggleMobileMenu}
               aria-label={mobileMenuOpen ? "Close menu" : "More menu"}
               aria-expanded={mobileMenuOpen}
-              className={`relative flex min-h-[52px] min-w-[56px] flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1 pt-1.5 transition-colors duration-200 active:scale-[0.96] ${
+              aria-controls="mobile-nav-menu"
+              className={`relative flex min-h-[52px] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 pt-1.5 transition-colors duration-200 active:scale-[0.96] ${
                 mobileMenuOpen
                   ? "text-sky-300"
                   : "text-[var(--nav-ice-faint)] hover:text-[var(--nav-ice-muted)]"
@@ -765,7 +722,6 @@ export default function Navbar() {
             </button>
           </div>
         </nav>
-      )}
       <style jsx global>{`
         :root {
           --mobile-nav-height: 56px;
@@ -784,7 +740,6 @@ export default function Navbar() {
           }
         }
       `}</style>
-
-    </header>
+    </>
   );
 }

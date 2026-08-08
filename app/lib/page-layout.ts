@@ -32,13 +32,13 @@ export const PAGE_SHELL_CHAT = [
  * 2 cols from sm, then scale up on larger screens.
  */
 export const LISTING_GRID =
-  "grid items-stretch gap-4 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-5 4xl:grid-cols-5 5xl:grid-cols-5";
+  "grid items-stretch gap-3 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-5 4xl:grid-cols-5 5xl:grid-cols-5";
 
 export const LISTING_GRID_MT = `mt-4 ${LISTING_GRID}`;
 
 /** Dense 2-col watchlist/manage grids — keep readable gaps on mobile. */
 export const LISTING_GRID_DENSE =
-  "grid items-stretch gap-3 grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4";
+  "grid items-stretch gap-2.5 grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4";
 
 /**
  * Sticky mobile CTA sits above the bottom nav via --mobile-nav-offset.

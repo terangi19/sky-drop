@@ -170,29 +170,29 @@ export default function ListListPage() {
   useAwhinaInsightEffect(awhinaInsight);
 
   return (
-    <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+    <main className="relative min-h-screen overflow-x-clip bg-[var(--background)] text-[var(--foreground)]">
       <Background />
       <Navbar />
 
-      <div className={`${PAGE_SHELL_CHAT} py-8 sm:py-12`}>
+      <div className={`${PAGE_SHELL_CHAT} py-5 sm:py-12`}>
 
         {/* Header */}
-        <div className="mb-8 sm:mb-10">
-          <Link href="/" className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-sm text-zinc-400 transition hover:border-sky-500/30 hover:bg-white/[0.06] hover:text-sky-400 sm:mb-5">
+        <div className="mb-6 overflow-x-clip sm:mb-10">
+          <Link href="/" className="mb-4 inline-flex min-h-[44px] items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-sm text-zinc-400 transition hover:border-sky-500/30 hover:bg-white/[0.06] hover:text-sky-400 sm:mb-5">
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
             Back
           </Link>
-          <div className="relative flex flex-col items-center gap-4 text-center">
-            <div className="absolute -inset-20 -z-10 bg-gradient-to-r from-sky-500/10 via-sky-500/5 to-transparent blur-3xl opacity-60" />
+          <div className="relative flex flex-col items-center gap-3 overflow-hidden text-center sm:gap-4">
+            <div className="pointer-events-none absolute -inset-8 -z-10 bg-gradient-to-r from-sky-500/10 via-sky-500/5 to-transparent blur-3xl opacity-60" aria-hidden />
             <div className="inline-flex items-center gap-2 rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-sky-300">
-              <span className="h-1.5 w-1.5 rounded-full bg-sky-400 animate-pulse" />
+              <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
               Seller Dashboard
             </div>
-            <h1 className="relative text-4xl sm:text-5xl font-black tracking-tight">
-              <span className="text-white drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">My Listings</span>
+            <h1 className="relative text-2xl font-black tracking-tight sm:text-5xl">
+              <span className="text-[var(--foreground)] drop-shadow-[0_0_12px_rgba(14,165,233,0.25)]">My Listings</span>
             </h1>
-            <BrowseAwhinaAssistantPanel className="relative mx-auto mb-0 mt-4 w-full max-w-2xl text-left" />
-            <Link href="/post/ai" className="relative inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2.5 text-sm font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-200 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:-translate-y-0.5 active:scale-[0.97] active:translate-y-0">
+            <BrowseAwhinaAssistantPanel className="relative mx-auto mb-0 mt-2 w-full max-w-2xl text-left" />
+            <Link href="/post/ai" className="relative inline-flex min-h-[44px] items-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2.5 text-sm font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-200 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:-translate-y-0.5 active:scale-[0.97] active:translate-y-0">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
               New Listing
             </Link>

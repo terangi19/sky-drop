@@ -1534,52 +1534,54 @@ const tabGroups = [
             <input ref={bannerRef} type="file" accept="image/*" className="hidden" onChange={handleBannerUpload} />
 
             <div className="relative px-4 pb-4 pt-0 sm:px-5 sm:pb-5">
-              <div className="-mt-8 flex items-end gap-3 sm:-mt-10 sm:gap-4">
-                <button
-                  type="button"
-                  onClick={() => avatarRef.current?.click()}
-                  className="relative shrink-0 group/avatar"
-                  aria-label="Change profile photo"
-                >
-                  {avatarUrl ? (
-                    <img
-                      src={avatarUrl}
-                      alt=""
-                      className="h-16 w-16 rounded-xl border-[3px] border-[var(--card)] object-cover sm:h-20 sm:w-20"
-                    />
-                  ) : (
-                    <div className="flex h-16 w-16 items-center justify-center rounded-xl border-[3px] border-[var(--card)] bg-[var(--soft-card)] text-xl font-bold text-sky-500 sm:h-20 sm:w-20 sm:text-2xl">
-                      {initial}
-                    </div>
-                  )}
-                  <span className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-xl bg-black/0 text-[11px] font-semibold text-white opacity-0 transition group-hover/avatar:bg-black/40 group-hover/avatar:opacity-100">
-                    Edit
-                  </span>
-                </button>
-                <input ref={avatarRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+              <div className="-mt-8 flex flex-col gap-3 sm:-mt-10 sm:flex-row sm:items-end sm:gap-4">
+                <div className="flex items-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => avatarRef.current?.click()}
+                    className="relative shrink-0 group/avatar"
+                    aria-label="Change profile photo"
+                  >
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt=""
+                        className="h-16 w-16 rounded-xl border-[3px] border-[var(--card)] object-cover sm:h-20 sm:w-20"
+                      />
+                    ) : (
+                      <div className="flex h-16 w-16 items-center justify-center rounded-xl border-[3px] border-[var(--card)] bg-[var(--soft-card)] text-xl font-bold text-sky-500 sm:h-20 sm:w-20 sm:text-2xl">
+                        {initial}
+                      </div>
+                    )}
+                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-xl bg-black/0 text-[11px] font-semibold text-white opacity-0 transition group-hover/avatar:bg-black/40 group-hover/avatar:opacity-100">
+                      Edit
+                    </span>
+                  </button>
+                  <input ref={avatarRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
 
-                <div className="min-w-0 flex-1 pb-0.5">
-                  <h1 className="truncate text-xl font-bold tracking-tight text-[var(--foreground)] sm:text-2xl">
-                    {friendlyName}
-                  </h1>
-                  <p className="truncate text-sm text-[var(--muted)]">@{handle}</p>
+                  <div className="min-w-0 flex-1 pb-0.5">
+                    <h1 className="truncate text-xl font-bold tracking-tight text-[var(--foreground)] sm:text-2xl">
+                      {friendlyName}
+                    </h1>
+                    <p className="truncate text-sm text-[var(--muted)]">@{handle}</p>
+                  </div>
                 </div>
 
-                <div className="flex shrink-0 flex-wrap justify-end gap-2 pb-0.5">
+                <div className="flex w-full gap-2 sm:w-auto sm:shrink-0 sm:justify-end sm:pb-0.5">
                   <button
                     type="button"
                     onClick={() => {
                       setActiveTab("account");
                       document.getElementById("profile-settings")?.scrollIntoView({ behavior: "smooth", block: "start" });
                     }}
-                    className={`inline-flex items-center ${primaryBtn} px-3.5 py-2 text-xs`}
+                    className={`inline-flex min-h-[44px] flex-1 items-center justify-center ${primaryBtn} px-3.5 py-2 text-xs sm:flex-none`}
                   >
                     Edit profile
                   </button>
                   {(contextUsername || username) && (
                     <Link
                       href={sellerProfilePath(contextUsername || username)}
-                      className="inline-flex items-center rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] px-3.5 py-2 text-xs font-semibold text-[var(--text-secondary)] transition hover:border-sky-500/25 hover:text-[var(--foreground)]"
+                      className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] px-3.5 py-2 text-xs font-semibold text-[var(--text-secondary)] transition hover:border-sky-500/25 hover:text-[var(--foreground)] sm:flex-none"
                     >
                       View public
                     </Link>

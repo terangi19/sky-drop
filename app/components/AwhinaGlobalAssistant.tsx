@@ -23,6 +23,7 @@ import AwhinaIntroModal from "./AwhinaIntroModal";
 import AwhinaVoiceBar from "./AwhinaVoiceBar";
 import AwhinaVoiceStatusCard from "./AwhinaVoiceStatusCard";
 import VoiceModeIntroModal from "./VoiceModeIntroModal";
+import FeedbackModal from "./FeedbackModal";
 
 const SkyAiChatPanel = dynamic(() => import("./SkyAiChatPanel"), { ssr: false });
 
@@ -49,7 +50,10 @@ export default function AwhinaGlobalAssistant() {
   });
 
   const inlineAssistant = hasInlineAwhinaAssistant(pathname);
+  const onSellWorkspace = pathname.startsWith("/post/ai");
   const showChatSheet = !pathname.startsWith(ADMIN_PREFIX) && !inlineAssistant;
+  /** Sell page already has inline Chat|Listing — no floating second assistant. */
+  const showFloatingDock = !onSellWorkspace;
 
   const openChat = useCallback(
     (query?: string) => {
@@ -147,8 +151,21 @@ export default function AwhinaGlobalAssistant() {
     if (inlineAssistant && chatOpen) setChatOpen(false);
   }, [inlineAssistant, chatOpen]);
 
-  // Keep FAB visible on listing workspace so tap focuses the existing inline chat (never a second sheet).
-  // chatHidden only changes the hint label — primary tap still calls openChat → dispatchSkyAiOpen.
+  // On /post/ai, reclaim sticky CTA / composer space (no floating dock).
+  useEffect(() => {
+    const root = document.documentElement;
+    if (onSellWorkspace) {
+      root.setAttribute("data-fab-hidden", "true");
+      root.style.setProperty("--fab-clearance", "0px");
+    } else {
+      root.removeAttribute("data-fab-hidden");
+      root.style.removeProperty("--fab-clearance");
+    }
+    return () => {
+      root.removeAttribute("data-fab-hidden");
+      root.style.removeProperty("--fab-clearance");
+    };
+  }, [onSellWorkspace]);
 
   if (!user || isAuthPath(pathname) || pathname.startsWith(ADMIN_PREFIX)) {
     return null;
@@ -212,14 +229,18 @@ export default function AwhinaGlobalAssistant() {
         />
       </div>
 
-      <FloatingActionDock
-        voice={voice}
-        onOpenChat={() => openChat()}
-        onToggleVoice={handleVoiceToggle}
-        chatHidden={inlineAssistant}
-        chatOverlayOpen={chatOpen}
-        busyActivity={!!voiceBusy}
-      />
+      {showFloatingDock ? (
+        <FloatingActionDock
+          voice={voice}
+          onOpenChat={() => openChat()}
+          onToggleVoice={handleVoiceToggle}
+          chatHidden={inlineAssistant}
+          chatOverlayOpen={chatOpen}
+          busyActivity={!!voiceBusy}
+        />
+      ) : (
+        <FeedbackModal />
+      )}
     </>
   );
 }

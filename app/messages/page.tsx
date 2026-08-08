@@ -1439,12 +1439,22 @@ function MessagesPage() {
           </div>
         </div>
       )}
-      <section className={`${PAGE_SHELL_CHAT} py-2 sm:py-5`}>
+      <section
+        className={`${
+          isMobile && mobileView === "chat"
+            ? "relative z-10 mx-auto w-full max-w-[1100px] px-0 py-0"
+            : `${PAGE_SHELL_CHAT} py-2 sm:py-5`
+        }`}
+      >
         <div
-          className={`mx-auto flex w-full max-w-[1100px] overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--card)] shadow-[var(--shadow-sm)] sm:rounded-2xl ${
+          className={`mx-auto flex w-full max-w-[1100px] overflow-hidden border border-[var(--card-border)] bg-[var(--card)] shadow-[var(--shadow-sm)] ${
+            isMobile && mobileView === "chat"
+              ? "h-[calc(100dvh-3.5rem-var(--mobile-nav-offset,0px))] rounded-none border-x-0 border-t-0"
+              : "rounded-xl sm:rounded-2xl"
+          } ${
             !isMobile || mobileView === "list"
               ? "h-[calc(100dvh-7.5rem-var(--mobile-nav-offset,0px))] sm:h-[calc(100dvh-14rem)]"
-              : "h-[calc(100dvh-5rem-var(--mobile-nav-offset,0px))] sm:h-[calc(100dvh-10rem)]"
+              : ""
           }`}
         >
           {/* SIDEBAR */}

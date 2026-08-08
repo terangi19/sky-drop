@@ -227,9 +227,9 @@
   /* Listing card semantic tokens — light (neutral chrome, cyan accents only) */
   --lc-bg: #ffffff;
   --lc-surface: #f7f8fa;
-  --lc-border: rgba(15, 23, 42, 0.08);
+  --lc-border: rgba(15, 23, 42, 0.12);
   --lc-border-hover: rgba(14, 165, 233, 0.35);
-  --lc-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.04);
+  --lc-shadow: 0 1px 3px rgba(15, 23, 42, 0.07), 0 1px 2px rgba(15, 23, 42, 0.05);
   --lc-shadow-hover: 0 2px 8px rgba(15, 23, 42, 0.08);
   --lc-text-primary: #0c0d10;
   --lc-text-secondary: #475569;
@@ -581,11 +581,28 @@ body {
   background-color: color-mix(in srgb, var(--card) 96%, transparent);
   border-color: var(--card-border);
   box-shadow: var(--shadow-sm);
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+}
+
+html[data-fab-hidden="true"] .mobile-sticky-cta {
+  right: env(safe-area-inset-right, 0px);
 }
 
 @media (min-width: 1024px) {
   .mobile-sticky-cta {
     right: 0;
+    padding-bottom: 0.75rem;
+  }
+}
+
+/* Mobile-first: calm skeleton pulse, no heavy motion */
+@media (max-width: 767px) {
+  .listing-card {
+    animation: none;
+  }
+
+  .listing-card .group-hover\:scale-\[1\.02\] {
+    transform: none !important;
   }
 }
 
@@ -979,6 +996,25 @@ select:focus-visible {
 
 .awhina-chat-shell {
   background-color: var(--awhina-chat-bg);
+  max-width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 430px) {
+  .awhina-chat,
+  .awhina-chat-shell,
+  .awhina-chat-surface {
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: clip;
+  }
+
+  .awhina-chat form,
+  .awhina-chat [class*="composer"],
+  .awhina-chat textarea {
+    max-width: 100%;
+    min-width: 0;
+  }
 }
 
 .awhina-chat-surface {
@@ -1258,11 +1294,12 @@ select:focus-visible {
     opacity 0.18s ease;
 }
 
-/* Mobile closed: icon-only compact circle */
+/* Mobile closed: 44–48px compact mark */
 @media (max-width: 767px) {
   .awhina-fab-primary.is-closed {
-    width: 2.75rem;
-    min-width: 2.75rem;
+    width: 2.875rem; /* 46px */
+    min-width: 2.875rem;
+    height: 2.875rem;
     padding: 0;
     gap: 0;
   }
