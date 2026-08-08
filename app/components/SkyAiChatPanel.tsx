@@ -1060,12 +1060,8 @@ export default function SkyAiChatPanel({
     </div>
   );
 
-  /** Workspace already has page chrome — avoid a second branded Āwhina header. */
-  const header = isWorkspace ? (
-    <div className="flex items-center justify-end border-b border-white/[0.06] px-3 py-1.5">
-      {headerActions}
-    </div>
-  ) : (
+  /** Workspace: no second header / History / New — page owns chrome; conversation is the focus. */
+  const header = isWorkspace ? null : (
     <div
       className={`flex items-center justify-between border-b border-sky-500/15 bg-gradient-to-r from-sky-500/[0.06] to-sky-500/[0.06] px-4 py-3 ${
         isSheet ? "" : "rounded-t-xl"
@@ -1111,7 +1107,7 @@ export default function SkyAiChatPanel({
         </div>
       )}
 
-      {!user && (
+      {!user && !isWorkspace && (
         <p className="border-b border-sky-500/20 bg-sky-500/[0.06] px-3 py-2 text-[10px] text-sky-400/90">
           <Link href="/login" className="font-bold underline hover:text-sky-300">
             Sign in
@@ -1407,7 +1403,11 @@ export default function SkyAiChatPanel({
                   if (canSend) handleSubmit(e);
                 }
               }}
-              placeholder="Describe what you're selling, or attach a photo…"
+              placeholder={
+                isWorkspace
+                  ? "Message Āwhina…"
+                  : "Describe what you're selling, or attach a photo…"
+              }
               disabled={busy}
               rows={2}
               className="block w-full min-h-[52px] max-h-32 resize-none border-0 bg-transparent px-3 pt-2.5 pb-1 text-[12px] leading-relaxed text-always-white outline-none placeholder:text-zinc-500"

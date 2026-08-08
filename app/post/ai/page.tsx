@@ -49,7 +49,7 @@ import {
 } from "../../lib/sky-ai-images";
 import SkyAiChatPanel from "../../components/SkyAiChatPanel";
 import SellPhotoUpload from "../../components/SellPhotoUpload";
-import { SKY_AI_SELL_QUICK_PROMPTS, SKY_AI_SELL_WELCOME } from "../../lib/sky-ai-prompts";
+import { SKY_AI_SELL_QUICK_PROMPTS } from "../../lib/sky-ai-prompts";
 import {
   consumeListingWorkspaceHandoff,
   peekListingWorkspaceHandoff,
@@ -146,6 +146,7 @@ export default function AIPostPage() {
   const [ticketType, setTicketType] = useState("");
   const [vehicleMake, setVehicleMake] = useState("");
   const [vehicleModel, setVehicleModel] = useState("");
+  const [vehicleGeneration, setVehicleGeneration] = useState("");
   const [vehicleYear, setVehicleYear] = useState("");
   const [vehicleOdometer, setVehicleOdometer] = useState("");
   const [vehicleBodyType, setVehicleBodyType] = useState("");
@@ -183,7 +184,6 @@ export default function AIPostPage() {
   const [priceAlert, setPriceAlert] = useState(false);
   const [confirmedSubmit, setConfirmedSubmit] = useState(false);
   const [showTypeGuideModal, setShowTypeGuideModal] = useState(false);
-  const [showAwhinaGuide, setShowAwhinaGuide] = useState(false);
   const [showAutoPublishConfirm, setShowAutoPublishConfirm] = useState(false);
   const [autoPublishCountdown, setAutoPublishCountdown] = useState(3);
   const [priceSuggestion, setPriceSuggestion] = useState<{ suggestedMin: number; suggestedMax: number; reasoning: string; marketFactors: string[]; confidence: string; missingDetails?: string[]; marketResearch?: boolean } | null>(null);
@@ -255,6 +255,7 @@ export default function AIPostPage() {
       pickupArea,
       vehicleMake,
       vehicleModel,
+      vehicleGeneration,
       vehicleYear,
       vehicleOdometer,
       vehicleColour,
@@ -279,6 +280,7 @@ export default function AIPostPage() {
     pickupArea,
     vehicleMake,
     vehicleModel,
+    vehicleGeneration,
     vehicleYear,
     vehicleOdometer,
     vehicleColour,
@@ -299,6 +301,30 @@ export default function AIPostPage() {
   const progressNextLabel = progressNextSlot
     ? formatListingSlotLabel(String(progressNextSlot))
     : null;
+
+  const isReadyToReview =
+    listingReadiness.state === "READY_TO_REVIEW" ||
+    listingReadiness.state === "READY_TO_PUBLISH";
+
+  /** When Āwhina is waiting on a field, answering chat is the only primary action. */
+  const awhinaIsAsking = Boolean(progressNextSlot) && !isReadyToReview;
+
+  const hasDraftContent = Boolean(
+    title.trim() ||
+      vehicleMake ||
+      vehicleYear ||
+      String(price || "").trim() ||
+      description.trim() ||
+      awhinaConversation.listingFillOccurred
+  );
+
+  const openManualEditor = () => {
+    setShowManualEditor(true);
+    setMobileWorkspaceTab("listing");
+    setTimeout(() => {
+      document.getElementById("listing-title")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  };
 
   const photoSubject = useMemo(() => {
     const vehicle = [vehicleMake, vehicleModel].filter(Boolean).join(" ").trim();
@@ -322,20 +348,22 @@ export default function AIPostPage() {
     ? `Add photos of your ${photoSubject}`
     : "Add photos";
 
+  /** First-time UX: no suggestion chips while Āwhina is asking — answer in the composer. */
   const workspaceQuickPrompts = useMemo(() => {
+    if (awhinaIsAsking || awhinaConversation.pendingSlot) return [];
     const sellActive =
-      !!awhinaConversation.pendingSlot ||
       awhinaConversation.listingFillOccurred ||
       awhinaConversation.messages.some((m) => m.role === "user");
-    if (!sellActive) return SKY_AI_SELL_QUICK_PROMPTS;
+    if (!sellActive) return SKY_AI_SELL_QUICK_PROMPTS.slice(0, 2);
     return getActiveSellWorkspacePrompts({
       pendingSlot: awhinaConversation.pendingSlot,
       hasPhotos: imagePreviews.length > 0,
       hasDescription: !!description.trim(),
       hasPrice: !!String(price || "").trim(),
       hasTitle: !!title.trim(),
-    });
+    }).slice(0, 2);
   }, [
+    awhinaIsAsking,
     awhinaConversation.pendingSlot,
     awhinaConversation.listingFillOccurred,
     awhinaConversation.messages,
@@ -370,8 +398,6 @@ export default function AIPostPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const manualEdit = useRef<Set<string>>(new Set());
-  const [showHelpPrompt, setShowHelpPrompt] = useState(false);
-  const [timeOnPage, setTimeOnPage] = useState(0);
 
   // Validation functions
   const validateTitle = (value: string) => {
@@ -476,6 +502,7 @@ export default function AIPostPage() {
       paymentType,
       vehicleMake,
       vehicleModel,
+      vehicleGeneration,
       vehicleYear,
       vehicleOdometer,
       vehicleColour,
@@ -509,14 +536,15 @@ export default function AIPostPage() {
     listingType,
     location,
     paymentType,
-    vehicleMake,
-    vehicleModel,
-    vehicleYear,
-    vehicleOdometer,
-    vehicleColour,
-    vehicleBodyType,
-    vehicleFuelType,
-    vehicleTransmission,
+      vehicleMake,
+      vehicleModel,
+      vehicleGeneration,
+      vehicleYear,
+      vehicleOdometer,
+      vehicleColour,
+      vehicleBodyType,
+      vehicleFuelType,
+      vehicleTransmission,
     rentalSubType,
     rentalPropertyType,
     rentalPriceWeekly,
@@ -551,6 +579,7 @@ export default function AIPostPage() {
       setLocation("");
       setVehicleMake("");
       setVehicleModel("");
+      setVehicleGeneration("");
       setVehicleYear("");
       setVehicleOdometer("");
       setVehicleTransmission("");
@@ -605,6 +634,7 @@ export default function AIPostPage() {
     maybeMark("paymentType", merged.paymentType);
     maybeMark("vehicleMake", merged.vehicleMake);
     maybeMark("vehicleModel", merged.vehicleModel);
+    maybeMark("vehicleGeneration", merged.vehicleGeneration);
     maybeMark("vehicleYear", merged.vehicleYear);
     maybeMark("vehicleOdometer", merged.vehicleOdometer);
     maybeMark("vehicleColour", merged.vehicleColour);
@@ -640,6 +670,7 @@ export default function AIPostPage() {
       setPaymentType: choosePaymentType,
       setVehicleMake,
       setVehicleModel,
+      setVehicleGeneration,
       setVehicleYear,
       setVehicleOdometer,
       setVehicleTransmission,
@@ -683,15 +714,9 @@ export default function AIPostPage() {
         setLiveFieldNotes(notes.slice(0, 5).map((n) => `${n} ✓`));
         window.setTimeout(() => setLiveFieldNotes([]), 3200);
       }
-      // Quiet confirmation — avoid huge banners; readiness chip covers publish state
-      if (!isUpdate && imagePreviews.length === 0) {
-        showToast("Listing draft updated — add photos when ready");
-      }
+      // Quiet draft update — stay on conversation; listing pane reflects changes live
       setSkyChatOpen(true);
-      setTimeout(() => {
-        document.getElementById("live-listing-draft")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      }, 200);
-      
+
       // Trigger auto-publish if enabled
       if (autoPublish && fieldsChanged > 0) {
         setShowAutoPublishConfirm(true);
@@ -992,20 +1017,6 @@ export default function AIPostPage() {
     return () => unsub();
   }, []);
 
-  // Track time on page and show help prompt for stuck users
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTimeOnPage((prev) => prev + 1);
-      
-      // Show help prompt after 2 minutes if completion is low (<30%)
-      if (timeOnPage === 120 && formProgress < 30 && !showHelpPrompt) {
-        setShowHelpPrompt(true);
-      }
-    }, 1000);
-    
-    return () => clearInterval(interval);
-  }, [timeOnPage, formProgress, showHelpPrompt]);
-
   // Funnel: listing_form_started — once per session, only for new listings (not edits)
   const formStartedRef = useRef(false);
   useEffect(() => {
@@ -1067,6 +1078,7 @@ export default function AIPostPage() {
       setTicketType(data.ticketType || "");
       setVehicleMake(data.vehicleMake || "");
       setVehicleModel(data.vehicleModel || "");
+      setVehicleGeneration(data.vehicleGeneration || "");
       setVehicleYear(data.vehicleYear != null ? String(data.vehicleYear) : "");
       setVehicleOdometer(data.vehicleOdometer != null ? String(data.vehicleOdometer) : "");
       setVehicleBodyType(data.vehicleBodyType || "");
@@ -1459,7 +1471,7 @@ export default function AIPostPage() {
           currentBid: null, bidCount: 0, highestBidder: null, status: "live",
         }),
         type: "vehicle",
-        vehicleMake, vehicleModel,
+        vehicleMake, vehicleModel, vehicleGeneration,
         vehicleYear: vehicleYear ? Number(vehicleYear) : null,
         vehicleOdometer: vehicleOdometer ? Number(vehicleOdometer) : null,
         vehicleBodyType, vehicleFuelType, vehicleTransmission, vehicleColour,
@@ -1487,6 +1499,7 @@ export default function AIPostPage() {
           ? {
               vehicleMake,
               vehicleModel,
+              vehicleGeneration,
               vehicleYear: vehicleYear ? Number(vehicleYear) : null,
               vehicleOdometer: vehicleOdometer ? Number(vehicleOdometer) : null,
               vehicleBodyType,
@@ -1661,7 +1674,7 @@ export default function AIPostPage() {
       <Navbar />
       {imagePreviews.length > 0 && <img ref={imgRef} src={imagePreviews[0]} style={{display:'none'}} />}
 
-        <div className="relative z-10 mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
+        <div className="relative z-10 mx-auto max-w-5xl px-4 py-5 sm:px-6 sm:py-8">
         {editLoading && (
           <div className="mb-6 flex items-center justify-center gap-3 rounded-xl bg-white/[0.03] p-4">
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-sky-500 border-t-transparent"></div>
@@ -1669,47 +1682,29 @@ export default function AIPostPage() {
           </div>
         )}
 
-        {/* Workspace header */}
-        <div className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <Link href="/" className="mb-3 inline-flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-sm text-zinc-300 transition hover:border-white/[0.14] hover:text-white">
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-              Back
-            </Link>
-            <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-              {editId ? "Edit Your Listing" : "Build your listing with Āwhina"}
-            </h1>
-            <p className="mt-1.5 max-w-xl text-sm text-zinc-400">
-              {editId
-                ? "Update details, photos, and publish when you’re ready."
-                : "Answer a few questions and watch your listing come together."}
+        {/* Simple header — one job */}
+        <div className="mb-4">
+          <Link href="/" className="mb-2 inline-flex items-center gap-1.5 text-sm text-zinc-400 transition hover:text-white">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+            Back
+          </Link>
+          <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+            {editId ? "Edit Your Listing" : "Build your listing with Āwhina"}
+          </h1>
+          {!editId && (
+            <p className="mt-1.5 max-w-lg text-sm text-zinc-400">
+              Tell Āwhina about your item and we&apos;ll build the listing together.
             </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={`rounded-md px-2.5 py-1 text-[11px] font-semibold ${
-                listingReadiness.state === "READY_TO_REVIEW" || listingReadiness.state === "READY_TO_PUBLISH"
-                  ? "bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-500/25"
-                  : "bg-white/[0.04] text-zinc-300 ring-1 ring-white/[0.08]"
-              }`}
-            >
-              {listingReadiness.label}
-            </span>
-          </div>
+          )}
+          {editId && (
+            <p className="mt-1.5 max-w-lg text-sm text-zinc-400">
+              Update details, photos, and publish when you&apos;re ready.
+            </p>
+          )}
         </div>
 
-        {liveFieldNotes.length > 0 && (
-          <div className="mb-4 flex flex-wrap gap-1.5" aria-live="polite">
-            {liveFieldNotes.map((n) => (
-              <span key={n} className="rounded-md border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-300 transition">
-                {n}
-              </span>
-            ))}
-          </div>
-        )}
-
         {!editId && (
-          <div className="mb-4 flex gap-1 rounded-xl border border-white/[0.08] bg-white/[0.02] p-1 lg:hidden">
+          <div className="mb-3 flex gap-1 rounded-xl border border-white/[0.08] bg-white/[0.02] p-1 lg:hidden">
             <button
               type="button"
               onClick={() => { setMobileWorkspaceTab("chat"); setSkyChatOpen(true); }}
@@ -1723,81 +1718,74 @@ export default function AIPostPage() {
               className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${mobileWorkspaceTab === "listing" ? "bg-white/[0.08] text-white" : "text-zinc-400"}`}
             >
               Listing
+              {(hasDraftContent || imagePreviews.length > 0) && (
+                <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-sky-400" aria-hidden />
+              )}
             </button>
           </div>
         )}
 
-        {/* Progress — pendingSlot first so it matches conversation */}
-        <div className="mb-5 rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3">
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Listing progress</span>
-            <span className="text-[11px] font-semibold text-zinc-300">{listingReadiness.label}</span>
-          </div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800/80">
-            <div
-              className="h-full rounded-full bg-sky-500/80 transition-all duration-500 ease-out"
-              style={{
-                width: `${
-                  listingReadiness.state === "READY_TO_PUBLISH"
-                    ? 100
-                    : listingReadiness.state === "READY_TO_REVIEW"
-                      ? 85
-                      : listingReadiness.state === "IN_PROGRESS"
-                        ? Math.max(formProgress, 45)
-                        : Math.max(formProgress, 12)
-                }%`,
-              }}
-            />
-          </div>
-          <p className="mt-2 text-[11px] text-zinc-400">
-            {progressNextLabel
-              ? `Next: ${progressNextLabel}`
-              : listingReadiness.state === "READY_TO_REVIEW" || listingReadiness.state === "READY_TO_PUBLISH"
-                ? "Ready to review — add photos, then Publish"
-                : "Describe what you’re selling to get started"}
-          </p>
-        </div>
-
-        {showHelpPrompt && (
-          <div className="mb-5 rounded-xl border border-white/[0.08] bg-white/[0.03] p-4">
-            <div className="flex items-start gap-3">
-              <div className="flex-1">
-                <h3 className="text-sm font-semibold text-white">Need a hand finishing?</h3>
-                <p className="mt-1 text-xs text-zinc-400 leading-relaxed">
-                  Describe your item in chat — Āwhina will fill title, details, and price into the live draft.
-                </p>
-                <div className="mt-3 flex items-center gap-2">
-                  <button
-                    onClick={() => setShowHelpPrompt(false)}
-                    className="rounded-lg border border-white/[0.1] bg-white/[0.05] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-white/[0.08]"
-                  >
-                    Continue with Āwhina
-                  </button>
-                  <button
-                    onClick={() => { setShowHelpPrompt(false); setShowManualEditor(true); setMobileWorkspaceTab("listing"); }}
-                    className="rounded-lg px-3 py-1.5 text-[11px] font-semibold text-zinc-400 transition hover:text-zinc-200"
-                  >
-                    Edit manually
-                  </button>
-                </div>
+        {/* One compact progress line — matches conversation next step */}
+        {!editId && (
+          <div className="mb-4">
+            <div className="flex items-center gap-3">
+              <div className="h-1 flex-1 overflow-hidden rounded-full bg-zinc-800/80">
+                <div
+                  className="h-full rounded-full bg-sky-500/80 transition-all duration-500 ease-out"
+                  style={{
+                    width: `${
+                      listingReadiness.state === "READY_TO_PUBLISH"
+                        ? 100
+                        : listingReadiness.state === "READY_TO_REVIEW"
+                          ? 85
+                          : listingReadiness.state === "IN_PROGRESS"
+                            ? Math.max(formProgress, 45)
+                            : Math.max(formProgress, 12)
+                    }%`,
+                  }}
+                />
               </div>
-              <button
-                onClick={() => setShowHelpPrompt(false)}
-                className="shrink-0 text-zinc-500 hover:text-zinc-300 transition"
-                aria-label="Dismiss help"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+              <p className="shrink-0 text-[11px] font-medium text-zinc-400">
+                {awhinaIsAsking && progressNextLabel
+                  ? `Next: ${progressNextLabel}`
+                  : isReadyToReview
+                    ? imagePreviews.length === 0
+                      ? "Add photos, then review"
+                      : "Ready to review"
+                    : hasDraftContent
+                      ? listingReadiness.label
+                      : "Start with Āwhina"}
+              </p>
             </div>
           </div>
         )}
 
-        {/* Desktop ~45% photos / 55% conversation — centered max-width unchanged */}
-        <div className="lg:grid lg:grid-cols-[minmax(0,9fr)_minmax(0,11fr)] lg:items-stretch lg:gap-5">
+        {/* Desktop: chat primary (left), listing secondary (right). Mobile: chat default. */}
+        <div className="lg:grid lg:grid-cols-[minmax(0,11fr)_minmax(0,9fr)] lg:items-stretch lg:gap-5">
 
-        {/* LEFT: photos + compact live draft */}
+        {/* CONVERSATION — strongest focus */}
+        {!editId && (
+          <div
+            className={`mb-4 flex min-h-[min(72vh,680px)] min-w-0 flex-col lg:mb-0 lg:h-[min(78vh,760px)] lg:min-h-0 ${
+              mobileWorkspaceTab === "listing" ? "hidden lg:flex" : "flex"
+            }`}
+          >
+            <SkyAiChatPanel
+              mode="inline"
+              open={skyChatOpen}
+              onOpenChange={setSkyChatOpen}
+              autoQuery={skyAutoQuery}
+              onAutoQueryConsumed={() => setSkyAutoQuery(undefined)}
+              onFill={applyFill}
+              quickPrompts={workspaceQuickPrompts}
+              welcomeText="Kia ora — tell me what you're selling. I'll build the listing with you."
+              workspaceChrome
+              className="awhina-listing-workspace-chat min-h-0 flex-1"
+            />
+          </div>
+        )}
+
+        {/* LISTING: photos + quiet live draft */}
         <div
           className={`flex min-w-0 flex-col gap-4 ${
             !editId && mobileWorkspaceTab === "chat" ? "hidden lg:flex" : "flex"
@@ -1809,7 +1797,7 @@ export default function AIPostPage() {
             ctaSubtitle={
               photoSubject
                 ? "Up to 8 photos — first shot is the cover"
-                : "Upload up to 8 photos — first photo is your cover image"
+                : "Up to 8 photos — first is the cover"
             }
             imagePreviews={imagePreviews}
             fileInputRef={fileInputRef}
@@ -1850,17 +1838,15 @@ export default function AIPostPage() {
             </div>
           )}
 
-          {!editId && (
+          {!editId && hasDraftContent && (
             <div
               id="live-listing-draft"
               className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4"
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Live draft</p>
-                  <p className="mt-1 truncate text-base font-semibold text-white">{liveDraftTitle}</p>
-                  <p className="mt-0.5 text-xs text-zinc-500">{liveDraftTypeLabel}</p>
-                </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Your listing</p>
+                <p className="mt-1 truncate text-base font-semibold text-white">{liveDraftTitle}</p>
+                <p className="mt-0.5 text-xs text-zinc-500">{liveDraftTypeLabel}</p>
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-3">
                 {[
@@ -1932,101 +1918,64 @@ export default function AIPostPage() {
                   );
                 })}
               </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowManualEditor(true);
-                    setMobileWorkspaceTab("listing");
-                    setTimeout(() => {
-                      document.getElementById("listing-title")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                    }, 50);
-                  }}
-                  className="rounded-lg border border-white/[0.1] bg-white/[0.03] px-3 py-2 text-[11px] font-semibold text-zinc-200 transition hover:bg-white/[0.06]"
-                >
-                  Edit listing
-                </button>
-                <button
-                  type="button"
-                  onClick={() => document.getElementById("listing-submit-btn")?.click()}
-                  className="rounded-lg bg-sky-500/90 px-3 py-2 text-[11px] font-semibold text-white transition hover:bg-sky-400"
-                >
-                  Publish listing
-                </button>
-                {imagePreviews.length === 0 && (
+              {/* One primary action — never compete with answering Āwhina */}
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {awhinaIsAsking ? (
+                  <button
+                    type="button"
+                    onClick={() => { setMobileWorkspaceTab("chat"); setSkyChatOpen(true); }}
+                    className="rounded-lg bg-sky-500/90 px-3 py-2 text-[11px] font-semibold text-white transition hover:bg-sky-400 lg:hidden"
+                  >
+                    Answer Āwhina
+                  </button>
+                ) : isReadyToReview && imagePreviews.length === 0 ? (
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="rounded-lg border border-white/[0.1] px-3 py-2 text-[11px] font-semibold text-zinc-300 transition hover:bg-white/[0.04]"
+                    className="rounded-lg bg-sky-500/90 px-3 py-2 text-[11px] font-semibold text-white transition hover:bg-sky-400"
                   >
-                    Add photos
+                    {photoCtaTitle}
+                  </button>
+                ) : isReadyToReview ? (
+                  <button
+                    type="button"
+                    onClick={openManualEditor}
+                    className="rounded-lg bg-sky-500/90 px-3 py-2 text-[11px] font-semibold text-white transition hover:bg-sky-400"
+                  >
+                    Review listing
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={openManualEditor}
+                    className="rounded-lg px-3 py-2 text-[11px] font-semibold text-zinc-400 transition hover:text-zinc-200"
+                  >
+                    Edit details
+                  </button>
+                )}
+                {isReadyToReview && imagePreviews.length === 0 && (
+                  <button
+                    type="button"
+                    onClick={openManualEditor}
+                    className="rounded-lg px-3 py-2 text-[11px] font-semibold text-zinc-400 transition hover:text-zinc-200"
+                  >
+                    Edit details
                   </button>
                 )}
               </div>
             </div>
           )}
-        </div>
 
-        {/* RIGHT: conversation — primary vertical space */}
-        {!editId && (
-          <div
-            className={`mb-6 flex min-h-[min(68vh,640px)] min-w-0 flex-col lg:mb-0 lg:h-[min(78vh,760px)] lg:min-h-0 ${
-              mobileWorkspaceTab === "listing" ? "hidden lg:flex" : "flex"
-            }`}
-          >
-            <div className="mb-2 flex items-center justify-between gap-3 px-0.5">
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-white">Āwhina</p>
-                <p className="text-xs text-zinc-500">
-                  {awhinaConversation.messages.some((m) => m.id !== "welcome")
-                    ? "Continuing your conversation"
-                    : "Describe what you’re selling — the draft updates live"}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowAwhinaGuide(true)}
-                className="shrink-0 rounded-lg border border-white/[0.08] px-2.5 py-1.5 text-xs font-semibold text-zinc-300 transition hover:bg-white/[0.04]"
-              >
-                Help
-              </button>
-            </div>
-            {!skyChatOpen && (
-              <div className="mb-2 flex flex-wrap gap-1.5">
-                {workspaceQuickPrompts.map((p) => (
-                  <button
-                    key={p.label}
-                    type="button"
-                    onClick={() => {
-                      setSkyChatOpen(true);
-                      setSkyAutoQuery(undefined);
-                      setTimeout(() => setSkyAutoQuery(p.query), 0);
-                    }}
-                    className="rounded-full border border-white/[0.1] bg-white/[0.03] px-2.5 py-1 text-[10px] font-semibold text-zinc-300 hover:bg-white/[0.06]"
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-            )}
-            <SkyAiChatPanel
-              mode="inline"
-              open={skyChatOpen}
-              onOpenChange={setSkyChatOpen}
-              autoQuery={skyAutoQuery}
-              onAutoQueryConsumed={() => setSkyAutoQuery(undefined)}
-              onFill={applyFill}
-              quickPrompts={workspaceQuickPrompts}
-              welcomeText={SKY_AI_SELL_WELCOME}
-              workspaceChrome
-              className="awhina-listing-workspace-chat min-h-0 flex-1"
-            />
-          </div>
-        )}
+          {!editId && !hasDraftContent && (
+            <p className="px-1 text-xs leading-relaxed text-zinc-500">
+              Your listing will appear here as you talk with Āwhina.
+            </p>
+          )}
+        </div>
 
         </div>
 
-        {/* Full manual form — separate from compact live draft (not duplicated in preview) */}
+        {/* Full manual form — behind Edit details / Review */}
         <div className={`${!editId && !showManualEditor ? "hidden" : "mt-6 block"}`}>
         {/* Form Card */}
         <div className="relative">
@@ -2048,35 +1997,6 @@ export default function AIPostPage() {
         )}
 
         <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-500">
-          {/* Honest form progress indicator */}
-          <div className="sticky top-0 z-20 -mx-6 mb-2 border-b border-white/[0.06] bg-[var(--card)] px-6 py-3 backdrop-blur-xl sm:-mx-8 sm:px-8">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-[11px] font-bold text-[var(--muted)]">Draft progress</span>
-              <span className="text-[11px] font-bold text-sky-400">{listingReadiness.label}</span>
-            </div>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-sky-500 to-sky-400 transition-all duration-500"
-                style={{
-                  width: `${
-                    listingReadiness.state === "READY_TO_PUBLISH"
-                      ? 100
-                      : listingReadiness.state === "READY_TO_REVIEW"
-                        ? 85
-                        : Math.max(formProgress, listingReadiness.state === "IN_PROGRESS" ? 40 : 10)
-                  }%`,
-                }}
-              />
-            </div>
-            <p className="mt-1.5 text-[10px] text-[var(--muted)]">
-              {progressNextLabel
-                ? `Next: ${progressNextLabel}`
-                : listingReadiness.state === "READY_TO_REVIEW" || listingReadiness.state === "READY_TO_PUBLISH"
-                  ? "Ready to review — Publish when you're happy"
-                  : "Fill important fields with Āwhina or edit manually"}
-            </p>
-          </div>
-
           {/* Listing Type - Premium Redesign */}
           <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
             <div className="flex items-center justify-between">
@@ -2928,47 +2848,6 @@ export default function AIPostPage() {
             </div>
             <div className="mt-6">
               <button onClick={() => setShowTypeGuideModal(false)} className="w-full rounded-xl bg-sky-500 py-3 text-sm font-bold text-white hover:bg-sky-400">Got it</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Awhina Guide Modal */}
-      {showAwhinaGuide && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setShowAwhinaGuide(false)}>
-          <div className="mx-4 w-full max-w-md rounded-2xl bg-[var(--card)] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-black text-sky-400">What is Āwhina?</h3>
-              <button onClick={() => setShowAwhinaGuide(false)} className="text-[var(--muted)] hover:text-[var(--foreground)]">&times;</button>
-            </div>
-            <div className="mt-4">
-              <p className="text-sm text-[var(--foreground)]">
-                Āwhina is an AI assistant that helps you create professional listings quickly.
-              </p>
-              <ul className="mt-3 space-y-2 text-sm text-[var(--muted)]">
-                <li className="flex gap-2">
-                  <span className="text-sky-400">•</span>
-                  <span>Upload photos and Āwhina will describe your item</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="text-sky-400">•</span>
-                  <span>Type what you're selling and Āwhina fills in the details</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="text-sky-400">•</span>
-                  <span>Auto-selects the right category and pricing model</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="text-sky-400">•</span>
-                  <span>Always review and edit before publishing</span>
-                </li>
-              </ul>
-              <p className="mt-4 text-xs text-[var(--muted)]">
-                You can still fill the form manually if you prefer. Āwhina is here to help speed things up!
-              </p>
-            </div>
-            <div className="mt-6">
-              <button onClick={() => setShowAwhinaGuide(false)} className="w-full rounded-xl bg-sky-500 py-3 text-sm font-bold text-white hover:bg-sky-400">Got it</button>
             </div>
           </div>
         </div>
