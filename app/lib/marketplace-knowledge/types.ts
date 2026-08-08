@@ -5,6 +5,7 @@
 
 export type KnowledgeProvenance =
   | "USER"
+  | "IMAGE"
   | "LOCAL_DATA"
   | "LOOKUP"
   | "MODEL_INFERENCE";

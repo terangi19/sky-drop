@@ -61,6 +61,17 @@ import {
   mergeKnowledgeHintsIntoFill,
   resolveMarketplaceKnowledge,
 } from "./marketplace-knowledge";
+import {
+  getActiveListingSlot,
+  parseShortReplyForPendingSlot,
+  nextListingSlotQuestion,
+  buildListingSlotPending,
+  mergeExtras,
+  SLOT_QUESTIONS,
+  type ListingMissingSlot,
+} from "./awhina-pending-slots";
+import type { PendingClarification } from "./awhina-task-scope";
+import { isClarificationOpen } from "./awhina-task-scope";
 
 const SESSION_TTL_MS = 30 * 60 * 1000;
 const MAX_SESSIONS = 400;
@@ -641,6 +652,8 @@ export type ListingFillToolResult =
       clarify?: boolean;
       toolCall?: AwhinaToolCall;
       intent: string;
+      /** Sell-domain pending slot for client echo / next turn */
+      pendingClarification?: PendingClarification;
     }
   | { handled: false };
 
@@ -655,12 +668,74 @@ export function processListingFillMessage(
     sessionKey?: string;
     /** Hard reset — ignore SEARCH/old draft leakage on explicit SELL switch */
     freshStart?: boolean;
+    /** Open listing_slots clarification from prior turn */
+    pendingClarification?: PendingClarification | null;
   } = {}
 ): ListingFillToolResult {
   const pathname = opts.pathname || "/";
   const onSell = pathname.startsWith("/post/ai");
   const trimmed = message.trim();
   if (!trimmed) return { handled: false };
+
+  // ── Pending listing slot: short replies fill THAT slot first ──
+  const activeSlot = getActiveListingSlot(opts.pendingClarification);
+  if (activeSlot && trimmed.length <= 80 && !opts.freshStart) {
+    const slotResult = parseShortReplyForPendingSlot(trimmed, activeSlot);
+    if (slotResult.rejectedCorruption) {
+      return {
+        handled: true,
+        reply: `${SLOT_QUESTIONS[activeSlot]} (that didn't look like a ${activeSlot.replace(/_/g, " ")} — try again?)`,
+        clarify: true,
+        intent: "listing_update",
+        pendingClarification: opts.pendingClarification || undefined,
+      };
+    }
+    if (slotResult.matched) {
+      const sessionKey = opts.sessionKey || listingDraftSessionKey({ pathname });
+      const baseDraft: SkyAiListingFill = reconstructListingDraftBase({
+        listingContext: opts.listingContext,
+        sessionKey,
+        freshStart: false,
+      });
+      const partial = { ...slotResult.partial };
+      if (partial.extras) {
+        partial.extras = mergeExtras(baseDraft.extras, partial.extras);
+      }
+      let merged: SkyAiListingFill = { ...baseDraft, ...partial };
+      if (partial.extras) merged.extras = partial.extras;
+      // Preserve user description
+      if (baseDraft.descriptionSource === "user" && baseDraft.description) {
+        merged.description = baseDraft.description;
+        merged.descriptionSource = "user";
+      } else if (
+        merged.listingType === "vehicle" ||
+        merged.vehicleMake ||
+        isVehicleListingFill(merged)
+      ) {
+        merged.description = buildListingDescriptionFromFacts(merged);
+        merged.descriptionSource = "ai";
+      }
+      const validated = validateListingFillFields(merged);
+      if (!validated.ok) {
+        return {
+          handled: true,
+          reply: validated.error,
+          clarify: true,
+          intent: "listing_update",
+          pendingClarification: opts.pendingClarification || undefined,
+        };
+      }
+      rememberListingDraft(sessionKey, validated.fill);
+      const next = nextListingSlotQuestion(validated.fill);
+      const pending = next
+        ? buildListingSlotPending(validated.fill, trimmed)
+        : undefined;
+      const reply = next
+        ? `Got it — ${slotResult.filledSlot?.replace(/_/g, " ")} updated. ${next.question}`
+        : buildCompleteDraftReply(validated.fill);
+      return finishFill(reply, validated.fill, "listing_update", pending || undefined);
+    }
+  }
 
   // Destructive: never invent publish/delete — UI confirms
   if (DESTRUCTIVE_RE.test(trimmed) && !hasListingSellIntent(trimmed)) {
@@ -1130,7 +1205,10 @@ export function processListingFillMessage(
     merged.description.length < 40
   ) {
     // Field updates recompose description so sparse vehicle copy grows naturally
-    if (merged.listingType === "vehicle" || merged.vehicleMake || merged.vehicleModel) {
+    // Never overwrite user-edited description
+    if (merged.descriptionSource === "user" && merged.description) {
+      // keep user copy
+    } else if (merged.listingType === "vehicle" || merged.vehicleMake || merged.vehicleModel) {
       const titleCore = [merged.vehicleYear, merged.vehicleMake, merged.vehicleModel]
         .filter(Boolean)
         .join(" ");
@@ -1142,8 +1220,12 @@ export function processListingFillMessage(
           vehicleYear: merged.vehicleYear,
         });
       }
+      merged.description = buildListingDescriptionFromFacts(merged);
+      merged.descriptionSource = "ai";
+    } else {
+      merged.description = buildListingDescriptionFromFacts(merged);
+      merged.descriptionSource = "ai";
     }
-    merged.description = buildListingDescriptionFromFacts(merged);
   }
   if (merged.title) merged.title = normalizeProductName(merged.title).slice(0, 120);
 
@@ -1189,7 +1271,8 @@ export function processListingFillMessage(
 function finishFill(
   reply: string,
   listingFill: SkyAiListingFill,
-  intent: string
+  intent: string,
+  pendingClarification?: PendingClarification
 ): ListingFillToolResult {
   const isPartial = intent === "listing_update";
   if (!isPartial) {
@@ -1229,12 +1312,20 @@ function finishFill(
         confidence: 0.9,
       };
   const validated = validateToolCall(toolCall);
+  // Attach next domain-smart slot when draft incomplete
+  let pending = pendingClarification;
+  if (!pending && listingFill && !isCompleteListingDraft(listingFill)) {
+    pending = buildListingSlotPending(listingFill, listingFill.title || "listing") || undefined;
+  }
   return {
     handled: true,
     reply,
     listingFill,
     intent,
     toolCall: validated.ok ? toolCall : undefined,
+    pendingClarification: pending,
+    // Don't force clarify-source on successful create — pending slots continue next turn
+    clarify: isPartial ? Boolean(pending) || undefined : undefined,
   };
 }
 
@@ -1248,5 +1339,15 @@ export function isListingFollowUp(message: string, hasDraft: boolean): boolean {
     return true;
   }
   if (/^(actually|make it|set|change|update)\b/i.test(t)) return true;
+  // Short slot-shaped answers (storage, year, grade, odo, size, bare price)
+  if (t.length <= 40) {
+    if (/^\d+\s?(gb|tb)$/i.test(t)) return true;
+    if (/^(psa|bgs|cgc|sgc)\s*\d/i.test(t)) return true;
+    if (/^(?:19|20)\d{2}$/.test(t)) return true;
+    if (/^\$?\d[\d,]*(?:\.\d{1,2})?k?$/i.test(t)) return true;
+    if (/^\d{1,3}(?:,\d{3})*\s*(k|km)?$/i.test(t)) return true;
+    if (/^(new|used|good|fair|mint|manual|automatic|petrol|diesel|hybrid)/i.test(t)) return true;
+    if (/^(auckland|wellington|christchurch|hamilton|tauranga|dunedin)/i.test(t)) return true;
+  }
   return false;
 }

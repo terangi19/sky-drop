@@ -58,6 +58,11 @@ export type SkyAiListingFill = {
   serviceDuration?: string;
   /** Merged add-ons — servicing, tyres, receipts, included items */
   extras?: string[];
+  /**
+   * Who last wrote the buyer description.
+   * When "user", AI must not overwrite on subsequent fills.
+   */
+  descriptionSource?: "ai" | "user";
 };
 
 const CATEGORIES = new Set([

@@ -18,12 +18,12 @@ export type SearchMissingSlot = "budget" | "location" | "edition" | "condition";
 export type ClarificationStatus = "open" | "resolved" | "cancelled" | "closed";
 
 /**
- * Pending clarification — buy/sell/type OR shopping search slots.
+ * Pending clarification — buy/sell/type OR shopping search slots OR sell listing slots.
  * Affirmations (yes/sure) must continue this pending flow, not restart intent.
  * When status ≠ open, ignore completely.
  */
 export type PendingClarification = {
-  kind: "buy_vs_sell" | "listing_type" | "search_slots";
+  kind: "buy_vs_sell" | "listing_type" | "search_slots" | "listing_slots";
   /** Required for new clarifications; missing → treat as open (client back-compat). */
   status?: ClarificationStatus;
   priorMessage: string;
@@ -38,6 +38,8 @@ export type PendingClarification = {
   knownEntities?: Record<string, string>;
   /** search_slots: still-needed refinements */
   missingSlots?: SearchMissingSlot[];
+  /** listing_slots: sell-domain missing fields */
+  missingListingSlots?: string[];
   /** @deprecated prefer originatingIntent */
   intent?: string;
   /** @deprecated prefer pendingTool */
@@ -62,6 +64,9 @@ export type TaskScopeSession = {
   compareCandidates?: string[];
   /** Ambiguous turn awaiting "it's a service" / "I'm selling it" style answer */
   pendingClarification?: PendingClarification;
+  /** Locked listing identity key — only USER correction unlocks */
+  entityLockKey?: string;
+  entityLocked?: boolean;
   updatedAt: number;
 };
 
@@ -71,6 +76,8 @@ export type ClientTaskScopeContext = {
   pendingItem?: string;
   compareCandidates?: string[];
   pendingClarification?: PendingClarification;
+  entityLockKey?: string;
+  entityLocked?: boolean;
   updatedAt?: number;
 };
 
@@ -134,6 +141,8 @@ export function hydrateTaskScope(
     pendingItem: client.pendingItem,
     compareCandidates: client.compareCandidates,
     pendingClarification: client.pendingClarification,
+    entityLockKey: client.entityLockKey,
+    entityLocked: client.entityLocked,
     updatedAt: client.updatedAt || Date.now(),
   };
   sessions.set(key, next);
@@ -144,7 +153,14 @@ export function setActiveTask(
   key: string,
   task: AwhinaActiveTask,
   extras?: Partial<
-    Pick<TaskScopeSession, "pendingItem" | "compareCandidates" | "pendingClarification">
+    Pick<
+      TaskScopeSession,
+      | "pendingItem"
+      | "compareCandidates"
+      | "pendingClarification"
+      | "entityLockKey"
+      | "entityLocked"
+    >
   >
 ): TaskScopeSession {
   prune();
@@ -158,6 +174,10 @@ export function setActiveTask(
       extras && "pendingClarification" in extras
         ? extras.pendingClarification
         : prior?.pendingClarification,
+    entityLockKey:
+      extras && "entityLockKey" in extras ? extras.entityLockKey : prior?.entityLockKey,
+    entityLocked:
+      extras && "entityLocked" in extras ? extras.entityLocked : prior?.entityLocked,
     updatedAt: Date.now(),
   };
   if (task !== "shopping") {
@@ -170,6 +190,14 @@ export function setActiveTask(
   }
   if (extras && "pendingClarification" in extras && extras.pendingClarification === undefined) {
     next.pendingClarification = undefined;
+  }
+  // Task switch away from selling clears entity lock + listing slots
+  if (prior && prior.task === "selling" && task !== "selling") {
+    next.entityLockKey = undefined;
+    next.entityLocked = false;
+    if (isClarificationOpen(prior.pendingClarification) && prior.pendingClarification?.kind === "listing_slots") {
+      next.pendingClarification = undefined;
+    }
   }
   sessions.set(key, next);
   return next;
@@ -218,6 +246,39 @@ export function buildOpenSearchSlotClarification(opts: {
     missingSlots: opts.missingSlots,
     intent: "marketplace_search",
     tool: "searchListings",
+    item: opts.item,
+  };
+}
+
+/** Open a sell listing-slot clarification (price/year/storage/etc.). */
+export function buildOpenListingSlotClarification(opts: {
+  priorMessage: string;
+  missingSlots: string[];
+  activeSlot: string;
+  item?: string;
+  domain?: string;
+  originatingTask?: AwhinaActiveTask;
+}): PendingClarification {
+  const now = Date.now();
+  const knownEntities: Record<string, string> = {
+    activeSlot: opts.activeSlot,
+  };
+  if (opts.item) knownEntities.item = opts.item;
+  if (opts.domain) knownEntities.domain = opts.domain;
+  return {
+    kind: "listing_slots",
+    status: "open",
+    priorMessage: opts.priorMessage.slice(0, 160),
+    askedAt: now,
+    createdAt: now,
+    sessionId: newClarificationSessionId(),
+    originatingTask: opts.originatingTask || "selling",
+    originatingIntent: "listing_update",
+    pendingTool: "updateListingDraft",
+    knownEntities,
+    missingListingSlots: opts.missingSlots,
+    intent: "listing_update",
+    tool: "updateListingDraft",
     item: opts.item,
   };
 }
@@ -412,6 +473,8 @@ export function toClientTaskScope(session: TaskScopeSession | null): ClientTaskS
     pendingItem: session.pendingItem,
     compareCandidates: session.compareCandidates,
     pendingClarification: session.pendingClarification,
+    entityLockKey: session.entityLockKey,
+    entityLocked: session.entityLocked,
     updatedAt: session.updatedAt,
   };
 }

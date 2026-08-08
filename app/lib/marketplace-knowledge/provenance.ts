@@ -1,12 +1,13 @@
 /**
  * Provenance tags for marketplace knowledge (internal only).
- * Precedence: USER > VERIFIED STRUCTURED (LOCAL_DATA) > LOOKUP > HIGH-CONFIDENCE DOMAIN > MODEL_INFERENCE
+ * Precedence: USER > IMAGE > LOCAL_DATA (LOCAL_KNOWLEDGE) > LOOKUP > MODEL_INFERENCE
  */
 
 import type { KnowledgeProvenance } from "./types";
 
 export const PROVENANCE_RANK: Record<KnowledgeProvenance, number> = {
   USER: 100,
+  IMAGE: 85,
   LOCAL_DATA: 80,
   LOOKUP: 60,
   MODEL_INFERENCE: 20,
@@ -28,9 +29,9 @@ export function mayOverwrite(
   return PROVENANCE_RANK[incoming] >= PROVENANCE_RANK[existing];
 }
 
-/** Never treat model inference as authoritative for prices / pop / authenticity. */
+/** Never treat model inference / vision as authoritative for prices / pop / authenticity. */
 export function isHallucinationRiskField(key: string): boolean {
-  return /^(price|value|market|pop|population|authenticity|msrp|worth|comps?)$/i.test(
+  return /^(price|value|market|pop|population|authenticity|msrp|worth|comps?|battery|warranty|grade|mechanical)$/i.test(
     key
   );
 }

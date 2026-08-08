@@ -3,10 +3,10 @@
  * Never invents prices, pop, authenticity, or overwrites USER facts.
  */
 
-import type { MarketplaceEntity, MarketplaceListingHints } from "./types";
+import type { MarketplaceEntity, MarketplaceListingHints, KnowledgeProvenance } from "./types";
 import { mayOverwrite } from "./provenance";
 
-export type ListingFactProvenance = Record<string, "USER" | "LOCAL_DATA" | "LOOKUP" | "MODEL_INFERENCE">;
+export type ListingFactProvenance = Record<string, KnowledgeProvenance>;
 
 export function mapEntityToListingHints(
   entity: MarketplaceEntity | null | undefined,
@@ -25,7 +25,7 @@ export function mapEntityToListingHints(
   const set = <K extends keyof MarketplaceListingHints>(
     key: K,
     value: MarketplaceListingHints[K],
-    incoming: "USER" | "LOCAL_DATA" | "LOOKUP" | "MODEL_INFERENCE"
+    incoming: KnowledgeProvenance
   ) => {
     if (value == null || value === "") return;
     const cur = existing[key];
