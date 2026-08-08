@@ -90,12 +90,18 @@ const SERVICE_CATEGORIES = new Set([
 
 export function inferPhysicalCategoryFromText(text: string): string | undefined {
   const lower = text.toLowerCase();
-  if (/car|vehicle|auto|bmw|toyota|ford/i.test(lower)) return "Cars";
-  if (/tech|phone|laptop|computer/i.test(lower)) return "Tech";
-  if (/game|console|playstation|xbox/i.test(lower)) return "Gaming";
-  if (/fashion|clothes|shoe/i.test(lower)) return "Fashion";
-  if (/home|furniture/i.test(lower)) return "Home";
-  if (/sport/i.test(lower)) return "Sports";
+  if (/car|vehicle|auto|bmw|toyota|ford|mazda|honda|nissan|subaru|\d{2,3}[\s,]?\d{3}\s*km/i.test(lower)) {
+    return "Cars";
+  }
+  if (/ps5|ps4|playstation|xbox|nintendo|switch|console|gaming|\bgames?\b/i.test(lower)) {
+    return "Gaming";
+  }
+  if (/iphone|airpods|ipad|samsung|pixel|phone|laptop|macbook|computer|tech/i.test(lower)) {
+    return "Tech";
+  }
+  if (/fashion|clothes|shoe|sneaker|jacket/i.test(lower)) return "Fashion";
+  if (/couch|sofa|furniture|home|table|chair|mattress/i.test(lower)) return "Home";
+  if (/sport|bike|bicycle|golf|tennis/i.test(lower)) return "Sports";
   return undefined;
 }
 

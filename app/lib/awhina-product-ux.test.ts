@@ -369,25 +369,25 @@ describe("marketplace education messaging-first", () => {
 });
 
 describe("listing improvement suggestions sparse", () => {
-  it("suggests accessories tip for bare console title", () => {
+  it("suggests clearer title for bare short title", () => {
     const tip = suggestListingImprovements({
-      title: "PS5",
-      category: "Gaming",
-      price: "650",
+      title: "Couch",
+      category: "Home",
+      price: "250",
       condition: "Used - Good",
-      description: "Console for sale",
+      description: "Comfy couch for sale",
     });
     expect(tip).toBeTruthy();
-    expect(tip!.toLowerCase()).toMatch(/accessor|controller|title/);
+    expect(tip!.toLowerCase()).toMatch(/title|model|detail/);
   });
 
   it("returns null when draft already solid", () => {
     const tip = suggestListingImprovements({
-      title: "PS5 Disc Edition 2 Controllers",
+      title: "Brand New PlayStation 5 Console",
       category: "Gaming",
       price: "650",
-      condition: "Used - Good",
-      description: "Includes 2 controllers and HDMI cable",
+      condition: "New",
+      description: "Selling Brand New PlayStation 5 Console. Condition: New. Asking $650.",
     });
     expect(tip).toBeNull();
   });

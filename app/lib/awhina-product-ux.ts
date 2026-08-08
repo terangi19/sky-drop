@@ -396,16 +396,9 @@ export function suggestListingImprovements(fill: SkyAiListingFill): string | nul
   if (title && title.split(/\s+/).length <= 2 && !/\d/.test(title)) {
     tips.push("a clearer title (model + key detail)");
   }
-  if (
-    fill.category === "Gaming" &&
-    /\bps5|xbox|switch|playstation\b/i.test(title) &&
-    !/\b(controller|game|hdmi|stand|disc|digital)\b/i.test(`${title} ${desc}`)
-  ) {
-    tips.push("mentioning included accessories (controllers, games, cables)");
-  }
   if (!Number.isNaN(price) && price > 0) {
     if (price < 5) tips.push("double-checking that price — it looks unusually low");
-    if (/\bps5\b/i.test(title) && (price < 150 || price > 1200)) {
+    if (/\b(ps5|playstation\s*5)\b/i.test(title) && (price < 150 || price > 1200)) {
       tips.push("checking the price against recent NZ listings");
     }
   }
@@ -416,6 +409,174 @@ export function suggestListingImprovements(fill: SkyAiListingFill): string | nul
   if (!tips.length) return null;
   const shown = tips.slice(0, 2);
   return `Quick tip: consider ${shown.join(" and ")}.`;
+}
+
+/** Normalize common product shorthand — no invented editions/accessories. */
+export function normalizeProductName(raw: string): string {
+  let s = raw.trim().replace(/\s+/g, " ");
+  s = s.replace(/\bps\s*5\b/gi, "PlayStation 5");
+  s = s.replace(/\bps\s*4\b/gi, "PlayStation 4");
+  s = s.replace(/\bplaystation\s*5\b/gi, "PlayStation 5");
+  s = s.replace(/\bplaystation\s*4\b/gi, "PlayStation 4");
+  s = s.replace(/\bxbox\s*series\s*x\b/gi, "Xbox Series X");
+  s = s.replace(/\bxbox\s*series\s*s\b/gi, "Xbox Series S");
+  s = s.replace(/\biphone\b/gi, "iPhone");
+  s = s.replace(/\bairpods\b/gi, "AirPods");
+  s = s.replace(/\bbmw\b/gi, "BMW");
+  return s;
+}
+
+function titleCaseProduct(s: string): string {
+  return s
+    .split(/\s+/)
+    .map((w) => {
+      if (/^(iPhone|iPad|iPod|AirPods|BMW|USB|HDMI|GB|TB|Pro|Max|Plus)$/i.test(w)) {
+        if (/^iphone$/i.test(w)) return "iPhone";
+        if (/^ipad$/i.test(w)) return "iPad";
+        if (/^airpods$/i.test(w)) return "AirPods";
+        if (/^bmw$/i.test(w)) return "BMW";
+        return w.charAt(0).toUpperCase() + w.slice(1);
+      }
+      if (/^playstation$/i.test(w)) return "PlayStation";
+      if (/^\d+$/.test(w)) return w;
+      if (w.length <= 2 && /[a-z]/i.test(w)) return w.toUpperCase();
+      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+    })
+    .join(" ");
+}
+
+/**
+ * Premium listing title from known item + condition only.
+ * Target ~40–70 chars. Never invent editions/accessories.
+ */
+export function buildPremiumListingTitle(opts: {
+  item: string;
+  condition?: string;
+  listingType?: string;
+  vehicleYear?: string;
+}): string {
+  let core = normalizeProductName(opts.item)
+    .replace(/\b(brand\s+new|its|it's|my|the|a|an)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!core) core = normalizeProductName(opts.item);
+
+  if (/^playstation\s*5$/i.test(core)) core = "PlayStation 5 Console";
+  if (/^playstation\s*4$/i.test(core)) core = "PlayStation 4 Console";
+
+  core = titleCaseProduct(core);
+
+  if (opts.listingType === "vehicle" && opts.vehicleYear && !core.startsWith(opts.vehicleYear)) {
+    core = `${opts.vehicleYear} ${core}`;
+  }
+
+  let prefix = "";
+  if (opts.condition === "New" && !/\bbrand\s+new\b/i.test(core)) {
+    prefix = "Brand New ";
+  } else if (opts.condition === "Used - Like New" && !/\blike\s+new\b/i.test(core)) {
+    prefix = "Like New ";
+  }
+
+  let title = `${prefix}${core}`.replace(/\s+/g, " ").trim();
+  if (title.length > 70) title = title.slice(0, 70).replace(/\s+\S*$/, "").trim();
+  if (title.length < 12 && opts.condition === "New") {
+    title = `Brand New ${core}`.slice(0, 70);
+  }
+  return title.slice(0, 120);
+}
+
+/** Description from known draft facts only — no hallucinations. */
+export function buildListingDescriptionFromFacts(fill: SkyAiListingFill): string {
+  const title = (fill.title || "this item").trim();
+  const bits: string[] = [`Selling ${title}.`];
+  if (fill.condition) bits.push(`Condition: ${fill.condition}.`);
+  if (fill.price) bits.push(`Asking $${fill.price}.`);
+  if (fill.location) bits.push(`Located in ${fill.location}.`);
+  if (fill.pickupAvailable === true && fill.shippingAvailable === false) {
+    bits.push("Pickup only.");
+  } else if (fill.pickupAvailable === true) {
+    bits.push("Pickup available.");
+  }
+  if (fill.vehicleOdometer) bits.push(`Odometer: ${fill.vehicleOdometer}.`);
+  if (fill.vehicleColour) bits.push(`Colour: ${fill.vehicleColour}.`);
+  bits.push("Message me with any questions.");
+  return bits.join(" ").slice(0, 8000);
+}
+
+export function isCompleteListingDraft(fill: SkyAiListingFill): boolean {
+  const hasTitle = Boolean(fill.title?.trim());
+  const hasPrice = Boolean(fill.price && String(fill.price).trim());
+  const hasCondition = Boolean(fill.condition?.trim());
+  const hasLocation = Boolean(fill.location?.trim() || fill.pickupArea?.trim());
+  return hasTitle && hasPrice && hasCondition && hasLocation;
+}
+
+/** Normalize title/desc/category/keywords from extracted facts. */
+export function autoImproveListingDraft(fill: SkyAiListingFill): SkyAiListingFill {
+  const out: SkyAiListingFill = { ...fill };
+  const seed = (out.title || "").trim();
+  if (seed) {
+    const polished = buildPremiumListingTitle({
+      item: seed
+        .replace(/^(brand\s+new|like\s+new)\s+/i, "")
+        .replace(/\bconsole\b/gi, "")
+        .trim() || seed,
+      condition: out.condition,
+      listingType: out.listingType,
+      vehicleYear: out.vehicleYear,
+    });
+    // Prefer polished when seed looks raw (short / slang / "Its Brand")
+    if (
+      /ps5|ps4|its brand|iphone|airpods/i.test(seed) ||
+      seed.split(/\s+/).length <= 4 ||
+      (out.condition === "New" && !/^brand\s+new/i.test(seed))
+    ) {
+      out.title = polished;
+    } else {
+      out.title = normalizeProductName(seed).slice(0, 120);
+    }
+  }
+  if (!out.description || out.description.length < 40 || /^selling my /i.test(out.description)) {
+    out.description = buildListingDescriptionFromFacts(out);
+  } else {
+    out.description = normalizeProductName(out.description).slice(0, 8000);
+  }
+  if (out.title && (!out.extras || out.extras.length === 0)) {
+    const kw = out.title
+      .replace(/\b(brand new|like new|console)\b/gi, "")
+      .split(/\s+/)
+      .map((w) => w.trim())
+      .filter((w) => w.length >= 2 && !/^(the|and|for|with)$/i.test(w))
+      .slice(0, 8);
+    if (kw.length) out.extras = kw;
+  }
+  return out;
+}
+
+/** Complete-draft outcome copy — not "Updated: condition…". */
+export function buildCompleteDraftReply(fill: SkyAiListingFill): string {
+  const title = fill.title || "your item";
+  const lines = [
+    "Your listing is ready.",
+    "",
+    `**Title:** ${title}`,
+  ];
+  if (fill.price) lines.push(`**Price:** $${fill.price}`);
+  if (fill.condition) lines.push(`**Condition:** ${fill.condition}`);
+  if (fill.category) lines.push(`**Category:** ${fill.category}`);
+  if (fill.location) lines.push(`**Location:** ${fill.location}`);
+  if (fill.pickupAvailable === true) {
+    lines.push(
+      fill.shippingAvailable === false ? "**Pickup:** Yes (pickup only)" : "**Pickup:** Yes"
+    );
+  }
+  const desc = (fill.description || "").trim();
+  if (desc) {
+    const preview = desc.length > 160 ? `${desc.slice(0, 157)}…` : desc;
+    lines.push("", "**Description preview:**", preview);
+  }
+  lines.push("", "Tip: add clear photos (item + any box/accessories), then hit **Publish** when you're ready.");
+  return lines.join("\n");
 }
 
 /**

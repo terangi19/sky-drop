@@ -30,8 +30,21 @@ import {
 import { hasListingSellIntent } from "./sky-ai-intent";
 import type { AwhinaToolCall } from "./awhina-types";
 import { validateToolCall } from "./awhina-tool-registry";
-import { suggestListingImprovements } from "./awhina-product-ux";
-import { looksLikeVehicleYearToken, parseVehicleYear } from "./sky-ai-find-routing";
+import {
+  suggestListingImprovements,
+  buildPremiumListingTitle,
+  buildListingDescriptionFromFacts,
+  autoImproveListingDraft,
+  buildCompleteDraftReply,
+  isCompleteListingDraft,
+  normalizeProductName,
+} from "./awhina-product-ux";
+import {
+  looksLikeVehicleYearToken,
+  parseVehicleYear,
+  parseVehicleMake,
+  parseVehicleModel,
+} from "./sky-ai-find-routing";
 
 const SESSION_TTL_MS = 30 * 60 * 1000;
 const MAX_SESSIONS = 400;
@@ -79,7 +92,10 @@ const RELATIVE_PRICE_RE =
   /\b(make it cheaper|cheaper|lower the price|reduce (the )?price|drop the price|a bit less|less expensive)\b/i;
 
 const PRICE_SET_RE =
-  /\b(?:(?:make(?:\s+it)?|set(?:\s+(?:the|it|price))?|price(?:\s+is)?|actually|change(?:\s+(?:it|price|to))?|update(?:\s+price)?|it'?s)\s+)\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(?:bucks|nzd|dollars?)?\b|\b(?:for|at)\s+\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(?:bucks|nzd|dollars?)?\b|\b\$\s*([\d,]+(?:\.\d{1,2})?)\b/i;
+  /\b(?:(?:make(?:\s+it)?|set(?:\s+(?:the|it|price))?|price(?:\s+is)?|actually|change(?:\s+(?:it|price|to))?|update(?:\s+price)?|it'?s)\s+)\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(?:bucks|nzd|dollars?)?\b|\b(?:for|at)\s+\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(?:bucks|nzd|dollars?)?\b|\b\$\s*([\d,]+(?:\.\d{1,2})?)\b|\b([\d,]+(?:\.\d{1,2})?)\s*(?:bucks|nzd|dollars?)\b/i;
+
+const BUCKS_PRICE_RE =
+  /\b([\d,]+(?:\.\d{1,2})?)\s*(k|K)?\s*(?:bucks|nzd|dollars?)\b/i;
 
 const MALFORMED_PRICE_RE =
   /\b(?:\$\s*[^\d\s,]|price\s*(?:is|=|:)?\s*(?:abc|xyz|freeish|tbd|tba|asap|idk)|price\s+[a-z]{2,})\b/i;
@@ -92,7 +108,10 @@ const CONDITION_RE =
   /\b(?:condition(?:\s+is)?|it'?s|its)\s+(new|used(?:\s*[-–]?\s*(?:like\s+new|good|fair))?|like\s+new|excellent|mint|good|fair|rough)\b|\b(new|used|like\s+new|excellent|mint)\b(?!\s+(?:zealand|listing))/i;
 
 const SELL_ITEM_RE =
-  /\b(?:selling|sell(?:ing)?|list(?:ing)?|post(?:ing)?)\s+(?:my\s+|a\s+|an\s+|the\s+)?(.+?)(?:\s+for\s+\$|\s+\$|\s+at\s+\$|$)/i;
+  /\b(?:want\s+to\s+list|selling|sell(?:ing)?|list(?:ing)?|post(?:ing)?)\s+(?:my\s+|a\s+|an\s+|the\s+)?(.+)$/i;
+
+const SELL_ITEM_STOP_RE =
+  /\b(brand\s+new|its|it's|condition|new|used|like\s+new|excellent|mint|good|fair|pickup|pick\s*up|shipping|located|based|in\s+auckland|auckland|wellington|christchurch|for\s+\$|\$\d|\d+\s*(?:bucks|nzd|dollars?)|\d{2,3}[\s,]?\d{3}\s*km)\b/i;
 
 const KEYWORDS_RE =
   /\b(?:keywords?|tags?)\s*(?:are|:)?\s*(.+)$/i;
@@ -282,7 +301,23 @@ function extractPriceFromMessage(message: string): string | null | "malformed" {
   if (dollar) {
     let n = Number(dollar[1].replace(/,/g, ""));
     if (dollar[2]) n *= 1000;
-    const check = validatePriceString(String(n));
+    const raw = String(Math.round(n));
+    // "$2007" next to a vehicle make with no bucks wording can still be year misuse — keep $ as price
+    const check = validatePriceString(raw);
+    if (!check.ok) return "malformed";
+    return check.price;
+  }
+
+  // "200 bucks" / "280 dollars" — current-message currency words beat history years
+  const bucks = message.match(BUCKS_PRICE_RE);
+  if (bucks) {
+    let n = Number(bucks[1].replace(/,/g, ""));
+    if (bucks[2]) n *= 1000;
+    const raw = String(Math.round(n));
+    if (looksLikeVehicleYearToken(raw, message) && !/\b(bucks|dollars?|nzd)\b/i.test(message)) {
+      return null;
+    }
+    const check = validatePriceString(raw);
     if (!check.ok) return "malformed";
     return check.price;
   }
@@ -332,28 +367,68 @@ export function parseListingPriceFromMessage(message: string): string | null | "
 function extractSellItem(message: string): string | undefined {
   const m = message.match(SELL_ITEM_RE);
   if (!m?.[1]) return undefined;
-  let item = m[1]
-    .replace(/\b(for sale|please|thanks)\b/gi, "")
-    .replace(/\$[\d,]+.*$/, "")
+  let item = m[1].replace(/\b(for sale|please|thanks)\b/gi, "").trim();
+  const stop = item.search(SELL_ITEM_STOP_RE);
+  if (stop > 0) item = item.slice(0, stop).trim();
+  item = item
+    .replace(/\$[\d,]+.*$/i, "")
+    .replace(/\b\d+\s*(?:bucks|nzd|dollars?).*$/i, "")
+    .replace(/\b(brand\s+new|its|it's)\b.*$/i, "")
     .trim();
-  // Strip trailing condition/price fragments
-  item = item.replace(/\b(new|used|pickup|shipping)\b.*$/i, "").trim();
+  // Keep known product tokens even if stop ate too much
+  if (item.length < 2) {
+    const known = message.match(
+      /\b(ps5|ps4|playstation\s*[45]|xbox(?:\s*series\s*[sx])?|iphone(?:\s*\d+\s*pro)?|airpods(?:\s*pro)?(?:\s*\d+)?|couch|sofa|[1-8]\d{2}[a-z]?|bmw|toyota|mazda|honda|ford)\b/i
+    );
+    if (known) item = known[0];
+  }
   if (item.length < 2 || item.length > 80) return undefined;
-  return item;
+  return item.replace(/\s+/g, " ").trim();
 }
 
-function buildTitleAndDescription(item: string): Pick<SkyAiListingFill, "title" | "description" | "category" | "listingType"> {
-  const title = item
-    .split(/\s+/)
-    .map((w) => (w.length <= 2 ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)))
-    .join(" ")
-    .slice(0, 120);
-  const category = inferPhysicalCategoryFromText(item) || "Other";
-  const listingType = /toyota|mazda|honda|ford|bmw|nissan|subaru|ute|car\b|vehicle/i.test(item)
-    ? "vehicle"
-    : "physical";
-  const description = `Selling my ${item}. Honest NZ seller — message me with any questions.`;
-  return { title, description, category, listingType };
+function buildTitleAndDescription(
+  item: string,
+  extras?: { condition?: string; price?: string; location?: string; pickupAvailable?: boolean }
+): Pick<SkyAiListingFill, "title" | "description" | "category" | "listingType" | "vehicleMake" | "vehicleModel" | "vehicleYear"> {
+  const vehicle =
+    /toyota|mazda|honda|ford|bmw|nissan|subaru|ute|car\b|vehicle|\d{2,3}[\s,]?\d{3}\s*km/i.test(item) ||
+    Boolean(parseVehicleMake(item));
+  const listingType = vehicle ? "vehicle" : "physical";
+  const make = parseVehicleMake(item);
+  const model = parseVehicleModel(item);
+  const year = parseVehicleYear(item);
+  const title = buildPremiumListingTitle({
+    item: vehicle && make ? [year, make, model].filter(Boolean).join(" ") || item : item,
+    condition: extras?.condition,
+    listingType,
+    vehicleYear: year,
+  });
+  const category =
+    listingType === "vehicle"
+      ? "Cars"
+      : inferPhysicalCategoryFromText(`${item} ${title}`) || undefined;
+  const seed: SkyAiListingFill = {
+    title,
+    condition: extras?.condition,
+    price: extras?.price,
+    location: extras?.location,
+    pickupAvailable: extras?.pickupAvailable,
+    listingType,
+    category,
+    vehicleMake: make,
+    vehicleModel: model,
+    vehicleYear: year,
+  };
+  const description = buildListingDescriptionFromFacts(seed);
+  return {
+    title,
+    description,
+    category: category || (listingType === "vehicle" ? "Cars" : "Other"),
+    listingType,
+    vehicleMake: make,
+    vehicleModel: model,
+    vehicleYear: year,
+  };
 }
 
 function contextToFill(ctx: SkyAiListingContext | null | undefined): SkyAiListingFill {
@@ -389,6 +464,8 @@ export function processListingFillMessage(
     pathname?: string;
     listingContext?: SkyAiListingContext | null;
     sessionKey?: string;
+    /** Hard reset — ignore SEARCH/old draft leakage on explicit SELL switch */
+    freshStart?: boolean;
   } = {}
 ): ListingFillToolResult {
   const pathname = opts.pathname || "/";
@@ -429,13 +506,27 @@ export function processListingFillMessage(
   }
 
   const sessionKey = opts.sessionKey || listingDraftSessionKey({ pathname });
-  const sessionDraft = getListingDraftSession(sessionKey)?.draft;
-  const fromContext = contextToFill(opts.listingContext);
+  const sellItemEarly = extractSellItem(trimmed);
+  // New NL sell request (has item seed) — never inherit SEARCH/old unrelated draft
+  const isNewSellSeed =
+    opts.freshStart === true ||
+    (Boolean(sellItemEarly) &&
+      (hasListingSellIntent(trimmed) ||
+        /\b(want\s+to\s+list|list(?:ing)?\s+my|sell(?:ing)?\s+my)\b/i.test(trimmed)));
+
+  if (isNewSellSeed) {
+    clearListingDraftSession(sessionKey);
+  }
+
+  const sessionDraft = isNewSellSeed ? undefined : getListingDraftSession(sessionKey)?.draft;
+  const fromContext = isNewSellSeed ? {} : contextToFill(opts.listingContext);
   const baseDraft: SkyAiListingFill = {
     ...fromContext,
     ...(sessionDraft || {}),
   };
-  const hasDraft = hasActiveListingDraft(opts.listingContext) || Object.keys(baseDraft).length > 0;
+  const hasDraft =
+    !isNewSellSeed &&
+    (hasActiveListingDraft(opts.listingContext) || Object.keys(baseDraft).length > 0);
 
   // Structured paste shortcut
   const paste = tryListingPasteShortcut(trimmed, pathname, opts.listingContext || null);
@@ -506,21 +597,31 @@ export function processListingFillMessage(
     touched = true;
   }
 
-  // Condition
-  const condMatch = trimmed.match(CONDITION_RE);
-  if (condMatch) {
-    const cond = normalizeConditionLocal(condMatch[1] || condMatch[2] || "");
-    if (cond) {
-      partial.condition = cond;
-      notes.push(`condition ${cond}`);
-      touched = true;
+  // Condition — "brand new" / "its brand new" → New (current message wins)
+  if (/\bbrand\s+new\b/i.test(trimmed)) {
+    partial.condition = "New";
+    notes.push("condition New");
+    touched = true;
+  } else {
+    const condMatch = trimmed.match(CONDITION_RE);
+    if (condMatch) {
+      const cond = normalizeConditionLocal(condMatch[1] || condMatch[2] || "");
+      if (cond) {
+        partial.condition = cond;
+        notes.push(`condition ${cond}`);
+        touched = true;
+      }
     }
   }
 
-  // Location
+  // Location — "in Auckland" or bare NZ city after pickup
   const locMatch = trimmed.match(LOCATION_RE);
-  if (locMatch?.[1] && !/^it$/i.test(locMatch[1])) {
-    const loc = locMatch[1]
+  const bareCity = trimmed.match(
+    /\b(auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston north|rotorua|queenstown|nelson|whangarei)\b/i
+  );
+  const locRaw = locMatch?.[1] && !/^it$/i.test(locMatch[1]) ? locMatch[1] : bareCity?.[1];
+  if (locRaw) {
+    const loc = locRaw
       .split(/\s+/)
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
       .join(" ")
@@ -532,9 +633,11 @@ export function processListingFillMessage(
 
   // Pickup / shipping from free text even when not "tweak only"
   const actions = parseFormActionsFromMessage(trimmed);
+  if (/\b(pick\s*up|pickup)\b/i.test(trimmed) && actions.pickupAvailable === undefined) {
+    actions.pickupAvailable = true;
+  }
   if (hasFormActionContent(actions)) {
     Object.assign(partial, mergeFormActionsIntoFill({}, actions));
-    // Avoid duplicate "location X" + "Location: X"
     const actionNotes = describeFormActions(actions).filter((n) => {
       if (!partial.location) return true;
       return !new RegExp(`^Location:\\s*${partial.location}$`, "i").test(n);
@@ -551,7 +654,7 @@ export function processListingFillMessage(
     touched = true;
   }
   const descMatch = trimmed.match(DESC_SET_RE);
-  if (descMatch?.[1] && !hasListingSellIntent(trimmed)) {
+  if (descMatch?.[1] && !hasListingSellIntent(trimmed) && !isNewSellSeed) {
     partial.description = descMatch[1].trim().slice(0, 8000);
     notes.push("description");
     touched = true;
@@ -570,9 +673,10 @@ export function processListingFillMessage(
     }
   }
 
-  // New sell intent — seed draft
-  const sellItem = extractSellItem(trimmed);
+  // New sell intent — one-pass seed (current message facts only)
+  const sellItem = sellItemEarly || extractSellItem(trimmed);
   const wantsSell =
+    isNewSellSeed ||
     hasListingSellIntent(trimmed) ||
     (onSell && sellItem) ||
     (onSell && /^(ps5|xbox|iphone|samsung|laptop|couch)/i.test(trimmed));
@@ -581,18 +685,25 @@ export function processListingFillMessage(
     const item =
       sellItem ||
       trimmed
-        .replace(/^(i'?m\s+)?(selling|sell|listing|list)\s+(my\s+|a\s+|an\s+)?/i, "")
+        .replace(/^(i'?m\s+)?(want\s+to\s+)?(selling|sell|listing|list)\s+(my\s+|a\s+|an\s+)?/i, "")
         .replace(/\$[\d,]+.*$/, "")
         .trim()
         .slice(0, 80);
     if (item.length >= 2) {
-      const seeded = buildTitleAndDescription(item);
-      // Only seed title/desc if not already set by explicit title/desc above
+      const seeded = buildTitleAndDescription(item, {
+        condition: partial.condition,
+        price: partial.price,
+        location: partial.location,
+        pickupAvailable: partial.pickupAvailable,
+      });
       if (!partial.title) partial.title = seeded.title;
-      if (!partial.description && !hasDraft) partial.description = seeded.description;
-      if (!partial.category) partial.category = seeded.category;
+      if (!partial.description) partial.description = seeded.description;
+      if (!partial.category && seeded.category) partial.category = seeded.category;
       if (!partial.listingType) partial.listingType = seeded.listingType;
-      if (!notes.includes("title")) notes.push(`draft for ${partial.title}`);
+      if (seeded.vehicleMake) partial.vehicleMake = seeded.vehicleMake;
+      if (seeded.vehicleModel) partial.vehicleModel = seeded.vehicleModel;
+      if (seeded.vehicleYear) partial.vehicleYear = seeded.vehicleYear;
+      if (!notes.some((n) => n.startsWith("draft"))) notes.push(`draft for ${partial.title}`);
       touched = true;
     }
   }
@@ -655,6 +766,18 @@ export function processListingFillMessage(
 
   merged = enhanceListingFillFromMessage(trimmed, merged) || merged;
 
+  // Auto-improve on new seeds / incomplete drafts — never pull SEARCH entities
+  if (isNewSellSeed || !hasDraft) {
+    merged = autoImproveListingDraft(merged);
+  } else if (!merged.description || merged.description.length < 40) {
+    merged.description = buildListingDescriptionFromFacts(merged);
+  }
+  if (merged.title) merged.title = normalizeProductName(merged.title).slice(0, 120);
+
+  // Strip any leaked vehicle-year-as-price when current message has explicit bucks/$ price
+  if (partial.price) merged.price = partial.price;
+  if (partial.condition) merged.condition = partial.condition;
+
   const validated = validateListingFillFields(merged);
   if (!validated.ok) {
     return { handled: true, reply: validated.error, clarify: true, intent: "listing_update" };
@@ -662,27 +785,40 @@ export function processListingFillMessage(
 
   rememberListingDraft(sessionKey, validated.fill);
 
-  const title = validated.fill.title || baseDraft.title || "your listing";
-  const changeNote =
-    notes.length > 0
-      ? notes.length === 1 && notes[0].startsWith("draft")
-        ? `Started a draft for **${title}**.`
-        : `Updated: **${notes.join("**, **")}**.`
-      : `Updated your listing draft.`;
+  const intent = hasDraft && !isNewSellSeed ? "listing_update" : "listing_create";
+  let reply: string;
+  if (isCompleteListingDraft(validated.fill) && (isNewSellSeed || !hasDraft)) {
+    reply = buildCompleteDraftReply(validated.fill);
+  } else if (isNewSellSeed || !hasDraft) {
+    const title = validated.fill.title || "your listing";
+    const missing: string[] = [];
+    if (!validated.fill.price) missing.push("price");
+    if (!validated.fill.condition) missing.push("condition");
+    if (!validated.fill.location) missing.push("location");
+    reply =
+      missing.length > 0
+        ? `Started a draft for **${title}**. Still need: **${missing.join("**, **")}**.`
+        : `Started a draft for **${title}**. Add photos, then hit **Publish** when ready.`;
+  } else {
+    const title = validated.fill.title || baseDraft.title || "your listing";
+    const changeNote =
+      notes.length > 0
+        ? notes.length === 1 && notes[0].startsWith("draft")
+          ? `Started a draft for **${title}**.`
+          : `Updated: **${notes.join("**, **")}**.`
+        : `Updated your listing draft.`;
+    const follow =
+      !validated.fill.price || !validated.fill.condition
+        ? ` Tell me price, condition, or pickup/shipping next — or add photos and publish when ready.`
+        : ` Add photos, then hit **Publish** when ready.`;
+    const suggestion =
+      validated.fill.price && validated.fill.condition
+        ? suggestListingImprovements(validated.fill)
+        : null;
+    reply = `${changeNote}${follow}${suggestion ? ` ${suggestion}` : ""}`;
+  }
 
-  const follow =
-    !validated.fill.price || !validated.fill.condition
-      ? ` Tell me price, condition, or pickup/shipping next — or add photos and publish when ready.`
-      : ` Add photos, then hit **Publish** when ready.`;
-
-  // At most one useful improvement tip — don't overwhelm
-  const suggestion =
-    validated.fill.price && validated.fill.condition
-      ? suggestListingImprovements(validated.fill)
-      : null;
-  const tip = suggestion ? ` ${suggestion}` : "";
-
-  return finishFill(`${changeNote}${follow}${tip}`, validated.fill, hasDraft ? "listing_update" : "listing_create");
+  return finishFill(reply, validated.fill, intent);
 }
 
 function finishFill(

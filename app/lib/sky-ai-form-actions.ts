@@ -31,7 +31,7 @@ export type SkyAiFormActions = {
 export type SkyAiListingFormActionIntent = keyof SkyAiFormActions;
 
 const FORM_ACTION_INTENT =
-  /\b(pickup|shipping|ship only|deliver|delivery|offers?|quantity|stock|qty|auction|buy\s+now|fixed\s+price|located\s+in|based\s+in)\b/i;
+  /\b(pick\s*up|pickup|shipping|ship only|deliver|delivery|offers?|quantity|stock|qty|auction|buy\s+now|fixed\s+price|located\s+in|based\s+in)\b/i;
 
 export function isListingFormActionIntent(message: string): boolean {
   return FORM_ACTION_INTENT.test(message);
@@ -73,11 +73,14 @@ function parsePickupShipping(message: string): Pick<SkyAiFormActions, "pickupAva
     return out;
   }
 
-  if (/\bno\s+pickup\b/.test(n)) out.pickupAvailable = false;
+  if (/\bno\s+pick\s*up\b/.test(n)) out.pickupAvailable = false;
   if (/\bno\s+shipping\b/.test(n)) out.shippingAvailable = false;
-  if (/\bpickup\s+available\b/.test(n)) out.pickupAvailable = true;
-  if (/\bpickup\s+preferred\b/.test(n)) out.pickupAvailable = true;
+  if (/\bpick\s*up\s+available\b/.test(n)) out.pickupAvailable = true;
+  if (/\bpick\s*up\s+preferred\b/.test(n)) out.pickupAvailable = true;
   if (/\bshipping\s+available\b/.test(n)) out.shippingAvailable = true;
+  if (out.pickupAvailable === undefined && /\b(pick\s*up|pickup)\b/.test(n)) {
+    out.pickupAvailable = true;
+  }
 
   return out;
 }

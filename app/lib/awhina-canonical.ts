@@ -21,12 +21,14 @@ import {
   rememberPrimarySearch,
   hydrateSearchSession,
   toClientSearchContext,
+  clearSearchSession,
   type ClientSearchContext,
   type SearchSessionFilters,
 } from "./awhina-search-memory";
 import {
   listingDraftSessionKey,
   getListingDraftSession,
+  clearListingDraftSession,
   processListingFillMessage,
   isListingFollowUp,
 } from "./awhina-listing-fill-tools";
@@ -864,14 +866,32 @@ export function processCanonicalAwhina(
         (isListingFollowUp(trimmed, hasListDraft) && !stickyShopping)));
 
   if (sellCandidate && !stickyShopping) {
+    // Hard task RESET on explicit SELL switch — do NOT inherit SEARCH year/maxPrice/make
+    const switchingFromSearch =
+      explicitSell ||
+      (taskSession?.task === "shopping" &&
+        (hasListingSellIntent(trimmed) || explicitSell));
+    if (switchingFromSearch) {
+      clearSearchSession(memKey);
+      clearListingDraftSession(listKey);
+      setActiveTask(scopeKey, "selling", {
+        pendingItem: undefined,
+        compareCandidates: undefined,
+      });
+    }
+
     const listing = processListingFillMessage(trimmed, {
       pathname: onSell ? pathname : "/post/ai",
-      listingContext: context.listingContext || (listSession?.draft as SkyAiListingContext) || null,
+      // Fresh SELL: ignore client listingContext that may hold BUY/old draft bleed
+      listingContext: switchingFromSearch
+        ? null
+        : context.listingContext || (listSession?.draft as SkyAiListingContext) || null,
       sessionKey: listKey,
+      freshStart: switchingFromSearch,
     });
     if (listing.handled) {
       const sellTool = listing.toolCall?.tool || (listing.listingFill ? "createListing" : undefined);
-      if (sellTool && !isToolAllowedForTask(sellTool, resolvedTask)) {
+      if (sellTool && !isToolAllowedForTask(sellTool, "selling")) {
         // Fall through — should not sell while shopping
       } else {
         setActiveTask(scopeKey, "selling");

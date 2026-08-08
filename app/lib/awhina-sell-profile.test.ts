@@ -37,7 +37,7 @@ describe("sell listing-fill canonical", () => {
     expect(r.handled).toBe(true);
     expect(r.avoidedAi).toBe(true);
     expect(r.listingFill).toBeTruthy();
-    expect(String(r.listingFill?.title || "")).toMatch(/ps5/i);
+    expect(String(r.listingFill?.title || "")).toMatch(/playstation\s*5|ps5/i);
     expect(r.tool).toMatch(/createListing|updateListingDraft/);
   });
 
@@ -49,7 +49,7 @@ describe("sell listing-fill canonical", () => {
     });
     expect(r.handled).toBe(true);
     expect(r.listingFill?.price).toBe("500");
-    expect(String(r.listingFill?.title || "")).toMatch(/ps5/i);
+    expect(String(r.listingFill?.title || "")).toMatch(/playstation\s*5|ps5/i);
   });
 
   it("Condition is used updates condition only", () => {
@@ -62,7 +62,7 @@ describe("sell listing-fill canonical", () => {
     expect(r.handled).toBe(true);
     expect(r.listingFill?.condition).toMatch(/Used/i);
     expect(r.listingFill?.price).toBe("500");
-    expect(String(r.listingFill?.title || "")).toMatch(/ps5/i);
+    expect(String(r.listingFill?.title || "")).toMatch(/playstation\s*5|ps5/i);
   });
 
   it("pickup only sets delivery flags", () => {
