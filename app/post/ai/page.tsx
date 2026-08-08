@@ -202,7 +202,8 @@ export default function AIPostPage() {
   /** Mobile workspace: conversation is primary; listing is the draft pane */
   const [mobileWorkspaceTab, setMobileWorkspaceTab] = useState<"chat" | "listing">("chat");
   const [liveFieldNotes, setLiveFieldNotes] = useState<string[]>([]);
-  const [showManualEditor, setShowManualEditor] = useState(false);
+  /** Restored pre-5bb3f2b: full manual form usable without AI (gated only if user hides it) */
+  const [showManualEditor, setShowManualEditor] = useState(true);
   const awhinaConversation = useAwhinaConversation();
   const handoffBootstrapped = useRef(false);
   const [draftExtras, setDraftExtras] = useState<string[]>([]);
@@ -328,7 +329,8 @@ export default function AIPostPage() {
     setShowManualEditor(true);
     setMobileWorkspaceTab("listing");
     setTimeout(() => {
-      document.getElementById("listing-title")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      document.getElementById("manual-listing-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      document.getElementById("listing-title")?.focus();
     }, 50);
   };
 
@@ -1711,11 +1713,11 @@ export default function AIPostPage() {
             Back
           </Link>
           <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-            {editId ? "Edit Your Listing" : "Build your listing with Āwhina"}
+            {editId ? "Edit Your Listing" : "Build your listing"}
           </h1>
           {!editId && (
             <p className="mt-1.5 max-w-lg text-sm text-zinc-400">
-              Tell Āwhina about your item and we&apos;ll build the listing together.
+              Chat with Āwhina, or tap Edit details to fill the full listing form yourself.
             </p>
           )}
           {editId && (
@@ -1724,6 +1726,30 @@ export default function AIPostPage() {
             </p>
           )}
         </div>
+
+        {/* Always-visible manual path — no draft/AI required (restores pre-simplify escape) */}
+        {!editId && (
+          <div className="mb-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setMobileWorkspaceTab("chat");
+                setSkyChatOpen(true);
+              }}
+              className="rounded-xl border border-sky-500/40 bg-sky-500/15 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-500/25"
+            >
+              Chat with Āwhina
+            </button>
+            <button
+              type="button"
+              onClick={openManualEditor}
+              data-testid="edit-details-empty"
+              className="rounded-xl border border-white/20 bg-white/[0.08] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/[0.14]"
+            >
+              Edit details
+            </button>
+          </div>
+        )}
 
         {!editId && (
           <div className="mb-3 flex gap-1 rounded-xl border border-white/[0.08] bg-white/[0.02] p-1 lg:hidden">
@@ -1736,11 +1762,11 @@ export default function AIPostPage() {
             </button>
             <button
               type="button"
-              onClick={() => setMobileWorkspaceTab("listing")}
+              onClick={() => { setMobileWorkspaceTab("listing"); setShowManualEditor(true); }}
               className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${mobileWorkspaceTab === "listing" ? "bg-white/[0.08] text-white" : "text-zinc-400"}`}
             >
-              Listing
-              {(hasDraftContent || imagePreviews.length > 0) && (
+              Your listing
+              {(hasDraftContent || imagePreviews.length > 0 || showManualEditor) && (
                 <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-sky-400" aria-hidden />
               )}
             </button>
@@ -1776,7 +1802,7 @@ export default function AIPostPage() {
                       : "Ready to review"
                     : hasDraftContent
                       ? listingReadiness.label
-                      : "Start with Āwhina"}
+                      : "Chat or edit details"}
               </p>
             </div>
           </div>
@@ -1952,7 +1978,7 @@ export default function AIPostPage() {
                   <button
                     type="button"
                     onClick={() => { setMobileWorkspaceTab("chat"); setSkyChatOpen(true); }}
-                    className="rounded-lg bg-sky-500/90 px-3 py-2 text-[11px] font-semibold text-white transition hover:bg-sky-400 lg:hidden"
+                    className="rounded-lg bg-sky-500/90 px-3 py-2 text-xs font-semibold text-white transition hover:bg-sky-400 lg:hidden"
                   >
                     Answer Āwhina
                   </button>
@@ -1960,7 +1986,7 @@ export default function AIPostPage() {
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="rounded-lg bg-sky-500/90 px-3 py-2 text-[11px] font-semibold text-white transition hover:bg-sky-400"
+                    className="rounded-lg bg-sky-500/90 px-3 py-2 text-xs font-semibold text-white transition hover:bg-sky-400"
                   >
                     {photoCtaTitle}
                   </button>
@@ -1968,7 +1994,7 @@ export default function AIPostPage() {
                   <button
                     type="button"
                     onClick={openManualEditor}
-                    className="rounded-lg bg-sky-500/90 px-3 py-2 text-[11px] font-semibold text-white transition hover:bg-sky-400"
+                    className="rounded-lg bg-sky-500/90 px-3 py-2 text-xs font-semibold text-white transition hover:bg-sky-400"
                   >
                     Review listing
                   </button>
@@ -1977,10 +2003,11 @@ export default function AIPostPage() {
                   <button
                     type="button"
                     onClick={openManualEditor}
-                    className={`rounded-lg px-3 py-2 text-[11px] font-semibold transition ${
+                    data-testid="edit-details-listing"
+                    className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition ${
                       isReadyToReview || awhinaIsAsking
-                        ? "text-zinc-400 hover:text-zinc-200"
-                        : "bg-white/[0.06] text-zinc-200 hover:bg-white/[0.1] hover:text-white"
+                        ? "border border-white/10 text-zinc-300 hover:border-white/20 hover:text-white"
+                        : "w-full border border-white/15 bg-white/[0.08] text-white hover:bg-white/[0.12] sm:w-auto"
                     }`}
                   >
                     Edit details
@@ -1990,7 +2017,7 @@ export default function AIPostPage() {
                   <button
                     type="button"
                     onClick={() => setShowManualEditor(false)}
-                    className="rounded-lg px-3 py-2 text-[11px] font-semibold text-zinc-400 transition hover:text-zinc-200"
+                    className="rounded-lg px-3 py-2 text-xs font-semibold text-zinc-400 transition hover:text-zinc-200"
                   >
                     Hide form
                   </button>
@@ -1999,8 +2026,11 @@ export default function AIPostPage() {
             </div>
           )}
 
-        {/* Full manual form — expands below compact preview (Edit details / Review) */}
-        <div className={`${!editId && !showManualEditor ? "hidden" : "mt-4 block"}`}>
+        {/* Full manual form — always available after Edit details / default open (pre-5bb3f2b Form Card) */}
+        <div
+          id="manual-listing-form"
+          className={`${!editId && !showManualEditor ? "hidden" : "mt-4 block"}`}
+        >
         <div className="relative">
           <div className="absolute -inset-1 rounded-3xl bg-gradient-to-b from-sky-500/10 via-transparent to-transparent blur-xl pointer-events-none" />
           <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[var(--card)] p-4 sm:p-6 md:p-8">
@@ -2032,9 +2062,10 @@ export default function AIPostPage() {
                 <span>Let Āwhina choose</span>
               </button>
             </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
               {[
-                { key: "physical", icon: "📦", label: "Physical", desc: "Sell items for pickup or shipping, including vehicles.", tags: ["Phones", "Vehicles", "Furniture"], action: () => setAcceptOffers(false) },
+                { key: "physical", icon: "📦", label: "Physical", desc: "Sell items for pickup or shipping.", tags: ["Phones", "Furniture", "Tools"], action: () => setAcceptOffers(false) },
+                { key: "vehicle", icon: "🚗", label: "Vehicle", desc: "Motor vehicles for sale.", tags: ["Cars", "Bikes", "Boats"], action: () => { setCategory("Cars"); setSaleType("buy_now"); setAcceptOffers(false); } },
                 { key: "service", icon: "🛠️", label: "Service", desc: "Offer local or online services.", tags: ["Cleaning", "Tutoring", "Photography"], action: () => { setCategory("Other Services"); setServicePricingType("fixed"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(true); setSaleType("buy_now"); } },
                 { key: "rental", icon: "🔑", label: "Rental", desc: "Rent equipment, vehicles or tools.", tags: ["Equipment", "Vehicles", "Tools"], action: () => { setCategory(""); markField("category"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); setLocation(""); setCondition(""); markField("condition"); } },
                 { key: "wanted", icon: "📋", label: "Wanted", desc: "Tell sellers what you're looking for.", tags: ["Items", "Services", "Rentals"], action: () => { setCategory("Items"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); } },
