@@ -9,11 +9,10 @@ type Props = {
 };
 
 const VOICE_EXAMPLES = [
-  { phrase: "Sell", hint: "Open the create listing page" },
-  { phrase: "My listings", hint: "Open your seller hub" },
-  { phrase: "Find a Toyota Hilux", hint: "Search the marketplace" },
+  { phrase: "Sell something", hint: "Open the create listing page" },
+  { phrase: "Find something", hint: "Search the marketplace" },
+  { phrase: "Help me navigate", hint: "Go somewhere on Sky Drop" },
   { phrase: "Take me to messages", hint: "Check your inbox" },
-  { phrase: "Watchlist", hint: "View saved items" },
 ] as const;
 
 export default function VoiceModeIntroModal({ open, onGetStarted, onDismiss }: Props) {

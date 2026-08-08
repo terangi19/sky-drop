@@ -600,13 +600,11 @@ export function getGuideReply(query: string, currentPath: string): GuideReply {
 }
 
 export const SKY_AI_GENERIC_FALLBACK =
-  'Tell me what you need — e.g. create a listing, price help, safety tips, or "take me to seller guidelines". Tap a quick button below too.';
+  'Tell me what you need — find something, sell something, price an item, or help navigating. Tap a quick button below too.';
 
 export const GUIDE_QUICK_PROMPTS: { label: string; query: string }[] = [
-  { label: "Seller guidelines", query: "Take me to seller guidelines" },
-  { label: "Bank setup", query: "Arrange purchase bank setup" },
-  { label: "Payment settings", query: "Open payment settings" },
-  { label: "Sell", query: "Take me to sell / create a listing" },
-  { label: "Messages", query: "Go to messages" },
-  { label: "FAQs", query: "Open FAQs" },
+  { label: "Find something", query: "Help me find something on Sky Drop" },
+  { label: "Sell something", query: "I want to sell something" },
+  { label: "Price an item", query: "Help me price an item" },
+  { label: "Help me navigate", query: "Help me navigate Sky Drop" },
 ];

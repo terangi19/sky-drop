@@ -200,7 +200,7 @@ export function freeFormDegradedReply(message: string, pathname: string): string
   const guide = getGuideReply(message, pathname);
   return (
     guide.text ||
-    "Āwhina's language helper is temporarily unavailable. Try a short command like **messages**, **sell**, or **find BMWs in Auckland** — those still work locally."
+    "Āwhina's language helper is temporarily unavailable. Try **Find something**, **Sell something**, or **Help me navigate** — those still work locally."
   );
 }
 

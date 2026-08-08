@@ -348,7 +348,7 @@ export default function AwhinaProfileAssistant({ draft, onApplyFill, className =
             value={input}
             onChange={(e) => setInput(e.target.value)}
             disabled={busy}
-            placeholder='e.g. "I sell cars in Auckland" or "Write my bio"'
+            placeholder="Tell me about yourself, or ask me to write your bio"
             className="min-w-0 flex-1 rounded-xl border border-sky-500/20 bg-white/[0.03] px-3 py-2.5 text-[13px] text-always-white outline-none placeholder:text-zinc-500 focus:border-sky-400/50 light:border-gray-300 light:bg-white light:text-gray-800 light:placeholder:text-gray-400 light:focus:border-sky-500"
           />
           <button

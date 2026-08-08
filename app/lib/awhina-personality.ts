@@ -63,7 +63,7 @@ export function awhinaCapabilitiesReply(): string {
 **Your account**
 • Edit listings · Messages · Profile · navigate anywhere on Sky Drop
 
-Say what you want — e.g. *"sell my Mazda"*, *"find BMWs in Auckland"*, *"take me to messages"*.`;
+Just tell me what you need — find something, sell something, price an item, or navigate.`;
 }
 
 export function awhinaArrangePurchaseReply(): string {

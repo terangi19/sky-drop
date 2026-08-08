@@ -147,7 +147,7 @@ function generateClarificationQuestion(request: ConfidenceRequest): string {
   switch (intent) {
     case "marketplace_search":
       if (!entities.query && !entities.category) {
-        return "What are you looking for? (e.g., 'BMW cars under $15k in Auckland')";
+        return "What are you looking for?";
       }
       if (!entities.location && !entities.price) {
         return "Any preferences for location or price range?";
@@ -156,7 +156,7 @@ function generateClarificationQuestion(request: ConfidenceRequest): string {
 
     case "listing_create":
       if (!entities.category && !entities.price) {
-        return "What would you like to sell? (e.g., '2015 BMW 335i for $15,000')";
+        return "What would you like to sell?";
       }
       if (!entities.price) {
         return "How much would you like to sell it for?";
