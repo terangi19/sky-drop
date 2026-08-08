@@ -1,4 +1,6 @@
 import { isStripeCheckoutVisibleClient } from "./stripe-checkout-flags";
+import { messageCtaLabel } from "./listing-type-config";
+import { listingPrimaryCtaLabel } from "./listing-price-display";
 
 export function isContactPayment(paymentType?: string | null): boolean {
   return paymentType === "contact" || !isStripeCheckoutVisibleClient();
@@ -8,12 +10,21 @@ export function primaryPurchaseLabel(opts: {
   paymentType?: string | null;
   price?: string | number | null;
   pricingType?: string | null;
+  servicePricingType?: string | null;
+  listingType?: string | null;
+  type?: string | null;
   hasExistingRequest?: boolean;
 }): string {
+  const type = opts.listingType || opts.type;
   if (opts.pricingType === "quote") return "Request Quote";
   if (!isStripeCheckoutVisibleClient()) {
     if (opts.hasExistingRequest) return "Open Chat";
-    return "Message Seller";
+    return listingPrimaryCtaLabel({
+      type,
+      pricingType: opts.pricingType,
+      servicePricingType: opts.servicePricingType,
+      price: opts.price,
+    });
   }
   if (opts.hasExistingRequest && isContactPayment(opts.paymentType)) return "Open Chat";
   const price =
@@ -28,9 +39,10 @@ export function shortPurchaseLabel(
   paymentType?: string | null,
   listingType?: string | null
 ): string {
-  if (listingType === "service") return "Message Provider";
-  if (listingType === "rental" || listingType === "property") return "Message Owner";
-  if (!isStripeCheckoutVisibleClient()) return "Message Seller";
+  if (listingType === "service" || listingType === "rental" || listingType === "property" || listingType === "wanted" || listingType === "job") {
+    return messageCtaLabel(listingType);
+  }
+  if (!isStripeCheckoutVisibleClient()) return messageCtaLabel(listingType || "physical");
   return isContactPayment(paymentType) ? "Contact Seller" : "Buy Now";
 }
 

@@ -22,6 +22,22 @@ import {
   onAuthStateChanged,
 } from "../../../lib/firebase";
 import { isStripeCheckoutVisibleClient } from "../../../lib/stripe-checkout-flags";
+import {
+  categoriesForListingType,
+  listingSupportsCondition,
+  listingSupportsSaleType,
+  isMessagingOnlyListingType,
+  RENTAL_SUB_TYPES,
+  RENTAL_RATE_PERIODS,
+  type RentalSubType,
+  type RentalRatePeriod,
+} from "../../../lib/listing-type-config";
+import { listingAmountFieldLabel } from "../../../lib/listing-price-display";
+import { validateListingForPublish } from "../../../lib/listing-validation";
+import {
+  normalizeServicePricingType,
+  type ServicePricingType,
+} from "../../../lib/service-pricing";
 
 export default function EditListingPage({
   params,
@@ -54,6 +70,8 @@ export default function EditListingPage({
   const [listingExists, setListingExists] =
     useState(true);
 
+  const [listingType, setListingType] = useState("physical");
+
   const [title, setTitle] =
     useState("");
 
@@ -68,6 +86,8 @@ export default function EditListingPage({
 
   const [description, setDescription] =
     useState("");
+
+  const [condition, setCondition] = useState("");
 
   const [sellerId, setSellerId] = useState("");
   const [sellerEmail, setSellerEmail] = useState("");
@@ -85,6 +105,30 @@ export default function EditListingPage({
   const [reservePrice, setReservePrice] = useState("");
   const [auctionDuration, setAuctionDuration] = useState("3");
   const stripeDisabledV1 = !isStripeCheckoutVisibleClient();
+
+  const [servicePricingType, setServicePricingType] = useState<ServicePricingType>("fixed");
+  const [rentalSubType, setRentalSubType] = useState<RentalSubType>("equipment");
+  const [rentalRatePeriod, setRentalRatePeriod] = useState<RentalRatePeriod>("day");
+  const [rentalPriceWeekly, setRentalPriceWeekly] = useState("");
+  const [rentalPriceMonthly, setRentalPriceMonthly] = useState("");
+  const [rentalDeposit, setRentalDeposit] = useState("");
+  const [rentalAvailableDate, setRentalAvailableDate] = useState("");
+  const [vehicleMake, setVehicleMake] = useState("");
+  const [vehicleModel, setVehicleModel] = useState("");
+  const [vehicleYear, setVehicleYear] = useState("");
+  const [vehicleOdometer, setVehicleOdometer] = useState("");
+
+  const categoryOptions = categoriesForListingType(listingType);
+  const supportsCondition = listingSupportsCondition(listingType);
+  const supportsSaleType = listingSupportsSaleType(listingType);
+  const messagingOnly = isMessagingOnlyListingType(listingType);
+  const isPropertyRental =
+    listingType === "rental" && rentalSubType === "property";
+  const amountLabel = listingAmountFieldLabel({
+    type: listingType,
+    servicePricingType,
+    rentalSubType,
+  });
 
   useEffect(() => {
 
@@ -136,9 +180,12 @@ export default function EditListingPage({
           return;
         }
 
+        const type = String(data.type || "physical").toLowerCase();
+        setListingType(type);
+
         setTitle(data.title || "");
 
-        setPrice(data.price || "");
+        setPrice(data.price != null ? String(data.price) : "");
 
         setLocation(data.location || "");
 
@@ -147,6 +194,8 @@ export default function EditListingPage({
         setDescription(
           data.description || ""
         );
+
+        setCondition(data.condition || "");
 
         setSellerId(data.sellerId || "");
         setSellerEmail(data.sellerEmail || "");
@@ -165,6 +214,30 @@ export default function EditListingPage({
         setSaleType(data.saleType || "buy_now");
         setStartingBid(data.startingBid ? String(data.startingBid) : "");
         setReservePrice(data.reservePrice ? String(data.reservePrice) : "");
+
+        setServicePricingType(
+          normalizeServicePricingType(data.servicePricingType || data.pricingType, data.price)
+        );
+        const sub = String(data.rentalSubType || "equipment").toLowerCase();
+        setRentalSubType(
+          (RENTAL_SUB_TYPES as readonly string[]).includes(sub)
+            ? (sub as RentalSubType)
+            : "equipment"
+        );
+        const period = String(data.rentalRatePeriod || "day").toLowerCase();
+        setRentalRatePeriod(
+          (RENTAL_RATE_PERIODS as readonly string[]).includes(period)
+            ? (period as RentalRatePeriod)
+            : "day"
+        );
+        setRentalPriceWeekly(data.rentalPriceWeekly != null ? String(data.rentalPriceWeekly) : "");
+        setRentalPriceMonthly(data.rentalPriceMonthly != null ? String(data.rentalPriceMonthly) : "");
+        setRentalDeposit(data.rentalDeposit != null ? String(data.rentalDeposit) : "");
+        setRentalAvailableDate(data.rentalAvailableDate || "");
+        setVehicleMake(data.vehicleMake || "");
+        setVehicleModel(data.vehicleModel || "");
+        setVehicleYear(data.vehicleYear != null ? String(data.vehicleYear) : "");
+        setVehicleOdometer(data.vehicleOdometer != null ? String(data.vehicleOdometer) : "");
 
       } catch (error) {
 
@@ -208,6 +281,30 @@ export default function EditListingPage({
       return;
     }
 
+    const validation = validateListingForPublish({
+      type: listingType,
+      title,
+      description,
+      price,
+      category,
+      location,
+      condition,
+      servicePricingType,
+      rentalSubType,
+      rentalRatePeriod,
+      rentalPriceWeekly,
+      rentalPriceMonthly,
+      rentalDeposit,
+      vehicleMake,
+      vehicleModel,
+      vehicleYear,
+      vehicleOdometer,
+    });
+    if (!validation.ok) {
+      showToast(validation.errors[0] || "Please fix listing details.", "error");
+      return;
+    }
+
     try {
 
       setSaving(true);
@@ -227,31 +324,69 @@ export default function EditListingPage({
       const token = await auth.currentUser?.getIdToken();
       const controller = new AbortController();
       const fetchTimeout = window.setTimeout(() => controller.abort(), 30_000);
+      const payload: Record<string, unknown> = {
+        listingId: id,
+        title: sanitizeListingContent(title),
+        price,
+        location: sanitizeListingContent(location),
+        category,
+        description: sanitizeListingContent(description),
+        images: uploadedImages,
+        expiresInDays: expiresIn,
+      };
+
+      if (supportsCondition) {
+        payload.condition = condition;
+      }
+
+      if (supportsSaleType && !messagingOnly) {
+        payload.saleType = saleType;
+        payload.pickupAvailable = pickupAvailable;
+        payload.shippingAvailable = shippingAvailable;
+        payload.pickupArea = pickupArea;
+        payload.shippingFee = shippingAvailable && shippingFee ? Number(shippingFee) : null;
+        payload.freeShipping = shippingAvailable ? freeShipping : false;
+        payload.shipsWithinDays = shipsWithinDays ? Number(shipsWithinDays) : null;
+        payload.stockQuantity = stockQuantity ? Number(stockQuantity) : null;
+        payload.startingBid = saleType !== "buy_now" && startingBid ? Number(startingBid) : null;
+        payload.reservePrice =
+          (saleType === "auction" || saleType === "auction_buy_now") && reservePrice
+            ? Number(reservePrice)
+            : null;
+      }
+
+      if (listingType === "service") {
+        payload.servicePricingType = servicePricingType;
+      }
+
+      if (listingType === "rental" || listingType === "property") {
+        payload.rentalSubType = rentalSubType;
+        payload.rentalRatePeriod = rentalRatePeriod;
+        payload.rentalPriceWeekly = rentalPriceWeekly || null;
+        payload.rentalPriceMonthly = rentalPriceMonthly || null;
+        payload.rentalDeposit = rentalDeposit || null;
+        payload.rentalAvailableDate = rentalAvailableDate || null;
+      }
+
+      if (listingType === "vehicle") {
+        payload.vehicleMake = vehicleMake;
+        payload.vehicleModel = vehicleModel;
+        payload.vehicleYear = vehicleYear;
+        payload.vehicleOdometer = vehicleOdometer || null;
+        payload.pickupAvailable = pickupAvailable;
+        payload.pickupArea = pickupArea;
+      }
+
+      if (listingType === "wanted") {
+        // budget is stored in price
+      }
+
       let res: Response;
       try {
         res = await fetch("/api/update-listing", {
           method: "PUT",
           headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-          body: JSON.stringify({
-            listingId: id,
-            title: sanitizeListingContent(title),
-            price,
-            location: sanitizeListingContent(location),
-            category,
-            description: sanitizeListingContent(description),
-            images: uploadedImages,
-            pickupAvailable,
-            shippingAvailable,
-            pickupArea,
-            shippingFee: shippingAvailable && shippingFee ? Number(shippingFee) : null,
-            freeShipping: shippingAvailable ? freeShipping : false,
-            shipsWithinDays: shipsWithinDays ? Number(shipsWithinDays) : null,
-            stockQuantity: stockQuantity ? Number(stockQuantity) : null,
-            saleType,
-            startingBid: saleType !== "buy_now" && startingBid ? Number(startingBid) : null,
-            reservePrice: (saleType === "auction" || saleType === "auction_buy_now") && reservePrice ? Number(reservePrice) : null,
-            expiresInDays: expiresIn,
-          }),
+          body: JSON.stringify(payload),
           signal: controller.signal,
         });
       } finally {
@@ -312,14 +447,32 @@ export default function EditListingPage({
     );
   }
 
+  const typeLabel =
+    listingType === "service"
+      ? "Service"
+      : listingType === "rental"
+        ? "Rental"
+        : listingType === "wanted"
+          ? "Wanted"
+          : listingType === "vehicle"
+            ? "Vehicle"
+            : listingType === "property"
+              ? "Property"
+              : "Listing";
+
   return (
     <main className="min-h-screen bg-zinc-950 text-[var(--foreground)]">
       <Navbar />
 
       <div className="mx-auto max-w-3xl px-6 py-16">
-        <h1 className="text-5xl font-black text-sky-400">Edit listing</h1>
+        <h1 className="text-5xl font-black text-sky-400">Edit {typeLabel.toLowerCase()}</h1>
         <AwhinaUnderHeader className="mt-3" />
-        <p className="mt-3 mb-10 text-[var(--muted)]">Update your listing details.</p>
+        <p className="mt-3 mb-10 text-[var(--muted)]">
+          Update your {typeLabel.toLowerCase()} details.
+          <span className="ml-2 rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wider text-sky-400">
+            {listingType}
+          </span>
+        </p>
 
         <div className="rounded-[40px] border border-white/10 bg-black/40 p-8 shadow-2xl backdrop-blur-xl">
           <div className="space-y-6">
@@ -336,13 +489,19 @@ export default function EditListingPage({
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-[var(--muted)] uppercase tracking-wider mb-1.5">Price ($)</label>
+                <label className="block text-xs font-medium text-[var(--muted)] uppercase tracking-wider mb-1.5">{amountLabel}</label>
                 <input
                   type="number"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
                   className="w-full rounded-2xl border border-white/10 bg-zinc-900 px-3.5 py-2.5 text-sm outline-none focus:border-sky-500 transition-colors"
                 />
+                {listingType === "wanted" && (
+                  <p className="mt-1 text-[10px] text-[var(--muted)]">Your maximum budget for this request.</p>
+                )}
+                {listingType === "rental" && !isPropertyRental && (
+                  <p className="mt-1 text-[10px] text-[var(--muted)]">Primary rate — period below.</p>
+                )}
               </div>
               <div>
                 <label className="block text-xs font-medium text-[var(--muted)] uppercase tracking-wider mb-1.5">Location</label>
@@ -356,21 +515,149 @@ export default function EditListingPage({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-[var(--muted)] uppercase tracking-wider mb-1.5">Category</label>
+            <label className="block text-xs font-medium text-[var(--muted)] uppercase tracking-wider mb-1.5">
+              {listingType === "service" ? "Service category" : "Category"}
+            </label>
             <select
-              value={category}
+              value={categoryOptions.includes(category as never) ? category : categoryOptions[0] || ""}
               onChange={(e) => setCategory(e.target.value)}
               className="w-full rounded-2xl border border-white/10 bg-zinc-900 px-3.5 py-2.5 text-sm outline-none focus:border-sky-500 transition-colors"
             >
-              <option value="Cars">Cars</option>
-              <option value="Tech">Tech</option>
-              <option value="Gaming">Gaming</option>
-              <option value="Fashion">Fashion</option>
-              <option value="Home">Home</option>
-              <option value="Sports">Sports</option>
-              <option value="Other">Other</option>
+              {categoryOptions.map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
             </select>
           </div>
+
+          {listingType === "service" && (
+            <div>
+              <label className="block text-xs font-bold text-[var(--foreground)] uppercase tracking-wider mb-2">Pricing type</label>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {([
+                  { id: "fixed", label: "Fixed" },
+                  { id: "hourly", label: "Hourly" },
+                  { id: "from", label: "From" },
+                  { id: "request_quote", label: "Quote" },
+                ] as const).map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setServicePricingType(opt.id)}
+                    className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold text-left transition ${
+                      servicePricingType === opt.id
+                        ? "border-sky-500/40 bg-sky-500/10 text-sky-400"
+                        : "border-zinc-700 bg-zinc-800/50 text-[var(--muted)] hover:border-zinc-600"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(listingType === "rental" || listingType === "property") && (
+            <div className="space-y-4 rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
+              <div>
+                <label className="block text-xs font-bold text-[var(--foreground)] uppercase tracking-wider mb-2">Rental type</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {RENTAL_SUB_TYPES.map((sub) => (
+                    <button
+                      key={sub}
+                      type="button"
+                      onClick={() => setRentalSubType(sub)}
+                      className={`rounded-xl border px-3 py-2.5 text-xs font-bold capitalize transition ${
+                        rentalSubType === sub
+                          ? "border-sky-500/40 bg-sky-500/10 text-sky-400"
+                          : "border-zinc-700 bg-zinc-800/50 text-[var(--muted)]"
+                      }`}
+                    >
+                      {sub}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {!isPropertyRental && (
+                <div>
+                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Rate period</label>
+                  <select
+                    value={rentalRatePeriod}
+                    onChange={(e) => setRentalRatePeriod(e.target.value as RentalRatePeriod)}
+                    className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3.5 py-2 text-sm outline-none focus:border-sky-500"
+                  >
+                    {RENTAL_RATE_PERIODS.map((p) => (
+                      <option key={p} value={p}>{p === "day" ? "Daily" : p === "hour" ? "Hourly" : p === "week" ? "Weekly" : "Monthly"}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Weekly ($)</label>
+                  <input type="number" value={rentalPriceWeekly} onChange={(e) => setRentalPriceWeekly(e.target.value)}
+                    className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3.5 py-2 text-sm outline-none focus:border-sky-500" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Monthly ($)</label>
+                  <input type="number" value={rentalPriceMonthly} onChange={(e) => setRentalPriceMonthly(e.target.value)}
+                    className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3.5 py-2 text-sm outline-none focus:border-sky-500" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Bond / deposit ($)</label>
+                  <input type="number" value={rentalDeposit} onChange={(e) => setRentalDeposit(e.target.value)}
+                    className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3.5 py-2 text-sm outline-none focus:border-sky-500" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Available from</label>
+                  <input type="date" value={rentalAvailableDate} onChange={(e) => setRentalAvailableDate(e.target.value)}
+                    className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3.5 py-2 text-sm outline-none focus:border-sky-500" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {listingType === "vehicle" && (
+            <div className="grid grid-cols-2 gap-3 rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
+              <div>
+                <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Make *</label>
+                <input type="text" value={vehicleMake} onChange={(e) => setVehicleMake(e.target.value)}
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3.5 py-2 text-sm outline-none focus:border-sky-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Model *</label>
+                <input type="text" value={vehicleModel} onChange={(e) => setVehicleModel(e.target.value)}
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3.5 py-2 text-sm outline-none focus:border-sky-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Year *</label>
+                <input type="number" value={vehicleYear} onChange={(e) => setVehicleYear(e.target.value)}
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3.5 py-2 text-sm outline-none focus:border-sky-500" />
+              </div>
+              <div>
+                <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Odometer (km)</label>
+                <input type="number" value={vehicleOdometer} onChange={(e) => setVehicleOdometer(e.target.value)}
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3.5 py-2 text-sm outline-none focus:border-sky-500" />
+              </div>
+            </div>
+          )}
+
+          {supportsCondition && (
+            <div>
+              <label className="block text-xs font-medium text-[var(--muted)] uppercase tracking-wider mb-1.5">Condition</label>
+              <select
+                value={condition}
+                onChange={(e) => setCondition(e.target.value)}
+                className="w-full rounded-2xl border border-white/10 bg-zinc-900 px-3.5 py-2.5 text-sm outline-none focus:border-sky-500 transition-colors"
+              >
+                <option value="">Select condition</option>
+                <option value="New">New</option>
+                <option value="Like New">Like New</option>
+                <option value="Good">Good</option>
+                <option value="Fair">Fair</option>
+                <option value="For Parts">For Parts</option>
+              </select>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-medium text-[var(--muted)] uppercase tracking-wider mb-1.5">Description</label>
@@ -382,7 +669,7 @@ export default function EditListingPage({
             />
           </div>
 
-          {/* SALE TYPE */}
+          {supportsSaleType && !messagingOnly && (
           <div>
             <label className="block text-xs font-bold text-[var(--foreground)] uppercase tracking-wider mb-2">Sale Type</label>
             {stripeDisabledV1 ? (
@@ -412,9 +699,9 @@ export default function EditListingPage({
               </div>
             )}
           </div>
+          )}
 
-          {/* Auction settings — only when checkout/auction UI enabled, or preserving legacy auction */}
-          {!stripeDisabledV1 && (saleType === "auction" || saleType === "auction_buy_now") && (
+          {supportsSaleType && !messagingOnly && !stripeDisabledV1 && (saleType === "auction" || saleType === "auction_buy_now") && (
             <div className="rounded-xl border border-zinc-700/50 bg-zinc-900/40 p-4 space-y-3">
               <p className="text-xs font-bold text-[var(--foreground)]">Auction Settings</p>
               <div className="grid grid-cols-2 gap-3">
@@ -442,9 +729,11 @@ export default function EditListingPage({
             </div>
           )}
 
-          {/* DELIVERY OPTIONS */}
+          {(listingType === "physical" || listingType === "vehicle") && (
           <div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
-            <label className="block text-xs font-bold text-[var(--foreground)] uppercase tracking-wider mb-3">Delivery Options</label>
+            <label className="block text-xs font-bold text-[var(--foreground)] uppercase tracking-wider mb-3">
+              {listingType === "vehicle" ? "Pickup" : "Delivery Options"}
+            </label>
 
             <div className="space-y-3">
               <label className="flex cursor-pointer items-center gap-2.5">
@@ -469,6 +758,8 @@ export default function EditListingPage({
                 </div>
               )}
 
+              {listingType === "physical" && (
+              <>
               <label className="flex cursor-pointer items-center gap-2.5">
                 <input
                   type="checkbox"
@@ -525,6 +816,9 @@ export default function EditListingPage({
                   className="w-full rounded-2xl border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500"
                 />
               </div>
+              </>
+              )}
+
               <div>
                 <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Listing expires in</label>
                 <select value={expiresIn} onChange={(e) => setExpiresIn(e.target.value)}
@@ -536,6 +830,19 @@ export default function EditListingPage({
               </div>
             </div>
           </div>
+          )}
+
+          {messagingOnly && (
+            <div>
+              <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Listing expires in</label>
+              <select value={expiresIn} onChange={(e) => setExpiresIn(e.target.value)}
+                className="w-full rounded-2xl border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                <option value="7">7 days</option>
+                <option value="14">14 days</option>
+                <option value="30">30 days</option>
+              </select>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-medium text-[var(--muted)] uppercase tracking-wider mb-1.5">Photos</label>

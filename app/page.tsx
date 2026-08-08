@@ -1159,8 +1159,8 @@ export default function Home() {
             {listings.length === 0 ? (
               <EmptyState
                 title="No listings yet"
-                description="Be the first to list something local. It takes a minute and messaging starts the deal."
-                actionLabel="Create a listing"
+                description="Be the first to list something for sale."
+                actionLabel="List an item"
                 actionHref="/post/ai"
                 icon={
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>

@@ -194,3 +194,30 @@ export function listingPrimaryCtaLabel(listing: {
   if (listing.pricingType === "quote") return "Request Quote";
   return messageCtaLabel(type || "physical");
 }
+
+/** Edit/create form label for the primary amount field (price / rate / budget). */
+export function listingAmountFieldLabel(listing: {
+  type?: string | null;
+  servicePricingType?: string | null;
+  pricingType?: string | null;
+  rentalSubType?: string | null;
+}): string {
+  const type = (listing.type || "physical").toLowerCase();
+  if (type === "wanted") return "Budget ($)";
+  if (type === "service") {
+    const pricing = normalizeServicePricingType(
+      listing.servicePricingType || listing.pricingType,
+      null
+    );
+    if (pricing === "hourly") return "Hourly rate ($)";
+    if (pricing === "request_quote") return "Indicative price ($ optional)";
+    return "Service price ($)";
+  }
+  if (type === "rental" || type === "property") {
+    const sub = (listing.rentalSubType || "").toLowerCase();
+    if (sub === "property" || type === "property") return "Weekly rent ($)";
+    return "Rental rate ($)";
+  }
+  if (type === "vehicle") return "Sale price ($)";
+  return "Price ($)";
+}

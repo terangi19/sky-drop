@@ -4,6 +4,7 @@ import {
   formatWantedBudget,
   formatRentalRate,
   listingPrimaryCtaLabel,
+  listingAmountFieldLabel,
   resolveRentalRatePeriod,
 } from "./listing-price-display";
 import {
@@ -33,6 +34,13 @@ describe("wanted price/budget/CTA", () => {
     expect(messageCtaLabel("wanted")).toBe("I Can Help");
     expect(listingPrimaryCtaLabel({ type: "wanted", price: "500" })).toBe("I Can Help");
     expect(isMessagingOnlyListingType("wanted")).toBe(true);
+  });
+  it("amount field labels are type-aware", () => {
+    expect(listingAmountFieldLabel({ type: "wanted" })).toMatch(/Budget/i);
+    expect(listingAmountFieldLabel({ type: "service", servicePricingType: "hourly" })).toMatch(/Hourly/i);
+    expect(listingAmountFieldLabel({ type: "rental", rentalSubType: "equipment" })).toMatch(/Rental rate/i);
+    expect(listingAmountFieldLabel({ type: "rental", rentalSubType: "property" })).toMatch(/Weekly rent/i);
+    expect(listingAmountFieldLabel({ type: "physical" })).toMatch(/Price/i);
   });
   it("wanted categories are canonical", () => {
     expect(categoriesForListingType("wanted")).toEqual([...WANTED_LISTING_CATEGORIES]);

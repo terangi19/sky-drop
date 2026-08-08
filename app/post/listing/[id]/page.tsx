@@ -45,6 +45,7 @@ import {
   formatListingPriceDisplay,
   formatListingPriceMeta,
   formatRentalRate,
+  listingPrimaryCtaLabel,
 } from "../../../lib/listing-price-display";
 import {
   listingSupportsCondition,
@@ -61,6 +62,7 @@ import {
   sellerProfileDisplayName,
   sellerProfileSlug,
 } from "../../../lib/public-display";
+import { listingMessageSellerHref } from "../../../lib/listing-message-href";
 import { MOBILE_STICKY_CTA } from "../../../lib/page-layout";
 import { isStripeCheckoutVisibleClient } from "../../../lib/stripe-checkout-flags";
 import { V1_ARRANGE_SAFETY_ONE_LINER } from "../../../lib/conversation-safety";
@@ -1778,9 +1780,7 @@ Property Status: 🟢 Inquiry Active`;
                     >
                       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03 8 9 8s9 3.582 9 8z" />
-                      </svg>
-                      Contact Owner
-                    </button>
+                      </svg>{messageCtaLabel("property")}</button>
                   </div>
                   {listing.acceptOffers && (
                     <button onClick={() => setShowOffer(true)}
@@ -1801,9 +1801,7 @@ Property Status: 🟢 Inquiry Active`;
                   </button>
                 </div>
               ) : (
-                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="btn btn-primary w-full h-11">
-                  Message Seller
-                </button>
+                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="btn btn-primary w-full h-11">{listingPrimaryCtaLabel(listing)}</button>
               )}
             </div>
             )}
@@ -1866,9 +1864,7 @@ Property Status: 🟢 Inquiry Active`;
                   </button>
                 </div>
               ) : (
-                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="btn btn-primary w-full h-11">
-                  Message Seller
-                </button>
+                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="btn btn-primary w-full h-11">{listingPrimaryCtaLabel(listing)}</button>
               )}
             </div>
             )}
@@ -1960,6 +1956,8 @@ Property Status: 🟢 Inquiry Active`;
                         paymentType: effectivePaymentType,
                         price: listing.price,
                         pricingType: listing.pricingType as string | undefined,
+                        servicePricingType: (listing as any).servicePricingType as string | undefined,
+                        type: listing.type as string | undefined,
                         hasExistingRequest: buyerArrangeRequestCount > 0,
                       })}
                     </button>
@@ -2009,9 +2007,7 @@ Property Status: 🟢 Inquiry Active`;
                       >
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03 8 9 8s9 3.582 9 8z" />
-                        </svg>
-                        Message Seller
-                      </button>
+                        </svg>{listingPrimaryCtaLabel(listing)}</button>
                     )}
                   </div>
                   )}
@@ -2034,9 +2030,7 @@ Property Status: 🟢 Inquiry Active`;
                   </button>
                 </div>
               ) : (
-                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="w-full h-11 rounded-lg border border-white/[0.08] bg-white/[0.03] text-sm font-bold text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-white/[0.06]">
-                  Message Seller
-                </button>
+                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="w-full h-11 rounded-lg border border-white/[0.08] bg-white/[0.03] text-sm font-bold text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-white/[0.06]">{listingPrimaryCtaLabel(listing)}</button>
               )}
             </div>
             )}
@@ -2107,9 +2101,7 @@ Application Status: 🟢 Active`;
                     >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03 8 9 8s9 3.582 9 8z" />
-                      </svg>
-                      Message Seller
-                    </button>
+                      </svg>{listingPrimaryCtaLabel(listing)}</button>
                   </div>
                 </>
               ) : user?.email === listing.sellerEmail ? (
@@ -2122,9 +2114,7 @@ Application Status: 🟢 Active`;
                   </button>
                 </div>
               ) : (
-                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="w-full h-11 rounded-lg border border-white/[0.08] bg-white/[0.03] text-sm font-bold text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-white/[0.06]">
-                  Message Seller
-                </button>
+                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="w-full h-11 rounded-lg border border-white/[0.08] bg-white/[0.03] text-sm font-bold text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-white/[0.06]">{listingPrimaryCtaLabel(listing)}</button>
               )}
             </div>
             )}
@@ -2182,9 +2172,7 @@ Service Status: 🟢 Inquiry Active`;
                         router.push(sellerMessagesHref)
                       }}
                       className="btn btn-primary w-full h-14 text-base"
-                    >
-                      Message Provider
-                    </button>
+                    >{messageCtaLabel("service")}</button>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     {listing.acceptOffers && (
@@ -2209,9 +2197,7 @@ Service Status: 🟢 Inquiry Active`;
                   </button>
                 </div>
               ) : (
-                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="w-full h-11 rounded-lg border border-white/[0.08] bg-white/[0.03] text-sm font-bold text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-white/[0.06]">
-                  Message Provider
-                </button>
+                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="w-full h-11 rounded-lg border border-white/[0.08] bg-white/[0.03] text-sm font-bold text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-white/[0.06]">{messageCtaLabel("service")}</button>
               )}
             </div>
             )}
@@ -2448,7 +2434,7 @@ Service Status: 🟢 Inquiry Active`;
               {!stripeDisabledV1 && user && user.email !== listing.sellerEmail && (
                 <div id="contact" className="mt-3 rounded-lg border border-[var(--card-border)] bg-[var(--soft-card)] p-3">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-[var(--foreground)]">Message Seller</span>
+                    <span className="text-xs font-bold text-[var(--foreground)]">{listingPrimaryCtaLabel(listing)}</span>
                   </div>
                   {messageSent ? (
                     <div className="flex items-center gap-2">
@@ -2724,6 +2710,8 @@ Service Status: 🟢 Inquiry Active`;
                 paymentType: effectivePaymentType,
                 price: listing.price,
                 pricingType: listing.pricingType as string | undefined,
+                servicePricingType: (listing as any).servicePricingType as string | undefined,
+                type: listing.type as string | undefined,
                 hasExistingRequest: buyerArrangeRequestCount > 0,
               })}
             </button>
@@ -2732,7 +2720,7 @@ Service Status: 🟢 Inquiry Active`;
               onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))}
               className="btn btn-primary flex-1 min-h-[48px]"
             >
-              {stripeDisabledV1 ? "Message Seller" : "Sign in to continue"}
+              {stripeDisabledV1 ? listingPrimaryCtaLabel(listing) : "Sign in to continue"}
             </button>
           )}
         </div>

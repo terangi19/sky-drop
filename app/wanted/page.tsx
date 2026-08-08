@@ -48,6 +48,11 @@ import HotThisWeek from "../components/HotThisWeek";
 import BrowseMarketplaceHero from "../components/BrowseMarketplaceHero";
 import { HOME_MARKETPLACE_THEME as t } from "../lib/browse-category-config";
 import { LISTING_GRID_MT, PAGE_SHELL_MARKETPLACE } from "../lib/page-layout";
+import {
+  emptyListBody,
+  emptyListCtaLabel,
+  emptyListHeadline,
+} from "../lib/listing-type-config";
 
 const WANTED_CATEGORIES = ["All", "Items", "Services", "Rentals"];
 
@@ -406,10 +411,10 @@ export default function WantedPage() {
             <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/[0.03]">
               <span className="text-3xl">📋</span>
             </div>
-            <h2 className="text-2xl font-black tracking-tight text-white">No wanted listings yet</h2>
-            <p className="mt-2 text-sm text-white/60">Be the first to post what you're looking for.</p>
+            <h2 className="text-2xl font-black tracking-tight text-white">{emptyListHeadline("wanted")}</h2>
+            <p className="mt-2 text-sm text-white/60">{emptyListBody("wanted")}</p>
             <Link href="/post/ai?type=wanted" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/30 hover:scale-105 active:scale-95">
-              Post Wanted Listing
+              {emptyListCtaLabel("wanted")}
             </Link>
           </div>
         ) : filteredListings.length === 0 ? (

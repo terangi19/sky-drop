@@ -4,6 +4,7 @@ import { rateLimit } from "../../lib/rate-limit";
 import { sanitizeListingContent } from "../../lib/sanitize";
 import { createSystemNotification } from "../../lib/system-notifications";
 import { stripeListingPublishErrorAsync } from "../../lib/stripe-connect-account";
+import { validateListingForPublish } from "../../lib/listing-validation";
 
 export async function PUT(req: NextRequest) {
   try {
@@ -87,6 +88,11 @@ export async function PUT(req: NextRequest) {
       "saleType", "startingBid", "reservePrice", "expiresInDays",
       "paymentType",
       "pricingType",
+      "servicePricingType", "serviceDuration",
+      "rentalSubType", "rentalRatePeriod", "rentalPriceHourly",
+      "rentalPriceWeekly", "rentalPriceMonthly", "rentalDeposit", "rentalAvailableDate",
+      "vehicleMake", "vehicleModel", "vehicleYear", "vehicleOdometer",
+      "vehicleFuelType", "vehicleTransmission", "vehicleBodyType", "vehicleColour",
     ];
     const updateData: Record<string, unknown> = {};
 
@@ -111,6 +117,34 @@ export async function PUT(req: NextRequest) {
           updateData[key] = body[key];
         }
       }
+    }
+
+    const mergedForValidation = { ...existingData, ...updateData };
+    const typeValidation = validateListingForPublish({
+      type: (mergedForValidation.type as string) || "physical",
+      title: mergedForValidation.title as string,
+      description: mergedForValidation.description as string,
+      price: mergedForValidation.price as string | number,
+      category: mergedForValidation.category as string,
+      location: mergedForValidation.location as string,
+      condition: mergedForValidation.condition as string,
+      servicePricingType: mergedForValidation.servicePricingType as string,
+      pricingType: mergedForValidation.pricingType as string,
+      rentalSubType: mergedForValidation.rentalSubType as string,
+      rentalRatePeriod: mergedForValidation.rentalRatePeriod as string,
+      rentalPriceWeekly: mergedForValidation.rentalPriceWeekly as string | number,
+      rentalPriceMonthly: mergedForValidation.rentalPriceMonthly as string | number,
+      rentalDeposit: mergedForValidation.rentalDeposit as string,
+      vehicleMake: mergedForValidation.vehicleMake as string,
+      vehicleModel: mergedForValidation.vehicleModel as string,
+      vehicleYear: mergedForValidation.vehicleYear as string | number,
+      vehicleOdometer: mergedForValidation.vehicleOdometer as string | number,
+    });
+    if (!typeValidation.ok) {
+      return NextResponse.json(
+        { error: typeValidation.errors[0] || "Invalid listing details", errors: typeValidation.errors },
+        { status: 400 }
+      );
     }
 
     updateData.updatedAt = new Date();

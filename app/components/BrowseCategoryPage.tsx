@@ -32,6 +32,12 @@ import {
   type BrowseCategoryKey,
 } from "../lib/browse-category-config";
 import {
+  emptyListBody,
+  emptyListCtaLabel,
+  emptyListHeadline,
+  type EmptyListKind,
+} from "../lib/listing-type-config";
+import {
   getRecentlyViewed,
   isInWatchlist,
   saveRecentlyViewed,
@@ -108,6 +114,7 @@ export default function BrowseCategoryPage({ configKey }: Props) {
   const router = useRouter();
   const t = HOME_MARKETPLACE_THEME;
   const [listings, setListings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedRegion, setSelectedRegion] = useState("All");
   const [selectedCity, setSelectedCity] = useState("All");
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -115,6 +122,14 @@ export default function BrowseCategoryPage({ configKey }: Props) {
   const [user, setUser] = useState<User | null>(null);
   const [watchlistTick, setWatchlistTick] = useState(0);
   const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
+  const emptyKind: EmptyListKind =
+    config.listingType === "service" ||
+    config.listingType === "rental" ||
+    config.listingType === "wanted" ||
+    config.listingType === "vehicle" ||
+    config.listingType === "physical"
+      ? (config.listingType as EmptyListKind)
+      : "physical";
 
   const { sellerReviewStats, sellerBadges, sellerFullyVerified } = useSellerListingMeta(listings);
 
@@ -135,6 +150,7 @@ export default function BrowseCategoryPage({ configKey }: Props) {
   }, [config.sellCta]);
 
   useEffect(() => {
+    setLoading(true);
     const q = query(
       collection(db, "listings"),
       where("type", "==", config.listingType)
@@ -150,9 +166,11 @@ export default function BrowseCategoryPage({ configKey }: Props) {
             (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0)
         );
         setListings(items);
+        setLoading(false);
       },
       (err) => {
         console.error(`Failed to load ${config.listingType} listings:`, err);
+        setLoading(false);
       }
     );
     return () => unsub();
@@ -552,18 +570,26 @@ export default function BrowseCategoryPage({ configKey }: Props) {
           sellerFullyVerified={sellerFullyVerified}
         />
 
-        {listings.length === 0 ? (
+        {loading ? (
+          <div className={`${LISTING_GRID_MT} mt-12`}>
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="h-64 animate-pulse rounded-2xl bg-white/[0.04]" />
+            ))}
+          </div>
+        ) : listings.length === 0 ? (
           <div className="mx-auto mt-12 max-w-md text-center">
             <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.03] text-lg font-semibold text-sky-400">
               {config.emoji}
             </div>
-            <h2 className="text-2xl font-semibold tracking-tight text-white">{config.emptyTitle}</h2>
-            <p className="mt-2 text-sm text-zinc-500">{config.emptySubtitle}</p>
+            <h2 className="text-2xl font-semibold tracking-tight text-white">
+              {emptyListHeadline(emptyKind)}
+            </h2>
+            <p className="mt-2 text-sm text-zinc-500">{emptyListBody(emptyKind)}</p>
             <Link
               href={`/post/ai?type=${config.postAiType}`}
               className="btn btn-primary mt-5"
             >
-              {config.listCtaLong}
+              {emptyListCtaLabel(emptyKind)}
             </Link>
           </div>
         ) : filteredListings.length === 0 ? (
