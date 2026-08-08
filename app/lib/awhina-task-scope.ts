@@ -8,12 +8,21 @@ import { hasExplicitSellSwitch, hasSearchIntentLanguage } from "./sky-ai-intent"
 
 export type AwhinaActiveTask = "selling" | "shopping" | "help" | "none";
 
+/** Pending BUY vs SELL / listing-type clarification (do not re-ask). */
+export type PendingClarification = {
+  kind: "buy_vs_sell" | "listing_type";
+  priorMessage: string;
+  askedAt: number;
+};
+
 export type TaskScopeSession = {
   task: AwhinaActiveTask;
   /** Pending product when we asked a shopping clarification */
   pendingItem?: string;
   /** Last compare candidates (titles only — never invent details) */
   compareCandidates?: string[];
+  /** Ambiguous turn awaiting "it's a service" / "I'm selling it" style answer */
+  pendingClarification?: PendingClarification;
   updatedAt: number;
 };
 
@@ -22,6 +31,7 @@ export type ClientTaskScopeContext = {
   task?: AwhinaActiveTask;
   pendingItem?: string;
   compareCandidates?: string[];
+  pendingClarification?: PendingClarification;
   updatedAt?: number;
 };
 
@@ -84,6 +94,7 @@ export function hydrateTaskScope(
     task: client.task,
     pendingItem: client.pendingItem,
     compareCandidates: client.compareCandidates,
+    pendingClarification: client.pendingClarification,
     updatedAt: client.updatedAt || Date.now(),
   };
   sessions.set(key, next);
@@ -93,7 +104,9 @@ export function hydrateTaskScope(
 export function setActiveTask(
   key: string,
   task: AwhinaActiveTask,
-  extras?: Partial<Pick<TaskScopeSession, "pendingItem" | "compareCandidates">>
+  extras?: Partial<
+    Pick<TaskScopeSession, "pendingItem" | "compareCandidates" | "pendingClarification">
+  >
 ): TaskScopeSession {
   prune();
   const prior = sessions.get(key);
@@ -102,6 +115,10 @@ export function setActiveTask(
     pendingItem: extras?.pendingItem ?? (task === "shopping" ? prior?.pendingItem : undefined),
     compareCandidates:
       extras?.compareCandidates ?? (task === "shopping" ? prior?.compareCandidates : undefined),
+    pendingClarification:
+      extras && "pendingClarification" in extras
+        ? extras.pendingClarification
+        : prior?.pendingClarification,
     updatedAt: Date.now(),
   };
   if (task !== "shopping") {
@@ -111,6 +128,9 @@ export function setActiveTask(
   // Explicit clear of pending when undefined passed for shopping after answer
   if (task === "shopping" && extras && "pendingItem" in extras && extras.pendingItem === undefined) {
     next.pendingItem = undefined;
+  }
+  if (extras && "pendingClarification" in extras && extras.pendingClarification === undefined) {
+    next.pendingClarification = undefined;
   }
   sessions.set(key, next);
   return next;
@@ -183,6 +203,7 @@ export function toClientTaskScope(session: TaskScopeSession | null): ClientTaskS
     task: session.task,
     pendingItem: session.pendingItem,
     compareCandidates: session.compareCandidates,
+    pendingClarification: session.pendingClarification,
     updatedAt: session.updatedAt,
   };
 }

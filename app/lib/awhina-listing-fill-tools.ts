@@ -26,7 +26,15 @@ import {
 import {
   tryListingFormActionsShortcut,
 } from "./sky-ai-page-intent";
-import { hasListingSellIntent, isExplicitNewSellListingMessage } from "./sky-ai-intent";
+import {
+  extractServiceOfferingTitle,
+  hasListingSellIntent,
+  hasRentalOfferingIntent,
+  hasServiceOfferingIntent,
+  inferSellListingTypeHint,
+  isExplicitNewSellListingMessage,
+} from "./sky-ai-intent";
+import { normalizeServicePricingType } from "./service-pricing";
 import type { AwhinaToolCall } from "./awhina-types";
 import { validateToolCall } from "./awhina-tool-registry";
 import {
@@ -449,7 +457,13 @@ function extractSellItem(message: string): string | undefined {
 
 function buildTitleAndDescription(
   item: string,
-  extras?: { condition?: string; price?: string; location?: string; pickupAvailable?: boolean }
+  extras?: {
+    condition?: string;
+    price?: string;
+    location?: string;
+    pickupAvailable?: boolean;
+    listingType?: string;
+  }
 ): Pick<SkyAiListingFill, "title" | "description" | "category" | "listingType" | "vehicleMake" | "vehicleModel" | "vehicleYear"> {
   const composed = composeListingTitleAndDescription({
     item,
@@ -457,6 +471,7 @@ function buildTitleAndDescription(
     price: extras?.price,
     location: extras?.location,
     pickupAvailable: extras?.pickupAvailable,
+    listingType: extras?.listingType,
   });
   return {
     title: composed.title,
@@ -545,11 +560,16 @@ export function processListingFillMessage(
 
   const sessionKey = opts.sessionKey || listingDraftSessionKey({ pathname });
   const sellItemEarly = extractSellItem(trimmed);
+  const serviceTitleEarly = extractServiceOfferingTitle(trimmed);
+  const serviceOffer = hasServiceOfferingIntent(trimmed);
+  const rentalOffer = hasRentalOfferingIntent(trimmed);
   // New NL sell request (has item seed) — never inherit SEARCH/old unrelated draft
   const isNewSellSeed =
     opts.freshStart === true ||
     isExplicitNewSellListingMessage(trimmed) ||
-    (Boolean(sellItemEarly) &&
+    serviceOffer ||
+    rentalOffer ||
+    (Boolean(sellItemEarly || serviceTitleEarly) &&
       (hasListingSellIntent(trimmed) ||
         /\b(want\s+to\s+list|list(?:ing)?\s+my|sell(?:ing)?\s+my|create\s+(?:a\s+)?listing)\b/i.test(
           trimmed
@@ -716,14 +736,25 @@ export function processListingFillMessage(
 
   // New sell intent — one-pass seed (current message facts only)
   const sellItem = sellItemEarly || extractSellItem(trimmed);
+  const serviceTitle = serviceTitleEarly || extractServiceOfferingTitle(trimmed);
   const wantsSell =
     isNewSellSeed ||
     hasListingSellIntent(trimmed) ||
+    serviceOffer ||
+    rentalOffer ||
     (onSell && sellItem) ||
     (onSell && /^(ps5|xbox|iphone|samsung|laptop|couch)/i.test(trimmed));
 
-  if (wantsSell && (sellItem || /selling|sell |list /i.test(trimmed))) {
+  if (
+    wantsSell &&
+    (sellItem ||
+      serviceTitle ||
+      serviceOffer ||
+      rentalOffer ||
+      /selling|sell |list /i.test(trimmed))
+  ) {
     const item =
+      serviceTitle ||
       sellItem ||
       trimmed
         .replace(/^(i'?m\s+)?(want\s+to\s+)?(selling|sell|listing|list)\s+(my\s+|a\s+|an\s+)?/i, "")
@@ -731,16 +762,28 @@ export function processListingFillMessage(
         .trim()
         .slice(0, 80);
     if (item.length >= 2) {
+      const typeHint =
+        (serviceOffer || serviceTitle ? "service" : undefined) ||
+        (rentalOffer ? "rental" : undefined) ||
+        inferSellListingTypeHint(trimmed);
       const seeded = buildTitleAndDescription(item, {
         condition: partial.condition,
         price: partial.price,
         location: partial.location,
         pickupAvailable: partial.pickupAvailable,
+        listingType: typeHint,
       });
       if (!partial.title) partial.title = seeded.title;
       if (!partial.description) partial.description = seeded.description;
       if (!partial.category && seeded.category) partial.category = seeded.category;
-      if (!partial.listingType) partial.listingType = seeded.listingType;
+      if (!partial.listingType) partial.listingType = seeded.listingType || typeHint;
+      if (partial.listingType === "service" && !partial.servicePricingType) {
+        partial.servicePricingType = normalizeServicePricingType(
+          undefined,
+          partial.price,
+          trimmed
+        );
+      }
       if (seeded.vehicleMake) partial.vehicleMake = seeded.vehicleMake;
       if (seeded.vehicleModel) partial.vehicleModel = seeded.vehicleModel;
       if (seeded.vehicleYear) partial.vehicleYear = seeded.vehicleYear;

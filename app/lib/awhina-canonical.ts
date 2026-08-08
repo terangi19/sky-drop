@@ -86,6 +86,7 @@ import {
   buildAwhinaDecision,
   isToolAllowedByDecision,
   selfCheckBeforeToolResponse,
+  tryResolvePendingClarification,
   type AwhinaDecision,
 } from "./awhina-decision";
 
@@ -420,6 +421,102 @@ export function processCanonicalAwhina(
       usedLocalExecution: false,
       avoidedAi: false,
     });
+  }
+
+  // Pending BUY vs SELL / type clarification — resolve once, never re-ask
+  {
+    const taskSnapEarly = getTaskScope(scopeKey);
+    const priorUserFromHistory = [...(context.history || [])]
+      .reverse()
+      .find((h) => h.role === "user" && h.content?.trim() && h.content.trim() !== trimmed)
+      ?.content;
+    const pendingResolved = tryResolvePendingClarification({
+      message: trimmed,
+      pending: taskSnapEarly?.pendingClarification,
+      priorUserMessage: priorUserFromHistory,
+    });
+    if (pendingResolved.resolved && pendingResolved.resolution?.mode === "buy") {
+      setActiveTask(scopeKey, "shopping", { pendingClarification: undefined });
+      const buyQ =
+        pendingResolved.priorMessage ||
+        pendingResolved.combinedMessage ||
+        trimmed;
+      rememberPrimarySearch(memKey, buyQ);
+      const delta = extractSearchRefinement(buyQ);
+      if (!delta.query) delta.query = buyQ.slice(0, 120);
+      const merged = updateSearchSession(memKey, delta);
+      const { text, navigateTo } = buildSearchFollowUpReply(merged);
+      return finish({
+        handled: true,
+        reply: text,
+        navigateTo,
+        source: "tool",
+        intent: "marketplace_search",
+        tool: "searchListings",
+        confidence: 0.9,
+        usedLocalExecution: false,
+        avoidedAi: true,
+        toolCall: searchToolCall(merged, 0.9),
+      });
+    }
+    if (
+      pendingResolved.resolved &&
+      pendingResolved.resolution?.mode === "sell" &&
+      pendingResolved.combinedMessage
+    ) {
+      setActiveTask(scopeKey, "selling", { pendingClarification: undefined });
+      const sellMsg = pendingResolved.combinedMessage;
+      const listKeyEarly = listingDraftSessionKey({
+        conversationId: context.conversationId,
+        uid: context.uid,
+        pathname: "/post/ai",
+        anonSessionId: context.anonSessionId,
+      });
+      clearListingDraftSession(listKeyEarly);
+      const listing = processListingFillMessage(sellMsg, {
+        pathname: "/post/ai",
+        listingContext: null,
+        sessionKey: listKeyEarly,
+        freshStart: true,
+      });
+      if (listing.handled && listing.listingFill) {
+        if (pendingResolved.resolution.listingType) {
+          listing.listingFill.listingType = pendingResolved.resolution.listingType;
+          if (
+            pendingResolved.resolution.listingType === "service" &&
+            !listing.listingFill.servicePricingType
+          ) {
+            listing.listingFill.servicePricingType = "fixed";
+          }
+        }
+        const sellDecision = buildAwhinaDecision({
+          message: sellMsg,
+          pathname: "/post/ai",
+          session: { task: "selling", updatedAt: Date.now() },
+          intentHint: "listing_create",
+          entities: pendingResolved.resolution.listingType
+            ? { listingType: pendingResolved.resolution.listingType }
+            : undefined,
+        });
+        return finish(
+          {
+            handled: true,
+            reply: listing.reply,
+            listingFill: listing.listingFill,
+            navigateTo: pathname.startsWith("/post/ai") ? undefined : "/post/ai",
+            source: "tool",
+            intent: "listing_create",
+            tool: listing.toolCall?.tool || "createListing",
+            confidence: Math.max(0.9, sellDecision.confidence),
+            usedLocalExecution: false,
+            avoidedAi: true,
+            toolCall: listing.toolCall,
+            _decision: { ...sellDecision, requiresClarification: false },
+          },
+          { ...sellDecision, requiresClarification: false }
+        );
+      }
+    }
   }
 
   // Voice: low confidence on state-changing → clarify, never silent-guess
@@ -1024,6 +1121,13 @@ export function processCanonicalAwhina(
     };
 
     if (sellDecisionFinal.requiresClarification && sellDecisionFinal.clarificationQuestion && !onSell) {
+      setActiveTask(scopeKey, "selling", {
+        pendingClarification: {
+          kind: "buy_vs_sell",
+          priorMessage: trimmed,
+          askedAt: Date.now(),
+        },
+      });
       return finish(
         {
           handled: true,

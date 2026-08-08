@@ -74,11 +74,139 @@ const KM_READING = /\b\d{2,3}[\s,]?\d{3}\s*km\b/i;
 const BUY_NOT_SELL =
   /\b(find me|show me|looking for|search for|want to buy|wanna buy|wanna\s+(?:a|an)\b|want a|want an|i want a|i want an|need a|need an|i need a|i need an|iso\b|in search of|hunting for|anyone selling|budget\s*\$?[\d,]+|max(?:imum)?\s*price|under\s*\$?\d)\b/i;
 
+/** Service labour nouns / first-person offering verbs (not physical goods like lawn mower). */
+const SERVICE_OFFERING_NOUN_RE =
+  /\b(lawn\s*mowing|mow(?:ing)?(?:\s+lawns?)?|house\s*clean(?:ing)?|clean(?:ing)?\s+houses?|photographer|photography|tutor(?:ing)?|plumbing|plumber|electrician|handyman|fix(?:ing)?\s+computers?|walk(?:ing)?\s+dogs?|build(?:ing)?\s+decks?|paint(?:ing)?\s+houses?|dog\s*walking|pet\s*sitting|personal\s*train(?:er|ing)?|massage|landscap(?:e|ing)|gardening)\b/i;
+
+const SERVICE_FIRST_PERSON_RE =
+  /\b(?:i\s+(?:mow|clean|fix|paint|build|walk|tutor|do|offer|provide)|i'?m\s+(?:a\s+)?(?:photographer|tutor|plumber|electrician|handyman|cleaner|painter)|i\s+(?:am|'m)\s+(?:a\s+)?(?:photographer|tutor|plumber|electrician|handyman|cleaner))\b/i;
+
+const SERVICE_PRICE_SIGNAL_RE =
+  /\$\s*[\d,]+(?:\.\d{1,2})?|\bfrom\s+\$?\s*[\d,]+|\b[\d,]+\s*(?:\/\s*h(?:ou)?r|per\s*h(?:ou)?r|\/hr|an\s*hour)\b/i;
+
+/** Rent/hire-out language for creating a rental listing (not searching for rentals). */
+const RENTAL_OFFERING_RE =
+  /\b(rent(?:ing)?\s+out|hire\s+out|available\s+to\s+hire|for\s+hire|to\s+let)\b/i;
+
+/**
+ * First-person service offering — e.g. "I mow lawns for $50", "photographer $120/hour".
+ * Strong SELL signal for SERVICE listing type.
+ */
+export function hasServiceOfferingIntent(message: string): boolean {
+  const m = message.trim();
+  if (!m) return false;
+  if (BUY_NOT_SELL.test(m) || FIND_RE.test(m)) return false;
+  // Physical product: "lawn mower for sale" is not a service
+  if (/\blawn\s*mower\b/i.test(m) && !/\b(?:i\s+mow|mow(?:ing)?\s+lawns?|lawn\s*mowing)\b/i.test(m)) {
+    return false;
+  }
+  if (SERVICE_FIRST_PERSON_RE.test(m) && SERVICE_OFFERING_NOUN_RE.test(m)) return true;
+  if (SERVICE_OFFERING_NOUN_RE.test(m) && SERVICE_PRICE_SIGNAL_RE.test(m)) return true;
+  if (
+    SERVICE_FIRST_PERSON_RE.test(m) &&
+    (SERVICE_PRICE_SIGNAL_RE.test(m) || /\b(?:service|services)\b/i.test(m))
+  ) {
+    return true;
+  }
+  if (
+    /\b(?:offer(?:ing)?|provide|do)\s+(?:lawn\s*mowing|house\s*cleaning|tutoring|photography|plumbing|cleaning|handyman)\b/i.test(
+      m
+    )
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/** User is listing something for rent/hire (create RENTAL), not searching. */
+export function hasRentalOfferingIntent(message: string): boolean {
+  const m = message.trim();
+  if (!m) return false;
+  if (BUY_NOT_SELL.test(m) || FIND_RE.test(m)) return false;
+  if (RENTAL_OFFERING_RE.test(m)) return true;
+  if (
+    /\b(?:rent|hire)\b/i.test(m) &&
+    SERVICE_PRICE_SIGNAL_RE.test(m) &&
+    /\b(?:trailer|generator|chainsaw|marquee|ute|van|bike|kayak|equipment|tool)\b/i.test(m) &&
+    !SERVICE_OFFERING_NOUN_RE.test(m)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export type ClarificationResolution = {
+  resolved: boolean;
+  mode?: "sell" | "buy";
+  listingType?: "service" | "rental" | "physical" | "vehicle" | "digital";
+};
+
+/**
+ * Resolve a short answer to a prior BUY vs SELL / listing-type clarification.
+ * e.g. "it's a service", "I'm selling it", "looking to buy".
+ */
+export function resolvePendingClarificationAnswer(message: string): ClarificationResolution {
+  const m = message.trim();
+  if (!m || m.split(/\s+/).length > 12) return { resolved: false };
+
+  if (
+    /^(it'?s|its)\s+a\s+service\b/i.test(m) ||
+    /^(a\s+)?service\b/i.test(m) ||
+    /^i\s+(?:offer|provide|do)\s+(?:a\s+)?service/i.test(m)
+  ) {
+    return { resolved: true, mode: "sell", listingType: "service" };
+  }
+  if (
+    /^(it'?s|its)\s+a\s+rental\b/i.test(m) ||
+    /^(rent(?:ing)?\s+out|for\s+hire|hire\s+out)\b/i.test(m)
+  ) {
+    return { resolved: true, mode: "sell", listingType: "rental" };
+  }
+  if (
+    /^(i'?m|i\s+am)\s+selling(\s+it)?\b/i.test(m) ||
+    /^(selling(\s+it)?|for\s+sale|list(\s+it)?)\b/i.test(m) ||
+    /^(it'?s|its)\s+(?:an?\s+)?(?:item|product|physical)\b/i.test(m)
+  ) {
+    return { resolved: true, mode: "sell", listingType: "physical" };
+  }
+  if (
+    /^(looking|want)\s+to\s+buy\b/i.test(m) ||
+    /^(buying|search(?:ing)?|find(?:ing)?)\b/i.test(m) ||
+    /^(it'?s|its)\s+for\s+(?:me\s+to\s+)?buy\b/i.test(m)
+  ) {
+    return { resolved: true, mode: "buy" };
+  }
+  return { resolved: false };
+}
+
+/** Canonical service title from free-text offering (facts only). */
+export function extractServiceOfferingTitle(message: string): string | undefined {
+  const m = message.trim();
+  if (!m) return undefined;
+  if (/\b(?:i\s+mow|mow(?:ing)?\s+lawns?|lawn\s*mowing)\b/i.test(m)) return "Lawn Mowing";
+  if (/\b(?:clean(?:ing)?\s+houses?|house\s*clean(?:ing)?|i\s+clean)\b/i.test(m)) {
+    return "House Cleaning";
+  }
+  if (/\bphotographer|photography\b/i.test(m)) return "Photographer";
+  if (/\btutor(?:ing)?\b/i.test(m)) return "Tutoring";
+  if (/\bplumb(?:er|ing)\b/i.test(m)) return "Plumbing";
+  if (/\belectrician\b/i.test(m)) return "Electrician";
+  if (/\bhandyman\b/i.test(m)) return "Handyman";
+  if (/\bfix(?:ing)?\s+computers?\b/i.test(m)) return "Computer Repair";
+  if (/\b(?:walk(?:ing)?\s+dogs?|dog\s*walking)\b/i.test(m)) return "Dog Walking";
+  if (/\bbuild(?:ing)?\s+decks?\b/i.test(m)) return "Deck Building";
+  if (/\bpaint(?:ing)?\s+houses?\b/i.test(m)) return "House Painting";
+  if (/\bpet\s*sitting\b/i.test(m)) return "Pet Sitting";
+  if (/\bpersonal\s*train(?:er|ing)?\b/i.test(m)) return "Personal Training";
+  return undefined;
+}
+
 /** Explicit sell / list language — required to leave sticky SEARCH. */
 export function hasExplicitSellSwitch(message: string): boolean {
   const m = message.trim();
   if (!m) return false;
   if (BUY_NOT_SELL.test(m) || FIND_RE.test(m)) return false;
+  if (hasServiceOfferingIntent(m) || hasRentalOfferingIntent(m)) return true;
   return /\b(sell(?:ing)?|list(?:ing)?|post(?:ing)?|for sale|create (?:a )?listing|put up|advertise|get rid of|flog)\b/i.test(
     m
   );
@@ -109,6 +237,8 @@ export function hasListingSellIntent(message: string): boolean {
   const m = message.trim();
   if (!m) return false;
   if (BUY_NOT_SELL.test(m) || FIND_RE.test(m)) return false;
+  if (hasServiceOfferingIntent(m)) return true;
+  if (hasRentalOfferingIntent(m)) return true;
   if (STRUCTURED_LISTING.test(m)) return true;
   // Year+make listing paste (e.g. "2015 Mazda Axela … $11500") — never "2007 budget"
   if (
@@ -140,6 +270,18 @@ export function hasListingSellIntent(message: string): boolean {
   if (/\b(rental|vehicle|service|digital)\s+listing\b/i.test(m)) return true;
   if ((m.match(/(?:^|\n)\s*\w+\s*:/g) || []).length >= 2) return true;
   return false;
+}
+
+/** Infer listing type for a sell turn from free text (service / rental / physical). */
+export function inferSellListingTypeHint(
+  message: string
+): "service" | "rental" | "physical" | undefined {
+  const m = message.trim();
+  if (!m) return undefined;
+  if (hasServiceOfferingIntent(m)) return "service";
+  if (hasRentalOfferingIntent(m)) return "rental";
+  if (SELL_RE.test(m) || /\bfor sale\b/i.test(m)) return "physical";
+  return undefined;
 }
 
 export function detectSkyAiIntent(message: string): SkyAiIntent {

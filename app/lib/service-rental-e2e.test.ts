@@ -27,6 +27,32 @@ describe("Āwhina sell vs service vs rental classification", () => {
     expect(fill?.servicePricingType).toBe("fixed");
   });
 
+  it("I mow lawns for $50 NL → SERVICE via decision+fill", async () => {
+    const { buildAwhinaDecision } = await import("./awhina-decision");
+    const { processListingFillMessage, clearListingDraftSession, listingDraftSessionKey } =
+      await import("./awhina-listing-fill-tools");
+    const key = listingDraftSessionKey({ conversationId: "e2e-mow" });
+    clearListingDraftSession(key);
+    const d = buildAwhinaDecision({
+      message: "I mow lawns for $50",
+      pathname: "/",
+      session: null,
+    });
+    expect(d.requiresClarification).toBe(false);
+    expect(d.currentTurnEntities.listingType).toBe("service");
+    const listing = processListingFillMessage("I mow lawns for $50", {
+      pathname: "/post/ai",
+      sessionKey: key,
+      freshStart: true,
+    });
+    expect(listing.handled).toBe(true);
+    if (listing.handled) {
+      expect(listing.listingFill?.listingType).toBe("service");
+      expect(listing.listingFill?.price).toBe("50");
+      expect(listing.clarify).not.toBe(true);
+    }
+  });
+
   it("photographer $120/hour → SERVICE hourly", () => {
     const fill = normalizeSkyAiListingFill({
       title: "Photographer $120/hour",

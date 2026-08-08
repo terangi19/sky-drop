@@ -9,10 +9,11 @@ import {
   isToolAllowedByDecision,
   pickPrecedentedValue,
   selfCheckBeforeToolResponse,
+  tryResolvePendingClarification,
 } from "./awhina-decision";
 import { processCanonicalAwhina } from "./awhina-canonical";
 import { clearSearchSession, searchSessionKey } from "./awhina-search-memory";
-import { clearTaskScope, taskScopeKey } from "./awhina-task-scope";
+import { clearTaskScope, setActiveTask, taskScopeKey } from "./awhina-task-scope";
 import { clearListingDraftSession, listingDraftSessionKey } from "./awhina-listing-fill-tools";
 import { composeListingTitleAndDescription } from "./awhina-listing-composer";
 import {
@@ -252,5 +253,128 @@ describe("canonical wires decision on sell/search", () => {
     expect(r.intent).toBe("education");
     expect(r.navigateTo).toBeUndefined();
     expect(r.tool).not.toBe("openMessages");
+  });
+});
+
+describe("service offering decision — no clarify regression", () => {
+  beforeEach(() => wipe("service-offer"));
+
+  it("I mow lawns for $50 → SELL service, high confidence, no clarify", () => {
+    const d = buildAwhinaDecision({
+      message: "I mow lawns for $50",
+      pathname: "/",
+      session: null,
+    });
+    expect(d.activeTask).toBe("selling");
+    expect(d.intent).toBe("listing_create");
+    expect(d.currentTurnEntities.listingType).toBe("service");
+    expect(d.currentTurnEntities.item).toMatch(/lawn mowing/i);
+    expect(d.currentTurnEntities.price).toBe("50");
+    expect(d.requiresClarification).toBe(false);
+    expect(d.confidence).toBeGreaterThanOrEqual(0.88);
+  });
+
+  it.each([
+    ["I clean houses for $80", "House Cleaning"],
+    ["photographer $120/hour", "Photographer"],
+    ["I'm a tutor $40", "Tutoring"],
+    ["plumbing from $80", "Plumbing"],
+    ["I fix computers for $60", "Computer Repair"],
+    ["I walk dogs for $25", "Dog Walking"],
+    ["I build decks for $500", "Deck Building"],
+    ["I paint houses for $200", "House Painting"],
+  ])("%s → service sell no clarify", (msg, titleBit) => {
+    const d = buildAwhinaDecision({ message: msg, pathname: "/", session: null });
+    expect(d.activeTask).toBe("selling");
+    expect(d.currentTurnEntities.listingType).toBe("service");
+    expect(d.requiresClarification).toBe(false);
+    expect(d.currentTurnEntities.item || "").toMatch(new RegExp(titleBit.split(" ")[0], "i"));
+  });
+
+  it("rent out / hire out → rental", () => {
+    const d = buildAwhinaDecision({
+      message: "rent out my trailer available to hire $60/day",
+      pathname: "/",
+      session: null,
+    });
+    expect(d.activeTask).toBe("selling");
+    expect(d.currentTurnEntities.listingType).toBe("rental");
+    expect(d.requiresClarification).toBe(false);
+  });
+
+  it("sell / for sale → physical sell", () => {
+    const d = buildAwhinaDecision({
+      message: "sell pressure washer for sale $300",
+      pathname: "/",
+      session: null,
+    });
+    expect(d.activeTask).toBe("selling");
+    expect(d.currentTurnEntities.listingType).not.toBe("service");
+  });
+
+  it("canonical: I mow lawns for $50 starts service listing fill", () => {
+    const r = processCanonicalAwhina("I mow lawns for $50", {
+      conversationId: "service-offer",
+      pathname: "/",
+    });
+    expect(r.handled).toBe(true);
+    expect(r.source).not.toBe("clarify");
+    expect(r.listingFill?.listingType).toBe("service");
+    expect(r.listingFill?.price).toBe("50");
+    expect(String(r.listingFill?.title || "")).toMatch(/lawn mowing/i);
+    expect(r.listingFill?.servicePricingType).toBe("fixed");
+    expect(r._decision?.requiresClarification).toBe(false);
+  });
+
+  it("clarification answer it's a service resolves once — never twice", () => {
+    const id = "service-offer-clarify";
+    wipe(id);
+    setActiveTask(taskScopeKey({ conversationId: id }), "none", {
+      pendingClarification: {
+        kind: "buy_vs_sell",
+        priorMessage: "lawns $50",
+        askedAt: Date.now(),
+      },
+    });
+    const first = processCanonicalAwhina("it's a service", {
+      conversationId: id,
+      pathname: "/",
+      history: [
+        { role: "user", content: "lawns $50" },
+        { role: "assistant", content: "Are you selling a service or looking to buy?" },
+      ],
+    });
+    expect(first.handled).toBe(true);
+    expect(first.source).not.toBe("clarify");
+    expect(first.listingFill?.listingType).toBe("service");
+    expect(first.clarificationQuestion).toBeUndefined();
+
+    const second = processCanonicalAwhina("it's a service", {
+      conversationId: id,
+      pathname: "/",
+      history: [
+        { role: "user", content: "lawns $50" },
+        { role: "assistant", content: "Are you selling a service or looking to buy?" },
+        { role: "user", content: "it's a service" },
+        { role: "assistant", content: first.reply || "ok" },
+      ],
+    });
+    // No pending left — must not re-ask the same clarify
+    expect(second.source).not.toBe("clarify");
+    expect(second.clarificationQuestion).toBeUndefined();
+  });
+
+  it("tryResolvePendingClarification merges prior + answer", () => {
+    const r = tryResolvePendingClarification({
+      message: "it's a service",
+      pending: {
+        kind: "listing_type",
+        priorMessage: "I mow lawns for $50",
+        askedAt: Date.now(),
+      },
+    });
+    expect(r.resolved).toBe(true);
+    expect(r.resolution?.listingType).toBe("service");
+    expect(r.combinedMessage).toMatch(/mow lawns/i);
   });
 });

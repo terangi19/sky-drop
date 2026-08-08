@@ -18,6 +18,8 @@ import {
   parseVehicleModel,
   parseVehicleYear,
 } from "./sky-ai-find-routing";
+import { extractServiceOfferingTitle, hasServiceOfferingIntent } from "./sky-ai-intent";
+import { SERVICE_LISTING_CATEGORY_LIST } from "./listing-type-config";
 
 export type ListingComposeSeed = {
   item: string;
@@ -61,6 +63,30 @@ function detectVehicle(item: string): boolean {
   );
 }
 
+function detectService(item: string): boolean {
+  return (
+    hasServiceOfferingIntent(item) ||
+    Boolean(extractServiceOfferingTitle(item)) ||
+    /\b(lawn\s*mowing|house\s*clean|photographer|tutor|plumbing|handyman|dog\s*walking)\b/i.test(
+      item
+    )
+  );
+}
+
+function inferServiceCategory(item: string): string {
+  const lower = item.toLowerCase();
+  if (/photo/.test(lower)) return "Photography";
+  if (/tutor|lesson|teach/.test(lower)) return "Tutoring & Lessons";
+  if (/clean/.test(lower)) return "Cleaning & Maintenance";
+  if (/train/.test(lower)) return "Personal Training";
+  if (/mow|lawn|plumb|handyman|paint|deck|fix|electr|garden|landscap/.test(lower)) {
+    return "Trades & Repairs";
+  }
+  return SERVICE_LISTING_CATEGORY_LIST.includes("Other Services")
+    ? "Other Services"
+    : "Trades & Repairs";
+}
+
 /**
  * Compose premium title + Premium Plus description from known seed facts only.
  */
@@ -68,8 +94,10 @@ export function composeListingTitleAndDescription(
   seed: ListingComposeSeed
 ): ComposedListingCopy {
   const item = seed.item.trim();
-  const vehicle = seed.listingType === "vehicle" || detectVehicle(item);
-  const listingType = seed.listingType || (vehicle ? "vehicle" : "physical");
+  const service = seed.listingType === "service" || detectService(item);
+  const vehicle = !service && (seed.listingType === "vehicle" || detectVehicle(item));
+  const listingType =
+    seed.listingType || (service ? "service" : vehicle ? "vehicle" : "physical");
   const make = seed.vehicleMake || parseVehicleMake(item);
   const model = seed.vehicleModel || parseVehicleModel(item);
   const year = seed.vehicleYear || parseVehicleYear(item);
@@ -77,7 +105,7 @@ export function composeListingTitleAndDescription(
   const titleCore =
     vehicle && make
       ? [year, make, model].filter(Boolean).join(" ") || item
-      : item;
+      : extractServiceOfferingTitle(item) || item;
 
   const title = buildPremiumListingTitle({
     item: titleCore,
@@ -90,7 +118,9 @@ export function composeListingTitleAndDescription(
     seed.category ||
     (listingType === "vehicle"
       ? "Cars"
-      : inferPhysicalCategoryFromText(`${item} ${title}`) || "Other");
+      : listingType === "service"
+        ? inferServiceCategory(`${item} ${title}`)
+        : inferPhysicalCategoryFromText(`${item} ${title}`) || "Other");
 
   const fill: SkyAiListingFill = {
     title,

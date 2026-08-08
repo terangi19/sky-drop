@@ -14,13 +14,20 @@ import {
   type TaskScopeSession,
 } from "./awhina-task-scope";
 import {
+  extractServiceOfferingTitle,
   hasExplicitSellSwitch,
   hasListingSellIntent,
+  hasRentalOfferingIntent,
   hasSearchIntentLanguage,
+  hasServiceOfferingIntent,
+  inferSellListingTypeHint,
+  resolvePendingClarificationAnswer,
+  type ClarificationResolution,
 } from "./sky-ai-intent";
 import { hasActiveListingDraft } from "./sky-ai-draft-merge";
 import type { SkyAiListingContext } from "./sky-ai-types";
 import type { SearchSessionFilters } from "./awhina-search-memory";
+import type { PendingClarification } from "./awhina-task-scope";
 
 /** Tools that mutate listing drafts / create listings. */
 export const SELL_TOOLS = [
@@ -60,6 +67,8 @@ export type AwhinaTurnEntities = {
   condition?: string;
   storage?: string;
   maxPrice?: string;
+  /** Inferred listing type for sell turns. */
+  listingType?: "service" | "rental" | "physical" | "vehicle" | "digital";
 };
 
 /**
@@ -166,6 +175,15 @@ export function extractTurnEntities(message: string): AwhinaTurnEntities {
     /\b(ps5|ps4|playstation\s*[45]|xbox(?:\s*series\s*[sx])?|iphone(?:\s*\d+(?:\s*pro)?)?|airpods(?:\s*pro)?|couch|sofa|samsung\s*tv|macbook)\b/i
   );
   if (item) out.item = item[1];
+
+  const serviceTitle = extractServiceOfferingTitle(m);
+  if (serviceTitle) {
+    out.item = out.item || serviceTitle;
+    out.listingType = "service";
+  } else {
+    const typeHint = inferSellListingTypeHint(m);
+    if (typeHint) out.listingType = typeHint;
+  }
 
   if (/\b(want|looking|need|find|show|search)\b/i.test(m) && !hasListingSellIntent(m)) {
     out.query = m.slice(0, 120);
@@ -298,6 +316,68 @@ function toolsForTask(
 }
 
 /**
+ * Merge a clarification answer with the prior ambiguous message for listing fill.
+ * Never re-ask — caller must clear pendingClarification after handling.
+ */
+export function mergeClarificationIntoSellMessage(
+  priorMessage: string,
+  answer: string,
+  resolution: ClarificationResolution
+): string {
+  const prior = priorMessage.trim();
+  const ans = answer.trim();
+  if (resolution.listingType === "service") {
+    // Ensure service noun present so fill tools classify correctly
+    if (/\bservice\b/i.test(prior)) return prior;
+    return `${prior} service`.trim();
+  }
+  if (resolution.listingType === "rental" && !/\brent|hire\b/i.test(prior)) {
+    return `${prior} rental`.trim();
+  }
+  if (resolution.mode === "sell" && !hasListingSellIntent(prior)) {
+    return `selling ${prior}`.trim();
+  }
+  return prior || ans;
+}
+
+/** Resolve pending buy/sell/type clarify from session or a prior user turn. */
+export function tryResolvePendingClarification(opts: {
+  message: string;
+  pending?: PendingClarification | null;
+  priorUserMessage?: string | null;
+}): {
+  resolved: boolean;
+  resolution?: ClarificationResolution;
+  combinedMessage?: string;
+  priorMessage?: string;
+} {
+  const answer = resolvePendingClarificationAnswer(opts.message);
+  if (!answer.resolved) return { resolved: false };
+  const prior =
+    opts.pending?.priorMessage?.trim() ||
+    opts.priorUserMessage?.trim() ||
+    "";
+  if (!prior) {
+    // Answer alone with type — still sell if service/rental/physical stated
+    if (answer.mode === "sell" && answer.listingType) {
+      return {
+        resolved: true,
+        resolution: answer,
+        combinedMessage: opts.message.trim(),
+        priorMessage: "",
+      };
+    }
+    return { resolved: false };
+  }
+  return {
+    resolved: true,
+    resolution: answer,
+    combinedMessage: mergeClarificationIntoSellMessage(prior, opts.message, answer),
+    priorMessage: prior,
+  };
+}
+
+/**
  * Build an internal decision for this turn. Incremental — start with search + sell.
  */
 export function buildAwhinaDecision(input: BuildAwhinaDecisionInput): AwhinaDecision {
@@ -306,10 +386,24 @@ export function buildAwhinaDecision(input: BuildAwhinaDecisionInput): AwhinaDeci
   const onSell = pathname.startsWith("/post/ai");
   const entities = { ...extractTurnEntities(trimmed), ...input.entities };
   const searchLang = hasSearchIntentLanguage(trimmed);
-  const explicitSell = hasExplicitSellSwitch(trimmed);
-  const sellIntent = hasListingSellIntent(trimmed) || explicitSell;
+  const serviceOffer = hasServiceOfferingIntent(trimmed);
+  const rentalOffer = hasRentalOfferingIntent(trimmed);
+  const explicitSell = hasExplicitSellSwitch(trimmed) || serviceOffer || rentalOffer;
+  const sellIntent = hasListingSellIntent(trimmed) || explicitSell || serviceOffer || rentalOffer;
   const priorTask = input.session?.task || "none";
   const stickyShopping = priorTask === "shopping" && !explicitSell && !onSell;
+
+  // Force listing type on strong service / rental offers
+  if (serviceOffer) {
+    entities.listingType = "service";
+    if (!entities.item) {
+      entities.item = extractServiceOfferingTitle(trimmed) || entities.item;
+    }
+  } else if (rentalOffer) {
+    entities.listingType = entities.listingType || "rental";
+  } else if (sellIntent && !entities.listingType) {
+    entities.listingType = inferSellListingTypeHint(trimmed) || "physical";
+  }
 
   const activeTask = resolveTaskForMessage(trimmed, {
     pathname,
@@ -349,6 +443,7 @@ export function buildAwhinaDecision(input: BuildAwhinaDecisionInput): AwhinaDeci
   if (entities.item) relevantContext.push(`item=${entities.item}`);
   if (entities.price) relevantContext.push(`price=${entities.price}`);
   if (entities.maxPrice) relevantContext.push(`maxPrice=${entities.maxPrice}`);
+  if (entities.listingType) relevantContext.push(`listingType=${entities.listingType}`);
   if (entities.year && activeTask === "shopping") relevantContext.push(`year=${entities.year}`);
   if (entities.year && activeTask === "selling" && entities.make) {
     relevantContext.push(`vehicleYear=${entities.year}`);
@@ -374,14 +469,29 @@ export function buildAwhinaDecision(input: BuildAwhinaDecisionInput): AwhinaDeci
   ) {
     confidence = entities.price && entities.item ? 0.92 : 0.78;
   }
+  // Service / rental offers with price → high confidence, never soft-guess
+  if (serviceOffer && entities.listingType === "service") {
+    confidence = entities.price ? 0.95 : 0.88;
+  }
+  if (rentalOffer && entities.listingType === "rental") {
+    confidence = entities.price ? 0.93 : 0.85;
+  }
   if (intent === "education" || intent === "purchase_help") confidence = 0.95;
   if (intent === "compare") confidence = 0.88;
 
   let requiresClarification = false;
   let clarificationQuestion: string | undefined;
 
-  // Context-aware clarification — only when we truly lack a critical fact
-  if (intent === "listing_create" && !entities.item && !entities.make && trimmed.split(/\s+/).length < 4) {
+  // Service / rental offerings with enough facts — NEVER clarify
+  if (serviceOffer || rentalOffer) {
+    requiresClarification = false;
+    clarificationQuestion = undefined;
+  } else if (
+    intent === "listing_create" &&
+    !entities.item &&
+    !entities.make &&
+    trimmed.split(/\s+/).length < 4
+  ) {
     requiresClarification = true;
     clarificationQuestion = "What are you selling? A short description is enough.";
   } else if (
