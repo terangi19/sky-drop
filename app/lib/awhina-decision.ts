@@ -30,6 +30,7 @@ import type { SkyAiListingContext } from "./sky-ai-types";
 import type { SearchSessionFilters } from "./awhina-search-memory";
 import type { PendingClarification } from "./awhina-task-scope";
 import { resolveVehicleIdentity } from "./sky-ai-find-routing";
+import { knowledgeTurnPatch, marketplaceClarifyQuestion } from "./marketplace-knowledge";
 
 /** Values from the current turn that are allowed to appear in outputs. */
 function currentTurnValueSet(entities: AwhinaTurnEntities): Set<string> {
@@ -222,6 +223,7 @@ export function extractTurnEntities(message: string): AwhinaTurnEntities {
     if (vehicle.model) out.model = vehicle.model;
     if (vehicle.year && !out.year) out.year = vehicle.year;
   }
+
   const loc = m.match(
     /\b(auckland|wellington|christchurch|hamilton|tauranga|dunedin|palmerston north|napier|rotorua)\b/i
   );
@@ -245,15 +247,32 @@ export function extractTurnEntities(message: string): AwhinaTurnEntities {
 
   const serviceTitle = extractServiceOfferingTitle(m);
   if (serviceTitle) {
-    out.item = out.item || serviceTitle;
+    out.item = serviceTitle;
     out.listingType = "service";
   } else {
     const typeHint = inferSellListingTypeHint(m);
     if (typeHint) out.listingType = typeHint;
   }
 
+  // Marketplace knowledge — after USER/regex facts; only fills empty slots.
+  // Never override service/rental offer titles or bleed sticky domain context into offers.
+  const skipMk =
+    out.listingType === "service" ||
+    out.listingType === "rental" ||
+    hasServiceOfferingIntent(m) ||
+    hasRentalOfferingIntent(m);
+  const mk = skipMk ? null : knowledgeTurnPatch(m);
+  if (mk && (mk.confidence === "high" || mk.confidence === "medium")) {
+    if (!out.item && mk.item) out.item = mk.item;
+    if (!out.listingType && mk.listingType) out.listingType = mk.listingType;
+    if (!out.make && mk.make) out.make = mk.make;
+    if (!out.model && mk.model) out.model = mk.model;
+    if (!out.year && mk.year) out.year = mk.year;
+    if (!out.storage && mk.storage) out.storage = mk.storage;
+  }
+
   if (/\b(want|looking|need|find|show|search)\b/i.test(m) && !hasListingSellIntent(m)) {
-    out.query = m.slice(0, 120);
+    out.query = (mk?.queryHint || m).slice(0, 120);
   }
 
   return out;
@@ -593,7 +612,9 @@ export function buildAwhinaDecision(input: BuildAwhinaDecisionInput): AwhinaDeci
     trimmed.split(/\s+/).length < 4
   ) {
     requiresClarification = true;
-    clarificationQuestion = "What are you selling? A short description is enough.";
+    clarificationQuestion =
+      marketplaceClarifyQuestion(trimmed) ||
+      "What are you selling? A short description is enough.";
   } else if (
     intent === "marketplace_search" &&
     !entities.item &&

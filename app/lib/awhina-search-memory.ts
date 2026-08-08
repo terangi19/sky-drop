@@ -15,6 +15,7 @@ import {
   parseVehicleYear,
   resolveFindBrowseRoute,
 } from "./sky-ai-find-routing";
+import { knowledgeTurnPatch } from "./marketplace-knowledge";
 
 export type SearchSortBy = "price-low" | "price-high" | "newest" | "distance" | "relevance";
 
@@ -252,6 +253,27 @@ export function extractSearchRefinement(message: string): SearchSessionFilters {
   const vehicleQ = buildVehicleQuery(filters);
   if (vehicleQ && (filters.make || filters.model)) {
     filters.query = vehicleQ;
+  }
+
+  // Marketplace knowledge — enrich empty make/model/category/query only
+  const mk = knowledgeTurnPatch(message);
+  if (mk && (mk.confidence === "high" || mk.confidence === "medium")) {
+    if (!filters.make && mk.vehicleMake) filters.make = mk.vehicleMake;
+    if (!filters.model && mk.vehicleModel) filters.model = mk.vehicleModel;
+    if (!filters.year && mk.vehicleYear) {
+      filters.year = mk.vehicleYear;
+      filters.minYear = mk.vehicleYear;
+      filters.maxYear = mk.vehicleYear;
+    }
+    if (!filters.category && mk.category) filters.category = mk.category;
+    if (mk.queryHint) {
+      const vq = buildVehicleQuery(filters);
+      if (vq && (filters.make || filters.model)) {
+        filters.query = vq;
+      } else if (!filters.query || filters.query.length < mk.queryHint.length) {
+        filters.query = mk.queryHint;
+      }
+    }
   }
 
   return filters;

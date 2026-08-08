@@ -57,6 +57,10 @@ import {
   parseVehicleYear,
   resolveVehicleIdentity,
 } from "./sky-ai-find-routing";
+import {
+  mergeKnowledgeHintsIntoFill,
+  resolveMarketplaceKnowledge,
+} from "./marketplace-knowledge";
 
 const SESSION_TTL_MS = 30 * 60 * 1000;
 const MAX_SESSIONS = 400;
@@ -990,6 +994,50 @@ export function processListingFillMessage(
       if (seeded.vehicleMake) partial.vehicleMake = seeded.vehicleMake;
       if (seeded.vehicleModel) partial.vehicleModel = seeded.vehicleModel;
       if (seeded.vehicleYear) partial.vehicleYear = seeded.vehicleYear;
+
+      // Marketplace knowledge hints — never overwrite USER / already-seeded fields.
+      // Fresh sell / new seed: no sticky conversation context (avoids rental→sell bleed).
+      const mk = resolveMarketplaceKnowledge(trimmed, {
+        conversationKey:
+          opts.freshStart || isNewSellSeed ? undefined : opts.sessionKey,
+      });
+      if (mk.entity && mk.entity.confidence !== "low") {
+        const hints = { ...mk.listingHints };
+        // Only keep extras the user actually said this turn
+        if (hints.extras?.length) {
+          hints.extras = hints.extras.filter((e) => {
+            const token = String(e).replace(/^[^:]+:/, "").trim();
+            if (!token) return false;
+            return new RegExp(
+              token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+              "i"
+            ).test(trimmed);
+          });
+          if (!hints.extras.length) delete hints.extras;
+        }
+        Object.assign(partial, mergeKnowledgeHintsIntoFill(partial, hints));
+        // Prefer knowledge display name for item title core when seed was vague
+        if (
+          hints.titleHint &&
+          partial.title &&
+          item.length < 12 &&
+          hints.titleHint.length > item.length
+        ) {
+          const reseed = buildTitleAndDescription(hints.titleHint, {
+            condition: partial.condition,
+            price: partial.price,
+            location: partial.location,
+            pickupAvailable: partial.pickupAvailable,
+            listingType: partial.listingType || typeHint,
+          });
+          partial.title = reseed.title;
+          if (!partial.description) partial.description = reseed.description;
+          if (reseed.vehicleMake) partial.vehicleMake = reseed.vehicleMake;
+          if (reseed.vehicleModel) partial.vehicleModel = reseed.vehicleModel;
+          if (reseed.vehicleYear) partial.vehicleYear = reseed.vehicleYear;
+        }
+      }
+
       if (!notes.some((n) => n.startsWith("title"))) notes.push(`title ${partial.title}`);
       touched = true;
     }
