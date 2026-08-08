@@ -5,10 +5,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "../components/Navbar";
 import Background from "../components/Background";
-import { sellerProfileSlug } from "../lib/public-display";
 import {
   clearSellerProfileBatchCache,
+  enrichFollowingRelations,
   invalidateSellerProfileBatchCache,
+  type FollowingPresentation,
 } from "../lib/fetch-seller-profiles";
 import { clearPublicProfileCache } from "../lib/fetch-public-profile-client";
 import { sanitizeHtml } from "../lib/sanitize";
@@ -238,7 +239,8 @@ const [phoneMsg, setPhoneMsg] = useState("");
 const [phoneVerifying, setPhoneVerifying] = useState(false);
 const [sendingPhone, setSendingPhone] = useState(false);
 const [phoneCooldown, setPhoneCooldown] = useState(0);
-const [followingList, setFollowingList] = useState<{sellerEmail: string; sellerId: string; createdAt: Timestamp}[]>([]);
+const [followingList, setFollowingList] = useState<FollowingPresentation[]>([]);
+const [followingLoading, setFollowingLoading] = useState(false);
 const [followerCount, setFollowerCount] = useState(0);
 const [stripeAccountId, setStripeAccountId] = useState("");
 const [stripeConnecting, setStripeConnecting] = useState(false);
@@ -537,22 +539,41 @@ const tabGroups = [
     };
   }, [user?.uid]);
 
-  // Fetch following list with getDocs + polling (60 seconds) instead of real-time for cost optimization
+  // Fetch following list + batch-resolve live public handles (no hardcoded "Seller")
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!user?.uid) {
+      setFollowingList([]);
+      setFollowingLoading(false);
+      return;
+    }
     const uid: string = user.uid;
     let mounted = true;
 
     async function fetchFollowing() {
       if (!mounted) return;
       try {
+        setFollowingLoading(true);
         const q = query(collection(db, "followers"), where("followerId", "==", uid), limit(100));
         const snap = await getDocs(q);
-        if (mounted) {
-          setFollowingList(snap.docs.map((d) => d.data() as any));
-        }
+        const relations = snap.docs.map((d) => {
+          const data = d.data() as {
+            sellerId?: string;
+            sellerEmail?: string | null;
+            createdAt?: Timestamp;
+          };
+          return {
+            sellerId: data.sellerId || "",
+            sellerEmail: data.sellerEmail || null,
+            createdAt: data.createdAt,
+          };
+        });
+        const presented = await enrichFollowingRelations(relations);
+        if (mounted) setFollowingList(presented);
       } catch (error) {
         console.error("Failed to fetch following:", error);
+        if (mounted) setFollowingList([]);
+      } finally {
+        if (mounted) setFollowingLoading(false);
       }
     }
 
@@ -1596,6 +1617,56 @@ const tabGroups = [
               </>
             ) : null}
           </div>
+
+          {/* Following — live usernames from public-profile batch (not stored on follow docs) */}
+          {(followingLoading || followingList.length > 0) && (
+            <section aria-labelledby="profile-following-heading" className="space-y-3">
+              <div className="flex items-end justify-between gap-3">
+                <h2 id="profile-following-heading" className="text-base font-bold text-[var(--foreground)] sm:text-lg">
+                  Following
+                </h2>
+                <p className="text-xs text-[var(--muted)]">
+                  {followingLoading ? "Loading…" : `${followingList.length}`}
+                </p>
+              </div>
+              {followingLoading && followingList.length === 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      className="h-10 w-28 animate-pulse rounded-xl border border-[var(--card-border)] bg-[var(--card)]"
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {followingList.map((f) => {
+                    const initial = (f.username !== "Seller" ? f.username : f.sellerId).charAt(0).toUpperCase();
+                    return (
+                      <Link
+                        key={f.sellerId}
+                        href={f.href}
+                        className="inline-flex items-center gap-2 rounded-xl border border-[var(--card-border)] bg-[var(--card)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] transition hover:border-sky-500/25 hover:bg-[var(--card-hover)]"
+                      >
+                        {f.photoURL ? (
+                          <img
+                            src={f.photoURL}
+                            alt=""
+                            className="h-6 w-6 rounded-lg object-cover"
+                          />
+                        ) : (
+                          <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--soft-card)] text-[10px] font-bold text-sky-500">
+                            {initial}
+                          </span>
+                        )}
+                        <span className="max-w-[10rem] truncate">{f.username}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          )}
 
           {/* 3. LISTINGS */}
           <section aria-labelledby="profile-listings-heading" className="space-y-3">

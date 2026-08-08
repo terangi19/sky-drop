@@ -12,6 +12,7 @@ import {
   clearSellerProfileBatchCache,
   fetchSellerProfilesByListing,
   invalidateSellerProfileBatchCache,
+  presentFollowingRelations,
   sellerLabelFromPublicProfile,
   SELLER_PROFILE_BATCH_CACHE_TTL_MS,
 } from "./fetch-seller-profiles";
@@ -376,5 +377,60 @@ describe("seller profile batch cache", () => {
     invalidateSellerProfileBatchCache("uid-1");
     await fetchSellerProfilesByListing([{ sellerId: "uid-1" }]);
     expect(fetch).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("presentFollowingRelations", () => {
+  it("shows live username for sellerId UID_A → sky50", () => {
+    const profiles = new Map([
+      [
+        "UID_A",
+        {
+          uid: "UID_A",
+          username: "sky50",
+          photoURL: "https://example.com/a.jpg",
+        },
+      ],
+    ]);
+    const rows = presentFollowingRelations([{ sellerId: "UID_A" }], profiles);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].username).toBe("sky50");
+    expect(rows[0].photoURL).toBe("https://example.com/a.jpg");
+    expect(rows[0].href).toBe("/seller/sky50");
+  });
+
+  it("picks up username change sky50→sky55 after refresh (new profile map)", () => {
+    const before = presentFollowingRelations(
+      [{ sellerId: "UID_A" }],
+      new Map([["UID_A", { uid: "UID_A", username: "sky50" }]])
+    );
+    expect(before[0].username).toBe("sky50");
+
+    const after = presentFollowingRelations(
+      [{ sellerId: "UID_A" }],
+      new Map([["UID_A", { uid: "UID_A", username: "sky55" }]])
+    );
+    expect(after[0].username).toBe("sky55");
+    expect(after[0].href).toBe("/seller/sky55");
+  });
+
+  it("falls back to Seller only when profile is missing", () => {
+    const rows = presentFollowingRelations([{ sellerId: "UID_MISSING" }], new Map());
+    expect(rows).toHaveLength(1);
+    expect(rows[0].username).toBe("Seller");
+    expect(rows[0].href).toContain("/seller/");
+    expect(rows[0].photoURL).toBeUndefined();
+  });
+
+  it("dedupes sellerIds and does not invent labels on the relation", () => {
+    const rows = presentFollowingRelations(
+      [
+        { sellerId: "UID_A", sellerEmail: "a@example.com" },
+        { sellerId: "UID_A", sellerEmail: "a@example.com" },
+      ],
+      new Map([["UID_A", { uid: "UID_A", username: "sky50" }]])
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ sellerId: "UID_A", username: "sky50" });
   });
 });

@@ -1,5 +1,10 @@
 import { getListingOwnerId } from "./listing-owner";
-import { getSellerDisplayName, isEmailLike } from "./public-display";
+import {
+  getSellerDisplayName,
+  isEmailLike,
+  sellerProfileSlug,
+} from "./public-display";
+import { sellerProfilePath } from "./seller-profile-nav";
 
 export type SellerProfileListingInput = {
   sellerEmail?: string;
@@ -196,6 +201,84 @@ export function sellerLabelFromPublicProfile(
     },
     fallback
   );
+}
+
+/** Follower relation fields stored in Firestore — IDs only, never stale labels. */
+export type FollowingRelation = {
+  sellerId?: string | null;
+  sellerEmail?: string | null;
+  createdAt?: unknown;
+};
+
+/** Presentation row for Following UI — resolved live from public profiles. */
+export type FollowingPresentation = {
+  sellerId: string;
+  username: string;
+  photoURL?: string;
+  href: string;
+};
+
+/**
+ * Map follower relations → display rows using a public-profile batch map.
+ * Does not invent stored labels; "Seller" only when username is unresolved.
+ */
+export function presentFollowingRelations(
+  relations: FollowingRelation[],
+  profiles: Map<string, PublicSellerProfile>
+): FollowingPresentation[] {
+  const seen = new Set<string>();
+  const rows: FollowingPresentation[] = [];
+
+  for (const rel of relations) {
+    const sellerId = String(rel.sellerId || "").trim();
+    if (!sellerId || seen.has(sellerId)) continue;
+    seen.add(sellerId);
+
+    const email = String(rel.sellerEmail || "").trim();
+    const profile =
+      profiles.get(sellerId) ||
+      (email ? profiles.get(email) : undefined) ||
+      null;
+
+    const username = sellerLabelFromPublicProfile(profile, "Seller") || "Seller";
+    const photoURL = String(profile?.photoURL || "").trim() || undefined;
+    const slug =
+      username !== "Seller"
+        ? username
+        : sellerProfileSlug({
+            username: profile?.username,
+            sellerId,
+            sellerEmail: email || undefined,
+            uid: profile?.uid || sellerId,
+          }) || sellerId;
+
+    rows.push({
+      sellerId,
+      username,
+      photoURL,
+      href: sellerProfilePath(slug),
+    });
+  }
+
+  return rows;
+}
+
+/**
+ * Fetch follower relations then batch-resolve current public profiles (cached).
+ * One batch for all unique sellerIds — no N+1.
+ */
+export async function enrichFollowingRelations(
+  relations: FollowingRelation[]
+): Promise<FollowingPresentation[]> {
+  const listings = relations
+    .map((r) => ({
+      sellerId: String(r.sellerId || "").trim() || undefined,
+      sellerEmail: String(r.sellerEmail || "").trim() || undefined,
+    }))
+    .filter((r) => r.sellerId || r.sellerEmail);
+
+  const profiles = await fetchSellerProfilesByListing(listings);
+  return presentFollowingRelations(relations, profiles);
 }
 
 export function clearSellerProfileBatchCache(): void {
