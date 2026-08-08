@@ -138,31 +138,31 @@ const PAGE_INTROS: Record<string, string[]> = {
   ],
   "/about": [
     "This is About Sky Drop — who we are and what we're building for New Zealand.",
-    "A community marketplace with secure Stripe payments for Kiwi buyers and sellers.",
+    "A community marketplace where Kiwis message sellers and arrange purchases directly.",
   ],
   "/faqs": [
-    "This is FAQs — answers to common questions about buying, selling, and payments.",
+    "This is FAQs — answers to common questions about buying, selling, and messaging.",
     "Search topics or browse sections before you message support.",
   ],
   "/terms": [
     "This is Terms of Service — the rules for using Sky Drop.",
-    "Covers listings, payments, disputes, and what we expect from members.",
+    "Covers listings, messaging deals, disputes, and what we expect from members.",
   ],
   "/privacy": [
     "This is Privacy Policy — how Sky Drop collects, uses, and protects your data.",
     "Read how your information is handled across the platform.",
   ],
   "/buyer-protection": [
-    "This is Buyer Protection — safeguards when you purchase on Sky Drop.",
-    "Covers Stripe payments, disputes, and how to get help if something goes wrong.",
+    "This is Stay Safe — tips for buying and selling safely on Sky Drop.",
+    "Meet in public, verify items before paying, and keep agreements in Messages.",
   ],
   "/seller-guidelines": [
     "This is the Seller Guide — best practices for listing, pricing, and shipping.",
     "Follow these tips to sell faster and keep buyers happy.",
   ],
   "/payments": [
-    "This is How Payments Work — Stripe checkout and buyer protections.",
-    "Read how money moves between buyers and sellers on Sky Drop.",
+    "This is How Payments Work — message sellers and arrange purchase directly.",
+    "Agree on payment, pickup or delivery in Messages — Sky Drop does not process marketplace checkout in V1.",
   ],
   "/admin": [
     "This is the Admin Dashboard — platform overview for Sky Drop staff.",
@@ -210,10 +210,10 @@ const PAGE_INTROS: Record<string, string[]> = {
   ],
   "/profile/payments": [
     "This is Payment Settings — how you receive money from sales.",
-    "Set up bank details for Arrange Purchase or connect Stripe for instant card checkout.",
+    "Add bank details so buyers know how to pay when you arrange purchase in Messages.",
   ],
   "/checkout/success": [
-    "Payment successful — your purchase is recorded on Sky Drop.",
+    "If you have a past card order, details appear here. New deals use Messages.",
     "Check Purchases for order details or open Messages to coordinate with the seller.",
   ],
 };

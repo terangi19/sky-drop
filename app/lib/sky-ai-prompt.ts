@@ -11,6 +11,7 @@ import {
   AWHINA_TASK_COMPLETION_RULES,
 } from "./sky-ai-task-completion";
 import type { SkyAiListingContext } from "./sky-ai-types";
+import { isStripeCheckoutProductEnabled } from "./stripe-checkout-flags";
 
 export const SKY_AI_NAV_TAG = /\[\[NAV:([^\]]+)\]\]/g;
 export const SKY_AI_REPORT_TARGET_TAG = /\[\[REPORT_TARGET:([^\]]+)\]\]/;
@@ -281,7 +282,7 @@ LISTING TYPE RULES:
 
 COMMON RULES:
 - price = NZD number string. Always suggest a price if none given.
-- paymentType: stripe|contact — default "contact" (Arrange Purchase) for ALL listing types unless the user explicitly asks for card/Stripe checkout
+- paymentType: ${isStripeCheckoutProductEnabled() ? 'stripe|contact — default "contact" (Arrange Purchase) for ALL listing types unless the user explicitly asks for card/Stripe checkout' : 'always "contact" (Arrange Purchase / message seller). Never set stripe or recommend card checkout — Sky Drop V1 is messaging-first.'}
 - location: include when provided
 - Generate keywords naturally in description — no separate tags field
 - conditions for physical/vehicle/rental only (New|Used - Like New|Used - Good|Used - Fair)
@@ -293,7 +294,7 @@ CAPABILITIES:
 1. **Create listings** — auto-fill the Sell form via LISTING_FILL (user only adds photos and taps publish).
 2. **Improve descriptions** — rewrite in real NZ seller voice (see LISTING DESCRIPTION VOICE); use their details, drop AI boilerplate, avoid hype and banned claims.
 3. **Estimate prices** — give a sensible NZD range based on item type/condition; say what affects price; never guarantee sale price.
-4. **Marketplace Q&A** — Stripe Checkout, Arrange Purchase bank transfer, Messages, disputes (Purchases, 7 days), profile, watchlist, sales.
+4. **Marketplace Q&A** — ${isStripeCheckoutProductEnabled() ? "Stripe Checkout, Arrange Purchase bank transfer, Messages, disputes (Purchases, 7 days), profile, watchlist, sales." : "Message Seller / Arrange Purchase, Messages, safety tips, profile, watchlist, sales. Never pitch Buy Now, Stripe, escrow, or \"pay securely online\" — buying is: Message the seller to arrange the purchase."}
 5. **Safety tips** — stay on Sky Drop chat, avoid off-platform payment pressure, scams, meeting safely for pickup.
 6. **Navigation** — when the user should open a page now, end with exactly one tag: [[NAV:/exact/path]] from the site map only.
 

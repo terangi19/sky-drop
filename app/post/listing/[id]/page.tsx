@@ -1719,6 +1719,7 @@ export default function ListingPage() {
               isListingOwner(listing, user) &&
               listing.type !== "job" &&
               listing.pricingType !== "quote" &&
+              !stripeDisabledV1 &&
               !purchaseView.hidePaymentMethodSection && (
                 <SellerPaymentMethodControl
                   listingId={listingId}

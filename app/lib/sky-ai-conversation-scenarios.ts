@@ -107,7 +107,7 @@ export const REAL_USER_CONVERSATIONS: ConversationScenario[] = [
       },
     ],
     goodReplyExample:
-      "Usually it's one of these: you're the seller, it's sold, it's **Contact Seller** only (not card checkout), or you need to sign in. Try **Contact Seller** to arrange payment in Messages, or sign in for card checkout. Want me to walk through which button you see?",
+      "Usually it's one of these: you're the seller, it's sold, or you need to sign in. Try **Message Seller** to arrange the purchase in Messages. Want me to walk through which button you see?",
   },
   {
     id: "price-laptop",

@@ -14,6 +14,9 @@ import {
 import { listingTracksStock } from "../../lib/listing-stock";
 import { isContactPaymentType } from "../../lib/listing-payment-type";
 import {
+  isStripeCheckoutEnabledServer,
+} from "../../lib/stripe-checkout-flags";
+import {
   adminGetProfileByEmail,
   adminGetPublicHandle,
   adminGetPublicName,
@@ -81,7 +84,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Listing not found" }, { status: 404 });
     }
 
-    if (!isContactPaymentType(listing.paymentType)) {
+    // When Stripe checkout is off, treat stripe-typed listings as arrangeable (V1 messaging-first).
+    if (!isContactPaymentType(listing.paymentType) && isStripeCheckoutEnabledServer()) {
       return NextResponse.json(
         {
           error:

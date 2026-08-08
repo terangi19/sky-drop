@@ -2,6 +2,7 @@ import { getAdminDb, isAdminInitialized } from "./firebase-admin";
 import { canSellerConfirmArrangeSale } from "./arrange-purchase-status";
 import { isFullyVerifiedSeller } from "./seller-verified";
 import type { SkyAiUserContext, SkyAiUserTodo } from "./sky-ai-user-context";
+import { isStripeCheckoutEnabledServer } from "./stripe-checkout-flags";
 
 const THREE_DAYS_MS = 3 * 86400000;
 
@@ -131,7 +132,11 @@ export async function loadSkyAiUserContext(
       });
     }
 
-    if (!stripeConnected && sellerPurchases.some((p) => p.paymentType === "stripe")) {
+    if (
+      isStripeCheckoutEnabledServer() &&
+      !stripeConnected &&
+      sellerPurchases.some((p) => p.paymentType === "stripe")
+    ) {
       todos.push({
         kind: "stripe_connect",
         count: 1,

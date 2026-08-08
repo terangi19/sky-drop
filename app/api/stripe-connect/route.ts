@@ -10,6 +10,10 @@ import {
   resolveStripeConnectAccount,
   verifyStripeConnectAccount,
 } from "../../lib/stripe-connect-account";
+import {
+  isStripeCheckoutEnabledServer,
+  listingCheckoutUnavailableBody,
+} from "../../lib/stripe-checkout-flags";
 
 async function authenticate(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -93,6 +97,14 @@ export async function POST(req: NextRequest) {
     const db = getServerDb(idToken!);
     const uid = decodedToken!.uid;
     const profileUrl = `${process.env.NEXT_PUBLIC_URL || "http://localhost:3000"}/profile?tab=payments`;
+
+    // V1: fail-closed for new Connect onboarding / account creation (keep disconnect + status GET).
+    if (
+      (action === "create" || action === "onboard" || action === "withdraw") &&
+      !isStripeCheckoutEnabledServer()
+    ) {
+      return NextResponse.json(listingCheckoutUnavailableBody(), { status: 503 });
+    }
 
     if (action === "create") {
       const existingProfile = await db.collection("profiles").doc(uid).get();

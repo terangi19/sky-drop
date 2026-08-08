@@ -125,10 +125,13 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
       "conversations", "conversation", "my messages", "direct messages",
       "open messages", "dm", "dms", "message inbox", "view messages",
       "check messages", "my chats", "my inbox", "go to messages",
+      "checkout", "complete purchase", "buy now",
+      "cart", "shopping cart", "purchase page",
     ],
     phoneticAliases: [
       "massages", "messags", "mesages", "inboxs",
       "mesagges", "messeges", "inbox page",
+      "check out", "chekout", "check out page",
     ],
   },
 
@@ -350,25 +353,15 @@ export const ROUTE_REGISTRY: RouteEntry[] = [
     phoneticAliases: ["oportunities", "oppertunities", "oportinities"],
   },
 
-  // ── Payments ──
+  // ── Payments (how buying works — messaging-first) ──
   {
-    path: "/payments",
-    title: "Payments",
+    path: "/buyer-protection",
+    title: "Stay Safe",
     aliases: [
       "payments", "payment methods", "how to pay",
-      "stripe connect", "payout", "get paid",
+      "how to buy", "arrange purchase", "message seller",
+      "get paid", "payout",
     ],
-  },
-
-  // ── Checkout ──
-  {
-    path: "/checkout",
-    title: "Checkout",
-    aliases: [
-      "checkout", "buy", "complete purchase",
-      "cart", "shopping cart", "purchase page",
-    ],
-    phoneticAliases: ["check out", "chekout", "check out page"],
   },
 
   // ── Disputes ──

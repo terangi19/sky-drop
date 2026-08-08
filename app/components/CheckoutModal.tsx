@@ -18,6 +18,7 @@ import { playSuccess } from "../lib/sounds";
 import { isListingAvailableForPurchase } from "../lib/listing-availability";
 import { buildCheckoutSuccessUrl } from "../lib/payment-checkout";
 import { logModalMounted } from "../lib/purchase-flow-debug";
+import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
 
 interface ListingData {
   id?: string;
@@ -211,6 +212,7 @@ function PaymentForm({ total, listingId, title, paymentIntentId, onSuccess, onBa
 
 export default function CheckoutModal({ listing, buyerEmail, onClose, collectionName = "listings", winningBid }: CheckoutModalProps) {
   const router = useRouter();
+  const stripeCheckoutVisible = isStripeCheckoutVisibleClient();
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>(() => {
     if (winningBid) return "pickup";
     if (listing.type === "digital") return "digital";
@@ -280,21 +282,23 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
 
   // Restore body scroll on unmount
   useEffect(() => {
+    if (!stripeCheckoutVisible) return;
     logModalMounted("CheckoutModal", {
       listingId: listing.id ?? null,
     });
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
-  }, []);
+  }, [stripeCheckoutVisible, listing.id]);
 
   // ESC key closes modal
   useEffect(() => {
+    if (!stripeCheckoutVisible) return;
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") safeClose();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [stripeCheckoutVisible]);
 
   // If user logs out during checkout, close modal
   useEffect(() => {
@@ -687,6 +691,8 @@ export default function CheckoutModal({ listing, buyerEmail, onClose, collection
 
     setStep("success");
   }
+
+  if (!stripeCheckoutVisible) return null;
 
   return (
     <div

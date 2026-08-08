@@ -4,6 +4,7 @@ import {
   RENTAL_LISTING_CATEGORIES as RENTAL_CATEGORIES,
   SERVICE_LISTING_CATEGORIES as SERVICE_CATEGORIES,
 } from "./listing-type-config";
+import { isStripeCheckoutProductEnabled } from "./stripe-checkout-flags";
 
 export const SKY_AI_LISTING_FILL_TAG =
   /\[\[LISTING_FILL\]\]\s*([\s\S]*?)\s*\[\[\/LISTING_FILL\]\]/gi;
@@ -614,6 +615,10 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
     if (pt) out.paymentType = pt;
   }
   if (!out.paymentType) {
+    out.paymentType = "contact";
+  }
+  // V1 messaging-first: never emit stripe paymentType when checkout capability is off
+  if (!isStripeCheckoutProductEnabled()) {
     out.paymentType = "contact";
   }
   if (listingType === "vehicle" || (raw.vehicleMake || raw.vehicleModel)) {

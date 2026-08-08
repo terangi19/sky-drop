@@ -7,6 +7,7 @@ import { getClientCsrfToken } from "../lib/csrf-client";
 import { showToast } from "./Toast";
 import { paymentMethodSummary } from "../lib/purchase-button-labels";
 import { STRIPE_CONNECT_REQUIRED_MSG } from "../lib/seller-payments";
+import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
 
 type Props = {
   listingId: string;
@@ -24,12 +25,18 @@ export default function SellerPaymentMethodControl({
   const [saving, setSaving] = useState(false);
   const [stripeConnected, setStripeConnected] = useState(false);
   const [stripeLoading, setStripeLoading] = useState(true);
+  const stripeVisible = isStripeCheckoutVisibleClient();
 
   useEffect(() => {
     setSelected(current);
   }, [current]);
 
   const refreshStripeStatus = useCallback(async () => {
+    if (!stripeVisible) {
+      setStripeConnected(false);
+      setStripeLoading(false);
+      return;
+    }
     setStripeLoading(true);
     try {
       const token = await auth.currentUser?.getIdToken();
@@ -49,13 +56,14 @@ export default function SellerPaymentMethodControl({
     } finally {
       setStripeLoading(false);
     }
-  }, []);
+  }, [stripeVisible]);
 
   useEffect(() => {
     void refreshStripeStatus();
   }, [refreshStripeStatus]);
 
   async function save(next: "contact" | "stripe") {
+    if (!stripeVisible && next === "stripe") return;
     if (next === selected || saving || disabled) return;
     if (next === "stripe" && !stripeConnected) {
       showToast(STRIPE_CONNECT_REQUIRED_MSG, "error");
@@ -97,6 +105,8 @@ export default function SellerPaymentMethodControl({
       setSaving(false);
     }
   }
+
+  if (!stripeVisible) return null;
 
   return (
     <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">

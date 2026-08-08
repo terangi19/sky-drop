@@ -26,6 +26,7 @@ import {
   sellerProfileDisplayName,
   sellerProfileSlug,
 } from "../lib/public-display";
+import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
 
 const WORLDS = [
   { id: "all", label: "Categories", icon: "🌐", accent: "border-sky-500/20", glow: "shadow-[0_0_12px_rgba(14,165,233,0.06)]", color: "from-sky-400" },
@@ -67,6 +68,7 @@ function getTypePill(type: string) {
 export default function TradeFeedPage() {
   const router = useRouter();
   const { username } = useProfile();
+  const stripeCheckoutVisible = isStripeCheckoutVisibleClient();
   const [user, setUser] = useState<User | null>(null);
   const [posts, setPosts] = useState<any[]>([]);
   const [selectedWorld, setSelectedWorld] = useState<string[]>([]);
@@ -906,7 +908,7 @@ export default function TradeFeedPage() {
                               className="rounded-xl border border-white/[0.06] bg-white/[0.04] px-4 py-2.5 text-xs font-bold text-[var(--foreground)] hover:bg-white/[0.08] transition">💬 Chat</button>
                             {user?.email !== post.sellerEmail && (
                               <>
-                                {post.price && <button onClick={() => { setCheckoutPost(post); setSwipedId(null); }}
+                                {stripeCheckoutVisible && post.price && <button onClick={() => { setCheckoutPost(post); setSwipedId(null); }}
                                   className="rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-4 py-2.5 text-xs font-bold text-white">🛒 Buy</button>}
                                 <button onClick={() => { sendOffer(post.id); setSwipedId(null); }}
                                   className="rounded-xl bg-white/[0.04] border border-white/[0.06] px-4 py-2.5 text-xs font-bold text-sky-400">💰 Offer</button>
@@ -972,7 +974,7 @@ export default function TradeFeedPage() {
                             {post.shippingAvailable && <span className="text-zinc-600">{post.freeShipping ? "🚚 Free" : `📦 $${post.shippingFee || ""}`}</span>}
 
                             <div className="ml-auto flex items-center gap-1.5">
-                              {user?.email !== post.sellerEmail && post.price && (
+                              {stripeCheckoutVisible && user?.email !== post.sellerEmail && post.price && (
                                 <button onClick={(e) => { e.stopPropagation(); setCheckoutPost(post); }}
                                   className="rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-3.5 py-1.5 text-[10px] font-bold text-white transition-all hover:shadow-[0_0_12px_rgba(14,165,233,0.2)] active:scale-95">Buy</button>
                               )}
@@ -1181,7 +1183,7 @@ export default function TradeFeedPage() {
         </div>
       </section>
 
-      {checkoutPost && user?.email && (
+      {stripeCheckoutVisible && checkoutPost && user?.email && (
         <CheckoutModal collectionName="tradePosts" listing={{
           id: checkoutPost.id, title: checkoutPost.title, price: String(checkoutPost.price || 0),
           images: checkoutPost.images || (checkoutPost.image ? [checkoutPost.image] : []),

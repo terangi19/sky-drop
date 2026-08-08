@@ -1087,19 +1087,21 @@ export default function AIPostPage() {
         try {
           const snap = await getDoc(doc(db, "profiles", u.uid));
           let connected = false;
-          try {
-            const token = await u.getIdToken();
-            const statusRes = await fetch("/api/stripe-connect", {
-              headers: token ? { Authorization: `Bearer ${token}` } : {},
-            });
-            if (statusRes.ok) {
-              const status = await statusRes.json();
-              connected = !!status.connected;
-            } else if (snap.exists()) {
-              connected = sellerCanUseStripeCheckout(snap.data());
+          if (!stripeDisabledV1) {
+            try {
+              const token = await u.getIdToken();
+              const statusRes = await fetch("/api/stripe-connect", {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+              });
+              if (statusRes.ok) {
+                const status = await statusRes.json();
+                connected = !!status.connected;
+              } else if (snap.exists()) {
+                connected = sellerCanUseStripeCheckout(snap.data());
+              }
+            } catch {
+              if (snap.exists()) connected = sellerCanUseStripeCheckout(snap.data());
             }
-          } catch {
-            if (snap.exists()) connected = sellerCanUseStripeCheckout(snap.data());
           }
           setStripeConnected(connected);
           if (snap.exists()) {
@@ -2378,7 +2380,7 @@ export default function AIPostPage() {
           </div>
           )}
 
-          {(listingType !== "wanted" && listingType !== "job" && listingType !== "property" && listingType !== "service") && (
+          {!stripeDisabledV1 && (listingType !== "wanted" && listingType !== "job" && listingType !== "property" && listingType !== "service") && (
           <div className="rounded-xl bg-white/[0.03] p-4">
             <button
               type="button"

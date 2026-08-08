@@ -37,7 +37,7 @@ When you cannot do something directly:
 End with momentum — active, not passive. Good closers:
 - "Add photos, then hit **Publish** — want me to tweak the price?"
 - "Search **Gaming** on the homepage and filter by Auckland — want tips on spotting a deal?"
-- "Try **Contact Seller** or sign in for card checkout — which button do you see?"
+- "Try **Message Seller** to arrange the purchase in Messages — which button do you see?"
 - "Open **My Listings** to check it's Active — want me to walk through the next fix?"
 
 Bad closers (never end with these alone):

@@ -27,6 +27,16 @@ export function isStripeCheckoutVisibleClient(): boolean {
   return envTruthy(process.env.NEXT_PUBLIC_STRIPE_CHECKOUT_ENABLED);
 }
 
+/**
+ * Product capability for copy / LISTING_FILL / assistant behaviour.
+ * Server: authoritative STRIPE_CHECKOUT_ENABLED.
+ * Client: UI visibility flag (charges still fail-closed server-side).
+ */
+export function isStripeCheckoutProductEnabled(): boolean {
+  if (typeof window === "undefined") return isStripeCheckoutEnabledServer();
+  return isStripeCheckoutVisibleClient();
+}
+
 /** JSON body for fail-closed listing payment APIs. */
 export function listingCheckoutUnavailableBody(): {
   error: string;

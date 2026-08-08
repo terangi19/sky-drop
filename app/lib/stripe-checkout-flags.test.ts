@@ -1,7 +1,8 @@
-import { describe, expect, it, beforeEach, afterEach } from "vitest";
+import { describe, expect, it, afterEach } from "vitest";
 import {
   isStripeCheckoutEnabledServer,
   isStripeCheckoutVisibleClient,
+  isStripeCheckoutProductEnabled,
   listingCheckoutUnavailableBody,
   V1_CHECKOUT_UNAVAILABLE_MESSAGE,
 } from "./stripe-checkout-flags";
@@ -36,6 +37,14 @@ describe("stripe-checkout-flags", () => {
     process.env.NEXT_PUBLIC_STRIPE_CHECKOUT_ENABLED = "true";
     expect(isStripeCheckoutEnabledServer()).toBe(false);
     expect(isStripeCheckoutVisibleClient()).toBe(true);
+  });
+
+  it("product capability follows server on server runtime", () => {
+    delete process.env.STRIPE_CHECKOUT_ENABLED;
+    delete process.env.NEXT_PUBLIC_STRIPE_CHECKOUT_ENABLED;
+    expect(isStripeCheckoutProductEnabled()).toBe(false);
+    process.env.STRIPE_CHECKOUT_ENABLED = "true";
+    expect(isStripeCheckoutProductEnabled()).toBe(true);
   });
 
   it("returns clear V1 unavailable body", () => {
