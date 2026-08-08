@@ -387,8 +387,20 @@ export default function Navbar() {
                 <Link href="/watchlist" className={`${navLinkBase} ${isActive("/watchlist") ? navLinkActive : navLinkIdle}`}>
                   Watchlist
                 </Link>
-                <Link href="/messages" className={`${navLinkBase} ${isActive("/messages") ? navLinkActive : navLinkIdle}`}>
+                <Link
+                  href="/messages"
+                  className={`inline-flex items-center gap-1.5 ${navLinkBase} ${isActive("/messages") ? navLinkActive : navLinkIdle}`}
+                  aria-label={msgCount > 0 ? `Messages, ${msgCount} unread` : "Messages"}
+                >
                   Messages
+                  {msgCount > 0 && (
+                    <span
+                      className="inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-sky-500/90 px-1 text-[9px] font-semibold leading-none text-always-white"
+                      aria-hidden
+                    >
+                      {msgCount > 9 ? "9+" : msgCount}
+                    </span>
+                  )}
                 </Link>
               </>
             )}
@@ -434,26 +446,8 @@ export default function Navbar() {
             </div>
           </button>
 
-          {/* RIGHT ICONS */}
-          <div className="hidden md:flex items-center gap-1">
-            {authLoading ? (
-              <div className="h-9 w-9 animate-pulse rounded-xl bg-white/[0.06]" />
-            ) : user ? (
-              <Link
-                href="/messages"
-                className={`relative h-9 w-9 items-center justify-center rounded-xl transition-all duration-200 flex group ${isActive("/messages") ? "bg-white/[0.08] text-[var(--nav-ice)]" : "hover:bg-white/[0.06] text-[var(--nav-ice-muted)] hover:text-[var(--nav-ice)]"}`}
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-                {msgCount > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-sky-500 px-1 text-[8px] font-bold text-always-white">
-                    {msgCount > 9 ? "9+" : msgCount}
-                  </span>
-                )}
-              </Link>
-            ) : null}
-
+          {/* RIGHT ICONS — theme + notifications only (messages live in nav / mobile bar) */}
+          <div className="hidden md:flex items-center gap-0.5">
             <button
               onClick={toggleTheme}
               className="flex h-9 w-9 items-center justify-center rounded-xl text-[var(--nav-ice-muted)] hover:bg-white/[0.06] hover:text-[var(--nav-ice)] transition-all duration-200"
@@ -601,6 +595,11 @@ export default function Navbar() {
                 <MenuIcon d={item.d} />
               </span>
               {item.label}
+              {item.href === "/messages" && msgCount > 0 && (
+                <span className="ml-auto rounded-full bg-sky-500/90 px-2 py-0.5 text-[10px] font-semibold text-white">
+                  {msgCount > 9 ? "9+" : msgCount}
+                </span>
+              )}
               {item.href === "/notifications" && activityCount > 0 && (
                 <span className="ml-auto rounded-full bg-sky-500 px-2 py-0.5 text-[10px] font-bold text-white">
                   {activityCount > 9 ? "9+" : activityCount}
