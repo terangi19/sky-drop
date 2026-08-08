@@ -51,6 +51,22 @@ import SkyAiChatPanel from "../../components/SkyAiChatPanel";
 import SellPhotoUpload from "../../components/SellPhotoUpload";
 import { SKY_AI_SELL_QUICK_PROMPTS, SKY_AI_SELL_WELCOME } from "../../lib/sky-ai-prompts";
 import {
+  consumeListingWorkspaceHandoff,
+  peekListingWorkspaceHandoff,
+  setAwhinaSurface,
+  useAwhinaConversation,
+} from "../../lib/awhina-conversation-store";
+import {
+  getListingReadinessState,
+  readinessLabel,
+} from "../../lib/awhina-listing-readiness";
+import {
+  SKY_AI_WORKSPACE_HANDOFF_EVENT,
+  dispatchSkyAiOpen,
+  type SkyAiWorkspaceHandoffDetail,
+} from "../../lib/sky-ai-events";
+import { computeMissingListingSlots } from "../../lib/awhina-pending-slots";
+import {
   SERVICE_PRICING_OPTIONS,
   type ServicePricingType,
   servicePriceRequired,
@@ -170,8 +186,14 @@ export default function AIPostPage() {
   const [showPriceModal, setShowPriceModal] = useState(false);
   const [loadingPriceSuggestion, setLoadingPriceSuggestion] = useState(false);
 
-  const [skyChatOpen, setSkyChatOpen] = useState(false);
+  /** Workspace keeps chat open by default — homepage handoff continues here */
+  const [skyChatOpen, setSkyChatOpen] = useState(true);
   const [skyAutoQuery, setSkyAutoQuery] = useState<string | undefined>();
+  /** Mobile workspace: conversation is primary; listing is the draft pane */
+  const [mobileWorkspaceTab, setMobileWorkspaceTab] = useState<"chat" | "listing">("chat");
+  const [liveFieldNotes, setLiveFieldNotes] = useState<string[]>([]);
+  const awhinaConversation = useAwhinaConversation();
+  const handoffBootstrapped = useRef(false);
   const [draftExtras, setDraftExtras] = useState<string[]>([]);
   const [formStep, setFormStep] = useState(1);
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
@@ -194,7 +216,7 @@ export default function AIPostPage() {
     }
   }, [stripeDisabledV1, editId, saleType]);
 
-  // Form completion progress (honest, field-based — not a fake stepper)
+  // Form completion progress (honest important fields — photos first-class)
   const formProgress = useMemo(() => {
     let total = 0;
     let filled = 0;
@@ -215,6 +237,53 @@ export default function AIPostPage() {
     add(true, imageFiles.length > 0 || imagePreviews.length > 0 || existingImages.length > 0);
     return total === 0 ? 0 : Math.round((filled / total) * 100);
   }, [title, description, category, condition, listingType, saleType, price, startingBid, location, imageFiles.length, imagePreviews.length, existingImages.length]);
+
+  const listingReadiness = useMemo(() => {
+    const fill = {
+      title,
+      description,
+      category,
+      condition,
+      price,
+      listingType,
+      location,
+      pickupArea,
+      vehicleMake,
+      vehicleModel,
+      vehicleYear,
+      vehicleOdometer,
+      vehicleColour,
+      vehicleTransmission,
+      vehicleFuelType,
+      extras: draftExtras,
+      rentalSubType,
+      rentalPriceWeekly,
+      rentalPriceMonthly,
+    };
+    const state = getListingReadinessState(fill);
+    const missing = computeMissingListingSlots(fill);
+    return { state, label: readinessLabel(state), missing };
+  }, [
+    title,
+    description,
+    category,
+    condition,
+    price,
+    listingType,
+    location,
+    pickupArea,
+    vehicleMake,
+    vehicleModel,
+    vehicleYear,
+    vehicleOdometer,
+    vehicleColour,
+    vehicleTransmission,
+    vehicleFuelType,
+    draftExtras,
+    rentalSubType,
+    rentalPriceWeekly,
+    rentalPriceMonthly,
+  ]);
   const classifierRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -518,15 +587,22 @@ export default function AIPostPage() {
       setServiceDuration,
     });
     if (ok && fieldsChanged > 0) {
-      const msg =
-        imagePreviews.length > 0
-          ? isUpdate
-            ? "Āwhina updated your listing — review and publish"
-            : "Āwhina filled your listing — review and publish"
-          : isUpdate
-            ? "Āwhina updated your listing — add photos and publish"
-            : "Āwhina filled your listing — add photos and publish";
-      showToast(msg);
+      const notes: string[] = [];
+      if (merged.price && merged.price !== beforeSnapshot.price) notes.push(`Price $${merged.price}`);
+      if (merged.vehicleYear) notes.push(`Year ${merged.vehicleYear}`);
+      if (merged.condition && merged.condition !== beforeSnapshot.condition) notes.push(`Condition ${merged.condition}`);
+      if (merged.location && merged.location !== beforeSnapshot.location) notes.push(`Location ${merged.location}`);
+      if (merged.title && merged.title !== beforeSnapshot.title) notes.push("Title");
+      if (merged.description && merged.description !== beforeSnapshot.description) notes.push("Description");
+      if (notes.length) {
+        setLiveFieldNotes(notes.slice(0, 4).map((n) => `${n} ✓`));
+        window.setTimeout(() => setLiveFieldNotes([]), 3200);
+      }
+      // Quiet confirmation — avoid huge banners; readiness chip covers publish state
+      if (!isUpdate && imagePreviews.length === 0) {
+        showToast("Listing draft updated — add photos when ready");
+      }
+      setSkyChatOpen(true);
       setTimeout(() => {
         document.getElementById("listing-title")?.scrollIntoView({ behavior: "smooth", block: "center" });
       }, 300);
@@ -551,6 +627,39 @@ export default function AIPostPage() {
       showToast("Āwhina couldn't fill your form — try describing the item again", "error");
     }
   }, [imagePreviews.length, title, description, category, condition, price, listingType, location, autoPublish, choosePaymentType]);
+
+  // Homepage → workspace expand: same conversation, auto-open chat, zero reset
+  useEffect(() => {
+    setAwhinaSurface("listing_workspace");
+    const openFromHandoff = () => {
+      const h = consumeListingWorkspaceHandoff() || peekListingWorkspaceHandoff();
+      if (h?.autoOpen || h?.pending) {
+        setSkyChatOpen(true);
+        setMobileWorkspaceTab("chat");
+        requestAnimationFrame(() => dispatchSkyAiOpen());
+      }
+    };
+    if (!handoffBootstrapped.current) {
+      handoffBootstrapped.current = true;
+      openFromHandoff();
+      // Also open when a pending fill arrived (classic handoff path)
+      if (typeof window !== "undefined") {
+        const hasMsgs = awhinaConversation.messages.some((m) => m.id !== "welcome");
+        if (hasMsgs) setSkyChatOpen(true);
+      }
+    }
+    const onHandoff = (e: Event) => {
+      const detail = (e as CustomEvent<SkyAiWorkspaceHandoffDetail>).detail;
+      if (detail?.autoOpen !== false) {
+        setSkyChatOpen(true);
+        setMobileWorkspaceTab("chat");
+        dispatchSkyAiOpen();
+      }
+    };
+    window.addEventListener(SKY_AI_WORKSPACE_HANDOFF_EVENT, onHandoff);
+    return () => window.removeEventListener(SKY_AI_WORKSPACE_HANDOFF_EVENT, onHandoff);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- bootstrap once on mount + handoff events
+  }, []);
 
   const appendDescriptionFromVoice = useCallback((text: string) => {
     const incoming = text.trim();
@@ -1467,7 +1576,7 @@ export default function AIPostPage() {
       <Navbar />
       {imagePreviews.length > 0 && <img ref={imgRef} src={imagePreviews[0]} style={{display:'none'}} />}
 
-        <div className="relative z-10 mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-12">
+        <div className="relative z-10 mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
         {editLoading && (
           <div className="mb-6 flex items-center justify-center gap-3 rounded-xl bg-white/[0.03] p-4">
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-sky-500 border-t-transparent"></div>
@@ -1475,44 +1584,98 @@ export default function AIPostPage() {
           </div>
         )}
 
-        {/* Header */}
-        <div className="mb-6 text-center">
-          <Link href="/" className="inline-flex items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-2 text-sm text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-sky-500/10 hover:text-sky-300 mb-5">
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-            Back
-          </Link>
-          <div className="relative flex flex-col items-center">
-            <div className="absolute -inset-20 bg-gradient-to-r from-sky-500/10 via-sky-500/5 to-sky-500/10 blur-3xl pointer-events-none" />
-            <div className="relative mb-3 inline-flex items-center gap-2 rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-[11px] font-bold text-sky-300">
+        {/* Workspace header */}
+        <div className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <Link href="/" className="mb-3 inline-flex items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-sm text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-sky-500/10 hover:text-sky-300">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+              Back
+            </Link>
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-[11px] font-bold text-sky-300">
               <span className="h-1.5 w-1.5 rounded-full bg-sky-400 animate-pulse" />
-              {editId ? "Edit Listing" : "AI-Powered Listing"}
+              {editId ? "Edit Listing" : "Āwhina listing workspace"}
             </div>
-            <h1 className="relative text-3xl sm:text-4xl font-black tracking-tight text-white">
-              {editId ? "Edit Your Listing" : "Create a Listing"}
+            <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl">
+              {editId ? "Edit Your Listing" : "Build your listing with Āwhina"}
             </h1>
-            <p className="relative mt-3 max-w-xl mx-auto text-sm leading-relaxed text-[var(--muted)]">Describe your item or upload photos, and Āwhina will help you create a professional listing in minutes.</p>
+            <p className="mt-1.5 max-w-xl text-sm text-[var(--muted)]">
+              Same conversation as the homepage bubble — keep chatting while the draft updates live.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={`rounded-full px-3 py-1 text-[11px] font-bold ${
+                listingReadiness.state === "READY_TO_REVIEW" || listingReadiness.state === "READY_TO_PUBLISH"
+                  ? "bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30"
+                  : "bg-sky-500/10 text-sky-300 ring-1 ring-sky-500/20"
+              }`}
+            >
+              {listingReadiness.label}
+            </span>
           </div>
         </div>
 
-        {/* Progress Indicator */}
-        <div className="mb-6 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+        {liveFieldNotes.length > 0 && (
+          <div className="mb-4 flex flex-wrap gap-1.5" aria-live="polite">
+            {liveFieldNotes.map((n) => (
+              <span key={n} className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-300">
+                {n}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {!editId && (
+          <div className="mb-4 flex gap-1 rounded-xl border border-white/[0.06] bg-white/[0.03] p-1 lg:hidden">
+            <button
+              type="button"
+              onClick={() => { setMobileWorkspaceTab("chat"); setSkyChatOpen(true); }}
+              className={`flex-1 rounded-lg px-3 py-2 text-sm font-bold transition ${mobileWorkspaceTab === "chat" ? "bg-sky-500/20 text-sky-200" : "text-zinc-400"}`}
+            >
+              Chat
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileWorkspaceTab("listing")}
+              className={`flex-1 rounded-lg px-3 py-2 text-sm font-bold transition ${mobileWorkspaceTab === "listing" ? "bg-sky-500/20 text-sky-200" : "text-zinc-400"}`}
+            >
+              Listing
+            </button>
+          </div>
+        )}
+
+        {/* Progress — readiness-led */}
+        <div className="mb-5 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
           <div className="mb-2 flex items-center justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">Listing Progress</span>
-            <span className="text-[11px] font-bold text-sky-400">{formProgress}%</span>
+            <span className="text-[11px] font-bold text-sky-400">{listingReadiness.label}</span>
           </div>
-          <div className="h-2 w-full rounded-full bg-zinc-800 overflow-hidden">
-            <div 
+          <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-800">
+            <div
               className="h-full rounded-full bg-gradient-to-r from-sky-500 to-sky-400 transition-all duration-500 ease-out"
-              style={{ width: `${formProgress}%` }}
+              style={{
+                width: `${
+                  listingReadiness.state === "READY_TO_PUBLISH"
+                    ? 100
+                    : listingReadiness.state === "READY_TO_REVIEW"
+                      ? 85
+                      : listingReadiness.state === "IN_PROGRESS"
+                        ? Math.max(formProgress, 45)
+                        : Math.max(formProgress, 12)
+                }%`,
+              }}
             />
           </div>
           <p className="mt-2 text-[10px] text-[var(--muted)]">
-            {formProgress < 30 ? "Get started by adding a title, description, and photo" : 
-             formProgress < 60 ? "Good progress! Add more details to complete your listing" :
-             formProgress < 100 ? "Almost there! Finish the remaining fields" :
-             "Your listing is complete and ready to publish"}
+            {listingReadiness.missing[0]
+              ? `Next: ${String(listingReadiness.missing[0]).replace(/_/g, " ")}`
+              : listingReadiness.state === "READY_TO_REVIEW" || listingReadiness.state === "READY_TO_PUBLISH"
+                ? "Ready to review — add photos, then Publish (never auto-publishes)"
+                : "Chat with Āwhina to fill important details"}
           </p>
         </div>
+
+        <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
 
         {showHelpPrompt && (
           <div className="mb-6 rounded-xl border border-sky-500/30 bg-gradient-to-r from-sky-500/10 to-sky-500/5 p-4 shadow-[0_0_30px_rgba(14,165,233,0.15)]">
@@ -1593,44 +1756,38 @@ export default function AIPostPage() {
         )}
 
         {!editId && (
-          <div className="mb-6">
-            <div className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-gradient-to-br from-sky-500/[0.08] via-sky-500/[0.04] to-[var(--card)] p-5 shadow-[0_0_40px_rgba(14,165,233,0.08)]">
+          <div
+            className={`mb-6 lg:sticky lg:top-20 lg:mb-0 ${
+              mobileWorkspaceTab === "listing" ? "hidden lg:block" : "block"
+            }`}
+          >
+            <div className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-gradient-to-br from-sky-500/[0.08] via-sky-500/[0.04] to-[var(--card)] p-4 shadow-[0_0_40px_rgba(14,165,233,0.08)] sm:p-5">
               <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
               <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-sky-500/10 blur-2xl pointer-events-none" />
-              <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex gap-3 min-w-0">
+              <div className="relative mb-3 flex items-center justify-between gap-3">
+                <div className="flex min-w-0 gap-3">
                   <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/30 to-sky-500/25 text-base shadow-[0_0_20px_rgba(56,189,248,0.2)] ring-1 ring-sky-400/30">
                     ✦
                   </span>
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-base font-bold text-white">Āwhina</h2>
-                      <span className="text-[10px] font-medium text-sky-400/70 bg-sky-500/10 px-2 py-0.5 rounded-full">Optional</span>
-                    </div>
-                    <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
-                      Let Āwhina fill out your listing for you, or complete it manually
+                    <h2 className="text-base font-bold text-white">Āwhina</h2>
+                    <p className="mt-0.5 text-xs leading-relaxed text-[var(--muted)]">
+                      {awhinaConversation.messages.some((m) => m.id !== "welcome")
+                        ? "Continuing your conversation"
+                        : "Describe what you're selling — I'll update the live draft"}
                     </p>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowAwhinaGuide(true)}
-                    className="shrink-0 rounded-xl border border-sky-500/20 bg-sky-500/5 px-4 py-2.5 text-sm font-bold text-sky-400 hover:bg-sky-500/10 transition-colors"
-                  >
-                    What&apos;s this?
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSkyChatOpen((v) => !v)}
-                    className="shrink-0 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-4 py-2.5 text-sm font-bold text-white shadow-[0_0_20px_rgba(14,165,233,0.25)] hover:brightness-110 active:scale-[0.98] transition-all"
-                  >
-                    {skyChatOpen ? "Hide chat" : "Ask Āwhina"}
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAwhinaGuide(true)}
+                  className="shrink-0 rounded-xl border border-sky-500/20 bg-sky-500/5 px-3 py-2 text-xs font-bold text-sky-400 hover:bg-sky-500/10 transition-colors"
+                >
+                  Help
+                </button>
               </div>
               {!skyChatOpen && (
-                <div className="relative mt-4 flex flex-wrap gap-1.5">
+                <div className="relative mb-3 flex flex-wrap gap-1.5">
                   {SKY_AI_SELL_QUICK_PROMPTS.map((p) => (
                     <button
                       key={p.label}
@@ -1647,7 +1804,6 @@ export default function AIPostPage() {
                   ))}
                 </div>
               )}
-            </div>
             <SkyAiChatPanel
               mode="inline"
               open={skyChatOpen}
@@ -1657,9 +1813,26 @@ export default function AIPostPage() {
               onFill={applyFill}
               quickPrompts={SKY_AI_SELL_QUICK_PROMPTS}
               welcomeText={SKY_AI_SELL_WELCOME}
+              className="awhina-listing-workspace-chat"
             />
+            </div>
           </div>
         )}
+
+        <div className={!editId && mobileWorkspaceTab === "chat" ? "hidden lg:block" : "block"}>
+        {!editId && (title || price || vehicleMake) ? (
+          <div className="mb-4 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] p-3">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-400/80">Live draft</p>
+            <p className="mt-1 text-sm font-bold text-white">
+              {title || [vehicleYear, vehicleMake, vehicleModel].filter(Boolean).join(" ") || "Untitled"}
+            </p>
+            <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-zinc-400">
+              {price ? <span className="font-semibold text-emerald-300">${price}</span> : null}
+              {condition ? <span>{condition}</span> : null}
+              {location ? <span>{location}</span> : null}
+            </div>
+          </div>
+        ) : null}
 
         {/* Form Card */}
         <div className="relative">
@@ -1671,17 +1844,27 @@ export default function AIPostPage() {
           {/* Honest form progress indicator */}
           <div className="sticky top-0 z-20 -mx-6 mb-2 border-b border-white/[0.06] bg-[var(--card)] px-6 py-3 backdrop-blur-xl sm:-mx-8 sm:px-8">
             <div className="flex items-center justify-between gap-3">
-              <span className="text-[11px] font-bold text-[var(--muted)]">Form progress</span>
-              <span className={`text-[11px] font-bold ${formProgress === 100 ? "text-sky-400" : "text-sky-400"}`}>{formProgress}%</span>
+              <span className="text-[11px] font-bold text-[var(--muted)]">Draft progress</span>
+              <span className="text-[11px] font-bold text-sky-400">{listingReadiness.label}</span>
             </div>
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
               <div
-                className={`h-full rounded-full transition-all duration-500 ${formProgress === 100 ? "bg-gradient-to-r from-sky-500 to-sky-400" : "bg-gradient-to-r from-sky-500 to-sky-400"}`}
-                style={{ width: `${formProgress}%` }}
+                className="h-full rounded-full bg-gradient-to-r from-sky-500 to-sky-400 transition-all duration-500"
+                style={{
+                  width: `${
+                    listingReadiness.state === "READY_TO_PUBLISH"
+                      ? 100
+                      : listingReadiness.state === "READY_TO_REVIEW"
+                        ? 85
+                        : Math.max(formProgress, listingReadiness.state === "IN_PROGRESS" ? 40 : 10)
+                  }%`,
+                }}
               />
             </div>
             <p className="mt-1.5 text-[10px] text-[var(--muted)]">
-              {formProgress === 100 ? "Ready to submit" : "Fill the highlighted fields to complete your listing"}
+              {listingReadiness.state === "READY_TO_REVIEW" || listingReadiness.state === "READY_TO_PUBLISH"
+                ? "Ready to review — Publish when you're happy"
+                : "Fill important fields with Āwhina or edit manually"}
             </p>
           </div>
 
@@ -2431,6 +2614,8 @@ export default function AIPostPage() {
         </div>
           </div>
         </div>
+      </div>
+      </div>
       </div>
 
       {/* SCAM ALERT MODAL - INSIDE MAIN CONTAINER */}

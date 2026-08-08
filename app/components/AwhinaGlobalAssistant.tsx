@@ -137,9 +137,13 @@ export default function AwhinaGlobalAssistant() {
   }, [user, pathname]);
 
   // Close global sheet when entering an inline-assistant route (prevents duplicates).
+  // Conversation identity lives in awhina-conversation-store — remount must not reset it.
   useEffect(() => {
     if (inlineAssistant && chatOpen) setChatOpen(false);
   }, [inlineAssistant, chatOpen]);
+
+  // Keep FAB visible on listing workspace so tap focuses the existing inline chat (never a second sheet).
+  // chatHidden only changes the hint label — primary tap still calls openChat → dispatchSkyAiOpen.
 
   if (!user || isAuthPath(pathname) || pathname.startsWith(ADMIN_PREFIX)) {
     return null;

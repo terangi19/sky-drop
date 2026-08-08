@@ -26,11 +26,33 @@ import {
   isSkyAiGeneralQuestion,
   isSkyAiWelcomeBleed,
 } from "../lib/sky-ai-prompts";
-import { dispatchSkyAiComposerActive, SKY_AI_OPEN_EVENT, type SkyAiOpenDetail } from "../lib/sky-ai-events";
+import { dispatchSkyAiComposerActive, dispatchWorkspaceHandoff, SKY_AI_OPEN_EVENT, type SkyAiOpenDetail } from "../lib/sky-ai-events";
 import {
   persistAwhinaSession,
   readPersistedAwhinaSession,
 } from "../lib/awhina-session-persist";
+import {
+  appendMessage,
+  beginListingWorkspaceHandoff,
+  ensureWelcomeMessage,
+  getAwhinaConversationState,
+  patchMessage,
+  resetConversationMessages,
+  setAwhinaSessionEcho,
+  setAwhinaSurface,
+  setBusyStatus,
+  setConversationId as setStoreConversationId,
+  setListingFillOccurred as setStoreListingFillOccurred,
+  setMessages as setStoreMessages,
+  setUploadedImages as setStoreUploadedImages,
+  surfaceFromPathname,
+  useAwhinaConversation,
+  type AwhinaConversationMessage,
+} from "../lib/awhina-conversation-store";
+import {
+  decideSellWorkspaceHandoff,
+  preferBriefHandoffReply,
+} from "../lib/awhina-sell-handoff";
 import { AWHINA_CHAT_BACKDROP_Z, AWHINA_CHAT_SHEET_Z } from "../lib/floating-ui-layout";
 import { mergeListingFillWithDraft } from "../lib/sky-ai-draft-merge";
 import { readListingDraftFromSkyAi, clearListingDraftFromSkyAi } from "../lib/sky-ai-listing-context";
@@ -52,17 +74,7 @@ import {
 
 export type SkyAiChatPanelMode = "sheet" | "inline";
 
-type ChatMessage = {
-  id: string;
-  role: "user" | "assistant";
-  text: string;
-  _rawText?: string; // Preserve original text with LISTING_FILL tags for history
-  images?: string[];
-  navigating?: boolean;
-  streaming?: boolean;
-  /** Structured SSE progress — few real states, not Navigating spam */
-  progressLabel?: string;
-};
+type ChatMessage = AwhinaConversationMessage;
 
 type PendingAttachment = { dataUrl: string; name: string };
 
@@ -105,6 +117,12 @@ function handleListingFill(fill: SkyAiListingFill | undefined, _navigateTo?: str
     !!(merged.extras && merged.extras.length > 0);
   if (!hasContent) return _navigateTo;
   dispatchListingFill(merged);
+  return "/post/ai";
+}
+
+function expandToListingWorkspace(navigateTo: string | undefined): string | undefined {
+  if (navigateTo !== "/post/ai") return navigateTo;
+  beginListingWorkspaceHandoff({ autoContinue: true });
   return "/post/ai";
 }
 
@@ -173,14 +191,12 @@ export default function SkyAiChatPanel({
 
   const [user, setUser] = useState<User | null>(null);
   const [showHistory, setShowHistory] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>(() => welcomeMessages(welcomeText));
   const [conversations, setConversations] = useState<SkyAiConversationSummary[]>([]);
-  const [conversationId, setConversationId] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('skyAiConversationId') || null;
-    }
-    return null;
-  });
+  const conversation = useAwhinaConversation();
+  const messages = conversation.messages;
+  const conversationId = conversation.conversationId;
+  const setConversationId = setStoreConversationId;
+  const setMessages = setStoreMessages;
   /** Stable anon session — isolates guest search/task memory across browsers */
   const [anonSessionId] = useState<string>(() => {
     if (typeof window === "undefined") return `anon_ssr_${Math.random().toString(36).slice(2)}`;
@@ -230,17 +246,39 @@ export default function SkyAiChatPanel({
   const [listingPreviewFill, setListingPreviewFill] = useState<SkyAiListingFill | null>(null);
   const fileInputRefInternal = useRef<HTMLInputElement>(null);
   const [publishing, setPublishing] = useState(false);
-  const [pendingImages, setPendingImages] = useState<PendingAttachment[]>([]);
+  const pendingImages = conversation.uploadedImages;
+  const setPendingImages = setStoreUploadedImages;
   const [imageBusy, setImageBusy] = useState(false);
   const [openAiReady, setOpenAiReady] = useState(true);
   const [voiceHint, setVoiceHint] = useState<string | null>(null);
   const [voiceStatus, setVoiceStatus] = useState<string | null>(null);
-  const [listingFillOccurred, _setListingFillOccurred] = useState(false);
-  const listingFillOccurredRef = useRef(false);
+  const listingFillOccurred = conversation.listingFillOccurred;
+  const listingFillOccurredRef = useRef(conversation.listingFillOccurred);
   const setListingFillOccurred = useCallback((v: boolean) => {
     listingFillOccurredRef.current = v;
-    _setListingFillOccurred(v);
+    setStoreListingFillOccurred(v);
   }, []);
+
+  // Keep surface in sync with route — never resets conversation identity
+  useEffect(() => {
+    setAwhinaSurface(surfaceFromPathname(pathname));
+  }, [pathname]);
+
+  // Seed welcome only when store has no real transcript yet
+  useEffect(() => {
+    ensureWelcomeMessage(welcomeText);
+  }, [welcomeText, mode]);
+
+  // Mirror session echo into ref for API requests
+  useEffect(() => {
+    if (conversation.awhinaSession) {
+      awhinaSessionRef.current = conversation.awhinaSession as typeof awhinaSessionRef.current;
+    }
+  }, [conversation.awhinaSession]);
+
+  useEffect(() => {
+    listingFillOccurredRef.current = listingFillOccurred;
+  }, [listingFillOccurred]);
 
   useEffect(() => onAuthStateChanged(auth, setUser), []);
 
@@ -265,26 +303,18 @@ export default function SkyAiChatPanel({
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, open]);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      if (conversationId) {
-        localStorage.setItem('skyAiConversationId', conversationId);
-      } else {
-        localStorage.removeItem('skyAiConversationId');
-      }
-    }
-  }, [conversationId]);
-
   // Hydrate pendingSlot / task scope when remounting (global sheet → /post/ai)
   useEffect(() => {
     if (awhinaSessionRef.current?.task?.pendingClarification) return;
     const stored = readPersistedAwhinaSession(conversationId);
     if (!stored?.task) return;
-    awhinaSessionRef.current = {
+    const echo = {
       task: stored.task as NonNullable<typeof awhinaSessionRef.current>["task"],
       search: stored.search as NonNullable<typeof awhinaSessionRef.current>["search"],
       pendingSlot: stored.pendingSlot ?? null,
     };
+    awhinaSessionRef.current = echo;
+    setAwhinaSessionEcho(echo as never);
   }, [conversationId]);
 
   useEffect(() => {
@@ -332,34 +362,31 @@ export default function SkyAiChatPanel({
   );
 
   const updateAssistant = useCallback((id: string, patch: Partial<ChatMessage>) => {
-    setMessages((prev) => prev.map((m) => {
-      if (m.id === id) {
-        const updated = { ...m, ...patch };
-        if (patch.text && listingFillOccurredRef.current && isSkyAiWelcomeBleed(patch.text)) {
-          return { ...updated, text: SKY_AI_LISTING_FILL_SUCCESS };
-        }
-        return updated;
-      }
-      return m;
-    }));
+    const cur = getAwhinaConversationState().messages.find((m) => m.id === id);
+    let nextPatch = { ...patch };
+    if (patch.text && listingFillOccurredRef.current && isSkyAiWelcomeBleed(patch.text)) {
+      nextPatch = { ...nextPatch, text: SKY_AI_LISTING_FILL_SUCCESS };
+    }
+    if (cur) patchMessage(id, nextPatch);
   }, []);
 
   const addAssistantMessage = useCallback((msg: ChatMessage) => {
-    setMessages((prev) => {
-      if (msg.text && listingFillOccurredRef.current && isSkyAiWelcomeBleed(msg.text)) {
-        return [...prev, { ...msg, text: SKY_AI_LISTING_FILL_SUCCESS }];
-      }
-      return [...prev, msg];
-    });
+    if (msg.text && listingFillOccurredRef.current && isSkyAiWelcomeBleed(msg.text)) {
+      appendMessage({ ...msg, text: SKY_AI_LISTING_FILL_SUCCESS });
+      return;
+    }
+    appendMessage(msg);
   }, []);
 
   const startNewChat = useCallback(() => {
-    setConversationId(null);
-    setMessages(welcomeMessages(welcomeText));
+    resetConversationMessages(welcomeText);
+    if (pathname.startsWith("/post/ai")) {
+      // New chat on sell page = fresh listing task
+      clearListingDraftFromSkyAi();
+    }
     setShowHistory(false);
     setListingPreviewFill(null);
-    setListingFillOccurred(false);
-  }, [welcomeText]);
+  }, [welcomeText, pathname]);
 
   const openConversation = useCallback(async (id: string) => {
     const token = await getFreshIdToken();
@@ -450,7 +477,6 @@ export default function SkyAiChatPanel({
       }
 
       setPendingImages([]);
-      setBusy(true);
 
       const displayText =
         trimmed ||
@@ -465,6 +491,8 @@ export default function SkyAiChatPanel({
         images: imageUrls.length ? imageUrls : undefined,
       };
       setMessages((prev) => [...prev.filter((m) => m.id !== "welcome"), userMsg]);
+      setBusy(true);
+      setBusyStatus(true);
 
       const history = [...messages, userMsg]
         .filter((m) => m.id !== "welcome" && !m.streaming)
@@ -636,6 +664,7 @@ export default function SkyAiChatPanel({
                   responseHandled = true;
                   if (evt.awhinaSession) {
                     awhinaSessionRef.current = evt.awhinaSession;
+                    setAwhinaSessionEcho(evt.awhinaSession as never);
                     persistAwhinaSession({
                       conversationId: evt.conversationId || conversationId,
                       task: evt.awhinaSession.task as never,
@@ -673,12 +702,23 @@ export default function SkyAiChatPanel({
                     } else {
                       const navFromFill = handleListingFill(evt.listingFill, navigateTo);
                       if (navFromFill) navigateTo = navFromFill;
+                      const handoff = decideSellWorkspaceHandoff({
+                        message: trimmed,
+                        pathname,
+                        listingFill: evt.listingFill,
+                        navigateTo,
+                        hasImages: imageUrls.length > 0,
+                      });
                       const aiReply = evt.reply || stripSkyAiMachineTags(accumulated);
-                      // Prevent welcome message after listing fill on non-sell pages
-                      const cleanReply =
+                      let cleanReply =
                         aiReply && aiReply.length > 10 && !isSkyAiWelcomeBleed(aiReply)
                           ? aiReply
                           : SKY_AI_LISTING_FILL_SUCCESS;
+                      if (handoff.shouldExpand) {
+                        cleanReply =
+                          preferBriefHandoffReply(cleanReply, handoff) || cleanReply;
+                        navigateTo = expandToListingWorkspace("/post/ai");
+                      }
                       updateAssistant(assistantId, {
                         text: cleanReply,
                         _rawText: accumulated, // Preserve raw text with LISTING_FILL tags
@@ -690,7 +730,20 @@ export default function SkyAiChatPanel({
                   } else {
                     const navFromFill = handleListingFill(evt.listingFill, navigateTo);
                     if (navFromFill) navigateTo = navFromFill;
-                    const replyText = stripSkyAiMachineTags(evt.reply || accumulated);
+                    const handoff = !isSellPage
+                      ? decideSellWorkspaceHandoff({
+                          message: trimmed,
+                          pathname,
+                          listingFill: null,
+                          navigateTo,
+                          hasImages: imageUrls.length > 0,
+                        })
+                      : { shouldExpand: false as const, reason: "already_workspace" as const };
+                    let replyText = stripSkyAiMachineTags(evt.reply || accumulated);
+                    if (handoff.shouldExpand) {
+                      replyText = preferBriefHandoffReply(replyText, handoff) || replyText;
+                      navigateTo = expandToListingWorkspace("/post/ai");
+                    }
                     updateAssistant(assistantId, {
                       text: replyText,
                       streaming: false,
@@ -733,12 +786,22 @@ export default function SkyAiChatPanel({
             } else {
               const navFromFill = handleListingFill(data.listingFill, navigateTo);
               if (navFromFill) navigateTo = navFromFill;
+              const handoff = decideSellWorkspaceHandoff({
+                message: trimmed,
+                pathname,
+                listingFill: data.listingFill,
+                navigateTo,
+                hasImages: imageUrls.length > 0,
+              });
               const aiReply = data.reply || "";
-              // Prevent welcome message after listing fill on non-sell pages
-              const cleanReply =
+              let cleanReply =
                 aiReply && aiReply.length > 10 && !isSkyAiWelcomeBleed(aiReply)
                   ? aiReply
                   : SKY_AI_LISTING_FILL_SUCCESS;
+              if (handoff.shouldExpand) {
+                cleanReply = preferBriefHandoffReply(cleanReply, handoff) || cleanReply;
+                navigateTo = expandToListingWorkspace("/post/ai");
+              }
               updateAssistant(assistantId, {
                 text: cleanReply,
                 streaming: false,
@@ -748,8 +811,22 @@ export default function SkyAiChatPanel({
           } else {
             const navFromFill = handleListingFill(data.listingFill, navigateTo);
             if (navFromFill) navigateTo = navFromFill;
+            const handoff = !isSellPage
+              ? decideSellWorkspaceHandoff({
+                  message: trimmed,
+                  pathname,
+                  listingFill: null,
+                  navigateTo,
+                  hasImages: imageUrls.length > 0,
+                })
+              : { shouldExpand: false as const, reason: "already_workspace" as const };
+            let replyText = data.reply || "";
+            if (handoff.shouldExpand) {
+              replyText = preferBriefHandoffReply(replyText, handoff) || replyText;
+              navigateTo = expandToListingWorkspace("/post/ai");
+            }
             updateAssistant(assistantId, {
-              text: data.reply || "",
+              text: replyText,
               streaming: false,
               navigating: !!navigateTo,
             });
@@ -757,6 +834,7 @@ export default function SkyAiChatPanel({
           if (data.conversationId) newConversationId = data.conversationId;
           if (data.awhinaSession) {
             awhinaSessionRef.current = data.awhinaSession;
+            setAwhinaSessionEcho(data.awhinaSession as never);
             persistAwhinaSession({
               conversationId: data.conversationId || conversationId,
               task: data.awhinaSession.task,
@@ -801,8 +879,15 @@ export default function SkyAiChatPanel({
       if (newConversationId) setConversationId(newConversationId);
       if (user) loadConversations();
 
-      if (navigateTo) runNavigate(navigateTo);
+      if (navigateTo) {
+        if (navigateTo === "/post/ai") {
+          beginListingWorkspaceHandoff({ autoContinue: true });
+          dispatchWorkspaceHandoff({ autoOpen: true, autoContinue: true });
+        }
+        runNavigate(navigateTo);
+      }
       setBusy(false);
+      setBusyStatus(false);
     },
     [
       busy,
@@ -1020,7 +1105,11 @@ export default function SkyAiChatPanel({
       <div
         ref={listRef}
         className={`overflow-y-auto px-3 py-3 space-y-3 scrollbar-thin ${
-          isSheet ? "flex-1" : "min-h-[200px] max-h-[min(360px,45vh)]"
+          isSheet
+            ? "flex-1"
+            : className.includes("awhina-listing-workspace-chat")
+              ? "min-h-[280px] max-h-[min(560px,62vh)]"
+              : "min-h-[200px] max-h-[min(360px,45vh)]"
         }`}
       >
         {messages.map((m) => {

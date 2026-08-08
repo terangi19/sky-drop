@@ -1,12 +1,22 @@
 /**
  * Āwhina UI surface routing — which chat shell to open for the current route.
  * Keep identity consistent; never open a second assistant over an inline workspace.
+ *
+ * Surfaces: `global` (sheet) | `listing_workspace` (/post/ai).
+ * Changing surface must not change conversation identity — see awhina-conversation-store.
  */
+
+import type { AwhinaUiSurface } from "./awhina-conversation-store";
 
 export const AWHINA_INLINE_ASSISTANT_PATHS = ["/post/ai", "/profile"] as const;
 
 export function hasInlineAwhinaAssistant(pathname: string): boolean {
   return AWHINA_INLINE_ASSISTANT_PATHS.some((p) => pathname.startsWith(p));
+}
+
+/** Product surface for listing FLOW (not profile tips). */
+export function resolveAwhinaUiSurface(pathname: string): AwhinaUiSurface {
+  return pathname.startsWith("/post/ai") ? "listing_workspace" : "global";
 }
 
 export type AwhinaRouteContext =

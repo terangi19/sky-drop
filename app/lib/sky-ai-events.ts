@@ -1,8 +1,15 @@
 export const SKY_AI_OPEN_EVENT = "sky-ai-open";
 export const SKY_AI_COMPOSER_ACTIVE_EVENT = "sky-ai-composer-active";
+/** Fired when homepage → /post/ai expand completes so workspace can auto-open. */
+export const SKY_AI_WORKSPACE_HANDOFF_EVENT = "sky-ai-workspace-handoff";
 
 export type SkyAiOpenDetail = {
   query?: string;
+};
+
+export type SkyAiWorkspaceHandoffDetail = {
+  autoOpen?: boolean;
+  autoContinue?: boolean;
 };
 
 export type SkyAiComposerActiveDetail = {
@@ -23,6 +30,15 @@ export function dispatchSkyAiOpen(query?: string) {
   window.dispatchEvent(
     new CustomEvent<SkyAiOpenDetail>(SKY_AI_OPEN_EVENT, {
       detail: query ? { query } : {},
+    })
+  );
+}
+
+export function dispatchWorkspaceHandoff(detail?: SkyAiWorkspaceHandoffDetail) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent<SkyAiWorkspaceHandoffDetail>(SKY_AI_WORKSPACE_HANDOFF_EVENT, {
+      detail: detail || { autoOpen: true, autoContinue: true },
     })
   );
 }
