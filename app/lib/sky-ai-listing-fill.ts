@@ -814,7 +814,8 @@ export function applySkyAiListingFill(fill: SkyAiListingFill, h: ListingFillHand
     | "physical"
     | "service"
     | "rental"
-    | "vehicle";
+    | "vehicle"
+    | "wanted";
 
   const hasVehicleDetails = Boolean(
     normalized.vehicleMake ||
@@ -824,8 +825,10 @@ export function applySkyAiListingFill(fill: SkyAiListingFill, h: ListingFillHand
   );
 
   // Canonical: vehicle identity → type=vehicle (never physical + Cars).
-  // Explicit physical/service/wanted from the fill is respected (user type switch).
-  if (type === "vehicle" || (hasVehicleDetails && type !== "physical" && type !== "service" && type !== "wanted" && type !== "rental")) {
+  // Explicit physical/service/wanted/rental from the fill is respected (user type switch).
+  const respectExplicitNonVehicle =
+    type === "physical" || type === "service" || type === "wanted" || type === "rental";
+  if (type === "vehicle" || (hasVehicleDetails && !respectExplicitNonVehicle)) {
     type = "vehicle";
     normalized.category = "Cars";
   } else if (type === "physical" && normalized.category === "Cars") {
