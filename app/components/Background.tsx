@@ -25,8 +25,8 @@ export default function Background() {
 
   return (
     <div className="fixed inset-0 -z-10 overflow-hidden" aria-hidden>
-      <div className="absolute inset-0 bg-[#0a0a0f]" />
-      <div className="absolute inset-x-0 top-0 h-[50%] bg-[radial-gradient(ellipse_at_top,rgba(14,165,233,0.06),transparent_65%)]" />
+      <div className="absolute inset-0 bg-[var(--canvas)]" />
+      <div className="absolute inset-x-0 top-0 h-[50%] bg-[radial-gradient(ellipse_at_top,rgba(14,165,233,0.05),transparent_68%)]" />
     </div>
   );
 }

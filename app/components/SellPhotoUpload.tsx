@@ -37,7 +37,7 @@ export default function SellPhotoUpload({
               openPicker();
             }
           }}
-          className="group flex min-h-[14rem] cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-white/[0.12] bg-white/[0.02] px-5 py-10 text-center transition hover:border-sky-500/35 hover:bg-white/[0.03] focus-visible:border-sky-500/45 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sky-500/25 sm:min-h-[16rem]"
+          className="sd-photo-dropzone group flex min-h-[14rem] cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-white/[0.12] bg-white/[0.02] px-5 py-10 text-center transition hover:border-sky-500/35 hover:bg-white/[0.03] focus-visible:border-sky-500/45 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sky-500/25 sm:min-h-[16rem]"
         >
           <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.08] text-zinc-400 transition group-hover:border-sky-500/30 group-hover:text-sky-300">
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
