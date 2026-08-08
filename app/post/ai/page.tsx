@@ -48,7 +48,10 @@ import {
 } from "../../lib/sky-ai-images";
 import SkyAiChatPanel from "../../components/SkyAiChatPanel";
 import SellPhotoUpload from "../../components/SellPhotoUpload";
+import AwhinaVisionFoundCard from "../../components/AwhinaVisionFoundCard";
 import { SKY_AI_SELL_QUICK_PROMPTS } from "../../lib/sky-ai-prompts";
+import { useAwhinaVisionListing } from "../../lib/use-awhina-vision-listing";
+import { AWHINA_VISION_LISTING_UI_ENABLED } from "../../lib/awhina-vision-listing-flags";
 import {
   consumeListingWorkspaceHandoff,
   peekListingWorkspaceHandoff,
@@ -109,6 +112,8 @@ export default function AIPostPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [detected, setDetected] = useState<string>("");
   const [modelReady, setModelReady] = useState(false);
+  const visionListing = useAwhinaVisionListing();
+  const [visionCompanionNote, setVisionCompanionNote] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
@@ -1016,11 +1021,20 @@ export default function AIPostPage() {
       );
 
       if (isFirst) {
-        setAnalyzing(true);
-        setDetected("");
-        await new Promise((r) => setTimeout(r, 500));
-        await runDetection();
-        setAnalyzing(false);
+        if (AWHINA_VISION_LISTING_UI_ENABLED) {
+          void visionListing.analyze({
+            files: addFiles,
+            message: visionCompanionNote,
+            listingContext: readListingDraftFromSkyAi(),
+            draftKey: user?.uid || "sell",
+          });
+        } else {
+          setAnalyzing(true);
+          setDetected("");
+          await new Promise((r) => setTimeout(r, 500));
+          await runDetection();
+          setAnalyzing(false);
+        }
       }
     };
 
@@ -1050,7 +1064,7 @@ export default function AIPostPage() {
       window.removeEventListener(SKY_AI_LISTING_IMAGES_EVENT, onImages);
       window.removeEventListener(AWHINA_VOICE_FORM_ACTION_EVENT, onVoiceFormAction);
     };
-  }, [appendDescriptionFromVoice, applyFill, imagePreviews.length]);
+  }, [appendDescriptionFromVoice, applyFill, imagePreviews.length, visionCompanionNote, visionListing.analyze, user?.uid]);
 
   // Load model from CDN
   useEffect(() => {
@@ -1362,10 +1376,19 @@ export default function AIPostPage() {
     }
 
     if (isFirstImage) {
-      setAnalyzing(true);
-      setDetected("");
-      await runDetection();
-      setAnalyzing(false);
+      if (AWHINA_VISION_LISTING_UI_ENABLED) {
+        void visionListing.analyze({
+          files: files.slice(0, 4),
+          message: visionCompanionNote,
+          listingContext: readListingDraftFromSkyAi(),
+          draftKey: user?.uid || "sell",
+        });
+      } else {
+        setAnalyzing(true);
+        setDetected("");
+        await runDetection();
+        setAnalyzing(false);
+      }
     }
   };
 
@@ -1977,11 +2000,20 @@ export default function AIPostPage() {
         >
           <SellPhotoUpload
             className="mb-0"
-            ctaTitle={photoCtaTitle}
+            cameraFirst={AWHINA_VISION_LISTING_UI_ENABLED}
+            ctaTitle={
+              AWHINA_VISION_LISTING_UI_ENABLED
+                ? photoSubject
+                  ? `Photos of your ${photoSubject}`
+                  : "Take or choose photos"
+                : photoCtaTitle
+            }
             ctaSubtitle={
-              photoSubject
-                ? "Up to 8 photos — first is the cover"
-                : "Up to 8 photos — first is the cover"
+              AWHINA_VISION_LISTING_UI_ENABLED
+                ? "Āwhina identifies the item — you confirm and add what's missing"
+                : photoSubject
+                  ? "Up to 8 photos — first is the cover"
+                  : "Up to 8 photos — first is the cover"
             }
             imagePreviews={imagePreviews}
             fileInputRef={fileInputRef}
@@ -2003,13 +2035,101 @@ export default function AIPostPage() {
                   .filter((p) => isLocalImagePreview(p)).length;
                 setImageFiles((prev) => prev.filter((_, j) => j !== newIndex));
               }
+              if (AWHINA_VISION_LISTING_UI_ENABLED && imagePreviews.length <= 1) {
+                visionListing.reset();
+              }
             }}
           />
 
-          {(analyzing || (detected && !analyzing)) && (
-            <div className="text-center text-sm text-zinc-400">
-              {analyzing ? "Detecting…" : detected}
+          {AWHINA_VISION_LISTING_UI_ENABLED ? (
+            <div className="space-y-2">
+              {imagePreviews.length > 0 || visionListing.state.status !== "idle" ? (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={visionCompanionNote}
+                    onChange={(e) => setVisionCompanionNote(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && imageFiles.length > 0) {
+                        e.preventDefault();
+                        void visionListing.analyze({
+                          files: imageFiles.slice(0, 4),
+                          message: visionCompanionNote,
+                          listingContext: readListingDraftFromSkyAi(),
+                          draftKey: user?.uid || "sell",
+                          force: true,
+                        });
+                      }
+                    }}
+                    placeholder='Optional: "want 850 pickup henderson"'
+                    className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:border-sky-500/40 focus:outline-none"
+                  />
+                  {imageFiles.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void visionListing.analyze({
+                          files: imageFiles.slice(0, 4),
+                          message: visionCompanionNote,
+                          listingContext: readListingDraftFromSkyAi(),
+                          draftKey: user?.uid || "sell",
+                          force: true,
+                        })
+                      }
+                      className="shrink-0 rounded-lg border border-white/15 px-3 py-2 text-sm text-zinc-300 hover:text-white"
+                    >
+                      Update
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+              <AwhinaVisionFoundCard
+                status={visionListing.state.status}
+                identity={visionListing.state.identity}
+                message={visionListing.state.message}
+                onYes={() => {
+                  const fill = visionListing.state.listingFill;
+                  if (!fill) return;
+                  const missing = [...visionListing.state.missingPrompts];
+                  const imageKeys: (keyof ListingDraftFormSnapshot)[] = [];
+                  const mark = (key: keyof ListingDraftFormSnapshot, val: unknown) => {
+                    if (typeof val === "string" && val.trim()) imageKeys.push(key);
+                  };
+                  mark("title", fill.title);
+                  mark("description", fill.description);
+                  mark("category", fill.category);
+                  mark("condition", fill.condition);
+                  mark("listingType", fill.listingType);
+                  mark("vehicleMake", fill.vehicleMake);
+                  mark("vehicleModel", fill.vehicleModel);
+                  mark("vehicleColour", fill.vehicleColour);
+                  applyFill(fill);
+                  if (imageKeys.length) {
+                    setFieldProvenance((prev) => markProvenance(prev, imageKeys, "IMAGE"));
+                  }
+                  visionListing.setState((s) => ({
+                    ...s,
+                    status: "idle",
+                    message: "",
+                  }));
+                  if (missing.length) {
+                    showToast(`Still need: ${missing.join(", ")}`, "info");
+                  }
+                }}
+                onChange={() => {
+                  visionListing.reset();
+                  setVisionCompanionNote("");
+                  setMobileWorkspaceTab("chat");
+                  showToast("Tell Āwhina what it really is in chat", "info");
+                }}
+              />
             </div>
+          ) : (
+            (analyzing || (detected && !analyzing)) && (
+              <div className="text-center text-sm text-zinc-400">
+                {analyzing ? "Detecting…" : detected}
+              </div>
+            )
           )}
 
           {!editId && (

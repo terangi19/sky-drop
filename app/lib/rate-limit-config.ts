@@ -80,6 +80,7 @@ export const RATE_LIMITS: Record<string, RateLimitRule> = {
   skyAiConvNew: { name: "sky-ai-conv-new", max: 20, windowMs: 60_000 },
   skyAiConvGet: { name: "sky-ai-conv-get", max: 40, windowMs: 60_000 },
   skyAiTranscribe: { name: "sky-ai-transcribe", max: 20, windowMs: 60_000 },
+  awhinaVision: { name: "awhina-vision", max: 40, windowMs: 900_000 },
 
   // Edge-level
   apiBurst: { name: "api-burst", max: 30, windowMs: 10_000 },

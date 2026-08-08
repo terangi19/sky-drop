@@ -27,6 +27,8 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_STRIPE_CHECKOUT_ENABLED:
       process.env.NEXT_PUBLIC_STRIPE_CHECKOUT_ENABLED === "true" ? "true" : "false",
+    NEXT_PUBLIC_AWHINA_VISION_LISTING_ENABLED:
+      process.env.NEXT_PUBLIC_AWHINA_VISION_LISTING_ENABLED === "true" ? "true" : "false",
   },
 
   images: {
@@ -141,7 +143,7 @@ const nextConfig = {
 
             key: "Permissions-Policy",
 
-            value: "camera=(), microphone=(self), geolocation=(), payment=(self \"https://*.stripe.com\")",
+            value: "camera=(self), microphone=(self), geolocation=(), payment=(self \"https://*.stripe.com\")",
 
           },
 
