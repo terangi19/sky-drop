@@ -105,25 +105,28 @@ export default function SearchPage() {
     return () => window.cancelAnimationFrame(syncFromUrl);
   }, [urlFilterState]);
 
-  // Push filter state to URL on change (debounced to avoid spam on rapid clicks)
+  // Push filter state to URL on change (debounced — local state stays instant while typing)
   useEffect(() => {
     if (skipNextUrlSyncRef.current) {
       skipNextUrlSyncRef.current = false;
       return;
     }
-    const params = new URLSearchParams();
-    if (query) params.set("q", query);
-    if (minPrice) params.set("minPrice", minPrice);
-    if (maxPrice) params.set("maxPrice", maxPrice);
-    if (condition !== "all") params.set("condition", condition);
-    if (location) params.set("location", location);
-    if (sortBy !== "newest") params.set("sortBy", sortBy);
-    if (saleType !== "all") params.set("saleType", saleType);
-    const qs = params.toString();
-    const currentQs = window.location.search.replace("?", "");
-    if (qs !== currentQs) {
-      router.replace(`${window.location.pathname}?${qs}`, { scroll: false });
-    }
+    const timer = window.setTimeout(() => {
+      const params = new URLSearchParams();
+      if (query) params.set("q", query);
+      if (minPrice) params.set("minPrice", minPrice);
+      if (maxPrice) params.set("maxPrice", maxPrice);
+      if (condition !== "all") params.set("condition", condition);
+      if (location) params.set("location", location);
+      if (sortBy !== "newest") params.set("sortBy", sortBy);
+      if (saleType !== "all") params.set("saleType", saleType);
+      const qs = params.toString();
+      const currentQs = window.location.search.replace("?", "");
+      if (qs !== currentQs) {
+        router.replace(`${window.location.pathname}?${qs}`, { scroll: false });
+      }
+    }, 200);
+    return () => window.clearTimeout(timer);
   }, [minPrice, maxPrice, condition, location, sortBy, saleType, query, router]);
 
   useEffect(() => {
@@ -320,7 +323,11 @@ export default function SearchPage() {
     return sorted;
   }, [listings, query, heardRaw, categoryFilter, minPrice, maxPrice, condition, location, sortBy, saleType, typeFilter, servicePricingFilter, rentalPeriodFilter]);
 
-  const { sellerReviewStats, sellerBadges, sellerHandles, sellerDisplayNames, sellerAvatars, sellerFullyVerified, sellerMetaReady } = useSellerListingMeta(filteredListings);
+  const sellerMetaListings = useMemo(
+    () => filteredListings.slice(0, 24),
+    [filteredListings]
+  );
+  const { sellerReviewStats, sellerBadges, sellerHandles, sellerDisplayNames, sellerAvatars, sellerFullyVerified, sellerMetaReady } = useSellerListingMeta(sellerMetaListings);
 
   return (
     <main className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">

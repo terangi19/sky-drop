@@ -1340,32 +1340,30 @@ export default function AIPostPage() {
         if (fileInputRef.current) fileInputRef.current.value = "";
         return;
       }
+    }
+
+    // Instant local previews (object URLs) — NSFW check runs after paint
+    const instantPreviews = files.map((file) => URL.createObjectURL(file));
+    const isFirstImage = imagePreviews.length === 0;
+    setImagePreviews((prev) => [...prev, ...instantPreviews].slice(0, 8));
+    setImageFiles((prev) => [...prev, ...files].slice(0, 8));
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
       const nsfwResult = await checkImage(file);
       if (!nsfwResult.safe) {
         showToast(`"${file.name}" flagged: ${nsfwResult.reason}. Remove it and try again.`, "error");
+        URL.revokeObjectURL(instantPreviews[i]);
+        setImagePreviews((prev) => prev.filter((url) => url !== instantPreviews[i]));
+        setImageFiles((prev) => prev.filter((f) => f !== file));
         if (fileInputRef.current) fileInputRef.current.value = "";
         return;
       }
     }
 
-    const newPreviews: string[] = [];
-    for (const file of files) {
-      const reader = new FileReader();
-      const dataUrl = await new Promise<string>((resolve) => {
-        reader.onload = () => resolve(reader.result as string);
-        reader.readAsDataURL(file);
-      });
-      newPreviews.push(dataUrl);
-    }
-
-    const isFirstImage = imagePreviews.length === 0;
-    setImagePreviews((prev) => [...prev, ...newPreviews].slice(0, 8));
-    setImageFiles((prev) => [...prev, ...files].slice(0, 8));
-
     if (isFirstImage) {
       setAnalyzing(true);
       setDetected("");
-      await new Promise(r => setTimeout(r, 500));
       await runDetection();
       setAnalyzing(false);
     }

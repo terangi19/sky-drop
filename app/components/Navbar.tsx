@@ -129,6 +129,8 @@ export default function Navbar() {
   const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
   const [activityUnreadCount, setActivityUnreadCount] = useState(0);
   const [blockedUsers, setBlockedUsers] = useState<string[]>([]);
+  const blockedUsersRef = useRef<string[]>([]);
+  blockedUsersRef.current = blockedUsers;
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -210,7 +212,7 @@ export default function Navbar() {
       const allMsgs = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Array<
         Record<string, unknown> & { id: string }
       >;
-      setInboxUnreadCount(countInboxUnreadMessages(allMsgs, user.email!, blockedUsers, dismissed));
+      setInboxUnreadCount(countInboxUnreadMessages(allMsgs, user.email!, blockedUsersRef.current, dismissed));
     }, (err) => {
       const code = firestoreErrorCode(err);
       if (code === "failed-precondition") {
@@ -248,7 +250,7 @@ export default function Navbar() {
     });
 
     return () => { unsub1(); unsub2(); };
-  }, [user?.email, user?.uid, blockedUsers]);
+  }, [user?.email, user?.uid]);
 
   useEffect(() => {
     if (!mobileMenuOpen) return;

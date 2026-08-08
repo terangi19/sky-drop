@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import {
+  listingCardImageFallbackUrls,
   listingImageFallbackUrls,
   pickListingImageUrl,
   type ListingImageFields,
@@ -16,6 +17,9 @@ export type ListingImageProps = {
   /** Parent must be `relative` with defined dimensions */
   fill?: boolean;
   loading?: "lazy" | "eager";
+  /** Prefer thumbnail URLs first (listing cards) */
+  preferThumbnail?: boolean;
+  fetchPriority?: "high" | "low" | "auto";
   /** Shown when every URL in the fallback chain fails */
   placeholderClassName?: string;
   /** Log prefix for debugging load failures */
@@ -50,11 +54,15 @@ export default function ListingImage({
   className = "",
   fill = false,
   loading = "lazy",
+  preferThumbnail = false,
+  fetchPriority,
   placeholderClassName,
   context = "listing",
 }: ListingImageProps) {
   const fallbackUrls = listing
-    ? listingImageFallbackUrls(listing)
+    ? preferThumbnail
+      ? listingCardImageFallbackUrls(listing)
+      : listingImageFallbackUrls(listing)
     : src?.trim()
       ? [src.trim()]
       : [];
@@ -95,13 +103,14 @@ export default function ListingImage({
     ? `absolute inset-0 h-full w-full object-cover ${className}`.trim()
     : className;
 
-  return (
+return (
     // eslint-disable-next-line @next/next/no-img-element -- matches detail page; avoids next/image remotePatterns/CDN issues
     <img
       src={currentSrc}
       alt={alt}
       loading={loading}
       decoding="async"
+      fetchPriority={fetchPriority}
       onError={handleError}
       className={imgClass}
     />

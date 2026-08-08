@@ -548,10 +548,13 @@ export default function ListingPage() {
       });
       setListing(data);
       setLoading(false);
-      void fetchListingPaymentType(listingId).then((pt) => {
-        if (!mounted || (pt !== "stripe" && pt !== "contact")) return;
-        applyAuthoritativePaymentType(pt, "post-snapshot");
-      });
+      // Skip remount duplicate when mount effect already applied authoritative type
+      if (!authoritativePaymentTypeRef.current) {
+        void fetchListingPaymentType(listingId).then((pt) => {
+          if (!mounted || (pt !== "stripe" && pt !== "contact")) return;
+          applyAuthoritativePaymentType(pt, "post-snapshot");
+        });
+      }
       // Update document meta for SEO/social sharing
       try {
         document.title = `${data.title} — $${data.price} on Sky Drop`;
@@ -714,36 +717,60 @@ export default function ListingPage() {
   useEffect(() => {
     if (!listing?.sellerEmail) return;
     let mounted = true;
-    (async () => {
-      try {
-        const [reviewSnap, salesSnap] = await Promise.all([
-          getDocs(query(collection(db, "reviews"), where("sellerEmail", "==", listing.sellerEmail))),
-          getDocs(query(collection(db, "purchases"), where("sellerEmail", "==", listing.sellerEmail), where("status", "in", ["delivered", "completed"]))),
-        ]);
-        const ratings: number[] = [];
-        reviewSnap.docs.forEach((d) => {
-          const r = d.data().rating;
-          if (r) ratings.push(Number(r));
-        });
-        if (mounted && ratings.length > 0) {
-          setSellerReviewData({ avg: ratings.reduce((a, b) => a + b, 0) / ratings.length, count: ratings.length });
-        }
-        if (mounted) setSellerSalesCount(salesSnap.size);
-      } catch (e) { console.error(e); }
-    })();
-    return () => { mounted = false; };
+    const run = () => {
+      (async () => {
+        try {
+          const [reviewSnap, salesSnap] = await Promise.all([
+            getDocs(query(collection(db, "reviews"), where("sellerEmail", "==", listing.sellerEmail))),
+            getDocs(query(collection(db, "purchases"), where("sellerEmail", "==", listing.sellerEmail), where("status", "in", ["delivered", "completed"]))),
+          ]);
+          const ratings: number[] = [];
+          reviewSnap.docs.forEach((d) => {
+            const r = d.data().rating;
+            if (r) ratings.push(Number(r));
+          });
+          if (mounted && ratings.length > 0) {
+            setSellerReviewData({ avg: ratings.reduce((a, b) => a + b, 0) / ratings.length, count: ratings.length });
+          }
+          if (mounted) setSellerSalesCount(salesSnap.size);
+        } catch (e) { console.error(e); }
+      })();
+    };
+    const ric = typeof requestIdleCallback !== "undefined"
+      ? requestIdleCallback(run, { timeout: 1200 })
+      : window.setTimeout(run, 0);
+    return () => {
+      mounted = false;
+      if (typeof cancelIdleCallback !== "undefined" && typeof ric === "number") {
+        try { cancelIdleCallback(ric as number); } catch { /* ignore */ }
+      } else {
+        clearTimeout(ric as number);
+      }
+    };
   }, [listing?.sellerEmail]);
 
-  // Fetch seller's other listings
+  // Fetch seller's other listings (deferred — not needed for Message Seller CTA)
   useEffect(() => {
     if (!listing?.sellerEmail || !listingId) return;
     let cancelled = false;
-    getDocs(query(collection(db, "listings"), where("sellerEmail", "==", listing.sellerEmail))).then((snap) => {
-      if (cancelled) return;
-      const items = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((l: any) => l.id !== listingId && isListingVisibleInMarketplace(l));
-      setSellerListings(items.slice(0, 5));
-    }).catch((e) => console.error("Failed to fetch seller listings:", e));
-    return () => { cancelled = true; };
+    const run = () => {
+      getDocs(query(collection(db, "listings"), where("sellerEmail", "==", listing.sellerEmail))).then((snap) => {
+        if (cancelled) return;
+        const items = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((l: any) => l.id !== listingId && isListingVisibleInMarketplace(l));
+        setSellerListings(items.slice(0, 5));
+      }).catch((e) => console.error("Failed to fetch seller listings:", e));
+    };
+    const ric = typeof requestIdleCallback !== "undefined"
+      ? requestIdleCallback(run, { timeout: 1500 })
+      : window.setTimeout(run, 50);
+    return () => {
+      cancelled = true;
+      if (typeof cancelIdleCallback !== "undefined" && typeof ric === "number") {
+        try { cancelIdleCallback(ric as number); } catch { /* ignore */ }
+      } else {
+        clearTimeout(ric as number);
+      }
+    };
   }, [listing?.sellerEmail, listingId]);
 
   useEffect(() => {
@@ -1338,6 +1365,8 @@ export default function ListingPage() {
                           listing={listing}
                           src={displayImages[selectedImageIndex]}
                           alt={listing.title}
+                          loading={selectedImageIndex === 0 ? "eager" : "lazy"}
+                          fetchPriority={selectedImageIndex === 0 ? "high" : "auto"}
                           context={`ListingDetail:${listing.id}`}
                           className="w-full aspect-[4/3] sm:aspect-[5/4] lg:aspect-[4/3] object-cover fade-in"
                         />

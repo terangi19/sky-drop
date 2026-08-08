@@ -81,17 +81,23 @@ export default function WatchlistPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const map: Record<string, { views: number; bidCount: number }> = {};
-      for (const item of watchlist) {
-        if (!item.id) continue;
-        try {
-          const snap = await getDoc(doc(db, "listings", item.id));
-          if (snap.exists() && !cancelled) {
-            const data = snap.data();
-            map[item.id] = { views: data.views || 0, bidCount: data.bidCount || 0 };
-          }
-        } catch {}
+      const ids = watchlist.map((item) => item.id).filter(Boolean);
+      if (ids.length === 0) {
+        if (!cancelled) setListingStats({});
+        return;
       }
+      const map: Record<string, { views: number; bidCount: number }> = {};
+      await Promise.all(
+        ids.map(async (id) => {
+          try {
+            const snap = await getDoc(doc(db, "listings", id));
+            if (snap.exists()) {
+              const data = snap.data();
+              map[id] = { views: data.views || 0, bidCount: data.bidCount || 0 };
+            }
+          } catch {}
+        })
+      );
       if (!cancelled) setListingStats(map);
     })();
     return () => { cancelled = true; };

@@ -453,7 +453,7 @@ function MessagesPage() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [showProfilePreview]);
-  // Fetch listing data (one-time read - doesn't need real-time updates)
+  // Fetch listing data — keep URL prefill visible; hydrate full doc without blanking
   useEffect(() => {
     if (!chatListingId) {
       setListingCard(null);
@@ -464,28 +464,35 @@ function MessagesPage() {
       if (cancelled) return;
       if (snap.exists()) {
         const data = snap.data() as Record<string, unknown>;
-        setListingCard({
+        setListingCard((prev: any) => ({
           id: snap.id,
           ...data,
+          title: (data.title as string) || prev?.title || "",
           image:
             (Array.isArray(data.images) && data.images[0]) ||
             data.imageUrl ||
             data.image ||
+            prev?.image ||
             "",
-        });
+          price: data.price ?? prev?.price ?? "",
+        }));
       }
     }).catch((err) => {
       if (cancelled) return;
       console.error("Failed to fetch listing data:", err);
-      const msgWithListing = messages.find((m: any) => m.listingId === chatListingId && m.listingImage);
-      if (msgWithListing) {
-        setListingCard({
-          id: chatListingId,
-          title: msgWithListing.listingTitle,
-          image: msgWithListing.listingImage,
-          price: msgWithListing.listingPrice,
-        });
-      }
+      setListingCard((prev: any) => {
+        if (prev?.id === chatListingId && (prev.title || prev.image || prev.price)) return prev;
+        const msgWithListing = messages.find((m: any) => m.listingId === chatListingId && m.listingImage);
+        if (msgWithListing) {
+          return {
+            id: chatListingId,
+            title: msgWithListing.listingTitle,
+            image: msgWithListing.listingImage,
+            price: msgWithListing.listingPrice,
+          };
+        }
+        return prev;
+      });
     });
     return () => { cancelled = true; };
     // intentionally omit messages — avoid re-getDoc on every inbox snapshot

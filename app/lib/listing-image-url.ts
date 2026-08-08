@@ -52,8 +52,10 @@ export function alternateStorageBucketUrl(url: string): string | null {
   return null;
 }
 
-/** Ordered URLs to try on the client when the primary source fails. */
-export function listingImageFallbackUrls(listing: ListingImageFields): string[] {
+function buildFallbackChain(
+  listing: ListingImageFields,
+  preferThumbnail: boolean
+): string[] {
   const ordered: string[] = [];
   const seen = new Set<string>();
 
@@ -64,10 +66,15 @@ export function listingImageFallbackUrls(listing: ListingImageFields): string[] 
     ordered.push(url);
   };
 
+  if (preferThumbnail) {
+    add(listing.thumbnails?.[0]);
+    const first = listing.images?.[0];
+    if (first && typeof first === "object") add(first.thumbnail);
+  }
   add(firstImageValue(listing.images));
   add(listing.imageUrl);
   add(listing.image);
-  add(listing.thumbnails?.[0]);
+  if (!preferThumbnail) add(listing.thumbnails?.[0]);
 
   const withBucketVariants: string[] = [];
   for (const url of ordered) {
@@ -80,6 +87,16 @@ export function listingImageFallbackUrls(listing: ListingImageFields): string[] 
   }
 
   return withBucketVariants;
+}
+
+/** Ordered URLs to try on the client when the primary source fails. */
+export function listingImageFallbackUrls(listing: ListingImageFields): string[] {
+  return buildFallbackChain(listing, false);
+}
+
+/** Card grid: try thumbnail first for faster paint; fall back to full image. */
+export function listingCardImageFallbackUrls(listing: ListingImageFields): string[] {
+  return buildFallbackChain(listing, true);
 }
 
 /** @deprecated Use pickListingImageUrl — kept for existing imports. */

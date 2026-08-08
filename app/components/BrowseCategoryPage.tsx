@@ -20,6 +20,7 @@ import {
   query,
   setDoc,
   where,
+  limit,
 } from "firebase/firestore";
 import { auth, db, onAuthStateChanged } from "../lib/firebase";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
@@ -153,7 +154,8 @@ export default function BrowseCategoryPage({ configKey }: Props) {
     setLoading(true);
     const q = query(
       collection(db, "listings"),
-      where("type", "==", config.listingType)
+      where("type", "==", config.listingType),
+      limit(120)
     );
     const unsub = onSnapshot(
       q,

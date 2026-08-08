@@ -1,10 +1,6 @@
-import Background from "../components/Background";
-import Navbar from "../components/Navbar";
-
 export default function ProfileLoading() {
   return (
     <main className="relative min-h-screen bg-[var(--background)]">
-      <Background /><Navbar />
       <section className="relative z-10 mx-auto max-w-5xl px-6 py-8">
         <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 overflow-hidden animate-pulse">
           <div className="h-48 bg-zinc-800" />

@@ -237,6 +237,15 @@ export default function Home() {
   const [promoteItem, setPromoteItem] = useState<any>(null);
   const [watchlistTick, setWatchlistTick] = useState(0);
 
+  // Tick refreshes heart state without remounting the whole grid/images
+  const isInWatchlistForCards = useCallback(
+    (id: string) => {
+      void watchlistTick;
+      return isInWatchlist(id);
+    },
+    [watchlistTick]
+  );
+
   const activeCategories = useMemo(() => {
     const counts: Record<string, number> = {};
     const top3 = new Set(["Cars", "Tech", "Gaming"]);
@@ -1245,7 +1254,7 @@ export default function Home() {
         )}
 
         {!loading && !loadError && filteredListings.length > 0 && (
-        <div key={watchlistTick} className={LISTING_GRID}>
+        <div className={LISTING_GRID}>
           {filteredListings.slice(0, visibleCount).map((item: any, cardIndex: number) => (
             <Suspense key={item.id} fallback={
               <div className="relative overflow-hidden rounded-2xl bg-[var(--card)] border border-white/[0.04]">
@@ -1264,10 +1273,7 @@ export default function Home() {
                 item={item}
                 cardIndex={cardIndex}
                 user={user}
-                isInWatchlist={(id) => {
-                  void watchlistTick;
-                  return isInWatchlist(id);
-                }}
+                isInWatchlist={isInWatchlistForCards}
                 onToggleWatchlist={toggleWatchlist}
                 onCardClick={() => {
                   saveRecentlyViewed(item);

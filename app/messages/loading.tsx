@@ -1,10 +1,6 @@
-import Background from "../components/Background";
-import Navbar from "../components/Navbar";
-
 export default function MessagesLoading() {
   return (
     <main className="relative min-h-screen bg-[var(--background)]">
-      <Background /><Navbar />
       <section className="relative z-10 mx-auto max-w-5xl px-6 py-8">
         <div className="flex h-[70vh] rounded-xl border border-zinc-800 bg-zinc-900/40">
           <div className="w-80 border-r border-zinc-800 p-4 space-y-3">
@@ -18,8 +14,10 @@ export default function MessagesLoading() {
               </div>
             ))}
           </div>
-          <div className="flex-1 flex items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-sky-500 border-t-transparent" />
+          <div className="flex-1 p-6 space-y-3 animate-pulse">
+            <div className="h-4 w-1/3 rounded bg-zinc-800" />
+            <div className="h-4 w-2/3 rounded bg-zinc-800/60" />
+            <div className="h-4 w-1/2 rounded bg-zinc-800/40" />
           </div>
         </div>
       </section>

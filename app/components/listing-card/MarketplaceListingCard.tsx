@@ -138,6 +138,9 @@ export default memo(function MarketplaceListingCard({
               listing={item}
               alt={item.title}
               fill
+              preferThumbnail
+              loading={cardIndex < 8 ? "eager" : "lazy"}
+              fetchPriority={cardIndex < 4 ? "high" : "auto"}
               context={`MarketplaceListingCard:${item.id}`}
               className="transition-transform duration-300 ease-out group-hover:scale-[1.02]"
             />

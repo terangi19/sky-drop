@@ -3,8 +3,17 @@ import { db } from "./firebase";
 import { purchaseCheckoutAction } from "./purchase-button-labels";
 import { logPurchaseFlow } from "./purchase-flow-debug";
 
-/** Authoritative paymentType — API (Admin SDK) first, Firestore server read as fallback. */
-export async function fetchListingPaymentType(
+const PAYMENT_TYPE_TTL_MS = 45_000;
+const paymentTypeCache = new Map<
+  string,
+  { value: "stripe" | "contact" | undefined; at: number }
+>();
+const paymentTypeInflight = new Map<
+  string,
+  Promise<"stripe" | "contact" | undefined>
+>();
+
+async function fetchListingPaymentTypeUncached(
   listingId: string
 ): Promise<"stripe" | "contact" | undefined> {
   try {
@@ -39,6 +48,29 @@ export async function fetchListingPaymentType(
     logPurchaseFlow("firestore-server-api", { listingId, source: "getDocFromServer", error: String(e) });
   }
   return undefined;
+}
+
+/** Authoritative paymentType — deduped + short TTL so detail open does not triple-fetch. */
+export async function fetchListingPaymentType(
+  listingId: string
+): Promise<"stripe" | "contact" | undefined> {
+  const cached = paymentTypeCache.get(listingId);
+  if (cached && Date.now() - cached.at < PAYMENT_TYPE_TTL_MS) {
+    return cached.value;
+  }
+  const inflight = paymentTypeInflight.get(listingId);
+  if (inflight) return inflight;
+
+  const request = fetchListingPaymentTypeUncached(listingId)
+    .then((value) => {
+      paymentTypeCache.set(listingId, { value, at: Date.now() });
+      return value;
+    })
+    .finally(() => {
+      paymentTypeInflight.delete(listingId);
+    });
+  paymentTypeInflight.set(listingId, request);
+  return request;
 }
 
 export function listingBuyHref(listingId: string): string {

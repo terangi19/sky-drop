@@ -125,38 +125,44 @@ export function useSellerListingMeta(
         if (cached) stats[email] = cached;
       }
 
+      const reviewChunkTasks: Array<Promise<void>> = [];
       for (let i = 0; i < emailsNeedingFetch.length; i += 10) {
         const chunk = emailsNeedingFetch.slice(i, i + 10);
-        try {
-          bumpDevRequestStat("getDocs");
-          const snap = await getDocs(
-            query(collection(db, "reviews"), where("sellerEmail", "in", chunk))
-          );
-          if (cancelled) return;
-          const grouped: Record<string, number[]> = {};
-          snap.docs.forEach((d) => {
-            const data = d.data();
-            const email = data.sellerEmail as string;
-            if (!grouped[email]) grouped[email] = [];
-            grouped[email].push(data.rating || 0);
-          });
-          for (const email of chunk) {
-            const ratings = grouped[email] || [];
-            if (ratings.length > 0) {
-              const entry = {
-                avg: ratings.reduce((a, b) => a + b, 0) / ratings.length,
-                count: ratings.length,
-              };
-              stats[email] = entry;
-              writeReviewCache(email, entry);
-            } else {
-              writeReviewCache(email, null);
+        reviewChunkTasks.push(
+          (async () => {
+            try {
+              bumpDevRequestStat("getDocs");
+              const snap = await getDocs(
+                query(collection(db, "reviews"), where("sellerEmail", "in", chunk))
+              );
+              if (cancelled) return;
+              const grouped: Record<string, number[]> = {};
+              snap.docs.forEach((d) => {
+                const data = d.data();
+                const email = data.sellerEmail as string;
+                if (!grouped[email]) grouped[email] = [];
+                grouped[email].push(data.rating || 0);
+              });
+              for (const email of chunk) {
+                const ratings = grouped[email] || [];
+                if (ratings.length > 0) {
+                  const entry = {
+                    avg: ratings.reduce((a, b) => a + b, 0) / ratings.length,
+                    count: ratings.length,
+                  };
+                  stats[email] = entry;
+                  writeReviewCache(email, entry);
+                } else {
+                  writeReviewCache(email, null);
+                }
+              }
+            } catch (e) {
+              console.error(e);
             }
-          }
-        } catch (e) {
-          console.error(e);
-        }
+          })()
+        );
       }
+      if (reviewChunkTasks.length) await Promise.all(reviewChunkTasks);
 
       const badges: Record<string, string> = {};
       const handles: Record<string, string> = {};
