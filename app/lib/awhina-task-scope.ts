@@ -21,6 +21,9 @@ export type ClarificationStatus = "open" | "resolved" | "cancelled" | "closed";
  * Pending clarification — buy/sell/type OR shopping search slots OR sell listing slots.
  * Affirmations (yes/sure) must continue this pending flow, not restart intent.
  * When status ≠ open, ignore completely.
+ *
+ * `pendingSlot` is the typed active sell slot (year/price/odometer/…) and must survive
+ * client echo + navigation when the same conversation continues.
  */
 export type PendingClarification = {
   kind: "buy_vs_sell" | "listing_type" | "search_slots" | "listing_slots";
@@ -34,6 +37,11 @@ export type PendingClarification = {
   originatingTask?: AwhinaActiveTask;
   originatingIntent?: string;
   pendingTool?: string;
+  /**
+   * Typed active listing slot (ListingMissingSlot). Prefer this over
+   * knownEntities.activeSlot — persisted across turns / surfaces.
+   */
+  pendingSlot?: string;
   /** Structured known facts (item, etc.) — never raw transcript concat */
   knownEntities?: Record<string, string>;
   /** search_slots: still-needed refinements */
@@ -275,6 +283,8 @@ export function buildOpenListingSlotClarification(opts: {
     originatingTask: opts.originatingTask || "selling",
     originatingIntent: "listing_update",
     pendingTool: "updateListingDraft",
+    /** First-class typed slot — short replies bind here across turns/surfaces */
+    pendingSlot: opts.activeSlot,
     knownEntities,
     missingListingSlots: opts.missingSlots,
     intent: "listing_update",
@@ -477,4 +487,20 @@ export function toClientTaskScope(session: TaskScopeSession | null): ClientTaskS
     entityLocked: session.entityLocked,
     updatedAt: session.updatedAt,
   };
+}
+
+/** Typed pending sell slot from open listing_slots clarification (if any). */
+export function getPersistedPendingSlot(
+  session: TaskScopeSession | ClientTaskScopeContext | null | undefined
+): string | null {
+  const pending = session?.pendingClarification;
+  if (!isClarificationOpen(pending) || pending.kind !== "listing_slots") return null;
+  const slot =
+    (typeof pending.pendingSlot === "string" && pending.pendingSlot.trim()) ||
+    (typeof pending.knownEntities?.activeSlot === "string" &&
+      pending.knownEntities.activeSlot.trim()) ||
+    pending.missingListingSlots?.[0] ||
+    pending.missingSlots?.[0] ||
+    null;
+  return slot || null;
 }

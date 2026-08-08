@@ -518,6 +518,8 @@ export function getActiveListingSlot(
   pending?: PendingClarification | null
 ): ListingMissingSlot | null {
   if (!isClarificationOpen(pending) || pending.kind !== "listing_slots") return null;
+  // Prefer first-class typed pendingSlot (persisted across surfaces)
+  if (pending.pendingSlot) return pending.pendingSlot as ListingMissingSlot;
   const active = pending.knownEntities?.activeSlot as ListingMissingSlot | undefined;
   if (active) return active;
   const first = pending.missingListingSlots?.[0] || pending.missingSlots?.[0];

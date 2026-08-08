@@ -8,8 +8,15 @@ import { useAwhinaVoice } from "../hooks/useAwhinaVoice";
 import { isAdminEmail } from "../lib/admin-check";
 import { dismissAwhinaIntro, shouldShowAwhinaIntro } from "../lib/awhina-intro";
 import { dismissVoiceModeIntro, shouldShowVoiceModeIntro } from "../lib/voice-mode-intro";
-import { SKY_AI_OPEN_EVENT, consumeVoiceSellNavigation, dispatchSkyAiOpen, isVoiceSellNavigationPending, type SkyAiOpenDetail } from "../lib/sky-ai-events";
+import {
+  SKY_AI_OPEN_EVENT,
+  consumeVoiceSellNavigation,
+  dispatchSkyAiOpen,
+  isVoiceSellNavigationPending,
+  type SkyAiOpenDetail,
+} from "../lib/sky-ai-events";
 import { FLOATING_LEFT_STACK } from "../lib/floating-ui-layout";
+import { hasInlineAwhinaAssistant } from "../lib/awhina-ui-surface";
 import FloatingActionDock from "./FloatingActionDock";
 import AwhinaIntroModal from "./AwhinaIntroModal";
 import AwhinaVoiceBar from "./AwhinaVoiceBar";
@@ -19,21 +26,9 @@ import VoiceModeIntroModal from "./VoiceModeIntroModal";
 
 const AUTH_ONLY_PATHS = ["/login", "/forgot-password", "/create-account"];
 const ADMIN_PREFIX = "/admin";
-const HIDE_CHAT_SHEET_PATHS = [
-  "/post/ai",
-  "/post/listing",
-  "/profile",
-];
 
 function isAuthPath(pathname: string) {
   return AUTH_ONLY_PATHS.some((p) => pathname.startsWith(p));
-}
-
-function hideChatSheet(pathname: string) {
-  return (
-    pathname.startsWith(ADMIN_PREFIX) ||
-    HIDE_CHAT_SHEET_PATHS.some((p) => pathname.startsWith(p))
-  );
 }
 
 export default function AwhinaGlobalAssistant() {
@@ -50,15 +45,26 @@ export default function AwhinaGlobalAssistant() {
     isAdmin: isAdminEmail(user?.email),
   });
 
-  const openChat = useCallback((query?: string) => {
-    if (shouldShowAwhinaIntro() && !isVoiceSellNavigationPending()) {
-      pendingChatQueryRef.current = query;
-      setAwhinaIntroOpen(true);
-      return;
-    }
-    setChatOpen(true);
-    if (query) setPendingChatQuery(query);
-  }, []);
+  const inlineAssistant = hasInlineAwhinaAssistant(pathname);
+  const showChatSheet = !pathname.startsWith(ADMIN_PREFIX) && !inlineAssistant;
+
+  const openChat = useCallback(
+    (query?: string) => {
+      if (shouldShowAwhinaIntro() && !isVoiceSellNavigationPending()) {
+        pendingChatQueryRef.current = query;
+        setAwhinaIntroOpen(true);
+        return;
+      }
+      // Routes with an existing inline workspace: focus that surface — never spawn a second sheet.
+      if (hasInlineAwhinaAssistant(pathname)) {
+        dispatchSkyAiOpen(query);
+        return;
+      }
+      setChatOpen(true);
+      if (query) setPendingChatQuery(query);
+    },
+    [pathname]
+  );
 
   const closeAwhinaIntro = useCallback((neverAgain: boolean) => {
     dismissAwhinaIntro(neverAgain);
@@ -72,12 +78,12 @@ export default function AwhinaGlobalAssistant() {
       dismissAwhinaIntro(neverAgain);
       setAwhinaIntroOpen(false);
       pendingChatQueryRef.current = undefined;
-      if (!pathname.startsWith("/post/ai")) {
-        setChatOpen(true);
-        if (query) setPendingChatQuery(query);
-      } else if (query) {
+      if (hasInlineAwhinaAssistant(pathname)) {
         dispatchSkyAiOpen(query);
+        return;
       }
+      setChatOpen(true);
+      if (query) setPendingChatQuery(query);
     },
     [pathname]
   );
@@ -114,11 +120,13 @@ export default function AwhinaGlobalAssistant() {
   useEffect(() => {
     const onOpen = (e: Event) => {
       const query = (e as CustomEvent<SkyAiOpenDetail>).detail?.query?.trim();
+      // Inline routes handle SKY_AI_OPEN themselves (focus existing panel).
+      if (hasInlineAwhinaAssistant(pathname)) return;
       openChat(query || undefined);
     };
     window.addEventListener(SKY_AI_OPEN_EVENT, onOpen);
     return () => window.removeEventListener(SKY_AI_OPEN_EVENT, onOpen);
-  }, [openChat]);
+  }, [openChat, pathname]);
 
   useEffect(() => {
     if (!user || !pathname.startsWith("/post/ai")) return;
@@ -128,15 +136,26 @@ export default function AwhinaGlobalAssistant() {
     setAwhinaIntroOpen(true);
   }, [user, pathname]);
 
+  // Close global sheet when entering an inline-assistant route (prevents duplicates).
+  useEffect(() => {
+    if (inlineAssistant && chatOpen) setChatOpen(false);
+  }, [inlineAssistant, chatOpen]);
+
   if (!user || isAuthPath(pathname) || pathname.startsWith(ADMIN_PREFIX)) {
     return null;
   }
 
-  const showChatSheet = !hideChatSheet(pathname);
+  // Activity ring only during real work — not idle listening.
+  const voiceBusy =
+    voice.voiceMode &&
+    !voice.paused &&
+    (voice.phase === "processing" ||
+      voice.phase === "speaking" ||
+      voice.phase === "confirming");
 
   return (
     <>
-      {(showChatSheet || chatOpen) && (
+      {showChatSheet && (
         <SkyAiChatPanel
           mode="sheet"
           open={chatOpen}
@@ -188,8 +207,9 @@ export default function AwhinaGlobalAssistant() {
         voice={voice}
         onOpenChat={() => openChat()}
         onToggleVoice={handleVoiceToggle}
-        chatHidden={!showChatSheet}
+        chatHidden={inlineAssistant}
         chatOverlayOpen={chatOpen}
+        busyActivity={!!voiceBusy}
       />
     </>
   );

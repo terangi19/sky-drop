@@ -5,13 +5,21 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { normalizeAwhinaInput } from "./awhina-input-normalize";
 import { processCanonicalAwhina } from "./awhina-canonical";
 import { clearAllListingDraftCacheForTests } from "./awhina-listing-fill-tools";
-import { clearTaskScope, taskScopeKey } from "./awhina-task-scope";
+import {
+  clearTaskScope,
+  taskScopeKey,
+  getPersistedPendingSlot,
+  toClientTaskScope,
+  getTaskScope,
+} from "./awhina-task-scope";
+import { getActiveListingSlot } from "./awhina-pending-slots";
 import { hasListingSellIntent, detectSkyAiIntent } from "./sky-ai-intent";
 import {
   buildConfirmedListingContext,
   scrubLegacyFormPollution,
 } from "./listing-draft-confirmed";
 import { hasActiveListingDraft } from "./sky-ai-draft-merge";
+import { hasInlineAwhinaAssistant } from "./awhina-ui-surface";
 
 function wipe(id: string) {
   clearAllListingDraftCacheForTests();
@@ -262,5 +270,60 @@ describe("form defaults must not become listingContext facts", () => {
     expect(scrubbed?.vehicleTransmission).toBeUndefined();
     expect(scrubbed?.condition).toBeUndefined();
     expect(scrubbed?.vehicleMake).toBe("Nissan");
+  });
+});
+
+describe("typed pendingSlot persists across surfaces", () => {
+  const id = "pending-slot-persist-e2e";
+
+  beforeEach(() => wipe(id));
+
+  it("exposes pendingSlot on sessionState after sell ask", () => {
+    const t1 = processCanonicalAwhina("SE.LL MY SKYLINE R34", {
+      conversationId: id,
+      pathname: "/",
+    });
+    expect(t1.handled).toBe(true);
+    expect(t1.listingFill?.vehicleMake).toBe("Nissan");
+    const slot = t1.sessionState?.pendingSlot;
+    expect(slot).toBeTruthy();
+    expect(["year", "price", "odometer", "location", "condition"]).toContain(slot);
+    expect(t1.sessionState?.task?.pendingClarification?.pendingSlot).toBe(slot);
+    expect(getActiveListingSlot(t1.sessionState?.task?.pendingClarification || null)).toBe(
+      slot
+    );
+  });
+
+  it("survives cold Map + global→/post/ai via clientTask echo", () => {
+    const t1 = processCanonicalAwhina("SE.LL MY SKYLINE R34", {
+      conversationId: id,
+      pathname: "/",
+    });
+    const clientTask = toClientTaskScope(getTaskScope(taskScopeKey({ conversationId: id }))!);
+    expect(clientTask?.pendingClarification?.pendingSlot).toBeTruthy();
+    const pendingSlot = getPersistedPendingSlot(clientTask);
+    expect(pendingSlot).toBeTruthy();
+
+    // Simulate serverless cold start + navigation to inline sell page
+    clearTaskScope(taskScopeKey({ conversationId: id }));
+    expect(getTaskScope(taskScopeKey({ conversationId: id }))).toBeNull();
+
+    const t2 = processCanonicalAwhina("1999", {
+      conversationId: id,
+      pathname: "/post/ai",
+      listingContext: t1.listingFill as never,
+      clientTask,
+    });
+    expect(t2.listingFill?.vehicleYear).toBe("1999");
+    assertNoInventedVehicleDefaults({
+      ...t2.listingFill,
+      vehicleYear: undefined,
+    } as never);
+  });
+
+  it("hasInlineAwhinaAssistant marks /post/ai for bubble→inline focus", () => {
+    expect(hasInlineAwhinaAssistant("/post/ai")).toBe(true);
+    expect(hasInlineAwhinaAssistant("/post/ai?edit=1")).toBe(true);
+    expect(hasInlineAwhinaAssistant("/search")).toBe(false);
   });
 });

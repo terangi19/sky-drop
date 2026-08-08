@@ -27,6 +27,10 @@ import {
   isSkyAiWelcomeBleed,
 } from "../lib/sky-ai-prompts";
 import { dispatchSkyAiComposerActive, SKY_AI_OPEN_EVENT, type SkyAiOpenDetail } from "../lib/sky-ai-events";
+import {
+  persistAwhinaSession,
+  readPersistedAwhinaSession,
+} from "../lib/awhina-session-persist";
 import { AWHINA_CHAT_BACKDROP_Z, AWHINA_CHAT_SHEET_Z } from "../lib/floating-ui-layout";
 import { mergeListingFillWithDraft } from "../lib/sky-ai-draft-merge";
 import { readListingDraftFromSkyAi, clearListingDraftFromSkyAi } from "../lib/sky-ai-listing-context";
@@ -195,8 +199,27 @@ export default function SkyAiChatPanel({
     }
   });
   const awhinaSessionRef = useRef<{
-    task?: { task?: string; pendingItem?: string; compareCandidates?: string[]; updatedAt?: number };
+    task?: {
+      task?: string;
+      pendingItem?: string;
+      compareCandidates?: string[];
+      pendingClarification?: {
+        kind?: string;
+        status?: string;
+        pendingSlot?: string;
+        knownEntities?: Record<string, string>;
+        missingListingSlots?: string[];
+        missingSlots?: string[];
+        priorMessage?: string;
+        askedAt?: number;
+        [key: string]: unknown;
+      };
+      entityLockKey?: string;
+      entityLocked?: boolean;
+      updatedAt?: number;
+    };
     search?: { filters?: Record<string, unknown>; updatedAt?: number };
+    pendingSlot?: string | null;
   } | null>(null);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -250,6 +273,18 @@ export default function SkyAiChatPanel({
         localStorage.removeItem('skyAiConversationId');
       }
     }
+  }, [conversationId]);
+
+  // Hydrate pendingSlot / task scope when remounting (global sheet → /post/ai)
+  useEffect(() => {
+    if (awhinaSessionRef.current?.task?.pendingClarification) return;
+    const stored = readPersistedAwhinaSession(conversationId);
+    if (!stored?.task) return;
+    awhinaSessionRef.current = {
+      task: stored.task as NonNullable<typeof awhinaSessionRef.current>["task"],
+      search: stored.search as NonNullable<typeof awhinaSessionRef.current>["search"],
+      pendingSlot: stored.pendingSlot ?? null,
+    };
   }, [conversationId]);
 
   useEffect(() => {
@@ -551,8 +586,24 @@ export default function SkyAiChatPanel({
                   listingFill?: SkyAiListingFill;
                   conversationId?: string;
                   awhinaSession?: {
-                    task?: { task?: string; pendingItem?: string; compareCandidates?: string[]; updatedAt?: number };
+                    task?: {
+                      task?: string;
+                      pendingItem?: string;
+                      compareCandidates?: string[];
+                      pendingClarification?: {
+                        kind?: string;
+                        status?: string;
+                        pendingSlot?: string;
+                        knownEntities?: Record<string, string>;
+                        missingListingSlots?: string[];
+                        [key: string]: unknown;
+                      };
+                      entityLockKey?: string;
+                      entityLocked?: boolean;
+                      updatedAt?: number;
+                    };
                     search?: { filters?: Record<string, unknown>; updatedAt?: number };
+                    pendingSlot?: string | null;
                   };
                   source?: string;
                   error?: string;
@@ -585,6 +636,16 @@ export default function SkyAiChatPanel({
                   responseHandled = true;
                   if (evt.awhinaSession) {
                     awhinaSessionRef.current = evt.awhinaSession;
+                    persistAwhinaSession({
+                      conversationId: evt.conversationId || conversationId,
+                      task: evt.awhinaSession.task as never,
+                      search: evt.awhinaSession.search as never,
+                      pendingSlot:
+                        (evt.awhinaSession as { pendingSlot?: string | null }).pendingSlot ??
+                        evt.awhinaSession.task?.pendingClarification?.pendingSlot ??
+                        null,
+                      updatedAt: Date.now(),
+                    });
                   }
                   if (isSellPage && navigateTo === "/post/ai") navigateTo = undefined;
                   if (evt.listingFill) {
@@ -694,6 +755,19 @@ export default function SkyAiChatPanel({
             });
           }
           if (data.conversationId) newConversationId = data.conversationId;
+          if (data.awhinaSession) {
+            awhinaSessionRef.current = data.awhinaSession;
+            persistAwhinaSession({
+              conversationId: data.conversationId || conversationId,
+              task: data.awhinaSession.task,
+              search: data.awhinaSession.search,
+              pendingSlot:
+                data.awhinaSession.pendingSlot ??
+                data.awhinaSession.task?.pendingClarification?.pendingSlot ??
+                null,
+              updatedAt: Date.now(),
+            });
+          }
         }
       } catch (err) {
         const isAbort = err instanceof Error && err.name === "AbortError";
@@ -814,12 +888,17 @@ export default function SkyAiChatPanel({
   useEffect(() => {
     const onOpen = (e: Event) => {
       const query = (e as CustomEvent<SkyAiOpenDetail>).detail?.query?.trim();
-      if (isSheet) setOpen(true);
+      // Sheet OR inline workspace — always open/focus the existing panel.
+      setOpen(true);
+      requestAnimationFrame(() => {
+        chatInputRef.current?.focus();
+        chatInputRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      });
       if (query) respond(query);
     };
     window.addEventListener(SKY_AI_OPEN_EVENT, onOpen);
     return () => window.removeEventListener(SKY_AI_OPEN_EVENT, onOpen);
-  }, [isSheet, respond, setOpen]);
+  }, [respond, setOpen]);
 
   useEffect(() => {
     const onFill = (e: Event) => {

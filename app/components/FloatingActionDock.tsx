@@ -15,9 +15,12 @@ type Props = {
   voice: AwhinaVoiceState;
   onOpenChat: () => void;
   onToggleVoice?: () => void;
+  /** True when this route uses an inline Āwhina workspace (tap focuses it). */
   chatHidden?: boolean;
   /** Global chat sheet is open — hide dock so it never overlaps the composer. */
   chatOverlayOpen?: boolean;
+  /** Subtle busy ring only while a real assistant task is in flight. */
+  busyActivity?: boolean;
 };
 
 function SpeedDialAction({
@@ -65,6 +68,7 @@ export default function FloatingActionDock({
   onToggleVoice,
   chatHidden,
   chatOverlayOpen = false,
+  busyActivity = false,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [composerActive, setComposerActive] = useState(false);
@@ -149,10 +153,8 @@ export default function FloatingActionDock({
       collapse();
       return;
     }
-    if (chatHidden) {
-      setExpanded(true);
-      return;
-    }
+    // Primary tap ALWAYS opens Āwhina (inline workspace or global sheet).
+    // Speed dial is hold / context-menu only — never the sole tap target.
     onOpenChat();
   };
 
@@ -172,7 +174,9 @@ export default function FloatingActionDock({
 
   const showUnseenBadge = hasUnseenTour && !expanded && !dockHidden;
 
-  const primaryHint = chatHidden ? "Tap for menu" : "Tap chat · Hold for more";
+  const primaryHint = chatHidden
+    ? "Tap to focus Āwhina · Hold for more"
+    : "Tap chat · Hold for more";
 
   if (dockHidden) {
     return <FeedbackModal />;
@@ -193,7 +197,7 @@ export default function FloatingActionDock({
 
         <div className="pointer-events-auto flex flex-col items-center gap-1.5">
           {expanded && (
-            <div className="mb-2 flex flex-col items-end gap-2">
+            <div className="mb-2 flex flex-col items-end gap-2" role="menu" aria-label={`${AWHINA_NAME} shortcuts`}>
               {hasTour && (
                 <SpeedDialAction label="Page tips" onClick={() => runAction(startTour)}>
                   <Lightbulb className="h-4 w-4" strokeWidth={1.75} />
@@ -218,25 +222,26 @@ export default function FloatingActionDock({
               >
                 <Mic className="h-4 w-4" strokeWidth={1.75} />
               </SpeedDialAction>
-              {!chatHidden && (
-                <SpeedDialAction label={`Open ${AWHINA_NAME}`} onClick={() => runAction(onOpenChat)}>
-                  <Sparkles className="h-4 w-4 text-sky-400" strokeWidth={2} />
-                </SpeedDialAction>
-              )}
+              <SpeedDialAction
+                label={chatHidden ? `Focus ${AWHINA_NAME}` : `Open ${AWHINA_NAME}`}
+                onClick={() => runAction(onOpenChat)}
+              >
+                <Sparkles className="h-4 w-4 text-sky-400" strokeWidth={2} />
+              </SpeedDialAction>
             </div>
           )}
 
           <div className="relative">
             {showFabHint && !expanded && (
               <div
-                className="absolute bottom-[calc(100%+0.75rem)] right-0 w-[min(15rem,calc(100vw-2rem))] rounded-xl border border-sky-500/25 bg-[#0c0e14]/95 px-3 py-2.5 text-right shadow-[0_0_30px_rgba(14,165,233,0.15)] backdrop-blur-xl animate-in fade-in slide-in-from-bottom-2 light:border-sky-500/30 light:bg-white/98 light:shadow-[0_8px_32px_rgba(14,165,233,0.12)]"
+                className="absolute bottom-[calc(100%+0.75rem)] right-0 w-[min(15rem,calc(100vw-2rem))] rounded-xl border border-sky-500/20 bg-[#0c0e14]/95 px-3 py-2.5 text-right shadow-[0_8px_24px_rgba(0,0,0,0.35)] backdrop-blur-xl animate-in fade-in slide-in-from-bottom-2 light:border-sky-500/25 light:bg-white/98 light:shadow-[0_8px_24px_rgba(15,23,42,0.1)]"
                 role="status"
               >
                 <p className="text-[11px] font-semibold leading-snug text-white light:text-gray-900">
-                  {chatHidden ? "Tap for voice, tips & feedback" : "Tap to chat with Āwhina"}
+                  Tap to chat with Āwhina
                 </p>
                 <p className="mt-1 text-[10px] leading-snug text-sky-300/85 light:text-sky-700">
-                  {chatHidden ? "Opens the assistant menu" : "Hold the button for voice, tips & feedback"}
+                  Hold for voice, tips &amp; feedback
                 </p>
                 <button
                   type="button"
@@ -245,12 +250,12 @@ export default function FloatingActionDock({
                 >
                   Got it
                 </button>
-                <span className="absolute -bottom-1.5 right-6 h-3 w-3 rotate-45 border-r border-b border-sky-500/25 bg-[#0c0e14]/95 light:border-sky-500/30 light:bg-white/98" />
+                <span className="absolute -bottom-1.5 right-6 h-3 w-3 rotate-45 border-r border-b border-sky-500/20 bg-[#0c0e14]/95 light:border-sky-500/25 light:bg-white/98" />
               </div>
             )}
 
             {showUnseenBadge && (
-              <span className="absolute -right-0.5 -top-0.5 z-10 flex h-3 w-3">
+              <span className="absolute -right-0.5 -top-0.5 z-10 flex h-3 w-3" aria-hidden>
                 <span className="relative inline-flex h-3 w-3 rounded-full bg-sky-400" />
               </span>
             )}
@@ -267,15 +272,14 @@ export default function FloatingActionDock({
                 if (!expanded) setExpanded(true);
               }}
               aria-expanded={expanded}
+              aria-haspopup="menu"
               title={expanded ? undefined : primaryHint}
               aria-label={
                 expanded
                   ? "Close menu"
-                  : chatHidden
-                    ? `Open assistant menu — ${primaryHint}`
-                    : `${AWHINA_ASK_LABEL} — ${primaryHint}`
+                  : `${AWHINA_ASK_LABEL} — ${primaryHint}`
               }
-              className={`awhina-fab-primary ${expanded ? "is-expanded" : ""} ${voice.voiceMode ? "is-voice" : ""}`}
+              className={`awhina-fab-primary ${expanded ? "is-expanded" : ""} ${voiceActive ? "is-voice" : ""} ${busyActivity ? "is-busy" : ""}`}
             >
               {!expanded && (
                 <span className="awhina-fab-badge" aria-hidden title="Hold for menu">
@@ -300,15 +304,11 @@ export default function FloatingActionDock({
 
             {!expanded && (
               <p className="awhina-fab-caption" aria-hidden>
-                {chatHidden ? (
-                  <span className="awhina-fab-caption-primary">Tap for menu</span>
-                ) : (
-                  <>
-                    <span className="awhina-fab-caption-primary">Tap chat</span>
-                    <span className="awhina-fab-caption-sep">·</span>
-                    <span className="awhina-fab-caption-secondary">Hold for more</span>
-                  </>
-                )}
+                <span className="awhina-fab-caption-primary">
+                  {chatHidden ? "Tap to focus" : "Tap chat"}
+                </span>
+                <span className="awhina-fab-caption-sep">·</span>
+                <span className="awhina-fab-caption-secondary">Hold for more</span>
               </p>
             )}
           </div>

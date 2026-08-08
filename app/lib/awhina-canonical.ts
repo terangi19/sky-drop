@@ -65,6 +65,7 @@ import {
   hydrateTaskScope,
   isToolAllowedForTask,
   toClientTaskScope,
+  getPersistedPendingSlot,
   isClarificationOpen,
   buildOpenSearchSlotClarification,
   cancelOpenClarification,
@@ -134,6 +135,8 @@ export type CanonicalContext = {
 export type CanonicalSessionState = {
   task?: ClientTaskScopeContext;
   search?: ClientSearchContext;
+  /** Typed active listing slot echoed for client persistence (year/price/…) */
+  pendingSlot?: string | null;
 };
 
 export type CanonicalResult = {
@@ -458,6 +461,7 @@ export function processCanonicalAwhina(
       sessionState: {
         task: toClientTaskScope(taskSnap),
         search: toClientSearchContext(searchSnap),
+        pendingSlot: getPersistedPendingSlot(taskSnap),
       },
       // Keep on result for tests/telemetry — UI must ignore
       _decision: decision,

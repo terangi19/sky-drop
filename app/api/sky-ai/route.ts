@@ -538,12 +538,16 @@ export async function POST(req: NextRequest) {
               task?: "selling" | "shopping" | "help" | "none";
               pendingItem?: string;
               compareCandidates?: string[];
+              pendingClarification?: import("../../lib/awhina-task-scope").PendingClarification;
+              entityLockKey?: string;
+              entityLocked?: boolean;
               updatedAt?: number;
             };
             search?: {
               filters?: Record<string, unknown>;
               updatedAt?: number;
             };
+            pendingSlot?: string | null;
           })
         : undefined;
 
