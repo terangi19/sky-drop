@@ -238,6 +238,13 @@ export default function AIPostPage() {
     }
   }, [stripeDisabledV1, editId, saleType]);
 
+  // V1: no formal offers product — negotiate in Messages. Keep acceptOffers state/impl dormant.
+  useEffect(() => {
+    if (stripeDisabledV1 && acceptOffers) {
+      setAcceptOffers(false);
+    }
+  }, [stripeDisabledV1, acceptOffers]);
+
   // Form completion progress (honest important fields — photos first-class)
   const formProgress = useMemo(() => {
     let total = 0;
@@ -1629,7 +1636,9 @@ export default function AIPostPage() {
         }
       }
       if (stripeDisabledV1) {
+        // Canonical V1 mode: Arrange Purchase / contact only — no payment-method UI choice
         listingData.paymentType = "contact";
+        listingData.acceptOffers = false;
       }
 
       let newId = editId;
@@ -2263,6 +2272,19 @@ export default function AIPostPage() {
               </div>
             ) : saleType === "buy_now" ? (
               <div className="space-y-1.5">
+                {stripeDisabledV1 &&
+                  listingType !== "job" &&
+                  listingType !== "wanted" &&
+                  !(listingType === "service" && servicePricingType === "request_quote") && (
+                  <div className="mb-1">
+                    <p className="text-sm font-bold text-[var(--foreground)]">
+                      {listingType === "service" && servicePricingType === "hourly" ? "Hourly rate" : "Fixed price"}
+                    </p>
+                    <p className="mt-1 text-[10px] text-[var(--muted)] leading-relaxed">
+                      Buyers message you to arrange the purchase.
+                    </p>
+                  </div>
+                )}
                 <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">
                   {listingType === "service" && servicePricingType === "hourly" ? "Hourly Rate *" : listingType === "wanted" ? "Budget *" : "Price *"}
                 </label>
@@ -2283,8 +2305,8 @@ export default function AIPostPage() {
                   <p className="mt-1 text-[10px] text-red-400">{validationErrors.price}</p>
                 )}
                 {listingType === "wanted" && <p className="text-[10px] text-[var(--muted)]">Set your budget for this item.</p>}
-                {listingType === "service" && servicePricingType === "hourly" && <p className="text-[10px] text-[var(--muted)]">Charge per hour for your service.</p>}
-                {(listingType === "physical" || listingType === "vehicle" || listingType === "property") && <p className="text-[10px] text-[var(--muted)]">Set the fixed price for this item.</p>}
+                {!stripeDisabledV1 && listingType === "service" && servicePricingType === "hourly" && <p className="text-[10px] text-[var(--muted)]">Charge per hour for your service.</p>}
+                {!stripeDisabledV1 && (listingType === "physical" || listingType === "vehicle" || listingType === "property") && <p className="text-[10px] text-[var(--muted)]">Set the fixed price for this item.</p>}
               </div>
             ) : (
               <div className="space-y-4">
@@ -2345,13 +2367,7 @@ export default function AIPostPage() {
             </div>
           </div>
           )}
-          {listingType === "physical" && stripeDisabledV1 && (
-          <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3">
-            <p className="text-sm font-bold text-[var(--foreground)]">Fixed price</p>
-            <p className="mt-1 text-[10px] text-[var(--muted)] leading-relaxed">Buyers message you to arrange purchase. Set your asking price below.</p>
-          </div>
-          )}
-
+          {/* Payment Options — dormant while NEXT_PUBLIC_STRIPE_CHECKOUT_ENABLED is off (V1 messaging-first) */}
           {!stripeDisabledV1 && (listingType !== "wanted" && listingType !== "job" && listingType !== "property" && listingType !== "service") && (
           <div className="rounded-xl bg-white/[0.03] p-4">
             <button
@@ -2529,8 +2545,8 @@ export default function AIPostPage() {
             </div>
           )}
 
-          {/* Accept Offers — physical, service only */}
-          {listingType !== "event" && listingType !== "job" && listingType !== "wanted" && !(listingType === "service" && offersDisabledForService(servicePricingType)) && (
+          {/* Accept Offers — hidden in V1 (negotiate via Messages). Impl kept for Stripe reactivation. */}
+          {!stripeDisabledV1 && listingType !== "event" && listingType !== "job" && listingType !== "wanted" && !(listingType === "service" && offersDisabledForService(servicePricingType)) && (
             <div className="flex items-start gap-3">
               <div className="flex h-5 items-center pt-0.5">
                 <input id="acceptOffers" type="checkbox" checked={acceptOffers}
