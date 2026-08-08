@@ -334,122 +334,140 @@ export default function Home() {
     };
   }, []);
 
-  // Fetch listings with getDocs + polling (60 seconds) instead of real-time for cost optimization
+  // Fetch listings with getDocs + polling instead of real-time for cost optimization
   useEffect(() => {
     if (!authReady) return;
     let mounted = true;
+    let inFlight: Promise<void> | null = null;
+    let queuedRefresh = false;
 
     async function fetchListings() {
       if (!mounted) return;
-      try {
-        // Select only needed fields to reduce data transfer and Firestore read costs
-        const listingsSnap = await getDocs(
-          query(
-            collection(db, "listings"),
-            orderBy("createdAt", "desc"),
-            limit(100)
-          )
-        );
-        const tradePostsSnap = await getDocs(
-          query(
-            collection(db, "tradePosts"),
-            orderBy("createdAt", "desc"),
-            limit(50)
-          )
-        );
-
-        if (!mounted) return;
-
-        // Map fields the marketplace card needs (do not strip watchlistCount/views)
-        const listingItems = listingsSnap.docs.map((d) => {
-          const data = d.data();
-          return {
-            id: d.id,
-            title: data.title,
-            price: data.price,
-            image: data.image,
-            imageUrl: data.imageUrl,
-            images: data.images,
-            category: data.category,
-            condition: data.condition,
-            location: data.location,
-            sellerEmail: data.sellerEmail,
-            sellerUsername: data.sellerUsername,
-            sellerId:
-              data.sellerId ||
-              data.userId ||
-              data.ownerId ||
-              data.sellerUid ||
-              data.uid,
-            userId: data.userId,
-            ownerId: data.ownerId,
-            sellerUid: data.sellerUid,
-            createdAt: data.createdAt,
-            status: data.status,
-            type: data.type,
-            saleType: data.saleType,
-            pricingType: data.pricingType,
-            paymentType: data.paymentType,
-            stockQuantity: data.stockQuantity,
-            views: data.views,
-            watchlistCount: data.watchlistCount,
-            expiresAt: data.expiresAt,
-            promotedUntil: data.promotedUntil,
-            promoted: data.promoted,
-            isDemo: data.isDemo,
-          };
-        });
-        const tradeItems = tradePostsSnap.docs.map((d) => {
-          const data = d.data();
-          return {
-            id: d.id,
-            title: data.title,
-            price: data.price,
-            image: data.image,
-            imageUrl: data.imageUrl,
-            images: data.images,
-            sellerEmail: data.sellerEmail,
-            sellerUsername: data.sellerUsername,
-            sellerId: data.sellerId || data.userId || data.ownerId,
-            createdAt: data.createdAt,
-            status: data.status,
-            type: data.type,
-            views: data.views,
-            watchlistCount: data.watchlistCount,
-          };
-        });
-
-        const combined = [...listingItems, ...tradeItems];
-        const filtered = combined.filter((i: any) => i.status !== "flagged" && i.status !== "pending_review");
-        filtered.sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
-        setListings(filtered.slice(0, 100));
-        setLoadError(false);
-        setLoading(false);
-      } catch (error) {
-        console.error("Failed to fetch listings:", error);
-        if (mounted) {
-          setLoadError(true);
-          setLoading(false);
-        }
+      // Dedupe overlapping calls from interval + visibility + effect remount/retry
+      if (inFlight) {
+        queuedRefresh = true;
+        return inFlight;
       }
+
+      inFlight = (async () => {
+        try {
+          const [listingsSnap, tradePostsSnap] = await Promise.all([
+            getDocs(
+              query(
+                collection(db, "listings"),
+                orderBy("createdAt", "desc"),
+                limit(100)
+              )
+            ),
+            getDocs(
+              query(
+                collection(db, "tradePosts"),
+                orderBy("createdAt", "desc"),
+                limit(50)
+              )
+            ),
+          ]);
+
+          if (!mounted) return;
+
+          // Map fields the marketplace card needs (do not strip watchlistCount/views)
+          const listingItems = listingsSnap.docs.map((d) => {
+            const data = d.data();
+            return {
+              id: d.id,
+              title: data.title,
+              price: data.price,
+              image: data.image,
+              imageUrl: data.imageUrl,
+              images: data.images,
+              category: data.category,
+              condition: data.condition,
+              location: data.location,
+              sellerEmail: data.sellerEmail,
+              sellerUsername: data.sellerUsername,
+              sellerId:
+                data.sellerId ||
+                data.userId ||
+                data.ownerId ||
+                data.sellerUid ||
+                data.uid,
+              userId: data.userId,
+              ownerId: data.ownerId,
+              sellerUid: data.sellerUid,
+              createdAt: data.createdAt,
+              status: data.status,
+              type: data.type,
+              saleType: data.saleType,
+              pricingType: data.pricingType,
+              paymentType: data.paymentType,
+              stockQuantity: data.stockQuantity,
+              views: data.views,
+              watchlistCount: data.watchlistCount,
+              expiresAt: data.expiresAt,
+              promotedUntil: data.promotedUntil,
+              promoted: data.promoted,
+              isDemo: data.isDemo,
+            };
+          });
+          const tradeItems = tradePostsSnap.docs.map((d) => {
+            const data = d.data();
+            return {
+              id: d.id,
+              title: data.title,
+              price: data.price,
+              image: data.image,
+              imageUrl: data.imageUrl,
+              images: data.images,
+              sellerEmail: data.sellerEmail,
+              sellerUsername: data.sellerUsername,
+              sellerId: data.sellerId || data.userId || data.ownerId,
+              createdAt: data.createdAt,
+              status: data.status,
+              type: data.type,
+              views: data.views,
+              watchlistCount: data.watchlistCount,
+            };
+          });
+
+          const combined = [...listingItems, ...tradeItems];
+          const filtered = combined.filter((i: any) => i.status !== "flagged" && i.status !== "pending_review");
+          filtered.sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
+          setListings(filtered.slice(0, 100));
+          setLoadError(false);
+          setLoading(false);
+        } catch (error) {
+          console.error("Failed to fetch listings:", error);
+          if (mounted) {
+            setLoadError(true);
+            setLoading(false);
+          }
+        } finally {
+          inFlight = null;
+          if (queuedRefresh && mounted) {
+            queuedRefresh = false;
+            void fetchListings();
+          }
+        }
+      })();
+
+      return inFlight;
     }
 
     fetchListings();
-    // Refresh every 5 minutes instead of 60 seconds to reduce Firestore reads
-    // Also refetch when tab becomes visible (user returns to app)
-    const interval = setInterval(fetchListings, 300000); // 5 minutes
+    // Refresh every 5 minutes; also refetch when tab becomes visible
+    const interval = setInterval(fetchListings, 300000);
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && mounted) {
+      if (document.visibilityState === "visible" && mounted) {
         fetchListings();
       }
     };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       mounted = false;
       clearInterval(interval);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [user, authReady, listingsRetry]);
 

@@ -17,7 +17,6 @@ import {
   orderBy,
   query,
   serverTimestamp,
-  updateDoc,
   where,
   setDoc,
 } from "firebase/firestore";
@@ -30,7 +29,7 @@ import { calculateTrustScore } from "../lib/trustscore";
 import { checkImage } from "../lib/nsfw";
 import { showToast } from "../components/Toast";
 import { createNotification } from "../lib/notifications";
-import OfferPaymentModal from "../components/OfferPaymentModal";
+import dynamic from "next/dynamic";
 import ArrangePaymentCopyBar from "../components/ArrangePaymentCopyBar";
 import StayOnSkyDropNotice from "../components/StayOnSkyDropNotice";
 import RefundStatusCard from "../components/RefundStatusCard";
@@ -56,8 +55,10 @@ import { canSellerConfirmArrangeSale, countSellerSales } from "../lib/arrange-pu
 import { purchaseStatusLabel } from "../lib/purchase-status";
 import { getFreshIdToken } from "../lib/api-auth";
 import { trackFunnelEvent } from "../lib/funnel-events";
-import NegotiationAssistant from "../components/NegotiationAssistant";
 import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
+
+const OfferPaymentModal = dynamic(() => import("../components/OfferPaymentModal"), { ssr: false });
+const NegotiationAssistant = dynamic(() => import("../components/NegotiationAssistant"), { ssr: false });
 import {
   blockedEmailsFromDocs,
   conversationKey,
@@ -159,6 +160,11 @@ function MessagesPage() {
   >(new Map());
   const [listingCard, setListingCard] = useState<any>(null);
   const seenBatchRef = useRef<Set<string>>(new Set());
+  const markReadConversationKeyRef = useRef<string>("");
+  const notificationsMarkedForConvRef = useRef<string>("");
+  const blockedUsersRef = useRef<string[]>([]);
+  const usernamesRef = useRef<Record<string, string>>({});
+  const rawMessagesRef = useRef<any[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -330,6 +336,13 @@ function MessagesPage() {
   }, [chatUser, message]);
 
   useEffect(() => {
+    blockedUsersRef.current = blockedUsers;
+  }, [blockedUsers]);
+  useEffect(() => {
+    usernamesRef.current = usernames;
+  }, [usernames]);
+
+  useEffect(() => {
     if (chatUser) fetchUsername(chatUser);
   }, [chatUser]);
 
@@ -344,7 +357,7 @@ function MessagesPage() {
     }
   }, [chatUser]);
 
-  // Fetch seller profile + trust score
+  // Fetch seller profile + trust score (prefer profile.salesCount aggregate)
   useEffect(() => {
     if (!chatUser) { setSellerProfile(null); setSellerTrust(null); return; }
     let cancelled = false;
@@ -353,16 +366,24 @@ function MessagesPage() {
         const profile = await fetchPublicProfileBySlug(chatUser);
         if (profile && !cancelled) {
           const profileEmail = profile.email || chatUser;
-          const purchaseSnap = await getDocs(
-            query(collection(db, "purchases"), where("sellerEmail", "==", profileEmail), limit(100))
-          );
-          const salesTotal = countSellerSales(
-            purchaseSnap.docs.map((d) => d.data() as { status?: string; paymentType?: string })
-          );
+          const trustedSales =
+            typeof profile.salesCount === "number" && profile.salesCount >= 0
+              ? profile.salesCount
+              : null;
+          let salesTotal = trustedSales ?? 0;
+          // Only scan purchases when aggregate is missing
+          if (trustedSales === null) {
+            const purchaseSnap = await getDocs(
+              query(collection(db, "purchases"), where("sellerEmail", "==", profileEmail), limit(100))
+            );
+            salesTotal = countSellerSales(
+              purchaseSnap.docs.map((d) => d.data() as { status?: string; paymentType?: string })
+            );
+          }
           setSellerProfile({
             id: profile.uid,
             ...profile,
-            sales: salesTotal || profile.salesCount || 0,
+            sales: salesTotal,
           });
           const trust = calculateTrustScore(profile as any);
           setSellerTrust({ score: trust.score, level: trust.score >= 80 ? "Trusted" : trust.score >= 50 ? "Established" : "New" });
@@ -374,11 +395,6 @@ function MessagesPage() {
     return () => { cancelled = true; };
   }, [chatUser]);
 
-  // Force refresh username for current chat user to avoid stale cache
-  useEffect(() => {
-    if (!chatUser) return;
-    fetchUsername(chatUser, true);
-  }, [chatUser]);
   // Close profile preview on outside click
   useEffect(() => {
     if (!showProfilePreview) return;
@@ -425,7 +441,9 @@ function MessagesPage() {
       }
     });
     return () => { cancelled = true; };
-  }, [chatListingId, messages]);
+    // intentionally omit messages — avoid re-getDoc on every inbox snapshot
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatListingId]);
   // Typing listener — peer writes to peerEmail_myEmail_listingId
   useEffect(() => {
     if (!chatUser || !user?.email) { setOtherTyping(false); return; }
@@ -444,83 +462,79 @@ function MessagesPage() {
     });
     return () => { unsub(); if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current); };
   }, [chatUser, user, chatListingId]);
-  // Mark as read
+  // Mark as read — dedupe by message id; notifications consolidated server-side once per conversation
   useEffect(() => {
     if (!chatUser || !user?.email) return;
-    
-    // Clear seen batch when conversation changes to allow re-marking
-    seenBatchRef.current.clear();
-    
+
+    const convKey = `${chatUser}|${chatListingId || ""}`;
+    if (markReadConversationKeyRef.current !== convKey) {
+      markReadConversationKeyRef.current = convKey;
+      seenBatchRef.current.clear();
+    }
+
     let cancelled = false;
     const relevant = messages.filter((m: any) =>
       messageInActiveConversation(m, user.email!, chatUser, chatListingId)
     );
-    const unreadMsgs = relevant.filter((m: any) => m.sender !== user.email && !m.read);
-    
+    const unreadMsgs = relevant.filter(
+      (m: any) =>
+        m.sender !== user.email &&
+        !m.read &&
+        !seenBatchRef.current.has(m.id)
+    );
+
     for (const msg of unreadMsgs) {
       seenBatchRef.current.add(msg.id);
     }
 
     if (unreadMsgs.length > 0) {
       const messageIds = unreadMsgs.map((m: any) => m.id);
+      const shouldMarkNotifications =
+        notificationsMarkedForConvRef.current !== convKey;
+      if (shouldMarkNotifications) {
+        notificationsMarkedForConvRef.current = convKey;
+      }
       const tokenP = user.getIdToken();
       tokenP.then((token) => {
         if (cancelled) return;
         fetch("/api/mark-messages-read", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ messageIds }),
+          body: JSON.stringify({
+            messageIds,
+            markNotifications: shouldMarkNotifications,
+            fromEmail: chatUser,
+            listingId: chatListingId || "",
+          }),
         }).then(async (res) => {
           if (res.ok) {
             await res.json();
-            // Immediately update local messages state for instant UI feedback
-            setMessages(prev => prev.map(m => 
+            setMessages(prev => prev.map(m =>
               messageIds.includes(m.id) ? { ...m, read: true } : m
             ));
           } else {
             console.error("[messages] Failed to mark messages read");
+            for (const id of messageIds) seenBatchRef.current.delete(id);
+            if (shouldMarkNotifications) {
+              notificationsMarkedForConvRef.current = "";
+            }
           }
-        }).catch((e) => console.error("Failed to batch mark messages read:", e));
-      }).catch((e) => console.error("Failed to get token for mark-read:", e));
-
-      // Also mark corresponding notification documents as read
-      getDocs(
-        query(
-          collection(db, "notifications"),
-          where("targetEmail", "==", user.email),
-          orderBy("createdAt", "desc"),
-          limit(30)
-        )
-      ).then((snap) => {
-        if (cancelled) return;
-        snap.docs.forEach((d) => {
-          const data = d.data();
-          if (data.read === true) return;
-          const fromEmail = data.fromEmail as string | undefined;
-          const type = data.type as string | undefined;
-          // Mark message-type notifications read if from the same user, regardless of listingId
-          if (type === "message" && fromEmail === chatUser) {
-            updateDoc(doc(db, "notifications", d.id), { read: true }).catch((e) =>
-              console.error("Failed to mark notification read:", e)
-            );
-            return;
+        }).catch((e) => {
+          console.error("Failed to batch mark messages read:", e);
+          for (const id of messageIds) seenBatchRef.current.delete(id);
+          if (shouldMarkNotifications) {
+            notificationsMarkedForConvRef.current = "";
           }
-          // For other notification types, require listingId match
-          if ((data.listingId || "") !== (chatListingId || "")) return;
-          if (fromEmail && fromEmail !== chatUser) return;
-          updateDoc(doc(db, "notifications", d.id), { read: true }).catch((e) =>
-            console.error("Failed to mark notification read:", e)
-          );
         });
-      }).catch((e) => console.error("Failed to fetch notifications to mark read:", e));
+      }).catch((e) => console.error("Failed to get token for mark-read:", e));
     }
 
     return () => { cancelled = true; };
   }, [chatUser, user, messages, chatListingId]);
-  // Fetch usernames - always fetch fresh data for current chat user to avoid stale cache
+  // Fetch usernames — session cache; do not force-refresh repeatedly
   async function fetchUsername(identifier: string, forceRefresh = false) {
     if (!identifier || identifier === "system") return;
-    if (!forceRefresh && usernames[identifier]) return;
+    if (!forceRefresh && (usernamesRef.current[identifier] || usernames[identifier])) return;
     try {
       const profile = await fetchPublicProfileBySlug(identifier, { forceRefresh });
       let handle = "User";
@@ -536,7 +550,7 @@ function MessagesPage() {
       console.error("Failed to fetch username:", e);
     }
   }
-  // Main messages listener
+  // Main messages listener — blockedUsers via ref to avoid resubscribe remounts
   useEffect(() => {
     if (!user?.email) {
       setMessages([]);
@@ -556,20 +570,24 @@ function MessagesPage() {
       if (!mounted) return;
       const items = snap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
-        .filter((msg: any) => messageInInboxList(msg, user.email!, blockedUsers));
+        .filter((msg: any) => messageInInboxList(msg, user.email!, blockedUsersRef.current));
       items.sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
+      rawMessagesRef.current = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setMessages(items);
       setLoading(false);
       if (snap.metadata?.hasPendingWrites) return;
-      // Force refresh all participant usernames on initial load to ensure fresh data
-      const isInitialLoad = !snap.metadata.hasPendingWrites && items.length > 0 && Object.keys(usernames).length === 0;
-      items.forEach((msg: any) => {
-        fetchUsername(msg.sender, isInitialLoad);
-        fetchUsername(msg.receiver, isInitialLoad);
-        msg.participants?.forEach((p: string) => fetchUsername(p, isInitialLoad));
-        extractEmailsFromText(msg.text || "").forEach((e) => fetchUsername(e, isInitialLoad));
+      // Dedupe profile resolution IDs across the inbox snapshot
+      const ids = new Set<string>();
+      for (const msg of items as any[]) {
+        if (msg.sender) ids.add(msg.sender);
+        if (msg.receiver) ids.add(msg.receiver);
+        msg.participants?.forEach((p: string) => ids.add(p));
+        extractEmailsFromText(msg.text || "").forEach((e) => ids.add(e));
+      }
+      ids.forEach((id) => {
+        if (!usernamesRef.current[id]) fetchUsername(id);
       });
-    }, (err) => { 
+    }, (err) => {
       console.error("Messages snapshot error:", err);
       if (mounted) {
         setLoading(false);
@@ -578,7 +596,16 @@ function MessagesPage() {
     });
 
     return () => { mounted = false; unsub(); };
-  }, [user?.email, blockedUsers]);
+  }, [user?.email]);
+
+  // Re-filter inbox when block list changes without resubscribing
+  useEffect(() => {
+    if (!user?.email || rawMessagesRef.current.length === 0) return;
+    const items = rawMessagesRef.current
+      .filter((msg: any) => messageInInboxList(msg, user.email!, blockedUsers))
+      .sort((a: any, b: any) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
+    setMessages(items);
+  }, [blockedUsers, user?.email]);
   // Unread map
   useEffect(() => {
     const map: Record<string, number> = {};

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { User } from "firebase/auth";
 import { auth, onAuthStateChanged } from "../lib/firebase";
@@ -21,8 +22,9 @@ import FloatingActionDock from "./FloatingActionDock";
 import AwhinaIntroModal from "./AwhinaIntroModal";
 import AwhinaVoiceBar from "./AwhinaVoiceBar";
 import AwhinaVoiceStatusCard from "./AwhinaVoiceStatusCard";
-import SkyAiChatPanel from "./SkyAiChatPanel";
 import VoiceModeIntroModal from "./VoiceModeIntroModal";
+
+const SkyAiChatPanel = dynamic(() => import("./SkyAiChatPanel"), { ssr: false });
 
 const AUTH_ONLY_PATHS = ["/login", "/forgot-password", "/create-account"];
 const ADMIN_PREFIX = "/admin";
@@ -35,6 +37,7 @@ export default function AwhinaGlobalAssistant() {
   const pathname = usePathname() || "/";
   const [user, setUser] = useState<User | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
+  const [chatPanelMounted, setChatPanelMounted] = useState(false);
   const [voiceIntroOpen, setVoiceIntroOpen] = useState(false);
   const [awhinaIntroOpen, setAwhinaIntroOpen] = useState(false);
   const [pendingChatQuery, setPendingChatQuery] = useState<string | undefined>();
@@ -60,6 +63,7 @@ export default function AwhinaGlobalAssistant() {
         dispatchSkyAiOpen(query);
         return;
       }
+      setChatPanelMounted(true);
       setChatOpen(true);
       if (query) setPendingChatQuery(query);
     },
@@ -82,6 +86,7 @@ export default function AwhinaGlobalAssistant() {
         dispatchSkyAiOpen(query);
         return;
       }
+      setChatPanelMounted(true);
       setChatOpen(true);
       if (query) setPendingChatQuery(query);
     },
@@ -159,7 +164,7 @@ export default function AwhinaGlobalAssistant() {
 
   return (
     <>
-      {showChatSheet && (
+      {showChatSheet && chatPanelMounted && (
         <SkyAiChatPanel
           mode="sheet"
           open={chatOpen}
