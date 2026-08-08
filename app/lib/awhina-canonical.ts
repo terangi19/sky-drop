@@ -62,6 +62,11 @@ import {
   hydrateTaskScope,
   isToolAllowedForTask,
   toClientTaskScope,
+  isClarificationOpen,
+  buildOpenSearchSlotClarification,
+  cancelOpenClarification,
+  resolveOpenClarification,
+  logClarificationLifecycle,
   type ClientTaskScopeContext,
 } from "./awhina-task-scope";
 import {
@@ -69,6 +74,12 @@ import {
   buildProactiveShoppingClarify,
   isShoppingClarifyAnswer,
   mergeClarifyIntoSearchMessage,
+  isSearchClarificationAffirmation,
+  isExplicitPendingSearchExecute,
+  hasEnoughSearchSlotInfo,
+  buildPendingSearchSlotAsk,
+  detectPendingClarificationOverride,
+  sanitizeSearchQueryText,
   tryMarketplaceEducationReply,
   isCompareRequest,
   buildGroundedCompareReply,
@@ -473,98 +484,128 @@ export function processCanonicalAwhina(
     });
   }
 
-  // Pending BUY vs SELL / type clarification — resolve once, never re-ask
+  // Pending BUY vs SELL / type clarification — only while open (not search_slots).
   {
     const taskSnapEarly = getTaskScope(scopeKey);
-    const priorUserFromHistory = [...(context.history || [])]
-      .reverse()
-      .find((h) => h.role === "user" && h.content?.trim() && h.content.trim() !== trimmed)
-      ?.content;
-    const pendingResolved = tryResolvePendingClarification({
-      message: trimmed,
-      pending: taskSnapEarly?.pendingClarification,
-      priorUserMessage: priorUserFromHistory,
-    });
-    if (pendingResolved.resolved && pendingResolved.resolution?.mode === "buy") {
-      setActiveTask(scopeKey, "shopping", { pendingClarification: undefined });
-      const buyQ =
-        pendingResolved.priorMessage ||
-        pendingResolved.combinedMessage ||
-        trimmed;
-      rememberPrimarySearch(memKey, buyQ);
-      const delta = extractSearchRefinement(buyQ);
-      if (!delta.query) delta.query = buyQ.slice(0, 120);
-      const merged = updateSearchSession(memKey, delta);
-      const { text, navigateTo } = buildSearchFollowUpReply(merged);
-      return finish({
-        handled: true,
-        reply: text,
-        navigateTo,
-        source: "tool",
-        intent: "marketplace_search",
-        tool: "searchListings",
-        confidence: 0.9,
-        usedLocalExecution: false,
-        avoidedAi: true,
-        toolCall: searchToolCall(merged, 0.9),
-      });
-    }
-    if (
-      pendingResolved.resolved &&
-      pendingResolved.resolution?.mode === "sell" &&
-      pendingResolved.combinedMessage
-    ) {
-      setActiveTask(scopeKey, "selling", { pendingClarification: undefined });
-      const sellMsg = pendingResolved.combinedMessage;
-      const listKeyEarly = listingDraftSessionKey({
-        conversationId: context.conversationId,
-        uid: context.uid,
-        pathname: "/post/ai",
-        anonSessionId: context.anonSessionId,
-      });
-      clearListingDraftSession(listKeyEarly);
-      const listing = processListingFillMessage(sellMsg, {
-        pathname: "/post/ai",
-        listingContext: null,
-        sessionKey: listKeyEarly,
-        freshStart: true,
-      });
-      if (listing.handled && listing.listingFill) {
-        if (pendingResolved.resolution.listingType) {
-          listing.listingFill.listingType = pendingResolved.resolution.listingType;
-          if (
-            pendingResolved.resolution.listingType === "service" &&
-            !listing.listingFill.servicePricingType
-          ) {
-            listing.listingFill.servicePricingType = "fixed";
-          }
-        }
-        const sellDecision = buildAwhinaDecision({
-          message: sellMsg,
-          pathname: "/post/ai",
-          session: { task: "selling", updatedAt: Date.now() },
-          intentHint: "listing_create",
-          entities: pendingResolved.resolution.listingType
-            ? { listingType: pendingResolved.resolution.listingType }
-            : undefined,
+    const pendingEarly = taskSnapEarly?.pendingClarification;
+    const buySellPendingOpen =
+      isClarificationOpen(pendingEarly) &&
+      (pendingEarly.kind === "buy_vs_sell" || pendingEarly.kind === "listing_type");
+
+    if (buySellPendingOpen) {
+      const override = detectPendingClarificationOverride(trimmed, pendingEarly);
+      if (override) {
+        cancelOpenClarification(scopeKey, {
+          reason: override.reason,
+          toTask: override.toTask,
+          clearPendingItem: true,
         });
-        return finish(
-          {
-            handled: true,
-            reply: listing.reply,
-            listingFill: listing.listingFill,
-            navigateTo: pathname.startsWith("/post/ai") ? undefined : "/post/ai",
-            source: "tool",
-            intent: "listing_create",
-            tool: listing.toolCall?.tool || "createListing",
-            confidence: Math.max(0.9, sellDecision.confidence),
-            usedLocalExecution: false,
-            avoidedAi: true,
-            toolCall: listing.toolCall,
-            _decision: { ...sellDecision, requiresClarification: false },
-          },
-          { ...sellDecision, requiresClarification: false }
+        if (override.toTask === "selling") clearSearchSession(memKey);
+      }
+    }
+
+    const pendingAfterOverride = getTaskScope(scopeKey)?.pendingClarification;
+    const stillBuySellOpen =
+      isClarificationOpen(pendingAfterOverride) &&
+      (pendingAfterOverride.kind === "buy_vs_sell" ||
+        pendingAfterOverride.kind === "listing_type");
+
+    if (stillBuySellOpen) {
+      const priorUserFromHistory = [...(context.history || [])]
+        .reverse()
+        .find((h) => h.role === "user" && h.content?.trim() && h.content.trim() !== trimmed)
+        ?.content;
+      const pendingResolved = tryResolvePendingClarification({
+        message: trimmed,
+        pending: pendingAfterOverride,
+        priorUserMessage: priorUserFromHistory,
+      });
+      if (pendingResolved.resolved && pendingResolved.resolution?.mode === "buy") {
+        const buyQ = sanitizeSearchQueryText(
+          pendingResolved.priorMessage ||
+            pendingResolved.combinedMessage ||
+            trimmed
         );
+        resolveOpenClarification(scopeKey, {
+          toTask: "shopping",
+          canonicalQuery: buyQ,
+        });
+        rememberPrimarySearch(memKey, buyQ);
+        const delta = extractSearchRefinement(buyQ);
+        if (!delta.query) delta.query = buyQ.slice(0, 120);
+        const merged = updateSearchSession(memKey, delta);
+        const { text, navigateTo } = buildSearchFollowUpReply(merged);
+        return finish({
+          handled: true,
+          reply: text,
+          navigateTo,
+          source: "tool",
+          intent: "marketplace_search",
+          tool: "searchListings",
+          confidence: 0.9,
+          usedLocalExecution: false,
+          avoidedAi: true,
+          toolCall: searchToolCall(merged, 0.9),
+        });
+      }
+      if (
+        pendingResolved.resolved &&
+        pendingResolved.resolution?.mode === "sell" &&
+        pendingResolved.combinedMessage
+      ) {
+        resolveOpenClarification(scopeKey, { toTask: "selling" });
+        clearSearchSession(memKey);
+        const sellMsg = pendingResolved.combinedMessage;
+        const listKeyEarly = listingDraftSessionKey({
+          conversationId: context.conversationId,
+          uid: context.uid,
+          pathname: "/post/ai",
+          anonSessionId: context.anonSessionId,
+        });
+        clearListingDraftSession(listKeyEarly);
+        const listing = processListingFillMessage(sellMsg, {
+          pathname: "/post/ai",
+          listingContext: null,
+          sessionKey: listKeyEarly,
+          freshStart: true,
+        });
+        if (listing.handled && listing.listingFill) {
+          if (pendingResolved.resolution.listingType) {
+            listing.listingFill.listingType = pendingResolved.resolution.listingType;
+            if (
+              pendingResolved.resolution.listingType === "service" &&
+              !listing.listingFill.servicePricingType
+            ) {
+              listing.listingFill.servicePricingType = "fixed";
+            }
+          }
+          const sellDecision = buildAwhinaDecision({
+            message: sellMsg,
+            pathname: "/post/ai",
+            session: { task: "selling", updatedAt: Date.now() },
+            intentHint: "listing_create",
+            entities: pendingResolved.resolution.listingType
+              ? { listingType: pendingResolved.resolution.listingType }
+              : undefined,
+          });
+          return finish(
+            {
+              handled: true,
+              reply: listing.reply,
+              listingFill: listing.listingFill,
+              navigateTo: pathname.startsWith("/post/ai") ? undefined : "/post/ai",
+              source: "tool",
+              intent: "listing_create",
+              tool: listing.toolCall?.tool || "createListing",
+              confidence: Math.max(0.9, sellDecision.confidence),
+              usedLocalExecution: false,
+              avoidedAi: true,
+              toolCall: listing.toolCall,
+              _decision: { ...sellDecision, requiresClarification: false },
+            },
+            { ...sellDecision, requiresClarification: false }
+          );
+        }
       }
     }
   }
@@ -812,7 +853,7 @@ export function processCanonicalAwhina(
   // Search follow-up memory (multi-turn refinements) — skip on sell/profile pages
   const onSellPage = pathname.startsWith("/post/ai");
   const onProfilePage = pathname === "/profile" || pathname.startsWith("/profile/");
-  const taskSession = getTaskScope(scopeKey);
+  let taskSession = getTaskScope(scopeKey);
   const listKeyEarly = listingDraftSessionKey({
     conversationId: context.conversationId,
     uid: context.uid,
@@ -826,6 +867,25 @@ export function processCanonicalAwhina(
   const searchLang = hasSearchIntentLanguage(trimmed);
   const explicitSell = hasExplicitSellSwitch(trimmed);
   const stickyShopping = taskSession?.task === "shopping" && !explicitSell && !onSellPage;
+
+  // Explicit NEW INTENT wins — cancel open clarification before applying it
+  {
+    const override = detectPendingClarificationOverride(
+      trimmed,
+      taskSession?.pendingClarification
+    );
+    if (override) {
+      cancelOpenClarification(scopeKey, {
+        reason: override.reason,
+        toTask: override.toTask,
+        clearPendingItem: true,
+      });
+      if (override.toTask === "selling" || override.reason === "new_shop_need") {
+        clearSearchSession(memKey);
+      }
+      taskSession = getTaskScope(scopeKey);
+    }
+  }
 
   // Task-scoped "make it cheaper": shopping → sort cheapest; selling → draft (later)
   const taskForRelative = resolveTaskForMessage(trimmed, {
@@ -859,36 +919,123 @@ export function processCanonicalAwhina(
     });
   }
 
-  // Answer to proactive shopping clarification → search
-  if (
-    !onSellPage &&
-    !onProfilePage &&
-    taskSession?.task === "shopping" &&
-    taskSession.pendingItem &&
-    isShoppingClarifyAnswer(trimmed, taskSession.pendingItem)
-  ) {
-    const combined = mergeClarifyIntoSearchMessage(taskSession.pendingItem, trimmed);
-    rememberPrimarySearch(memKey, combined);
-    const delta = extractSearchRefinement(combined);
-    if (!delta.query) delta.query = taskSession.pendingItem;
-    const merged = updateSearchSession(memKey, delta);
-    setActiveTask(scopeKey, "shopping", { pendingItem: undefined });
-    const { text, navigateTo } = buildSearchFollowUpReply(merged);
-    return finish({
-      handled: true,
-      reply: text,
-      navigateTo,
-      source: "tool",
-      intent: "marketplace_search",
-      tool: "searchListings",
-      confidence: 0.9,
-      usedLocalExecution: false,
-      avoidedAi: true,
-      toolCall: searchToolCall(merged, 0.9),
-    });
+  // Pending shopping search clarification — affirmations continue; slots or explicit find execute
+  {
+    const pendingSearch =
+      isClarificationOpen(taskSession?.pendingClarification) &&
+      taskSession?.pendingClarification?.kind === "search_slots"
+        ? taskSession.pendingClarification
+        : null;
+    const pendingItem =
+      pendingSearch?.item ||
+      pendingSearch?.knownEntities?.item ||
+      (pendingSearch ? taskSession?.pendingItem : undefined) ||
+      undefined;
+
+    if (!onSellPage && !onProfilePage && pendingItem && pendingSearch) {
+      // Soft yes / sure → ask only for still-missing slots (do not restart intent / never search "yes")
+      if (isSearchClarificationAffirmation(trimmed)) {
+        const missing = pendingSearch.missingSlots || ["budget", "location"];
+        const reply = buildPendingSearchSlotAsk(pendingItem, missing);
+        setActiveTask(scopeKey, "shopping", {
+          pendingItem,
+          pendingClarification: {
+            ...pendingSearch,
+            status: "open",
+            missingSlots: missing,
+            item: pendingItem,
+            knownEntities: { ...(pendingSearch.knownEntities || {}), item: pendingItem },
+          },
+        });
+        return finish({
+          handled: true,
+          reply,
+          source: "clarify",
+          intent: "marketplace_search",
+          confidence: 0.85,
+          usedLocalExecution: false,
+          avoidedAi: true,
+          clarificationQuestion: reply,
+        });
+      }
+
+      // "find mower listings" / explicit search → execute immediately with pending item only
+      if (isExplicitPendingSearchExecute(trimmed, pendingItem)) {
+        const combined = mergeClarifyIntoSearchMessage(pendingItem, trimmed);
+        const canonicalQuery = sanitizeSearchQueryText(pendingItem) || pendingItem;
+        rememberPrimarySearch(memKey, combined);
+        const delta = extractSearchRefinement(combined);
+        if (!delta.query) delta.query = canonicalQuery;
+        else delta.query = sanitizeSearchQueryText(delta.query) || canonicalQuery;
+        const merged = updateSearchSession(memKey, delta);
+        resolveOpenClarification(scopeKey, {
+          toTask: "shopping",
+          canonicalQuery: merged.query || canonicalQuery,
+        });
+        const { text, navigateTo } = buildSearchFollowUpReply(merged);
+        return finish({
+          handled: true,
+          reply: text,
+          navigateTo,
+          source: "tool",
+          intent: "marketplace_search",
+          tool: "searchListings",
+          confidence: 0.92,
+          usedLocalExecution: false,
+          avoidedAi: true,
+          toolCall: searchToolCall(merged, 0.92),
+        });
+      }
+
+      // Real slot answer (budget / city / edition / condition)
+      if (
+        isShoppingClarifyAnswer(trimmed, pendingItem) &&
+        hasEnoughSearchSlotInfo(pendingSearch.missingSlots, trimmed)
+      ) {
+        const combined = mergeClarifyIntoSearchMessage(pendingItem, trimmed);
+        const canonicalQuery = sanitizeSearchQueryText(pendingItem) || pendingItem;
+        rememberPrimarySearch(memKey, combined);
+        const delta = extractSearchRefinement(combined);
+        delta.query = canonicalQuery;
+        const merged = updateSearchSession(memKey, delta);
+        resolveOpenClarification(scopeKey, {
+          toTask: "shopping",
+          canonicalQuery: merged.query || canonicalQuery,
+        });
+        const { text, navigateTo } = buildSearchFollowUpReply(merged);
+        return finish({
+          handled: true,
+          reply: text,
+          navigateTo,
+          source: "tool",
+          intent: "marketplace_search",
+          tool: "searchListings",
+          confidence: 0.9,
+          usedLocalExecution: false,
+          avoidedAi: true,
+          toolCall: searchToolCall(merged, 0.9),
+        });
+      }
+
+      // Partial / short answer that didn't fill a tracked slot — keep asking once
+      if (isShoppingClarifyAnswer(trimmed, pendingItem)) {
+        const missing = pendingSearch.missingSlots || ["budget", "location"];
+        const reply = buildPendingSearchSlotAsk(pendingItem, missing);
+        return finish({
+          handled: true,
+          reply,
+          source: "clarify",
+          intent: "marketplace_search",
+          confidence: 0.8,
+          usedLocalExecution: false,
+          avoidedAi: true,
+          clarificationQuestion: reply,
+        });
+      }
+    }
   }
 
-  // Proactive clarify for vague shopping needs ("I need a PS5")
+  // Proactive clarify for vague shopping needs ("I need a PS5" / "need a mower")
   if (
     !onSellPage &&
     !onProfilePage &&
@@ -896,8 +1043,37 @@ export function processCanonicalAwhina(
     !explicitSell &&
     isVagueShoppingNeed(trimmed)
   ) {
-    const { reply, item } = buildProactiveShoppingClarify(trimmed);
-    setActiveTask(scopeKey, "shopping", { pendingItem: item });
+    // Leaving sell/help for a new shop need — clear stale draft/search bleed
+    if (taskSession?.task === "selling" || taskSession?.task === "help") {
+      clearSearchSession(memKey);
+      clearListingDraftSession(listKeyEarly);
+      cancelOpenClarification(scopeKey, {
+        reason: "new_shop_need",
+        toTask: "shopping",
+        clearPendingItem: true,
+      });
+    }
+    const { reply, item, missingSlots } = buildProactiveShoppingClarify(trimmed);
+    const clarification = buildOpenSearchSlotClarification({
+      priorMessage: trimmed,
+      item,
+      missingSlots,
+      originatingTask: "shopping",
+    });
+    setActiveTask(scopeKey, "shopping", {
+      pendingItem: item,
+      pendingClarification: clarification,
+    });
+    logClarificationLifecycle("opened", {
+      kind: clarification.kind,
+      status: "open",
+      sessionId: clarification.sessionId,
+      originatingTask: "shopping",
+      originatingIntent: "marketplace_search",
+      pendingTool: "searchListings",
+      missingSlots,
+      knownEntityKeys: ["item"],
+    });
     return finish({
       handled: true,
       reply,
@@ -1148,10 +1324,19 @@ export function processCanonicalAwhina(
     if (switchingFromSearch || domainShiftSell) {
       if (switchingFromSearch) clearSearchSession(memKey);
       clearListingDraftSession(listKey);
-      setActiveTask(scopeKey, "selling", {
-        pendingItem: undefined,
-        compareCandidates: undefined,
-      });
+      if (isClarificationOpen(getTaskScope(scopeKey)?.pendingClarification)) {
+        cancelOpenClarification(scopeKey, {
+          reason: switchingFromSearch ? "task_switch_sell" : "domain_shift_sell",
+          toTask: "selling",
+          clearPendingItem: true,
+        });
+      } else {
+        setActiveTask(scopeKey, "selling", {
+          pendingItem: undefined,
+          compareCandidates: undefined,
+          pendingClarification: undefined,
+        });
+      }
     }
 
     const sellDecision = buildAwhinaDecision({
@@ -1195,12 +1380,24 @@ export function processCanonicalAwhina(
     };
 
     if (sellDecisionFinal.requiresClarification && sellDecisionFinal.clarificationQuestion && !onSell) {
+      const now = Date.now();
       setActiveTask(scopeKey, "selling", {
         pendingClarification: {
           kind: "buy_vs_sell",
+          status: "open",
           priorMessage: trimmed,
-          askedAt: Date.now(),
+          askedAt: now,
+          createdAt: now,
+          sessionId: `clr_${now.toString(36)}`,
+          originatingTask: "selling",
+          originatingIntent: "listing_create",
         },
+      });
+      logClarificationLifecycle("opened", {
+        kind: "buy_vs_sell",
+        status: "open",
+        originatingTask: "selling",
+        originatingIntent: "listing_create",
       });
       return finish(
         {

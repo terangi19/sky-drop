@@ -12,6 +12,7 @@ import {
   parseSearchSort,
   parseHideSold,
   parseBrandStrict,
+  getSearchSession,
 } from "./awhina-search-memory";
 import {
   clearTaskScope,
@@ -35,6 +36,7 @@ import {
   polishAwhinaReplyStyle,
   progressStatesForRoute,
   maybeOneProactiveSuggestion,
+  sanitizeSearchQueryText,
 } from "./awhina-product-ux";
 import {
   resetAwhinaObsForTests,
@@ -93,6 +95,272 @@ describe("proactive shopping clarify", () => {
     });
     expect(r.navigateTo).toMatch(/maxPrice=600/);
     expect(r.source).not.toBe("clarify");
+  });
+});
+
+describe("pending search clarification continuation", () => {
+  it("1. need a mower → ask budget/location and store pending slots", () => {
+    const id = conv("mower-clarify-1");
+    const r = processCanonicalAwhina("need a mower", {
+      conversationId: id,
+      pathname: "/",
+    });
+    expect(r.source).toBe("clarify");
+    expect(r.tool).toBeUndefined();
+    expect(r.navigateTo).toBeUndefined();
+    expect(r.reply?.toLowerCase()).toMatch(/budget|city|pickup/);
+    const scope = getTaskScope(taskScopeKey({ conversationId: id }));
+    expect(scope?.task).toBe("shopping");
+    expect(scope?.pendingItem?.toLowerCase()).toMatch(/mower/);
+    expect(scope?.pendingClarification?.kind).toBe("search_slots");
+    expect(scope?.pendingClarification?.intent).toBe("marketplace_search");
+    expect(scope?.pendingClarification?.tool).toBe("searchListings");
+    expect(scope?.pendingClarification?.missingSlots).toEqual(
+      expect.arrayContaining(["budget", "location"])
+    );
+  });
+
+  it("2. yes → continue search flow (not restart / not search)", () => {
+    const id = conv("mower-clarify-2");
+    processCanonicalAwhina("need a mower", { conversationId: id, pathname: "/" });
+    const r = processCanonicalAwhina("yes", {
+      conversationId: id,
+      pathname: "/",
+    });
+    expect(r.source).toBe("clarify");
+    expect(r.tool).toBeUndefined();
+    expect(r.navigateTo).toBeUndefined();
+    expect(r.reply?.toLowerCase()).toMatch(/budget|city|pickup/);
+    expect(r.reply?.toLowerCase()).not.toMatch(/find mower yes/);
+    const scope = getTaskScope(taskScopeKey({ conversationId: id }));
+    expect(scope?.pendingClarification?.kind).toBe("search_slots");
+    expect(scope?.pendingItem?.toLowerCase()).toMatch(/mower/);
+  });
+
+  it("3. Auckland after yes → execute search", () => {
+    const id = conv("mower-clarify-3");
+    processCanonicalAwhina("need a mower", { conversationId: id, pathname: "/" });
+    processCanonicalAwhina("yes", { conversationId: id, pathname: "/" });
+    const r = processCanonicalAwhina("Auckland", {
+      conversationId: id,
+      pathname: "/",
+    });
+    expect(r.tool).toBe("searchListings");
+    expect(r.source).not.toBe("clarify");
+    expect(r.navigateTo?.toLowerCase()).toMatch(/mower/);
+    expect(r.navigateTo?.toLowerCase()).toMatch(/auckland/);
+    const scope = getTaskScope(taskScopeKey({ conversationId: id }));
+    expect(scope?.pendingClarification).toBeUndefined();
+    expect(scope?.pendingItem).toBeUndefined();
+  });
+
+  it("4. need a mower → ask; then find mower listings → execute immediately", () => {
+    const id = conv("mower-clarify-4");
+    const ask = processCanonicalAwhina("need a mower", {
+      conversationId: id,
+      pathname: "/",
+    });
+    expect(ask.source).toBe("clarify");
+    const r = processCanonicalAwhina("find mower listings", {
+      conversationId: id,
+      pathname: "/",
+    });
+    expect(r.tool).toBe("searchListings");
+    expect(r.source).not.toBe("clarify");
+    expect(r.navigateTo?.toLowerCase()).toMatch(/mower/);
+    expect(r.navigateTo?.toLowerCase()).not.toMatch(/find\+mower\+find/);
+  });
+
+  it("5. does not loop or restart on sure / okay / go ahead", () => {
+    for (const affirm of ["sure", "okay", "sounds good", "go ahead", "yep"]) {
+      const id = conv(`mower-affirm-${affirm}`);
+      processCanonicalAwhina("need a mower", { conversationId: id, pathname: "/" });
+      const r = processCanonicalAwhina(affirm, {
+        conversationId: id,
+        pathname: "/",
+      });
+      expect(r.source).toBe("clarify");
+      expect(r.tool).toBeUndefined();
+      expect(r.navigateTo).toBeUndefined();
+      expect(r.reply?.toLowerCase()).toMatch(/budget|city|pickup/);
+      expect(r.reply?.toLowerCase()).not.toMatch(/i can search for \*\*mower\*\*\. rough budget/);
+    }
+  });
+
+  it("6. open clarification has lifecycle status + sessionId", () => {
+    const id = conv("mower-lifecycle-status");
+    processCanonicalAwhina("need a mower", { conversationId: id, pathname: "/" });
+    const scope = getTaskScope(taskScopeKey({ conversationId: id }));
+    expect(scope?.pendingClarification?.status).toBe("open");
+    expect(scope?.pendingClarification?.sessionId).toBeTruthy();
+    expect(scope?.pendingClarification?.originatingTask).toBe("shopping");
+    expect(scope?.pendingClarification?.originatingIntent).toBe("marketplace_search");
+    expect(scope?.pendingClarification?.pendingTool).toBe("searchListings");
+    expect(scope?.pendingClarification?.knownEntities?.item?.toLowerCase()).toMatch(/mower/);
+  });
+});
+
+describe("exact clarification contamination conversation", () => {
+  it("phon 15 → mower → yes → find mower → cleaner → sell ps5", () => {
+    const id = conv("exact-contam-seq");
+
+    processCanonicalAwhina("phon 15 pro", { conversationId: id, pathname: "/" });
+
+    const mower = processCanonicalAwhina("need a mower", {
+      conversationId: id,
+      pathname: "/",
+    });
+    expect(mower.source).toBe("clarify");
+    expect(mower.tool).toBeUndefined();
+    let scope = getTaskScope(taskScopeKey({ conversationId: id }));
+    expect(scope?.pendingClarification?.status).toBe("open");
+    expect(scope?.pendingClarification?.item?.toLowerCase()).toMatch(/mower/);
+
+    const yes = processCanonicalAwhina("yes", { conversationId: id, pathname: "/" });
+    expect(yes.source).toBe("clarify");
+    expect(yes.tool).toBeUndefined();
+    expect(yes.navigateTo).toBeUndefined();
+    expect(JSON.stringify(yes).toLowerCase()).not.toMatch(/mower yes|find mower yes/);
+    expect(yes.reply?.toLowerCase()).toMatch(/budget|city|pickup/);
+
+    const find = processCanonicalAwhina("find mower listings", {
+      conversationId: id,
+      pathname: "/",
+    });
+    expect(find.tool).toBe("searchListings");
+    expect(find.navigateTo?.toLowerCase()).toMatch(/mower/);
+    expect(find.navigateTo?.toLowerCase()).not.toMatch(/yes/);
+    expect(find.navigateTo?.toLowerCase()).not.toMatch(/mower\+yes|mower%20yes|mower yes/);
+    scope = getTaskScope(taskScopeKey({ conversationId: id }));
+    expect(scope?.pendingClarification).toBeUndefined();
+
+    const cleaner = processCanonicalAwhina("want a cleaner", {
+      conversationId: id,
+      pathname: "/",
+    });
+    expect(cleaner.source).toBe("clarify");
+    expect(cleaner.tool).toBeUndefined();
+    scope = getTaskScope(taskScopeKey({ conversationId: id }));
+    expect(scope?.pendingClarification?.status).toBe("open");
+    expect(scope?.pendingClarification?.item?.toLowerCase()).toMatch(/cleaner/);
+    expect(scope?.pendingClarification?.item?.toLowerCase()).not.toMatch(/mower/);
+
+    const sell = processCanonicalAwhina("sell my ps5", {
+      conversationId: id,
+      pathname: "/",
+    });
+    expect(sell.intent).toMatch(/listing|sell|create/i);
+    expect(sell.tool).not.toBe("searchListings");
+    expect(JSON.stringify(sell.listingFill || {}).toLowerCase()).toMatch(/ps5|playstation/);
+    expect(JSON.stringify(sell.listingFill || {}).toLowerCase()).not.toMatch(/cleaner/);
+    expect(sell.navigateTo || "").not.toMatch(/cleaner/i);
+    expect(sell.reply?.toLowerCase() || "").not.toMatch(/cleaner sell|sell my ps5 listings/);
+    scope = getTaskScope(taskScopeKey({ conversationId: id }));
+    expect(scope?.pendingClarification).toBeUndefined();
+    expect(scope?.task).toBe("selling");
+    const search = getSearchSession(searchSessionKey({ conversationId: id }));
+    expect(search?.filters?.query?.toLowerCase() || "").not.toMatch(/cleaner/);
+  });
+});
+
+describe("clarification state-machine regressions A–E", () => {
+  it("A: mower → yes → Auckland searches mower Auckland without yes", () => {
+    const id = conv("reg-A-mower-yes-auckland");
+    processCanonicalAwhina("need a mower", { conversationId: id, pathname: "/" });
+    processCanonicalAwhina("yes", { conversationId: id, pathname: "/" });
+    const r = processCanonicalAwhina("Auckland", { conversationId: id, pathname: "/" });
+    expect(r.tool).toBe("searchListings");
+    expect(r.navigateTo?.toLowerCase()).toMatch(/mower/);
+    expect(r.navigateTo?.toLowerCase()).toMatch(/auckland/);
+    expect(r.navigateTo?.toLowerCase()).not.toMatch(/yes/);
+    expect(getTaskScope(taskScopeKey({ conversationId: id }))?.pendingClarification).toBeUndefined();
+  });
+
+  it("B: cleaner clarify → sell PS5 cancels cleaner (no cleaner in sell)", () => {
+    const id = conv("reg-B-cleaner-sell-ps5");
+    processCanonicalAwhina("want a cleaner", { conversationId: id, pathname: "/" });
+    expect(getTaskScope(taskScopeKey({ conversationId: id }))?.pendingClarification?.status).toBe(
+      "open"
+    );
+    const sell = processCanonicalAwhina("sell my ps5", { conversationId: id, pathname: "/" });
+    expect(sell.tool).not.toBe("searchListings");
+    expect(JSON.stringify(sell.listingFill || {}).toLowerCase()).toMatch(/ps5|playstation/);
+    expect(JSON.stringify(sell.listingFill || {}).toLowerCase()).not.toMatch(/cleaner/);
+    expect(sell.navigateTo || "").not.toMatch(/cleaner/i);
+    expect(getTaskScope(taskScopeKey({ conversationId: id }))?.pendingClarification).toBeUndefined();
+    expect(getTaskScope(taskScopeKey({ conversationId: id }))?.task).toBe("selling");
+  });
+
+  it("C: sell PS5 → find iPhone starts fresh search without PS5 bleed", () => {
+    const id = conv("reg-C-sell-ps5-find-iphone");
+    const sell = processCanonicalAwhina("sell my ps5", { conversationId: id, pathname: "/" });
+    expect(sell.listingFill || sell.tool).toBeTruthy();
+    const buy = processCanonicalAwhina("find iPhone", { conversationId: id, pathname: "/" });
+    expect(buy.tool).toBe("searchListings");
+    expect(buy.navigateTo?.toLowerCase()).toMatch(/iphone/);
+    expect(buy.navigateTo?.toLowerCase()).not.toMatch(/ps5|playstation/);
+    expect(JSON.stringify(buy.toolCall?.args || {}).toLowerCase()).not.toMatch(/ps5/);
+  });
+
+  it("D: rent trailer → sell switches to fresh sell without rental query contamination", () => {
+    const id = conv("reg-D-rent-trailer-sell");
+    const rent = processCanonicalAwhina("rent out my trailer $40/day Auckland", {
+      conversationId: id,
+      pathname: "/",
+    });
+    expect(rent.listingFill?.listingType === "rental" || rent.intent).toBeTruthy();
+    const sell = processCanonicalAwhina("sell my couch $200", {
+      conversationId: id,
+      pathname: "/",
+    });
+    expect(sell.tool).not.toBe("searchListings");
+    const fill = JSON.stringify(sell.listingFill || {}).toLowerCase();
+    expect(fill).toMatch(/couch/);
+    expect(fill).not.toMatch(/trailer/);
+    expect(sell.navigateTo || "").not.toMatch(/trailer/i);
+  });
+
+  it("E: service offer → need someone to mow switches to shopping clarify", () => {
+    const id = conv("reg-E-service-to-mow-need");
+    const offer = processCanonicalAwhina("I mow lawns for $50", {
+      conversationId: id,
+      pathname: "/",
+    });
+    expect(offer.listingFill?.listingType === "service" || offer.intent).toBeTruthy();
+    const need = processCanonicalAwhina("need someone to mow", {
+      conversationId: id,
+      pathname: "/",
+    });
+    // Shopping need — clarify or search, never keep selling service as the action
+    expect(need.tool).not.toBe("createListing");
+    expect(need.tool).not.toBe("updateListingDraft");
+    const blob = JSON.stringify(need).toLowerCase();
+    expect(blob).not.toMatch(/create listing.*lawn mowing.*\$50/);
+    if (need.source === "clarify") {
+      expect(need.reply?.toLowerCase()).toMatch(/budget|city|pickup|mow|lawn/);
+    } else if (need.tool === "searchListings") {
+      expect(need.navigateTo?.toLowerCase() || "").toMatch(/mow|lawn/);
+    }
+    expect(getTaskScope(taskScopeKey({ conversationId: id }))?.task).not.toBe("selling");
+  });
+
+  it("under 500 after mower yes fills maxPrice and searches", () => {
+    const id = conv("reg-under-500-slot");
+    processCanonicalAwhina("need a mower", { conversationId: id, pathname: "/" });
+    processCanonicalAwhina("yes", { conversationId: id, pathname: "/" });
+    const r = processCanonicalAwhina("under 500", { conversationId: id, pathname: "/" });
+    expect(r.tool).toBe("searchListings");
+    expect(r.navigateTo?.toLowerCase()).toMatch(/mower/);
+    expect(r.navigateTo || "").toMatch(/maxPrice=500|500/);
+    expect(r.navigateTo?.toLowerCase()).not.toMatch(/yes/);
+  });
+});
+
+describe("search query sanitization — acknowledgements are control tokens", () => {
+  it("sanitizeSearchQueryText strips yes/sure without touching quoted text", () => {
+    expect(sanitizeSearchQueryText("mower yes")).toBe("mower");
+    expect(sanitizeSearchQueryText('find "yes please kit" sure')).toMatch(/yes please kit/i);
+    expect(sanitizeSearchQueryText("mower sure okay")).toBe("mower");
   });
 });
 

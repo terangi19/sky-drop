@@ -270,11 +270,25 @@ export function resolveFindBrowseRoute(
 }
 
 export function extractFindSearchTerm(message: string): string {
-  const cleaned = message
+  // Preserve quoted product text while stripping dialogue control tokens
+  const preserved: string[] = [];
+  const withQuotes = message.replace(/"([^"]+)"|'([^']+)'/g, (_m, d, s) => {
+    const idx = preserved.length;
+    preserved.push(d || s || "");
+    return `__Q${idx}__`;
+  });
+  const cleaned = withQuotes
     .replace(
-      /\b(find me|find a|find an|show me|looking for|search for|want to buy|wanna buy|wanna|want a|want an|i want a|i want an|i want|need a|need an|i need a|i need an|i need|iso|in search of|hunting for|anyone selling|for sale)\b/gi,
+      /\b(find me|find a|find an|show me|looking for|search for|want to buy|wanna buy|wanna|want a|want an|i want a|i want an|i want|need someone(?:\s+to)?|need a|need an|i need a|i need an|i need|iso|in search of|hunting for|anyone selling|for sale)\b/gi,
       " "
     )
+    // Dialogue acknowledgements are control tokens — never search keywords
+    .replace(
+      /(^|\s)(yes|yep|yeah|yup|ya|ok|okay|sure|alright|all\s+right|sounds\s+good|go\s+ahead|please|cool)(?=\s|$|[.,!?])/gi,
+      " "
+    )
+    .replace(/\b(find|search|show|list)\s+listings?\b/gi, " ")
+    .replace(/\blistings?\b/gi, " ")
     .replace(
       /\b(?:under|up to|max|budget|less than|below|max(?:imum)?\s*price)\s*\$?\s*[\d,]+(?:\.\d+)?\s*k?\b/gi,
       " "
@@ -292,6 +306,10 @@ export function extractFindSearchTerm(message: string): string {
     .replace(/\$[\d,]+(?:\.\d{2})?/g, " ")
     .replace(/\b[\d,]+\s*k\b/gi, " ")
     .replace(NZ_CITIES, " ")
+    .replace(/__Q(\d+)__/g, (_m, i) => {
+      const text = preserved[Number(i)] || "";
+      return text ? ` ${text} ` : " ";
+    })
     .replace(/\s+/g, " ")
     .trim();
 

@@ -2,18 +2,57 @@
  * Task-scoped follow-up memory — selling vs shopping.
  * Prevents cross-contamination ("make it cheaper" → draft when selling, search when shopping).
  * Sticky SEARCH after want/looking/need/find until explicit sell/list language.
+ *
+ * Clarification is explicit state (status + originating task/tool/slots).
+ * Closed/cancelled/resolved clarifications must not influence future turns.
  */
 
 import { hasExplicitSellSwitch, hasSearchIntentLanguage } from "./sky-ai-intent";
 
 export type AwhinaActiveTask = "selling" | "shopping" | "help" | "none";
 
-/** Pending BUY vs SELL / listing-type clarification (do not re-ask). */
+/** Optional search refinements still needed after a proactive shopping clarify. */
+export type SearchMissingSlot = "budget" | "location" | "edition" | "condition";
+
+/** Lifecycle for pending clarification — never apply when not open. */
+export type ClarificationStatus = "open" | "resolved" | "cancelled" | "closed";
+
+/**
+ * Pending clarification — buy/sell/type OR shopping search slots.
+ * Affirmations (yes/sure) must continue this pending flow, not restart intent.
+ * When status ≠ open, ignore completely.
+ */
 export type PendingClarification = {
-  kind: "buy_vs_sell" | "listing_type";
+  kind: "buy_vs_sell" | "listing_type" | "search_slots";
+  /** Required for new clarifications; missing → treat as open (client back-compat). */
+  status?: ClarificationStatus;
   priorMessage: string;
   askedAt: number;
+  createdAt?: number;
+  /** Opaque session id for this clarification instance */
+  sessionId?: string;
+  originatingTask?: AwhinaActiveTask;
+  originatingIntent?: string;
+  pendingTool?: string;
+  /** Structured known facts (item, etc.) — never raw transcript concat */
+  knownEntities?: Record<string, string>;
+  /** search_slots: still-needed refinements */
+  missingSlots?: SearchMissingSlot[];
+  /** @deprecated prefer originatingIntent */
+  intent?: string;
+  /** @deprecated prefer pendingTool */
+  tool?: string;
+  /** search_slots: item to search for (also in knownEntities.item) */
+  item?: string;
 };
+
+export type ClarificationLifecycleEvent =
+  | "opened"
+  | "resolved"
+  | "cancelled"
+  | "task_switch"
+  | "discarded_entities"
+  | "canonical_query";
 
 export type TaskScopeSession = {
   task: AwhinaActiveTask;
@@ -138,6 +177,171 @@ export function setActiveTask(
 
 export function clearTaskScope(key: string): void {
   sessions.delete(key);
+}
+
+/** True only while clarification is open (missing status → open for back-compat). */
+export function isClarificationOpen(
+  pending?: PendingClarification | null
+): pending is PendingClarification {
+  if (!pending) return false;
+  const status = pending.status || "open";
+  return status === "open";
+}
+
+export function newClarificationSessionId(): string {
+  return `clr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** Open a shopping search-slot clarification (structured — no transcript concat). */
+export function buildOpenSearchSlotClarification(opts: {
+  priorMessage: string;
+  item: string;
+  missingSlots: SearchMissingSlot[];
+  originatingTask?: AwhinaActiveTask;
+}): PendingClarification {
+  const now = Date.now();
+  return {
+    kind: "search_slots",
+    status: "open",
+    priorMessage: opts.priorMessage.slice(0, 160),
+    askedAt: now,
+    createdAt: now,
+    sessionId: newClarificationSessionId(),
+    originatingTask: opts.originatingTask || "shopping",
+    originatingIntent: "marketplace_search",
+    pendingTool: "searchListings",
+    knownEntities: { item: opts.item },
+    missingSlots: opts.missingSlots,
+    intent: "marketplace_search",
+    tool: "searchListings",
+    item: opts.item,
+  };
+}
+
+/**
+ * Structured clarification lifecycle log — no raw user transcripts / PII.
+ */
+export function logClarificationLifecycle(
+  event: ClarificationLifecycleEvent,
+  meta: {
+    kind?: string;
+    status?: ClarificationStatus;
+    sessionId?: string;
+    originatingTask?: string;
+    originatingIntent?: string;
+    pendingTool?: string;
+    missingSlots?: string[];
+    knownEntityKeys?: string[];
+    discardedEntityKeys?: string[];
+    canonicalQuery?: string;
+    reason?: string;
+    toTask?: string;
+  }
+): void {
+  try {
+    console.info(
+      "[awhina:clarification]",
+      JSON.stringify({
+        event,
+        kind: meta.kind,
+        status: meta.status,
+        sessionId: meta.sessionId,
+        originatingTask: meta.originatingTask,
+        originatingIntent: meta.originatingIntent,
+        pendingTool: meta.pendingTool,
+        missingSlots: meta.missingSlots,
+        knownEntityKeys: meta.knownEntityKeys,
+        discardedEntityKeys: meta.discardedEntityKeys,
+        canonicalQuery: meta.canonicalQuery
+          ? meta.canonicalQuery.slice(0, 80)
+          : undefined,
+        reason: meta.reason,
+        toTask: meta.toTask,
+        ts: Date.now(),
+      })
+    );
+  } catch {
+    // never throw from observability
+  }
+}
+
+/** Cancel open clarification and log discarded entities. */
+export function cancelOpenClarification(
+  key: string,
+  opts?: {
+    reason?: string;
+    toTask?: AwhinaActiveTask;
+    clearPendingItem?: boolean;
+  }
+): TaskScopeSession | null {
+  const prior = getTaskScope(key);
+  if (!prior) return null;
+  const pending = prior.pendingClarification;
+  if (isClarificationOpen(pending)) {
+    const discarded = Object.keys(pending.knownEntities || {}).concat(
+      pending.item ? ["item"] : []
+    );
+    logClarificationLifecycle(opts?.toTask ? "task_switch" : "cancelled", {
+      kind: pending.kind,
+      status: "cancelled",
+      sessionId: pending.sessionId,
+      originatingTask: pending.originatingTask,
+      originatingIntent: pending.originatingIntent || pending.intent,
+      pendingTool: pending.pendingTool || pending.tool,
+      missingSlots: pending.missingSlots,
+      knownEntityKeys: discarded,
+      discardedEntityKeys: [...new Set(discarded)],
+      reason: opts?.reason || "explicit_intent",
+      toTask: opts?.toTask,
+    });
+    logClarificationLifecycle("discarded_entities", {
+      kind: pending.kind,
+      status: "cancelled",
+      sessionId: pending.sessionId,
+      discardedEntityKeys: [...new Set(discarded)],
+      reason: opts?.reason || "explicit_intent",
+    });
+  }
+  return setActiveTask(key, opts?.toTask || prior.task, {
+    pendingClarification: undefined,
+    pendingItem: opts?.clearPendingItem ? undefined : prior.pendingItem,
+    compareCandidates: prior.compareCandidates,
+  });
+}
+
+/** Mark clarification resolved and clear from session. */
+export function resolveOpenClarification(
+  key: string,
+  opts?: { canonicalQuery?: string; toTask?: AwhinaActiveTask }
+): TaskScopeSession | null {
+  const prior = getTaskScope(key);
+  if (!prior) return null;
+  const pending = prior.pendingClarification;
+  if (isClarificationOpen(pending)) {
+    logClarificationLifecycle("resolved", {
+      kind: pending.kind,
+      status: "resolved",
+      sessionId: pending.sessionId,
+      originatingTask: pending.originatingTask,
+      originatingIntent: pending.originatingIntent || pending.intent,
+      pendingTool: pending.pendingTool || pending.tool,
+      missingSlots: pending.missingSlots,
+      knownEntityKeys: Object.keys(pending.knownEntities || {}),
+      canonicalQuery: opts?.canonicalQuery,
+    });
+    if (opts?.canonicalQuery) {
+      logClarificationLifecycle("canonical_query", {
+        kind: pending.kind,
+        sessionId: pending.sessionId,
+        canonicalQuery: opts.canonicalQuery,
+      });
+    }
+  }
+  return setActiveTask(key, opts?.toTask || prior.task, {
+    pendingClarification: undefined,
+    pendingItem: undefined,
+    compareCandidates: prior.compareCandidates,
+  });
 }
 
 /** Relative price phrases that mean different things by task. */

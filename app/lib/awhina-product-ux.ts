@@ -8,13 +8,24 @@ import { extractFindSearchTerm, parseFindBudget, parseFindCity } from "./sky-ai-
 import { parseConditionFilter } from "./awhina-search-memory";
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
 import { normalizeServicePricingType } from "./service-pricing";
+import type { PendingClarification, SearchMissingSlot } from "./awhina-task-scope";
+import { isClarificationOpen } from "./awhina-task-scope";
+import {
+  hasExplicitSellSwitch,
+  hasListingSellIntent,
+  hasRentalOfferingIntent,
+  hasSearchIntentLanguage,
+  hasServiceOfferingIntent,
+} from "./sky-ai-intent";
 
 const NEED_RE =
-  /\b(i\s+need\s+(?:a|an|some)|looking for|want to buy|wanna buy|want a|want an|i want a|i want an|need a|need an|hunting for|anyone selling)\b/i;
+  /\b(i\s+need\s+(?:a|an|some|someone)|looking for|want to buy|wanna buy|want a|want an|i want a|i want an|need a|need an|need someone|hunting for|anyone selling)\b/i;
 
 const EDITION_RE = /\b(disc|digital|disk|slim|fat|bundle|with\s+games?|no\s+controller)\b/i;
 const CONDITION_HINT = /\b(new|used|like new|excellent|good|fair|refurbished|mint)\b/i;
 const DELIVERY_HINT = /\b(pickup|pick up|shipping|deliver(?:y|ed)?|postage)\b/i;
+const BARE_NZ_CITY_RE =
+  /^(only\s+)?(auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston north|new plymouth|rotorua|queenstown|invercargill|nelson|whangarei|gisborne)\s*(only)?$/i;
 
 const CONSOLE_RE = /\b(ps5|ps4|playstation|xbox(?:\s*series)?\s*[sx]?|nintendo\s*switch|switch)\b/i;
 const PHONE_RE = /\b(iphone|samsung|pixel|android\s*phone|galaxy)\b/i;
@@ -104,6 +115,7 @@ export function extractShoppingItem(message: string): string {
 export function buildProactiveShoppingClarify(message: string): {
   reply: string;
   item: string;
+  missingSlots: SearchMissingSlot[];
 } {
   const item = extractShoppingItem(message);
   const lower = item.toLowerCase();
@@ -111,22 +123,231 @@ export function buildProactiveShoppingClarify(message: string): {
   if (CONSOLE_RE.test(lower) || CONSOLE_RE.test(message)) {
     return {
       item,
+      missingSlots: ["edition", "budget"],
       reply: `Happy to help find a **${item}**. Disc or digital — and roughly what budget?`,
     };
   }
   if (PHONE_RE.test(lower) || PHONE_RE.test(message)) {
     return {
       item,
+      missingSlots: ["budget", "condition"],
       reply: `I can search for **${item}**. Rough budget, and new or used?`,
     };
   }
   return {
     item,
+    missingSlots: ["budget", "location"],
     reply: `I can search for **${item}**. Rough budget, or a city for pickup?`,
   };
 }
 
-/** True when the message answers a pending shopping clarification. */
+/**
+ * Dialogue acknowledgements are CONTROL TOKENS — never search keywords.
+ * yes/yep/yeah/yup/ok/okay/sure/go ahead/sounds good/alright/cool
+ */
+export function isSearchClarificationAffirmation(message: string): boolean {
+  const m = message.trim();
+  if (!m || m.length > 48) return false;
+  return /^(yes|yep|yeah|yup|ya|ok|okay|sure|alright|all right|sounds good|go ahead|please|cool|y|k)([.!?,]*)?(\s+please)?$/i.test(
+    m
+  );
+}
+
+/** Soft location parse — bare NZ city names count as location slots. */
+function parseSearchLocationSlot(message: string): string | undefined {
+  const city = parseFindCity(message);
+  if (city) return city;
+  const bare = message.trim().match(BARE_NZ_CITY_RE);
+  if (!bare?.[2]) return undefined;
+  return bare[2]
+    .split(/\s+/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+}
+
+/** Strip dialogue-only fragments from a search query; keep quoted product text. */
+export function sanitizeSearchQueryText(query: string): string {
+  if (!query) return query;
+  const preserved: string[] = [];
+  let q = query.replace(/"([^"]+)"|'([^']+)'/g, (_m, d, s) => {
+    const idx = preserved.length;
+    preserved.push(d || s || "");
+    return `__Q${idx}__`;
+  });
+  q = q
+    .replace(
+      /(^|\s)(yes|yep|yeah|yup|ya|ok|okay|sure|alright|all\s+right|sounds\s+good|go\s+ahead|please|cool)(?=\s|$|[.,!?])/gi,
+      " "
+    )
+    .replace(/\b(find|search|show|list)\s+listings?\b/gi, " ")
+    .replace(/\blistings?\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  q = q.replace(/__Q(\d+)__/g, (_m, i) => {
+    const text = preserved[Number(i)] || "";
+    return text ? `"${text}"` : "";
+  });
+  return q.replace(/\s+/g, " ").trim();
+}
+
+/** Explicit search execute while a shopping clarify is pending. */
+export function isExplicitPendingSearchExecute(
+  message: string,
+  pendingItem?: string
+): boolean {
+  const m = message.trim();
+  if (!m || isSearchClarificationAffirmation(m)) return false;
+  if (hasExplicitSellSwitch(m) || hasListingSellIntent(m)) return false;
+  if (hasServiceOfferingIntent(m) || hasRentalOfferingIntent(m)) return false;
+  if (/\b(find|search|show|list)\b/i.test(m) && /\blistings?\b/i.test(m)) return true;
+  if (pendingItem) {
+    const esc = pendingItem.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (
+      new RegExp(
+        `\\b(find|search(?:\\s+for)?|show)\\b[\\s\\S]*\\b${esc}\\b`,
+        "i"
+      ).test(m)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** High-confidence intent that must cancel an open clarification (NEW INTENT WINS). */
+export function detectPendingClarificationOverride(
+  message: string,
+  pending?: PendingClarification | null
+): null | {
+  reason: "sell" | "search" | "service" | "rental" | "new_shop_need";
+  toTask: "selling" | "shopping";
+} {
+  if (!isClarificationOpen(pending)) return null;
+  const m = message.trim();
+  if (!m) return null;
+  if (isSearchClarificationAffirmation(m)) return null;
+
+  // Slot fills continue the pending flow
+  if (
+    pending.kind === "search_slots" &&
+    (parseFindBudget(m) ||
+      parseSearchLocationSlot(m) ||
+      EDITION_RE.test(m) ||
+      CONDITION_HINT.test(m) ||
+      DELIVERY_HINT.test(m))
+  ) {
+    return null;
+  }
+  if (
+    pending.kind === "search_slots" &&
+    isExplicitPendingSearchExecute(m, pending.item || pending.knownEntities?.item)
+  ) {
+    return null;
+  }
+
+  if (hasServiceOfferingIntent(m)) return { reason: "service", toTask: "selling" };
+  if (hasRentalOfferingIntent(m)) return { reason: "rental", toTask: "selling" };
+  if (hasExplicitSellSwitch(m) || hasListingSellIntent(m)) {
+    return { reason: "sell", toTask: "selling" };
+  }
+
+  if (pending.kind === "search_slots" && isVagueShoppingNeed(m)) {
+    const newItem = extractShoppingItem(m).toLowerCase().trim();
+    const oldItem = (
+      pending.item ||
+      pending.knownEntities?.item ||
+      ""
+    )
+      .toLowerCase()
+      .trim();
+    if (
+      newItem &&
+      oldItem &&
+      newItem !== oldItem &&
+      !newItem.includes(oldItem) &&
+      !oldItem.includes(newItem)
+    ) {
+      return { reason: "new_shop_need", toTask: "shopping" };
+    }
+  }
+
+  // Explicit find/search language for a different product while buy/sell clarify open
+  if (
+    (pending.kind === "buy_vs_sell" || pending.kind === "listing_type") &&
+    hasSearchIntentLanguage(m)
+  ) {
+    return { reason: "search", toTask: "shopping" };
+  }
+
+  return null;
+}
+
+/** Which search slots this answer fills. */
+export function slotsFilledBySearchAnswer(message: string): SearchMissingSlot[] {
+  const m = message.trim();
+  const filled: SearchMissingSlot[] = [];
+  if (parseFindBudget(m) || /\b(under|up to|max|budget)\b/i.test(m)) {
+    filled.push("budget");
+  }
+  if (parseSearchLocationSlot(m)) filled.push("location");
+  if (EDITION_RE.test(m)) filled.push("edition");
+  if (CONDITION_HINT.test(m)) filled.push("condition");
+  return filled;
+}
+
+export function remainingSearchSlots(
+  missing: SearchMissingSlot[] | undefined,
+  answer: string
+): SearchMissingSlot[] {
+  const base = missing?.length ? missing : (["budget", "location"] as SearchMissingSlot[]);
+  const filled = new Set(slotsFilledBySearchAnswer(answer));
+  return base.filter((s) => !filled.has(s));
+}
+
+/** Any material slot from the pending set is enough to run search. */
+export function hasEnoughSearchSlotInfo(
+  missing: SearchMissingSlot[] | undefined,
+  answer: string
+): boolean {
+  const base = missing?.length ? missing : (["budget", "location"] as SearchMissingSlot[]);
+  return remainingSearchSlots(base, answer).length < base.length;
+}
+
+/** One follow-up for still-missing slots after an affirmation. */
+export function buildPendingSearchSlotAsk(
+  item: string,
+  missing: SearchMissingSlot[] | undefined
+): string {
+  const slots = missing?.length ? missing : (["budget", "location"] as SearchMissingSlot[]);
+  const label = item || "that";
+  if (slots.includes("edition") && slots.includes("budget")) {
+    return `Sure — disc or digital for the **${label}**, and roughly what budget?`;
+  }
+  if (slots.includes("budget") && slots.includes("condition")) {
+    return `Sure — what's your budget for the **${label}**, and new or used?`;
+  }
+  if (slots.includes("budget") && slots.includes("location")) {
+    return `Sure — what's your budget, or which city do you want to pick up from?`;
+  }
+  if (slots.includes("budget")) {
+    return `Sure — roughly what budget for the **${label}**?`;
+  }
+  if (slots.includes("location")) {
+    return `Sure — which city for pickup?`;
+  }
+  if (slots.includes("edition")) {
+    return `Sure — disc or digital?`;
+  }
+  if (slots.includes("condition")) {
+    return `Sure — new or used?`;
+  }
+  return `Sure — any budget or city for the **${label}**?`;
+}
+
+/**
+ * True when the message answers a pending shopping clarification with real slot data.
+ * Never treat sell/search/service/rental intent phrases as slot answers.
+ */
 export function isShoppingClarifyAnswer(
   message: string,
   pendingItem?: string
@@ -134,19 +355,59 @@ export function isShoppingClarifyAnswer(
   if (!pendingItem) return false;
   const m = message.trim();
   if (!m || m.length > 100) return false;
-  if (parseFindBudget(m) || parseFindCity(m) || EDITION_RE.test(m) || CONDITION_HINT.test(m)) {
+  if (isSearchClarificationAffirmation(m)) return false;
+  if (isExplicitPendingSearchExecute(m, pendingItem)) return false;
+  if (hasExplicitSellSwitch(m) || hasListingSellIntent(m)) return false;
+  if (hasServiceOfferingIntent(m) || hasRentalOfferingIntent(m)) return false;
+  if (isVagueShoppingNeed(m)) return false;
+  if (hasSearchIntentLanguage(m) && !parseFindBudget(m) && !parseSearchLocationSlot(m)) {
+    return false;
+  }
+  if (parseFindBudget(m) || parseSearchLocationSlot(m) || EDITION_RE.test(m) || CONDITION_HINT.test(m)) {
     return true;
   }
   if (DELIVERY_HINT.test(m)) return true;
-  if (m.split(/\s+/).length <= 6) return true;
+  // Short answers only when they look like slot values — not free intent phrases
+  if (m.split(/\s+/).length <= 6) {
+    if (/^(under|up to|max|budget|in|near|around)\b/i.test(m)) return true;
+    if (parseSearchLocationSlot(m) || parseFindBudget(m)) return true;
+    if (EDITION_RE.test(m) || CONDITION_HINT.test(m) || DELIVERY_HINT.test(m)) return true;
+    // Bare city / budget-ish tokens already covered; reject generic short messages
+    return false;
+  }
   return false;
 }
 
+/**
+ * Build a canonical find message from structured pending item + slot answer.
+ * Never concatenates acknowledgements or raw prior conversation.
+ */
 export function mergeClarifyIntoSearchMessage(
   pendingItem: string,
   answer: string
 ): string {
-  return `find ${pendingItem} ${answer}`.trim();
+  const item = sanitizeSearchQueryText(pendingItem).trim() || pendingItem.trim();
+  const a = answer.trim();
+  if (isSearchClarificationAffirmation(a) || isExplicitPendingSearchExecute(a, pendingItem)) {
+    return `find ${item}`.trim();
+  }
+  const budget = parseFindBudget(a);
+  const city = parseSearchLocationSlot(a);
+  const parts = [`find ${item}`];
+  if (budget) parts.push(`under ${budget}`);
+  if (city) parts.push(`in ${city}`);
+  const edition = a.match(EDITION_RE)?.[1];
+  if (edition) parts.push(edition);
+  const condition = a.match(CONDITION_HINT)?.[1];
+  if (condition && !edition) parts.push(condition);
+  // If structured extract found nothing material, sanitize residual answer text
+  if (parts.length === 1) {
+    const cleaned = sanitizeSearchQueryText(a);
+    if (cleaned && cleaned.toLowerCase() !== item.toLowerCase()) {
+      parts.push(cleaned);
+    }
+  }
+  return parts.join(" ").trim();
 }
 
 /** Marketplace education — messaging-first V1 only. No Buy Now / Stripe / escrow. Answer in place. */

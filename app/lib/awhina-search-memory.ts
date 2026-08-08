@@ -236,7 +236,15 @@ export function extractSearchRefinement(message: string): SearchSessionFilters {
         Boolean(condition) ||
         BARE_CITY_RE.test(message.trim()));
     if (!isPureRefine && !brand) {
-      filters.query = term;
+      // Never keep dialogue-only residue in the canonical query
+      const sanitized = term
+        .replace(
+          /(^|\s)(yes|yep|yeah|yup|ok|okay|sure|alright|cool|please)(?=\s|$)/gi,
+          " "
+        )
+        .replace(/\s+/g, " ")
+        .trim();
+      if (sanitized.length >= 2) filters.query = sanitized;
     }
   }
 
