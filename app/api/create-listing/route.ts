@@ -220,7 +220,38 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (!title || !description) {
+    if (listingType === "wanted" && !description) {
+      description = title || "";
+    }
+
+    const typeValidation = validateListingForPublish({
+      listingType,
+      type: listingType,
+      title,
+      description,
+      price,
+      category,
+      location: body.location || clientData.location,
+      condition: body.condition || clientData.condition,
+      servicePricingType: body.servicePricingType || clientData.servicePricingType,
+      pricingType: body.pricingType || clientData.pricingType,
+      rentalSubType: body.rentalSubType || clientData.rentalSubType,
+      rentalRatePeriod: body.rentalRatePeriod || clientData.rentalRatePeriod,
+      rentalPriceWeekly: body.rentalPriceWeekly || clientData.rentalPriceWeekly,
+      rentalPriceMonthly: body.rentalPriceMonthly || clientData.rentalPriceMonthly,
+      vehicleMake: body.vehicleMake || clientData.vehicleMake,
+      vehicleModel: body.vehicleModel || clientData.vehicleModel,
+      vehicleYear: body.vehicleYear || clientData.vehicleYear,
+      vehicleOdometer: body.vehicleOdometer || clientData.vehicleOdometer,
+    });
+    if (!typeValidation.ok) {
+      return NextResponse.json({ error: typeValidation.errors[0], errors: typeValidation.errors }, { status: 400 });
+    }
+
+    if (!title) {
+      return NextResponse.json({ error: "Title is required" }, { status: 400 });
+    }
+    if (listingType !== "wanted" && !description) {
       return NextResponse.json({ error: "Title and description are required" }, { status: 400 });
     }
 
