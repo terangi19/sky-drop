@@ -10,7 +10,8 @@ import { getFreshIdToken } from "../../lib/api-auth";
 import TurnstileWidget from "../../components/TurnstileWidget";
 import { getTurnstileSiteKey } from "../../lib/turnstile";
 
-const WANTED_CATEGORIES = ["Items", "Services", "Rentals", "Vehicles"];
+import { WANTED_LISTING_CATEGORIES } from "../../lib/listing-type-config";
+const WANTED_CATEGORIES = [...WANTED_LISTING_CATEGORIES];
 
 export default function WantedCreatePage() {
   const router = useRouter();
@@ -57,7 +58,7 @@ export default function WantedCreatePage() {
         body: JSON.stringify({
           turnstileToken,
           title,
-          description,
+          description: description.trim() || title,
           price: String(budget),
           category,
           location,
@@ -67,8 +68,7 @@ export default function WantedCreatePage() {
           paymentType: "contact",
           pickupAvailable: false,
           shippingAvailable: false,
-          acceptOffers: false,
-          saleType: "buy_now",
+          acceptOffers: false,
           expiresInDays: 30,
         }),
       });

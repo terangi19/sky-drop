@@ -46,6 +46,11 @@ import {
   formatListingPriceMeta,
   formatRentalRate,
 } from "../../../lib/listing-price-display";
+import {
+  listingSupportsCondition,
+  isMessagingOnlyListingType,
+  messageCtaLabel,
+} from "../../../lib/listing-type-config";
 import { sendMessage } from "../../../lib/api-send-message";
 import ListingImage from "../../../components/ListingImage";
 import { paymentMethodSummary, primaryPurchaseLabel, purchaseButtonTitle, shortPurchaseLabel } from "../../../lib/purchase-button-labels";
@@ -1346,16 +1351,9 @@ export default function ListingPage() {
             <div className="flex flex-wrap items-baseline gap-3">
               {listing.type === "service" && <ServicePricingBadge listing={listing} />}
               <span className="text-3xl font-bold text-[var(--foreground)] tracking-tight sm:text-4xl">
-                {listing.type === "service" || listing.type === "rental"
-                  ? formatListingPriceDisplay(listing)
-                  : listing.pricingType === "quote"
-                    ? "Contact Seller for Quote"
-                    : listing.price
-                      ? `$${listing.price}`
-                      : "Price on request"}
+                {formatListingPriceDisplay(listing)}
               </span>
-              {(listing.type === "service" || listing.type === "rental") &&
-                formatListingPriceMeta(listing) && (
+              {formatListingPriceMeta(listing) && (
                   <span className="text-sm text-[var(--muted)]">
                     {formatListingPriceMeta(listing)}
                   </span>
@@ -1875,8 +1873,26 @@ Property Status: 🟢 Inquiry Active`;
             </div>
             )}
 
+            {/* 5a. WANTED RESPONDER CTA */}
+            {listing.type === "wanted" && isListingVisibleInMarketplace(listing) && !isExpired && (
+            <div className="flex flex-col gap-2">
+              {user && user.email !== listing.sellerEmail ? (
+                <Link
+                  href={listingMessageSellerHref(listing, "wanted-detail")}
+                  className="btn btn-primary w-full h-14 text-base flex items-center justify-center"
+                >
+                  {listingPrimaryCtaLabel(listing)}
+                </Link>
+              ) : !user ? (
+                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="btn btn-primary w-full h-11">
+                  Sign in to respond
+                </button>
+              ) : null}
+            </div>
+            )}
+
             {/* 5. BUY BUTTONS */}
-            {isListingAvailableForPurchase(listing) && !isExpired && listing.type !== "service" && listing.type !== "job" && listing.type !== "property" && listing.type !== "rental" && !(listing.type === "digital" && listing.pricingType === "quote") && canShowBuyerPurchaseCta && (
+            {isListingAvailableForPurchase(listing) && !isExpired && listing.type !== "service" && listing.type !== "job" && listing.type !== "property" && listing.type !== "rental" && listing.type !== "wanted" && !(listing.type === "digital" && listing.pricingType === "quote") && canShowBuyerPurchaseCta && (
             <div ref={nativeActionsRef} className="flex flex-col gap-2">
               {listing.isDemo ? (
                 <div className="w-full">
@@ -1930,7 +1946,7 @@ Property Status: 🟢 Inquiry Active`;
                         e.stopPropagation();
                         void openPurchaseFlow("primary-desktop");
                       }}
-                      title={stripeDisabledV1 ? "Message Seller" : purchaseButtonTitle(effectivePaymentType)}
+                      title={stripeDisabledV1 ? listingPrimaryCtaLabel(listing) : purchaseButtonTitle(effectivePaymentType)}
                       className="btn btn-primary w-full h-14 text-base"
                     >
                       <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1940,7 +1956,7 @@ Property Status: 🟢 Inquiry Active`;
                           <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                         )}
                       </svg>
-                      {stripeDisabledV1 ? "Message Seller" : primaryPurchaseLabel({
+                      {stripeDisabledV1 ? listingPrimaryCtaLabel(listing) : primaryPurchaseLabel({
                         paymentType: effectivePaymentType,
                         price: listing.price,
                         pricingType: listing.pricingType as string | undefined,
@@ -2701,10 +2717,10 @@ Service Status: 🟢 Inquiry Active`;
           {user ? (
             <button
               onClick={() => void openPurchaseFlow("sticky-mobile")}
-              title={stripeDisabledV1 ? "Message Seller" : purchaseButtonTitle(effectivePaymentType)}
+              title={stripeDisabledV1 ? listingPrimaryCtaLabel(listing) : purchaseButtonTitle(effectivePaymentType)}
               className="btn btn-primary flex-1 min-h-[48px]"
             >
-              {stripeDisabledV1 ? "Message Seller" : primaryPurchaseLabel({
+              {stripeDisabledV1 ? listingPrimaryCtaLabel(listing) : primaryPurchaseLabel({
                 paymentType: effectivePaymentType,
                 price: listing.price,
                 pricingType: listing.pricingType as string | undefined,

@@ -261,8 +261,17 @@ describe("category-aware description snapshots", () => {
         price: "60",
         servicePricingType: "hourly",
       },
-      must: [/Lawn Mowing|lawn mowing/i, /Hamilton/, /\$60/, /hour/i],
-      never: [/Condition:/i, /insured|fully equipped/i],
+      must: [/Lawn Mowing|lawn mowing/i, /Hamilton/, /\$60 per hour/i],
+      never: [
+        /Condition:/i,
+        /insured|fully equipped|licensed|years of experience/i,
+        /Priced at/i,
+        /for local jobs/i,
+        /Tell me roughly what you need/i,
+        /Happy to chat about what you need/i,
+        META_PHRASE_SMELLS,
+        UNGROUNDED_CLAIM_SMELLS,
+      ],
     },
     {
       name: "property rental",
@@ -331,6 +340,97 @@ describe("category-aware description snapshots", () => {
       )
     ).toBe(false);
   });
+
+  it("rejects product-templated service smells and invented credentials", () => {
+    expect(
+      isRoboticListingDescription(
+        "Lawn Mowing for local jobs. Priced at $50. Happy to chat about what you need. Tell me roughly what you need and I can confirm timing and scope."
+      )
+    ).toBe(true);
+    expect(
+      isRoboticListingDescription(
+        "Lawn mowing available in Hamilton for $50 per job. Fully insured with 10 years of experience. Message for a booking."
+      )
+    ).toBe(true);
+  });
+});
+
+describe("service listing description snapshots", () => {
+  function assertOneSoftCta(desc: string) {
+    const invites = desc.match(
+      /\b(send me a message|message with|drop me a message|feel free to send|happy to chat about what you need|tell me roughly)\b/gi
+    );
+    expect((invites || []).length).toBeLessThanOrEqual(1);
+  }
+
+  const serviceCases: Array<{ name: string; fill: SkyAiListingFill; must: RegExp[]; never: RegExp[] }> =
+    [
+      {
+        name: "fixed price lawn mowing",
+        fill: {
+          title: "Lawn Mowing",
+          listingType: "service",
+          category: "Trades & Repairs",
+          location: "Hamilton",
+          price: "50",
+          servicePricingType: "fixed",
+        },
+        must: [/lawn mowing/i, /Hamilton/, /\$50 per job/i],
+        never: [/Priced at/i, /per hour/i, /for local jobs/i, /insured|licensed|years of experience/i],
+      },
+      {
+        name: "hourly handyman",
+        fill: {
+          title: "Handyman",
+          listingType: "service",
+          category: "Trades & Repairs",
+          location: "Auckland",
+          price: "65",
+          servicePricingType: "hourly",
+        },
+        must: [/Handyman|handyman/i, /Auckland/, /\$65 per hour/i],
+        never: [/Priced at/i, /per job/i, /for local jobs/i, /fully equipped|guaranteed/i],
+      },
+      {
+        name: "quote required cleaning",
+        fill: {
+          title: "House Cleaning",
+          listingType: "service",
+          category: "Cleaning & Maintenance",
+          location: "Wellington",
+          servicePricingType: "request_quote",
+        },
+        must: [/House Cleaning|house cleaning|cleaning/i, /Wellington/, /quote/i],
+        never: [/Priced at/i, /\$\d+ per (job|hour)/i, /for local jobs/i, /insured|bonded/i],
+      },
+      {
+        name: "tutoring with duration fact",
+        fill: {
+          title: "Maths Tutoring",
+          listingType: "service",
+          category: "Tutoring & Lessons",
+          location: "Christchurch",
+          price: "40",
+          servicePricingType: "hourly",
+          serviceDuration: "1 hour",
+        },
+        must: [/Maths Tutoring|tutoring/i, /Christchurch/, /\$40 per hour/i, /1 hour/i],
+        never: [/Priced at/i, /for local jobs/i, /qualified|certified|years of experience/i],
+      },
+    ];
+
+  for (const c of serviceCases) {
+    it(`${c.name} snapshot`, () => {
+      const desc = buildListingDescriptionFromFacts(c.fill);
+      assertNaturalMarketplaceCopy(desc);
+      assertOneSoftCta(desc);
+      for (const re of c.must) expect(desc).toMatch(re);
+      for (const re of c.never) expect(desc).not.toMatch(re);
+      expect(desc).not.toMatch(META_PHRASE_SMELLS);
+      expect(desc).not.toMatch(UNGROUNDED_CLAIM_SMELLS);
+      expect(desc).toMatchSnapshot();
+    });
+  }
 });
 
 describe("sparse listings stay grounded", () => {

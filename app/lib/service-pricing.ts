@@ -18,6 +18,11 @@ export const SERVICE_PRICING_OPTIONS: {
     hint: "Charge per hour — e.g. handyman $60/hr",
   },
   {
+    value: "from",
+    label: "From Price",
+    hint: "Starting from — e.g. from $80",
+  },
+  {
     value: "request_quote",
     label: "Quote Required",
     hint: "Custom jobs — buyers contact you for a quote",
@@ -35,11 +40,17 @@ export function normalizeServicePricingType(
     if (
       lower === "hourly" ||
       lower === "hourly rate" ||
-      lower === "per hour" ||
-      lower === "starting_at" ||
-      lower === "starting_from"
+      lower === "per hour"
     ) {
       return "hourly";
+    }
+    if (
+      lower === "from" ||
+      lower === "starting_at" ||
+      lower === "starting_from" ||
+      lower === "from_price"
+    ) {
+      return "from";
     }
     if (
       lower === "quote" ||
@@ -71,7 +82,7 @@ export function normalizeServicePricingType(
 }
 
 export function servicePriceRequired(pricingType: ServicePricingType): boolean {
-  return pricingType === "fixed" || pricingType === "hourly";
+  return pricingType === "fixed" || pricingType === "hourly" || pricingType === "from";
 }
 
 export function offersDisabledForService(pricingType?: string | null): boolean {
@@ -93,6 +104,9 @@ export function formatServicePriceDisplay(listing: {
   if (type === "request_quote") return "Contact for quote";
   if (type === "hourly") {
     return price ? `$${price} / hr` : "Hourly rate on request";
+  }
+  if (type === "from") {
+    return price ? `From $${price}` : "From price on request";
   }
   if (!price) return "Contact for price";
   return `$${price}`;

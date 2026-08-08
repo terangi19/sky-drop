@@ -275,11 +275,18 @@ export function hasListingSellIntent(message: string): boolean {
 /** Infer listing type for a sell turn from free text (service / rental / physical). */
 export function inferSellListingTypeHint(
   message: string
-): "service" | "rental" | "physical" | undefined {
+): "service" | "rental" | "physical" | "vehicle" | undefined {
   const m = message.trim();
   if (!m) return undefined;
   if (hasServiceOfferingIntent(m)) return "service";
   if (hasRentalOfferingIntent(m)) return "rental";
+  if (
+    YEAR_MAKE.test(m) ||
+    (/\b(sell|selling|for sale)\b/i.test(m) &&
+      /\b(car|vehicle|ute|van|truck|motorcycle|bmw|toyota|mazda|ford|honda|nissan|holden|subaru)\b/i.test(m))
+  ) {
+    return "vehicle";
+  }
   if (SELL_RE.test(m) || /\bfor sale\b/i.test(m)) return "physical";
   return undefined;
 }

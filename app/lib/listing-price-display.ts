@@ -4,6 +4,11 @@
  */
 
 import {
+  DEFAULT_RENTAL_RATE_PERIOD,
+  messageCtaLabel,
+  type RentalRatePeriod,
+} from "./listing-type-config";
+import {
   formatServicePriceDisplay,
   normalizeServicePricingType,
 } from "./service-pricing";
@@ -14,8 +19,10 @@ export type ListingPriceFields = {
   pricingType?: string | null;
   servicePricingType?: string | null;
   rentalSubType?: string | null;
+  rentalRatePeriod?: string | null;
   rentalPriceWeekly?: string | number | null;
   rentalPriceMonthly?: string | number | null;
+  rentalPriceHourly?: string | number | null;
   rentalDeposit?: string | number | null;
   rentalAvailableDate?: string | null;
 };
@@ -23,11 +30,42 @@ export type ListingPriceFields = {
 function money(value: string | number | null | undefined): string {
   if (value == null || String(value).trim() === "") return "";
   const n = Number(String(value).replace(/[$,]/g, ""));
-  if (!Number.isFinite(n)) return String(value).replace(/^\$/, "");
+  if (!Number.isFinite(n)) return String(value).replace(/^$/, "");
   return Number.isInteger(n) ? String(n) : n.toFixed(2);
 }
 
-/** Alias — service fixed / hourly / quote. */
+function periodLabel(period: RentalRatePeriod): string {
+  switch (period) {
+    case "hour":
+      return "hour";
+    case "week":
+      return "week";
+    case "month":
+      return "month";
+    case "day":
+    default:
+      return "day";
+  }
+}
+
+/** Resolve rental rate period. Equipment/vehicle default: daily when only `price` is set. */
+export function resolveRentalRatePeriod(listing: ListingPriceFields): RentalRatePeriod {
+  const raw = (listing.rentalRatePeriod || "").toLowerCase().trim();
+  if (raw === "hour" || raw === "hourly" || raw === "/hour" || raw === "/hr") return "hour";
+  if (raw === "week" || raw === "weekly" || raw === "/week") return "week";
+  if (raw === "month" || raw === "monthly" || raw === "/month") return "month";
+  if (raw === "day" || raw === "daily" || raw === "/day") return "day";
+
+  const sub = (listing.rentalSubType || "").toLowerCase();
+  if (sub === "property") {
+    if (money(listing.rentalPriceWeekly)) return "week";
+    if (money(listing.rentalPriceMonthly)) return "month";
+  }
+  if (money(listing.rentalPriceHourly) && !money(listing.price)) return "hour";
+  return DEFAULT_RENTAL_RATE_PERIOD;
+}
+
+/** Alias — service fixed / hourly / from / quote. */
 export function formatServicePrice(listing: ListingPriceFields): string {
   return formatServicePriceDisplay({
     price: listing.price,
@@ -40,45 +78,68 @@ export function formatRentalRate(listing: ListingPriceFields): string {
   return formatRentalPriceDisplay(listing);
 }
 
-/** Primary price line, e.g. "$80 / day", "$50", "$120 / hr", "Contact for quote". */
+/** Wanted budget line — never "Price: $X". */
+export function formatWantedBudget(listing: ListingPriceFields): string {
+  const p = money(listing.price);
+  if (!p || p === "0") return "Budget on request";
+  return `Budget: Up to $${p}`;
+}
+
+/** Primary price line. */
 export function formatListingPriceDisplay(listing: ListingPriceFields): string {
   const type = (listing.type || "physical").toLowerCase();
 
+  if (type === "wanted") return formatWantedBudget(listing);
   if (type === "service") return formatServicePrice(listing);
-
-  if (type === "rental" || type === "property") {
-    return formatRentalRate(listing);
-  }
+  if (type === "rental" || type === "property") return formatRentalRate(listing);
 
   if (listing.pricingType === "quote") return "Contact Seller for Quote";
   const p = money(listing.price);
   return p ? `$${p}` : "Price on request";
 }
 
-/** Equipment/vehicle: daily `price`. Property: weekly rent when present. */
 export function formatRentalPriceDisplay(listing: ListingPriceFields): string {
   const weekly = money(listing.rentalPriceWeekly);
-  const daily = money(listing.price);
   const monthly = money(listing.rentalPriceMonthly);
+  const hourly = money(listing.rentalPriceHourly);
+  const primary = money(listing.price);
   const sub = (listing.rentalSubType || "").toLowerCase();
+  const period = resolveRentalRatePeriod(listing);
 
-  if (sub === "property" || (weekly && !daily)) {
+  if (sub === "property" || (weekly && !primary && period !== "day" && period !== "hour")) {
     if (weekly) return `$${weekly} / week`;
     if (monthly) return `$${monthly} / month`;
-    if (daily) return `$${daily} / day`;
+    if (primary) return `$${primary} / ${periodLabel(period)}`;
     return "Rate on request";
   }
 
-  if (daily) return `$${daily} / day`;
+  if (period === "hour") {
+    const amt = hourly || primary;
+    return amt ? `$${amt} / hour` : "Rate on request";
+  }
+  if (period === "week") {
+    const amt = weekly || primary;
+    return amt ? `$${amt} / week` : "Rate on request";
+  }
+  if (period === "month") {
+    const amt = monthly || primary;
+    return amt ? `$${amt} / month` : "Rate on request";
+  }
+
+  if (primary) return `$${primary} / day`;
   if (weekly) return `$${weekly} / week`;
   if (monthly) return `$${monthly} / month`;
+  if (hourly) return `$${hourly} / hour`;
   return "Rate on request";
 }
 
-/** Secondary meta under price: deposit, availability, weekly/monthly extras. */
 export function formatListingPriceMeta(listing: ListingPriceFields): string {
   const type = (listing.type || "").toLowerCase();
   const parts: string[] = [];
+
+  if (type === "wanted") {
+    return "Wanted";
+  }
 
   if (type === "rental" || type === "property") {
     const deposit = money(listing.rentalDeposit);
@@ -90,10 +151,11 @@ export function formatListingPriceMeta(listing: ListingPriceFields): string {
     const weekly = money(listing.rentalPriceWeekly);
     const monthly = money(listing.rentalPriceMonthly);
     const daily = money(listing.price);
-    if (sub !== "property" && daily && weekly) {
+    const period = resolveRentalRatePeriod(listing);
+    if (sub !== "property" && daily && weekly && period === "day") {
       parts.push(`$${weekly}/wk`);
     }
-    if (sub !== "property" && daily && monthly) {
+    if (sub !== "property" && daily && monthly && period === "day") {
       parts.push(`$${monthly}/mo`);
     }
   }
@@ -104,6 +166,7 @@ export function formatListingPriceMeta(listing: ListingPriceFields): string {
       listing.price
     );
     if (pricing === "hourly") parts.push("Hourly");
+    else if (pricing === "from") parts.push("From");
     else if (pricing === "request_quote") parts.push("Quote required");
     else if (pricing === "fixed") parts.push("Fixed price");
   }
@@ -124,9 +187,10 @@ export function listingPrimaryCtaLabel(listing: {
       listing.price
     );
     if (pricing === "request_quote") return "Request Quote";
-    return "Message Provider";
+    return messageCtaLabel("service");
   }
-  if (type === "rental" || type === "property") return "Message Owner";
+  if (type === "rental" || type === "property") return messageCtaLabel("rental");
+  if (type === "wanted") return messageCtaLabel("wanted");
   if (listing.pricingType === "quote") return "Request Quote";
-  return "Message Seller";
+  return messageCtaLabel(type || "physical");
 }

@@ -39,6 +39,8 @@ export type ListingComposeSeed = {
   vehicleTransmission?: string;
   vehicleFuelType?: string;
   vehicleBodyType?: string;
+  servicePricingType?: string;
+  serviceDuration?: string;
   quality?: ListingDescriptionQuality;
 };
 
@@ -140,6 +142,8 @@ export function composeListingTitleAndDescription(
     vehicleTransmission: seed.vehicleTransmission,
     vehicleFuelType: seed.vehicleFuelType,
     vehicleBodyType: seed.vehicleBodyType,
+    servicePricingType: seed.servicePricingType,
+    serviceDuration: seed.serviceDuration,
   };
 
   const quality = seed.quality ?? "premium_plus";

@@ -10,6 +10,20 @@ import { useAuth } from "../contexts/AuthContext";
 import { listingBuyHref } from "../lib/buy-listing-route";
 import { listingPrimaryActionHref } from "../lib/listing-message-href";
 import { isStripeCheckoutVisibleClient } from "../lib/stripe-checkout-flags";
+import {
+  getComparableListingPrice,
+  listingMatchesPriceFilter,
+  listingMatchesConditionFilter,
+  listingMatchesSaleTypeFilter,
+  listingMatchesServicePricingFilter,
+  listingMatchesRentalRatePeriodFilter,
+} from "../lib/listing-search-filters";
+import {
+  listingSupportsCondition,
+  listingSupportsSaleType,
+  listingSupportsServicePricingFilter,
+  listingSupportsRentalRatePeriodFilter,
+} from "../lib/listing-type-config";
 import { isListingVisibleInMarketplace } from "../lib/listing-availability";
 import { adjustListingWatchlistCount } from "../lib/listing-watchlist-count";
 import { rankListingsBySearch } from "../lib/marketplace-fuzzy-search";
@@ -49,6 +63,9 @@ export default function SearchPage() {
   const [location, setLocation] = useState("");
   const [sortBy, setSortBy] = useState("newest");
   const [saleType, setSaleType] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [servicePricingFilter, setServicePricingFilter] = useState("all");
+  const [rentalPeriodFilter, setRentalPeriodFilter] = useState("all");
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [searchSaved, setSearchSaved] = useState(false);
   const urlFilterState = useMemo(
@@ -233,29 +250,35 @@ export default function SearchPage() {
     const searchIntent = query ? processVoiceSearchTranscript(heardRaw || query) : null;
 
     let base = listings.filter((listing) => {
-      const price = Number(listing.price) || 0;
-      const matchesMinPrice = !minPrice || price >= Number(minPrice);
-      const matchesMaxPrice = !maxPrice || price <= Number(maxPrice);
-      const matchesCondition = condition === "all" || listing.condition === condition;
+      const matchesPrice = listingMatchesPriceFilter(listing, minPrice, maxPrice);
+      const matchesCondition = listingMatchesConditionFilter(listing, condition);
       const matchesLocation =
         !location || listing.location?.toLowerCase().includes(location.toLowerCase());
-      const matchesSaleType =
-        saleType === "all" ||
-        (saleType === "auction"
-          ? listing.saleType === "auction" || listing.saleType === "auction_buy_now"
-          : listing.saleType === saleType);
+      const matchesSaleType = listingMatchesSaleTypeFilter(listing, saleType);
       const matchesCategory =
         !categoryFilter ||
         categoryFilter === "all" ||
         listing.category?.toLowerCase() === categoryFilter.toLowerCase();
+      const matchesType =
+        typeFilter === "all" || (listing.type || "physical") === typeFilter;
+      const matchesServicePricing = listingMatchesServicePricingFilter(
+        listing,
+        servicePricingFilter
+      );
+      const matchesRentalPeriod = listingMatchesRentalRatePeriodFilter(
+        listing,
+        rentalPeriodFilter
+      );
 
       return (
-        matchesMinPrice &&
-        matchesMaxPrice &&
+        matchesPrice &&
         matchesCondition &&
         matchesLocation &&
         matchesSaleType &&
         matchesCategory &&
+        matchesType &&
+        matchesServicePricing &&
+        matchesRentalPeriod &&
         isListingVisibleInMarketplace(listing)
       );
     });
@@ -293,7 +316,7 @@ export default function SearchPage() {
       });
     }
     return sorted;
-  }, [listings, query, heardRaw, categoryFilter, minPrice, maxPrice, condition, location, sortBy, saleType]);
+  }, [listings, query, heardRaw, categoryFilter, minPrice, maxPrice, condition, location, sortBy, saleType, typeFilter, servicePricingFilter, rentalPeriodFilter]);
 
   const sellerReviewStats: Record<string, { avg: number; count: number }> = {};
   const sellerBadges: Record<string, string> = {};
@@ -386,7 +409,7 @@ export default function SearchPage() {
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             {/* Price Range */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">Price Range</label>
+              <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">{typeFilter === "wanted" ? "Budget" : typeFilter === "rental" ? "Rate" : "Price Range"}</label>
               <div className="flex items-center gap-2">
                 <input
                   type="number"

@@ -4,7 +4,7 @@
  * `ServiceQuoteRecord` is the canonical shape for a future `service_quotes` collection.
  */
 
-export type ServicePricingType = "fixed" | "hourly" | "request_quote";
+export type ServicePricingType = "fixed" | "hourly" | "from" | "request_quote";
 
 export type ServiceDeliveryMethod = "online" | "in_person" | "both";
 

@@ -13,6 +13,7 @@ import { verifyTurnstileToken, isTurnstileConfigured } from "../../lib/turnstile
 import { trackAndCheckAbuse } from "../../lib/abuse-tracker";
 import { createSystemNotification } from "../../lib/system-notifications";
 import { resolveListingType } from "../../lib/listing-types";
+import { validateListingForPublish } from "../../lib/listing-validation";
 import { runMatchmaking } from "../../lib/sky-ai-matchmaking";
 import { stripeListingPublishErrorAsync } from "../../lib/stripe-connect-account";
 
@@ -136,7 +137,7 @@ export async function POST(req: NextRequest) {
       "startingBid", "reservePrice", "auctionEndsAt",
       "digitalStoragePath", "digitalFileName",
       "serviceDuration", "servicePricingType",
-      "rentalSubType", "rentalPriceWeekly", "rentalPriceMonthly", "rentalDeposit",
+      "rentalSubType", "rentalRatePeriod", "rentalPriceHourly", "rentalPriceWeekly", "rentalPriceMonthly", "rentalDeposit",
       "rentalBedrooms", "rentalBathrooms", "rentalParkingSpaces", "rentalPropertyType", "rentalFurnishedStatus", "rentalPetsPolicy", "rentalMinTenancy", "rentalFeatures", "rentalAvailableDate",
       "rentalVehicleSeats",
       "eventDate", "eventTime", "venue", "ticketQuantity", "ticketType",
@@ -298,6 +299,15 @@ export async function POST(req: NextRequest) {
       // }
     }
 
+    // V1 messaging-only types never inherit Stripe/checkout payment
+    if (["service", "rental", "wanted", "property", "job"].includes(String(listingType))) {
+      clientData.paymentType = "contact";
+      delete clientData.saleType;
+      if (listingType === "wanted") {
+        delete clientData.condition;
+        delete clientData.acceptOffers;
+      }
+    }
     const requestedPaymentType = String(clientData.paymentType || "contact");
     const { resolveListingPaymentTypeForWrite } = await import("../../lib/listing-payment-type-write");
     const paymentType = resolveListingPaymentTypeForWrite(requestedPaymentType);

@@ -7,6 +7,7 @@
 import { extractFindSearchTerm, parseFindBudget, parseFindCity } from "./sky-ai-find-routing";
 import { parseConditionFilter } from "./awhina-search-memory";
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
+import { normalizeServicePricingType } from "./service-pricing";
 
 const NEED_RE =
   /\b(i\s+need\s+(?:a|an|some)|looking for|want to buy|wanna buy|want a|want an|i want a|i want an|need a|need an|hunting for|anyone selling)\b/i;
@@ -590,6 +591,14 @@ const IMPLEMENTATION_LEAK_RE =
 export const IMPLY_CLAIMS_RE =
   /\bready for use\b|\bworks well\b|\bclean upgrade\b|\bready to go\b|\bwell looked after\b|\bready for its next owner\b|\bready for its next home\b|\bready for a new wardrobe\b|\ba clean piece\b|\bclearer photos\b|\banother look at the photos\b|\bcheck the photos\b|\bmore photos\b|\banother photo\b|\bsend another photo\b|\bworks perfectly\b/i;
 
+/** Service copy must never invent credentials, gear, guarantees, or business status. */
+export const SERVICE_INVENTION_RE =
+  /\b(fully\s+)?insured\b|\b\d+\+?\s+years?\s+(of\s+)?experience\b|\blicensed\b|\bcertified\b|\bqualified\b|\bguaranteed?\b|\bwarranty\b|\bfully\s+equipped\b|\bbonded\b|\bcommercial\s+grade\b|\bestablished\s+business\b|\bavailable\s+(7\s*days|weekends?|same[- ]day)\b/i;
+
+/** Product-templated service smells — dedicated service writer must never emit these. */
+const SERVICE_TEMPLATE_SMELL_RE =
+  /\bfor local jobs\b|\bPriced at\b|\bavailable for local work\b|\bTell me roughly what you need\b|\bLocal work\s*[—-]\s*message with the job details\b/i;
+
 function wordCount(text: string): number {
   return text.split(/\s+/).filter(Boolean).length;
 }
@@ -619,6 +628,8 @@ export function isRoboticListingDescription(text: string | undefined | null): bo
   if (BANNED_TEMPLATE_RE.test(t)) return true;
   if (IMPLEMENTATION_LEAK_RE.test(t)) return true;
   if (IMPLY_CLAIMS_RE.test(t)) return true;
+  if (SERVICE_INVENTION_RE.test(t)) return true;
+  if (SERVICE_TEMPLATE_SMELL_RE.test(t)) return true;
   if (/\bOdometer:\s*/i.test(t) && /\bColour:\s*/i.test(t)) return true;
   if (/^Selling .+\.\s*Condition:/i.test(t)) return true;
   if (/^selling my .{1,40}$/i.test(t) && !/\n/.test(t)) return true;
@@ -649,7 +660,9 @@ export function passesListingDescriptionQualityGate(text: string | undefined | n
     FIELD_LABEL_RE.test(t) ||
     BANNED_TEMPLATE_RE.test(t) ||
     IMPLEMENTATION_LEAK_RE.test(t) ||
-    IMPLY_CLAIMS_RE.test(t)
+    IMPLY_CLAIMS_RE.test(t) ||
+    SERVICE_INVENTION_RE.test(t) ||
+    SERVICE_TEMPLATE_SMELL_RE.test(t)
   ) {
     return false;
   }
@@ -827,9 +840,9 @@ const BRIDGE_BANK: Record<ListingDescriptionStyle, readonly string[]> = {
     "Get in touch if you'd like more information.",
   ],
   service: [
-    "Tell me roughly what you need and I can confirm timing and scope.",
-    "Local work — message with the job details and I will get back to you.",
-    "Happy to discuss what fits your place and schedule.",
+    "Happy to discuss what you need and arrange a suitable time.",
+    "One-off or regular work — happy to talk through the details.",
+    "Local service — get in touch with a few job details when you're ready.",
   ],
   rental: [
     "Happy to arrange a viewing at a time that suits.",
@@ -880,9 +893,9 @@ const CTA_BANK: Record<ListingDescriptionStyle, readonly string[]> = {
     "Message if you have any questions.",
   ],
   service: [
-    "If you're interested, feel free to send me a message.",
-    "Message with the job details if you are keen.",
-    "Happy to chat about what you need.",
+    "Send me a message with a few details about the job and I'll get back to you.",
+    "Message with a few job details and I'll get back to you.",
+    "Drop me a message when you're ready to chat about the job.",
   ],
   rental: [
     "If you're interested or would like more information, feel free to send me a message.",
@@ -1054,17 +1067,117 @@ function buildVehicleDescription(fill: SkyAiListingFill, quality: ListingDescrip
   return assemblePremiumPlus({ fill, style: "vehicle", openers, factBits, quality });
 }
 
+/**
+ * Dedicated SERVICE writer — separate from physical product assemblePremiumPlus.
+ * Sounds like a real local provider: natural service mention, integrated pricing
+ * ("$50 per job" / "$50 per hour"), one soft CTA max, facts only.
+ */
 function buildServiceDescription(fill: SkyAiListingFill, quality: ListingDescriptionQuality): string {
-  const title = stripTitleConditionPrefix(fill.title || "service");
+  const seed = listingSeed(fill);
+  const rawTitle = stripTitleConditionPrefix(fill.title || "service").trim() || "Service";
+  const serviceLower = rawTitle.toLowerCase();
   const location = (fill.location || fill.pickupArea || "").trim();
+  const pricingType = normalizeServicePricingType(
+    fill.servicePricingType || fill.pricingType,
+    fill.price,
+    `${fill.title || ""} ${fill.description || ""}`
+  );
+  const money = formatMoneyPlain(fill.price);
+  const duration = fill.serviceDuration?.trim();
+  const extras = weaveableExtras(fill);
+
+  const priceClause =
+    money && pricingType === "hourly"
+      ? ` for ${money} per hour`
+      : money && pricingType === "fixed"
+        ? ` for ${money} per job`
+        : "";
+
   const openers = [
-    `${title}${location ? ` in ${location}` : ""} for local jobs.`,
-    location ? `Local ${title.toLowerCase()} available in ${location}.` : `${title} available for local work.`,
-    `${title}${location ? ` in ${location}` : ""} — message with what you need.`,
+    location
+      ? `${rawTitle} available in ${location}${priceClause}.`
+      : `${rawTitle} available${priceClause}.`,
+    location
+      ? `${rawTitle} in ${location}${priceClause || ""}.`.replace(/\.\.$/, ".")
+      : priceClause
+        ? `${rawTitle} available${priceClause}.`
+        : `${rawTitle} available locally.`,
+    location
+      ? `Looking for ${serviceLower}? Available in ${location}${priceClause}.`
+      : `Looking for ${serviceLower}?${priceClause ? ` Available${priceClause}.` : " Available locally."}`,
   ];
+
+  // Soft mid — service-category flavour only, never invent credentials/gear/availability
+  const blob = `${rawTitle} ${fill.category || ""}`.toLowerCase();
+  let midBank: readonly string[];
+  if (/lawn|mow/.test(blob)) {
+    midBank = [
+      "Whether it's a one-off tidy-up or regular lawn maintenance, I'm happy to discuss what you need and arrange a suitable time.",
+      "Happy to talk through the size of the job and find a time that works for both of us.",
+    ];
+  } else if (/clean/.test(blob)) {
+    midBank = [
+      "Whether it's a one-off clean or regular visits, I'm happy to discuss what you need and arrange a suitable time.",
+      "Happy to talk through the space and find a time that works for both of us.",
+    ];
+  } else if (/tutor|lesson|teach/.test(blob)) {
+    midBank = [
+      "Happy to discuss what you're after and arrange a time that suits.",
+      "Whether it's a one-off session or ongoing lessons, I'm happy to talk through what you need.",
+    ];
+  } else {
+    midBank = [
+      "Whether it's a one-off job or something more regular, I'm happy to discuss what you need and arrange a suitable time.",
+      "Happy to talk through the scope and find a time that works for both of us.",
+      "I'm happy to discuss what you need and work out the details from there.",
+    ];
+  }
+
+  const quoteMids: readonly string[] = [
+    "Happy to discuss the scope and put a quote together once I know a bit more about the job.",
+    "Scope and pricing depend on the job — happy to put a quote together once I have a few more details.",
+  ];
+
+  const ctas: readonly string[] = [
+    "Send me a message with a few details about the job and I'll get back to you.",
+    "Message with a few job details and I'll get back to you.",
+    "Drop me a message when you're ready to chat about the job.",
+  ];
+
+  const open = pickVariant(seed + ":svc-open", openers);
+  const mid =
+    pricingType === "request_quote"
+      ? pickVariant(seed + ":svc-mid", quoteMids)
+      : pickVariant(seed + ":svc-mid", midBank);
+  const cta = pickVariant(seed + ":svc-cta", ctas);
+
   const factBits: string[] = [];
-  if (fill.serviceDuration?.trim()) factBits.push(`typical jobs run about ${fill.serviceDuration.trim()}`);
-  return assemblePremiumPlus({ fill, style: "service", openers, factBits, quality });
+  if (duration) factBits.push(`Typical jobs run about ${duration}`);
+  if (extras.length) factBits.push(extras.join("; "));
+
+  if (quality === "standard") {
+    return polishParagraph(
+      dedupeConsecutiveSentences(
+        [open, "Happy to answer questions."].filter(Boolean).join(" ")
+      )
+    );
+  }
+
+  let text = polishParagraph(
+    dedupeConsecutiveSentences([open, mid, ...factBits.map((f) => `${f}.`), cta].join(" "))
+  );
+
+  // One CTA max — if word count is short, expand mid slightly rather than stacking invites
+  if (wordCount(text) < 40) {
+    const softPads = unusedPhrases(text, [
+      "Happy to work around a time that suits once we've sorted the details.",
+      "Just share what you need and we can take it from there.",
+    ]);
+    text = padDescriptionToMinWords(text, 40, softPads);
+    text = polishParagraph(dedupeConsecutiveSentences(text));
+  }
+
+  return trimToWords(text, 90);
 }
 
 function buildRentalDescription(fill: SkyAiListingFill, quality: ListingDescriptionQuality): string {
@@ -1208,7 +1321,7 @@ export function buildListingDescriptionFromFacts(
   }
 
   if (quality === "premium_plus") {
-    if (wordCount(text) < 40) {
+    if (wordCount(text) < 40 && style !== "service") {
       const bridges = BRIDGE_BANK[style] || BRIDGE_BANK.general;
       const ctas = CTA_BANK[style] || CTA_BANK.general;
       text = padDescriptionToMinWords(text, 40, [...ctas, ...bridges]);
@@ -1216,49 +1329,56 @@ export function buildListingDescriptionFromFacts(
     }
     text = trimToWords(text, 90);
     if (!passesListingDescriptionQualityGate(text) || isRoboticListingDescription(text)) {
-      const bare = stripTitleConditionPrefix(fill.title || "Item");
-      const loc = (fill.location || fill.pickupArea || "").trim();
-      const cond = conditionShort(fill.condition);
-      const money = formatMoneyPlain(fill.price);
-      const delivery = deliveryPhrase(fill, listingSeed(fill));
-      const cta = pickVariant(
-        listingSeed(fill) + ":cta",
-        CTA_BANK[style] || CTA_BANK.general
-      );
-      const bridge = unusedPhrases(
-        `${delivery || ""} ${cta}`,
-        BRIDGE_BANK[style] || BRIDGE_BANK.general
-      )[0];
-      text = polishParagraph(
-        dedupeConsecutiveSentences(
-          [
-            `${bare}${cond ? ` in ${cond}` : ""}.`,
-            delivery
-              ? money
-                ? `${delivery}, and I'm asking ${money}`
-                : delivery
-              : money
-                ? `I'm asking ${money}`
-                : loc
-                  ? `Located for pickup in ${loc}`
-                  : "",
-            cta,
-            wordCount([bare, delivery, money, cta].filter(Boolean).join(" ")) < 40 ? bridge : "",
-          ]
-            .filter(Boolean)
-            .join(". ")
-            .replace(/\.\s*\./g, ".")
-        )
-      );
-      if (wordCount(text) < 40) {
-        text = padDescriptionToMinWords(
-          text,
-          40,
-          BRIDGE_BANK[style] || BRIDGE_BANK.general
+      if (style === "service") {
+        // Never fall back to physical product templates for services
+        text = buildServiceDescription(fill, "premium_plus");
+        text = polishParagraph(dedupeConsecutiveSentences(text));
+        text = trimToWords(text, 90);
+      } else {
+        const bare = stripTitleConditionPrefix(fill.title || "Item");
+        const loc = (fill.location || fill.pickupArea || "").trim();
+        const cond = conditionShort(fill.condition);
+        const money = formatMoneyPlain(fill.price);
+        const delivery = deliveryPhrase(fill, listingSeed(fill));
+        const cta = pickVariant(
+          listingSeed(fill) + ":cta",
+          CTA_BANK[style] || CTA_BANK.general
         );
+        const bridge = unusedPhrases(
+          `${delivery || ""} ${cta}`,
+          BRIDGE_BANK[style] || BRIDGE_BANK.general
+        )[0];
+        text = polishParagraph(
+          dedupeConsecutiveSentences(
+            [
+              `${bare}${cond ? ` in ${cond}` : ""}.`,
+              delivery
+                ? money
+                  ? `${delivery}, and I'm asking ${money}`
+                  : delivery
+                : money
+                  ? `I'm asking ${money}`
+                  : loc
+                    ? `Located for pickup in ${loc}`
+                    : "",
+              cta,
+              wordCount([bare, delivery, money, cta].filter(Boolean).join(" ")) < 40 ? bridge : "",
+            ]
+              .filter(Boolean)
+              .join(". ")
+              .replace(/\.\s*\./g, ".")
+          )
+        );
+        if (wordCount(text) < 40) {
+          text = padDescriptionToMinWords(
+            text,
+            40,
+            BRIDGE_BANK[style] || BRIDGE_BANK.general
+          );
+        }
+        text = polishParagraph(dedupeConsecutiveSentences(text));
+        text = trimToWords(text, 90);
       }
-      text = polishParagraph(dedupeConsecutiveSentences(text));
-      text = trimToWords(text, 90);
     }
   }
 

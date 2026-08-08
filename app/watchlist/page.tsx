@@ -14,6 +14,9 @@ import { isListingVisibleInMarketplace } from "../lib/listing-availability";
 import ListingImage, { listingHasImage } from "../components/ListingImage";
 import { adjustListingWatchlistCount } from "../lib/listing-watchlist-count";
 import { listingMessageSellerHref } from "../lib/listing-message-href";
+import { formatListingPriceDisplay, listingPrimaryCtaLabel } from "../lib/listing-price-display";
+import { isMessagingOnlyListingType } from "../lib/listing-type-config";
+import { getComparableListingPrice } from "../lib/listing-search-filters";
 
 interface WatchlistItem {
   id: string;
@@ -373,7 +376,13 @@ export default function WatchlistPage() {
                 const hasImage = listingHasImage(item);
                 const isExpired = item.expiresAt?.toMillis?.() < currentTime;
                 const isHot = popularIds.has(item.id);
-                const priceDrop = item.savedPrice && item.price && Number(item.savedPrice) > Number(item.price);
+                const comparable = getComparableListingPrice(item);
+                const savedNum = item.savedPrice != null ? Number(item.savedPrice) : NaN;
+                const priceDrop =
+                  !isMessagingOnlyListingType(String(item.type || "")) &&
+                  Number.isFinite(savedNum) &&
+                  comparable != null &&
+                  savedNum > comparable;
                 return (
                   <div key={item.id} className="group relative">
                     <div className={`relative block overflow-hidden rounded-2xl transition-all duration-300 hover:-translate-y-1 ${
@@ -463,7 +472,7 @@ export default function WatchlistPage() {
                       </div>
                       <h3 className="mt-2 line-clamp-1 text-sm font-bold text-white group-hover:text-sky-400 transition-colors duration-150">{item.title}</h3>
                       <div className="mt-1.5 flex items-baseline gap-2">
-                        <span className="text-lg font-black text-sky-400">${item.price}</span>
+                        <span className="text-lg font-black text-sky-400">{formatListingPriceDisplay(item)}</span>
                         {priceDrop && (
                           <span className="text-xs text-zinc-500 line-through">${item.savedPrice}</span>
                         )}
@@ -489,7 +498,7 @@ export default function WatchlistPage() {
                             )}
                             className="inline-flex w-full items-center justify-center rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 px-3 py-2 text-xs font-bold text-white shadow-md shadow-sky-500/20 transition hover:brightness-110"
                           >
-                            Message Seller
+                            {listingPrimaryCtaLabel(item)}
                           </Link>
                         </div>
                       )}

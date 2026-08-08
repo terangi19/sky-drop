@@ -12,7 +12,7 @@ exports[`category-aware description snapshots > phones / electronics snapshot 1`
 
 exports[`category-aware description snapshots > property rental snapshot 1`] = `"Renting out 2 bedroom apartment in Auckland. 2 bedrooms, 1 bathroom, unfurnished, $520/week, $2080 bond. Message if you would like to take a look. Happy to arrange a viewing at a time that suits. Message with practical questions about the place before you visit."`;
 
-exports[`category-aware description snapshots > services snapshot 1`] = `"Lawn Mowing in Hamilton for local jobs. $60 an hour. Happy to chat about what you need. Tell me roughly what you need and I can confirm timing and scope. Local work — message with the job details and I will get back to you."`;
+exports[`category-aware description snapshots > services snapshot 1`] = `"Looking for lawn mowing? Available in Hamilton for $60 per hour. Happy to talk through the size of the job and find a time that works for both of us. Message with a few job details and I'll get back to you."`;
 
 exports[`category-aware description snapshots > sports snapshot 1`] = `"Mountain Bike, good used condition. Pickup is available in Dunedin, and I'm asking $400. Message if you have any questions. Available for pickup once we arrange a time. Happy to arrange a time once you are keen. Get in touch if you'd like more information."`;
 
@@ -23,3 +23,11 @@ exports[`iPhone Hamilton natural seller copy > produces pickup-in-city copy with
 exports[`one-shot sell uses Premium Plus description path > PS5 one-shot is natural marketplace copy 1`] = `"Brand new PlayStation 5 Console up for grabs. Pickup is available in Auckland, and I'm asking $200. Happy to sort a pickup time — just message me. Happy to sort a time that works for both of us. Message to arrange collection."`;
 
 exports[`one-shot sell uses Premium Plus description path > vehicle one-shot description is category-styled 1`] = `"2018 BMW 320i available in Auckland. Pickup is available in Auckland, and I'm asking $18500. Happy to arrange a viewing — just message me. Happy to arrange a viewing so you can inspect it properly. Worth a look if the numbers and location already sound right for you."`;
+
+exports[`service listing description snapshots > fixed price lawn mowing snapshot 1`] = `"Lawn Mowing available in Hamilton for $50 per job. Whether it's a one-off tidy-up or regular lawn maintenance, I'm happy to discuss what you need and arrange a suitable time. Message with a few job details and I'll get back to you."`;
+
+exports[`service listing description snapshots > hourly handyman snapshot 1`] = `"Handyman available in Auckland for $65 per hour. I'm happy to discuss what you need and work out the details from there. Drop me a message when you're ready to chat about the job. Happy to work around a time that suits once we've sorted the details."`;
+
+exports[`service listing description snapshots > quote required cleaning snapshot 1`] = `"House Cleaning available in Wellington. Happy to discuss the scope and put a quote together once I know a bit more about the job. Message with a few job details and I'll get back to you. Happy to work around a time that suits once we've sorted the details."`;
+
+exports[`service listing description snapshots > tutoring with duration fact snapshot 1`] = `"Maths Tutoring in Christchurch for $40 per hour. Whether it's a one-off session or ongoing lessons, I'm happy to talk through what you need. Typical jobs run about 1 hour. Send me a message with a few details about the job and I'll get back to you."`;

@@ -214,7 +214,17 @@ function inferListingType(
     /\b(sell(?:ing)?|for sale|selling my|get rid of|clearing out)\b/.test(lower) &&
     !/\b(rent|hire|service|freelance)\b/.test(lower);
   if (sellVerb && !/\b(\/day|per day|a day|\/week|per week|\/hr|\/hour|per hour)\b/.test(lower)) {
-    // Fall through only if strong service/rental nouns appear without sell — else physical
+    // Sell + vehicle signals → vehicle (intent verbs with year/make beat bare physical)
+    if (
+      raw.vehicleMake ||
+      raw.vehicleModel ||
+      /\b(19|20)\d{2}\s+(toyota|honda|mazda|ford|holden|nissan|subaru|mitsubishi|hyundai|kia|bmw|mercedes|benz|audi|volkswagen|vw|jeep|tesla|lexus|suzuki)\b/i.test(lower) ||
+      (/\b(car|vehicle|ute|van|truck|motorcycle|bmw|toyota|mazda|ford|honda|nissan|holden|subaru)\b/i.test(lower) &&
+        /\b(19|20)\d{2}\b/.test(lower))
+    ) {
+      return "vehicle";
+    }
+    // Fall through only if strong service nouns appear without sell — else physical
     if (
       !/\b(lawn\s*mowing|photographer|cleaner|tutor|handyman|plumber|electrician)\b/.test(lower)
     ) {
