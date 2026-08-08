@@ -1,5 +1,5 @@
 import { getListingOwnerId } from "./listing-owner";
-import { getSellerDisplayName } from "./public-display";
+import { getSellerDisplayName, isEmailLike } from "./public-display";
 
 export type SellerProfileListingInput = {
   sellerEmail?: string;
@@ -25,8 +25,27 @@ export type PublicSellerProfile = {
 const batchCache = new Map<string, PublicSellerProfile | null>();
 const inflightBatches = new Map<string, Promise<Map<string, PublicSellerProfile>>>();
 
-function cacheKey(uid: string): string {
-  return uid.trim();
+function cacheKey(id: string): string {
+  return id.trim().toLowerCase();
+}
+
+type BatchResponse = {
+  profiles?: Record<string, PublicSellerProfile>;
+  /** email → uid for legacy listings that only store sellerEmail */
+  emailToUid?: Record<string, string>;
+};
+
+async function fetchPublicProfilesBatch(payload: {
+  uids: string[];
+  emails: string[];
+}): Promise<BatchResponse> {
+  const res = await fetch("/api/public-profiles", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) return { profiles: {}, emailToUid: {} };
+  return (await res.json()) as BatchResponse;
 }
 
 /**
@@ -49,38 +68,64 @@ export async function fetchSellerProfilesByListing(
     ),
   ];
 
-  const missing = ownerIds.filter((uid) => !batchCache.has(cacheKey(uid)));
-  if (missing.length > 0) {
-    const batchKey = missing.slice().sort().join(",");
+  const emailsNeedingLookup = [
+    ...new Set(
+      listings
+        .filter((l) => !getListingOwnerId(l))
+        .map((l) => String(l.sellerEmail || "").trim())
+        .filter((email) => email.length > 0 && isEmailLike(email))
+    ),
+  ];
+
+  const missingUids = ownerIds.filter((uid) => !batchCache.has(cacheKey(uid)));
+  const missingEmails = emailsNeedingLookup.filter(
+    (email) => !batchCache.has(cacheKey(email))
+  );
+
+  if (missingUids.length > 0 || missingEmails.length > 0) {
+    const batchKey = [
+      ...missingUids.slice().sort(),
+      ...missingEmails.slice().sort().map((e) => `e:${e}`),
+    ].join(",");
     let promise = inflightBatches.get(batchKey);
     if (!promise) {
       promise = (async () => {
         const found = new Map<string, PublicSellerProfile>();
         try {
-          const res = await fetch("/api/public-profiles", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ uids: missing }),
+          const data = await fetchPublicProfilesBatch({
+            uids: missingUids,
+            emails: missingEmails,
           });
-          if (res.ok) {
-            const data = (await res.json()) as {
-              profiles?: Record<string, PublicSellerProfile>;
-            };
-            for (const uid of missing) {
-              const profile = data.profiles?.[uid];
-              if (profile) {
-                const normalized = { ...profile, uid };
-                batchCache.set(cacheKey(uid), normalized);
-                found.set(uid, normalized);
-              } else {
-                batchCache.set(cacheKey(uid), null);
-              }
+          const profiles = data.profiles || {};
+          const emailToUid = data.emailToUid || {};
+
+          for (const uid of missingUids) {
+            const profile = profiles[uid];
+            if (profile) {
+              const normalized = { ...profile, uid };
+              batchCache.set(cacheKey(uid), normalized);
+              found.set(uid, normalized);
+            } else {
+              batchCache.set(cacheKey(uid), null);
             }
-          } else {
-            for (const uid of missing) batchCache.set(cacheKey(uid), null);
+          }
+
+          for (const email of missingEmails) {
+            const uid = emailToUid[email] || emailToUid[email.toLowerCase()];
+            const profile = uid ? profiles[uid] : undefined;
+            if (profile && uid) {
+              const normalized = { ...profile, uid };
+              batchCache.set(cacheKey(uid), normalized);
+              batchCache.set(cacheKey(email), normalized);
+              found.set(uid, normalized);
+              found.set(email, normalized);
+            } else {
+              batchCache.set(cacheKey(email), null);
+            }
           }
         } catch {
-          for (const uid of missing) batchCache.set(cacheKey(uid), null);
+          for (const uid of missingUids) batchCache.set(cacheKey(uid), null);
+          for (const email of missingEmails) batchCache.set(cacheKey(email), null);
         }
         return found;
       })();
@@ -97,12 +142,15 @@ export async function fetchSellerProfilesByListing(
 
   for (const listing of listings) {
     const ownerId = getListingOwnerId(listing);
-    if (!ownerId) continue;
-    const profile = batchCache.get(cacheKey(ownerId));
-    if (!profile) continue;
-    byKey.set(ownerId, profile);
     const email = String(listing.sellerEmail || "").trim();
+    const profile =
+      (ownerId && batchCache.get(cacheKey(ownerId))) ||
+      (email && batchCache.get(cacheKey(email))) ||
+      null;
+    if (!profile) continue;
+    if (ownerId) byKey.set(ownerId, profile);
     if (email) byKey.set(email, profile);
+    if (profile.uid) byKey.set(profile.uid, profile);
   }
 
   return byKey;

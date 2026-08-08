@@ -374,7 +374,15 @@ export default function Home() {
             location: data.location,
             sellerEmail: data.sellerEmail,
             sellerUsername: data.sellerUsername,
-            sellerId: data.sellerId,
+            sellerId:
+              data.sellerId ||
+              data.userId ||
+              data.ownerId ||
+              data.sellerUid ||
+              data.uid,
+            userId: data.userId,
+            ownerId: data.ownerId,
+            sellerUid: data.sellerUid,
             createdAt: data.createdAt,
             status: data.status,
             type: data.type,

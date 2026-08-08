@@ -8,13 +8,11 @@ import {
   sellerLabelFromPublicProfile,
 } from "./fetch-seller-profiles";
 import { getListingOwnerId } from "./listing-owner";
+import { isSafePublicHandle } from "./public-display";
 import { isFullyVerifiedSeller } from "./seller-verified";
 
 function safeUsername(value: unknown): string | null {
-  const raw = String(value || "").trim();
-  if (!raw || raw.includes("@")) return null;
-  if (/^[A-Za-z0-9_-]{16,}$/.test(raw) || /^uid[-_]/i.test(raw)) return null;
-  return raw.startsWith("@") ? raw.slice(1) : raw;
+  return isSafePublicHandle(String(value || ""));
 }
 
 /** Seller review averages and public-profile identity for listing cards. */

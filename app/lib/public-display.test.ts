@@ -95,6 +95,16 @@ describe("getSellerDisplayName", () => {
     ).toBe("sky123");
   });
 
+  it("keeps long alphanumeric usernames (not Firebase UIDs)", () => {
+    expect(getSellerDisplayName({ username: "philbrewerton868" })).toBe(
+      "philbrewerton868"
+    );
+    expect(getSellerDisplayName({ username: "e2esellermsjiq5sv" })).toBe(
+      "e2esellermsjiq5sv"
+    );
+    expect(getSellerDisplayName({ username: "terangi34" })).toBe("terangi34");
+  });
+
   it("Seller C: only Seller when no public identity", () => {
     expect(getSellerDisplayName({})).toBe("Seller");
     expect(
@@ -102,6 +112,12 @@ describe("getSellerDisplayName", () => {
         displayName: "user@example.com",
         username: "uid-abcdefghijklmnop",
         sellerName: "leak@example.com",
+      })
+    ).toBe("Seller");
+    // Real Firebase UID length (~28) must not become a card label
+    expect(
+      getSellerDisplayName({
+        username: "IeS22bePWOQ5a5oTP1w7HlO5qNq2",
       })
     ).toBe("Seller");
   });
@@ -119,6 +135,27 @@ describe("resolveSellerCardDisplayName", () => {
         { "test@example.com": "SkyDavis" }
       )
     ).toBe("SkyDavis");
+  });
+
+  it("shows live long username when listing has no sellerUsername", () => {
+    expect(
+      resolveSellerCardDisplayName(
+        { sellerId: "uid-abc", sellerEmail: "a@b.com" },
+        { "uid-abc": "philbrewerton868" }
+      )
+    ).toBe("philbrewerton868");
+  });
+
+  it("prefers current profile over stale listing sellerUsername", () => {
+    expect(
+      resolveSellerCardDisplayName(
+        {
+          sellerId: "uid-abc",
+          sellerUsername: "OldHandle",
+        },
+        { "uid-abc": "terangi34" }
+      )
+    ).toBe("terangi34");
   });
 
   it("resolves live identity by owner UID (canonical enrichment key)", () => {

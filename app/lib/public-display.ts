@@ -100,6 +100,20 @@ export function sellerProfileSlug(
   return "";
 }
 
+/**
+ * True for values that look like Firebase Auth UIDs (not public usernames).
+ * Firebase UIDs are typically 28 chars of [A-Za-z0-9]. Do NOT treat shorter
+ * alphanumeric handles (e.g. philbrewerton868, e2esellermsjiq5sv) as UIDs —
+ * that false-reject caused listing cards to show "Seller" after live enrichment.
+ */
+export function looksLikeFirebaseUid(value: string | undefined | null): boolean {
+  const raw = String(value || "").trim();
+  if (!raw) return false;
+  if (/^uid[-_]/i.test(raw)) return true;
+  // Firebase Auth UIDs are almost always 28 chars; allow a narrow band for variants.
+  return /^[A-Za-z0-9]{27,29}$/.test(raw);
+}
+
 /** Heading text on seller pages — never an email address. */
 export function sellerProfileDisplayName(
   fields: SellerLinkFields | null | undefined,
@@ -116,21 +130,17 @@ export function sellerProfileDisplayName(
   if (fromCanonical) return fromCanonical;
 
   const slug = sellerProfileSlug(fields);
-  const looksLikeUid =
-    !slug ||
-    isEmailLike(slug) ||
-    /^[A-Za-z0-9_-]{16,}$/.test(slug) ||
-    /^uid[-_]/i.test(slug);
-  return looksLikeUid ? fallback : slug;
+  if (!slug || isEmailLike(slug) || looksLikeFirebaseUid(slug)) return fallback;
+  return slug;
 }
 
-function isSafePublicHandle(value: string | undefined | null): string | null {
+export function isSafePublicHandle(value: string | undefined | null): string | null {
   const raw = String(value || "").trim();
   if (!raw || isEmailLike(raw)) return null;
   const handle = stripAtPrefix(raw);
   if (!handle || isEmailLike(handle)) return null;
   // Reject bare Firebase-style UIDs used as labels — not human identity.
-  if (/^[A-Za-z0-9_-]{16,}$/.test(handle) || /^uid[-_]/i.test(handle)) return null;
+  if (looksLikeFirebaseUid(handle)) return null;
   return handle;
 }
 
