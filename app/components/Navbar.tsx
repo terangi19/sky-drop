@@ -309,19 +309,27 @@ export default function Navbar() {
       (p) => pathname.startsWith(p)
     );
 
+  const navLinkBase =
+    "relative px-3 py-2 rounded-lg text-[13px] font-medium tracking-tight transition-colors duration-150";
+  const navLinkIdle =
+    "text-[var(--nav-ice-muted)] hover:text-[var(--nav-ice)] hover:bg-white/[0.06]";
+  const navLinkActive =
+    "text-[var(--nav-ice)] bg-white/[0.08]";
+
   return (
-    <header className="site-navbar relative sticky top-0 z-[9999] border-b border-white/[0.04] backdrop-blur-xl light:border-black/[0.08]" style={{ backgroundColor: "var(--nav-bg)" }}>
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/30 to-transparent light:via-sky-600/20" />
-      <div className="mx-auto flex h-16 items-center justify-between px-4 md:px-6 lg:max-w-7xl">
+    <header className="site-navbar relative sticky top-0 z-[9999] border-b border-white/[0.06] backdrop-blur-xl light:border-black/[0.08]" style={{ backgroundColor: "var(--nav-bg)" }}>
+      <div className="mx-auto flex h-14 items-center gap-3 px-4 md:h-16 md:gap-4 md:px-6 lg:max-w-7xl">
 
         {/* LEFT */}
-        <SkyDropLogo size="lg" href="/" />
+        <div className="shrink-0">
+          <SkyDropLogo size="lg" href="/" />
+        </div>
 
         {/* SEARCH - Desktop (hidden on homepage to avoid duplicate with hero search) */}
         {pathname !== "/" && (
-          <div className="hidden lg:block mx-8 flex-1 max-w-md">
+          <div className="hidden lg:block mx-2 flex-1 max-w-sm xl:max-w-md">
             <div className="relative">
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--nav-ice-faint)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
               <input
@@ -334,7 +342,7 @@ export default function Navbar() {
                     router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
                   }
                 }}
-                className="w-full rounded-lg bg-white/[0.04] border border-white/[0.08] pl-10 pr-4 py-2 text-sm text-white placeholder:text-[var(--nav-ice-muted)] outline-none focus:border-sky-500/30 focus:bg-white/[0.06] transition-all"
+                className="w-full rounded-lg bg-white/[0.05] border border-white/[0.08] pl-9 pr-3 py-2 text-sm text-[var(--nav-ice)] placeholder:text-[var(--nav-ice-faint)] outline-none focus:border-sky-500/35 focus:bg-white/[0.07] transition-colors"
                 aria-label="Search listings"
               />
             </div>
@@ -342,38 +350,44 @@ export default function Navbar() {
         )}
 
         {/* RIGHT SIDE */}
-        <div className="flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-1.5 md:gap-2">
 
           {/* NAV */}
-          <nav className="hidden lg:flex items-center gap-1 text-sm font-medium">
+          <nav className="hidden lg:flex items-center gap-0.5">
             {user && (
-              <Link href="/post/ai" className={`relative px-3 py-2 rounded-lg transition-colors duration-200 ${isActive("/post/ai") ? "text-white bg-sky-500 light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
+              <Link
+                href="/post/ai"
+                className={`${navLinkBase} ${
+                  isActive("/post/ai")
+                    ? "bg-sky-500 text-white hover:bg-sky-500"
+                    : "bg-sky-500/90 text-white hover:bg-sky-500"
+                }`}
+              >
                 Sell
               </Link>
             )}
-            <div className="relative group px-1">
-              <Link href="/" className={`flex items-center gap-1 px-3 py-2 rounded-lg transition-colors duration-200 ${browseActive ? "text-white bg-sky-500 light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
+            <div className="relative group px-0.5">
+              <Link href="/" className={`flex items-center gap-1 ${navLinkBase} ${browseActive ? navLinkActive : navLinkIdle}`}>
                 <span>Browse</span>
-                <svg className="h-3 w-3 transition-transform duration-200 group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                <svg className="h-3 w-3 opacity-70 transition-transform duration-200 group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
               </Link>
-              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-56 rounded-2xl border border-[var(--border)] bg-[var(--nav-bg)] backdrop-blur-xl p-2 shadow-[var(--shadow-lg)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 translate-y-1 group-hover:translate-y-0 z-50">
-                <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 h-3 w-3 rotate-45 border-t border-l border-[var(--border)] bg-[var(--nav-bg)]" />
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-56 rounded-xl border border-[var(--border)] bg-[var(--dropdown-bg)] p-1.5 shadow-[var(--shadow-lg)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 translate-y-1 group-hover:translate-y-0 z-50">
                 {BROWSE_LINKS.map((item) => (
-                  <Link key={item.label} href={item.href} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-gray-200 hover:text-white hover:bg-white/[0.06] transition-colors duration-150 light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]">
-                    <div><div className="text-sm font-medium">{item.label}</div><div className="text-[10px] text-gray-400 light:text-gray-500">{item.desc}</div></div>
+                  <Link key={item.label} href={item.href} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-[var(--foreground)] hover:bg-[var(--dropdown-hover)] transition-colors duration-150">
+                    <div><div className="text-sm font-medium">{item.label}</div><div className="text-[11px] text-[var(--muted)]">{item.desc}</div></div>
                   </Link>
                 ))}
               </div>
             </div>
             {user && (
               <>
-                <Link href="/list-list" className={`relative px-3 py-2 rounded-lg transition-colors duration-200 ${isActive("/list-list") ? "text-white bg-sky-500 light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
+                <Link href="/list-list" className={`${navLinkBase} ${isActive("/list-list") ? navLinkActive : navLinkIdle}`}>
                   My Listings
                 </Link>
-                <Link href="/watchlist" className={`relative px-3 py-2 rounded-lg transition-colors duration-200 ${isActive("/watchlist") ? "text-white bg-sky-500 light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
+                <Link href="/watchlist" className={`${navLinkBase} ${isActive("/watchlist") ? navLinkActive : navLinkIdle}`}>
                   Watchlist
                 </Link>
-                <Link href="/messages" className={`relative px-3 py-2 rounded-lg transition-colors duration-200 ${isActive("/messages") ? "text-white bg-sky-500 light:text-white light:bg-sky-600" : "text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-gray-700 light:hover:text-gray-900 light:hover:bg-black/[0.04]"}`}>
+                <Link href="/messages" className={`${navLinkBase} ${isActive("/messages") ? navLinkActive : navLinkIdle}`}>
                   Messages
                 </Link>
               </>
@@ -470,13 +484,13 @@ export default function Navbar() {
                 <button
                   type="button"
                   aria-haspopup="menu"
-                  className={`inline-flex items-center gap-2 rounded-xl border border-white/[0.06] px-3 py-2 text-sm font-bold transition-all duration-200 active:scale-[0.97] ${isActive("/profile") || isActive("/dashboard") ? "text-white border-sky-500/30 bg-sky-500/10" : "text-gray-200 hover:border-sky-500/30 hover:bg-sky-500/10 hover:text-white"}`}
+                  className={`inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] font-semibold transition-colors duration-150 active:scale-[0.98] ${isActive("/profile") || isActive("/dashboard") ? "text-[var(--nav-ice)] bg-white/[0.1]" : "text-[var(--nav-ice-muted)] hover:bg-white/[0.06] hover:text-[var(--nav-ice)]"}`}
                 >
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                  </svg>
-                  {username || "Profile"}
-                  <svg className="h-3 w-3 transition-transform duration-300 group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/[0.08] text-[11px] font-bold text-[var(--nav-ice)]">
+                    {(username || "P").charAt(0).toUpperCase()}
+                  </span>
+                  <span className="max-w-[7rem] truncate">{username || "Profile"}</span>
+                  <svg className="h-3 w-3 opacity-60 transition-transform duration-200 group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
                 </button>
                 <div className="absolute top-full right-0 z-50 mt-2 w-[220px] opacity-0 invisible translate-y-2 transition-all duration-200 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:visible group-focus-within:translate-y-0">
                   <AppMenuPanel arrow="top-right">
@@ -494,13 +508,13 @@ export default function Navbar() {
               <div className="flex items-center gap-2">
                 <Link
                   href="/signup"
-                  className="inline-flex items-center gap-2 rounded-xl border border-sky-500/30 bg-sky-500/10 px-4 py-2 text-sm font-bold text-sky-300 transition-all duration-200 hover:bg-sky-500/20 hover:text-white active:scale-[0.97] light:text-sky-600 light:hover:text-sky-700"
+                  className="inline-flex items-center rounded-lg border border-white/[0.14] px-3.5 py-2 text-[13px] font-semibold text-[var(--nav-ice-muted)] transition-colors hover:border-white/[0.22] hover:text-[var(--nav-ice)] hover:bg-white/[0.06]"
                 >
                   Sign up
                 </Link>
                 <Link
                   href="/login"
-                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all duration-200 hover:shadow-xl hover:shadow-sky-500/25 hover:brightness-110 active:scale-[0.97]"
+                  className="inline-flex items-center rounded-lg bg-sky-500 px-4 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-sky-400 active:scale-[0.98]"
                 >
                   Login
                 </Link>

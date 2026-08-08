@@ -1086,7 +1086,7 @@ export default function ListingPage() {
       <main className="flex min-h-screen items-center justify-center bg-[var(--background)]">
         <div className="text-center">
           <p className="text-[var(--muted)] mb-4">Listing not found.</p>
-          <Link href="/" className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 px-3 py-1.5 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl active:scale-[0.97]">
+          <Link href="/" className="inline-flex items-center gap-1.5 rounded-lg bg-sky-500 px-3 py-1.5 text-sm font-bold text-white transition-colors hover:bg-sky-400 active:scale-[0.98]">
             Browse Marketplace
           </Link>
         </div>
@@ -1308,8 +1308,7 @@ export default function ListingPage() {
             return (
               <div className="space-y-3">
                 {/* Image Gallery */}
-                <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[var(--card)] to-[var(--soft-card)] border border-white/[0.08] shadow-2xl shadow-black/30">
-                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
+                <div className="group relative overflow-hidden rounded-2xl bg-[var(--card)] border border-[var(--card-border)] shadow-[var(--shadow-sm)]">
                   {displayImages.length > 0 ? (
                     <div className="relative"
                       onTouchStart={(e) => { (e.currentTarget as HTMLElement).dataset.touchX = String(e.touches[0].clientX); }}
@@ -1366,22 +1365,21 @@ export default function ListingPage() {
           })()}
 
           {/* ── RIGHT COLUMN: DETAILS + CTA ── */}
-          <div className="relative flex flex-col gap-3 overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4 sm:p-5 shadow-[var(--shadow-md)] lg:sticky lg:top-[4.5rem] lg:max-h-[calc(100vh-5.5rem)] lg:overflow-y-auto lg:overscroll-contain">
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
+          <div className="relative flex flex-col gap-3 overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-4 sm:p-5 shadow-[var(--shadow-sm)] lg:sticky lg:top-[4.5rem] lg:max-h-[calc(100vh-5.5rem)] lg:overflow-y-auto lg:overscroll-contain">
             
             {/* 1. PILLS: Category / Condition / Time */}
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-[11px] font-semibold text-sky-400">{listing.category || "Other"}</span>
+              <span className="rounded-md border border-[var(--card-border)] bg-[var(--soft-card)] px-2.5 py-1 text-[11px] font-semibold text-[var(--text-secondary)]">{listing.category || "Other"}</span>
               {listing.condition && (
-                <span className={`rounded-full border px-3 py-1 text-[11px] font-semibold ${listing.condition === "New" ? "border-sky-500/20 bg-sky-500/10 text-sky-400" : "border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--foreground)]"}`}>
+                <span className={`rounded-md border px-2.5 py-1 text-[11px] font-semibold ${listing.condition === "New" ? "border-sky-500/25 bg-sky-500/10 text-sky-500" : "border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--foreground)]"}`}>
                   {listing.condition}
                 </span>
               )}
               {listing.createdAt?.seconds != null && (
-                <span className="rounded-full border border-[var(--card-border)] bg-[var(--soft-card)] px-3 py-1 text-[11px] text-[var(--muted)]">{timeAgo(listing.createdAt.seconds)}</span>
+                <span className="rounded-md border border-[var(--card-border)] bg-[var(--soft-card)] px-2.5 py-1 text-[11px] text-[var(--muted)]">{timeAgo(listing.createdAt.seconds)}</span>
               )}
               {listing.location && (
-                <span className="rounded-full border border-[var(--card-border)] bg-[var(--soft-card)] px-3 py-1 text-[11px] text-[var(--muted)]">{listing.location}</span>
+                <span className="rounded-md border border-[var(--card-border)] bg-[var(--soft-card)] px-2.5 py-1 text-[11px] text-[var(--muted)]">{listing.location}</span>
               )}
             </div>
 
@@ -1393,7 +1391,7 @@ export default function ListingPage() {
             {/* 3. PRICE */}
             <div className="flex flex-wrap items-baseline gap-3">
               {listing.type === "service" && <ServicePricingBadge listing={listing} />}
-              <span className="text-3xl font-bold text-[var(--foreground)] tracking-tight sm:text-4xl">
+              <span className="text-3xl font-bold text-[var(--foreground)] tracking-tight sm:text-[2.5rem]">
                 {formatListingPriceDisplay(listing)}
               </span>
               {formatListingPriceMeta(listing) && (
@@ -1887,7 +1885,7 @@ Property Status: 🟢 Inquiry Active`;
                         });
                         router.push(sellerMessagesHref);
                       }}
-                      className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 text-base font-bold text-white shadow-md shadow-sky-500/15 transition-all duration-200 hover:brightness-105 active:scale-[0.98]"
+                      className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-sky-500 px-5 text-base font-semibold text-white transition-colors duration-150 hover:bg-sky-400 active:scale-[0.98]"
                     >
                       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -2063,7 +2061,7 @@ Property Status: 🟢 Inquiry Active`;
                 </>
               ) : user?.email === listing.sellerEmail ? (
                 <div className="flex gap-3 w-full">
-                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 h-11 flex items-center justify-center rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:brightness-110 active:scale-[0.98]">
+                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 h-11 flex items-center justify-center rounded-lg bg-sky-500 text-sm font-bold text-white transition-colors hover:bg-sky-400 active:scale-[0.98]">
                     Edit Listing
                   </Link>
                   <button onClick={() => setShowPromote(true)}
@@ -2072,7 +2070,7 @@ Property Status: 🟢 Inquiry Active`;
                   </button>
                 </div>
               ) : (
-                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="w-full h-11 rounded-lg border border-white/[0.08] bg-white/[0.03] text-sm font-bold text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-white/[0.06]">{listingPrimaryCtaLabel(listing)}</button>
+                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="btn btn-primary w-full h-14 text-base">{listingPrimaryCtaLabel(listing)}</button>
               )}
             </div>
             )}
@@ -2131,7 +2129,7 @@ Application Status: 🟢 Active`;
                         try { localStorage.setItem("skyJobPrefill", `Hi, I'm interested in this job 👋`); } catch {}
                         router.push(sellerMessagesHref);
                       }}
-                      className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-sky-400 px-5 text-base font-bold text-white shadow-md shadow-sky-500/15 transition-all duration-200 hover:brightness-105 active:scale-[0.98]"
+                      className="w-full h-14 flex items-center justify-center gap-2 rounded-xl bg-sky-500 px-5 text-base font-bold text-white transition-colors duration-150 hover:bg-sky-400 active:scale-[0.98]"
                     >
                       Apply Now
                     </button>
@@ -2148,7 +2146,7 @@ Application Status: 🟢 Active`;
                 </>
               ) : user?.email === listing.sellerEmail ? (
                 <div className="flex gap-3 w-full">
-                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 h-11 flex items-center justify-center rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:brightness-110 active:scale-[0.98]">
+                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 h-11 flex items-center justify-center rounded-lg bg-sky-500 text-sm font-bold text-white transition-colors hover:bg-sky-400 active:scale-[0.98]">
                     Edit Listing
                   </Link>
                   <button onClick={() => setShowPromote(true)} className="h-11 px-4 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sm font-bold text-sky-400 transition hover:bg-sky-500/20 hover:border-sky-500/50">
@@ -2156,7 +2154,7 @@ Application Status: 🟢 Active`;
                   </button>
                 </div>
               ) : (
-                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="w-full h-11 rounded-lg border border-white/[0.08] bg-white/[0.03] text-sm font-bold text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-white/[0.06]">{listingPrimaryCtaLabel(listing)}</button>
+                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="btn btn-primary w-full h-14 text-base">{listingPrimaryCtaLabel(listing)}</button>
               )}
             </div>
             )}
@@ -2231,7 +2229,7 @@ Service Status: 🟢 Inquiry Active`;
                 </>
               ) : user?.email === listing.sellerEmail ? (
                 <div className="flex gap-3 w-full">
-                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 h-11 flex items-center justify-center rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:brightness-110 active:scale-[0.98]">
+                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 h-11 flex items-center justify-center rounded-lg bg-sky-500 text-sm font-bold text-white transition-colors hover:bg-sky-400 active:scale-[0.98]">
                     Edit Listing
                   </Link>
                   <button onClick={() => setShowPromote(true)} className="h-11 px-4 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sm font-bold text-sky-400 transition hover:bg-sky-500/20 hover:border-sky-500/50">
@@ -2239,7 +2237,7 @@ Service Status: 🟢 Inquiry Active`;
                   </button>
                 </div>
               ) : (
-                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="w-full h-11 rounded-lg border border-white/[0.08] bg-white/[0.03] text-sm font-bold text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-white/[0.06]">{messageCtaLabel("service")}</button>
+                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="btn btn-primary w-full h-14 text-base">{messageCtaLabel("service")}</button>
               )}
             </div>
             )}
@@ -2330,7 +2328,7 @@ Service Status: 🟢 Inquiry Active`;
                 </>
               ) : user?.email === listing.sellerEmail ? (
                 <div className="flex gap-3 w-full">
-                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 h-11 flex items-center justify-center rounded-lg bg-gradient-to-r from-sky-500 to-sky-400 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:shadow-xl hover:brightness-110 active:scale-[0.98]">
+                  <Link href={`/post/ai?edit=${listingId}`} className="flex-1 h-11 flex items-center justify-center rounded-lg bg-sky-500 text-sm font-bold text-white transition-colors hover:bg-sky-400 active:scale-[0.98]">
                     Edit Listing
                   </Link>
                   <button onClick={() => setShowPromote(true)} className="h-11 px-4 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sm font-bold text-sky-400 transition hover:bg-sky-500/20 hover:border-sky-500/50">
@@ -2338,7 +2336,7 @@ Service Status: 🟢 Inquiry Active`;
                   </button>
                 </div>
               ) : (
-                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="w-full h-11 rounded-lg border border-white/[0.08] bg-white/[0.03] text-sm font-bold text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-white/[0.06]">
+                <button onClick={() => router.push("/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search))} className="btn btn-primary w-full h-14 text-base">
                   Message Owner
                 </button>
               )}

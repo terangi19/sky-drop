@@ -1383,10 +1383,11 @@ const tabGroups = [
   }, [applyProfileFill]);
 
   const settingsSection =
-    "rounded-2xl border border-white/[0.06] bg-white/[0.015] p-5 sm:p-6";
+    "rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-5 sm:p-6 shadow-[var(--shadow-xs)]";
   const fieldInput =
-    "w-full rounded-xl border border-white/[0.08] bg-black/20 px-4 py-3 text-sm text-white outline-none transition-all duration-200 placeholder:text-[var(--muted)] focus:border-sky-500/40 focus:bg-black/30 focus:ring-2 focus:ring-sky-500/20";
-  const primaryBtn = `rounded-xl bg-gradient-to-r ${t.listBtn} py-3 text-sm font-bold text-white shadow-lg transition hover:brightness-110 active:scale-[0.98] disabled:opacity-50`;
+    "w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-3 text-sm text-[var(--foreground)] outline-none transition-colors duration-150 placeholder:text-[var(--muted)] focus:border-sky-500/40 focus:ring-2 focus:ring-sky-500/15";
+  const primaryBtn =
+    "rounded-xl bg-sky-500 py-3 text-sm font-semibold text-white transition-colors hover:bg-sky-400 active:scale-[0.98] disabled:opacity-50";
 
   const isFullyVerified = useMemo(
     () =>
@@ -1395,23 +1396,14 @@ const tabGroups = [
     [profile.phoneVerified, profile.emailVerified, user?.emailVerified]
   );
 
-  const profileBadges = [
-    isFullyVerified && { key: "verified", label: "Verified", className: "border-sky-500/25 bg-sky-500/10 text-sky-300" },
-    profile.topTrader && { key: "top", label: "Top Trader", className: "border-sky-500/25 bg-sky-500/10 text-sky-300" },
-    profile.trustedSeller && { key: "trusted", label: "Trusted", className: "border-sky-500/25 bg-sky-500/10 text-sky-300" },
-    profile.fastReply && { key: "fast", label: "Fast reply", className: "border-sky-500/25 bg-sky-500/10 text-sky-300" },
-    profile.profileBadge === "epic" && { key: "epic", label: "Epic", className: "border-sky-500/25 bg-sky-500/10 text-sky-300" },
-    profile.profileBadge === "legendary" && { key: "legendary", label: "The Five", className: "border-sky-500/30 bg-sky-500/10 text-sky-300" },
-  ].filter(Boolean) as { key: string; label: string; className: string }[];
-
 
   if (loading) {
     return (
-      <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-white">
+      <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
         <Background /><Navbar />
         <section className={`${PAGE_SHELL_WIDE} pb-10 pt-2 sm:pt-3`}>
-          <div className={`h-56 rounded-3xl border border-white/[0.04] bg-white/[0.02] animate-pulse ${t.heroShadow}`} />
-          <div className="mt-6 h-96 rounded-2xl border border-white/[0.04] bg-white/[0.02] animate-pulse" />
+          <div className={`h-56 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] animate-pulse ${t.heroShadow}`} />
+          <div className="mt-6 h-96 rounded-2xl border border-[var(--card-border)] bg-[var(--card)] animate-pulse" />
         </section>
       </main>
     );
@@ -1419,7 +1411,7 @@ const tabGroups = [
 
   if (!user) {
     return (
-      <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-white">
+      <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
         <Background /><Navbar />
         <section className={`${PAGE_SHELL_WIDE} pb-10 pt-2 sm:pt-3`}>
           <BrowseMarketplaceHero badge="Account" title="Profile">
@@ -1434,7 +1426,7 @@ const tabGroups = [
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-white transition-colors duration-300">
+    <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)] transition-colors duration-300">
       <Background /><Navbar />
 
       <section className={`${PAGE_SHELL_WIDE} pb-10 pt-2 sm:pt-3`}>
@@ -1472,26 +1464,25 @@ const tabGroups = [
 
 
           {/* Profile hero */}
-          <div className="relative overflow-hidden rounded-3xl border border-white/[0.06] bg-gradient-to-br from-white/[0.03] to-white/[0.01] shadow-2xl shadow-black/20">
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
+          <div className="relative overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--card)] shadow-[var(--shadow-sm)]">
             <div
-              className="group relative z-10 h-32 cursor-pointer overflow-hidden sm:h-40"
+              className="group relative z-10 h-28 cursor-pointer overflow-hidden sm:h-36"
               onClick={() => bannerRef.current?.click()}
             >
               {bannerUrl ? (
-                <img src={bannerUrl} alt="" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                <img src={bannerUrl} alt="" className="h-full w-full object-cover" />
               ) : (
-                <div className="h-full w-full bg-gradient-to-br from-sky-500/15 via-sky-500/5 to-sky-500/10" />
+                <div className="h-full w-full bg-[var(--soft-card)]" />
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-[var(--background)] via-transparent to-transparent" />
-              <span className="absolute right-3 top-3 rounded-full border border-white/[0.08] bg-black/50 px-3 py-1.5 text-[10px] font-medium text-white/80 opacity-0 backdrop-blur-md transition-opacity duration-300 group-hover:opacity-100">
+              <div className="absolute inset-0 bg-gradient-to-t from-[var(--card)] via-transparent to-transparent" />
+              <span className="absolute right-3 top-3 rounded-md border border-[var(--card-border)] bg-[var(--elevated)] px-2.5 py-1 text-[10px] font-medium text-[var(--muted)] opacity-0 transition-opacity duration-200 group-hover:opacity-100">
                 {bannerUrl ? "Change banner" : "Add banner"}
               </span>
             </div>
             <input ref={bannerRef} type="file" accept="image/*" className="hidden" onChange={handleBannerUpload} />
 
-            <div className="relative z-10 px-5 pb-6 sm:px-8 sm:pb-8">
-              <div className="-mt-14 flex flex-col items-start gap-4 sm:-mt-16 sm:flex-row sm:items-end sm:gap-6">
+            <div className="relative z-10 px-5 pb-5 sm:px-7 sm:pb-6">
+              <div className="-mt-12 flex flex-col items-start gap-4 sm:-mt-14 sm:flex-row sm:items-end sm:gap-5">
                 <button
                   type="button"
                   onClick={() => avatarRef.current?.click()}
@@ -1502,19 +1493,19 @@ const tabGroups = [
                       <img
                         src={avatarUrl}
                         alt=""
-                        className="h-24 w-24 rounded-2xl border-[4px] border-[var(--background)] object-cover shadow-2xl sm:h-28 sm:w-28 transition-transform duration-300 group-hover/avatar:scale-105"
+                        className="h-24 w-24 rounded-xl border-[3px] border-[var(--card)] object-cover sm:h-28 sm:w-28"
                       />
-                      <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/0 transition-all duration-300 group-hover/avatar:bg-black/50">
-                        <span className="text-sm font-bold text-white opacity-0 transition-opacity duration-300 group-hover/avatar:opacity-100">Edit</span>
+                      <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/0 transition-colors duration-200 group-hover/avatar:bg-black/40">
+                        <span className="text-sm font-semibold text-white opacity-0 transition-opacity duration-200 group-hover/avatar:opacity-100">Edit</span>
                       </div>
                     </div>
                   ) : (
                     <div className="relative">
-                      <div className="flex h-24 w-24 items-center justify-center rounded-2xl border-[4px] border-[var(--background)] bg-gradient-to-br from-zinc-800 to-zinc-900 text-3xl font-bold text-sky-400 shadow-2xl sm:h-28 sm:w-28">
+                      <div className="flex h-24 w-24 items-center justify-center rounded-xl border-[3px] border-[var(--card)] bg-[var(--soft-card)] text-3xl font-bold text-sky-500 sm:h-28 sm:w-28">
                         {initial}
                       </div>
-                      <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/0 transition-all duration-300 hover:bg-black/50">
-                        <span className="text-sm font-bold text-white opacity-0 transition-opacity duration-300 group-hover/avatar:opacity-100">Add</span>
+                      <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/0 transition-colors duration-200 hover:bg-black/40">
+                        <span className="text-sm font-semibold text-white opacity-0 transition-opacity duration-200 group-hover/avatar:opacity-100">Add</span>
                       </div>
                     </div>
                   )}
@@ -1522,27 +1513,27 @@ const tabGroups = [
                 <input ref={avatarRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
 
                 <div className="min-w-0 flex-1 pb-1">
-                  <h2 className="truncate text-2xl font-black tracking-tight text-white sm:text-3xl">
+                  <h2 className="truncate text-2xl font-bold tracking-tight text-[var(--foreground)] sm:text-3xl">
                     {contextUsername || username || "User"}
                   </h2>
-                  <p className="mt-1 truncate text-sm text-zinc-400">
+                  <p className="mt-0.5 truncate text-sm text-[var(--muted)]">
+                    @{(contextUsername || username || "user").toLowerCase().replace(/\s+/g, "")}
+                  </p>
+                  <p className="mt-1 truncate text-[13px] text-[var(--muted)]">
                     {completion}% complete · {region || "No region set"} · Joined {memberDate}
                   </p>
-                  {(profileBadges.length > 0 || !hideOnline) && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {!hideOnline && (
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold text-emerald-300">
-                          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" /> Online
+                  {(isFullyVerified || profile.trustedSeller) && (
+                    <div className="mt-2.5 flex flex-wrap gap-1.5">
+                      {isFullyVerified && (
+                        <span className="inline-flex rounded-md border border-[var(--card-border)] bg-[var(--soft-card)] px-2 py-0.5 text-[11px] font-semibold text-[var(--text-secondary)]">
+                          Verified
                         </span>
                       )}
-                      {profileBadges.map((badge) => (
-                        <span
-                          key={badge.key}
-                          className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-bold ${badge.className}`}
-                        >
-                          {badge.label}
+                      {profile.trustedSeller && !isFullyVerified && (
+                        <span className="inline-flex rounded-md border border-[var(--card-border)] bg-[var(--soft-card)] px-2 py-0.5 text-[11px] font-semibold text-[var(--text-secondary)]">
+                          Trusted
                         </span>
-                      ))}
+                      )}
                     </div>
                   )}
                 </div>
@@ -1558,27 +1549,26 @@ const tabGroups = [
                   )}
                   <Link
                     href="/dashboard"
-                    className="inline-flex items-center rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-xs font-semibold text-zinc-300 transition hover:border-sky-500/25 hover:bg-white/[0.06] hover:text-white"
+                    className="inline-flex items-center rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] px-4 py-2 text-xs font-semibold text-[var(--text-secondary)] transition hover:border-sky-500/25 hover:text-[var(--foreground)]"
                   >
                     Dashboard
                   </Link>
                   <Link
                     href="/messages"
-                    className="inline-flex items-center rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-xs font-semibold text-zinc-300 transition hover:border-sky-500/25 hover:bg-white/[0.06] hover:text-white"
+                    className="inline-flex items-center rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] px-4 py-2 text-xs font-semibold text-[var(--text-secondary)] transition hover:border-sky-500/25 hover:text-[var(--foreground)]"
                   >
                     Messages
                   </Link>
                 </div>
               </div>
 
-              <div className="mt-6 grid grid-cols-3 gap-2 sm:gap-4">
+              <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
                 {statItems.map((s) => (
-                  <div key={s.label} className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.06] to-white/[0.01] px-2 py-3 text-center transition-all duration-300 hover:border-white/[0.14] hover:shadow-lg hover:shadow-black/20 sm:rounded-2xl sm:px-4 sm:py-4 sm:hover:-translate-y-0.5">
-                    <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${s.accent}`} />
+                  <div key={s.label} className="rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] px-2 py-3 text-center sm:px-4 sm:py-3.5">
                     <div className="flex flex-col items-center">
-                      <span className="text-xl opacity-90 sm:text-2xl">{s.icon}</span>
-                      <p className="mt-1 text-base font-black text-white sm:text-xl">{s.value}</p>
-                      <p className="text-[9px] font-semibold uppercase tracking-wider text-zinc-500 sm:text-[10px]">{s.label}</p>
+                      <span className="text-lg opacity-80 sm:text-xl">{s.icon}</span>
+                      <p className="mt-1 text-base font-bold text-[var(--foreground)] sm:text-lg">{s.value}</p>
+                      <p className="text-[9px] font-semibold uppercase tracking-wider text-[var(--muted)] sm:text-[10px]">{s.label}</p>
                     </div>
                   </div>
                 ))}
@@ -1589,13 +1579,13 @@ const tabGroups = [
           <div className="grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
           {/* Tabs - Grouped */}
           <nav
-            className="mobile-h-scroll rounded-2xl border border-white/[0.06] bg-white/[0.015] p-1.5 lg:sticky lg:top-24 lg:flex-col lg:overflow-visible lg:gap-1"
+            className="mobile-h-scroll rounded-2xl border border-[var(--card-border)] bg-[var(--card)] p-1.5 lg:sticky lg:top-24 lg:flex-col lg:overflow-visible lg:gap-1"
             role="tablist"
             aria-label="Profile sections"
           >
             {tabGroups.map((group) => (
               <div key={group.id} className="flex shrink-0 gap-1 lg:w-full lg:flex-col">
-                <div className="hidden lg:block px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                <div className="hidden lg:block px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-[var(--muted)]">
                   {group.label}
                 </div>
                 <div className="flex gap-1 lg:flex-col">
@@ -1605,14 +1595,14 @@ const tabGroups = [
                       onClick={() => setActiveTab(tab.id)}
                       role="tab"
                       aria-selected={activeTab === tab.id}
-                      className={`shrink-0 rounded-xl px-4 py-3 text-left text-xs font-semibold transition-all duration-200 min-h-[44px] sm:text-sm lg:w-full ${
+                      className={`shrink-0 rounded-xl px-4 py-3 text-left text-xs font-semibold transition-colors duration-150 min-h-[44px] sm:text-sm lg:w-full ${
                         activeTab === tab.id
                           ? tab.id === "danger"
-                            ? "bg-red-500/15 text-red-300 border border-red-500/20"
-                            : "bg-sky-500/15 text-sky-300 border border-sky-500/20"
+                            ? "bg-red-500/15 text-red-400 border border-red-500/20"
+                            : "bg-sky-500/10 text-sky-500 border border-sky-500/20"
                           : tab.id === "danger"
-                            ? "text-red-400/60 hover:bg-red-500/10 hover:text-red-300"
-                            : "text-zinc-500 hover:bg-white/[0.04] hover:text-white"
+                            ? "text-red-400/60 hover:bg-red-500/10 hover:text-red-400"
+                            : "text-[var(--muted)] hover:bg-[var(--card-hover)] hover:text-[var(--foreground)]"
                       }`}
                     >
                       {tab.label}

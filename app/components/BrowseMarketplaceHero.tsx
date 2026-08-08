@@ -1,7 +1,6 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { HOME_MARKETPLACE_THEME as t } from "../lib/browse-category-config";
 import BrowseAwhinaAssistantPanel from "./BrowseAwhinaAssistantPanel";
 
 type Props = {
@@ -11,7 +10,7 @@ type Props = {
   showAssistantPanel?: boolean;
 };
 
-/** Browse-tab page hero — same sky palette as the homepage header. */
+/** Browse-tab page hero — calm surface matching homepage inventory chrome. */
 export default function BrowseMarketplaceHero({
   badge,
   title,
@@ -20,12 +19,13 @@ export default function BrowseMarketplaceHero({
 }: Props) {
   return (
     <header
-      className={`relative mb-5 overflow-hidden rounded-2xl border border-sky-500/15 bg-gradient-to-b from-sky-500/[0.07] via-transparent to-transparent ${t.heroShadow}`}
+      className="relative mb-5 overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--card)] shadow-[var(--shadow-xs)]"
     >
-      <div className={`pointer-events-none absolute inset-0 ${t.radial}`} />
-      <div className="relative flex flex-col items-center px-5 py-5 text-center sm:px-8 sm:py-7">
-        <div className={t.badge}>{badge}</div>
-        <h1 className="text-3xl font-semibold tracking-tight text-[var(--foreground)] sm:text-4xl lg:text-5xl">
+      <div className="relative flex flex-col items-center px-5 py-5 text-center sm:px-8 sm:py-6">
+        <div className="mb-2 inline-flex items-center rounded-md border border-[var(--card-border)] bg-[var(--soft-card)] px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-[var(--muted)]">
+          {badge}
+        </div>
+        <h1 className="text-2xl font-semibold tracking-tight text-[var(--foreground)] sm:text-3xl lg:text-4xl">
           {title}
         </h1>
         {showAssistantPanel && <BrowseAwhinaAssistantPanel />}

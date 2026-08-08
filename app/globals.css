@@ -109,10 +109,10 @@
   --dropdown-hover: rgba(255, 255, 255, 0.06);
 
   /* Listing card semantic tokens — dark */
-  --lc-bg: rgba(16, 18, 26, 0.96);
-  --lc-surface: rgba(255, 255, 255, 0.03);
-  --lc-border: rgba(56, 189, 248, 0.2);
-  --lc-border-hover: rgba(56, 189, 248, 0.48);
+  --lc-bg: rgba(18, 18, 26, 0.98);
+  --lc-surface: rgba(255, 255, 255, 0.025);
+  --lc-border: rgba(255, 255, 255, 0.07);
+  --lc-border-hover: rgba(56, 189, 248, 0.32);
   --lc-shadow: var(--shadow-sm);
   --lc-shadow-hover: var(--shadow-md);
   --lc-text-primary: #ffffff;
@@ -368,24 +368,13 @@ body {
   border: 1px solid var(--lc-seller-border);
   background: var(--lc-seller-bg);
   transition:
-    transform 0.2s ease,
-    border-color 0.2s ease,
-    background 0.2s ease,
-    box-shadow 0.2s ease;
+    border-color 0.15s ease,
+    background 0.15s ease;
 }
 
 .lc-seller:hover {
   border-color: var(--lc-seller-hover-border);
   background: var(--lc-seller-hover-bg);
-  box-shadow: var(--shadow-xs);
-}
-
-:root.light .lc-seller {
-  box-shadow: none;
-}
-
-:root.light .lc-seller:hover {
-  box-shadow: var(--shadow-xs);
 }
 
 .lc-seller-name {
@@ -531,11 +520,11 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 36px;
-  padding: 0.5rem 0.875rem;
+  min-height: 34px;
+  padding: 0.375rem 0.75rem;
   font-size: 0.8125rem;
   font-weight: 600;
-  border-radius: 9999px;
+  border-radius: var(--radius-md);
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -2652,3 +2641,23 @@ select:focus-visible {
 :root.light header.site-navbar .text-red-400 * {
   color: #f87171 !important;
 }
+
+/* Premium polish — profile/messages form chrome in light mode */
+:root.light .text-zinc-400,
+:root.light .text-zinc-500,
+:root.light .text-zinc-600 {
+  color: var(--muted) !important;
+}
+
+/* /post/ai visual consistency — surface tokens only, no logic */
+:root.light .awhina-panel {
+  background: var(--card) !important;
+  border-color: var(--card-border) !important;
+  box-shadow: var(--shadow-sm);
+}
+:root.light .awhina-panel .awhina-panel-bubble {
+  background: var(--soft-card) !important;
+  border-color: var(--card-border) !important;
+  color: var(--foreground) !important;
+}
+

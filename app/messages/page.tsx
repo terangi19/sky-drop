@@ -1340,11 +1340,11 @@ function MessagesPage() {
           </div>
         </div>
       )}
-      <section className={`${PAGE_SHELL_CHAT} py-4 sm:py-8`}>
+      <section className={`${PAGE_SHELL_CHAT} py-3 sm:py-6`}>
         <div
-          className={`flex w-full overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--card)] shadow-2xl backdrop-blur-xl sm:rounded-[40px] ${
+          className={`flex w-full overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--card)] shadow-[var(--shadow-md)] sm:rounded-2xl ${
             !isMobile || mobileView === "list"
-              ? "h-[calc(100dvh-8.5rem-var(--mobile-nav-offset,0px))] sm:h-[calc(100dvh-18rem)]"
+              ? "h-[calc(100dvh-8.5rem-var(--mobile-nav-offset,0px))] sm:h-[calc(100dvh-16rem)]"
               : "h-[calc(100dvh-5.5rem-var(--mobile-nav-offset,0px))] sm:h-[calc(100dvh-10rem)]"
           }`}
         >
@@ -1439,13 +1439,13 @@ function MessagesPage() {
                         setChatListingId(convo.listingId); 
                         if (isMobile) setMobileView("chat"); 
                       }}
-                      className={`flex w-full items-start gap-3 border-b border-[var(--card-border)] px-4 py-3.5 text-left transition-all duration-200 hover:bg-sky-500/5 ${chatUser === convo.participant && chatListingId === convo.listingId ? "bg-sky-500/10" : ""}`}>
+                      className={`flex w-full items-start gap-3 border-b border-[var(--card-border)] px-4 py-3.5 text-left transition-colors duration-150 hover:bg-[var(--card-hover)] ${chatUser === convo.participant && chatListingId === convo.listingId ? "bg-sky-500/[0.07] shadow-[inset_3px_0_0_0_var(--accent-primary)]" : ""}`}>
                       {/* Thumbnail */}
-                      <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-600/10 ring-2 ring-white/[0.04]">
+                      <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-[var(--soft-card)] ring-1 ring-[var(--card-border)]">
                         {convo.msg.listingImage ? (
                           <img src={convo.msg.listingImage} alt="" className="h-full w-full object-cover" />
                         ) : (
-                          <div className="flex h-full items-center justify-center text-sm font-black text-sky-400">
+                          <div className="flex h-full items-center justify-center text-sm font-bold text-[var(--muted)]">
                             SD
                           </div>
                         )}
@@ -2200,7 +2200,7 @@ function MessagesPage() {
                         return (
                           <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
                             <div className="max-w-[75%]">
-                              <div className={`rounded-2xl px-4 py-3 text-[14px] shadow-lg transition-all duration-200 hover:shadow-xl ${isOwn ? "rounded-br-md bg-gradient-to-br from-sky-500 to-sky-600 text-always-white" : "rounded-bl-md bg-[var(--card)] text-[var(--foreground)]"}`}>
+                              <div className={`rounded-2xl px-3.5 py-2.5 text-[14px] ${isOwn ? "rounded-br-md bg-sky-500 text-always-white" : "rounded-bl-md bg-[var(--soft-card)] text-[var(--foreground)] border border-[var(--card-border)]"}`}>
                                 {!isOwn && (() => { const check = detectScam(msg.text || ""); return check.isScam ? (
                                   <span className="mb-2 inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2.5 py-1 text-[9px] font-bold text-red-400 border border-red-500/20" title={`Flagged: ${check.keywords.join(", ")}`}>&#9888;&#65039; Caution</span>
                                 ) : null; })()}
@@ -2269,7 +2269,7 @@ function MessagesPage() {
                           type="button"
                           disabled={sendingMessage}
                           onClick={() => sendQuickReply(reply)}
-                          className="rounded-full border border-[var(--card-border)] bg-[var(--soft-card)] px-2.5 py-1 text-[10px] font-medium text-[var(--muted)] transition hover:border-sky-500/30 hover:text-sky-400 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="rounded-md border border-[var(--card-border)] bg-[var(--soft-card)] px-2.5 py-1 text-[11px] font-medium text-[var(--muted)] transition hover:border-sky-500/30 hover:text-sky-500 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {reply}
                         </button>
@@ -2279,14 +2279,14 @@ function MessagesPage() {
                   <div className="flex gap-2.5">
                     {/* Image attach button */}
                     <button onClick={() => fileInputRef.current?.click()}
-                      className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--muted)] transition hover:border-sky-400 hover:text-sky-400">
+                      className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--muted)] transition hover:border-sky-400 hover:text-sky-400">
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
                     </button>
                     {/* File attach button */}
                     <button onClick={() => fileAttachInputRef.current?.click()}
-                      className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl border border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--muted)] transition hover:border-sky-400 hover:text-sky-400">
+                      className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] text-[var(--muted)] transition hover:border-sky-400 hover:text-sky-400">
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                       </svg>
@@ -2300,8 +2300,8 @@ function MessagesPage() {
                         typingDebounceRef.current = setTimeout(() => emitTyping(e.target.value.length > 0), 400);
                       }}
                       onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                      className="flex-1 rounded-2xl border border-[var(--card-border)] bg-[var(--soft-card)] px-4 py-3 text-[14px] text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-400" />
-                    <button onClick={() => sendMessage()} disabled={sendingMessage || !message.trim()} className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-sky-500 text-white transition hover:bg-sky-400 disabled:opacity-50 disabled:cursor-not-allowed">
+                      className="flex-1 rounded-xl border border-[var(--card-border)] bg-[var(--soft-card)] px-4 py-2.5 text-[14px] text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-sky-500" />
+                    <button onClick={() => sendMessage()} disabled={sendingMessage || !message.trim()} className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-sky-500 text-white transition hover:bg-sky-400 disabled:opacity-50 disabled:cursor-not-allowed">
                       {sendingMessage ? (
                         <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />

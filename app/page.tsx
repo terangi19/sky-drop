@@ -971,19 +971,18 @@ export default function Home() {
         </div>
       )}
 
-      {/* HERO / SEARCH — inventory-first: search above fold, calm branding */}
+      {/* HERO / SEARCH — inventory-first: calm search strip, listings dominate */}
       <section className={`${PAGE_SHELL_WIDE} pt-0 pb-0`}>
-        <div className="relative overflow-hidden rounded-2xl border border-[var(--card-border)] bg-[var(--card)]">
-          <div className="relative z-10 px-4 py-3 sm:px-5 sm:py-3.5">
+        <div className="relative overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--card)] shadow-[var(--shadow-xs)]">
+          <div className="relative z-10 px-3 py-2.5 sm:px-4 sm:py-3">
             <div className="mx-auto max-w-2xl text-center">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-400">Sky Drop</p>
-              <h1 className="mt-1 text-lg font-semibold tracking-tight text-[var(--foreground)] sm:text-xl">
+              <h1 className="text-base font-semibold tracking-tight text-[var(--foreground)] sm:text-lg">
                 Local listings across New Zealand
               </h1>
             </div>
 
             {/* Search and Category Pills */}
-            <div className="hero-search-shell relative mx-auto mt-3 max-w-2xl px-0.5">
+            <div className="hero-search-shell relative mx-auto mt-2.5 max-w-2xl px-0.5">
               {/* Search */}
               <div className="relative">
                 <div className="hero-search-field group relative flex items-center">
@@ -1001,11 +1000,11 @@ export default function Home() {
                         router.push(`/search?q=${encodeURIComponent(search.trim())}`);
                       }
                     }}
-                    className="hero-search-input flex-1 bg-transparent px-4 py-3.5 text-base text-[var(--foreground)] outline-none placeholder:text-[var(--muted)] sm:py-2.5 sm:text-[15px]"
+                    className="hero-search-input flex-1 bg-transparent px-4 py-3 text-base text-[var(--foreground)] outline-none placeholder:text-[var(--muted)] sm:py-2.5 sm:text-[15px]"
                   />
                   <div className="mr-2 flex items-center gap-1.5">
                     {search && (
-                      <button onClick={() => setSearch("")} className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl text-[var(--muted)] transition-colors duration-200 hover:bg-[var(--card-hover)] hover:text-[var(--foreground)]" aria-label="Clear search">
+                      <button onClick={() => setSearch("")} className="flex h-10 w-10 min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-[var(--muted)] transition-colors duration-150 hover:bg-[var(--card-hover)] hover:text-[var(--foreground)]" aria-label="Clear search">
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                       </button>
                     )}
@@ -1019,7 +1018,7 @@ export default function Home() {
                         }
                       }}
                       disabled={!search.trim()}
-                      className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl bg-sky-500 text-always-white transition-colors duration-200 hover:bg-sky-400 disabled:opacity-30 disabled:bg-sky-500/50 disabled:hover:bg-sky-500/50"
+                      className="flex h-10 w-10 min-h-[40px] min-w-[40px] items-center justify-center rounded-lg bg-sky-500 text-always-white transition-colors duration-150 hover:bg-sky-400 disabled:opacity-30 disabled:bg-sky-500/50 disabled:hover:bg-sky-500/50"
                       title="Search"
                       aria-label="Search"
                     >
@@ -1028,7 +1027,7 @@ export default function Home() {
                       </svg>
                     </button>
                     {(search || selectedCategory !== "All") && (
-                      <button onClick={saveSearch} className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl text-sky-400 transition-colors duration-200 hover:bg-sky-500/20 hover:text-sky-300" title="Save search" aria-label="Save search">
+                      <button onClick={saveSearch} className="flex h-10 w-10 min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-sky-500 transition-colors duration-150 hover:bg-sky-500/10" title="Save search" aria-label="Save search">
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                         </svg>
@@ -1037,7 +1036,7 @@ export default function Home() {
                   </div>
                 </div>
                 {showSearchSuggestions && (
-                  <div className="absolute top-full left-0 right-0 z-50 mt-2 overflow-hidden rounded-xl border border-white/[0.08] bg-[var(--card)] shadow-xl">
+                  <div className="absolute top-full left-0 right-0 z-50 mt-2 overflow-hidden rounded-xl border border-[var(--card-border)] bg-[var(--card)] shadow-[var(--shadow-md)]">
                     {searchSuggestions.map((suggestion, index) => (
                       <button
                         key={index}
@@ -1046,7 +1045,7 @@ export default function Home() {
                           setShowSearchSuggestions(false);
                           router.push(`/search?q=${encodeURIComponent(suggestion)}`);
                         }}
-                        className="w-full px-4 py-3 text-left text-sm text-[var(--foreground)] transition-colors hover:bg-sky-500/10 hover:text-sky-300"
+                        className="w-full px-4 py-2.5 text-left text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--card-hover)]"
                       >
                         {suggestion}
                       </button>
@@ -1056,14 +1055,14 @@ export default function Home() {
               </div>
 
               {/* Category pills - connected to search */}
-              <div className="hero-search-pills mt-3 flex justify-center">
+              <div className="hero-search-pills mt-2.5 flex justify-center">
                 <div className="mobile-h-scroll max-w-full px-0.5">
                   <button
                     onClick={() => setSelectedCategory("All")}
-                    className={`mobile-chip border transition-colors duration-200 ${
+                    className={`mobile-chip border transition-colors duration-150 ${
                       selectedCategory === "All"
-                        ? "border-sky-400/40 bg-sky-500/15 text-[var(--foreground)]"
-                        : "border-transparent bg-[var(--card)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-hover)]"
+                        ? "border-sky-500/30 bg-sky-500/10 text-[var(--foreground)]"
+                        : "border-transparent bg-transparent text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-hover)]"
                     }`}
                   >
                     All
@@ -1072,10 +1071,10 @@ export default function Home() {
                     <button
                       key={cat.name}
                       onClick={() => setSelectedCategory(cat.name)}
-                      className={`mobile-chip border transition-colors duration-200 ${
+                      className={`mobile-chip border transition-colors duration-150 ${
                         selectedCategory === cat.name
-                          ? "border-sky-400/40 bg-sky-500/15 text-[var(--foreground)]"
-                          : "border-transparent bg-[var(--card)] text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-hover)]"
+                          ? "border-sky-500/30 bg-sky-500/10 text-[var(--foreground)]"
+                          : "border-transparent bg-transparent text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-hover)]"
                       }`}
                     >
                       {cat.name}
@@ -1096,8 +1095,8 @@ export default function Home() {
               {selectedCategory !== "All" ? selectedCategory : "Latest listings"}
             </h2>
             {(selectedCategory !== "All" || selectedCondition !== "All" || selectedRegion !== "All" || search) ? (
-              <div className="flex items-center gap-2 rounded-full bg-sky-500/10 px-3 py-1 border border-sky-500/20">
-                <span className="text-[10px] font-bold text-sky-400 uppercase tracking-wider">Results</span>
+              <div className="flex items-center gap-2 rounded-md bg-[var(--soft-card)] px-2.5 py-1 border border-[var(--card-border)]">
+                <span className="text-[10px] font-semibold text-[var(--muted)] uppercase tracking-wider">Results</span>
                 <span className="text-sm font-semibold text-[var(--foreground)]">{animatedCount}</span>
               </div>
             ) : (
@@ -1107,7 +1106,7 @@ export default function Home() {
             )}
             <Link
               href={user ? "/post/ai" : "/signup"}
-              className="ml-auto text-sm font-semibold text-sky-400 transition hover:text-sky-300"
+              className="ml-auto text-sm font-semibold text-sky-500 transition hover:text-sky-400"
             >
               {user ? "Sell an item" : "Join to sell"}
             </Link>

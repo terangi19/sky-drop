@@ -141,7 +141,7 @@ export default memo(function MarketplaceListingCard({
               context={`MarketplaceListingCard:${item.id}`}
               className="transition-transform duration-300 ease-out group-hover:scale-[1.02]"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
+            <div className="absolute inset-0 bg-black/20 opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
             {!isVisible && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/70">
                 <span className="rounded-lg bg-red-600 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-white">
@@ -254,8 +254,8 @@ export default memo(function MarketplaceListingCard({
         </div>
       )}
 
-      <div className="flex flex-1 flex-col p-4">
-        <div className="flex min-h-7 items-center justify-between gap-2">
+      <div className="flex flex-1 flex-col p-3.5 sm:p-4">
+        <div className="flex min-h-6 items-center justify-between gap-2">
           <div className="flex gap-1.5 flex-wrap">
             <span className={`lc-chip rounded-md px-2 py-0.5 text-[10px] font-semibold`}>
               {categoryLabel}
@@ -294,8 +294,8 @@ export default memo(function MarketplaceListingCard({
           </button>
         </div>
 
-        <div className="flex items-center gap-2 mt-2.5">
-          <h2 className="lc-title flex-1 line-clamp-1 text-[17px] font-semibold tracking-tight">
+        <div className="flex items-center gap-2 mt-2">
+          <h2 className="lc-title flex-1 line-clamp-1 text-[15px] font-semibold tracking-tight sm:text-[16px]">
             {item.title}
           </h2>
         </div>
@@ -334,18 +334,18 @@ export default memo(function MarketplaceListingCard({
                 .join(" · ")}
         </p>
 
-        <div className="mt-3 flex flex-col gap-0.5">
+        <div className="mt-2.5 flex flex-col gap-0.5">
           <div className="flex items-baseline gap-2">
             {item.pricingType === "quote" ||
             item.servicePricingType === "request_quote" ? (
               <>
-                <p className="lc-price text-2xl font-bold tracking-tight sm:text-3xl">{priceLabel}</p>
-                <span className="lc-quote-badge rounded-full px-2 py-0.5 text-[9px] font-semibold">
+                <p className="lc-price text-xl font-bold tracking-tight sm:text-2xl">{priceLabel}</p>
+                <span className="lc-quote-badge rounded-md px-2 py-0.5 text-[9px] font-semibold">
                   Quote Required
                 </span>
               </>
             ) : (
-              <p className="lc-price text-2xl font-bold tracking-tight sm:text-3xl">{priceLabel}</p>
+              <p className="lc-price text-xl font-bold tracking-tight sm:text-2xl">{priceLabel}</p>
             )}
             {(item.saleType === "auction" || item.saleType === "auction_buy_now") && (
               <span className="lc-bid rounded-md px-2 py-0.5 text-sm font-bold">
@@ -358,7 +358,7 @@ export default memo(function MarketplaceListingCard({
           )}
         </div>
 
-        <div className="lc-meta mt-3 flex min-h-5 items-center gap-3 text-[10px] opacity-70">
+        <div className="lc-meta mt-2.5 flex min-h-5 items-center gap-3 text-[11px]">
           {item.location && (
             <span className="flex items-center gap-1">{item.location}</span>
           )}
@@ -366,7 +366,7 @@ export default memo(function MarketplaceListingCard({
           {item.pickupAvailable && <span>Pickup</span>}
           {item.shippingAvailable && <span>Shipping</span>}
           {themed ? (
-            <span className="lc-accent ml-auto flex items-center gap-1 font-semibold">
+            <span className="lc-accent ml-auto flex items-center gap-1 font-medium">
               {saves.toLocaleString()} {saves === 1 ? "save" : "saves"}
             </span>
           ) : (
@@ -376,7 +376,7 @@ export default memo(function MarketplaceListingCard({
           )}
         </div>
 
-        <div className="mt-auto space-y-2 pt-3">
+        <div className="mt-auto space-y-2 pt-2.5">
         <div className="flex min-h-10 gap-2">
           {user && user.email !== item.sellerEmail && (
             <>
@@ -385,7 +385,7 @@ export default memo(function MarketplaceListingCard({
                 <Link
                   href={`/post/listing/${item.id}`}
                   onClick={(e) => e.stopPropagation()}
-                  className="lc-btn-primary flex flex-1 items-center justify-center rounded-md py-2.5 text-[12px] font-semibold active:scale-95"
+                  className="lc-btn-primary flex flex-1 items-center justify-center rounded-lg py-2.5 text-[12px] font-semibold active:scale-95"
                 >
                   Request Quote
                 </Link>
@@ -397,7 +397,7 @@ export default memo(function MarketplaceListingCard({
                     onBuyNow(item);
                   }}
                   disabled={loading}
-                  className={`lc-btn-primary flex-1 rounded-md py-2.5 text-[12px] font-semibold active:scale-95 ${loading ? "opacity-70 cursor-not-allowed" : ""}`}
+                  className={`lc-btn-primary flex-1 rounded-lg py-2.5 text-[12px] font-semibold active:scale-95 ${loading ? "opacity-70 cursor-not-allowed" : ""}`}
                   title={
                     isMessagingOnlyType
                       ? `Message the ${item.type === "service" ? "provider" : "owner"} to arrange details in chat`
@@ -426,14 +426,14 @@ export default memo(function MarketplaceListingCard({
                   e.stopPropagation();
                   onPromote(item);
                 }}
-                className="lc-btn rounded-md px-4 py-2.5 text-[12px] font-semibold active:scale-95"
+                className="lc-btn rounded-lg px-4 py-2.5 text-[12px] font-semibold active:scale-95"
               >
                 Boost
               </button>
               <Link
                 href={`/post/ai?edit=${item.id}`}
                 onClick={(e) => e.stopPropagation()}
-                className="lc-btn rounded-md px-4 py-2.5 text-[12px] font-semibold active:scale-95"
+                className="lc-btn rounded-lg px-4 py-2.5 text-[12px] font-semibold active:scale-95"
               >
                 Edit
               </Link>
@@ -443,7 +443,7 @@ export default memo(function MarketplaceListingCard({
                   e.stopPropagation();
                   setShowDeleteConfirm(true);
                 }}
-                className="lc-btn-ghost rounded-md px-4 py-2.5 text-[12px] font-semibold active:scale-95"
+                className="lc-btn-ghost rounded-lg px-4 py-2.5 text-[12px] font-semibold active:scale-95"
               >
                 Remove
               </button>
@@ -487,7 +487,7 @@ export default memo(function MarketplaceListingCard({
               sellerFullyVerified?.[email || ""];
             
             return (
-              <div className="lc-seller group rounded-lg p-2 hover:-translate-y-0.5">
+              <div className="lc-seller group rounded-lg p-2">
                 <div className="flex items-center gap-2">
                   <div className="lc-avatar relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full text-[12px] font-bold ring-1">
                     {avatarUrl ? (
