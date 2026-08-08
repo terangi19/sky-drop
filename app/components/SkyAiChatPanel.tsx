@@ -167,6 +167,27 @@ export default function SkyAiChatPanel({
     }
     return null;
   });
+  /** Stable anon session — isolates guest search/task memory across browsers */
+  const [anonSessionId] = useState<string>(() => {
+    if (typeof window === "undefined") return `anon_ssr_${Math.random().toString(36).slice(2)}`;
+    try {
+      let id = localStorage.getItem("skyAiAnonSessionId");
+      if (!id) {
+        id =
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? `anon_${crypto.randomUUID()}`
+            : `anon_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+        localStorage.setItem("skyAiAnonSessionId", id);
+      }
+      return id;
+    } catch {
+      return `anon_${Date.now()}`;
+    }
+  });
+  const awhinaSessionRef = useRef<{
+    task?: { task?: string; pendingItem?: string; compareCandidates?: string[]; updatedAt?: number };
+    search?: { filters?: Record<string, unknown>; updatedAt?: number };
+  } | null>(null);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
@@ -459,6 +480,8 @@ export default function SkyAiChatPanel({
             pathname,
             history: user ? undefined : history,
             conversationId: user ? conversationId || undefined : undefined,
+            anonSessionId: user ? undefined : anonSessionId,
+            awhinaSession: awhinaSessionRef.current || undefined,
             listingContext,
             images: imageUrls.length ? imageUrls : undefined,
             stream: true,
@@ -516,6 +539,10 @@ export default function SkyAiChatPanel({
                   navigateTo?: string;
                   listingFill?: SkyAiListingFill;
                   conversationId?: string;
+                  awhinaSession?: {
+                    task?: { task?: string; pendingItem?: string; compareCandidates?: string[]; updatedAt?: number };
+                    search?: { filters?: Record<string, unknown>; updatedAt?: number };
+                  };
                   source?: string;
                   error?: string;
                 };
@@ -535,6 +562,9 @@ export default function SkyAiChatPanel({
                 if (evt.type === "done") {
                   navigateTo = evt.navigateTo;
                   responseHandled = true;
+                  if (evt.awhinaSession) {
+                    awhinaSessionRef.current = evt.awhinaSession;
+                  }
                   if (isSellPage && navigateTo === "/post/ai") navigateTo = undefined;
                   if (evt.listingFill) {
                     setListingFillOccurred(true);

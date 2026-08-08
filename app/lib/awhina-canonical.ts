@@ -19,6 +19,10 @@ import {
   updateSearchSession,
   buildSearchFollowUpReply,
   rememberPrimarySearch,
+  hydrateSearchSession,
+  toClientSearchContext,
+  type ClientSearchContext,
+  type SearchSessionFilters,
 } from "./awhina-search-memory";
 import {
   listingDraftSessionKey,
@@ -38,7 +42,11 @@ import {
 import { recordAwhinaObs, inferQualityFromCanonical } from "./awhina-observability";
 import { isSkyAiGeneralQuestion } from "./sky-ai-prompts";
 import { tryFindBrowseReply } from "./sky-ai-task-replies";
-import { hasListingSellIntent } from "./sky-ai-intent";
+import {
+  hasListingSellIntent,
+  hasExplicitSellSwitch,
+  hasSearchIntentLanguage,
+} from "./sky-ai-intent";
 import { hasActiveListingDraft } from "./sky-ai-draft-merge";
 import type { SkyAiListingContext } from "./sky-ai-types";
 import type { SkyAiProfileContext } from "./sky-ai-profile-context";
@@ -49,6 +57,10 @@ import {
   setActiveTask,
   resolveTaskForMessage,
   isRelativePricePhrase,
+  hydrateTaskScope,
+  isToolAllowedForTask,
+  toClientTaskScope,
+  type ClientTaskScopeContext,
 } from "./awhina-task-scope";
 import {
   isVagueShoppingNeed,
@@ -65,6 +77,8 @@ export type CanonicalContext = {
   pathname?: string;
   uid?: string | null;
   conversationId?: string;
+  /** Stable browser anon id — isolates guest Map keys */
+  anonSessionId?: string;
   isAdmin?: boolean;
   history?: Array<{ role: "user" | "assistant"; content: string }>;
   /** Voice / medium confidence — clarify before state-changing */
@@ -72,6 +86,14 @@ export type CanonicalContext = {
   voiceConfidence?: "high" | "medium" | "low";
   listingContext?: SkyAiListingContext | null;
   profileContext?: SkyAiProfileContext | null;
+  /** Client-echoed durable task/search (Maps are cache) */
+  clientTask?: ClientTaskScopeContext | null;
+  clientSearch?: ClientSearchContext | null;
+};
+
+export type CanonicalSessionState = {
+  task?: ClientTaskScopeContext;
+  search?: ClientSearchContext;
 };
 
 export type CanonicalResult = {
@@ -90,6 +112,8 @@ export type CanonicalResult = {
   clarificationQuestion?: string;
   /** Structured tool for clients that execute tools */
   toolCall?: AwhinaToolCall;
+  /** Echo to client — durable source of truth across serverless instances */
+  sessionState?: CanonicalSessionState;
 };
 
 const CATEGORY_LOCAL: Array<{ re: RegExp; path: string; label: string }> = [
@@ -125,6 +149,61 @@ function toolFromLocal(local: ReturnType<typeof tryLocalExecution>): AwhinaToolC
   return tc as AwhinaToolCall;
 }
 
+function searchToolCall(merged: SearchSessionFilters, confidence = 0.9): AwhinaToolCall {
+  return {
+    tool: "searchListings",
+    args: {
+      searchListings: {
+        query: merged.query || "",
+        filters: {
+          maxPrice: merged.maxPrice ? Number(merged.maxPrice) : undefined,
+          minPrice: merged.minPrice ? Number(merged.minPrice) : undefined,
+          location: merged.location,
+          condition: merged.condition,
+          make: merged.make,
+          model: merged.model,
+          year: merged.year ? Number(merged.year) : undefined,
+          minYear: merged.minYear ? Number(merged.minYear) : undefined,
+          maxYear: merged.maxYear ? Number(merged.maxYear) : undefined,
+          transmission: merged.transmission,
+        },
+      },
+    },
+    confidence,
+  };
+}
+
+/** Avoid redundant Navigating when already on the same search destination. */
+function refineNavigateTo(
+  pathname: string,
+  navigateTo: string | undefined
+): string | undefined {
+  if (!navigateTo) return undefined;
+  if (pathname === navigateTo) return undefined;
+  // Same /search path with identical query string → skip
+  if (pathname.startsWith("/search") && navigateTo.startsWith("/search")) {
+    try {
+      const cur = new URL(pathname, "https://skydrop.co.nz");
+      const next = new URL(navigateTo, "https://skydrop.co.nz");
+      if (cur.search === next.search) return undefined;
+    } catch {
+      /* keep nav */
+    }
+  }
+  return navigateTo;
+}
+
+function stripDuplicateLocationInReply(reply: string): string {
+  // "location Auckland**, **Location: Auckland" → keep one
+  return reply.replace(
+    /\*\*location\s+([^,*]+)\*\*(?:,\s*)?\*\*Location:\s*\1\*\*/gi,
+    "**location $1**"
+  ).replace(
+    /\*\*Location:\s*([^,*]+)\*\*(?:,\s*)?\*\*location\s+\1\*\*/gi,
+    "**location $1**"
+  );
+}
+
 /**
  * Canonical pre-AI handler. Returns handled=true when AI should be skipped.
  */
@@ -139,17 +218,49 @@ export function processCanonicalAwhina(
     conversationId: context.conversationId,
     uid: context.uid,
     pathname,
+    anonSessionId: context.anonSessionId,
   });
   const scopeKey = taskScopeKey({
     conversationId: context.conversationId,
     uid: context.uid,
     pathname,
+    anonSessionId: context.anonSessionId,
   });
 
+  // Durable client context hydrates cold Maps (serverless)
+  hydrateTaskScope(scopeKey, context.clientTask);
+  hydrateSearchSession(memKey, context.clientSearch);
+
   const finish = (partial: Omit<CanonicalResult, "executionTimeMs">): CanonicalResult => {
+    const taskSnap = getTaskScope(scopeKey);
+    const searchSnap = getSearchSession(memKey);
+    let reply = partial.reply ? stripDuplicateLocationInReply(partial.reply) : partial.reply;
+    let navigateTo = refineNavigateTo(pathname, partial.navigateTo);
+
+    // Hard tool gate: sticky SEARCH cannot sell/create/edit listing tools
+    let tool = partial.tool;
+    let toolCall = partial.toolCall;
+    let listingFill = partial.listingFill;
+    const activeTask = taskSnap?.task || "none";
+    if (tool && !isToolAllowedForTask(tool, activeTask)) {
+      tool = undefined;
+      toolCall = undefined;
+      listingFill = undefined;
+      navigateTo = navigateTo === "/post/ai" ? undefined : navigateTo;
+    }
+
     const result: CanonicalResult = {
       ...partial,
+      reply,
+      navigateTo,
+      tool,
+      toolCall,
+      listingFill,
       executionTimeMs: Date.now() - start,
+      sessionState: {
+        task: toClientTaskScope(taskSnap),
+        search: toClientSearchContext(searchSnap),
+      },
     };
     const clarification = Boolean(result.clarificationQuestion);
     recordAwhinaObs({
@@ -399,18 +510,23 @@ export function processCanonicalAwhina(
     conversationId: context.conversationId,
     uid: context.uid,
     pathname,
+    anonSessionId: context.anonSessionId,
   });
   const listSessionEarly = getListingDraftSession(listKeyEarly);
   const hasListDraftEarly =
     hasActiveListingDraft(context.listingContext) || Boolean(listSessionEarly?.draft);
+
+  const searchLang = hasSearchIntentLanguage(trimmed);
+  const explicitSell = hasExplicitSellSwitch(trimmed);
+  const stickyShopping = taskSession?.task === "shopping" && !explicitSell && !onSellPage;
 
   // Task-scoped "make it cheaper": shopping → sort cheapest; selling → draft (later)
   const taskForRelative = resolveTaskForMessage(trimmed, {
     pathname,
     hasListingDraft: hasListDraftEarly,
     session: taskSession,
-    hasSellIntent: hasListingSellIntent(trimmed),
-    hasSearchIntent: false,
+    hasSellIntent: hasListingSellIntent(trimmed) || explicitSell,
+    hasSearchIntent: searchLang || stickyShopping,
   });
   if (
     !onSellPage &&
@@ -422,20 +538,6 @@ export function processCanonicalAwhina(
     const merged = updateSearchSession(memKey, { sortBy: "price-low" });
     const { text, navigateTo } = buildSearchFollowUpReply(merged);
     setActiveTask(scopeKey, "shopping");
-    const toolCall: AwhinaToolCall = {
-      tool: "searchListings",
-      args: {
-        searchListings: {
-          query: merged.query || "",
-          filters: {
-            maxPrice: merged.maxPrice ? Number(merged.maxPrice) : undefined,
-            location: merged.location,
-            condition: merged.condition,
-          },
-        },
-      },
-      confidence: 0.9,
-    };
     return finish({
       handled: true,
       reply: text,
@@ -446,7 +548,7 @@ export function processCanonicalAwhina(
       confidence: 0.9,
       usedLocalExecution: false,
       avoidedAi: true,
-      toolCall,
+      toolCall: searchToolCall(merged, 0.9),
     });
   }
 
@@ -461,25 +563,10 @@ export function processCanonicalAwhina(
     const combined = mergeClarifyIntoSearchMessage(taskSession.pendingItem, trimmed);
     rememberPrimarySearch(memKey, combined);
     const delta = extractSearchRefinement(combined);
-    // Ensure query stays the pending item
     if (!delta.query) delta.query = taskSession.pendingItem;
     const merged = updateSearchSession(memKey, delta);
     setActiveTask(scopeKey, "shopping", { pendingItem: undefined });
     const { text, navigateTo } = buildSearchFollowUpReply(merged);
-    const toolCall: AwhinaToolCall = {
-      tool: "searchListings",
-      args: {
-        searchListings: {
-          query: merged.query || taskSession.pendingItem,
-          filters: {
-            maxPrice: merged.maxPrice ? Number(merged.maxPrice) : undefined,
-            location: merged.location,
-            condition: merged.condition,
-          },
-        },
-      },
-      confidence: 0.9,
-    };
     return finish({
       handled: true,
       reply: text,
@@ -490,7 +577,7 @@ export function processCanonicalAwhina(
       confidence: 0.9,
       usedLocalExecution: false,
       avoidedAi: true,
-      toolCall,
+      toolCall: searchToolCall(merged, 0.9),
     });
   }
 
@@ -499,6 +586,7 @@ export function processCanonicalAwhina(
     !onSellPage &&
     !onProfilePage &&
     !hasListingSellIntent(trimmed) &&
+    !explicitSell &&
     isVagueShoppingNeed(trimmed)
   ) {
     const { reply, item } = buildProactiveShoppingClarify(trimmed);
@@ -516,36 +604,59 @@ export function processCanonicalAwhina(
   }
 
   const session = getSearchSession(memKey);
-  // Don't let search follow-ups steal selling relative-price when task is selling
+  // Sticky SEARCH follow-ups (vehicle refinements, budget, location) stay search
   const allowSearchFollowUp =
     !onSellPage &&
     !onProfilePage &&
+    !explicitSell &&
     !(
       isRelativePricePhrase(trimmed) &&
       taskForRelative === "selling" &&
       hasListDraftEarly
     );
 
-  if (allowSearchFollowUp && isSearchFollowUp(trimmed, session) && session) {
+  if (
+    allowSearchFollowUp &&
+    (stickyShopping || Boolean(session?.filters?.query || session?.filters?.make)) &&
+    (isSearchFollowUp(trimmed, session) ||
+      searchLang ||
+      Boolean(
+        extractSearchRefinement(trimmed).make ||
+          extractSearchRefinement(trimmed).model ||
+          extractSearchRefinement(trimmed).year ||
+          extractSearchRefinement(trimmed).maxPrice ||
+          extractSearchRefinement(trimmed).location ||
+          extractSearchRefinement(trimmed).transmission
+      ))
+  ) {
     const delta = extractSearchRefinement(trimmed);
+    // Ignore empty chatter while sticky shopping
+    const hasDelta = Boolean(
+      delta.query ||
+        delta.make ||
+        delta.model ||
+        delta.year ||
+        delta.maxPrice ||
+        delta.location ||
+        delta.transmission ||
+        delta.condition ||
+        delta.sortBy ||
+        delta.hideSold
+    );
+    if (!hasDelta && !isSearchFollowUp(trimmed, session) && !searchLang) {
+      // fall through
+    } else {
     const merged = updateSearchSession(memKey, delta);
     setActiveTask(scopeKey, "shopping");
-    if (merged.query || merged.location || merged.maxPrice || merged.sortBy) {
+    if (
+      merged.query ||
+      merged.location ||
+      merged.maxPrice ||
+      merged.sortBy ||
+      merged.make ||
+      merged.year
+    ) {
       const { text, navigateTo } = buildSearchFollowUpReply(merged);
-      const toolCall: AwhinaToolCall = {
-        tool: "searchListings",
-        args: {
-          searchListings: {
-            query: merged.query || "",
-            filters: {
-              maxPrice: merged.maxPrice ? Number(merged.maxPrice) : undefined,
-              location: merged.location,
-              condition: merged.condition,
-            },
-          },
-        },
-        confidence: 0.9,
-      };
       return finish({
         handled: true,
         reply: text,
@@ -556,13 +667,18 @@ export function processCanonicalAwhina(
         confidence: 0.9,
         usedLocalExecution: false,
         avoidedAi: true,
-        toolCall,
+        toolCall: searchToolCall(merged, 0.9),
       });
+    }
     }
   }
 
   // Primary find — structured search tool + remember session
-  if (!hasListingSellIntent(trimmed) && pathname !== "/post/ai") {
+  if (
+    !explicitSell &&
+    (!hasListingSellIntent(trimmed) || searchLang || stickyShopping) &&
+    pathname !== "/post/ai"
+  ) {
     const find = tryFindBrowseReply(trimmed, {
       priorUserMessage: context.history
         ?.slice()
@@ -573,34 +689,26 @@ export function processCanonicalAwhina(
         .reverse()
         .find((h) => h.role === "assistant")?.content,
     });
-    if (find) {
+    if (find || searchLang) {
       rememberPrimarySearch(memKey, trimmed);
       setActiveTask(scopeKey, "shopping");
-      // Also merge any transmission from this message into session path
       const delta = extractSearchRefinement(trimmed);
       const merged = updateSearchSession(memKey, delta);
-      const path =
-        merged.transmission || merged.condition || merged.sortBy || merged.hideSold
-          ? buildSearchFollowUpReply(merged).navigateTo
-          : find.navigateTo;
-      const text =
-        merged.transmission || merged.condition || merged.sortBy || merged.hideSold
-          ? buildSearchFollowUpReply(merged).text
-          : find.text;
-      const toolCall: AwhinaToolCall = {
-        tool: "searchListings",
-        args: {
-          searchListings: {
-            query: merged.query || "",
-            filters: {
-              maxPrice: merged.maxPrice ? Number(merged.maxPrice) : undefined,
-              location: merged.location,
-              condition: merged.condition,
-            },
-          },
-        },
-        confidence: 0.92,
-      };
+      const built = buildSearchFollowUpReply(merged);
+      const useBuilt =
+        Boolean(
+          merged.transmission ||
+            merged.condition ||
+            merged.sortBy ||
+            merged.hideSold ||
+            merged.year ||
+            merged.make ||
+            merged.maxPrice ||
+            merged.location
+        ) || !find;
+      const path = useBuilt ? built.navigateTo : find!.navigateTo;
+      const text = useBuilt ? built.text : find!.text;
+      const toolCall = searchToolCall(merged, 0.92);
       const validated = validateToolCall(toolCall);
       return finish({
         handled: true,
@@ -618,47 +726,57 @@ export function processCanonicalAwhina(
   }
 
   // ── Sell listing-fill (partial draft updates + validation) ──
+  // Hard gate: sticky SEARCH blocks sell tools unless explicit sell switch or sell page
   const onSell = pathname.startsWith("/post/ai");
   const listKey = listKeyEarly;
   const listSession = listSessionEarly;
   const hasListDraft = hasListDraftEarly;
+  const resolvedTask = resolveTaskForMessage(trimmed, {
+    pathname,
+    hasListingDraft: hasListDraft,
+    session: taskSession,
+    hasSellIntent: hasListingSellIntent(trimmed) || explicitSell,
+    hasSearchIntent: searchLang || stickyShopping,
+  });
+
   const sellCandidate =
     onSell ||
-    hasListingSellIntent(trimmed) ||
-    (isListingFollowUp(trimmed, hasListDraft) &&
-      resolveTaskForMessage(trimmed, {
-        pathname,
-        hasListingDraft: hasListDraft,
-        session: taskSession,
-        hasSellIntent: hasListingSellIntent(trimmed),
-      }) === "selling");
+    (resolvedTask === "selling" &&
+      (explicitSell ||
+        hasListingSellIntent(trimmed) ||
+        (isListingFollowUp(trimmed, hasListDraft) && !stickyShopping)));
 
-  if (sellCandidate) {
+  if (sellCandidate && !stickyShopping) {
     const listing = processListingFillMessage(trimmed, {
       pathname: onSell ? pathname : "/post/ai",
       listingContext: context.listingContext || (listSession?.draft as SkyAiListingContext) || null,
       sessionKey: listKey,
     });
     if (listing.handled) {
-      setActiveTask(scopeKey, "selling");
-      const navigateTo =
-        !onSell && listing.listingFill
-          ? "/post/ai"
-          : undefined;
-      return finish({
-        handled: true,
-        reply: listing.reply,
-        listingFill: listing.listingFill,
-        navigateTo,
-        source: listing.clarify ? "clarify" : "tool",
-        intent: listing.intent,
-        tool: listing.toolCall?.tool || (listing.listingFill ? "createListing" : undefined),
-        confidence: listing.clarify ? 0.55 : 0.9,
-        usedLocalExecution: false,
-        avoidedAi: true,
-        clarificationQuestion: listing.clarify ? listing.reply : undefined,
-        toolCall: listing.toolCall,
-      });
+      const sellTool = listing.toolCall?.tool || (listing.listingFill ? "createListing" : undefined);
+      if (sellTool && !isToolAllowedForTask(sellTool, resolvedTask)) {
+        // Fall through — should not sell while shopping
+      } else {
+        setActiveTask(scopeKey, "selling");
+        const navigateTo =
+          !onSell && listing.listingFill
+            ? "/post/ai"
+            : undefined;
+        return finish({
+          handled: true,
+          reply: listing.reply,
+          listingFill: listing.listingFill,
+          navigateTo,
+          source: listing.clarify ? "clarify" : "tool",
+          intent: listing.intent,
+          tool: sellTool,
+          confidence: listing.clarify ? 0.55 : 0.9,
+          usedLocalExecution: false,
+          avoidedAi: true,
+          clarificationQuestion: listing.clarify ? listing.reply : undefined,
+          toolCall: listing.toolCall,
+        });
+      }
     }
   }
 

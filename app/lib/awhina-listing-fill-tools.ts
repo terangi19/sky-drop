@@ -31,6 +31,7 @@ import { hasListingSellIntent } from "./sky-ai-intent";
 import type { AwhinaToolCall } from "./awhina-types";
 import { validateToolCall } from "./awhina-tool-registry";
 import { suggestListingImprovements } from "./awhina-product-ux";
+import { looksLikeVehicleYearToken, parseVehicleYear } from "./sky-ai-find-routing";
 
 const SESSION_TTL_MS = 30 * 60 * 1000;
 const MAX_SESSIONS = 400;
@@ -78,10 +79,14 @@ const RELATIVE_PRICE_RE =
   /\b(make it cheaper|cheaper|lower the price|reduce (the )?price|drop the price|a bit less|less expensive)\b/i;
 
 const PRICE_SET_RE =
-  /\b(?:(?:make(?:\s+it)?|set(?:\s+(?:the|it|price))?|price(?:\s+is)?|actually|change(?:\s+(?:it|price|to))?|update(?:\s+price)?|it'?s)\s+)?\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(?:bucks|nzd|dollars?)?\b|\b\$\s*([\d,]+(?:\.\d{1,2})?)\b/i;
+  /\b(?:(?:make(?:\s+it)?|set(?:\s+(?:the|it|price))?|price(?:\s+is)?|actually|change(?:\s+(?:it|price|to))?|update(?:\s+price)?|it'?s)\s+)\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(?:bucks|nzd|dollars?)?\b|\b(?:for|at)\s+\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(?:bucks|nzd|dollars?)?\b|\b\$\s*([\d,]+(?:\.\d{1,2})?)\b/i;
 
 const MALFORMED_PRICE_RE =
   /\b(?:\$\s*[^\d\s,]|price\s*(?:is|=|:)?\s*(?:abc|xyz|freeish|tbd|tba|asap|idk)|price\s+[a-z]{2,})\b/i;
+
+/** Storage / qty / size numbers that must never become listing price. */
+const NON_PRICE_NUMBER_RE =
+  /\b(\d+)\s*(gb|tb|mb|kg|km|sqm|m2|bed|beds|bedroom|bath|baths|seater|pack|pcs?|x\d)\b/i;
 
 const CONDITION_RE =
   /\b(?:condition(?:\s+is)?|it'?s|its)\s+(new|used(?:\s*[-–]?\s*(?:like\s+new|good|fair))?|like\s+new|excellent|mint|good|fair|rough)\b|\b(new|used|like\s+new|excellent|mint)\b(?!\s+(?:zealand|listing))/i;
@@ -118,9 +123,11 @@ export function listingDraftSessionKey(opts: {
   conversationId?: string;
   uid?: string | null;
   pathname?: string;
+  anonSessionId?: string;
 }): string {
   if (opts.conversationId) return `list:c:${opts.conversationId}`;
   if (opts.uid) return `list:u:${opts.uid}`;
+  if (opts.anonSessionId) return `list:anon:${opts.anonSessionId}`;
   return `list:anon:${opts.pathname || "/post/ai"}`;
 }
 
@@ -269,15 +276,57 @@ function extractPriceFromMessage(message: string): string | null | "malformed" {
   if (MALFORMED_PRICE_RE.test(message) && !/\$?\s*\d/.test(message)) {
     return "malformed";
   }
-  const m = message.match(PRICE_SET_RE);
-  const raw = (m?.[1] || m?.[2] || "").replace(/,/g, "");
-  if (!raw) {
+
+  // Explicit dollar amounts always win
+  const dollar = message.match(/\$\s*([\d,]+(?:\.\d{1,2})?)\s*(k|K)?\b/);
+  if (dollar) {
+    let n = Number(dollar[1].replace(/,/g, ""));
+    if (dollar[2]) n *= 1000;
+    const check = validatePriceString(String(n));
+    if (!check.ok) return "malformed";
+    return check.price;
+  }
+
+  const m = message.match(
+    /\b(?:(?:make(?:\s+it)?|set(?:\s+(?:the|it|price))?|price(?:\s+is)?|actually|change(?:\s+(?:it|price|to))?|update(?:\s+price)?|it'?s)\s+)\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(k|K)?\s*(?:bucks|nzd|dollars?)?\b|\b(?:for|at)\s+\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(k|K)?\s*(?:bucks|nzd|dollars?)?\b/i
+  );
+  const rawDigits = (m?.[1] || m?.[3] || "").replace(/,/g, "");
+  const kSuffix = m?.[2] || m?.[4];
+  if (!rawDigits) {
     if (/\$\s*[^\d]|\bprice\s*[:=]?\s*[a-z]/i.test(message)) return "malformed";
     return null;
   }
+  let num = Number(rawDigits);
+  if (kSuffix) num *= 1000;
+  const raw = String(Math.round(num));
+
+  // Bare vehicle years are never prices ("bmw 335i 2007")
+  if (looksLikeVehicleYearToken(raw, message) || looksLikeVehicleYearToken(rawDigits, message)) {
+    const explicitPriceVerb =
+      /\b(?:make(?:\s+it)?|set(?:\s+(?:the|it|price))?|price(?:\s+is)?|change(?:\s+(?:it|price|to))?|update(?:\s+price)?)\s+\$?\s*\d/i.test(
+        message
+      );
+    if (!explicitPriceVerb) return null;
+    const year = parseVehicleYear(message);
+    if ((year === raw || year === rawDigits) && !/\$/.test(message) && !/\bprice\b/i.test(message)) {
+      return null;
+    }
+  }
+
+  // Storage / qty / size
+  if (NON_PRICE_NUMBER_RE.test(message)) {
+    const nonPrice = message.match(NON_PRICE_NUMBER_RE);
+    if (nonPrice && (nonPrice[1] === raw || nonPrice[1] === rawDigits)) return null;
+  }
+
   const check = validatePriceString(raw);
   if (!check.ok) return "malformed";
   return check.price;
+}
+
+/** Exported for regression tests. */
+export function parseListingPriceFromMessage(message: string): string | null | "malformed" {
+  return extractPriceFromMessage(message);
 }
 
 function extractSellItem(message: string): string | undefined {
@@ -485,7 +534,12 @@ export function processListingFillMessage(
   const actions = parseFormActionsFromMessage(trimmed);
   if (hasFormActionContent(actions)) {
     Object.assign(partial, mergeFormActionsIntoFill({}, actions));
-    notes.push(...describeFormActions(actions));
+    // Avoid duplicate "location X" + "Location: X"
+    const actionNotes = describeFormActions(actions).filter((n) => {
+      if (!partial.location) return true;
+      return !new RegExp(`^Location:\\s*${partial.location}$`, "i").test(n);
+    });
+    notes.push(...actionNotes);
     touched = true;
   }
 

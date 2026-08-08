@@ -22,7 +22,7 @@ const SELL_RE =
   /\b(i\s*('m|am)?\s*(sell|selling|list|listing|post|create|make|put up|advertise|flog)|want to sell|for sale|selling my|get rid of|clearing out|listing my)\b/i;
 
 const FIND_RE =
-  /\b(find(?: me| a| an)?|show me|looking for|search for|want to buy|wanna buy|need a|need an|iso\b|in search of|hunting for|where can i (find|get)|anyone selling|under \$?\d)\b/i;
+  /\b(find(?: me| a| an)?|show me|looking for|search for|want to buy|wanna buy|wanna\s+(?:a|an)\b|want a|want an|i want a|i want an|need a|need an|i need a|i need an|iso\b|in search of|hunting for|where can i (find|get)|anyone selling|under \$?\d)\b/i;
 
 const PRICE_RE =
   /\b(how much|what('s| is) it worth|price check|fair price|good price|value of|should i (ask|charge|list)|worth\??|pricing|appraisal|help me price|price my)\b/i;
@@ -63,24 +63,50 @@ const ITEM_SIGNALS =
 const STRUCTURED_LISTING =
   /(?:^|\n)(title|price|description|location|condition|category|make|model|year|odometer|colour|color)\s*:/i;
 
+/** Year + known vehicle make only — never year + arbitrary word ("2007 budget"). */
 const YEAR_MAKE =
-  /\b\d{4}\s+[\w\d]+|\d{4}\s+[A-Za-z]+\s+[A-Za-z0-9]+.*\$[\d,]+/i;
+  /\b(19|20)\d{2}\s+(toyota|honda|mazda|ford|holden|nissan|subaru|mitsubishi|hyundai|kia|bmw|mercedes|benz|audi|volkswagen|vw|jeep|tesla|lexus|suzuki|isuzu|peugeot|renault|volvo)\b/i;
 
 const PRICE_DOLLAR = /\$[\d,]+/;
 
 const KM_READING = /\b\d{2,3}[\s,]?\d{3}\s*km\b/i;
 
 const BUY_NOT_SELL =
-  /\b(find me|show me|looking for|search for|want to buy|wanna buy|need a|need an|iso\b|in search of|hunting for|anyone selling)\b/i;
+  /\b(find me|show me|looking for|search for|want to buy|wanna buy|wanna\s+(?:a|an)\b|want a|want an|i want a|i want an|need a|need an|i need a|i need an|iso\b|in search of|hunting for|anyone selling|budget\s*\$?[\d,]+|max(?:imum)?\s*price|under\s*\$?\d)\b/i;
+
+/** Explicit sell / list language — required to leave sticky SEARCH. */
+export function hasExplicitSellSwitch(message: string): boolean {
+  const m = message.trim();
+  if (!m) return false;
+  if (BUY_NOT_SELL.test(m) || FIND_RE.test(m)) return false;
+  return /\b(sell(?:ing)?|list(?:ing)?|post(?:ing)?|for sale|create (?:a )?listing|put up|advertise|get rid of|flog)\b/i.test(
+    m
+  );
+}
+
+/** True when message is buy/search language (not sell). */
+export function hasSearchIntentLanguage(message: string): boolean {
+  const m = message.trim();
+  if (!m) return false;
+  return FIND_RE.test(m) || BUY_NOT_SELL.test(m);
+}
 
 /** True when user message should trigger LISTING_FILL (sell flow). */
 export function hasListingSellIntent(message: string): boolean {
   const m = message.trim();
   if (!m) return false;
-  if (BUY_NOT_SELL.test(m)) return false;
+  if (BUY_NOT_SELL.test(m) || FIND_RE.test(m)) return false;
   if (STRUCTURED_LISTING.test(m)) return true;
-  if (YEAR_MAKE.test(m)) return true;
-  if (KM_READING.test(m)) return true;
+  // Year+make listing paste (e.g. "2015 Mazda Axela … $11500") — never "2007 budget"
+  if (
+    YEAR_MAKE.test(m) &&
+    !/\b(budget|looking for|want a|need a|find |search )\b/i.test(m)
+  ) {
+    return true;
+  }
+  if (KM_READING.test(m) && (SELL_RE.test(m) || PRICE_DOLLAR.test(m) || VEHICLE_BRANDS.test(m))) {
+    return true;
+  }
   if (SELL_RE.test(m) && (PRICE_DOLLAR.test(m) || VEHICLE_BRANDS.test(m) || ITEM_SIGNALS.test(m))) {
     return true;
   }

@@ -8,7 +8,7 @@ import { parseConditionFilter } from "./awhina-search-memory";
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
 
 const NEED_RE =
-  /\b(i\s+need\s+(?:a|an|some)|looking for|want to buy|wanna buy|need a|need an|hunting for|anyone selling)\b/i;
+  /\b(i\s+need\s+(?:a|an|some)|looking for|want to buy|wanna buy|want a|want an|i want a|i want an|need a|need an|hunting for|anyone selling)\b/i;
 
 const EDITION_RE = /\b(disc|digital|disk|slim|fat|bundle|with\s+games?|no\s+controller)\b/i;
 const CONDITION_HINT = /\b(new|used|like new|excellent|good|fair|refurbished|mint)\b/i;
@@ -46,6 +46,10 @@ export function isVagueShoppingNeed(message: string): boolean {
   if (/\b(under|up to|max|budget|near|in auckland|in wellington)\b/i.test(m)) return false;
   const term = extractFindSearchTerm(m);
   if (term === "what you're after" || term.length < 2) return false;
+  // Vehicle make alone → search immediately (never invent a model like 335i)
+  if (/\b(bmw|toyota|mazda|honda|ford|nissan|subaru|hyundai|kia|audi|mercedes|volkswagen|vw)\b/i.test(term)) {
+    return false;
+  }
   // "find me BMWs in Auckland" handled elsewhere; need-style vague only
   if (/\b(find me|show me|search for)\b/i.test(m) && (parseFindBudget(m) || parseFindCity(m))) {
     return false;

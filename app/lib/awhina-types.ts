@@ -147,6 +147,12 @@ export interface SearchListingsArgs {
     location?: string;
     category?: string;
     condition?: string;
+    make?: string;
+    model?: string;
+    year?: number;
+    minYear?: number;
+    maxYear?: number;
+    transmission?: string;
   };
 }
 

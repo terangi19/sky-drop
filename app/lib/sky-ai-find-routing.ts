@@ -82,7 +82,7 @@ const FIND_PRODUCT_ALIASES: Record<string, string> = {
 /** Parse max-price filter from find messages — supports "under 400", "under $600", "under 10k". */
 export function parseFindBudget(message: string): string | undefined {
   const m = message.match(
-    /\b(?:under|up to|max|budget|less than|below)\s*\$?\s*([\d,]+(?:\.\d+)?)\s*(k|K)?\b/i
+    /\b(?:under|up to|max|budget|less than|below|max(?:imum)?\s*price)\s*\$?\s*([\d,]+(?:\.\d+)?)\s*(k|K)?\b/i
   );
   if (!m) return undefined;
   let num = parseFloat(m[1].replace(/,/g, ""));
@@ -91,15 +91,71 @@ export function parseFindBudget(message: string): string | undefined {
   return String(Math.round(num));
 }
 
-export function parseFindCity(message: string): string | undefined {
-  const match = message.match(
-    /\b(?:in|near|around|within)\s+(auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston north|new plymouth|rotorua|queenstown|invercargill|nelson|whangarei|gisborne)\b/i
-  );
-  if (!match) return undefined;
-  return match[1]
+const NZ_CITY_NAMES =
+  "auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston north|new plymouth|rotorua|queenstown|invercargill|nelson|whangarei|gisborne";
+
+function titleCaseCity(raw: string): string {
+  return raw
     .split(/\s+/)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
     .join(" ");
+}
+
+export function parseFindCity(message: string): string | undefined {
+  const match = message.match(
+    new RegExp(
+      `\\b(?:in|near|around|within|location(?:\\s+is)?|located(?:\\s+in)?|based(?:\\s+in)?)\\s+(${NZ_CITY_NAMES})\\b`,
+      "i"
+    )
+  );
+  if (!match) return undefined;
+  return titleCaseCity(match[1]);
+}
+
+/** Vehicle model year 1900–2099 — never treat as price by itself. */
+export function parseVehicleYear(message: string): string | undefined {
+  const years = [...message.matchAll(/\b((?:19|20)\d{2})\b/g)].map((m) => m[1]);
+  for (const y of years) {
+    const n = Number(y);
+    if (n >= 1900 && n <= 2099) return y;
+  }
+  return undefined;
+}
+
+export function parseVehicleMake(message: string): string | undefined {
+  const m = message.match(VEHICLE_MAKES);
+  if (!m) return undefined;
+  const raw = m[1];
+  if (/^bmw$/i.test(raw)) return "BMW";
+  if (/^vw$/i.test(raw)) return "Volkswagen";
+  return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+}
+
+export function parseVehicleModel(message: string): string | undefined {
+  const m = message.match(VEHICLE_MODELS);
+  if (!m) return undefined;
+  return m[1];
+}
+
+/** True when a 4-digit number is a plausible calendar/vehicle year, not a dollar amount. */
+export function looksLikeVehicleYearToken(token: string, message?: string): boolean {
+  if (!/^(19|20)\d{2}$/.test(token)) return false;
+  if (!message) return true;
+  // Explicit price context around this year token → not a year-as-price guard
+  const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const priceCtx = new RegExp(
+    `(?:\\$\\s*${escaped}|\\b(?:price|budget|under|up to|max|for)\\s*\\$?\\s*${escaped}\\b)`,
+    "i"
+  );
+  // "$2007" or "price 2007" is price; bare "2007" next to make/model is year
+  if (priceCtx.test(message) && /\$/.test(message)) return false;
+  if (/\b(?:price|make it|set(?:\s+it)?|change(?:\s+it)?)\s*\$?\s*/i.test(message) &&
+      new RegExp(`\\b${escaped}\\b`).test(message) &&
+      !VEHICLE_MAKES.test(message) &&
+      !VEHICLE_MODELS.test(message)) {
+    return false;
+  }
+  return true;
 }
 
 export function normalizeFindSearchTerm(term: string): string {
@@ -216,14 +272,23 @@ export function resolveFindBrowseRoute(
 export function extractFindSearchTerm(message: string): string {
   const cleaned = message
     .replace(
-      /\b(find me|find a|find an|show me|looking for|search for|want to buy|wanna buy|need a|need an|iso|in search of|hunting for|anyone selling|for sale)\b/gi,
+      /\b(find me|find a|find an|show me|looking for|search for|want to buy|wanna buy|wanna|want a|want an|i want a|i want an|i want|need a|need an|i need a|i need an|i need|iso|in search of|hunting for|anyone selling|for sale)\b/gi,
       " "
     )
     .replace(
-      /\b(?:under|up to|max|budget|less than|below)\s*\$?\s*[\d,]+(?:\.\d+)?\s*k?\b/gi,
+      /\b(?:under|up to|max|budget|less than|below|max(?:imum)?\s*price)\s*\$?\s*[\d,]+(?:\.\d+)?\s*k?\b/gi,
       " "
     )
-    .replace(/\b(a|an|the|near|in|around|within)\b/gi, " ")
+    .replace(
+      new RegExp(
+        `\\b(?:location(?:\\s+is)?|located(?:\\s+in)?|based(?:\\s+in)?)\\s+(${NZ_CITY_NAMES})\\b`,
+        "gi"
+      ),
+      " "
+    )
+    .replace(/\b(a|an|the|near|in|around|within|and|with|for)\b/gi, " ")
+    // Keep model codes; strip bare years from query display (year goes to filters)
+    .replace(/\b((?:19|20)\d{2})\b/g, " ")
     .replace(/\$[\d,]+(?:\.\d{2})?/g, " ")
     .replace(/\b[\d,]+\s*k\b/gi, " ")
     .replace(NZ_CITIES, " ")

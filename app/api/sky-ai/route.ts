@@ -395,13 +395,41 @@ export async function POST(req: NextRequest) {
 
   // ── Canonical Āwhina (local + search + sell draft + profile) ──
   if (message) {
+    const anonSessionId =
+      typeof body.anonSessionId === "string" && body.anonSessionId.trim()
+        ? body.anonSessionId.trim().slice(0, 80)
+        : undefined;
+    const awhinaSession =
+      body.awhinaSession && typeof body.awhinaSession === "object"
+        ? (body.awhinaSession as {
+            task?: {
+              task?: "selling" | "shopping" | "help" | "none";
+              pendingItem?: string;
+              compareCandidates?: string[];
+              updatedAt?: number;
+            };
+            search?: {
+              filters?: Record<string, unknown>;
+              updatedAt?: number;
+            };
+          })
+        : undefined;
+
     const canonical = processCanonicalAwhina(message, {
       pathname,
       uid,
       conversationId: conversationId || undefined,
+      anonSessionId: uid ? undefined : anonSessionId,
       history,
       listingContext: contextualListingContext,
       profileContext,
+      clientTask: awhinaSession?.task || null,
+      clientSearch: awhinaSession?.search
+        ? {
+            filters: awhinaSession.search.filters as import("../../lib/awhina-search-memory").SearchSessionFilters,
+            updatedAt: awhinaSession.search.updatedAt,
+          }
+        : null,
       source: body.source === "voice" ? "voice" : "text",
       voiceConfidence:
         body.voiceConfidence === "medium" || body.voiceConfidence === "low"
@@ -466,6 +494,7 @@ export async function POST(req: NextRequest) {
         profileFill: profileFill && hasProfileFillContent(profileFill) ? profileFill : undefined,
         source: "rules" as const,
         conversationId: conversationId || undefined,
+        awhinaSession: canonical.sessionState || undefined,
         awhina: {
           intent: canonical.intent,
           tool: canonical.tool,

@@ -15,7 +15,7 @@ import {
 import { awhinaArrangePurchaseReply, awhinaCapabilitiesReply } from "./awhina-personality";
 
 const FIND_RE =
-  /\b(find(?: me| a| an)?|show me|looking for|search for|want to buy|wanna buy|need a|need an|iso\b|in search of|hunting for|where can i (find|get)|anyone selling|under \$?\d)\b/i;
+  /\b(find(?: me| a| an)?|show me|looking for|search for|want to buy|wanna buy|wanna\s+(?:a|an)\b|want a|want an|i want a|i want an|need a|need an|i need a|i need an|iso\b|in search of|hunting for|where can i (find|get)|anyone selling|under \$?\d)\b/i;
 
 const WANTED_AD_EXPLICIT =
   /\b(post a wanted|create a wanted|wanted ad|wanted listing)\b/i;
