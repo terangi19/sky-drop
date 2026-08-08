@@ -190,6 +190,30 @@ function stripTitleConditionPrefix(title: string): string {
     .trim();
 }
 
+/**
+ * Strip rent/hire verb debris from rental item/title labels.
+ * "Rent Trailer For" → "Trailer". No brand special-casing.
+ */
+export function cleanRentalItemName(raw: string): string {
+  let s = String(raw || "")
+    .trim()
+    .replace(/\s+/g, " ");
+  if (!s) return s;
+
+  s = s.replace(
+    /^(?:rent(?:ing)?|hire(?:ing)?)\s+(?:out\s+)?(?:my\s+|a\s+|an\s+|the\s+)?/i,
+    ""
+  );
+  // Phrase forms first so "for hire" doesn't leave a dangling "for"
+  s = s.replace(/\bfor\s+hire\b/gi, " ");
+  s = s.replace(/\b(?:available\s+)?(?:to\s+)?(?:rent|hire)\b/gi, " ");
+  s = s.replace(/\brental\b/gi, " ");
+  s = s.replace(/^(?:for|out|my|a|an|the)\s+/i, "");
+  s = s.replace(/\s+(?:for|out|my|a|an|the)$/i, "");
+  s = s.replace(/\s+/g, " ").trim();
+  return s || String(raw || "").trim();
+}
+
 function formatOdo(odo: string): string {
   const raw = odo.replace(/,/g, "").trim();
   if (/km/i.test(raw)) return raw.replace(/\s+/g, " ");
@@ -314,7 +338,10 @@ export function extractDescriptionFacts(
   const kind = resolveWriterKind(fill, style);
   const title = (fill.title || "").trim();
   const titleHadCondition = /\b(brand\s+new|like\s+new)\b/i.test(title);
-  const bare = stripTitleConditionPrefix(title) || (kind === "service" ? "Service" : "Item");
+  let bare = stripTitleConditionPrefix(title) || (kind === "service" ? "Service" : "Item");
+  if (kind === "rental") {
+    bare = cleanRentalItemName(bare) || bare;
+  }
   const location = (fill.location || fill.pickupArea || "").trim() || null;
   const money = formatMoneyPlain(fill.price);
   const delivery = deliveryMode(fill);
@@ -524,6 +551,11 @@ export function isRoboticListingDescription(text: string | undefined | null): bo
   if (/^selling my .{1,40}$/i.test(t) && !/\n/.test(t)) return true;
   if (countCtas(t) > 1) return true;
   const sentences = splitSentences(t);
+  // Service sell copy must not open with buyer/wanted voice
+  if (/^Looking for\b/i.test(sentences[0] || "") && !/\bwanted\b/i.test(t.slice(0, 40))) {
+    // Only flag when it looks like a service offer (available / per job / per hour)
+    if (/\bavailable\b|\bper (?:job|hour)\b/i.test(t)) return true;
+  }
   if (
     sentences.length >= 3 &&
     sentences.filter((s) =>
@@ -594,8 +626,9 @@ function defaultCta(facts: DescriptionFacts): string {
       ]);
     }
     return pickVariant(seed, [
+      "Message me with the dates you need it and I can confirm availability.",
+      "Message with the dates you need and I'll confirm availability.",
       "Message to arrange pickup.",
-      "Message if you'd like to book it.",
     ]);
   }
   if (facts.kind === "wanted") {
@@ -615,6 +648,19 @@ function defaultCta(facts: DescriptionFacts): string {
 function runQualityPass(draft: string, facts: DescriptionFacts): string {
   let sentences = splitSentences(draft);
   sentences = stripBadSentences(sentences);
+
+  // Sell services must never open with buyer "Looking for…" voice
+  if (facts.kind === "service") {
+    sentences = sentences.map((s) => {
+      const m = s.match(/^Looking for\s+(.+?)\?\s*(.*)$/i);
+      if (!m) return s;
+      const rest = (m[2] || "").trim();
+      const itemBit = capFirst(m[1].trim());
+      if (rest) return polishParagraph(`${itemBit}. ${rest}`);
+      return polishParagraph(`${itemBit} available.`);
+    });
+  }
+
   sentences = semanticDedupe(sentences);
   sentences = enforceOneCta(sentences);
 
@@ -713,15 +759,16 @@ function safeFallbackDescription(facts: DescriptionFacts): string {
   } else if (facts.kind === "rental") {
     const rate =
       facts.rental?.weekly
-        ? `$${facts.rental.weekly}/week`
+        ? `$${facts.rental.weekly} per week`
         : facts.rental?.daily
-          ? `$${facts.rental.daily}/day`
+          ? `$${facts.rental.daily} per day`
           : facts.rental?.monthly
-            ? `$${facts.rental.monthly}/month`
+            ? `$${facts.rental.monthly} per month`
             : facts.money || null;
+    const cleanItem = cleanRentalItemName(item) || item;
     parts.push(
       polishParagraph(
-        `${item}${facts.location ? ` in ${facts.location}` : ""} available to rent${rate ? ` at ${rate}` : ""}.`
+        `${cleanItem}${facts.location ? ` available to hire in ${facts.location}` : " available to hire"}${rate ? ` for ${rate}` : ""}.`
       )
     );
   } else if (facts.kind === "wanted") {
@@ -905,6 +952,7 @@ function writeService(facts: DescriptionFacts): string {
         ? ` for ${facts.money} per job`
         : "";
 
+  // Provider / seller voice only — never open with buyer "Looking for…"
   const opener = pickVariant(seed + ":sopen", [
     loc
       ? `${item} available in ${loc}${priceClause}.`
@@ -915,8 +963,8 @@ function writeService(facts: DescriptionFacts): string {
         ? `${item} available${priceClause}.`
         : `${item} available locally.`,
     loc
-      ? `Looking for ${item.toLowerCase()}? Available in ${loc}${priceClause}.`
-      : `Looking for ${item.toLowerCase()}?${priceClause ? ` Available${priceClause}.` : " Available locally."}`,
+      ? `${capFirst(item)} available in ${loc}${priceClause}.`
+      : `${capFirst(item)} available${priceClause}.`,
   ]);
 
   const parts: string[] = [polishParagraph(opener)];
@@ -971,31 +1019,35 @@ function writeService(facts: DescriptionFacts): string {
 }
 
 function writeRental(facts: DescriptionFacts): string {
-  const item = facts.item;
+  const item = cleanRentalItemName(facts.item) || facts.item;
   const loc = facts.location;
   const r = facts.rental;
   const sub = r?.subType || "";
   const seed = facts.seed;
   const isProperty = sub === "property" || Boolean(r?.bedrooms || r?.weekly);
 
-  const dailyRate = r?.daily ? `$${r.daily}/day` : facts.money ? `${facts.money}/day` : null;
-  const weeklyRate = r?.weekly ? `$${r.weekly}/week` : null;
+  const dailyRate = r?.daily
+    ? `$${r.daily} per day`
+    : facts.money
+      ? `${facts.money} per day`
+      : null;
+  const weeklyRate = r?.weekly ? `$${r.weekly} per week` : null;
 
   let opener: string;
   if (!isProperty && (dailyRate || weeklyRate)) {
     const rate = dailyRate || weeklyRate;
     opener = pickVariant(seed + ":ropen", [
-      `${item}${loc ? ` in ${loc}` : ""} available to rent at ${rate}.`,
+      `${item}${loc ? ` available to hire in ${loc}` : " available to hire"} for ${rate}.`,
       loc
-        ? `Renting out ${item.toLowerCase()} in ${loc} for ${rate}.`
-        : `Renting out ${item.toLowerCase()} for ${rate}.`,
-      `${item} for hire${loc ? ` in ${loc}` : ""} — ${rate}.`,
+        ? `${item} available to hire in ${loc} for ${rate}.`
+        : `${item} available to hire for ${rate}.`,
+      `${capFirst(item)} for hire${loc ? ` in ${loc}` : ""} — ${rate}.`,
     ]);
   } else {
     opener = pickVariant(seed + ":ropen", [
       `${item}${loc ? ` in ${loc}` : ""} is available to rent.`,
-      loc ? `Renting out ${item.toLowerCase()} in ${loc}.` : `Renting out ${item.toLowerCase()}.`,
-      `${item}${loc ? `, ${loc}` : ""} — up for rent.`,
+      loc ? `${item} available to rent in ${loc}.` : `${item} available to rent.`,
+      `${item}${loc ? `, ${loc}` : ""} — available to rent.`,
     ]);
   }
 
@@ -1014,9 +1066,9 @@ function writeRental(facts: DescriptionFacts): string {
   const rates: string[] = [];
   // Property: list rates in facts line. Equipment: rate already in opener.
   if (isProperty) {
-    if (r?.weekly) rates.push(`$${r.weekly}/week`);
-    if (r?.monthly) rates.push(`$${r.monthly}/month`);
-    if (r?.daily) rates.push(`$${r.daily}/day`);
+    if (r?.weekly) rates.push(`$${r.weekly} per week`);
+    if (r?.monthly) rates.push(`$${r.monthly} per month`);
+    if (r?.daily) rates.push(`$${r.daily} per day`);
     if (r?.bond) rates.push(`$${r.bond} bond`);
   } else if (r?.bond) {
     rates.push(`$${r.bond} bond`);

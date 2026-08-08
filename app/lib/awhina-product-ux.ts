@@ -13,6 +13,7 @@ import {
   isRoboticListingDescription,
   passesListingDescriptionQualityGate,
   resolveListingDescriptionStyle,
+  cleanRentalItemName,
   IMPLY_CLAIMS_RE,
   SERVICE_INVENTION_RE,
   type ListingDescriptionQuality,
@@ -24,6 +25,7 @@ export {
   isRoboticListingDescription,
   passesListingDescriptionQualityGate,
   resolveListingDescriptionStyle,
+  cleanRentalItemName,
   IMPLY_CLAIMS_RE,
   SERVICE_INVENTION_RE,
 };
@@ -855,6 +857,10 @@ export function buildPremiumListingTitle(opts: {
     .replace(/\s+/g, " ")
     .trim();
   if (!core) core = normalizeProductName(opts.item);
+
+  if (opts.listingType === "rental") {
+    core = cleanRentalItemName(core) || core;
+  }
 
   if (/^playstation\s*5$/i.test(core)) core = "PlayStation 5 Console";
   if (/^playstation\s*4$/i.test(core)) core = "PlayStation 4 Console";

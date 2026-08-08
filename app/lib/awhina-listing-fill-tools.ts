@@ -46,6 +46,7 @@ import {
   buildDraftUpdateReply,
   isCompleteListingDraft,
   normalizeProductName,
+  cleanRentalItemName,
 } from "./awhina-product-ux";
 import { composeListingTitleAndDescription } from "./awhina-listing-composer";
 import {
@@ -132,7 +133,10 @@ const SELL_ITEM_RE =
   /\b(?:want\s+to\s+list|selling|sell(?:ing)?|list(?:ing)?|post(?:ing)?)\s+(?:my\s+|a\s+|an\s+|the\s+)?(.+)$/i;
 
 const SELL_ITEM_STOP_RE =
-  /\b(brand\s+new|its|it's|condition|new|used|like\s+new|excellent|mint|good|fair|pickup|pick\s*up|shipping|located|based|in\s+auckland|auckland|wellington|christchurch|for\s+\$|\$\d|\d+\s*(?:bucks|nzd|dollars?)|\d{2,3}[\s,]?\d{3}\s*km)\b/i;
+  /\b(brand\s+new|its|it's|condition|new|used|like\s+new|excellent|mint|good|fair|pickup|pick\s*up|shipping|located|based|in\s+auckland|auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|rotorua|queenstown|nelson|whangarei|for\s+\$|\$\d|\d+\s*(?:bucks|nzd|dollars?)|\d{2,3}[\s,]?\d{3}\s*km)\b/i;
+
+const NZ_CITY_TAIL_RE =
+  /\b(auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston\s+north|rotorua|queenstown|nelson|whangarei)\b.*$/i;
 
 const KEYWORDS_RE =
   /\b(?:keywords?|tags?)\s*(?:are|:)?\s*(.+)$/i;
@@ -427,6 +431,37 @@ function extractPriceFromMessage(message: string): string | null | "malformed" {
     return finalize(sellFor[1], sellFor[2]);
   }
 
+  // Bare price after storage capacity: "128gb 900" / "256GB 900 Hamilton"
+  const afterStorage = message.match(
+    /\b\d+\s*(?:gb|tb)\b[\s,]*(?:(?:brand\s+)?(?:like\s+)?new|used|good|fair|mint|excellent)?[\s,]*\$?\s*([\d,]{2,8}(?:\.\d{1,2})?)\s*(k|K)?\b/i
+  );
+  if (afterStorage) {
+    const raw = finalize(afterStorage[1], afterStorage[2]);
+    if (raw === "malformed") return "malformed";
+    if (raw && !looksLikeVehicleYearToken(raw, message)) return raw;
+  }
+
+  // Bare amount before NZ city: "900 Hamilton" / "450 Auckland"
+  // Skip search budgets: "under 15k Auckland" / "below 10k Wellington"
+  const beforeCity = message.match(
+    /\b([\d,]{2,8}(?:\.\d{1,2})?)\s*(k|K)?\s+(?:in\s+)?(auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston\s+north|new\s+plymouth|rotorua|queenstown|invercargill|nelson|whangarei)\b/i
+  );
+  if (beforeCity) {
+    const idx = beforeCity.index ?? -1;
+    const prefix = idx >= 0 ? message.slice(Math.max(0, idx - 24), idx) : "";
+    const isBudget =
+      /\b(under|below|max(?:imum)?|budget|up\s+to|less\s+than|no\s+more\s+than)\s*$/i.test(
+        prefix
+      ) || /\b(find|looking for|search(?:ing)?|want to buy|need a)\b/i.test(message);
+    if (!isBudget) {
+      const raw = finalize(beforeCity[1], beforeCity[2]);
+      if (raw === "malformed") return "malformed";
+      if (raw && !looksLikeVehicleYearToken(raw, message) && !isStorageOrSizeToken(raw, message)) {
+        return raw;
+      }
+    }
+  }
+
   const m = message.match(
     /\b(?:(?:make(?:\s+it)?|set(?:\s+(?:the|it|price))?|price(?:\s+is)?|actually|change(?:\s+(?:it|price|to))?|update(?:\s+price)?|it'?s)\s+)\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(k|K)?\s*(?:bucks|nzd|dollars?|ono|o\.n\.o\.?)?\b|\b(?:for|at)\s+\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(k|K)?\s*(?:bucks|nzd|dollars?|ono|o\.n\.o\.?)?\b/i
   );
@@ -478,6 +513,12 @@ function extractSellItem(message: string): string | undefined {
   item = item
     .replace(/\$[\d,]+.*$/i, "")
     .replace(/\b\d+\s*(?:bucks|nzd|dollars?).*$/i, "")
+    .replace(NZ_CITY_TAIL_RE, "")
+    .replace(/\s+(\d{2,7}(?:\.\d{1,2})?)\s*(k|K)?\s*$/i, (full, digits) => {
+      if (isStorageOrSizeToken(String(digits), message)) return full;
+      if (looksLikeVehicleYearToken(String(digits), message)) return full;
+      return "";
+    })
     .replace(/\b(brand\s+new|its|it's)\b.*$/i, "")
     .trim();
   // Keep known product tokens even if stop ate too much
@@ -489,6 +530,27 @@ function extractSellItem(message: string): string | undefined {
   }
   if (item.length < 2 || item.length > 80) return undefined;
   return item.replace(/\s+/g, " ").trim();
+}
+
+/** Rental offer item seed — strips rent/hire verb debris and price/location tails. */
+function extractRentalOfferItem(message: string): string | undefined {
+  const m = message.match(
+    /\b(?:rent(?:ing)?|hire(?:ing)?)\s+(?:out\s+)?(?:my\s+|a\s+|an\s+|the\s+)?(.+)$/i
+  );
+  if (!m?.[1]) return undefined;
+  let item = m[1].trim();
+  const stop = item.search(
+    /\b(?:for\s+\$|\$\d|\d+\s*(?:\/\s*day|a\s+day|per\s+day|\/day|bucks|nzd|dollars?)|auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|rotorua|queenstown|nelson|whangarei)\b/i
+  );
+  if (stop > 0) item = item.slice(0, stop).trim();
+  item = item
+    .replace(/\$[\d,]+.*$/i, "")
+    .replace(NZ_CITY_TAIL_RE, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  item = cleanRentalItemName(item);
+  if (item.length < 2 || item.length > 80) return undefined;
+  return item;
 }
 
 function buildTitleAndDescription(
@@ -818,14 +880,16 @@ export function processListingFillMessage(
       rentalOffer ||
       /selling|sell |list /i.test(trimmed))
   ) {
-    const item =
+    const itemRaw =
       serviceTitle ||
+      (rentalOffer ? extractRentalOfferItem(trimmed) : undefined) ||
       sellItem ||
       trimmed
         .replace(/^(i'?m\s+)?(want\s+to\s+)?(selling|sell|listing|list)\s+(my\s+|a\s+|an\s+)?/i, "")
         .replace(/\$[\d,]+.*$/, "")
         .trim()
         .slice(0, 80);
+    const item = rentalOffer && itemRaw ? cleanRentalItemName(itemRaw) || itemRaw : itemRaw;
     if (item.length >= 2) {
       const typeHint =
         (serviceOffer || serviceTitle ? "service" : undefined) ||

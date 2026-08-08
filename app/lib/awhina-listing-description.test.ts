@@ -9,6 +9,7 @@ import {
   isRoboticListingDescription,
   passesListingDescriptionQualityGate,
   resolveListingDescriptionStyle,
+  cleanRentalItemName,
   IMPLY_CLAIMS_RE,
   CTA_PURPOSE_RE,
   type ListingDescriptionQuality,
@@ -17,7 +18,11 @@ import type { SkyAiListingFill } from "./sky-ai-listing-fill";
 import { processCanonicalAwhina } from "./awhina-canonical";
 import { clearSearchSession, searchSessionKey } from "./awhina-search-memory";
 import { clearTaskScope, taskScopeKey } from "./awhina-task-scope";
-import { clearListingDraftSession, listingDraftSessionKey } from "./awhina-listing-fill-tools";
+import {
+  clearListingDraftSession,
+  listingDraftSessionKey,
+  parseListingPriceFromMessage,
+} from "./awhina-listing-fill-tools";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -67,7 +72,8 @@ function assertNoSemanticCtaDupes(desc: string) {
 
 function assertProperCaps(desc: string) {
   for (const s of splitSentences(desc)) {
-    expect(s[0]).toMatch(/[A-Z0-9$]/);
+    // Allow Apple-style product casing (iPhone / iPad) at sentence start
+    expect(s).toMatch(/^[A-Z0-9$]|^i[A-Z]/);
   }
 }
 
@@ -341,7 +347,7 @@ describe("category-aware description snapshots", () => {
         rentalDeposit: "2080",
         rentalFurnishedStatus: "Unfurnished",
       },
-      must: [/Apartment/i, /Auckland/, /\$520\/week/, /\$2080/, /2 bedroom/i],
+      must: [/Apartment/i, /Auckland/, /\$520(?:\/week| per week)/, /\$2080/, /2 bedroom/i],
       never: [/Condition:/i, /Message me with any questions/i, /pet friendly|heat pump/i],
     },
   ];
@@ -484,7 +490,7 @@ describe("description quality suite — golden reference cases", () => {
         servicePricingType: "fixed",
       },
       must: [/lawn mowing/i, /\$50 per job/i],
-      never: [/insured|Priced at|years of experience|for local jobs/i],
+      never: [/insured|Priced at|years of experience|for local jobs|^Looking for/i],
       tone: /message/i,
     },
     {
@@ -523,9 +529,9 @@ describe("description quality suite — golden reference cases", () => {
         rentalPriceDaily: "60",
         price: "60",
       },
-      must: [/Trailer|trailer/i, /Auckland/, /\$60\/day/],
-      never: [/bedroom|bond|pet friendly/i],
-      tone: /message|book|pickup/i,
+      must: [/Trailer|trailer/i, /Auckland/, /\$60(?:\/day| per day)/],
+      never: [/bedroom|bond|pet friendly|Rent Trailer For|^Renting out/i],
+      tone: /message|book|pickup|dates|availability/i,
     },
     {
       name: "pressure washer rental",
@@ -537,9 +543,9 @@ describe("description quality suite — golden reference cases", () => {
         rentalPriceDaily: "45",
         price: "45",
       },
-      must: [/Pressure Washer|pressure washer/i, /Christchurch/, /\$45\/day/],
+      must: [/Pressure Washer|pressure washer/i, /Christchurch/, /\$45(?:\/day| per day)/],
       never: [/bedroom|WOF|insured/i],
-      tone: /message|book|pickup/i,
+      tone: /message|book|pickup|dates|availability/i,
     },
     {
       name: "couch",
@@ -817,5 +823,93 @@ describe("one-shot sell uses Premium Plus description path", () => {
     expect(desc).not.toMatch(UNGROUNDED_CLAIM_SMELLS);
     assertOneCtaMax(desc);
     expect(desc).toMatchSnapshot();
+  });
+});
+
+describe("live oneshot human-seller regressions", () => {
+  it("cleanRentalItemName strips rent/for hire verb debris", () => {
+    expect(cleanRentalItemName("Rent Trailer For")).toBe("Trailer");
+    expect(cleanRentalItemName("trailer for hire")).toMatch(/^trailer$/i);
+    expect(cleanRentalItemName("Renting out my generator")).toMatch(/^generator$/i);
+  });
+
+  it("rental oneshot: trailer hire — clean item name, human rate + dates CTA", () => {
+    wipe("live-rental-trailer");
+    const r = processCanonicalAwhina("rent my trailer for $60 a day Auckland", {
+      conversationId: "live-rental-trailer",
+      pathname: "/",
+    });
+    expect(r.listingFill?.listingType).toBe("rental");
+    expect(r.listingFill?.price).toBe("60");
+    expect(String(r.listingFill?.title || "")).toMatch(/^Trailer$/i);
+    expect(String(r.listingFill?.title || "")).not.toMatch(/rent|for hire|^for\b/i);
+    const desc = String(r.listingFill?.description || "");
+    expect(desc).toMatch(/Trailer/i);
+    expect(desc).not.toMatch(/Rent Trailer For/i);
+    expect(desc).toMatch(/Auckland/i);
+    expect(desc).toMatch(/\$60 per day|\$60\/day/i);
+    expect(desc).toMatch(/hire|rent/i);
+    expect(desc).not.toMatch(/^Looking for/i);
+    assertOneCtaMax(desc);
+    assertNaturalMarketplaceCopy(desc);
+  });
+
+  it("service oneshot: never opens with Looking for (seller offer voice)", () => {
+    wipe("live-service-lawn");
+    const r = processCanonicalAwhina("I mow lawns for $50", {
+      conversationId: "live-service-lawn",
+      pathname: "/",
+    });
+    expect(r.listingFill?.listingType).toBe("service");
+    expect(r.listingFill?.price).toBe("50");
+    const desc = String(r.listingFill?.description || "");
+    expect(desc).not.toMatch(/^Looking for\b/i);
+    expect(desc).toMatch(/lawn mowing/i);
+    expect(desc).toMatch(/\$50 per job/i);
+    expect(desc).toMatch(/available/i);
+    assertOneCtaMax(desc);
+    assertNaturalMarketplaceCopy(desc);
+  });
+
+  it("physical iPhone oneshot: bare 900 lands in listingFill.price", () => {
+    wipe("live-iphone-900");
+    expect(parseListingPriceFromMessage("selling iPhone 15 Pro 128GB 900 Hamilton")).toBe(
+      "900"
+    );
+    const r = processCanonicalAwhina("selling iPhone 15 Pro 128GB 900 Hamilton", {
+      conversationId: "live-iphone-900",
+      pathname: "/",
+    });
+    expect(r.listingFill?.listingType).toBe("physical");
+    expect(r.listingFill?.price).toBe("900");
+    expect(String(r.listingFill?.title || "")).toMatch(/iPhone/i);
+    expect(String(r.listingFill?.title || "")).not.toMatch(/\b900\b/);
+    const desc = String(r.listingFill?.description || "");
+    // Price may appear once naturally OR be omitted; structured field must keep it
+    expect(r.listingFill?.price).toBe("900");
+    assertOneCtaMax(desc);
+    assertNaturalMarketplaceCopy(desc);
+  });
+
+  it("facts from dirty rental title still write clean item", () => {
+    const facts = extractDescriptionFacts({
+      title: "Rent Trailer For",
+      listingType: "rental",
+      rentalSubType: "equipment",
+      location: "Auckland",
+      rentalPriceDaily: "60",
+      price: "60",
+    });
+    expect(facts.item).toMatch(/^Trailer$/i);
+    const desc = buildListingDescriptionFromFacts({
+      title: "Rent Trailer For",
+      listingType: "rental",
+      rentalSubType: "equipment",
+      location: "Auckland",
+      rentalPriceDaily: "60",
+      price: "60",
+    });
+    expect(desc).not.toMatch(/Rent Trailer For/i);
+    expect(desc).toMatch(/Trailer/i);
   });
 });
