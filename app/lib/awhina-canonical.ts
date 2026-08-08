@@ -372,7 +372,19 @@ export function processCanonicalAwhina(
             decision.currentTurnEntities.listingType &&
             String(scrubbed.listingType || "") !== decision.currentTurnEntities.listingType
           ) {
-            scrubbed.listingType = decision.currentTurnEntities.listingType;
+            // Never downgrade a vehicle sell (make/model/year) to soft-physical
+            const curMake = decision.currentTurnEntities.make;
+            const curType = decision.currentTurnEntities.listingType;
+            const scrubIsVehicle =
+              scrubbed.listingType === "vehicle" ||
+              Boolean(scrubbed.vehicleMake) ||
+              Boolean(curMake);
+            if (!(scrubIsVehicle && curType === "physical")) {
+              scrubbed.listingType = curType;
+            } else {
+              scrubbed.listingType = "vehicle";
+              if (curMake && !scrubbed.vehicleMake) scrubbed.vehicleMake = curMake;
+            }
           }
           listingFill = scrubbed;
         }
@@ -391,6 +403,22 @@ export function processCanonicalAwhina(
 
     // At most one contextual tip when strong evidence (not every turn)
     if (reply && listingFill && typeof listingFill === "object") {
+      const fillRec = listingFill as Record<string, unknown>;
+      // Final guard: sell fills with vehicle make/model must be listingType vehicle
+      if (
+        fillRec.listingType !== "service" &&
+        fillRec.listingType !== "rental" &&
+        (fillRec.vehicleMake ||
+          fillRec.vehicleModel ||
+          decision.currentTurnEntities.make ||
+          decision.currentTurnEntities.listingType === "vehicle")
+      ) {
+        fillRec.listingType = "vehicle";
+        if (decision.currentTurnEntities.listingType === "physical") {
+          decision.currentTurnEntities.listingType = "vehicle";
+        }
+        if (!fillRec.category || fillRec.category === "Other") fillRec.category = "Cars";
+      }
       const tip = maybeOneProactiveSuggestion({
         evidence: { kind: "listing_tip", fill: listingFill as import("./sky-ai-listing-fill").SkyAiListingFill },
       });

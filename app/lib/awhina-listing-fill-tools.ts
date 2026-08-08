@@ -284,6 +284,31 @@ export function validateListingFillFields(
     return { ok: false, error: "No valid listing fields" };
   }
   const fillOut = normalized || out;
+  // normalize() preserves an explicit "physical" even with vehicleMake — coerce back
+  if (
+    fillOut.listingType !== "service" &&
+    fillOut.listingType !== "rental" &&
+    fillOut.listingType !== "digital" &&
+    (fillOut.vehicleMake ||
+      fillOut.vehicleModel ||
+      fillOut.vehicleYear ||
+      (out.vehicleMake || out.vehicleModel || fill.vehicleMake || fill.vehicleModel) ||
+      inferSellListingTypeHint(
+        `${fillOut.title || ""} ${fillOut.description || ""} ${fill.title || ""} ${fill.description || ""}`
+      ) === "vehicle")
+  ) {
+    fillOut.listingType = "vehicle";
+    if (!fillOut.category || fillOut.category === "Other") fillOut.category = "Cars";
+    if (!fillOut.vehicleMake && (out.vehicleMake || fill.vehicleMake)) {
+      fillOut.vehicleMake = out.vehicleMake || fill.vehicleMake;
+    }
+    if (!fillOut.vehicleModel && (out.vehicleModel || fill.vehicleModel)) {
+      fillOut.vehicleModel = out.vehicleModel || fill.vehicleModel;
+    }
+    if (!fillOut.vehicleYear && (out.vehicleYear || fill.vehicleYear)) {
+      fillOut.vehicleYear = out.vehicleYear || fill.vehicleYear;
+    }
+  }
   if (fill.replaceDraft === true) fillOut.replaceDraft = true;
   return { ok: true, fill: fillOut };
 }

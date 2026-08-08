@@ -209,7 +209,9 @@ export function extractTurnEntities(message: string): AwhinaTurnEntities {
   );
   if (make) out.make = make[1].toUpperCase() === "VW" ? "Volkswagen" : make[1].toUpperCase();
 
-  const model = m.match(/\b(335i|civic|corolla|axela|ranger|hilux|impreza|golf|focus)\b/i);
+  const model = m.match(
+    /\b(335i|330i|320i|320d|328i|340i|m3|m4|civic|corolla|axela|ranger|hilux|impreza|golf|focus)\b/i
+  );
   if (model) out.model = model[1];
 
   const loc = m.match(
@@ -469,8 +471,18 @@ export function buildAwhinaDecision(input: BuildAwhinaDecisionInput): AwhinaDeci
     }
   } else if (rentalOffer) {
     entities.listingType = entities.listingType || "rental";
-  } else if (sellIntent && !entities.listingType) {
-    entities.listingType = inferSellListingTypeHint(trimmed) || "physical";
+  } else if (sellIntent) {
+    const hint = inferSellListingTypeHint(trimmed);
+    if (hint) entities.listingType = hint;
+    else if (!entities.listingType) entities.listingType = "physical";
+    // Sell + vehicle make/model must never stay soft-physical (BMW 320i, etc.)
+    if (
+      entities.listingType !== "service" &&
+      entities.listingType !== "rental" &&
+      (hint === "vehicle" || entities.make || entities.model)
+    ) {
+      entities.listingType = "vehicle";
+    }
   }
 
   const activeTask = resolveTaskForMessage(trimmed, {

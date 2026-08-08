@@ -280,14 +280,37 @@ export function inferSellListingTypeHint(
   if (!m) return undefined;
   if (hasServiceOfferingIntent(m)) return "service";
   if (hasRentalOfferingIntent(m)) return "rental";
-  if (
+  const sellish =
+    SELL_RE.test(m) ||
+    /\b(for sale|sell my|selling my|list my|post my|want to (?:sell|list))\b/i.test(m);
+  const vehicleSignals =
     YEAR_MAKE.test(m) ||
-    (/\b(sell|selling|for sale)\b/i.test(m) &&
-      /\b(car|vehicle|ute|van|truck|motorcycle|bmw|toyota|mazda|ford|honda|nissan|holden|subaru)\b/i.test(m))
+    KM_READING.test(m) ||
+    (VEHICLE_BRANDS.test(m) &&
+      (/\b(19|20)\d{2}\b/.test(m) ||
+        /\b[1-8]\d{2}[a-z]?\b/i.test(m) ||
+        /\b(automatic|manual|odometer|km)\b/i.test(m))) ||
+    (/\b(car|vehicle|ute|van|truck|motorcycle)\b/i.test(m) && sellish);
+  if (
+    vehicleSignals ||
+    (sellish &&
+      /\b(car|vehicle|ute|van|truck|motorcycle|bmw|toyota|mazda|ford|honda|nissan|holden|subaru)\b/i.test(
+        m
+      ))
   ) {
+    // Car-part sells stay physical unless year+make / odometer present
+    if (
+      /\b(spoiler|bumper|bonnet|headlight|taillight|tyre|tire|rim|exhaust|turbo|brake\s*pad|floor\s*mat)\b/i.test(
+        m
+      ) &&
+      !YEAR_MAKE.test(m) &&
+      !KM_READING.test(m)
+    ) {
+      return "physical";
+    }
     return "vehicle";
   }
-  if (SELL_RE.test(m) || /\bfor sale\b/i.test(m)) return "physical";
+  if (sellish || SELL_RE.test(m) || /\bfor sale\b/i.test(m)) return "physical";
   return undefined;
 }
 
