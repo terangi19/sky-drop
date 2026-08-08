@@ -27,7 +27,7 @@ import {
 import {
   tryListingFormActionsShortcut,
 } from "./sky-ai-page-intent";
-import { hasListingSellIntent } from "./sky-ai-intent";
+import { hasListingSellIntent, isExplicitNewSellListingMessage } from "./sky-ai-intent";
 import type { AwhinaToolCall } from "./awhina-types";
 import { validateToolCall } from "./awhina-tool-registry";
 import {
@@ -264,7 +264,9 @@ export function validateListingFillFields(
   if (!normalized && !hasFormActionContent(out) && !out.price && !out.condition && !out.title) {
     return { ok: false, error: "No valid listing fields" };
   }
-  return { ok: true, fill: normalized || out };
+  const fillOut = normalized || out;
+  if (fill.replaceDraft === true) fillOut.replaceDraft = true;
+  return { ok: true, fill: fillOut };
 }
 
 export function validatePriceString(
@@ -298,34 +300,73 @@ function extractPriceFromMessage(message: string): string | null | "malformed" {
     return "malformed";
   }
 
+  const finalize = (rawDigits: string, kSuffix?: string | null): string | null | "malformed" => {
+    if (!rawDigits) return null;
+    let n = Number(rawDigits.replace(/,/g, ""));
+    if (!Number.isFinite(n)) return null;
+    if (kSuffix) n *= 1000;
+    const raw = String(Math.round(n));
+    const check = validatePriceString(raw);
+    if (!check.ok) return "malformed";
+    return check.price;
+  };
+
   // Explicit dollar amounts always win
   const dollar = message.match(/\$\s*([\d,]+(?:\.\d{1,2})?)\s*(k|K)?\b/);
   if (dollar) {
-    let n = Number(dollar[1].replace(/,/g, ""));
-    if (dollar[2]) n *= 1000;
-    const raw = String(Math.round(n));
-    // "$2007" next to a vehicle make with no bucks wording can still be year misuse — keep $ as price
-    const check = validatePriceString(raw);
-    if (!check.ok) return "malformed";
-    return check.price;
+    return finalize(dollar[1], dollar[2]);
   }
 
-  // "200 bucks" / "280 dollars" — current-message currency words beat history years
+  // "200 bucks" / "280 dollars" / "200 nzd" — currency words beat history years
   const bucks = message.match(BUCKS_PRICE_RE);
   if (bucks) {
-    let n = Number(bucks[1].replace(/,/g, ""));
-    if (bucks[2]) n *= 1000;
-    const raw = String(Math.round(n));
-    if (looksLikeVehicleYearToken(raw, message) && !/\b(bucks|dollars?|nzd)\b/i.test(message)) {
+    const raw = finalize(bucks[1], bucks[2]);
+    if (raw === "malformed") return "malformed";
+    if (
+      raw &&
+      looksLikeVehicleYearToken(raw, message) &&
+      !/\b(bucks|dollars?|nzd)\b/i.test(message)
+    ) {
       return null;
     }
-    const check = validatePriceString(raw);
-    if (!check.ok) return "malformed";
-    return check.price;
+    return raw;
+  }
+
+  // "200 ono" / "200 o.n.o"
+  const ono = message.match(/\b([\d,]+(?:\.\d{1,2})?)\s*(k|K)?\s*(?:ono|o\.n\.o\.?)\b/i);
+  if (ono) {
+    const raw = finalize(ono[1], ono[2]);
+    if (raw === "malformed") return "malformed";
+    if (raw && looksLikeVehicleYearToken(raw, message)) return null;
+    return raw;
+  }
+
+  // "asking 200" / "asking price 200" / "asking for 200"
+  const asking = message.match(
+    /\basking(?:\s+(?:price|for))?\s+(?:of\s+)?\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(k|K)?\s*(?:bucks|nzd|dollars?)?\b/i
+  );
+  if (asking) {
+    return finalize(asking[1], asking[2]);
+  }
+
+  // "want 200 for it" / "want $200 for it"
+  const wantForIt = message.match(
+    /\b(?:want|wants|wanted)\s+\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(k|K)?\s*(?:bucks|nzd|dollars?)?\s+for\s+it\b/i
+  );
+  if (wantForIt) {
+    return finalize(wantForIt[1], wantForIt[2]);
+  }
+
+  // "sell it for 200" / "selling it for 200" (also covered by for/at below)
+  const sellFor = message.match(
+    /\b(?:sell(?:ing)?\s+it\s+for|sell\s+for)\s+\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(k|K)?\s*(?:bucks|nzd|dollars?)?\b/i
+  );
+  if (sellFor) {
+    return finalize(sellFor[1], sellFor[2]);
   }
 
   const m = message.match(
-    /\b(?:(?:make(?:\s+it)?|set(?:\s+(?:the|it|price))?|price(?:\s+is)?|actually|change(?:\s+(?:it|price|to))?|update(?:\s+price)?|it'?s)\s+)\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(k|K)?\s*(?:bucks|nzd|dollars?)?\b|\b(?:for|at)\s+\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(k|K)?\s*(?:bucks|nzd|dollars?)?\b/i
+    /\b(?:(?:make(?:\s+it)?|set(?:\s+(?:the|it|price))?|price(?:\s+is)?|actually|change(?:\s+(?:it|price|to))?|update(?:\s+price)?|it'?s)\s+)\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(k|K)?\s*(?:bucks|nzd|dollars?|ono|o\.n\.o\.?)?\b|\b(?:for|at)\s+\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(k|K)?\s*(?:bucks|nzd|dollars?|ono|o\.n\.o\.?)?\b/i
   );
   const rawDigits = (m?.[1] || m?.[3] || "").replace(/,/g, "");
   const kSuffix = m?.[2] || m?.[4];
@@ -340,7 +381,7 @@ function extractPriceFromMessage(message: string): string | null | "malformed" {
   // Bare vehicle years are never prices ("bmw 335i 2007")
   if (looksLikeVehicleYearToken(raw, message) || looksLikeVehicleYearToken(rawDigits, message)) {
     const explicitPriceVerb =
-      /\b(?:make(?:\s+it)?|set(?:\s+(?:the|it|price))?|price(?:\s+is)?|change(?:\s+(?:it|price|to))?|update(?:\s+price)?)\s+\$?\s*\d/i.test(
+      /\b(?:make(?:\s+it)?|set(?:\s+(?:the|it|price))?|price(?:\s+is)?|change(?:\s+(?:it|price|to))?|update(?:\s+price)?|asking|want\s+\$?\d+\s+for\s+it|sell(?:ing)?\s+it\s+for)\s+\$?\s*\d/i.test(
         message
       );
     if (!explicitPriceVerb) return null;
@@ -512,9 +553,12 @@ export function processListingFillMessage(
   // New NL sell request (has item seed) — never inherit SEARCH/old unrelated draft
   const isNewSellSeed =
     opts.freshStart === true ||
+    isExplicitNewSellListingMessage(trimmed) ||
     (Boolean(sellItemEarly) &&
       (hasListingSellIntent(trimmed) ||
-        /\b(want\s+to\s+list|list(?:ing)?\s+my|sell(?:ing)?\s+my)\b/i.test(trimmed)));
+        /\b(want\s+to\s+list|list(?:ing)?\s+my|sell(?:ing)?\s+my|create\s+(?:a\s+)?listing)\b/i.test(
+          trimmed
+        )));
 
   if (isNewSellSeed) {
     clearListingDraftSession(sessionKey);
@@ -788,6 +832,9 @@ export function processListingFillMessage(
   rememberListingDraft(sessionKey, validated.fill);
 
   const intent = hasDraft && !isNewSellSeed ? "listing_update" : "listing_create";
+  if (isNewSellSeed || intent === "listing_create") {
+    validated.fill.replaceDraft = true;
+  }
   let reply: string;
   if (isCompleteListingDraft(validated.fill)) {
     reply = buildCompleteDraftReply(validated.fill);
@@ -814,6 +861,9 @@ function finishFill(
   intent: string
 ): ListingFillToolResult {
   const isPartial = intent === "listing_update";
+  if (!isPartial) {
+    listingFill = { ...listingFill, replaceDraft: true };
+  }
   const toolCall: AwhinaToolCall = isPartial
     ? {
         tool: "updateListingDraft",

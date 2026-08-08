@@ -27,3 +27,13 @@ export function readListingDraftFromSkyAi(): SkyAiListingContext | null {
     return null;
   }
 }
+
+/** Clear prior Sky AI draft (explicit NEW sell / replaceDraft). */
+export function clearListingDraftFromSkyAi() {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.removeItem(STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+}

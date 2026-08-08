@@ -20,6 +20,11 @@ export type SkyAiListingFill = {
   acceptOffers?: boolean;
   saleType?: string;
   paymentType?: string;
+  /**
+   * Explicit NEW sell task — client must clear prior Sky AI draft and apply this
+   * fill as source of truth (do not mergeListingFillWithDraft). Follow-ups omit this.
+   */
+  replaceDraft?: boolean;
   vehicleMake?: string;
   vehicleModel?: string;
   vehicleYear?: string;
@@ -417,6 +422,7 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
           .map((s) => s.trim())
           .filter(Boolean)
       : undefined,
+    replaceDraft: o.replaceDraft === true ? true : undefined,
   };
 
   const blob = `${raw.title} ${raw.description} ${raw.listingType} ${raw.vehicleMake} ${raw.vehicleModel}`;
@@ -558,6 +564,8 @@ export function normalizeSkyAiListingFill(input: unknown): SkyAiListingFill | nu
     else if (raw.vehicleModel)
       out.vehicleBodyType = normalizeBodyType("", raw.vehicleModel);
   }
+
+  if (raw.replaceDraft === true) out.replaceDraft = true;
 
   return out;
 }

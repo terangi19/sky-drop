@@ -19,6 +19,7 @@ import { openaiErrorResponse } from "../../lib/openai-errors";
 import { enhanceListingFillFromMessage } from "../../lib/sky-ai-form-actions";
 import {
   hasListingSellIntent,
+  isExplicitNewSellListingMessage,
   isSkyAiAdviceQuestion,
   shouldBypassNavigationShortcut,
   detectSkyAiIntent,
@@ -212,6 +213,19 @@ function finalizeListingFill(
   listingContext: SkyAiListingContext | null,
   listingFill: SkyAiListingFill | undefined
 ): SkyAiListingFill | undefined {
+  if (!listingFill) return undefined;
+
+  // Explicit NEW sell → fresh draft. Do NOT merge prior draft/search fields.
+  // Follow-ups ("actually make it $250") still merge.
+  const fresh =
+    listingFill.replaceDraft === true || isExplicitNewSellListingMessage(message);
+
+  if (fresh) {
+    const seed = { ...listingFill, replaceDraft: true };
+    const enhanced = enhanceListingFillFromMessage(message, seed) ?? seed;
+    return { ...enhanced, replaceDraft: true };
+  }
+
   const merged = mergeFillWithContext(listingContext, listingFill);
   if (!merged) return undefined;
   return enhanceListingFillFromMessage(message, merged) ?? merged;
@@ -469,7 +483,7 @@ export async function POST(req: NextRequest) {
       pathname,
     });
     let listingFill = vision.listingFill
-      ? finalizeListingFill(message || "photo upload", listingContext, vision.listingFill)
+      ? finalizeListingFill(message || "photo upload", contextualListingContext, vision.listingFill)
       : undefined;
     if (listingFill) {
       const validated = validateListingFillFields(listingFill);
@@ -605,7 +619,13 @@ export async function POST(req: NextRequest) {
           canonical.listingFill as SkyAiListingFill
         );
         if (validated.ok) {
-          listingFill = finalizeListingFill(message, listingContext, validated.fill);
+          // Use contextualListingContext (may be null on task switch); finalizeListingFill
+          // also skips merge on explicit NEW sell / replaceDraft.
+          listingFill = finalizeListingFill(
+            message,
+            contextualListingContext,
+            validated.fill
+          );
         } else {
           reply = validated.error;
         }
@@ -785,7 +805,7 @@ export async function POST(req: NextRequest) {
   });
 
   let listingFill = llm.listingFill
-    ? finalizeListingFill(message, listingContext, llm.listingFill)
+    ? finalizeListingFill(message, contextualListingContext, llm.listingFill)
     : undefined;
   if (listingFill) {
     const validated = validateListingFillFields(listingFill);

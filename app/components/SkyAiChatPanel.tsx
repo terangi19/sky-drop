@@ -29,7 +29,7 @@ import {
 import { dispatchSkyAiComposerActive, SKY_AI_OPEN_EVENT, type SkyAiOpenDetail } from "../lib/sky-ai-events";
 import { AWHINA_CHAT_BACKDROP_Z, AWHINA_CHAT_SHEET_Z } from "../lib/floating-ui-layout";
 import { mergeListingFillWithDraft } from "../lib/sky-ai-draft-merge";
-import { readListingDraftFromSkyAi } from "../lib/sky-ai-listing-context";
+import { readListingDraftFromSkyAi, clearListingDraftFromSkyAi } from "../lib/sky-ai-listing-context";
 import {
   dispatchListingImages,
   prepareSkyAiImages,
@@ -85,7 +85,11 @@ export type SkyAiChatPanelProps = {
 
 function handleListingFill(fill: SkyAiListingFill | undefined, _navigateTo?: string) {
   if (!fill) return _navigateTo;
-  const merged = mergeListingFillWithDraft(readListingDraftFromSkyAi(), fill);
+  const replaceDraft = fill.replaceDraft === true;
+  if (replaceDraft) clearListingDraftFromSkyAi();
+  const merged = replaceDraft
+    ? { ...fill }
+    : mergeListingFillWithDraft(readListingDraftFromSkyAi(), fill);
   const hasContent =
     !!merged.title ||
     !!merged.description ||
@@ -587,7 +591,11 @@ export default function SkyAiChatPanel({
                     setListingFillOccurred(true);
                     if (isSellPage) {
                       setListingPreviewFill(evt.listingFill);
-                      const merged = mergeListingFillWithDraft(readListingDraftFromSkyAi(), evt.listingFill);
+                      const replaceDraft = evt.listingFill.replaceDraft === true;
+                      if (replaceDraft) clearListingDraftFromSkyAi();
+                      const merged = replaceDraft
+                        ? { ...evt.listingFill }
+                        : mergeListingFillWithDraft(readListingDraftFromSkyAi(), evt.listingFill);
                       onFill?.(merged);
                       navigateTo = undefined;
                       const aiReply = evt.reply || stripSkyAiMachineTags(accumulated);
@@ -645,7 +653,11 @@ export default function SkyAiChatPanel({
             setListingFillOccurred(true);
             if (isSellPage) {
               setListingPreviewFill(data.listingFill);
-              const merged = mergeListingFillWithDraft(readListingDraftFromSkyAi(), data.listingFill);
+              const replaceDraft = data.listingFill.replaceDraft === true;
+              if (replaceDraft) clearListingDraftFromSkyAi();
+              const merged = replaceDraft
+                ? { ...data.listingFill }
+                : mergeListingFillWithDraft(readListingDraftFromSkyAi(), data.listingFill);
               onFill?.(merged);
               navigateTo = undefined;
               const aiReply = data.reply || "";

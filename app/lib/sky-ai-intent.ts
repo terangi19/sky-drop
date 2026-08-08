@@ -84,6 +84,19 @@ export function hasExplicitSellSwitch(message: string): boolean {
   );
 }
 
+/**
+ * Explicit NEW listing seed — start a fresh draft (do not merge prior draft/search).
+ * Follow-ups like "actually make it $250" must NOT match.
+ */
+export function isExplicitNewSellListingMessage(message: string): boolean {
+  const m = message.trim();
+  if (!m) return false;
+  if (BUY_NOT_SELL.test(m) || FIND_RE.test(m)) return false;
+  return /\b(want\s+to\s+list|sell(?:ing)?\s+my|create\s+(?:a\s+)?listing|list(?:ing)?\s+my|post(?:ing)?\s+my)\b/i.test(
+    m
+  );
+}
+
 /** True when message is buy/search language (not sell). */
 export function hasSearchIntentLanguage(message: string): boolean {
   const m = message.trim();

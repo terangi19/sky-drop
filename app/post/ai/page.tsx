@@ -19,7 +19,7 @@ import { getListingBlockReason } from "../../lib/seller-eligibility";
 import { STRIPE_CONNECT_REQUIRED_MSG, sellerCanUseStripeCheckout } from "../../lib/seller-payments";
 import { resolveListingType } from "../../lib/listing-types";
 import { hasActiveListingDraft, mergeListingFillWithDraft } from "../../lib/sky-ai-draft-merge";
-import { readListingDraftFromSkyAi, syncListingDraftToSkyAi } from "../../lib/sky-ai-listing-context";
+import { readListingDraftFromSkyAi, syncListingDraftToSkyAi, clearListingDraftFromSkyAi } from "../../lib/sky-ai-listing-context";
 import {
   applySkyAiListingFill,
   consumePendingListingFill,
@@ -366,8 +366,44 @@ export default function AIPostPage() {
 
   const applyFill = useCallback((fill: SkyAiListingFill) => {
     const prior = readListingDraftFromSkyAi();
-    const merged = mergeListingFillWithDraft(prior, fill);
-    const isUpdate = hasActiveListingDraft(prior);
+    const replaceDraft = fill.replaceDraft === true;
+    // Explicit NEW sell: clear prior draft — do not keep stale price/year/vehicle fields
+    if (replaceDraft) {
+      clearListingDraftFromSkyAi();
+      setTitle("");
+      setDescription("");
+      setCategory("");
+      setCondition("");
+      setPrice("");
+      setListingType("physical");
+      setLocation("");
+      setVehicleMake("");
+      setVehicleModel("");
+      setVehicleYear("");
+      setVehicleOdometer("");
+      setVehicleTransmission("");
+      setVehicleFuelType("");
+      setVehicleBodyType("");
+      setVehicleColour("");
+      setDraftExtras([]);
+      setRentalSubType("equipment");
+      setRentalPropertyType("");
+      setRentalPriceWeekly("");
+      setRentalPriceMonthly("");
+      setRentalDeposit("");
+      setRentalBedrooms("");
+      setRentalBathrooms("");
+      setRentalParkingSpaces("");
+      setRentalFurnishedStatus("");
+      setRentalPetsPolicy("");
+      setRentalAvailableDate("");
+      setRentalMinTenancy("");
+      setRentalFeatures([]);
+      setStockQuantity("");
+      setServiceDuration("");
+    }
+    const merged = replaceDraft ? { ...fill } : mergeListingFillWithDraft(prior, fill);
+    const isUpdate = !replaceDraft && hasActiveListingDraft(prior);
 
     const beforeSnapshot = { title, description, category, condition, price, listingType, location };
     let fieldsChanged = 0;
