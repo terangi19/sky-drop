@@ -16,9 +16,9 @@ exports[`category-aware description snapshots > services snapshot 1`] = `"Lawn M
 
 exports[`category-aware description snapshots > sports snapshot 1`] = `"Mountain Bike in good used condition for sale in Dunedin, asking $400. Message me if you're interested — happy to arrange pickup."`;
 
-exports[`category-aware description snapshots > vehicles snapshot 1`] = `"Blue 2018 BMW 320i, available in Auckland. 85,000 km on the clock, automatic transmission, good used condition. Asking $18500. Message if you're interested."`;
+exports[`category-aware description snapshots > vehicles snapshot 1`] = `"2018 BMW 320i for sale in Auckland. Finished in blue with 85,000 km and an automatic transmission. The car is in good used condition, asking $18,500. Message if you're interested."`;
 
-exports[`description quality suite — golden reference cases > BMW: ≤1 CTA, grounded, type-aware 1`] = `"Blue 2018 BMW 320i, available in Auckland. 85,000 km on the clock, automatic transmission, good used condition. Asking $18500. Message if you're interested."`;
+exports[`description quality suite — golden reference cases > BMW: ≤1 CTA, grounded, type-aware 1`] = `"2018 BMW 320i for sale in Auckland. Finished in blue with 85,000 km and an automatic transmission. The car is in good used condition, asking $18,500. Message if you're interested."`;
 
 exports[`description quality suite — golden reference cases > PS5: ≤1 CTA, grounded, type-aware 1`] = `"Brand new PlayStation 5 Console for sale in Auckland, asking $200. Message me if you're interested — happy to arrange pickup."`;
 
@@ -42,7 +42,7 @@ exports[`iPhone Hamilton natural seller copy > produces pickup-in-city copy with
 
 exports[`one-shot sell uses Premium Plus description path > PS5 one-shot is natural marketplace copy 1`] = `"Brand new PlayStation 5 Console for sale in Auckland, asking $200. Message me if you're interested — happy to arrange pickup."`;
 
-exports[`one-shot sell uses Premium Plus description path > vehicle one-shot description is category-styled 1`] = `"2018 BMW 320i available in Auckland. I'm asking $18500. Message to arrange a viewing."`;
+exports[`one-shot sell uses Premium Plus description path > vehicle one-shot description is category-styled 1`] = `"2018 BMW 320i for sale in Auckland. 85,000 km on the clock. I'm asking $18,500. Message to arrange a viewing."`;
 
 exports[`service listing description snapshots > fixed price lawn mowing snapshot 1`] = `"Lawn Mowing in Hamilton for $50 per job. Happy to talk through the size of the job and find a time that works. Send me a message with a few details about the job and I'll get back to you."`;
 
@@ -52,6 +52,6 @@ exports[`service listing description snapshots > quote required cleaning snapsho
 
 exports[`service listing description snapshots > tutoring with duration fact snapshot 1`] = `"Maths Tutoring available in Christchurch for $40 per hour. Happy to discuss what you're after and arrange a time that suits. Typical jobs run about 1 hour. Drop me a message when you're ready to chat about the job."`;
 
-exports[`vehicle composer — readiness + no seller coaching in buyer desc > rich one-shot 1999 Nissan Skyline R34 → premium title + buyer desc 1`] = `"1999 Nissan Skyline R34 in Auckland. Good used condition. Asking $30000. Happy to arrange a viewing — just message me."`;
+exports[`vehicle composer — readiness + no seller coaching in buyer desc > rich one-shot 1999 Nissan Skyline R34 → premium title + buyer desc 1`] = `"1999 Nissan Skyline R34 in Auckland. The car is in good used condition, asking $30,000. Happy to arrange a viewing — just message me."`;
 
 exports[`vehicle composer — readiness + no seller coaching in buyer desc > sparse R34 seed: blank buyer desc — no complete-the-listing leak 1`] = `""`;

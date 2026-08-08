@@ -166,8 +166,13 @@ function pickVariant<T>(seed: string, options: readonly T[]): T {
 
 function formatMoneyPlain(price: string | undefined | null): string | null {
   if (!price?.trim()) return null;
-  const n = price.replace(/,/g, "").trim();
-  return n ? `$${n}` : null;
+  const n = Number(price.replace(/,/g, "").trim());
+  if (!Number.isFinite(n)) return null;
+  return `$${n.toLocaleString("en-NZ")}`;
+}
+
+function indefiniteArticle(word: string): string {
+  return /^[aeiou]/i.test(word) ? "an" : "a";
 }
 
 function conditionShort(condition: string | undefined): string | null {
@@ -641,13 +646,18 @@ export function extractDescriptionFacts(
   const conditionPhrase = conditionShort(fill.condition);
 
   let knownBits = 0;
-  if (item) knownBits++;
+  if (item && !/^item$/i.test(item)) knownBits++;
   if (conditionPhrase) knownBits++;
   if (money || rental?.weekly || rental?.daily || rental?.monthly) knownBits++;
   if (location) knownBits++;
   if (delivery) knownBits++;
+  if (vehicle?.year) knownBits++;
+  if (vehicle?.make) knownBits++;
+  if (vehicle?.model) knownBits++;
   if (vehicle?.odometer) knownBits++;
   if (vehicle?.colour) knownBits++;
+  if (vehicle?.transmission) knownBits++;
+  if (vehicle?.body) knownBits++;
   if (extras.length) knownBits++;
   if (rental?.bedrooms) knownBits++;
   if (serviceDuration) knownBits++;
@@ -1050,18 +1060,26 @@ function safeFallbackDescription(facts: DescriptionFacts): string {
 
   if (facts.kind === "vehicle") {
     const colour = facts.vehicle?.colour;
+    const body = facts.vehicle?.body;
+    const bodyBit = body ? ` ${body.toLowerCase()}` : "";
     parts.push(
       polishParagraph(
-        `${colour ? `${colour} ` : ""}${item}${facts.location ? ` in ${facts.location}` : " for sale"}.`
+        `${colour ? `${colour} ` : ""}${item}${bodyBit}${facts.location ? ` in ${facts.location}` : " for sale"}.`
       )
     );
     const bits: string[] = [];
     if (facts.vehicle?.odometer) bits.push(`${formatOdo(facts.vehicle.odometer)} on the clock`);
     if (facts.vehicle?.transmission) {
-      bits.push(`${facts.vehicle.transmission.toLowerCase()} transmission`);
+      const trans = facts.vehicle.transmission.toLowerCase();
+      bits.push(`${indefiniteArticle(trans)} ${trans} transmission`);
     }
     if (facts.conditionPhrase) bits.push(facts.conditionPhrase);
     if (bits.length) parts.push(capFirst(`${bits.join(", ")}.`));
+    for (const extra of facts.extras) {
+      if (/\b(modif|upgraded|turbo|intercooler|downpipe|intake)\b/i.test(extra)) {
+        parts.push(polishParagraph(extra.endsWith(".") ? extra : `${extra}.`));
+      }
+    }
     if (facts.money) parts.push(`Asking ${facts.money}.`);
   } else if (facts.kind === "service") {
     const priceBit =
@@ -1203,35 +1221,70 @@ function writeVehicle(facts: DescriptionFacts): string {
   const colour = v?.colour;
   const loc = facts.location;
   const seed = facts.seed;
+  const body = v?.body?.trim() || null;
+  const bodyBit = body ? ` ${body.toLowerCase()}` : "";
 
-  const detailBits: string[] = [];
-  if (v?.odometer) detailBits.push(`${formatOdo(v.odometer)} on the clock`);
-  if (v?.transmission) detailBits.push(`${v.transmission.toLowerCase()} transmission`);
-  if (v?.fuel) detailBits.push(`${v.fuel.toLowerCase()} fuel`);
-  if (v?.body) detailBits.push(`${v.body.toLowerCase()} body`);
-  if (facts.conditionPhrase && facts.conditionPhrase !== "brand new") {
-    detailBits.push(facts.conditionPhrase);
-  }
-  if (facts.extras.length) detailBits.push(...facts.extras);
-
-  // Buyer copy only — never seller "still need / complete the listing" coaching
+  // Prefer confirmed identity in the opener — never "Item in good condition…"
   const opener = pickVariant(seed + ":vopen", [
+    `${name}${bodyBit} for sale${loc ? ` in ${loc}` : ""}.`,
     colour
-      ? `${colour} ${name}${loc ? `, available in ${loc}` : " available for sale"}.`
-      : `${name}${loc ? ` available in ${loc}` : " available for sale"}.`,
-    colour
-      ? `${name} in ${colour.toLowerCase()}${loc ? `, ${loc}` : ""}.`
-      : `${name}${loc ? ` in ${loc}` : " available for sale"}.`,
-    `${colour ? `${colour} ` : ""}${name}${loc ? ` in ${loc}` : ""}.`,
+      ? `${name}${bodyBit} in ${colour.toLowerCase()}${loc ? `, ${loc}` : ""}.`
+      : `${name}${bodyBit}${loc ? ` in ${loc}` : " available for sale"}.`,
+    `${colour ? `${colour} ` : ""}${name}${bodyBit}${loc ? ` in ${loc}` : ""}.`,
   ]);
 
   const parts: string[] = [polishParagraph(opener)];
-  if (detailBits.length) parts.push(capFirst(`${detailBits.join(", ")}.`));
 
-  if (facts.money) {
+  // Spec weave: colour / odometer / transmission from confirmed fields only
+  const hasColourInOpener = Boolean(colour && new RegExp(`\\b${colour}\\b`, "i").test(opener));
+  if (colour && v?.odometer && v?.transmission) {
+    const trans = v.transmission.toLowerCase();
     parts.push(
-      pickVariant(seed + ":vp", [`Asking ${facts.money}.`, `I'm asking ${facts.money}.`])
+      polishParagraph(
+        hasColourInOpener
+          ? `It has ${formatOdo(v.odometer)} and ${indefiniteArticle(trans)} ${trans} transmission.`
+          : `Finished in ${colour.toLowerCase()} with ${formatOdo(v.odometer)} and ${indefiniteArticle(trans)} ${trans} transmission.`
+      )
     );
+  } else {
+    const detailBits: string[] = [];
+    if (colour && !hasColourInOpener) detailBits.push(`finished in ${colour.toLowerCase()}`);
+    if (v?.odometer) detailBits.push(`${formatOdo(v.odometer)} on the clock`);
+    if (v?.transmission) {
+      const trans = v.transmission.toLowerCase();
+      detailBits.push(`${indefiniteArticle(trans)} ${trans} transmission`);
+    }
+    if (v?.fuel) detailBits.push(`${v.fuel.toLowerCase()} fuel`);
+    if (detailBits.length) parts.push(capFirst(`${detailBits.join(", ")}.`));
+  }
+
+  // Freeform mods / extras — preserve seller wording, do not invent
+  const modExtras = facts.extras.filter((e) =>
+    /\b(modif|upgraded|turbo|intercooler|downpipe|intake|exhaust|tuned|stage\s*\d)\b/i.test(e)
+  );
+  const otherExtras = facts.extras.filter((e) => !modExtras.includes(e));
+  for (const mod of modExtras) {
+    parts.push(polishParagraph(mod.endsWith(".") ? mod : `${mod}.`));
+  }
+  if (otherExtras.length) {
+    parts.push(capFirst(`${otherExtras.join("; ")}.`));
+  }
+
+  if (facts.conditionPhrase && facts.conditionPhrase !== "brand new" && facts.money) {
+    parts.push(
+      polishParagraph(
+        `The car is in ${facts.conditionPhrase}, asking ${facts.money}.`
+      )
+    );
+  } else {
+    if (facts.conditionPhrase && facts.conditionPhrase !== "brand new") {
+      parts.push(capFirst(`${facts.conditionPhrase}.`));
+    }
+    if (facts.money) {
+      parts.push(
+        pickVariant(seed + ":vp", [`Asking ${facts.money}.`, `I'm asking ${facts.money}.`])
+      );
+    }
   }
 
   return parts.join(" ");
@@ -1437,7 +1490,34 @@ export function buildListingDescriptionFromFacts(
     return "";
   }
   const facts = extractDescriptionFacts(fill, opts);
+  // Recover identity when title was lost but structured vehicle fields exist
+  if (
+    /^item$/i.test(facts.item) &&
+    facts.kind === "vehicle" &&
+    (facts.vehicle?.make || facts.vehicle?.model)
+  ) {
+    facts.item =
+      composeListingIdentity({
+        year: facts.vehicle?.year,
+        brand: facts.vehicle?.make,
+        product: facts.vehicle?.model,
+        generation: fill.vehicleGeneration?.trim() || null,
+      }) ||
+      [facts.vehicle?.year, facts.vehicle?.make, facts.vehicle?.model]
+        .filter(Boolean)
+        .join(" ") ||
+      "Vehicle";
+  }
   const draft = writeFromFacts(facts);
   if (!draft.trim()) return "";
-  return runQualityPass(draft, facts);
+  const out = runQualityPass(draft, facts);
+  // ASSERT: rich confirmed context must not collapse to generic Item filler
+  if (
+    /^item\b/i.test(out) &&
+    facts.factRichness === "rich" &&
+    facts.kind === "vehicle"
+  ) {
+    return runQualityPass(writeFromFacts(facts), facts);
+  }
+  return out;
 }

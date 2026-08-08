@@ -246,7 +246,7 @@ describe("category-aware description snapshots", () => {
         location: "Auckland",
         condition: "Used - Good",
       },
-      must: [/2018/, /BMW/, /320i/, /Auckland/, /85,?000/, /blue/i, /\$18500/],
+      must: [/2018/, /BMW/, /320i/, /Auckland/, /85,?000/, /blue/i, /\$18,?500/],
       never: [
         /Condition:/i,
         /Odometer:/i,
@@ -597,7 +597,7 @@ describe("description quality suite — golden reference cases", () => {
         location: "Auckland",
         condition: "Used - Good",
       },
-      must: [/BMW/, /320i/, /85,?000/, /Auckland/, /\$18500/],
+      must: [/BMW/, /320i/, /85,?000/, /Auckland/, /\$18,?500/],
       never: [/WOF|service history|Condition:/i],
       tone: /viewing|message|look/i,
     },
@@ -941,7 +941,7 @@ describe("one-shot sell uses Premium Plus description path", () => {
     );
     const desc = String(r.listingFill?.description || "");
     expect(desc).toMatch(/BMW/i);
-    expect(desc).toMatch(/85,?000|Auckland|\$18500/i);
+    expect(desc).toMatch(/85,?000|Auckland|\$18,?500/i);
     expect(desc).not.toMatch(ROBOTIC_SMELLS);
     expect(desc).not.toMatch(META_PHRASE_SMELLS);
     expect(desc).not.toMatch(UNGROUNDED_CLAIM_SMELLS);
@@ -1299,9 +1299,74 @@ describe("vehicle composer — readiness + no seller coaching in buyer desc", ()
     });
     expect(rich).toMatch(/1999|Nissan|Skyline|R34/i);
     expect(rich).toMatch(/Auckland/);
-    expect(rich).toMatch(/\$30,?000|\$30000/);
+    expect(rich).toMatch(/\$30,?000/);
     expect(rich).not.toMatch(SELLER_LEAK);
     assertNaturalMarketplaceCopy(rich);
+  });
+
+  it("rich BMW 335i one-shot uses confirmed facts — never Item filler", () => {
+    wipe("rich-bmw-335i");
+    const msg =
+      "sell my 2007 bmw 335i coupe for 18k, done 145000kms, automatic, grey, modified with upgraded twin turbos intercooler downpipes and intakes, cars in auckland and its in good condition";
+    const r = processCanonicalAwhina(msg, {
+      conversationId: "rich-bmw-335i",
+      pathname: "/",
+    });
+    expect(r.listingFill?.listingType).toBe("vehicle");
+    expect(r.listingFill?.vehicleMake).toBe("BMW");
+    expect(r.listingFill?.vehicleModel).toMatch(/335i/i);
+    expect(r.listingFill?.vehicleYear).toBe("2007");
+    expect(r.listingFill?.vehicleOdometer).toBe("145000");
+    expect(r.listingFill?.vehicleColour).toMatch(/grey/i);
+    expect(r.listingFill?.vehicleTransmission).toMatch(/automatic/i);
+    expect(r.listingFill?.vehicleBodyType).toMatch(/coupe/i);
+    expect(r.listingFill?.price).toBe("18000");
+    const extras = Array.isArray(r.listingFill?.extras)
+      ? r.listingFill!.extras!.join(" ")
+      : "";
+    expect(extras).toMatch(/twin turbos/i);
+    expect(extras).toMatch(/intercooler/i);
+    expect(extras).toMatch(/downpipes/i);
+    expect(extras).toMatch(/intakes/i);
+    const desc = String(r.listingFill?.description || "");
+    expect(desc).not.toMatch(/^Item\b/i);
+    expect(desc).not.toMatch(/Item in good used condition/i);
+    expect(desc).toMatch(/2007/);
+    expect(desc).toMatch(/BMW/i);
+    expect(desc).toMatch(/335i/i);
+    expect(desc).toMatch(/coupe/i);
+    expect(desc).toMatch(/145,?000/);
+    expect(desc).toMatch(/grey|gray/i);
+    expect(desc).toMatch(/automatic/i);
+    expect(desc).toMatch(/twin turbos/i);
+    expect(desc).toMatch(/\$18,?000/);
+    expect(desc).not.toMatch(/\bWOF\b|\bwarranty\b|\bservice history\b/i);
+    assertNaturalMarketplaceCopy(desc);
+
+    const rewritten = processCanonicalAwhina("write a better description", {
+      conversationId: "rich-bmw-335i",
+      pathname: "/",
+      listingContext: r.listingFill as never,
+    });
+    const desc2 = String(rewritten.listingFill?.description || "");
+    expect(desc2).not.toMatch(/^Item\b|^Write a better description\b/i);
+    expect(desc2).toMatch(/BMW/i);
+    expect(desc2).toMatch(/145,?000/);
+    expect(desc2).toMatch(/twin turbos/i);
+    expect(rewritten.listingFill?.vehicleOdometer).toBe("145000");
+  });
+
+  it("sparse listing may use generic condition copy", () => {
+    const desc = buildListingDescriptionFromFacts({
+      title: "Item",
+      listingType: "physical",
+      condition: "Used - Good",
+      location: "Auckland",
+      price: "50",
+      pickupAvailable: true,
+    });
+    expect(desc).toMatch(/Auckland|\$50/);
+    assertNaturalMarketplaceCopy(desc, { sparse: true });
   });
 
   it("getVehicleDraftReadiness prioritises generation before price", () => {

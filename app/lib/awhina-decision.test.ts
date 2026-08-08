@@ -181,7 +181,7 @@ describe("listing composer", () => {
     });
     expect(c.title).toMatch(/2007/);
     expect(c.description).toMatch(/2007|BMW|335i/i);
-    expect(c.description).toMatch(/\$15000|Asking \$15000/i);
+    expect(c.description).toMatch(/\$15,?000|Asking \$15,?000/i);
   });
 });
 

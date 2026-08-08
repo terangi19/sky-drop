@@ -971,7 +971,7 @@ export function extractCompoundListingFacts(
     residual = residual.replace(yearMatch[0], " ").replace(/\s+/g, " ").trim();
   }
 
-  // Odometer before bare price — first "190k" is odo when vehicle / odo missing
+  // Odometer before bare price — prefer explicit km readings over bare "18k" price tokens
   const odoNeeded =
     opts?.activeSlot === "odometer" ||
     missingFromBase.includes("odometer") ||
@@ -979,6 +979,7 @@ export function extractCompoundListingFacts(
   const odoMiles = residual.match(
     /\b([\d,]+)\s*k\s*(?:miles?|mi|km|kms|kilometers|kilometres)\b/i
   );
+  const odoExplicitKm = residual.match(/\b([\d,]{3,7})\s*kms?\b/i);
   if (odoMiles && (odoNeeded || opts?.activeSlot === "odometer")) {
     const n = Number(odoMiles[1].replace(/,/g, "")) * 1000;
     if (n >= 100 && n < 2_000_000) {
@@ -987,8 +988,17 @@ export function extractCompoundListingFacts(
       notes.push(`odometer ${partial.vehicleOdometer}`);
       residual = residual.replace(odoMiles[0], " ").replace(/\s+/g, " ").trim();
     }
+  } else if (odoExplicitKm && (odoNeeded || opts?.activeSlot === "odometer")) {
+    const n = Number(odoExplicitKm[1].replace(/,/g, ""));
+    if (n >= 100 && n < 2_000_000) {
+      partial.vehicleOdometer = String(Math.round(n));
+      filledSlots.push("odometer");
+      notes.push(`odometer ${partial.vehicleOdometer}`);
+      residual = residual.replace(odoExplicitKm[0], " ").replace(/\s+/g, " ").trim();
+    }
   } else if (odoNeeded && !priceSlotPending) {
     // Prefer the first k-token as odometer when multiple remain (190k … 50k → odo then price)
+    // Skip bare "Nk" when it sits in a price phrase ("for 18k", "$18k")
     const odoMatch = residual.match(
       /\b([\d,]+)\s*(k|km|kms|kilometers|kilometres|miles?|mi)\b/i
     );
@@ -996,9 +1006,26 @@ export function extractCompoundListingFacts(
       const unit = String(odoMatch[2]);
       const bareK = /^k$/i.test(unit);
       const distanceUnit = /^(km|kms|kilometers|kilometres|miles?|mi)$/i.test(unit);
-      if (!bareK || distanceUnit || opts?.activeSlot === "odometer" || odoNeeded) {
+      const priceishBareK =
+        bareK &&
+        new RegExp(
+          `(?:for\\s+|\\$)\\s*${odoMatch[1].replace(/,/g, "")}\\s*k\\b`,
+          "i"
+        ).test(message);
+      if (
+        (!bareK || distanceUnit || opts?.activeSlot === "odometer") &&
+        !priceishBareK
+      ) {
         let n = Number(odoMatch[1].replace(/,/g, ""));
         if (bareK) n *= 1000;
+        if (n >= 100 && n < 2_000_000) {
+          partial.vehicleOdometer = String(Math.round(n));
+          filledSlots.push("odometer");
+          notes.push(`odometer ${partial.vehicleOdometer}`);
+          residual = residual.replace(odoMatch[0], " ").replace(/\s+/g, " ").trim();
+        }
+      } else if (bareK && odoNeeded && !priceishBareK) {
+        let n = Number(odoMatch[1].replace(/,/g, "")) * 1000;
         if (n >= 100 && n < 2_000_000) {
           partial.vehicleOdometer = String(Math.round(n));
           filledSlots.push("odometer");

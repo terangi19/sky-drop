@@ -166,8 +166,9 @@ const CONDITION_RE =
 const SELL_ITEM_RE =
   /\b(?:want\s+to\s+list|selling|sell(?:ing)?|list(?:ing)?|post(?:ing)?)\s+(?:my\s+|a\s+|an\s+|the\s+)?(.+)$/i;
 
+// kms? must consume optional trailing "s" so "145000kms" stops (km\b fails between m/s).
 const SELL_ITEM_STOP_RE =
-  /\b(brand\s+new|its|it's|condition|new|used|like\s+new|excellent|mint|good|fair|pickup|pick\s*up|shipping|located|based|in\s+auckland|auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|rotorua|queenstown|nelson|whangarei|for\s+\$|\$\d|\d+\s*(?:bucks|nzd|dollars?)|\d{2,3}[\s,]?\d{3}\s*km)\b/i;
+  /\b(?:brand\s+new|its|it's|condition|new|used|like\s+new|excellent|mint|good|fair|pickup|pick\s*up|shipping|located|based|in\s+auckland|auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|rotorua|queenstown|nelson|whangarei|for\s+\$|\$\d|\d+\s*(?:bucks|nzd|dollars?)|for\s+\d{1,4}\s*k\b|\d{2,3}[\s,]?\d{3}\s*kms?)\b/i;
 
 const NZ_CITY_TAIL_RE =
   /\b(auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston\s+north|rotorua|queenstown|nelson|whangarei)\b.*$/i;
@@ -539,6 +540,50 @@ export function parseListingPriceFromMessage(message: string): string | null | "
   return extractPriceFromMessage(message);
 }
 
+/**
+ * Preserve seller-stated freeform mods — never invent upgrades.
+ * e.g. "modified with upgraded twin turbos intercooler downpipes and intakes"
+ */
+export function extractFreeformModificationNote(message: string): string | null {
+  const m = message.match(
+    /\b((?:modified|upgraded)\s+with\s+.+?)(?=\s*,\s*(?:cars?\s+in\b|and\s+it'?s\b|located\b|based\b|its\s+in\b|in\s+(?:auckland|wellington|christchurch|hamilton|tauranga|dunedin)|$)|$)/i
+  );
+  if (!m?.[1]) return null;
+  let note = m[1].replace(/\s+/g, " ").trim().replace(/[,;]+$/g, "");
+  if (note.length < 12 || note.length > 180) return null;
+  return note.charAt(0).toUpperCase() + note.slice(1);
+}
+
+function extractVehicleBodyTypeFromMessage(message: string): string | null {
+  if (/\bcoupe\b/i.test(message)) return "Coupe";
+  if (/\bsedan\b|\bsaloon\b/i.test(message)) return "Sedan";
+  if (/\bhatch(?:back)?\b/i.test(message)) return "Hatchback";
+  if (/\bwagon\b|\bestate\b/i.test(message)) return "Wagon";
+  if (/\bsuv\b|\b4x4\b|\bcrossover\b/i.test(message)) return "SUV";
+  if (/\bute\b|\bpick[\s-]?up\b/i.test(message)) return "Ute";
+  if (/\bvan\b/i.test(message)) return "Van";
+  if (/\bconvertible\b|\bcabrio\b/i.test(message)) return "Convertible";
+  return null;
+}
+
+/**
+ * Prefer explicit km readings ("145000kms", "145,000 km") over bare "18k" price tokens.
+ */
+export function extractVehicleOdometerFromMessage(message: string): string | null {
+  const patterns = [
+    /\b([\d,]{3,7})\s*kms?\b/i,
+    /\b(?:done|clocked|odometer|travelled|traveled)\s+([\d,]+)\s*k(?:m|ms)?\b/i,
+    /\b([\d,]+)\s*(?:kilometers|kilometres)\b/i,
+  ];
+  for (const re of patterns) {
+    const m = message.match(re);
+    if (!m?.[1]) continue;
+    const n = Number(m[1].replace(/,/g, ""));
+    if (Number.isFinite(n) && n >= 100 && n <= 2_000_000) return String(Math.round(n));
+  }
+  return null;
+}
+
 function extractSellItem(message: string): string | undefined {
   // Action commands / pronouns are NEVER product titles
   if (isListPublishActionMessage(message) || isPronounTitleForbidden(message.trim())) {
@@ -549,7 +594,14 @@ function extractSellItem(message: string): string | undefined {
     return undefined;
   }
   const m = message.match(SELL_ITEM_RE);
-  if (!m?.[1]) return undefined;
+  if (!m?.[1]) {
+    // Rich vehicle copy without a clean "sell my …" capture — still seed from identity
+    const identity = resolveVehicleIdentity(message);
+    if (identity.make && identity.model) {
+      return [identity.year, identity.make, identity.model].filter(Boolean).join(" ");
+    }
+    return undefined;
+  }
   let item = m[1].replace(/\b(for sale|please|thanks)\b/gi, "").trim();
   const stop = item.search(SELL_ITEM_STOP_RE);
   if (stop > 0) item = item.slice(0, stop).trim();
@@ -563,6 +615,7 @@ function extractSellItem(message: string): string | undefined {
       return "";
     })
     .replace(/\b(brand\s+new|its|it's)\b.*$/i, "")
+    .replace(/[,;]+$/g, "")
     .trim();
   // Keep known product tokens even if stop ate too much
   if (item.length < 2) {
@@ -571,7 +624,22 @@ function extractSellItem(message: string): string | undefined {
     );
     if (known) item = known[0];
   }
-  if (item.length < 2 || item.length > 80) return undefined;
+  // Long freeform sells: prefer structured vehicle identity over truncating mid-phrase
+  if (item.length > 80) {
+    const identity = resolveVehicleIdentity(message);
+    if (identity.make && identity.model) {
+      item = [identity.year, identity.make, identity.model].filter(Boolean).join(" ");
+    } else {
+      item = item.slice(0, 80).replace(/\s+\S*$/, "").trim();
+    }
+  }
+  if (item.length < 2) {
+    const identity = resolveVehicleIdentity(message);
+    if (identity.make && identity.model) {
+      return [identity.year, identity.make, identity.model].filter(Boolean).join(" ");
+    }
+    return undefined;
+  }
   if (isPronounTitleForbidden(item)) return undefined;
   return item.replace(/\s+/g, " ").trim();
 }
@@ -605,8 +673,32 @@ function buildTitleAndDescription(
     location?: string;
     pickupAvailable?: boolean;
     listingType?: string;
+    vehicleMake?: string;
+    vehicleModel?: string;
+    vehicleYear?: string;
+    vehicleColour?: string;
+    vehicleOdometer?: string;
+    vehicleTransmission?: string;
+    vehicleFuelType?: string;
+    vehicleBodyType?: string;
+    extras?: string[];
   }
-): Pick<SkyAiListingFill, "title" | "description" | "category" | "listingType" | "vehicleMake" | "vehicleModel" | "vehicleYear"> {
+): Pick<
+  SkyAiListingFill,
+  | "title"
+  | "description"
+  | "category"
+  | "listingType"
+  | "vehicleMake"
+  | "vehicleModel"
+  | "vehicleYear"
+  | "vehicleColour"
+  | "vehicleOdometer"
+  | "vehicleTransmission"
+  | "vehicleFuelType"
+  | "vehicleBodyType"
+  | "extras"
+> {
   const composed = composeListingTitleAndDescription({
     item,
     condition: extras?.condition,
@@ -614,6 +706,15 @@ function buildTitleAndDescription(
     location: extras?.location,
     pickupAvailable: extras?.pickupAvailable,
     listingType: extras?.listingType,
+    vehicleMake: extras?.vehicleMake,
+    vehicleModel: extras?.vehicleModel,
+    vehicleYear: extras?.vehicleYear,
+    vehicleColour: extras?.vehicleColour,
+    vehicleOdometer: extras?.vehicleOdometer,
+    vehicleTransmission: extras?.vehicleTransmission,
+    vehicleFuelType: extras?.vehicleFuelType,
+    vehicleBodyType: extras?.vehicleBodyType,
+    extras: extras?.extras,
   });
   return {
     title: composed.title,
@@ -623,6 +724,12 @@ function buildTitleAndDescription(
     vehicleMake: composed.vehicleMake,
     vehicleModel: composed.vehicleModel,
     vehicleYear: composed.vehicleYear,
+    vehicleColour: extras?.vehicleColour,
+    vehicleOdometer: extras?.vehicleOdometer,
+    vehicleTransmission: extras?.vehicleTransmission,
+    vehicleFuelType: extras?.vehicleFuelType,
+    vehicleBodyType: extras?.vehicleBodyType,
+    extras: extras?.extras,
   };
 }
 
@@ -800,8 +907,12 @@ export function processListingFillMessage(
         if (variant) merged.extras = withVariantExtra(merged.extras, variant);
 
         // Auto premium title (never tip "clearer title")
+        // Never seed title from regenerate/improve command text
         const titleCore = composeVehicleIdentityTitle(merged);
-        if (titleCore || draftCmds.commands.includes("improve_title")) {
+        if (
+          titleCore ||
+          (draftCmds.commands.includes("improve_title") && merged.title)
+        ) {
           merged.title = buildPremiumListingTitle({
             item: titleCore || merged.title || "listing",
             condition: merged.condition,
@@ -824,15 +935,23 @@ export function processListingFillMessage(
           extracted.filledSlots.includes("generation") ||
           extracted.filledSlots.length > 0
         ) {
-          // Explicit write-description OR new facts → recompose buyer copy when allowed
+          // Explicit write-description OR new facts → recompose from FULL confirmed draft
           const forceDesc = draftCmds.commands.includes("regenerate_description");
+          if (!merged.title && titleCore) {
+            merged.title = buildPremiumListingTitle({
+              item: titleCore,
+              condition: merged.condition,
+              listingType: merged.listingType || "vehicle",
+              vehicleYear: merged.vehicleYear,
+            });
+          }
           const desc = buildListingDescriptionFromFacts(merged, { force: forceDesc });
           if (desc) {
             merged.description = desc;
             merged.descriptionSource = "ai";
-          } else if (forceDesc && titleCore) {
+          } else if (forceDesc && (titleCore || merged.title)) {
             // Minimal restrained starter when force still gated empty
-            merged.description = `${titleCore} available for sale.`;
+            merged.description = `${titleCore || merged.title} available for sale.`;
             merged.descriptionSource = "ai";
           } else if (!forceDesc && merged.descriptionSource !== "user") {
             // Keep prior AI/blank until readiness threshold — do not invent
@@ -1327,19 +1446,80 @@ export function processListingFillMessage(
         (serviceOffer || serviceTitle ? "service" : undefined) ||
         (rentalOffer ? "rental" : undefined) ||
         inferSellListingTypeHint(trimmed);
+
+      // Harvest vehicle attrs from the SAME message before composing description
+      let vehicleColour: string | undefined;
+      let vehicleOdometer: string | undefined;
+      let vehicleTransmission: string | undefined;
+      let vehicleFuelType: string | undefined;
+      let vehicleBodyType: string | undefined = extractVehicleBodyTypeFromMessage(trimmed) || undefined;
+      let seedExtras: string[] | undefined;
+      const identityEarly = resolveVehicleIdentity(trimmed);
+      let vehicleYearSeed = identityEarly.year || undefined;
+      const vehicleLikely =
+        typeHint === "vehicle" ||
+        Boolean(identityEarly.make && identityEarly.model) ||
+        Boolean(identityEarly.make);
+
+      if (vehicleLikely) {
+        const compound = extractCompoundListingFacts(trimmed, {
+          baseDraft: {
+            listingType: "vehicle",
+            title: item,
+            vehicleMake: identityEarly.make || undefined,
+            vehicleModel: identityEarly.model || undefined,
+            vehicleYear: vehicleYearSeed,
+            condition: partial.condition,
+            price: partial.price,
+            location: partial.location,
+          },
+        });
+        if (compound.partial.vehicleColour) vehicleColour = compound.partial.vehicleColour;
+        if (compound.partial.vehicleTransmission) {
+          vehicleTransmission = compound.partial.vehicleTransmission;
+        }
+        if (compound.partial.vehicleFuelType) vehicleFuelType = compound.partial.vehicleFuelType;
+        if (compound.partial.vehicleYear) vehicleYearSeed = compound.partial.vehicleYear;
+        // Explicit km reading wins; never treat asking price "18k" as odometer
+        const explicitOdo = extractVehicleOdometerFromMessage(trimmed);
+        if (explicitOdo) {
+          vehicleOdometer = explicitOdo;
+        } else if (
+          compound.partial.vehicleOdometer &&
+          compound.partial.vehicleOdometer !== partial.price
+        ) {
+          vehicleOdometer = compound.partial.vehicleOdometer;
+        }
+        const modNote = extractFreeformModificationNote(trimmed);
+        const extraBits = [
+          ...(compound.partial.extras || []),
+          ...(modNote ? [modNote] : []),
+        ];
+        if (extraBits.length) seedExtras = [...new Set(extraBits)].slice(0, 12);
+      }
+
       const seeded = buildTitleAndDescription(item, {
         condition: partial.condition,
         price: partial.price,
         location: partial.location,
         pickupAvailable: partial.pickupAvailable,
-        listingType: typeHint,
+        listingType: vehicleLikely ? "vehicle" : typeHint,
+        vehicleMake: identityEarly.make || undefined,
+        vehicleModel: identityEarly.model || undefined,
+        vehicleYear: vehicleYearSeed,
+        vehicleColour,
+        vehicleOdometer,
+        vehicleTransmission,
+        vehicleFuelType,
+        vehicleBodyType,
+        extras: seedExtras,
       });
       if (!partial.title) partial.title = seeded.title;
       if (!partial.description) partial.description = seeded.description;
       if (!partial.category && seeded.category) partial.category = seeded.category;
       if (!partial.listingType) partial.listingType = seeded.listingType || typeHint;
       // Prefer explicit vehicle inference / seeded make over a soft physical default
-      if (typeHint === "vehicle" || seeded.listingType === "vehicle" || seeded.vehicleMake) {
+      if (typeHint === "vehicle" || seeded.listingType === "vehicle" || seeded.vehicleMake || vehicleLikely) {
         partial.listingType = "vehicle";
       }
       if (partial.listingType === "service" && !partial.servicePricingType) {
@@ -1352,6 +1532,27 @@ export function processListingFillMessage(
       if (seeded.vehicleMake) partial.vehicleMake = seeded.vehicleMake;
       if (seeded.vehicleModel) partial.vehicleModel = seeded.vehicleModel;
       if (seeded.vehicleYear) partial.vehicleYear = seeded.vehicleYear;
+      if (vehicleColour) partial.vehicleColour = vehicleColour;
+      if (vehicleOdometer) partial.vehicleOdometer = vehicleOdometer;
+      if (vehicleTransmission) partial.vehicleTransmission = vehicleTransmission;
+      if (vehicleFuelType) partial.vehicleFuelType = vehicleFuelType;
+      if (vehicleBodyType) partial.vehicleBodyType = vehicleBodyType;
+      if (seedExtras?.length) {
+        partial.extras = mergeExtras(partial.extras, seedExtras);
+      }
+
+      // Recompose description once confirmed vehicle facts are on the partial
+      if (
+        partial.listingType === "vehicle" &&
+        (partial.vehicleMake || partial.vehicleModel) &&
+        partial.descriptionSource !== "user"
+      ) {
+        const desc = buildListingDescriptionFromFacts(partial);
+        if (desc) {
+          partial.description = desc;
+          partial.descriptionSource = "ai";
+        }
+      }
 
       // Marketplace knowledge hints — never overwrite USER / already-seeded fields.
       // Fresh sell / new seed: no sticky conversation context (avoids rental→sell bleed).
