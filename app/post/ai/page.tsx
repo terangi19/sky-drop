@@ -79,7 +79,10 @@ import {
 import { compressImage, generateThumbnail, type CompressedImage, type Thumbnail } from "../../lib/image-optimization";
 import { withTimeout } from "../../lib/with-timeout";
 import { getClientCsrfToken } from "../../lib/csrf-client";
-import { isStripeCheckoutVisibleClient } from "../../lib/stripe-checkout-flags";
+import {
+  isStripeCheckoutVisibleClient,
+  STRIPE_CHECKOUT_UI_ENABLED,
+} from "../../lib/stripe-checkout-flags";
 
 function sentenceCaseFragment(text: string): string {
   const trimmed = text.trim();
@@ -228,8 +231,10 @@ export default function AIPostPage() {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [autoPublish, setAutoPublish] = useState(false);
 
-  // V1: UI visibility — server STRIPE_CHECKOUT_ENABLED authorizes charges
-  const stripeDisabledV1 = !isStripeCheckoutVisibleClient();
+  // V1: UI visibility — only literal NEXT_PUBLIC_STRIPE_CHECKOUT_ENABLED=true shows Stripe UX.
+  // STRIPE_CHECKOUT_UI_ENABLED is build-time folded; keep helper call for test/runtime parity.
+  const stripeCheckoutUiEnabled = STRIPE_CHECKOUT_UI_ENABLED && isStripeCheckoutVisibleClient();
+  const stripeDisabledV1 = !stripeCheckoutUiEnabled;
 
   // V1 messaging-first: new listings are fixed-price only (do not rewrite historical auction edits)
   useEffect(() => {
@@ -2347,7 +2352,7 @@ export default function AIPostPage() {
           )}
 
 
-          {listingType === "physical" && !stripeDisabledV1 && (
+          {listingType === "physical" && STRIPE_CHECKOUT_UI_ENABLED && (
           <div className="space-y-4">
             <label className="text-sm font-bold text-[var(--foreground)]">How would you like to sell this?</label>
             <div className="grid grid-cols-2 gap-3">
@@ -2366,8 +2371,8 @@ export default function AIPostPage() {
             </div>
           </div>
           )}
-          {/* Payment Options — dormant while NEXT_PUBLIC_STRIPE_CHECKOUT_ENABLED is off (V1 messaging-first) */}
-          {!stripeDisabledV1 && (listingType !== "wanted" && listingType !== "job" && listingType !== "property" && listingType !== "service") && (
+          {/* Payment Options — code kept; rendered ONLY when NEXT_PUBLIC_STRIPE_CHECKOUT_ENABLED === "true" */}
+          {STRIPE_CHECKOUT_UI_ENABLED && listingType !== "wanted" && listingType !== "job" && listingType !== "property" && listingType !== "service" && (
           <div className="rounded-xl bg-white/[0.03] p-4">
             <button
               type="button"
@@ -2403,7 +2408,6 @@ export default function AIPostPage() {
                     <span className="ml-1 rounded bg-sky-500/20 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-sky-300">Default</span>
                     <p className="mt-1 text-[9px] font-normal text-[var(--muted)]">Bank transfer, cash, or pickup — agree payment in Messages</p>
                   </button>
-                  {!stripeDisabledV1 && (
                   <button
                     type="button"
                     onClick={() => choosePaymentType("stripe")}
@@ -2429,9 +2433,8 @@ export default function AIPostPage() {
                         : "Connect Stripe in Profile → Payouts to enable"}
                     </p>
                   </button>
-                  )}
                 </div>
-                {!stripeDisabledV1 && !stripeConnected && (
+                {!stripeConnected && (
                   <p className="text-[10px] text-amber-400/90 leading-relaxed">
                     Stripe Checkout is locked until you connect payouts.{" "}
                     <Link href="/profile?tab=payouts" className="underline hover:text-amber-300">
@@ -2545,7 +2548,7 @@ export default function AIPostPage() {
           )}
 
           {/* Accept Offers — hidden in V1 (negotiate via Messages). Impl kept for Stripe reactivation. */}
-          {!stripeDisabledV1 && listingType !== "event" && listingType !== "job" && listingType !== "wanted" && !(listingType === "service" && offersDisabledForService(servicePricingType)) && (
+          {STRIPE_CHECKOUT_UI_ENABLED && listingType !== "event" && listingType !== "job" && listingType !== "wanted" && !(listingType === "service" && offersDisabledForService(servicePricingType)) && (
             <div className="flex items-start gap-3">
               <div className="flex h-5 items-center pt-0.5">
                 <input id="acceptOffers" type="checkbox" checked={acceptOffers}

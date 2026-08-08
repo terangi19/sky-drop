@@ -22,6 +22,13 @@ const nextConfig = {
     root: projectRoot,
   },
 
+  // Force Stripe UI flag to literal "true"|"false" at build time (default OFF).
+  // Prevents Turbopack from leaving a runtime process.env read that can fail open.
+  env: {
+    NEXT_PUBLIC_STRIPE_CHECKOUT_ENABLED:
+      process.env.NEXT_PUBLIC_STRIPE_CHECKOUT_ENABLED === "true" ? "true" : "false",
+  },
+
   images: {
 
     remotePatterns: [

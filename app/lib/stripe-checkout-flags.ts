@@ -5,6 +5,7 @@
  * NEXT_PUBLIC_STRIPE_CHECKOUT_ENABLED — UI visibility only; never authorize payments.
  *
  * When the server flag is unset or not exactly "true", listing checkout is disabled.
+ * Defaults OFF — only the literal string "true" enables UI/charges.
  */
 
 export const V1_CHECKOUT_UNAVAILABLE_MESSAGE =
@@ -14,6 +15,14 @@ function envTruthy(raw: string | undefined): boolean {
   return String(raw || "").trim().toLowerCase() === "true";
 }
 
+/**
+ * Build-time UI switch. Prefer this in JSX so Turbopack can constant-fold
+ * `false && <PaymentOptions/>` and drop Stripe copy from the client bundle.
+ * next.config forces unset → "false" so this never accidentally reads runtime process.env.
+ */
+export const STRIPE_CHECKOUT_UI_ENABLED =
+  process.env.NEXT_PUBLIC_STRIPE_CHECKOUT_ENABLED === "true";
+
 /** Server source of truth — never read NEXT_PUBLIC_* here. */
 export function isStripeCheckoutEnabledServer(): boolean {
   return envTruthy(process.env.STRIPE_CHECKOUT_ENABLED);
@@ -22,9 +31,10 @@ export function isStripeCheckoutEnabledServer(): boolean {
 /**
  * Client/UI visibility. Safe to call from client components.
  * Must not be used to authorize charges on the server.
+ * Only exact "true" enables — "false" / unset / "1" stay hidden.
  */
 export function isStripeCheckoutVisibleClient(): boolean {
-  return envTruthy(process.env.NEXT_PUBLIC_STRIPE_CHECKOUT_ENABLED);
+  return process.env.NEXT_PUBLIC_STRIPE_CHECKOUT_ENABLED === "true";
 }
 
 /**

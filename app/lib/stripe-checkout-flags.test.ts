@@ -39,6 +39,15 @@ describe("stripe-checkout-flags", () => {
     expect(isStripeCheckoutVisibleClient()).toBe(true);
   });
 
+  it("client visibility rejects false/unset/1", () => {
+    process.env.NEXT_PUBLIC_STRIPE_CHECKOUT_ENABLED = "false";
+    expect(isStripeCheckoutVisibleClient()).toBe(false);
+    delete process.env.NEXT_PUBLIC_STRIPE_CHECKOUT_ENABLED;
+    expect(isStripeCheckoutVisibleClient()).toBe(false);
+    process.env.NEXT_PUBLIC_STRIPE_CHECKOUT_ENABLED = "1";
+    expect(isStripeCheckoutVisibleClient()).toBe(false);
+  });
+
   it("product capability follows server on server runtime", () => {
     delete process.env.STRIPE_CHECKOUT_ENABLED;
     delete process.env.NEXT_PUBLIC_STRIPE_CHECKOUT_ENABLED;
