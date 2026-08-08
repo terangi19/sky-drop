@@ -913,3 +913,186 @@ describe("live oneshot human-seller regressions", () => {
     expect(desc).toMatch(/Trailer/i);
   });
 });
+
+describe("vehicle composer — make/model recognition + premium sparse copy", () => {
+  const PLACEHOLDER_DESC =
+    /^[\w\s.-]+\.\s*Message if you have any questions\.?$/i;
+
+  const vehicles: Array<{
+    name: string;
+    message: string;
+    titleRe: RegExp;
+    make: string;
+    model: string;
+    neverTrim?: RegExp;
+  }> = [
+    {
+      name: "Nissan Skyline R34",
+      message: "sell my skyline r34",
+      titleRe: /Nissan\s+Skyline\s+R34/i,
+      make: "Nissan",
+      model: "Skyline R34",
+      neverTrim: /\b(GT-?R|GTT|V-?Spec|Nismo)\b/i,
+    },
+    {
+      name: "BMW 335i",
+      message: "sell my bmw 335i",
+      titleRe: /BMW\s+335i/i,
+      make: "BMW",
+      model: "335i",
+    },
+    {
+      name: "Toyota Supra",
+      message: "sell my supra",
+      titleRe: /Toyota\s+Supra/i,
+      make: "Toyota",
+      model: "Supra",
+    },
+    {
+      name: "Mazda RX-8",
+      message: "sell my rx-8",
+      titleRe: /Mazda\s+RX-?8/i,
+      make: "Mazda",
+      model: "RX-8",
+    },
+    {
+      name: "Ford Ranger",
+      message: "sell my ranger",
+      titleRe: /Ford\s+Ranger/i,
+      make: "Ford",
+      model: "Ranger",
+    },
+  ];
+
+  for (const v of vehicles) {
+    it(`${v.name}: title gets make prefix and description is not a placeholder`, () => {
+      wipe(`veh-${v.name.replace(/\s+/g, "-").toLowerCase()}`);
+      const r = processCanonicalAwhina(v.message, {
+        conversationId: `veh-${v.name.replace(/\s+/g, "-").toLowerCase()}`,
+        pathname: "/",
+      });
+      expect(r.listingFill?.listingType).toBe("vehicle");
+      expect(r.listingFill?.vehicleMake).toBe(v.make);
+      expect(String(r.listingFill?.vehicleModel || "")).toMatch(
+        new RegExp(v.model.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i")
+      );
+      expect(String(r.listingFill?.title || "")).toMatch(v.titleRe);
+      if (v.neverTrim) {
+        expect(String(r.listingFill?.title || "")).not.toMatch(v.neverTrim);
+        expect(String(r.listingFill?.description || "")).not.toMatch(v.neverTrim);
+      }
+      const desc = String(r.listingFill?.description || "");
+      expect(desc).not.toMatch(PLACEHOLDER_DESC);
+      expect(desc).not.toMatch(/^Skyline R34\./i);
+      expect(desc.split(/\s+/).length).toBeGreaterThan(18);
+      expect(desc).toMatch(/available for sale|for sale/i);
+      expect(desc).toMatch(/price|condition|location/i);
+      assertOneCtaMax(desc);
+      expect(isRoboticListingDescription(desc)).toBe(false);
+      expect(desc).not.toMatch(META_PHRASE_SMELLS);
+      expect(desc).not.toMatch(UNGROUNDED_CLAIM_SMELLS);
+    });
+  }
+
+  it("skyline r34: before/after quality — never title-echo CTA", () => {
+    wipe("veh-skyline-quality");
+    const r = processCanonicalAwhina("sell my skyline r34", {
+      conversationId: "veh-skyline-quality",
+      pathname: "/",
+    });
+    expect(r.listingFill?.title).toMatch(/Nissan\s+Skyline\s+R34/i);
+    const desc = String(r.listingFill?.description || "");
+    expect(desc).toMatch(/Nissan\s+Skyline\s+R34/i);
+    expect(desc).toMatch(/available for sale/i);
+    expect(desc).toMatch(/complete the listing|still need/i);
+    expect(desc).not.toMatch(/^Nissan Skyline R34\.\s*Message/i);
+    expect(desc).not.toMatch(PLACEHOLDER_DESC);
+    assertNaturalMarketplaceCopy(desc, { sparse: true });
+    expect(desc).toMatchSnapshot();
+  });
+
+  it("field updates regenerate vehicle description naturally", () => {
+    wipe("veh-skyline-followup");
+    const id = "veh-skyline-followup";
+    const first = processCanonicalAwhina("sell my skyline r34", {
+      conversationId: id,
+      pathname: "/post/ai",
+    });
+    expect(first.listingFill?.title).toMatch(/Nissan\s+Skyline\s+R34/i);
+    const d1 = String(first.listingFill?.description || "");
+    expect(d1).toMatch(/price/i);
+    expect(d1).not.toMatch(/\$12000|Auckland|good used condition/i);
+
+    const withPrice = processCanonicalAwhina("12000", {
+      conversationId: id,
+      pathname: "/post/ai",
+      listingContext: first.listingFill as never,
+    });
+    const d2 = String(withPrice.listingFill?.description || "");
+    expect(d2).toMatch(/\$12,?000|\$12000/);
+    expect(d2).toMatch(/condition|location/i);
+    expect(d2).not.toMatch(PLACEHOLDER_DESC);
+
+    const withCond = processCanonicalAwhina("Good condition", {
+      conversationId: id,
+      pathname: "/post/ai",
+      listingContext: withPrice.listingFill as never,
+    });
+    const d3 = String(withCond.listingFill?.description || "");
+    expect(d3).toMatch(/good used condition|good condition/i);
+    expect(d3).toMatch(/\$12,?000|\$12000/);
+
+    const withLoc = processCanonicalAwhina("Auckland", {
+      conversationId: id,
+      pathname: "/post/ai",
+      listingContext: withCond.listingFill as never,
+    });
+    const d4 = String(withLoc.listingFill?.description || "");
+    expect(d4).toMatch(/Auckland/i);
+    expect(d4).toMatch(/\$12,?000|\$12000/);
+    expect(d4).toMatch(/good used condition|good condition/i);
+    expect(d4).not.toMatch(PLACEHOLDER_DESC);
+    assertOneCtaMax(d4);
+  });
+
+  it("facts writer alone never emits title-echo placeholder for sparse vehicles", () => {
+    for (const fill of [
+      {
+        title: "Nissan Skyline R34",
+        listingType: "vehicle" as const,
+        vehicleMake: "Nissan",
+        vehicleModel: "Skyline R34",
+      },
+      {
+        title: "BMW 335i",
+        listingType: "vehicle" as const,
+        vehicleMake: "BMW",
+        vehicleModel: "335i",
+      },
+      {
+        title: "Toyota Supra",
+        listingType: "vehicle" as const,
+        vehicleMake: "Toyota",
+        vehicleModel: "Supra",
+      },
+      {
+        title: "Mazda RX-8",
+        listingType: "vehicle" as const,
+        vehicleMake: "Mazda",
+        vehicleModel: "RX-8",
+      },
+      {
+        title: "Ford Ranger",
+        listingType: "vehicle" as const,
+        vehicleMake: "Ford",
+        vehicleModel: "Ranger",
+      },
+    ]) {
+      const desc = buildListingDescriptionFromFacts(fill);
+      expect(desc).not.toMatch(PLACEHOLDER_DESC);
+      expect(desc).toMatch(/available for sale|for sale/i);
+      expect(desc.split(/\s+/).length).toBeGreaterThan(18);
+      assertOneCtaMax(desc);
+    }
+  });
+});

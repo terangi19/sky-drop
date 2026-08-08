@@ -568,6 +568,13 @@ export function isRoboticListingDescription(text: string | undefined | null): bo
   for (let i = 1; i < sentences.length; i++) {
     if (sentences[i].trim().toLowerCase() === sentences[i - 1].trim().toLowerCase()) return true;
   }
+  // Title + soft CTA (never a real vehicle listing)
+  if (
+    sentences.length <= 2 &&
+    /^[A-Z0-9][\w\s-]{1,40}\.\s*Message if you have any questions\.?$/i.test(t)
+  ) {
+    return true;
+  }
   // Semantic CTA stacking across sentences
   const ctaKeys = sentences.filter((s) => classifySentence(s) === "cta");
   if (ctaKeys.length > 1) return true;
@@ -612,6 +619,7 @@ function defaultCta(facts: DescriptionFacts): string {
   }
   if (facts.kind === "vehicle") {
     return pickVariant(seed, [
+      "Message if you're interested.",
       "Message to arrange a viewing.",
       "Happy to arrange a viewing — just message me.",
       "Message if you'd like to come take a look.",
@@ -728,9 +736,13 @@ function safeFallbackDescription(facts: DescriptionFacts): string {
 
   if (facts.kind === "vehicle") {
     const colour = facts.vehicle?.colour;
+    const missing: string[] = [];
+    if (!facts.money) missing.push("price");
+    if (!facts.conditionPhrase) missing.push("condition");
+    if (!facts.location) missing.push("location");
     parts.push(
       polishParagraph(
-        `${colour ? `${colour} ` : ""}${item}${facts.location ? ` in ${facts.location}` : ""}.`
+        `${colour ? `${colour} ` : ""}${item} available for sale${facts.location ? ` in ${facts.location}` : ""}.`
       )
     );
     const bits: string[] = [];
@@ -738,9 +750,16 @@ function safeFallbackDescription(facts: DescriptionFacts): string {
     if (facts.vehicle?.transmission) {
       bits.push(`${facts.vehicle.transmission.toLowerCase()} transmission`);
     }
-    if (cond) bits.push(cond);
+    if (facts.conditionPhrase) bits.push(facts.conditionPhrase);
     if (bits.length) parts.push(capFirst(`${bits.join(", ")}.`));
     if (facts.money) parts.push(`Asking ${facts.money}.`);
+    if (missing.length >= 2) {
+      const list =
+        missing.length === 2
+          ? `${missing[0]} and ${missing[1]}`
+          : `${missing.slice(0, -1).join(", ")}, and ${missing[missing.length - 1]}`;
+      parts.push(`Add the remaining details such as ${list} to complete the listing.`);
+    }
   } else if (facts.kind === "service") {
     const priceBit =
       facts.priceMode === "hourly" && facts.money
@@ -907,35 +926,85 @@ function writeVehicle(facts: DescriptionFacts): string {
   const loc = facts.location;
   const seed = facts.seed;
 
+  const missingBits: string[] = [];
+  if (!facts.money) missingBits.push("price");
+  if (!facts.conditionPhrase) missingBits.push("condition");
+  if (!loc) missingBits.push("location");
+
+  const detailBits: string[] = [];
+  if (v?.odometer) detailBits.push(`${formatOdo(v.odometer)} on the clock`);
+  if (v?.transmission) detailBits.push(`${v.transmission.toLowerCase()} transmission`);
+  if (v?.fuel) detailBits.push(`${v.fuel.toLowerCase()} fuel`);
+  if (v?.body) detailBits.push(`${v.body.toLowerCase()} body`);
+  if (facts.conditionPhrase && facts.conditionPhrase !== "brand new") {
+    detailBits.push(facts.conditionPhrase);
+  }
+  if (facts.extras.length) detailBits.push(...facts.extras);
+
+  const hasRichFacts =
+    Boolean(facts.money || loc || colour || detailBits.length) &&
+    facts.factRichness !== "sparse";
+
+  // Sparse / incomplete vehicle: introduce the car, acknowledge gaps, never title-echo
+  if (!hasRichFacts || missingBits.length >= 2) {
+    const opener = pickVariant(seed + ":vopen-sparse", [
+      `${name} available for sale.`,
+      `${name} is available for sale.`,
+      `For sale — ${name}.`,
+    ]);
+    const parts: string[] = [polishParagraph(opener)];
+
+    if (colour) {
+      parts.push(polishParagraph(`Finished in ${colour.toLowerCase()}.`));
+    }
+    if (detailBits.length) {
+      parts.push(capFirst(`${detailBits.join(", ")}.`));
+    }
+    if (facts.money && loc) {
+      parts.push(`Asking ${facts.money} in ${loc}.`);
+    } else if (facts.money) {
+      parts.push(`Asking ${facts.money}.`);
+    } else if (loc) {
+      parts.push(`Available in ${loc}.`);
+    }
+
+    if (missingBits.length > 0) {
+      const list =
+        missingBits.length === 1
+          ? missingBits[0]
+          : missingBits.length === 2
+            ? `${missingBits[0]} and ${missingBits[1]}`
+            : `${missingBits.slice(0, -1).join(", ")}, and ${missingBits[missingBits.length - 1]}`;
+      parts.push(
+        pickVariant(seed + ":vmiss", [
+          `Add the remaining details such as ${list} to complete the listing.`,
+          `${capFirst(list)} still need${missingBits.length === 1 ? "s" : ""} adding to complete the listing.`,
+        ])
+      );
+    }
+
+    return parts.join(" ");
+  }
+
   const opener = pickVariant(seed + ":vopen", [
     colour
-      ? `${colour} ${name}${loc ? `, available in ${loc}` : ""}.`
-      : `${name}${loc ? ` available in ${loc}` : ""}.`,
+      ? `${colour} ${name}${loc ? `, available in ${loc}` : " available for sale"}.`
+      : `${name}${loc ? ` available in ${loc}` : " available for sale"}.`,
     colour
       ? `${name} in ${colour.toLowerCase()}${loc ? `, ${loc}` : ""}.`
-      : `${name}${loc ? ` in ${loc}` : ""}.`,
-    `${colour ? `${colour} ` : ""}${name}.`,
+      : `${name}${loc ? ` in ${loc}` : " available for sale"}.`,
+    `${colour ? `${colour} ` : ""}${name}${loc ? ` in ${loc}` : ""}.`,
   ]);
 
-  const bits: string[] = [];
-  if (v?.odometer) bits.push(`${formatOdo(v.odometer)} on the clock`);
-  if (v?.transmission) bits.push(`${v.transmission.toLowerCase()} transmission`);
-  if (v?.fuel) bits.push(`${v.fuel.toLowerCase()} fuel`);
-  if (v?.body) bits.push(`${v.body.toLowerCase()} body`);
-  if (facts.conditionPhrase && facts.conditionPhrase !== "brand new") {
-    bits.push(facts.conditionPhrase);
-  }
-  // Weave known extras into the facts line (don't drop them on sentence-cap)
-  if (facts.extras.length) bits.push(...facts.extras);
-
   const parts: string[] = [polishParagraph(opener)];
-  if (bits.length) parts.push(capFirst(`${bits.join(", ")}.`));
+  if (detailBits.length) parts.push(capFirst(`${detailBits.join(", ")}.`));
 
-  // Price alone if location already in opener (don't invent pickup for vehicles)
   if (facts.money) {
     parts.push(
       pickVariant(seed + ":vp", [`Asking ${facts.money}.`, `I'm asking ${facts.money}.`])
     );
+  } else if (missingBits.includes("price")) {
+    parts.push("Price still needs adding to complete the listing.");
   }
 
   return parts.join(" ");

@@ -29,6 +29,7 @@ import { hasActiveListingDraft } from "./sky-ai-draft-merge";
 import type { SkyAiListingContext } from "./sky-ai-types";
 import type { SearchSessionFilters } from "./awhina-search-memory";
 import type { PendingClarification } from "./awhina-task-scope";
+import { resolveVehicleIdentity } from "./sky-ai-find-routing";
 
 /** Values from the current turn that are allowed to appear in outputs. */
 function currentTurnValueSet(entities: AwhinaTurnEntities): Set<string> {
@@ -210,10 +211,17 @@ export function extractTurnEntities(message: string): AwhinaTurnEntities {
   if (make) out.make = make[1].toUpperCase() === "VW" ? "Volkswagen" : make[1].toUpperCase();
 
   const model = m.match(
-    /\b(335i|330i|320i|320d|328i|340i|m3|m4|civic|corolla|axela|ranger|hilux|impreza|golf|focus)\b/i
+    /\b(335i|330i|320i|320d|328i|340i|m3|m4|civic|corolla|axela|ranger|hilux|impreza|golf|focus|skyline|supra|rx[\s-]?[78]|mustang|navara|commodore|triton)\b/i
   );
   if (model) out.model = model[1];
 
+  // High-confidence aliases: "skyline r34" / "supra" → make + canonical model
+  const vehicle = resolveVehicleIdentity(m);
+  if (vehicle.confidence === "high" || vehicle.confidence === "medium") {
+    if (vehicle.make && !out.make) out.make = vehicle.make;
+    if (vehicle.model) out.model = vehicle.model;
+    if (vehicle.year && !out.year) out.year = vehicle.year;
+  }
   const loc = m.match(
     /\b(auckland|wellington|christchurch|hamilton|tauranga|dunedin|palmerston north|napier|rotorua)\b/i
   );
@@ -581,6 +589,7 @@ export function buildAwhinaDecision(input: BuildAwhinaDecisionInput): AwhinaDeci
     intent === "listing_create" &&
     !entities.item &&
     !entities.make &&
+    !entities.model &&
     trimmed.split(/\s+/).length < 4
   ) {
     requiresClarification = true;

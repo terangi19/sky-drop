@@ -21,7 +21,143 @@ const VEHICLE_BODY_WORDS =
   /\b(car|cars|vehicle|vehicles|ute|utes|van|vans|motorcycle|motorbike|motorbikes|bike|bikes|truck|trucks|suv|suvs|4wd|4x4|wagon|wagons|sedan|sedans|hatchback|hatchbacks|boat|boats|camper|caravan|caravans|trailer|trailers)\b/i;
 
 const VEHICLE_MODELS =
-  /\b(hilux|ranger|corolla|civic|axela|demio|outlander|pajero|l200|d-max|dmax|navara|amarok|commodore|falcon|forester|impreza|golf|polo|focus|fiesta|mustang|camry|rav4|cx-5|cx5|cx-3|cx3|santa fe|tucson|i30|i20|leaf|x-trail|xtrail|patrol|pulsar|lancer|legacy|outback|wrx|sti|335i|330i|320i|320d|328i|340i|m3|m4|m5|x5|x3|x1|118i|120i|125i|86|brz|supra|yaris|aurion|kluger|highlander|landcruiser|land cruiser|prado|fortuner|everest|mu-x|mux|triton|colorado|civic|accord|cr-v|crv|hr-v|hrv|jazz|fit|odyssey|s2000|nsx|leaf|qashqai|juke|leaf|leaf|leaf)\b/i;
+  /\b(hilux|ranger|corolla|civic|axela|demio|outlander|pajero|l200|d-max|dmax|navara|amarok|commodore|falcon|forester|impreza|golf|polo|focus|fiesta|mustang|camry|rav4|cx-5|cx5|cx-3|cx3|santa fe|tucson|i30|i20|leaf|x-trail|xtrail|patrol|pulsar|lancer|legacy|outback|wrx|sti|335i|330i|320i|320d|328i|340i|m3|m4|m5|x5|x3|x1|118i|120i|125i|86|brz|supra|skyline\s*r[\s-]?3[2-4]|skyline|r[\s-]?3[2-4]|rx[\s-]?8|rx[\s-]?7|yaris|aurion|kluger|highlander|landcruiser|land cruiser|prado|fortuner|everest|mu-x|mux|triton|colorado|civic|accord|cr-v|crv|hr-v|hrv|jazz|fit|odyssey|s2000|nsx|leaf|qashqai|juke|leaf|leaf|leaf)\b/i;
+
+/**
+ * High-confidence model → make pairs. Never invents trims (GT-R, GTT, etc.).
+ * Longer / more specific patterns must come first.
+ */
+const VEHICLE_MODEL_MAKE_ALIASES: ReadonlyArray<{
+  pattern: RegExp;
+  make: string;
+  model: string;
+}> = [
+  { pattern: /\bskyline\s*r[\s-]?34\b|\br[\s-]?34\b/i, make: "Nissan", model: "Skyline R34" },
+  { pattern: /\bskyline\s*r[\s-]?33\b|\br[\s-]?33\b/i, make: "Nissan", model: "Skyline R33" },
+  { pattern: /\bskyline\s*r[\s-]?32\b|\br[\s-]?32\b/i, make: "Nissan", model: "Skyline R32" },
+  { pattern: /\bskyline\b/i, make: "Nissan", model: "Skyline" },
+  { pattern: /\brx[\s-]?8\b/i, make: "Mazda", model: "RX-8" },
+  { pattern: /\brx[\s-]?7\b/i, make: "Mazda", model: "RX-7" },
+  { pattern: /\bsupra\b/i, make: "Toyota", model: "Supra" },
+  { pattern: /\bhilux\b/i, make: "Toyota", model: "Hilux" },
+  { pattern: /\bcorolla\b/i, make: "Toyota", model: "Corolla" },
+  { pattern: /\bcamry\b/i, make: "Toyota", model: "Camry" },
+  { pattern: /\branger\b/i, make: "Ford", model: "Ranger" },
+  { pattern: /\bmustang\b/i, make: "Ford", model: "Mustang" },
+  { pattern: /\bfalcon\b/i, make: "Ford", model: "Falcon" },
+  { pattern: /\beverest\b/i, make: "Ford", model: "Everest" },
+  { pattern: /\baxela\b/i, make: "Mazda", model: "Axela" },
+  { pattern: /\bdemio\b/i, make: "Mazda", model: "Demio" },
+  { pattern: /\bcx[\s-]?5\b/i, make: "Mazda", model: "CX-5" },
+  { pattern: /\bcx[\s-]?3\b/i, make: "Mazda", model: "CX-3" },
+  { pattern: /\bcivic\b/i, make: "Honda", model: "Civic" },
+  { pattern: /\baccord\b/i, make: "Honda", model: "Accord" },
+  { pattern: /\bimpreza\b/i, make: "Subaru", model: "Impreza" },
+  { pattern: /\bwrx\b/i, make: "Subaru", model: "WRX" },
+  { pattern: /\bforester\b/i, make: "Subaru", model: "Forester" },
+  { pattern: /\boutback\b/i, make: "Subaru", model: "Outback" },
+  { pattern: /\bnavara\b/i, make: "Nissan", model: "Navara" },
+  { pattern: /\bpatrol\b/i, make: "Nissan", model: "Patrol" },
+  { pattern: /\b335i\b/i, make: "BMW", model: "335i" },
+  { pattern: /\b330i\b/i, make: "BMW", model: "330i" },
+  { pattern: /\b320i\b/i, make: "BMW", model: "320i" },
+  { pattern: /\b320d\b/i, make: "BMW", model: "320d" },
+  { pattern: /\b328i\b/i, make: "BMW", model: "328i" },
+  { pattern: /\b340i\b/i, make: "BMW", model: "340i" },
+  { pattern: /\bcommodore\b/i, make: "Holden", model: "Commodore" },
+  { pattern: /\btriton\b/i, make: "Mitsubishi", model: "Triton" },
+  { pattern: /\boutlander\b/i, make: "Mitsubishi", model: "Outlander" },
+];
+
+export type VehicleIdentity = {
+  make?: string;
+  model?: string;
+  year?: string;
+  /** high = alias map hit or make+model both present */
+  confidence: "high" | "medium" | "low";
+};
+
+/**
+ * Resolve make/model/year from free text. Prefers known aliases (skyline r34 → Nissan)
+ * and never invents trims not present in the message.
+ */
+export function resolveVehicleIdentity(message: string): VehicleIdentity {
+  const text = String(message || "").trim();
+  if (!text) return { confidence: "low" };
+
+  const year = parseVehicleYear(text);
+  let make: string | undefined;
+  let model: string | undefined;
+  let confidence: VehicleIdentity["confidence"] = "low";
+
+  for (const alias of VEHICLE_MODEL_MAKE_ALIASES) {
+    if (alias.pattern.test(text)) {
+      make = alias.make;
+      model = alias.model;
+      confidence = "high";
+      break;
+    }
+  }
+
+  const makeMatch = text.match(VEHICLE_MAKES);
+  if (makeMatch?.[1]) {
+    const raw = makeMatch[1];
+    const parsed = /^bmw$/i.test(raw)
+      ? "BMW"
+      : /^vw$/i.test(raw)
+        ? "Volkswagen"
+        : raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+    if (!make) {
+      make = parsed;
+      confidence = model ? "high" : "medium";
+    } else if (make.toLowerCase() !== parsed.toLowerCase()) {
+      // Explicit make in text wins over alias (e.g. "Nissan Skyline")
+      make = parsed;
+    }
+  }
+
+  if (!model) {
+    const modelMatch = text.match(VEHICLE_MODELS);
+    if (modelMatch?.[1]) {
+      model = formatVehicleModelToken(modelMatch[1]);
+      if (make) confidence = "high";
+      else if (confidence === "low") confidence = "medium";
+    }
+  }
+
+  // Bare BMW chassis codes without make still imply BMW
+  if (!make && !model && BMW_MODEL_CODE.test(text) && /\b[1-8]\d{2}[a-z]\b/i.test(text)) {
+    const code = text.match(/\b([1-8]\d{2}[a-z])\b/i)?.[1];
+    if (code) {
+      make = "BMW";
+      model = code.toLowerCase();
+      confidence = "high";
+    }
+  }
+
+  return { make, model, year, confidence };
+}
+
+function formatVehicleModelToken(raw: string): string {
+  const t = raw.replace(/\s+/g, " ").trim();
+  if (/\bskyline\s*r[\s-]?34\b/i.test(t) || /^r[\s-]?34$/i.test(t)) return "Skyline R34";
+  if (/\bskyline\s*r[\s-]?33\b/i.test(t) || /^r[\s-]?33$/i.test(t)) return "Skyline R33";
+  if (/\bskyline\s*r[\s-]?32\b/i.test(t) || /^r[\s-]?32$/i.test(t)) return "Skyline R32";
+  if (/^rx[\s-]?8$/i.test(t)) return "RX-8";
+  if (/^rx[\s-]?7$/i.test(t)) return "RX-7";
+  if (/^cx[\s-]?5$/i.test(t)) return "CX-5";
+  if (/^cx[\s-]?3$/i.test(t)) return "CX-3";
+  if (/^wrx$/i.test(t)) return "WRX";
+  if (/^[1-8]\d{2}[a-z]?$/i.test(t)) return t.toLowerCase();
+  return t
+    .split(/[\s-]+/)
+    .map((w) => {
+      if (/^r\d{2}$/i.test(w)) return w.toUpperCase();
+      if (/^\d+$/.test(w)) return w;
+      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+    })
+    .join(t.includes("-") && !/\s/.test(t) ? "-" : " ");
+}
 
 const BMW_MODEL_CODE = /\b[1-8]\d{2}[a-z]?\b/i;
 
@@ -123,6 +259,10 @@ export function parseVehicleYear(message: string): string | undefined {
 }
 
 export function parseVehicleMake(message: string): string | undefined {
+  const resolved = resolveVehicleIdentity(message);
+  if (resolved.make && (resolved.confidence === "high" || resolved.confidence === "medium")) {
+    return resolved.make;
+  }
   const m = message.match(VEHICLE_MAKES);
   if (!m) return undefined;
   const raw = m[1];
@@ -132,9 +272,13 @@ export function parseVehicleMake(message: string): string | undefined {
 }
 
 export function parseVehicleModel(message: string): string | undefined {
+  const resolved = resolveVehicleIdentity(message);
+  if (resolved.model && (resolved.confidence === "high" || resolved.confidence === "medium")) {
+    return resolved.model;
+  }
   const m = message.match(VEHICLE_MODELS);
   if (!m) return undefined;
-  return m[1];
+  return formatVehicleModelToken(m[1]);
 }
 
 /** True when a 4-digit number is a plausible calendar/vehicle year, not a dollar amount. */

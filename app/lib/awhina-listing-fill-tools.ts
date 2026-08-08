@@ -47,6 +47,7 @@ import {
   isCompleteListingDraft,
   normalizeProductName,
   cleanRentalItemName,
+  buildPremiumListingTitle,
 } from "./awhina-product-ux";
 import { composeListingTitleAndDescription } from "./awhina-listing-composer";
 import {
@@ -127,7 +128,7 @@ const NON_PRICE_NUMBER_RE =
 const STORAGE_GLUED_RE = /\b(\d+)\s*(gb|tb|mb)\b/i;
 
 const CONDITION_RE =
-  /\b(?:condition(?:\s+is)?|it'?s|its)\s+(new|used(?:\s*[-–]?\s*(?:like\s+new|good|fair))?|like\s+new|excellent|mint|good|fair|rough)\b|\b(new|used|like\s+new|excellent|mint)\b(?!\s+(?:zealand|listing))/i;
+  /\b(?:condition(?:\s+is)?|it'?s|its)\s+(new|used(?:\s*[-–]?\s*(?:like\s+new|good|fair))?|like\s+new|excellent|mint|good|fair|rough)\b|\b(brand\s+new|like\s+new|excellent|mint|good|fair|used)\s+condition\b|\b(new|used|like\s+new|excellent|mint)\b(?!\s+(?:zealand|listing))/i;
 
 const SELL_ITEM_RE =
   /\b(?:want\s+to\s+list|selling|sell(?:ing)?|list(?:ing)?|post(?:ing)?)\s+(?:my\s+|a\s+|an\s+|the\s+)?(.+)$/i;
@@ -524,7 +525,7 @@ function extractSellItem(message: string): string | undefined {
   // Keep known product tokens even if stop ate too much
   if (item.length < 2) {
     const known = message.match(
-      /\b(ps5|ps4|playstation\s*[45]|xbox(?:\s*series\s*[sx])?|iphone(?:\s*\d+\s*pro)?|airpods(?:\s*pro)?(?:\s*\d+)?|couch|sofa|[1-8]\d{2}[a-z]?|bmw|toyota|mazda|honda|ford)\b/i
+      /\b(ps5|ps4|playstation\s*[45]|xbox(?:\s*series\s*[sx])?|iphone(?:\s*\d+\s*pro)?|airpods(?:\s*pro)?(?:\s*\d+)?|couch|sofa|skyline(?:\s*r[\s-]?3[2-4])?|r[\s-]?3[2-4]|supra|rx[\s-]?[78]|ranger|hilux|[1-8]\d{2}[a-z]?|bmw|toyota|mazda|honda|ford|nissan)\b/i
     );
     if (known) item = known[0];
   }
@@ -770,7 +771,23 @@ export function processListingFillMessage(
   const notes: string[] = [];
 
   // Price
-  const priceRaw = extractPriceFromMessage(trimmed);
+  let priceRaw = extractPriceFromMessage(trimmed);
+  // Draft follow-up: bare amount alone ("12000" / "$450") is a price update
+  if (!priceRaw && hasDraft && /^\s*\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(k|K)?\s*$/i.test(trimmed)) {
+    const bare = trimmed.match(/^\s*\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(k|K)?\s*$/i);
+    if (bare) {
+      let n = Number(bare[1].replace(/,/g, ""));
+      if (bare[2]) n *= 1000;
+      if (
+        Number.isFinite(n) &&
+        n >= 1 &&
+        !looksLikeVehicleYearToken(String(Math.round(n)), trimmed)
+      ) {
+        const check = validatePriceString(String(Math.round(n)));
+        if (check.ok) priceRaw = check.price;
+      }
+    }
+  }
   if (priceRaw === "malformed") {
     return {
       handled: true,
@@ -793,7 +810,9 @@ export function processListingFillMessage(
   } else {
     const condMatch = trimmed.match(CONDITION_RE);
     if (condMatch) {
-      const cond = normalizeConditionLocal(condMatch[1] || condMatch[2] || "");
+      const cond = normalizeConditionLocal(
+        condMatch[1] || condMatch[2] || condMatch[3] || ""
+      );
       if (cond) {
         partial.condition = cond;
         notes.push(`condition ${cond}`);
@@ -986,7 +1005,32 @@ export function processListingFillMessage(
   // Auto-improve on new seeds / incomplete drafts — never pull SEARCH entities
   if (isNewSellSeed || !hasDraft) {
     merged = autoImproveListingDraft(merged);
-  } else if (!merged.description || merged.description.length < 40) {
+  } else if (
+    partial.price ||
+    partial.condition ||
+    partial.location ||
+    partial.pickupAvailable !== undefined ||
+    partial.shippingAvailable !== undefined ||
+    partial.vehicleOdometer ||
+    partial.vehicleColour ||
+    partial.vehicleTransmission ||
+    !merged.description ||
+    merged.description.length < 40
+  ) {
+    // Field updates recompose description so sparse vehicle copy grows naturally
+    if (merged.listingType === "vehicle" || merged.vehicleMake || merged.vehicleModel) {
+      const titleCore = [merged.vehicleYear, merged.vehicleMake, merged.vehicleModel]
+        .filter(Boolean)
+        .join(" ");
+      if (titleCore) {
+        merged.title = buildPremiumListingTitle({
+          item: titleCore,
+          condition: merged.condition,
+          listingType: "vehicle",
+          vehicleYear: merged.vehicleYear,
+        });
+      }
+    }
     merged.description = buildListingDescriptionFromFacts(merged);
   }
   if (merged.title) merged.title = normalizeProductName(merged.title).slice(0, 120);

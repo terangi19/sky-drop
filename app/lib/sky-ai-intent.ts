@@ -283,9 +283,14 @@ export function inferSellListingTypeHint(
   const sellish =
     SELL_RE.test(m) ||
     /\b(for sale|sell my|selling my|list my|post my|want to (?:sell|list))\b/i.test(m);
+  const knownModelAlias =
+    /\b(skyline|r[\s-]?3[2-4]|supra|rx[\s-]?[78]|hilux|ranger|axela|corolla|camry|civic|impreza|wrx|335i|330i|320i|320d|navara|mustang|commodore|triton)\b/i.test(
+      m
+    );
   const vehicleSignals =
     YEAR_MAKE.test(m) ||
     KM_READING.test(m) ||
+    knownModelAlias ||
     (VEHICLE_BRANDS.test(m) &&
       (/\b(19|20)\d{2}\b/.test(m) ||
         /\b[1-8]\d{2}[a-z]?\b/i.test(m) ||
@@ -294,7 +299,7 @@ export function inferSellListingTypeHint(
   if (
     vehicleSignals ||
     (sellish &&
-      /\b(car|vehicle|ute|van|truck|motorcycle|bmw|toyota|mazda|ford|honda|nissan|holden|subaru)\b/i.test(
+      /\b(car|vehicle|ute|van|truck|motorcycle|bmw|toyota|mazda|ford|honda|nissan|holden|subaru|skyline|supra|ranger|hilux)\b/i.test(
         m
       ))
   ) {

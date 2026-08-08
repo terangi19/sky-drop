@@ -17,6 +17,7 @@ import {
   parseVehicleMake,
   parseVehicleModel,
   parseVehicleYear,
+  resolveVehicleIdentity,
 } from "./sky-ai-find-routing";
 import { extractServiceOfferingTitle, hasServiceOfferingIntent } from "./sky-ai-intent";
 import { SERVICE_LISTING_CATEGORY_LIST } from "./listing-type-config";
@@ -58,10 +59,14 @@ export type ComposedListingCopy = Pick<
 };
 
 function detectVehicle(item: string): boolean {
+  const identity = resolveVehicleIdentity(item);
   return (
+    identity.confidence === "high" ||
+    Boolean(identity.make && identity.model) ||
     /toyota|mazda|honda|ford|bmw|nissan|subaru|ute|car\b|vehicle|\d{2,3}[\s,]?\d{3}\s*km/i.test(
       item
-    ) || Boolean(parseVehicleMake(item))
+    ) ||
+    Boolean(parseVehicleMake(item))
   );
 }
 
@@ -97,15 +102,24 @@ export function composeListingTitleAndDescription(
 ): ComposedListingCopy {
   const item = seed.item.trim();
   const service = seed.listingType === "service" || detectService(item);
-  const vehicle = !service && (seed.listingType === "vehicle" || detectVehicle(item));
-  const listingType =
-    seed.listingType || (service ? "service" : vehicle ? "vehicle" : "physical");
-  const make = seed.vehicleMake || parseVehicleMake(item);
-  const model = seed.vehicleModel || parseVehicleModel(item);
-  const year = seed.vehicleYear || parseVehicleYear(item);
+  const identity = resolveVehicleIdentity(item);
+  const vehicle =
+    !service &&
+    (seed.listingType === "vehicle" ||
+      detectVehicle(item) ||
+      Boolean(seed.vehicleMake || seed.vehicleModel));
+  // Known vehicle identity wins over a soft "physical" type hint from the caller
+  const listingType = service
+    ? "service"
+    : vehicle
+      ? "vehicle"
+      : seed.listingType || "physical";
+  const make = seed.vehicleMake || identity.make || parseVehicleMake(item);
+  const model = seed.vehicleModel || identity.model || parseVehicleModel(item);
+  const year = seed.vehicleYear || identity.year || parseVehicleYear(item);
 
   const titleCore =
-    vehicle && make
+    vehicle && (make || model)
       ? [year, make, model].filter(Boolean).join(" ") || item
       : extractServiceOfferingTitle(item) || item;
 

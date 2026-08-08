@@ -827,15 +827,20 @@ function titleCaseProduct(s: string): string {
   return s
     .split(/\s+/)
     .map((w) => {
-      if (/^(iPhone|iPad|iPod|AirPods|BMW|USB|HDMI|GB|TB|Pro|Max|Plus)$/i.test(w)) {
+      if (/^(iPhone|iPad|iPod|AirPods|BMW|USB|HDMI|GB|TB|Pro|Max|Plus|WRX)$/i.test(w)) {
         if (/^iphone$/i.test(w)) return "iPhone";
         if (/^ipad$/i.test(w)) return "iPad";
         if (/^airpods$/i.test(w)) return "AirPods";
         if (/^bmw$/i.test(w)) return "BMW";
+        if (/^wrx$/i.test(w)) return "WRX";
         return w.charAt(0).toUpperCase() + w.slice(1);
       }
+      if (/^rx-?[78]$/i.test(w)) return w.replace(/rx-?/i, "RX-");
+      if (/^cx-?[35]$/i.test(w)) return w.replace(/cx-?/i, "CX-");
+      if (/^r\d{2}$/i.test(w)) return w.toUpperCase();
       if (/^playstation$/i.test(w)) return "PlayStation";
       if (/^\d+$/.test(w)) return w;
+      if (/^[1-8]\d{2}[a-z]$/i.test(w)) return w.toLowerCase();
       if (w.length <= 2 && /[a-z]/i.test(w)) return w.toUpperCase();
       return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
     })
