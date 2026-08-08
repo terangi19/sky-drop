@@ -202,8 +202,8 @@ export default function AIPostPage() {
   /** Mobile workspace: conversation is primary; listing is the draft pane */
   const [mobileWorkspaceTab, setMobileWorkspaceTab] = useState<"chat" | "listing">("chat");
   const [liveFieldNotes, setLiveFieldNotes] = useState<string[]>([]);
-  /** Manual form opens via Edit details — always discoverable, not always expanded */
-  const [showManualEditor, setShowManualEditor] = useState(false);
+  /** Manual form visible by default; Hide form / Edit details still optional */
+  const [showManualEditor, setShowManualEditor] = useState(true);
   const awhinaConversation = useAwhinaConversation();
   const handoffBootstrapped = useRef(false);
   const [draftExtras, setDraftExtras] = useState<string[]>([]);
