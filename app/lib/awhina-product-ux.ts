@@ -580,10 +580,30 @@ const FIELD_LABEL_RE =
   /\b(Condition|Located in|Odometer|Colour|Color|Transmission|Fuel type|Pickup available|Shipping available)\s*:/i;
 
 const BANNED_TEMPLATE_RE =
-  /\bI'm selling this\b|\bThis item\b|\bMessage me with any questions\b|\bFeel free to get in touch if you'd like more information\b|\bIt's based in\b|\b— based in\b|\bLocated in\b/i;
+  /\bI'm selling this\b|\bThis item\b|\bMessage me with any questions\b|\bFeel free to get in touch if you'd like more information\b|\bIt's based in\b|\b— based in\b|\bLocated in\b|\bCan do pickup\b|\bAvailable around\b/i;
+
+/** Composer / safety voice must never leak into buyer-facing listing copy. */
+const IMPLEMENTATION_LEAK_RE =
+  /\bno guesswork\b|\bbased on (the )?(available|provided|supplied) (details|information)\b|\busing only supplied\b|\bfrom the information provided\b|\bbased on what we know\b|\bverified facts only\b|\bI haven'?t assumed\b|\bI didn'?t invent\b|\bStraightforward listing with the details we have\b|\bdetails we have\b|\bfacts we know\b|\bknown details\b|\bwhat is known\b|\bhere is what we know\b|\bonly the facts\b|\bAI\b|\bgenerated\b|\bassumed\b/i;
 
 function wordCount(text: string): number {
   return text.split(/\s+/).filter(Boolean).length;
+}
+
+function dedupeConsecutiveSentences(text: string): string {
+  const parts = text
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const out: string[] = [];
+  let prev = "";
+  for (const p of parts) {
+    const key = p.toLowerCase().replace(/\s+/g, " ");
+    if (key && key === prev) continue;
+    out.push(p);
+    prev = key;
+  }
+  return out.join(" ");
 }
 
 /** Robotic field-restating templates we always rewrite. */
@@ -593,6 +613,7 @@ export function isRoboticListingDescription(text: string | undefined | null): bo
   if (t.length < 28) return true;
   if (FIELD_LABEL_RE.test(t)) return true;
   if (BANNED_TEMPLATE_RE.test(t)) return true;
+  if (IMPLEMENTATION_LEAK_RE.test(t)) return true;
   if (/\bOdometer:\s*/i.test(t) && /\bColour:\s*/i.test(t)) return true;
   if (/^Selling .+\.\s*Condition:/i.test(t)) return true;
   if (/^selling my .{1,40}$/i.test(t) && !/\n/.test(t)) return true;
@@ -606,6 +627,12 @@ export function isRoboticListingDescription(text: string | undefined | null): bo
     return true;
   }
   if ((t.match(/\n\n/g) || []).length >= 2 && /Asking \$/.test(t)) return true;
+  // Exact sentence duplicated back-to-back
+  if (sentences.length >= 2) {
+    for (let i = 1; i < sentences.length; i++) {
+      if (sentences[i].trim().toLowerCase() === sentences[i - 1].trim().toLowerCase()) return true;
+    }
+  }
   return false;
 }
 
@@ -613,7 +640,9 @@ export function isRoboticListingDescription(text: string | undefined | null): bo
 export function passesListingDescriptionQualityGate(text: string | undefined | null): boolean {
   if (!text?.trim()) return false;
   const t = text.trim();
-  if (FIELD_LABEL_RE.test(t) || BANNED_TEMPLATE_RE.test(t)) return false;
+  if (FIELD_LABEL_RE.test(t) || BANNED_TEMPLATE_RE.test(t) || IMPLEMENTATION_LEAK_RE.test(t)) {
+    return false;
+  }
   if (t.includes("\n\n")) return false;
   const n = wordCount(t);
   if (n < 35 || n > 100) return false;
@@ -750,17 +779,17 @@ function trimToWords(text: string, max: number): string {
   return polishParagraph(`${words.slice(0, max).join(" ").replace(/[,:;]+$/, "")}.`);
 }
 
-/** Category bridges — expand flow without inventing product attributes. */
+/** Natural seller bridges — never mention generation, facts, or guesswork. */
 const BRIDGE_BANK: Record<ListingDescriptionStyle, readonly string[]> = {
   electronics: [
-    "Straightforward listing with the details we have — no guesswork on specs.",
-    "Kept this short and clear so you can decide quickly from the facts above.",
-    "Happy to share anything else you can see in the photos once you message.",
+    "Happy to share clearer photos of any detail once you message.",
+    "Works well as a clean upgrade if this is what you need.",
+    "Open to a chat if you want to confirm anything before buying.",
   ],
   gaming: [
-    "Kept it simple — what you see is what is listed, nothing added on.",
-    "Good one if you want a clean pickup without hunting through fluff.",
-    "Say if you want a different pickup window and we can work something out.",
+    "Happy to sort a time that works for both of us.",
+    "Message if you want another look at the photos first.",
+    "Keen to get it to a good home sooner rather than later.",
   ],
   furniture: [
     "Ready for collection when it suits — easy to check in person before you decide.",
@@ -768,24 +797,24 @@ const BRIDGE_BANK: Record<ListingDescriptionStyle, readonly string[]> = {
     "Come have a look and see if it fits the space you have in mind.",
   ],
   clothing: [
-    "Clean listing focused on what is known — check photos for the look and fit cues.",
-    "Style-forward piece; message if you want more photos of the details.",
-    "Kept the write-up short so the item can speak for itself in the photos.",
+    "Check the photos for the look and feel, and message if you want more angles.",
+    "Happy to help if you need another photo of the details.",
+    "A clean piece ready for a new wardrobe.",
   ],
   home_garden: [
-    "Simple practical listing — useful around the home or section as described.",
-    "No fluff here, just the known details so you can decide if it suits the job.",
+    "Practical option for home or section use as described.",
     "Happy to time collection around what works for both of us.",
+    "Message if you want to confirm it suits the job you have in mind.",
   ],
   vehicle: [
-    "Solid everyday option with the known details above — inspect before you commit.",
+    "Happy to arrange a viewing so you can inspect it properly.",
     "Worth a look if the numbers and location already sound right for you.",
-    "Happy to walk through anything you want to check on a viewing.",
+    "Message with any questions before you come and see it.",
   ],
   sports: [
     "Ready for the next owner — check the photos and ask if you need another angle.",
-    "Straightforward sports gear listing with only the facts we know.",
-    "Pickup is easy to arrange once you are keen.",
+    "Happy to arrange a time once you are keen.",
+    "Message if you want more photos before deciding.",
   ],
   service: [
     "Tell me roughly what you need and I can confirm timing and scope.",
@@ -793,46 +822,134 @@ const BRIDGE_BANK: Record<ListingDescriptionStyle, readonly string[]> = {
     "Happy to discuss what fits your place and schedule.",
   ],
   rental: [
-    "Message if you would like to arrange a viewing at a time that suits.",
-    "Happy to answer practical questions about the place before you visit.",
+    "Happy to arrange a viewing at a time that suits.",
+    "Message with practical questions about the place before you visit.",
     "Come take a look if the layout and rates already feel right.",
   ],
   general: [
-    "Straightforward marketplace listing with only the details we know.",
-    "Message if you want to arrange a time or need another photo.",
-    "Happy to help with the next step once you have had a look.",
+    "Happy to arrange a time or send another photo if that helps.",
+    "Message if you want to take the next step.",
+    "Open to a chat once you have had a look.",
   ],
 };
 
 const CTA_BANK: Record<ListingDescriptionStyle, readonly string[]> = {
-  electronics: ["Happy to answer questions.", "Can arrange a time that suits.", ""],
-  gaming: ["Message if you are keen.", "Happy to sort a pickup time.", ""],
-  furniture: ["Collection welcome.", "Message if you want it.", ""],
-  clothing: ["Message if it fits what you need.", "Happy to chat.", ""],
-  home_garden: ["Happy to chat.", "Can arrange pickup.", ""],
-  vehicle: ["Happy to arrange a viewing.", "Come take a look if it sounds right.", ""],
-  sports: ["Happy to chat.", "Can arrange pickup.", ""],
-  service: ["Happy to chat about what you need.", "Message with the job details if you are keen.", ""],
-  rental: ["Happy to arrange a viewing.", "Message if you would like to take a look.", ""],
-  general: ["Happy to chat.", "Can arrange pickup.", ""],
+  electronics: [
+    "If you're interested or would like more information, feel free to send me a message.",
+    "Happy to answer questions — just send me a message.",
+    "Message me if you'd like to know more.",
+  ],
+  gaming: [
+    "If you're interested, feel free to send me a message.",
+    "Happy to sort a pickup time — just message me.",
+    "Message if you are keen.",
+  ],
+  furniture: [
+    "If you're interested, feel free to send me a message.",
+    "Message if you want it.",
+    "Happy to arrange collection — just get in touch.",
+  ],
+  clothing: [
+    "If you're interested or would like more information, feel free to send me a message.",
+    "Message if it fits what you need.",
+    "Happy to chat — just send a message.",
+  ],
+  home_garden: [
+    "If you're interested, feel free to send me a message.",
+    "Happy to arrange pickup — just message me.",
+    "Message if you have any questions.",
+  ],
+  vehicle: [
+    "If you're interested or would like more information, feel free to send me a message.",
+    "Happy to arrange a viewing — just message me.",
+    "Come take a look if it sounds right.",
+  ],
+  sports: [
+    "If you're interested, feel free to send me a message.",
+    "Happy to arrange pickup — just message me.",
+    "Message if you have any questions.",
+  ],
+  service: [
+    "If you're interested, feel free to send me a message.",
+    "Message with the job details if you are keen.",
+    "Happy to chat about what you need.",
+  ],
+  rental: [
+    "If you're interested or would like more information, feel free to send me a message.",
+    "Happy to arrange a viewing — just message me.",
+    "Message if you would like to take a look.",
+  ],
+  general: [
+    "If you're interested or would like more information, feel free to send me a message.",
+    "Happy to chat — just send me a message.",
+    "Message if you have any questions.",
+  ],
 };
+
+function locationInText(text: string, location: string): boolean {
+  if (!location) return false;
+  const esc = location.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(esc, "i").test(text);
+}
 
 function deliveryPhrase(fill: SkyAiListingFill, seed: string): string | null {
   const d = deliveryShort(fill);
   if (!d) return null;
-  if (d === "pickup only") return pickVariant(seed + ":d", ["local pickup only", "pickup only"]);
-  if (d === "pickup or shipping") {
-    return pickVariant(seed + ":d", ["pickup or shipping both fine", "happy with pickup or shipping"]);
+  const location = (fill.location || fill.pickupArea || "").trim();
+  if (d === "pickup only") {
+    if (location) return `Pickup is available in ${location}`;
+    return pickVariant(seed + ":d", ["Local pickup only", "Pickup only"]);
   }
-  if (d === "pickup") return pickVariant(seed + ":d", ["pickup is fine", "can do pickup"]);
-  return "shipping is available";
+  if (d === "pickup or shipping") {
+    if (location) {
+      return `Pickup is available in ${location}, or shipping can be arranged`;
+    }
+    return pickVariant(seed + ":d", [
+      "Pickup or shipping both fine",
+      "Happy with pickup or shipping",
+    ]);
+  }
+  if (d === "pickup") {
+    if (location) return `Pickup is available in ${location}`;
+    return pickVariant(seed + ":d", ["Pickup is available", "Happy to arrange pickup"]);
+  }
+  return location
+    ? pickVariant(seed + ":d", [`Shipping is available from ${location}`, "Shipping is available"])
+    : "Shipping is available";
 }
 
 function pricePhrase(fill: SkyAiListingFill, seed: string, hourly?: boolean): string | null {
   const money = formatMoneyPlain(fill.price);
   if (!money) return null;
-  if (hourly) return pickVariant(seed + ":ph", [`Asking ${money} per hour`, `${money} an hour`]);
-  return pickVariant(seed + ":p", [`Asking ${money}`, `Priced at ${money}`]);
+  if (hourly) {
+    return pickVariant(seed + ":ph", [
+      `I'm asking ${money} per hour`,
+      `Asking ${money} per hour`,
+      `${money} an hour`,
+    ]);
+  }
+  return pickVariant(seed + ":p", [
+    `I'm asking ${money}`,
+    `Asking ${money}`,
+    `Priced at ${money}`,
+  ]);
+}
+
+function unusedPhrases(text: string, phrases: readonly string[]): string[] {
+  return phrases.filter((p) => p && !text.toLowerCase().includes(p.slice(0, 28).toLowerCase()));
+}
+
+function padDescriptionToMinWords(
+  text: string,
+  minWords: number,
+  pads: readonly string[]
+): string {
+  let out = text.trim();
+  for (const pad of unusedPhrases(out, pads)) {
+    if (wordCount(out) >= minWords) break;
+    out = `${out} ${pad}`.trim();
+  }
+  return out;
 }
 
 function assemblePremiumPlus(opts: {
@@ -845,12 +962,6 @@ function assemblePremiumPlus(opts: {
   const seed = listingSeed(opts.fill);
   const open = pickVariant(seed + ":open", opts.openers);
   const location = (opts.fill.location || opts.fill.pickupArea || "").trim();
-  const facts = [...opts.factBits].filter(Boolean);
-  if (location && !new RegExp(location.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i").test(open)) {
-    if (!facts.some((f) => new RegExp(location.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i").test(f))) {
-      facts.push(`around ${location}`);
-    }
-  }
   const delivery = deliveryPhrase(opts.fill, seed);
   const price = pricePhrase(
     opts.fill,
@@ -858,35 +969,46 @@ function assemblePremiumPlus(opts: {
     /hour/i.test(String(opts.fill.servicePricingType || opts.fill.pricingType || ""))
   );
   const extras = weaveableExtras(opts.fill);
-  const bridges = BRIDGE_BANK[opts.style] || BRIDGE_BANK.general;
-  const bridgeA = pickVariant(seed + ":bridge", bridges);
-  const bridgeB = pickVariant(seed + ":bridgeB", bridges.filter((b) => b !== bridgeA).concat(bridges[0]));
+
+  // Prefer delivery phrase for location; only add a plain location bit if neither opener nor delivery has it
+  const facts = [...opts.factBits].filter(Boolean);
+  const locCovered =
+    locationInText(open, location) ||
+    locationInText(delivery || "", location) ||
+    facts.some((f) => locationInText(f, location));
+  if (location && !locCovered) {
+    facts.push(`in ${location}`);
+  }
 
   const mid: string[] = [];
   if (facts.length) mid.push(facts.join(", "));
-  if (delivery) mid.push(delivery);
+  if (delivery && price) {
+    mid.push(`${delivery}, and ${price.replace(/^I'm asking /i, "I'm asking ").replace(/^Asking /i, "I'm asking ").replace(/^Priced at /i, "I'm asking ")}`);
+  } else if (delivery) {
+    mid.push(delivery);
+  } else if (price) {
+    mid.push(price);
+  }
   if (extras.length) mid.push(extras.join("; "));
 
   let text = open.replace(/[.!?]?$/, ".");
   if (mid.length) text += ` ${mid.join(". ").replace(/\.+$/, "")}.`;
-  if (price) text += ` ${price}.`;
 
-  const dense = wordCount(text) >= 70;
+  const bridges = BRIDGE_BANK[opts.style] || BRIDGE_BANK.general;
+  const ctas = CTA_BANK[opts.style] || CTA_BANK.general;
+
   if (opts.quality === "standard") {
     text += " Happy to answer questions.";
-  } else if (!dense) {
-    const cta = pickVariant(seed + ":cta", CTA_BANK[opts.style] || CTA_BANK.general);
-    if (cta) text += ` ${cta}`;
+  } else {
+    const cta = pickVariant(seed + ":cta", ctas);
+    if (cta && wordCount(text) < 70) text += ` ${cta}`;
+    // Pad once with unused bridges only — never append the same sentence twice
+    if (wordCount(text) < 40) {
+      text = padDescriptionToMinWords(text, 40, bridges);
+    }
   }
 
-  if (opts.quality !== "standard" && wordCount(text) < 40) {
-    text += ` ${bridgeA}`;
-  }
-  if (opts.quality !== "standard" && wordCount(text) < 40) {
-    text += ` ${bridgeB}`;
-  }
-
-  text = polishParagraph(text);
+  text = polishParagraph(dedupeConsecutiveSentences(text));
   if (opts.quality !== "standard") text = trimToWords(text, 90);
   return text;
 }
@@ -907,7 +1029,7 @@ function buildVehicleDescription(fill: SkyAiListingFill, quality: ListingDescrip
   const openers = [
     colour ? `${colour} ${name}.` : `${name}.`,
     colour ? `${name} in ${colour.toLowerCase()}, ready when you are.` : `${name}, ready when you are.`,
-    `${name}${colour ? ` in ${colour.toLowerCase()}` : ""} — here is what we know.`,
+    `${name}${colour ? ` in ${colour.toLowerCase()}` : ""}${location ? ` in ${location}` : ""}.`,
   ];
 
   const factBits: string[] = [];
@@ -916,7 +1038,6 @@ function buildVehicleDescription(fill: SkyAiListingFill, quality: ListingDescrip
   if (fuel) factBits.push(`${fuel.toLowerCase()} fuel`);
   if (body) factBits.push(`${body.toLowerCase()} body`);
   if (cond && fill.condition !== "New") factBits.push(cond);
-  if (location) factBits.push(`available around ${location}`);
 
   return assemblePremiumPlus({ fill, style: "vehicle", openers, factBits, quality });
 }
@@ -925,8 +1046,8 @@ function buildServiceDescription(fill: SkyAiListingFill, quality: ListingDescrip
   const title = stripTitleConditionPrefix(fill.title || "service");
   const location = (fill.location || fill.pickupArea || "").trim();
   const openers = [
-    `${title}${location ? ` around ${location}` : ""} for local jobs.`,
-    location ? `Local ${title.toLowerCase()} available around ${location}.` : `${title} available for local work.`,
+    `${title}${location ? ` in ${location}` : ""} for local jobs.`,
+    location ? `Local ${title.toLowerCase()} available in ${location}.` : `${title} available for local work.`,
     `${title}${location ? ` in ${location}` : ""} — message with what you need.`,
   ];
   const factBits: string[] = [];
@@ -986,18 +1107,21 @@ function buildPhysicalDescription(
     ? title.replace(/^Brand New\s+/i, "brand new ").replace(/^Like New\s+/i, "like-new ")
     : bare;
   const condBit = cond && !titleHasCond ? cond : null;
+  const hasPickup = fill.pickupAvailable === true;
+  // When pickup is set, keep location for the delivery phrase instead of stuffing openers
+  const locForOpen = hasPickup ? "" : location;
 
   let openers: string[];
   if (style === "electronics") {
     openers = [
-      `${display[0].toUpperCase()}${display.slice(1)}${condBit ? `, ${condBit}` : ""}${location ? ` around ${location}` : ""}.`,
-      `${condBit ? `${condBit[0].toUpperCase()}${condBit.slice(1)} ` : ""}${display} available${location ? ` around ${location}` : ""}.`,
-      `${display[0].toUpperCase()}${display.slice(1)}${location ? ` from ${location}` : ""}${condBit ? ` — ${condBit}` : ""}.`,
+      `${display[0].toUpperCase()}${display.slice(1)}${condBit ? ` in ${condBit}` : ""}.`,
+      `${display[0].toUpperCase()}${display.slice(1)}${condBit ? `, ${condBit}` : ""}.`,
+      `${display[0].toUpperCase()}${display.slice(1)}${condBit ? ` in ${condBit}` : ""}${locForOpen ? ` in ${locForOpen}` : ""}.`,
     ];
   } else if (style === "gaming") {
     openers = [
-      `${display[0].toUpperCase()}${display.slice(1)} ready to go${location ? ` in ${location}` : ""}.`,
-      `Got a ${display}${location ? ` here in ${location}` : ""}.`,
+      `${display[0].toUpperCase()}${display.slice(1)} ready to go${locForOpen ? ` in ${locForOpen}` : ""}.`,
+      `Got a ${display}${locForOpen ? ` here in ${locForOpen}` : ""}.`,
       `${display[0].toUpperCase()}${display.slice(1)} up for grabs${condBit ? `, ${condBit}` : ""}.`,
     ];
   } else if (style === "furniture") {
@@ -1008,37 +1132,31 @@ function buildPhysicalDescription(
     ];
   } else if (style === "clothing") {
     openers = [
-      `${bare}${condBit ? `, ${condBit}` : ""}${location ? ` from ${location}` : ""}.`,
-      `Clean ${bare}${location ? ` from ${location}` : ""}${condBit ? `, ${condBit}` : ""}.`,
+      `${bare}${condBit ? `, ${condBit}` : ""}${locForOpen ? ` from ${locForOpen}` : ""}.`,
+      `Clean ${bare}${locForOpen ? ` from ${locForOpen}` : ""}${condBit ? `, ${condBit}` : ""}.`,
       `${bare}${condBit ? ` in ${condBit}` : ""} ready for a new wardrobe.`,
     ];
   } else if (style === "home_garden") {
     openers = [
-      `${bare}${condBit ? `, ${condBit}` : ""}${location ? ` around ${location}` : ""}.`,
-      `${bare} ready for use${location ? ` around ${location}` : ""}${condBit ? `, ${condBit}` : ""}.`,
-      `${bare}${condBit ? ` in ${condBit}` : ""}${location ? `, ${location}` : ""}.`,
+      `${bare}${condBit ? `, ${condBit}` : ""}${locForOpen ? ` in ${locForOpen}` : ""}.`,
+      `${bare} ready for use${locForOpen ? ` in ${locForOpen}` : ""}${condBit ? `, ${condBit}` : ""}.`,
+      `${bare}${condBit ? ` in ${condBit}` : ""}${locForOpen ? `, ${locForOpen}` : ""}.`,
     ];
   } else if (style === "sports") {
     openers = [
-      `${bare}${condBit ? `, ${condBit}` : ""}${location ? ` around ${location}` : ""}.`,
+      `${bare}${condBit ? `, ${condBit}` : ""}${locForOpen ? ` in ${locForOpen}` : ""}.`,
       `${bare} ready for the next owner${condBit ? ` — ${condBit}` : ""}.`,
-      `${bare}${location ? ` from ${location}` : ""}${condBit ? `, ${condBit}` : ""}.`,
+      `${bare}${locForOpen ? ` from ${locForOpen}` : ""}${condBit ? `, ${condBit}` : ""}.`,
     ];
   } else {
     openers = [
-      `${bare}${condBit ? `, ${condBit}` : ""}${location ? ` around ${location}` : ""}.`,
+      `${bare}${condBit ? `, ${condBit}` : ""}${locForOpen ? ` in ${locForOpen}` : ""}.`,
       `${bare} available${condBit ? ` in ${condBit}` : ""}.`,
-      `${bare}${location ? ` from ${location}` : ""}${condBit ? `, ${condBit}` : ""}.`,
+      `${bare}${locForOpen ? ` from ${locForOpen}` : ""}${condBit ? `, ${condBit}` : ""}.`,
     ];
   }
 
   const factBits: string[] = [];
-  if (location && !openers.some((o) => o.toLowerCase().includes(location.toLowerCase()))) {
-    factBits.push(`around ${location}`);
-  }
-  if (condBit && style === "electronics") {
-    // already in opener often
-  }
 
   return assemblePremiumPlus({ fill, style, openers, factBits, quality });
 }
@@ -1080,9 +1198,9 @@ export function buildListingDescriptionFromFacts(
   if (quality === "premium_plus") {
     if (wordCount(text) < 40) {
       const bridges = BRIDGE_BANK[style] || BRIDGE_BANK.general;
-      const used = bridges.find((b) => text.includes(b.slice(0, 24)));
-      const next = bridges.find((b) => b !== used) || bridges[0];
-      text = polishParagraph(`${text} ${next}`);
+      const ctas = CTA_BANK[style] || CTA_BANK.general;
+      text = padDescriptionToMinWords(text, 40, [...ctas, ...bridges]);
+      text = polishParagraph(dedupeConsecutiveSentences(text));
     }
     text = trimToWords(text, 90);
     if (!passesListingDescriptionQualityGate(text) || isRoboticListingDescription(text)) {
@@ -1090,23 +1208,44 @@ export function buildListingDescriptionFromFacts(
       const loc = (fill.location || fill.pickupArea || "").trim();
       const cond = conditionShort(fill.condition);
       const money = formatMoneyPlain(fill.price);
-      const delivery = deliveryShort(fill);
+      const delivery = deliveryPhrase(fill, listingSeed(fill));
+      const cta = pickVariant(
+        listingSeed(fill) + ":cta",
+        CTA_BANK[style] || CTA_BANK.general
+      );
+      const bridge = unusedPhrases(
+        `${delivery || ""} ${cta}`,
+        BRIDGE_BANK[style] || BRIDGE_BANK.general
+      )[0];
       text = polishParagraph(
-        [
-          `${bare}${cond ? `, ${cond}` : ""}${loc ? ` around ${loc}` : ""}.`,
-          delivery ? `${delivery[0].toUpperCase()}${delivery.slice(1)}.` : "",
-          money ? `Asking ${money}.` : "",
-          pickVariant(listingSeed(fill) + ":fb", BRIDGE_BANK[style] || BRIDGE_BANK.general),
-          pickVariant(listingSeed(fill) + ":cta", CTA_BANK[style] || CTA_BANK.general),
-        ]
-          .filter(Boolean)
-          .join(" ")
+        dedupeConsecutiveSentences(
+          [
+            `${bare}${cond ? ` in ${cond}` : ""}.`,
+            delivery
+              ? money
+                ? `${delivery}, and I'm asking ${money}`
+                : delivery
+              : money
+                ? `I'm asking ${money}`
+                : loc
+                  ? `Located for pickup in ${loc}`
+                  : "",
+            cta,
+            wordCount([bare, delivery, money, cta].filter(Boolean).join(" ")) < 40 ? bridge : "",
+          ]
+            .filter(Boolean)
+            .join(". ")
+            .replace(/\.\s*\./g, ".")
+        )
       );
       if (wordCount(text) < 40) {
-        text = polishParagraph(
-          `${text} ${pickVariant(listingSeed(fill) + ":fb2", BRIDGE_BANK[style] || BRIDGE_BANK.general)}`
+        text = padDescriptionToMinWords(
+          text,
+          40,
+          BRIDGE_BANK[style] || BRIDGE_BANK.general
         );
       }
+      text = polishParagraph(dedupeConsecutiveSentences(text));
       text = trimToWords(text, 90);
     }
   }
