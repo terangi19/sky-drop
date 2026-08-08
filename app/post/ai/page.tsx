@@ -57,6 +57,10 @@ import {
   useAwhinaConversation,
 } from "../../lib/awhina-conversation-store";
 import {
+  formatListingSlotLabel,
+  getActiveSellWorkspacePrompts,
+} from "../../lib/awhina-ui-surface";
+import {
   getListingReadinessState,
   readinessLabel,
 } from "../../lib/awhina-listing-readiness";
@@ -192,6 +196,7 @@ export default function AIPostPage() {
   /** Mobile workspace: conversation is primary; listing is the draft pane */
   const [mobileWorkspaceTab, setMobileWorkspaceTab] = useState<"chat" | "listing">("chat");
   const [liveFieldNotes, setLiveFieldNotes] = useState<string[]>([]);
+  const [showManualEditor, setShowManualEditor] = useState(false);
   const awhinaConversation = useAwhinaConversation();
   const handoffBootstrapped = useRef(false);
   const [draftExtras, setDraftExtras] = useState<string[]>([]);
@@ -284,6 +289,83 @@ export default function AIPostPage() {
     rentalPriceWeekly,
     rentalPriceMonthly,
   ]);
+
+  /** Prefer live pendingSlot so progress never disagrees with the conversation. */
+  const progressNextSlot =
+    awhinaConversation.pendingSlot ||
+    awhinaConversation.awhinaSession?.pendingSlot ||
+    listingReadiness.missing[0] ||
+    null;
+  const progressNextLabel = progressNextSlot
+    ? formatListingSlotLabel(String(progressNextSlot))
+    : null;
+
+  const photoSubject = useMemo(() => {
+    const vehicle = [vehicleMake, vehicleModel].filter(Boolean).join(" ").trim();
+    if (vehicle) {
+      // Prefer short model nickname when present (Skyline, Corolla…)
+      const model = String(vehicleModel || "").trim();
+      if (model) return model;
+      return vehicle;
+    }
+    const fromTitle = String(title || "")
+      .replace(/\b(19|20)\d{2}\b/g, "")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 3)
+      .join(" ");
+    return fromTitle;
+  }, [vehicleMake, vehicleModel, title]);
+
+  const photoCtaTitle = photoSubject
+    ? `Add photos of your ${photoSubject}`
+    : "Add photos";
+
+  const workspaceQuickPrompts = useMemo(() => {
+    const sellActive =
+      !!awhinaConversation.pendingSlot ||
+      awhinaConversation.listingFillOccurred ||
+      awhinaConversation.messages.some((m) => m.role === "user");
+    if (!sellActive) return SKY_AI_SELL_QUICK_PROMPTS;
+    return getActiveSellWorkspacePrompts({
+      pendingSlot: awhinaConversation.pendingSlot,
+      hasPhotos: imagePreviews.length > 0,
+      hasDescription: !!description.trim(),
+      hasPrice: !!String(price || "").trim(),
+      hasTitle: !!title.trim(),
+    });
+  }, [
+    awhinaConversation.pendingSlot,
+    awhinaConversation.listingFillOccurred,
+    awhinaConversation.messages,
+    imagePreviews.length,
+    description,
+    price,
+    title,
+  ]);
+
+  const liveDraftTitle =
+    title ||
+    [vehicleYear, vehicleMake, vehicleModel].filter(Boolean).join(" ") ||
+    "Your listing";
+
+  const liveDraftTypeLabel =
+    listingType === "vehicle"
+      ? "Vehicle"
+      : listingType === "rental"
+        ? "Rental"
+        : listingType === "service"
+          ? "Service"
+          : listingType === "wanted"
+            ? "Wanted"
+            : listingType === "property"
+              ? "Property"
+              : "Physical";
+
+  const draftFlash = (label: string) =>
+    liveFieldNotes.some((n) => n.toLowerCase().includes(label.toLowerCase()));
+
   const classifierRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -588,14 +670,17 @@ export default function AIPostPage() {
     });
     if (ok && fieldsChanged > 0) {
       const notes: string[] = [];
-      if (merged.price && merged.price !== beforeSnapshot.price) notes.push(`Price $${merged.price}`);
       if (merged.vehicleYear) notes.push(`Year ${merged.vehicleYear}`);
+      if (merged.price && merged.price !== beforeSnapshot.price) notes.push(`Price $${merged.price}`);
+      if (merged.vehicleOdometer) {
+        const km = Number(merged.vehicleOdometer);
+        notes.push(`Mileage ${Number.isFinite(km) ? km.toLocaleString() : merged.vehicleOdometer}km`);
+      }
       if (merged.condition && merged.condition !== beforeSnapshot.condition) notes.push(`Condition ${merged.condition}`);
       if (merged.location && merged.location !== beforeSnapshot.location) notes.push(`Location ${merged.location}`);
       if (merged.title && merged.title !== beforeSnapshot.title) notes.push("Title");
-      if (merged.description && merged.description !== beforeSnapshot.description) notes.push("Description");
       if (notes.length) {
-        setLiveFieldNotes(notes.slice(0, 4).map((n) => `${n} ✓`));
+        setLiveFieldNotes(notes.slice(0, 5).map((n) => `${n} ✓`));
         window.setTimeout(() => setLiveFieldNotes([]), 3200);
       }
       // Quiet confirmation — avoid huge banners; readiness chip covers publish state
@@ -604,8 +689,8 @@ export default function AIPostPage() {
       }
       setSkyChatOpen(true);
       setTimeout(() => {
-        document.getElementById("listing-title")?.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 300);
+        document.getElementById("live-listing-draft")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }, 200);
       
       // Trigger auto-publish if enabled
       if (autoPublish && fieldsChanged > 0) {
@@ -1587,27 +1672,25 @@ export default function AIPostPage() {
         {/* Workspace header */}
         <div className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <Link href="/" className="mb-3 inline-flex items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-sm text-[var(--foreground)] transition hover:border-sky-500/30 hover:bg-sky-500/10 hover:text-sky-300">
+            <Link href="/" className="mb-3 inline-flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-sm text-zinc-300 transition hover:border-white/[0.14] hover:text-white">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
               Back
             </Link>
-            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-sky-500/20 bg-sky-500/10 px-3 py-1 text-[11px] font-bold text-sky-300">
-              <span className="h-1.5 w-1.5 rounded-full bg-sky-400 animate-pulse" />
-              {editId ? "Edit Listing" : "Āwhina listing workspace"}
-            </div>
-            <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl">
+            <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
               {editId ? "Edit Your Listing" : "Build your listing with Āwhina"}
             </h1>
-            <p className="mt-1.5 max-w-xl text-sm text-[var(--muted)]">
-              Same conversation as the homepage bubble — keep chatting while the draft updates live.
+            <p className="mt-1.5 max-w-xl text-sm text-zinc-400">
+              {editId
+                ? "Update details, photos, and publish when you’re ready."
+                : "Answer a few questions and watch your listing come together."}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span
-              className={`rounded-full px-3 py-1 text-[11px] font-bold ${
+              className={`rounded-md px-2.5 py-1 text-[11px] font-semibold ${
                 listingReadiness.state === "READY_TO_REVIEW" || listingReadiness.state === "READY_TO_PUBLISH"
-                  ? "bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30"
-                  : "bg-sky-500/10 text-sky-300 ring-1 ring-sky-500/20"
+                  ? "bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-500/25"
+                  : "bg-white/[0.04] text-zinc-300 ring-1 ring-white/[0.08]"
               }`}
             >
               {listingReadiness.label}
@@ -1618,7 +1701,7 @@ export default function AIPostPage() {
         {liveFieldNotes.length > 0 && (
           <div className="mb-4 flex flex-wrap gap-1.5" aria-live="polite">
             {liveFieldNotes.map((n) => (
-              <span key={n} className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-300">
+              <span key={n} className="rounded-md border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-300 transition">
                 {n}
               </span>
             ))}
@@ -1626,33 +1709,33 @@ export default function AIPostPage() {
         )}
 
         {!editId && (
-          <div className="mb-4 flex gap-1 rounded-xl border border-white/[0.06] bg-white/[0.03] p-1 lg:hidden">
+          <div className="mb-4 flex gap-1 rounded-xl border border-white/[0.08] bg-white/[0.02] p-1 lg:hidden">
             <button
               type="button"
               onClick={() => { setMobileWorkspaceTab("chat"); setSkyChatOpen(true); }}
-              className={`flex-1 rounded-lg px-3 py-2 text-sm font-bold transition ${mobileWorkspaceTab === "chat" ? "bg-sky-500/20 text-sky-200" : "text-zinc-400"}`}
+              className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${mobileWorkspaceTab === "chat" ? "bg-white/[0.08] text-white" : "text-zinc-400"}`}
             >
               Chat
             </button>
             <button
               type="button"
               onClick={() => setMobileWorkspaceTab("listing")}
-              className={`flex-1 rounded-lg px-3 py-2 text-sm font-bold transition ${mobileWorkspaceTab === "listing" ? "bg-sky-500/20 text-sky-200" : "text-zinc-400"}`}
+              className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${mobileWorkspaceTab === "listing" ? "bg-white/[0.08] text-white" : "text-zinc-400"}`}
             >
               Listing
             </button>
           </div>
         )}
 
-        {/* Progress — readiness-led */}
-        <div className="mb-5 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">Listing Progress</span>
-            <span className="text-[11px] font-bold text-sky-400">{listingReadiness.label}</span>
+        {/* Progress — pendingSlot first so it matches conversation */}
+        <div className="mb-5 rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Listing progress</span>
+            <span className="text-[11px] font-semibold text-zinc-300">{listingReadiness.label}</span>
           </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-800">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800/80">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-sky-500 to-sky-400 transition-all duration-500 ease-out"
+              className="h-full rounded-full bg-sky-500/80 transition-all duration-500 ease-out"
               style={{
                 width: `${
                   listingReadiness.state === "READY_TO_PUBLISH"
@@ -1666,46 +1749,42 @@ export default function AIPostPage() {
               }}
             />
           </div>
-          <p className="mt-2 text-[10px] text-[var(--muted)]">
-            {listingReadiness.missing[0]
-              ? `Next: ${String(listingReadiness.missing[0]).replace(/_/g, " ")}`
+          <p className="mt-2 text-[11px] text-zinc-400">
+            {progressNextLabel
+              ? `Next: ${progressNextLabel}`
               : listingReadiness.state === "READY_TO_REVIEW" || listingReadiness.state === "READY_TO_PUBLISH"
-                ? "Ready to review — add photos, then Publish (never auto-publishes)"
-                : "Chat with Āwhina to fill important details"}
+                ? "Ready to review — add photos, then Publish"
+                : "Describe what you’re selling to get started"}
           </p>
         </div>
 
-        <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
-
         {showHelpPrompt && (
-          <div className="mb-6 rounded-xl border border-sky-500/30 bg-gradient-to-r from-sky-500/10 to-sky-500/5 p-4 shadow-[0_0_30px_rgba(14,165,233,0.15)]">
+          <div className="mb-5 rounded-xl border border-white/[0.08] bg-white/[0.03] p-4">
             <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/20 text-2xl">
-                🤖
-              </div>
               <div className="flex-1">
-                <h3 className="text-sm font-bold text-sky-300">Need help finishing your listing?</h3>
-                <p className="mt-1 text-xs text-[var(--muted)] leading-relaxed">
-                  Let Āwhina fill in the details for you. Just describe your item in the chat box below and Āwhina will generate the title, description, and other listing details.
+                <h3 className="text-sm font-semibold text-white">Need a hand finishing?</h3>
+                <p className="mt-1 text-xs text-zinc-400 leading-relaxed">
+                  Describe your item in chat — Āwhina will fill title, details, and price into the live draft.
                 </p>
                 <div className="mt-3 flex items-center gap-2">
                   <button
                     onClick={() => setShowHelpPrompt(false)}
-                    className="rounded-lg border border-sky-500/30 bg-sky-500/20 px-3 py-1.5 text-[11px] font-bold text-sky-300 transition hover:bg-sky-500/30 active:scale-[0.97]"
+                    className="rounded-lg border border-white/[0.1] bg-white/[0.05] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-white/[0.08]"
                   >
-                    I'll try Āwhina
+                    Continue with Āwhina
                   </button>
                   <button
-                    onClick={() => setShowHelpPrompt(false)}
-                    className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-[11px] font-bold text-[var(--muted)] transition hover:bg-white/[0.06] active:scale-[0.97]"
+                    onClick={() => { setShowHelpPrompt(false); setShowManualEditor(true); setMobileWorkspaceTab("listing"); }}
+                    className="rounded-lg px-3 py-1.5 text-[11px] font-semibold text-zinc-400 transition hover:text-zinc-200"
                   >
-                    Continue manually
+                    Edit manually
                   </button>
                 </div>
               </div>
               <button
                 onClick={() => setShowHelpPrompt(false)}
                 className="shrink-0 text-zinc-500 hover:text-zinc-300 transition"
+                aria-label="Dismiss help"
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -1715,95 +1794,221 @@ export default function AIPostPage() {
           </div>
         )}
 
-        <SellPhotoUpload
-          imagePreviews={imagePreviews}
-          fileInputRef={fileInputRef}
-          onUpload={handleImageUpload}
-          onRemove={(index) => {
-            const preview = imagePreviews[index];
-            setImagePreviews((prev) => prev.filter((_, j) => j !== index));
-            if (preview && isRemoteImageUrl(preview)) {
-              setExistingImages((prev) => {
-                const idx = prev.indexOf(preview);
-                if (idx >= 0) {
-                  setExistingThumbnails((thumbs) => thumbs.filter((_, j) => j !== idx));
-                }
-                return prev.filter((url) => url !== preview);
-              });
-            } else if (preview && isLocalImagePreview(preview)) {
-              const newIndex = imagePreviews
-                .slice(0, index)
-                .filter((p) => isLocalImagePreview(p)).length;
-              setImageFiles((prev) => prev.filter((_, j) => j !== newIndex));
+        {/* Desktop ~45% photos / 55% conversation — centered max-width unchanged */}
+        <div className="lg:grid lg:grid-cols-[minmax(0,9fr)_minmax(0,11fr)] lg:items-stretch lg:gap-5">
+
+        {/* LEFT: photos + compact live draft */}
+        <div
+          className={`flex min-w-0 flex-col gap-4 ${
+            !editId && mobileWorkspaceTab === "chat" ? "hidden lg:flex" : "flex"
+          }`}
+        >
+          <SellPhotoUpload
+            className="mb-0"
+            ctaTitle={photoCtaTitle}
+            ctaSubtitle={
+              photoSubject
+                ? "Up to 8 photos — first shot is the cover"
+                : "Upload up to 8 photos — first photo is your cover image"
             }
-          }}
-        />
+            imagePreviews={imagePreviews}
+            fileInputRef={fileInputRef}
+            onUpload={handleImageUpload}
+            onRemove={(index) => {
+              const preview = imagePreviews[index];
+              setImagePreviews((prev) => prev.filter((_, j) => j !== index));
+              if (preview && isRemoteImageUrl(preview)) {
+                setExistingImages((prev) => {
+                  const idx = prev.indexOf(preview);
+                  if (idx >= 0) {
+                    setExistingThumbnails((thumbs) => thumbs.filter((_, j) => j !== idx));
+                  }
+                  return prev.filter((url) => url !== preview);
+                });
+              } else if (preview && isLocalImagePreview(preview)) {
+                const newIndex = imagePreviews
+                  .slice(0, index)
+                  .filter((p) => isLocalImagePreview(p)).length;
+                setImageFiles((prev) => prev.filter((_, j) => j !== newIndex));
+              }
+            }}
+          />
 
-        {(analyzing || (detected && !analyzing)) && (
-          <div className="-mt-3 mb-6 space-y-3">
-            {analyzing && (
-              <div className="flex items-center justify-center gap-2.5 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 dark:border-sky-500/15 dark:bg-sky-500/5">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-sky-500 border-t-transparent dark:border-sky-400" />
-                <span className="text-sm font-medium text-sky-600 dark:text-sky-400">Detecting...</span>
-              </div>
-            )}
-            {detected && !analyzing && (
-              <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-center dark:border-sky-500/15 dark:bg-sky-500/5">
-                <span className="text-sm font-bold text-sky-600 dark:text-sky-400">✅ {detected}</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {!editId && (
-          <div
-            className={`mb-6 lg:sticky lg:top-20 lg:mb-0 ${
-              mobileWorkspaceTab === "listing" ? "hidden lg:block" : "block"
-            }`}
-          >
-            <div className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-gradient-to-br from-sky-500/[0.08] via-sky-500/[0.04] to-[var(--card)] p-4 shadow-[0_0_40px_rgba(14,165,233,0.08)] sm:p-5">
-              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
-              <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-sky-500/10 blur-2xl pointer-events-none" />
-              <div className="relative mb-3 flex items-center justify-between gap-3">
-                <div className="flex min-w-0 gap-3">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/30 to-sky-500/25 text-base shadow-[0_0_20px_rgba(56,189,248,0.2)] ring-1 ring-sky-400/30">
-                    ✦
-                  </span>
-                  <div className="min-w-0">
-                    <h2 className="text-base font-bold text-white">Āwhina</h2>
-                    <p className="mt-0.5 text-xs leading-relaxed text-[var(--muted)]">
-                      {awhinaConversation.messages.some((m) => m.id !== "welcome")
-                        ? "Continuing your conversation"
-                        : "Describe what you're selling — I'll update the live draft"}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowAwhinaGuide(true)}
-                  className="shrink-0 rounded-xl border border-sky-500/20 bg-sky-500/5 px-3 py-2 text-xs font-bold text-sky-400 hover:bg-sky-500/10 transition-colors"
-                >
-                  Help
-                </button>
-              </div>
-              {!skyChatOpen && (
-                <div className="relative mb-3 flex flex-wrap gap-1.5">
-                  {SKY_AI_SELL_QUICK_PROMPTS.map((p) => (
-                    <button
-                      key={p.label}
-                      type="button"
-                      onClick={() => {
-                        setSkyChatOpen(true);
-                        setSkyAutoQuery(undefined);
-                        setTimeout(() => setSkyAutoQuery(p.query), 0);
-                      }}
-                      className="rounded-full border border-sky-500/25 bg-sky-500/10 px-2.5 py-1 text-[10px] font-semibold text-sky-300 hover:bg-sky-500/20 transition-colors"
-                    >
-                      {p.label}
-                    </button>
-                  ))}
+          {(analyzing || (detected && !analyzing)) && (
+            <div className="space-y-2">
+              {analyzing && (
+                <div className="flex items-center justify-center gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-sky-500 border-t-transparent" />
+                  <span className="text-sm font-medium text-zinc-300">Detecting...</span>
                 </div>
               )}
+              {detected && !analyzing && (
+                <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-center">
+                  <span className="text-sm font-semibold text-zinc-200">✅ {detected}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {!editId && (
+            <div
+              id="live-listing-draft"
+              className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Live draft</p>
+                  <p className="mt-1 truncate text-base font-semibold text-white">{liveDraftTitle}</p>
+                  <p className="mt-0.5 text-xs text-zinc-500">{liveDraftTypeLabel}</p>
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-3">
+                {[
+                  {
+                    key: "year",
+                    label: "Year",
+                    value: vehicleYear ? String(vehicleYear) : null,
+                    flash: draftFlash("year"),
+                  },
+                  {
+                    key: "price",
+                    label: "Price",
+                    value: price
+                      ? `$${Number.isFinite(Number(price)) ? Number(price).toLocaleString() : price}`
+                      : null,
+                    flash: draftFlash("price"),
+                  },
+                  {
+                    key: "mileage",
+                    label: "Mileage",
+                    value: vehicleOdometer
+                      ? `${Number.isFinite(Number(vehicleOdometer)) ? Number(vehicleOdometer).toLocaleString() : vehicleOdometer}km`
+                      : null,
+                    flash: draftFlash("mileage") || draftFlash("odometer"),
+                  },
+                  {
+                    key: "condition",
+                    label: "Condition",
+                    value: condition || null,
+                    flash: draftFlash("condition"),
+                  },
+                  {
+                    key: "location",
+                    label: "Location",
+                    value: location || null,
+                    flash: draftFlash("location"),
+                  },
+                  {
+                    key: "photos",
+                    label: "Photos",
+                    value: `${imagePreviews.length}/8`,
+                    flash: draftFlash("photo"),
+                    alwaysFilled: imagePreviews.length > 0,
+                  },
+                ].map((row) => {
+                  const filled = row.alwaysFilled || !!row.value;
+                  const showCheck = filled && row.key !== "photos" ? true : imagePreviews.length > 0 && row.key === "photos";
+                  return (
+                    <div
+                      key={row.key}
+                      className={`rounded-lg border px-2.5 py-2 transition ${
+                        row.flash
+                          ? "border-emerald-500/40 bg-emerald-500/10"
+                          : "border-white/[0.06] bg-white/[0.02]"
+                      }`}
+                    >
+                      <p className="text-[10px] uppercase tracking-wide text-zinc-500">{row.label}</p>
+                      <p className={`mt-0.5 font-medium ${filled ? "text-zinc-100" : "text-zinc-600"}`}>
+                        {filled ? (
+                          <>
+                            {row.value}
+                            {showCheck ? <span className="ml-1 text-emerald-400">✓</span> : null}
+                          </>
+                        ) : (
+                          "—"
+                        )}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowManualEditor(true);
+                    setMobileWorkspaceTab("listing");
+                    setTimeout(() => {
+                      document.getElementById("listing-title")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }, 50);
+                  }}
+                  className="rounded-lg border border-white/[0.1] bg-white/[0.03] px-3 py-2 text-[11px] font-semibold text-zinc-200 transition hover:bg-white/[0.06]"
+                >
+                  Edit listing
+                </button>
+                <button
+                  type="button"
+                  onClick={() => document.getElementById("listing-submit-btn")?.click()}
+                  className="rounded-lg bg-sky-500/90 px-3 py-2 text-[11px] font-semibold text-white transition hover:bg-sky-400"
+                >
+                  Publish listing
+                </button>
+                {imagePreviews.length === 0 && (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="rounded-lg border border-white/[0.1] px-3 py-2 text-[11px] font-semibold text-zinc-300 transition hover:bg-white/[0.04]"
+                  >
+                    Add photos
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* RIGHT: conversation — primary vertical space */}
+        {!editId && (
+          <div
+            className={`mb-6 flex min-h-[min(68vh,640px)] min-w-0 flex-col lg:mb-0 lg:h-[min(78vh,760px)] lg:min-h-0 ${
+              mobileWorkspaceTab === "listing" ? "hidden lg:flex" : "flex"
+            }`}
+          >
+            <div className="mb-2 flex items-center justify-between gap-3 px-0.5">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-white">Āwhina</p>
+                <p className="text-xs text-zinc-500">
+                  {awhinaConversation.messages.some((m) => m.id !== "welcome")
+                    ? "Continuing your conversation"
+                    : "Describe what you’re selling — the draft updates live"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAwhinaGuide(true)}
+                className="shrink-0 rounded-lg border border-white/[0.08] px-2.5 py-1.5 text-xs font-semibold text-zinc-300 transition hover:bg-white/[0.04]"
+              >
+                Help
+              </button>
+            </div>
+            {!skyChatOpen && (
+              <div className="mb-2 flex flex-wrap gap-1.5">
+                {workspaceQuickPrompts.map((p) => (
+                  <button
+                    key={p.label}
+                    type="button"
+                    onClick={() => {
+                      setSkyChatOpen(true);
+                      setSkyAutoQuery(undefined);
+                      setTimeout(() => setSkyAutoQuery(p.query), 0);
+                    }}
+                    className="rounded-full border border-white/[0.1] bg-white/[0.03] px-2.5 py-1 text-[10px] font-semibold text-zinc-300 hover:bg-white/[0.06]"
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            )}
             <SkyAiChatPanel
               mode="inline"
               open={skyChatOpen}
@@ -1811,34 +2016,36 @@ export default function AIPostPage() {
               autoQuery={skyAutoQuery}
               onAutoQueryConsumed={() => setSkyAutoQuery(undefined)}
               onFill={applyFill}
-              quickPrompts={SKY_AI_SELL_QUICK_PROMPTS}
+              quickPrompts={workspaceQuickPrompts}
               welcomeText={SKY_AI_SELL_WELCOME}
-              className="awhina-listing-workspace-chat"
+              workspaceChrome
+              className="awhina-listing-workspace-chat min-h-0 flex-1"
             />
-            </div>
           </div>
         )}
 
-        <div className={!editId && mobileWorkspaceTab === "chat" ? "hidden lg:block" : "block"}>
-        {!editId && (title || price || vehicleMake) ? (
-          <div className="mb-4 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] p-3">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-400/80">Live draft</p>
-            <p className="mt-1 text-sm font-bold text-white">
-              {title || [vehicleYear, vehicleMake, vehicleModel].filter(Boolean).join(" ") || "Untitled"}
-            </p>
-            <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-zinc-400">
-              {price ? <span className="font-semibold text-emerald-300">${price}</span> : null}
-              {condition ? <span>{condition}</span> : null}
-              {location ? <span>{location}</span> : null}
-            </div>
-          </div>
-        ) : null}
+        </div>
 
+        {/* Full manual form — separate from compact live draft (not duplicated in preview) */}
+        <div className={`${!editId && !showManualEditor ? "hidden" : "mt-6 block"}`}>
         {/* Form Card */}
         <div className="relative">
-          <div className="absolute -inset-1 rounded-3xl bg-gradient-to-b from-sky-500/15 via-sky-500/5 to-sky-500/10 blur-xl pointer-events-none" />
-          <div className="relative overflow-hidden rounded-3xl bg-[var(--card)] p-4 sm:p-6 md:p-8 shadow-2xl backdrop-blur-xl">
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/20 to-transparent" />
+          <div className="absolute -inset-1 rounded-3xl bg-gradient-to-b from-sky-500/10 via-transparent to-transparent blur-xl pointer-events-none" />
+          <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[var(--card)] p-4 sm:p-6 md:p-8">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+
+        {!editId && showManualEditor && (
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-white">Edit listing details</p>
+            <button
+              type="button"
+              onClick={() => setShowManualEditor(false)}
+              className="rounded-lg border border-white/[0.08] px-2.5 py-1 text-[11px] font-semibold text-zinc-400 hover:text-white"
+            >
+              Hide form
+            </button>
+          </div>
+        )}
 
         <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-500">
           {/* Honest form progress indicator */}
@@ -1862,9 +2069,11 @@ export default function AIPostPage() {
               />
             </div>
             <p className="mt-1.5 text-[10px] text-[var(--muted)]">
-              {listingReadiness.state === "READY_TO_REVIEW" || listingReadiness.state === "READY_TO_PUBLISH"
-                ? "Ready to review — Publish when you're happy"
-                : "Fill important fields with Āwhina or edit manually"}
+              {progressNextLabel
+                ? `Next: ${progressNextLabel}`
+                : listingReadiness.state === "READY_TO_REVIEW" || listingReadiness.state === "READY_TO_PUBLISH"
+                  ? "Ready to review — Publish when you're happy"
+                  : "Fill important fields with Āwhina or edit manually"}
             </p>
           </div>
 
@@ -2614,8 +2823,7 @@ export default function AIPostPage() {
         </div>
           </div>
         </div>
-      </div>
-      </div>
+        </div>
       </div>
 
       {/* SCAM ALERT MODAL - INSIDE MAIN CONTAINER */}

@@ -21,7 +21,7 @@ import {
 import { processCanonicalAwhina } from "./awhina-canonical";
 import { clearAllListingDraftCacheForTests } from "./awhina-listing-fill-tools";
 import { clearTaskScope, taskScopeKey } from "./awhina-task-scope";
-import { hasInlineAwhinaAssistant, resolveAwhinaUiSurface } from "./awhina-ui-surface";
+import { hasInlineAwhinaAssistant, resolveAwhinaUiSurface, formatListingSlotLabel, getActiveSellWorkspacePrompts } from "./awhina-ui-surface";
 
 describe("awhina conversation store — surface ≠ identity", () => {
   beforeEach(() => {
@@ -214,5 +214,30 @@ describe("refresh persistence snapshot", () => {
     setAwhinaSurface("listing_workspace");
     expect(getAwhinaConversationState().messages).toHaveLength(2);
     expect(getAwhinaConversationState().conversationId).toBe("persist-1");
+  });
+});
+
+describe("listing workspace progress + sell chips", () => {
+  it("formats pendingSlot as Next-label style titles", () => {
+    expect(formatListingSlotLabel("year")).toBe("Year");
+    expect(formatListingSlotLabel("price")).toBe("Price");
+    expect(formatListingSlotLabel("odometer")).toBe("Mileage");
+    expect(formatListingSlotLabel("condition")).toBe("Condition");
+  });
+
+  it("active sell chips never include Find/Sell/Navigate generics", () => {
+    const chips = getActiveSellWorkspacePrompts({
+      pendingSlot: "year",
+      hasPhotos: false,
+      hasDescription: true,
+      hasPrice: false,
+      hasTitle: true,
+    });
+    const labels = chips.map((c) => c.label.toLowerCase());
+    expect(labels.some((l) => l.includes("find"))).toBe(false);
+    expect(labels.some((l) => l.includes("navigate"))).toBe(false);
+    expect(labels.some((l) => l === "sell something")).toBe(false);
+    expect(chips.length).toBeGreaterThan(0);
+    expect(chips.length).toBeLessThanOrEqual(3);
   });
 });

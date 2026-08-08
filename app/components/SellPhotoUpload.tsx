@@ -7,15 +7,26 @@ type Props = {
   fileInputRef: RefObject<HTMLInputElement>;
   onUpload: (e: ChangeEvent<HTMLInputElement>) => void;
   onRemove: (index: number) => void;
+  /** Contextual empty-state title, e.g. "Add photos of your Skyline" */
+  ctaTitle?: string;
+  ctaSubtitle?: string;
+  className?: string;
 };
 
-export default function SellPhotoUpload({ imagePreviews, fileInputRef, onUpload, onRemove }: Props) {
+export default function SellPhotoUpload({
+  imagePreviews,
+  fileInputRef,
+  onUpload,
+  onRemove,
+  ctaTitle = "Add photos",
+  ctaSubtitle = "Upload up to 8 photos — first photo is your cover image",
+  className = "",
+}: Props) {
   const openPicker = () => fileInputRef.current?.click();
 
   return (
-    <div className="mb-6">
-      <div className="relative overflow-hidden rounded-2xl border border-[#D6ECFF] bg-white p-4 shadow-[0_4px_24px_rgba(14,165,233,0.08)] dark:border-sky-500/20 dark:bg-gradient-to-br dark:from-sky-500/[0.06] dark:via-sky-500/[0.04] dark:to-zinc-950/80 dark:shadow-[0_0_40px_rgba(14,165,233,0.08)] sm:p-5">
-        <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-sky-400/10 blur-2xl pointer-events-none dark:bg-sky-500/10" />
+    <div className={className || undefined}>
+      <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 sm:p-5">
         {imagePreviews.length === 0 ? (
           <div
             role="button"
@@ -27,47 +38,50 @@ export default function SellPhotoUpload({ imagePreviews, fileInputRef, onUpload,
                 openPicker();
               }
             }}
-            className="group relative flex min-h-[10.5rem] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-sky-400/60 bg-white px-4 py-6 text-center transition-all duration-200 hover:border-sky-500 hover:bg-sky-50 hover:shadow-[0_8px_28px_rgba(14,165,233,0.14)] active:scale-[0.99] dark:border-white/[0.12] dark:bg-white/[0.02] dark:hover:border-sky-500/50 dark:hover:bg-sky-500/[0.04]"
+            className="group relative flex min-h-[11rem] cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-white/[0.14] bg-white/[0.02] px-4 py-6 text-center transition hover:border-sky-500/35 hover:bg-sky-500/[0.04] active:scale-[0.99]"
           >
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[#D6ECFF] bg-sky-50 text-sky-500 shadow-sm transition-transform duration-200 group-hover:scale-105 dark:border-white/[0.08] dark:bg-sky-500/10">
-              <svg className="h-7 w-7 text-sky-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-sky-400/90">
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
               </svg>
             </div>
-            <span className="mt-4 text-base font-bold text-[#111827] dark:text-white">Add Photos</span>
-            <span className="mt-1.5 max-w-sm text-sm text-[#6B7280] dark:text-zinc-400">
-              Upload up to 8 photos — first photo is your cover image
-            </span>
-            <ul className="mt-3 max-w-sm space-y-1 text-left text-[11px] text-[#6B7280] dark:text-zinc-500">
-              <li>• Use bright, clear photos from multiple angles</li>
-              <li>• Show any damage or wear honestly</li>
+            <span className="mt-3 text-base font-semibold text-white">{ctaTitle}</span>
+            <span className="mt-1.5 max-w-sm text-sm text-zinc-400">{ctaSubtitle}</span>
+            <ul className="mt-3 max-w-sm space-y-1 text-left text-[11px] text-zinc-500">
+              <li>• Bright, clear shots from a few angles</li>
+              <li>• Show wear honestly — builds trust</li>
             </ul>
           </div>
         ) : (
           <div>
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-base font-bold text-[#111827] dark:text-white">Add Photos</h2>
-                <p className="mt-0.5 text-sm text-[#6B7280] dark:text-zinc-400">
-                  Upload up to 8 photos to attract more buyers
+                <h2 className="text-sm font-semibold text-white">{ctaTitle}</h2>
+                <p className="mt-0.5 text-xs text-zinc-400">
+                  First photo is the cover · {imagePreviews.length}/8
                 </p>
               </div>
-              <span className="shrink-0 rounded-full border border-[#D6ECFF] bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-600 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-300">
+              <span className="shrink-0 rounded-md border border-white/[0.08] bg-white/[0.03] px-2 py-0.5 text-[11px] font-medium text-zinc-300">
                 {imagePreviews.length}/8
               </span>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2.5">
               {imagePreviews.map((preview, i) => (
                 <div
                   key={i}
-                  className="group relative overflow-hidden rounded-xl border border-[#D6ECFF] bg-white ring-1 ring-sky-100 dark:border-white/[0.06] dark:bg-zinc-900/60 dark:ring-white/[0.06]"
+                  className="group relative overflow-hidden rounded-xl border border-white/[0.08] bg-zinc-900/50"
                 >
-                  <img src={preview} alt={`Listing photo ${i + 1}`} className="h-28 w-full object-cover" />
-                  <div className="absolute inset-0 bg-sky-950/20 opacity-0 transition-opacity group-hover:opacity-100 dark:bg-black/40" />
+                  <img src={preview} alt={`Listing photo ${i + 1}`} className="h-24 w-full object-cover sm:h-28" />
+                  {i === 0 && (
+                    <span className="absolute left-1.5 top-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
+                      Cover
+                    </span>
+                  )}
                   <button
                     type="button"
                     onClick={() => onRemove(i)}
                     className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-red-500/90 text-[11px] font-bold text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-400"
+                    aria-label={`Remove photo ${i + 1}`}
                   >
                     ✕
                   </button>
@@ -77,7 +91,7 @@ export default function SellPhotoUpload({ imagePreviews, fileInputRef, onUpload,
                 <button
                   type="button"
                   onClick={openPicker}
-                  className="flex h-28 flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-sky-400/60 bg-sky-50/50 text-sky-600 transition-all duration-200 hover:border-sky-500 hover:bg-sky-50 active:scale-[0.97] dark:border-white/[0.12] dark:bg-white/[0.02] dark:text-sky-300 dark:hover:border-sky-500/50 dark:hover:bg-sky-500/[0.04]"
+                  className="flex h-24 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-white/[0.14] bg-white/[0.02] text-zinc-400 transition hover:border-sky-500/35 hover:text-sky-300 active:scale-[0.97] sm:h-28"
                 >
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />

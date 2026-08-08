@@ -97,6 +97,11 @@ export type SkyAiChatPanelProps = {
   /** When global Voice Mode is on, chat mic is disabled to avoid dual-mic conflicts. */
   globalVoiceActive?: boolean;
   className?: string;
+  /**
+   * /post/ai listing workspace: hide duplicate branded header, stretch chat,
+   * composer pinned bottom, skip internal listing-preview card (page owns draft UI).
+   */
+  workspaceChrome?: boolean;
 };
 
 function handleListingFill(fill: SkyAiListingFill | undefined, _navigateTo?: string) {
@@ -164,10 +169,12 @@ export default function SkyAiChatPanel({
   globalVoiceActive = false,
   className = "",
   floatingFab = true,
+  workspaceChrome = false,
 }: SkyAiChatPanelProps) {
   const router = useRouter();
   const pathname = usePathname() || "/";
   const isSheet = mode === "sheet";
+  const isWorkspace = workspaceChrome || className.includes("awhina-listing-workspace-chat");
   const isControlledSheet = isSheet && openControlled !== undefined;
   const [openInternal, setOpenInternal] = useState(false);
   const open = isSheet
@@ -1021,7 +1028,44 @@ export default function SkyAiChatPanel({
 
   if (!isSheet && !open) return null;
 
-  const header = (
+  const headerActions = (
+    <div className="flex items-center gap-1">
+      {user && (
+        <button
+          type="button"
+          onClick={() => setShowHistory((v) => !v)}
+          className="rounded-lg px-2 py-1.5 text-[10px] font-bold text-sky-400/90 hover:bg-sky-500/10"
+          title="Chat history"
+        >
+          History
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={startNewChat}
+        className="rounded-lg px-2 py-1.5 text-[10px] font-bold text-sky-400/90 hover:bg-sky-500/10"
+      >
+        New
+      </button>
+      {!isWorkspace && (
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:bg-white/[0.06] hover:text-always-white"
+          aria-label={`Close ${AWHINA_NAME}`}
+        >
+          ✕
+        </button>
+      )}
+    </div>
+  );
+
+  /** Workspace already has page chrome — avoid a second branded Āwhina header. */
+  const header = isWorkspace ? (
+    <div className="flex items-center justify-end border-b border-white/[0.06] px-3 py-1.5">
+      {headerActions}
+    </div>
+  ) : (
     <div
       className={`flex items-center justify-between border-b border-sky-500/15 bg-gradient-to-r from-sky-500/[0.06] to-sky-500/[0.06] px-4 py-3 ${
         isSheet ? "" : "rounded-t-xl"
@@ -1038,38 +1082,12 @@ export default function SkyAiChatPanel({
           </p>
         </div>
       </div>
-      <div className="flex items-center gap-1">
-        {user && (
-          <button
-            type="button"
-            onClick={() => setShowHistory((v) => !v)}
-            className="rounded-lg px-2 py-1.5 text-[10px] font-bold text-sky-400 hover:bg-sky-500/10"
-            title="Chat history"
-          >
-            History
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={startNewChat}
-          className="rounded-lg px-2 py-1.5 text-[10px] font-bold text-sky-400 hover:bg-sky-500/10"
-        >
-          New
-        </button>
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:bg-white/[0.06] hover:text-always-white"
-          aria-label={`Close ${AWHINA_NAME}`}
-        >
-          ✕
-        </button>
-      </div>
+      {headerActions}
     </div>
   );
 
   const body = (
-    <>
+    <div className={isSheet || isWorkspace ? "flex min-h-0 flex-1 flex-col" : undefined}>
       {showHistory && user && (
         <div className="max-h-36 overflow-y-auto border-b border-white/[0.06] awhina-chat-history-bg px-2 py-2 scrollbar-thin">
           {conversations.length === 0 ? (
@@ -1107,9 +1125,11 @@ export default function SkyAiChatPanel({
         className={`overflow-y-auto px-3 py-3 space-y-3 scrollbar-thin ${
           isSheet
             ? "flex-1"
-            : className.includes("awhina-listing-workspace-chat")
-              ? "min-h-[280px] max-h-[min(560px,62vh)]"
-              : "min-h-[200px] max-h-[min(360px,45vh)]"
+            : isWorkspace
+              ? "min-h-0 flex-1"
+              : className.includes("awhina-listing-workspace-chat")
+                ? "min-h-[280px] max-h-[min(560px,62vh)]"
+                : "min-h-[200px] max-h-[min(360px,45vh)]"
         }`}
       >
         {messages.map((m) => {
@@ -1164,7 +1184,7 @@ export default function SkyAiChatPanel({
 
       </div>
 
-      {listingPreviewFill && (
+      {!isWorkspace && listingPreviewFill && (
         <div className="mx-3 mb-3 overflow-hidden rounded-2xl border border-emerald-500/30 awhina-chat-listing-preview shadow-[0_0_30px_rgba(16,185,129,0.08)] animate-fade-in-panel">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-2.5">
@@ -1327,11 +1347,11 @@ export default function SkyAiChatPanel({
       }} />
 
       <div
-        className={`border-t border-sky-500/15 awhina-chat-surface relative z-10 shrink-0 bg-[rgba(6,8,12,0.98)] px-3 py-2.5 ${
-          isSheet ? "max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]" : "rounded-b-xl"
+        className={`border-t border-white/[0.08] awhina-chat-surface relative z-10 shrink-0 bg-[rgba(6,8,12,0.98)] px-3 py-2.5 ${
+          isSheet ? "max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]" : isWorkspace ? "" : "rounded-b-xl"
         }`}
       >
-        {!listingPreviewFill && (
+        {!listingPreviewFill && quickPrompts.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-1.5">
             {quickPrompts.map((p) => (
               <button
@@ -1339,7 +1359,7 @@ export default function SkyAiChatPanel({
                 type="button"
                 disabled={busy}
                 onClick={() => respond(p.query)}
-                className="rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 text-[10px] font-semibold text-sky-300 shadow-[0_0_12px_rgba(14,165,233,0.12)] hover:bg-sky-500/20 disabled:opacity-50"
+                className="rounded-full border border-white/[0.1] bg-white/[0.03] px-2.5 py-1 text-[10px] font-semibold text-zinc-300 hover:border-sky-500/30 hover:bg-sky-500/10 hover:text-sky-200 disabled:opacity-50"
               >
                 {p.label}
               </button>
@@ -1447,13 +1467,17 @@ export default function SkyAiChatPanel({
           </p>
         )}
       </div>
-    </>
+    </div>
   );
 
   if (!isSheet) {
     return (
       <div
-        className={`mt-4 flex flex-col overflow-hidden rounded-xl border border-sky-500/25 awhina-chat awhina-chat-shell shadow-[0_0_30px_rgba(14,165,233,0.08)] animate-fade-in-panel ${className}`}
+        className={`${
+          isWorkspace
+            ? "flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-white/[0.08] awhina-chat awhina-chat-shell"
+            : "mt-4 flex flex-col overflow-hidden rounded-xl border border-sky-500/25 awhina-chat awhina-chat-shell shadow-[0_0_30px_rgba(14,165,233,0.08)] animate-fade-in-panel"
+        } ${className}`}
       >
         {header}
         {body}

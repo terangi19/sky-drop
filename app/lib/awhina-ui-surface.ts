@@ -135,6 +135,70 @@ export function getContextualAwhinaQuickPrompts(pathname: string): AwhinaQuickPr
   }
 }
 
+/** Human labels for pending listing slots (progress "Next: Year"). */
+export function formatListingSlotLabel(slot: string | null | undefined): string {
+  if (!slot) return "";
+  const map: Record<string, string> = {
+    year: "Year",
+    price: "Price",
+    odometer: "Mileage",
+    mileage: "Mileage",
+    condition: "Condition",
+    location: "Location",
+    title: "Title",
+    transmission: "Transmission",
+    fuel: "Fuel",
+    colour: "Colour",
+    color: "Colour",
+    storage: "Storage",
+    size: "Size",
+    generation: "Generation",
+    variant: "Variant",
+    card_set: "Card set",
+    card_subject: "Card subject",
+    grade: "Grade",
+    rental_rate: "Rental rate",
+    service_rate: "Service rate",
+    photos: "Photos",
+  };
+  const key = String(slot).trim().toLowerCase();
+  if (map[key]) return map[key];
+  return key
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/**
+ * During an active sell flow, never show Find/Sell/Price/Navigate.
+ * Prefer a short contextual set, or none when nothing useful.
+ */
+export function getActiveSellWorkspacePrompts(opts: {
+  pendingSlot?: string | null;
+  hasPhotos?: boolean;
+  hasDescription?: boolean;
+  hasPrice?: boolean;
+  hasTitle?: boolean;
+}): AwhinaQuickPrompt[] {
+  const chips: AwhinaQuickPrompt[] = [];
+  const slot = (opts.pendingSlot || "").toLowerCase();
+
+  if (!opts.hasPhotos) {
+    chips.push({ label: "Add photos", query: "I'll add photos of what I'm selling" });
+  }
+  if (slot === "price" || (!opts.hasPrice && opts.hasTitle)) {
+    chips.push({ label: "Edit price", query: "Help me set a fair asking price" });
+  }
+  if (opts.hasDescription) {
+    chips.push({ label: "Improve description", query: "Improve the listing description" });
+  }
+  if (opts.hasTitle || opts.hasPrice) {
+    chips.push({ label: "Preview listing", query: "Summarise my listing draft so far" });
+  }
+
+  // Cap — keep composer clean
+  return chips.slice(0, 3);
+}
+
 /** Human-readable open target for a11y / captions. */
 export function awhinaOpenTargetLabel(pathname: string): "chat" | "inline" {
   return hasInlineAwhinaAssistant(pathname) ? "inline" : "chat";
