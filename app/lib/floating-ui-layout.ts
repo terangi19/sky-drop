@@ -3,8 +3,9 @@
 /** FAB sits above sticky listing CTAs (z-10000) and bottom nav (z-9999); below Āwhina sheet. */
 export const FAB_Z = "z-[10020]";
 
+/** Extra inset from viewport corner so the pill never hugs chrome / sticky CTAs. */
 export const FAB_DOCK_POSITION =
-  `fixed ${FAB_Z} right-[calc(1rem+env(safe-area-inset-right,0px))] bottom-[calc(1.25rem+var(--mobile-nav-offset,0px))] max-md:right-4`;
+  `fixed ${FAB_Z} right-[calc(1.25rem+env(safe-area-inset-right,0px))] bottom-[calc(1.5rem+var(--mobile-nav-offset,0px))] max-md:right-[calc(1rem+env(safe-area-inset-right,0px))] max-md:bottom-[calc(1.35rem+var(--mobile-nav-offset,0px))] md:right-[calc(1.5rem+env(safe-area-inset-right,0px))] md:bottom-[calc(1.75rem+env(safe-area-inset-bottom,0px))]`;
 
 /** Āwhina chat sheet — always above FAB dock and bottom chrome. */
 export const AWHINA_CHAT_SHEET_Z = "z-[10050]";

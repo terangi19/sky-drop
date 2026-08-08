@@ -170,9 +170,11 @@ export default function FloatingActionDock({
 
   const showAttentionDot = hasUnseenTour && !expanded && !dockHidden;
 
-  const primaryHint = chatHidden
-    ? `Focus ${AWHINA_NAME} · Hold for more`
-    : `${AWHINA_LAUNCHER_LABEL} · Hold for more`;
+  const primaryLabel = expanded
+    ? "Close menu"
+    : chatHidden
+      ? `Focus ${AWHINA_NAME}`
+      : AWHINA_LAUNCHER_LABEL;
 
   if (dockHidden) {
     return <FeedbackModal />;
@@ -226,18 +228,12 @@ export default function FloatingActionDock({
                 label={chatHidden ? `Focus ${AWHINA_NAME}` : `Open ${AWHINA_NAME}`}
                 onClick={() => runAction(onOpenChat)}
               >
-                <AwhinaMark size={16} className="text-sky-400 light:text-sky-600" />
+                <AwhinaMark size={15} className="text-sky-400 light:text-sky-600" />
               </SpeedDialAction>
             </div>
           )}
 
           <div className="awhina-fab-trigger relative flex items-center justify-end">
-            {!expanded && (
-              <span className="awhina-fab-hover-label" aria-hidden>
-                {AWHINA_LAUNCHER_LABEL}
-              </span>
-            )}
-
             {showAttentionDot && (
               <span className="awhina-fab-attention" aria-hidden />
             )}
@@ -255,9 +251,9 @@ export default function FloatingActionDock({
               }}
               aria-expanded={expanded}
               aria-haspopup="menu"
-              title={expanded ? "Close menu" : primaryHint}
-              aria-label={expanded ? "Close menu" : primaryHint}
-              className={`awhina-fab-primary ${expanded ? "is-expanded" : ""} ${
+              title={primaryLabel}
+              aria-label={primaryLabel}
+              className={`awhina-fab-primary ${expanded ? "is-expanded" : "is-closed"} ${
                 voiceActive ? "is-voice" : ""
               } ${busyActivity ? "is-busy" : ""}`}
             >
@@ -268,7 +264,10 @@ export default function FloatingActionDock({
               {expanded ? (
                 <X className="awhina-fab-close-icon" strokeWidth={2} aria-hidden />
               ) : (
-                <AwhinaMark size={22} className="awhina-fab-mark" />
+                <>
+                  <AwhinaMark size={17} className="awhina-fab-mark" />
+                  <span className="awhina-fab-label">{AWHINA_LAUNCHER_LABEL}</span>
+                </>
               )}
             </button>
           </div>

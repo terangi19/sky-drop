@@ -1,42 +1,30 @@
-/** Compact Āwhina mark for launchers — readable at ~20–24px. */
+/** Āwhina sparkle mark — recognisable at launcher sizes (~16–20px). */
 type Props = {
   className?: string;
   size?: number;
 };
 
-export default function AwhinaMark({ className = "", size = 22 }: Props) {
+export default function AwhinaMark({ className = "", size = 18 }: Props) {
   return (
     <svg
-      viewBox="0 0 32 32"
+      viewBox="0 0 24 24"
       width={size}
       height={size}
       className={className}
       fill="none"
       aria-hidden
     >
-      <rect
-        x="7"
-        y="10"
-        width="18"
-        height="15"
-        rx="4.5"
-        stroke="currentColor"
-        strokeWidth="1.75"
-      />
+      {/* Primary four-point sparkle */}
       <path
-        d="M16 5.5v4.5"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
+        d="M12 2.25l1.55 6.2 6.2 1.55-6.2 1.55L12 17.75l-1.55-6.2-6.2-1.55 6.2-1.55L12 2.25z"
+        fill="currentColor"
+        opacity="0.95"
       />
-      <circle cx="16" cy="4.25" r="1.75" fill="currentColor" />
-      <circle cx="12.25" cy="16.5" r="1.6" fill="currentColor" />
-      <circle cx="19.75" cy="16.5" r="1.6" fill="currentColor" />
+      {/* Secondary accent spark */}
       <path
-        d="M12.5 21.25h7"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
+        d="M18.75 3.5l0.55 2.05 2.05 0.55-2.05 0.55-0.55 2.05-0.55-2.05-2.05-0.55 2.05-0.55 0.55-2.05z"
+        fill="currentColor"
+        opacity="0.72"
       />
     </svg>
   );
