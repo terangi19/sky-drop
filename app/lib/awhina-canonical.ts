@@ -84,6 +84,7 @@ import {
 } from "./awhina-product-ux";
 import {
   buildAwhinaDecision,
+  collectIgnoredStaleContext,
   isToolAllowedByDecision,
   selfCheckBeforeToolResponse,
   tryResolvePendingClarification,
@@ -333,6 +334,8 @@ export function processCanonicalAwhina(
       listingFill: listingFill as Record<string, unknown> | null,
       navigateTo,
       reply,
+      profileFill: partial.profileFill as Record<string, unknown> | null | undefined,
+      toolArgs: toolCall?.args,
     });
     if (!check.ok) {
       if (check.reasons.some((r) => r.startsWith("stale_") || r.startsWith("blocked_"))) {
@@ -342,7 +345,7 @@ export function processCanonicalAwhina(
           if (check.reasons.includes("education_nav_messages")) navigateTo = undefined;
         }
         if (check.reasons.some((r) => r.startsWith("stale_")) && listingFill) {
-          // Drop vehicle bleed fields; keep current-turn price/title when present
+          // Drop prior-domain bleed fields; keep current-turn price/title when present
           const scrubbed = { ...listingFill } as Record<string, unknown>;
           for (const k of [
             "vehicleMake",
@@ -350,6 +353,12 @@ export function processCanonicalAwhina(
             "vehicleYear",
             "vehicleColour",
             "vehicleOdometer",
+            "rentalSubType",
+            "rentalPriceWeekly",
+            "rentalPriceMonthly",
+            "rentalDeposit",
+            "serviceDuration",
+            "servicePricingType",
           ]) {
             delete scrubbed[k];
           }
@@ -359,7 +368,20 @@ export function processCanonicalAwhina(
           ) {
             scrubbed.price = decision.currentTurnEntities.price;
           }
+          if (
+            decision.currentTurnEntities.listingType &&
+            String(scrubbed.listingType || "") !== decision.currentTurnEntities.listingType
+          ) {
+            scrubbed.listingType = decision.currentTurnEntities.listingType;
+          }
           listingFill = scrubbed;
+        }
+        if (check.reasons.some((r) => r.includes("navigate") || r.includes("toolArgs"))) {
+          // Drop search nav/filters that carried stale prior-sell entities
+          const navLeak = check.reasons.some((r) => r.includes(":navigate:") || r.includes(":toolArgs:"));
+          if (navLeak && decision.activeTask === "shopping") {
+            // Keep navigation but strip is handled by rebuild upstream; flag only
+          }
         }
       }
       if (check.reasons.includes("legacy_updated_prefix") && reply) {
@@ -1082,18 +1104,21 @@ export function processCanonicalAwhina(
         (isListingFollowUp(trimmed, hasListDraft) && !stickyShopping)));
 
   if (sellCandidate && !stickyShopping && !sellDecisionEarly.stickyShopping) {
-    // Hard task RESET on explicit SELL switch — do NOT inherit SEARCH year/maxPrice/make
+    // Hard task RESET only when leaving SEARCH/help — not sell→sell domain shifts
+    const priorWasShopping =
+      taskSession?.task === "shopping" || taskSession?.task === "help";
+    const domainShiftSell = Boolean(sellDecisionEarly.freshSellStart && !priorWasShopping);
     const switchingFromSearch =
-      sellDecisionEarly.freshSellStart ||
-      explicitSell ||
-      (taskSession?.task === "shopping" &&
-        (hasListingSellIntent(trimmed) || explicitSell));
+      priorWasShopping &&
+      (sellDecisionEarly.freshSellStart ||
+        explicitSell ||
+        hasListingSellIntent(trimmed));
     // Capture prior search filters BEFORE clear — for ignoredStaleContext
-    const priorSearchFilters = switchingFromSearch
-      ? getSearchSession(memKey)?.filters || null
-      : getSearchSession(memKey)?.filters || null;
-    if (switchingFromSearch) {
-      clearSearchSession(memKey);
+    const priorSearchFilters = getSearchSession(memKey)?.filters || null;
+    const priorListingForStale =
+      context.listingContext || (listSession?.draft as SkyAiListingContext) || null;
+    if (switchingFromSearch || domainShiftSell) {
+      if (switchingFromSearch) clearSearchSession(memKey);
       clearListingDraftSession(listKey);
       setActiveTask(scopeKey, "selling", {
         pendingItem: undefined,
@@ -1106,18 +1131,39 @@ export function processCanonicalAwhina(
       pathname: onSell ? pathname : "/post/ai",
       session: switchingFromSearch
         ? { task: "shopping", updatedAt: Date.now() }
-        : getTaskScope(scopeKey),
-      listingContext: switchingFromSearch
-        ? null
-        : context.listingContext || (listSession?.draft as SkyAiListingContext) || null,
+        : domainShiftSell
+          ? { task: "selling", updatedAt: Date.now() }
+          : getTaskScope(scopeKey),
+      // Keep prior draft visible to stale-check even when we hard-reset the fill
+      listingContext:
+        switchingFromSearch || domainShiftSell
+          ? priorListingForStale
+          : priorListingForStale,
       searchFilters: priorSearchFilters,
-      intentHint: switchingFromSearch ? "listing_create" : undefined,
+      intentHint:
+        switchingFromSearch || domainShiftSell || sellDecisionEarly.freshSellStart
+          ? "listing_create"
+          : undefined,
     });
-    // After decision, active task is selling — keep ignoredStale from prior shop filters
+    // After decision, active task is selling — keep ignoredStale from prior shop/draft
     const sellDecisionFinal = {
       ...sellDecision,
       activeTask: "selling" as const,
-      freshSellStart: switchingFromSearch || sellDecision.freshSellStart,
+      freshSellStart:
+        switchingFromSearch || domainShiftSell || sellDecision.freshSellStart,
+      ignoredStaleContext: collectIgnoredStaleContext({
+        activeTask: "selling",
+        priorTask: switchingFromSearch
+          ? "shopping"
+          : domainShiftSell
+            ? "selling"
+            : taskSession?.task || "none",
+        freshSellStart:
+          switchingFromSearch || domainShiftSell || sellDecision.freshSellStart,
+        searchFilters: priorSearchFilters,
+        listingContext: priorListingForStale,
+        currentEntities: sellDecision.currentTurnEntities,
+      }),
     };
 
     if (sellDecisionFinal.requiresClarification && sellDecisionFinal.clarificationQuestion && !onSell) {
@@ -1146,12 +1192,13 @@ export function processCanonicalAwhina(
 
     const listing = processListingFillMessage(trimmed, {
       pathname: onSell ? pathname : "/post/ai",
-      // Fresh SELL: ignore client listingContext that may hold BUY/old draft bleed
-      listingContext: switchingFromSearch
-        ? null
-        : context.listingContext || (listSession?.draft as SkyAiListingContext) || null,
+      // Fresh SELL / domain shift: ignore client listingContext bleed into the new draft
+      listingContext:
+        switchingFromSearch || domainShiftSell
+          ? null
+          : priorListingForStale,
       sessionKey: listKey,
-      freshStart: switchingFromSearch,
+      freshStart: switchingFromSearch || domainShiftSell,
     });
     if (listing.handled) {
       const sellTool = listing.toolCall?.tool || (listing.listingFill ? "createListing" : undefined);

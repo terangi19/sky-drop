@@ -238,16 +238,18 @@ function formatFactLine(l: ListingFacts, i: number): string {
 /**
  * Summarize known facts only. Axes (cheapest/newest/etc.) only when real data exists.
  * Never invent missing price/condition/reputation/location. If not enough for "best", say so.
+ * Titles alone are not enough — require ≥2 listings with real fields before comparing.
  */
 export function summarizeListingComparison(
   listings: ListingFacts[],
   opts?: { emptyHint?: string }
 ): string {
-  const usable = listings.filter((l) => l.title && String(l.title).trim().length > 0).slice(0, 4);
+  const withTitle = listings.filter((l) => l.title && String(l.title).trim().length > 0).slice(0, 4);
+  const usable = withTitle.filter(listingHasRealFacts);
   if (usable.length < 2) {
     return (
       opts?.emptyHint ||
-      "Open two listings (or paste their titles) and say **compare these** — I'll use only real listing fields, never guess."
+      "Open or select two listings so I can compare real fields (price, condition, location, mileage) — I won't rank winners from titles alone."
     );
   }
 
@@ -452,6 +454,15 @@ export function buildGroundedCompareReply(opts: {
   compareCandidates?: string[];
 }): { reply: string; facts: ListingFacts[]; titles: string[]; grounded: boolean } {
   const resolved = resolveGroundedCompare(opts);
+  if (!resolved.grounded) {
+    return {
+      reply:
+        "Open or select two listings so I can compare real fields (price, condition, location, mileage) — I won't rank winners from titles alone.",
+      facts: resolved.facts,
+      titles: resolved.titles,
+      grounded: false,
+    };
+  }
   return {
     reply: summarizeListingComparison(resolved.facts),
     facts: resolved.facts,

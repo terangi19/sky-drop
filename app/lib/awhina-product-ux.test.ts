@@ -168,16 +168,15 @@ describe("listing comparison", () => {
     expect(r.reply?.toLowerCase()).toMatch(/open two|paste|compare/);
   });
 
-  it("compare A and B uses titles only", () => {
+  it("compare A and B without page facts asks for grounded listings", () => {
     const id = conv("ux-compare-ab");
     const r = processCanonicalAwhina("compare PS5 Disc Auckland and Xbox Series S", {
       conversationId: id,
       pathname: "/",
     });
     expect(r.handled).toBe(true);
-    expect(r.reply).toMatch(/PS5 Disc Auckland/);
-    expect(r.reply).toMatch(/Xbox Series S/);
-    expect(r.reply).toMatch(/not listed/);
+    expect(r.reply?.toLowerCase()).toMatch(/open|select|real fields|titles alone/i);
+    expect(r.reply?.toLowerCase()).not.toMatch(/\bcheapest\b|\bbetter\b|\bbest\b/);
   });
 
   it("separates cheapest newest mileage reputation from real fields", () => {

@@ -14,11 +14,18 @@ import {
 import { processCanonicalAwhina } from "./awhina-canonical";
 import { clearSearchSession, searchSessionKey } from "./awhina-search-memory";
 import { clearTaskScope, setActiveTask, taskScopeKey } from "./awhina-task-scope";
-import { clearListingDraftSession, listingDraftSessionKey } from "./awhina-listing-fill-tools";
+import {
+  clearAllListingDraftCacheForTests,
+  clearListingDraftSession,
+  listingDraftSessionKey,
+  processListingFillMessage,
+  reconstructListingDraftBase,
+} from "./awhina-listing-fill-tools";
 import { composeListingTitleAndDescription } from "./awhina-listing-composer";
 import {
   buildGroundedCompareReply,
   resolveGroundedCompare,
+  summarizeListingComparison,
 } from "./awhina-product-ux";
 
 function wipe(id: string) {
@@ -376,5 +383,144 @@ describe("service offering decision — no clarify regression", () => {
     expect(r.resolved).toBe(true);
     expect(r.resolution?.listingType).toBe("service");
     expect(r.combinedMessage).toMatch(/mow lawns/i);
+  });
+});
+
+describe("cross-domain stale-context regressions", () => {
+  beforeEach(() => wipe("cross-domain"));
+
+  it("SERVICE → PHYSICAL: lawn $50 then PS5 $500 — no lawn/service/$50 leak", () => {
+    const id = "cross-domain";
+    const service = processCanonicalAwhina("I mow lawns for $50", {
+      conversationId: id,
+      pathname: "/",
+    });
+    expect(service.listingFill?.listingType).toBe("service");
+    expect(service.listingFill?.price).toBe("50");
+
+    const sell = processCanonicalAwhina("sell my PS5 for $500", {
+      conversationId: id,
+      pathname: "/",
+      listingContext: service.listingFill || null,
+    });
+    expect(sell.listingFill?.price).toBe("500");
+    expect(sell.listingFill?.listingType).not.toBe("service");
+    const blob = JSON.stringify(sell.listingFill || {}).toLowerCase();
+    expect(blob).not.toMatch(/lawn|mow|service/);
+    expect(blob).not.toMatch(/"price"\s*:\s*"50"/);
+    expect(sell._decision?.ignoredStaleContext.join(" ") || "").toMatch(/50|lawn|service/i);
+  });
+
+  it("RENTAL → SELL: trailer $60/day then sell $5000 — no /day/rental state", () => {
+    const id = "cross-domain-rental";
+    wipe(id);
+    const rental = processCanonicalAwhina("rent my trailer for $60/day", {
+      conversationId: id,
+      pathname: "/",
+    });
+    expect(rental.listingFill?.listingType).toBe("rental");
+    expect(rental.listingFill?.price).toBe("60");
+
+    const sell = processCanonicalAwhina("actually sell the trailer for $5000", {
+      conversationId: id,
+      pathname: "/",
+      listingContext: {
+        ...(rental.listingFill || {}),
+        listingType: "rental",
+        price: "60",
+        description: `${rental.listingFill?.description || "Trailer"} $60/day hire`,
+        rentalSubType: "equipment",
+      },
+    });
+    expect(sell.listingFill?.price).toBe("5000");
+    expect(sell.listingFill?.listingType).not.toBe("rental");
+    const blob = JSON.stringify(sell.listingFill || {}).toLowerCase();
+    expect(blob).not.toMatch(/\/\s*day|per\s*day|rentalSubType|hire/);
+    expect(String(sell.listingFill?.rentalSubType || "")).toBe("");
+  });
+
+  it("IPHONE → VEHICLE search: 128GB/$900 must not affect BMW search", () => {
+    const id = "cross-domain-iphone";
+    wipe(id);
+    const sell = processCanonicalAwhina("sell iPhone 15 Pro 128GB for $900", {
+      conversationId: id,
+      pathname: "/",
+    });
+    expect(sell.listingFill?.price).toBe("900");
+    expect(JSON.stringify(sell.listingFill)).toMatch(/128/i);
+
+    const buy = processCanonicalAwhina("find a 2012 BMW under 12k", {
+      conversationId: id,
+      pathname: "/",
+      listingContext: sell.listingFill || null,
+    });
+    expect(buy.tool).toBe("searchListings");
+    expect(buy.navigateTo || "").toMatch(/2012|bmw|12000|12/i);
+    expect(buy.navigateTo || "").not.toMatch(/900|128/);
+    const filters = buy.toolCall?.args?.searchListings?.filters || {};
+    expect(JSON.stringify(filters)).not.toMatch(/900|128gb|iphone/i);
+    expect(buy._decision?.ignoredStaleContext.join(" ") || "").toMatch(/900|128|iphone/i);
+  });
+});
+
+describe("listing draft serverless durability", () => {
+  it("Map is optional cache — cold process reconstructs from listingContext", () => {
+    const key = listingDraftSessionKey({ conversationId: "cold-draft" });
+    clearListingDraftSession(key);
+
+    const turn1 = processListingFillMessage("I mow lawns for $50", {
+      pathname: "/post/ai",
+      sessionKey: key,
+      freshStart: true,
+    });
+    expect(turn1.handled).toBe(true);
+    if (!turn1.handled) return;
+    expect(turn1.listingFill?.price).toBe("50");
+    expect(turn1.listingFill?.listingType).toBe("service");
+
+    // Simulate cold Vercel instance — process memory gone
+    clearAllListingDraftCacheForTests();
+    expect(reconstructListingDraftBase({ sessionKey: key }).price).toBeUndefined();
+
+    const fromClient = reconstructListingDraftBase({
+      sessionKey: key,
+      listingContext: turn1.listingFill || null,
+    });
+    expect(fromClient.price).toBe("50");
+    expect(fromClient.listingType).toBe("service");
+    expect(fromClient.title).toMatch(/lawn/i);
+
+    const turn2 = processListingFillMessage("make it $55 Auckland", {
+      pathname: "/post/ai",
+      sessionKey: key,
+      listingContext: turn1.listingFill || null,
+    });
+    expect(turn2.handled).toBe(true);
+    if (!turn2.handled) return;
+    expect(turn2.listingFill?.price).toBe("55");
+    expect(turn2.listingFill?.listingType).toBe("service");
+    expect(turn2.listingFill?.location).toMatch(/Auckland/i);
+    expect(String(turn2.listingFill?.title || "")).toMatch(/lawn/i);
+  });
+});
+
+describe("compare grounding — no title-only claims", () => {
+  it("titles alone never claim cheapest/best/better", () => {
+    const text = summarizeListingComparison([
+      { title: "BMW 335i Auckland" },
+      { title: "Toyota Corolla Wellington" },
+    ]);
+    expect(text.toLowerCase()).toMatch(/open|select|real fields|titles alone/);
+    expect(text.toLowerCase()).not.toMatch(/\bcheapest\b|\bbest\b|\bbetter\b/);
+  });
+
+  it("buildGroundedCompareReply refuses ungrounded title compare", () => {
+    const { reply, grounded } = buildGroundedCompareReply({
+      message: "compare BMW 335i and Toyota Corolla",
+      pageListings: [],
+    });
+    expect(grounded).toBe(false);
+    expect(reply.toLowerCase()).toMatch(/open|select|titles alone|real fields/);
+    expect(reply.toLowerCase()).not.toMatch(/\bcheapest\b|\bbest\b/);
   });
 });

@@ -61,7 +61,18 @@ export type ListingDraftSession = {
   updatedAt: number;
 };
 
+/**
+ * Optional in-memory warm cache only.
+ * Authoritative draft for multi-turn sell is the client `listingContext`
+ * (reconstructed via {@link reconstructListingDraftBase}). A cold Vercel
+ * instance must not depend on this Map surviving.
+ */
 const sessions = new Map<string, ListingDraftSession>();
+
+/** Test-only: simulate process-memory loss (cold serverless instance). */
+export function clearAllListingDraftCacheForTests(): void {
+  sessions.clear();
+}
 
 const ALLOWED_LISTING_TYPES = new Set([
   "physical",
@@ -487,14 +498,44 @@ function buildTitleAndDescription(
 function contextToFill(ctx: SkyAiListingContext | null | undefined): SkyAiListingFill {
   if (!ctx || !hasActiveListingDraft(ctx)) return {};
   const fill: SkyAiListingFill = {};
-  for (const [k, v] of Object.entries(ctx)) {
+  const src = ctx as SkyAiListingContext & SkyAiListingFill;
+  for (const [k, v] of Object.entries(src)) {
     if (k === "extras" && Array.isArray(v)) {
       fill.extras = v.filter((x): x is string => typeof x === "string");
     } else if (typeof v === "string" && v.trim()) {
       (fill as Record<string, string>)[k] = v.trim();
+    } else if (typeof v === "boolean") {
+      (fill as Record<string, boolean>)[k] = v;
     }
   }
   return fill;
+}
+
+/**
+ * Reconstruct the current draft base for this turn.
+ * Client listingContext is authoritative; the module Map is an optional warm cache
+ * used only to fill gaps when the client omitted a field.
+ */
+export function reconstructListingDraftBase(opts: {
+  listingContext?: SkyAiListingContext | null;
+  sessionKey?: string;
+  /** When true, ignore both cache and client prior draft. */
+  freshStart?: boolean;
+}): SkyAiListingFill {
+  if (opts.freshStart) return {};
+  const fromContext = contextToFill(opts.listingContext);
+  const cacheDraft =
+    opts.sessionKey != null ? getListingDraftSession(opts.sessionKey)?.draft : undefined;
+  if (!cacheDraft || Object.keys(cacheDraft).length === 0) return fromContext;
+  if (Object.keys(fromContext).length === 0) return { ...cacheDraft };
+  // Client wins on every set field; cache only supplies missing keys
+  const base: SkyAiListingFill = { ...cacheDraft, ...fromContext };
+  for (const [k, v] of Object.entries(fromContext)) {
+    if (v !== undefined && v !== null && v !== "") {
+      (base as Record<string, unknown>)[k] = v;
+    }
+  }
+  return base;
 }
 
 export type ListingFillToolResult =
@@ -579,12 +620,11 @@ export function processListingFillMessage(
     clearListingDraftSession(sessionKey);
   }
 
-  const sessionDraft = isNewSellSeed ? undefined : getListingDraftSession(sessionKey)?.draft;
-  const fromContext = isNewSellSeed ? {} : contextToFill(opts.listingContext);
-  const baseDraft: SkyAiListingFill = {
-    ...fromContext,
-    ...(sessionDraft || {}),
-  };
+  const baseDraft: SkyAiListingFill = reconstructListingDraftBase({
+    listingContext: opts.listingContext,
+    sessionKey,
+    freshStart: isNewSellSeed,
+  });
   const hasDraft =
     !isNewSellSeed &&
     (hasActiveListingDraft(opts.listingContext) || Object.keys(baseDraft).length > 0);
@@ -777,6 +817,10 @@ export function processListingFillMessage(
       if (!partial.description) partial.description = seeded.description;
       if (!partial.category && seeded.category) partial.category = seeded.category;
       if (!partial.listingType) partial.listingType = seeded.listingType || typeHint;
+      // Prefer explicit vehicle inference / seeded make over a soft physical default
+      if (typeHint === "vehicle" || seeded.listingType === "vehicle" || seeded.vehicleMake) {
+        partial.listingType = "vehicle";
+      }
       if (partial.listingType === "service" && !partial.servicePricingType) {
         partial.servicePricingType = normalizeServicePricingType(
           undefined,

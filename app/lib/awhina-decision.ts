@@ -21,6 +21,7 @@ import {
   hasSearchIntentLanguage,
   hasServiceOfferingIntent,
   inferSellListingTypeHint,
+  isExplicitNewSellListingMessage,
   resolvePendingClarificationAnswer,
   type ClarificationResolution,
 } from "./sky-ai-intent";
@@ -28,6 +29,62 @@ import { hasActiveListingDraft } from "./sky-ai-draft-merge";
 import type { SkyAiListingContext } from "./sky-ai-types";
 import type { SearchSessionFilters } from "./awhina-search-memory";
 import type { PendingClarification } from "./awhina-task-scope";
+
+/** Values from the current turn that are allowed to appear in outputs. */
+function currentTurnValueSet(entities: AwhinaTurnEntities): Set<string> {
+  const allowed = new Set<string>();
+  const add = (v: string | undefined | null) => {
+    if (v == null || !String(v).trim()) return;
+    const s = String(v).trim().toLowerCase();
+    allowed.add(s);
+    allowed.add(s.replace(/\s+/g, ""));
+  };
+  add(entities.query);
+  add(entities.item);
+  add(entities.price);
+  add(entities.year);
+  add(entities.make);
+  add(entities.model);
+  add(entities.location);
+  add(entities.condition);
+  add(entities.storage);
+  add(entities.maxPrice);
+  add(entities.listingType);
+  return allowed;
+}
+
+/** True when a prior value is already justified by the current turn. */
+function isRelevantToCurrentTurn(
+  value: string,
+  entities: AwhinaTurnEntities,
+  currentBlob: string
+): boolean {
+  const v = value.trim().toLowerCase();
+  if (!v || v.length < 2) return true;
+  const allowed = currentTurnValueSet(entities);
+  if (allowed.has(v) || allowed.has(v.replace(/\s+/g, ""))) return true;
+  if (currentBlob.includes(v)) return true;
+  if (entities.item) {
+    const item = entities.item.toLowerCase();
+    if (v.includes(item) || item.includes(v.slice(0, Math.min(8, v.length)))) return true;
+  }
+  return false;
+}
+
+function pushStaleEntity(
+  stale: string[],
+  label: string,
+  value: string | number | undefined | null,
+  entities: AwhinaTurnEntities,
+  currentBlob: string
+): void {
+  if (value == null || value === "") return;
+  const raw = String(value).trim();
+  if (raw.length < 2) return;
+  if (isRelevantToCurrentTurn(raw, entities, currentBlob)) return;
+  const marker = `${label}=${raw}`;
+  if (!stale.includes(marker)) stale.push(marker);
+}
 
 /** Tools that mutate listing drafts / create listings. */
 export const SELL_TOOLS = [
@@ -193,8 +250,10 @@ export function extractTurnEntities(message: string): AwhinaTurnEntities {
 }
 
 /**
- * Mark prior-task search/draft facts as stale when the user switches tasks.
- * e.g. BMW / 2007 / 15k → ignored on a PS5 sell turn.
+ * Mark prior-task search/draft facts as stale when the user switches tasks or
+ * listing domains. Generic: any prior entity not present/relevant in the
+ * current turn is ignored (product names, prices, years, storage, rental
+ * periods, service pricing, locations, conditions).
  */
 export function collectIgnoredStaleContext(opts: {
   activeTask: AwhinaActiveTask;
@@ -206,58 +265,67 @@ export function collectIgnoredStaleContext(opts: {
 }): string[] {
   const stale: string[] = [];
   const prior = opts.priorTask || "none";
+  const cur = opts.currentEntities;
+  const currentBlob = Object.values(cur)
+    .filter((v) => v != null && String(v).trim())
+    .join(" ")
+    .toLowerCase();
+
+  const draft = opts.listingContext;
+  const draftType = String(draft?.listingType || "").toLowerCase();
+  const curType = (cur.listingType || "").toLowerCase();
+  const typeMismatch =
+    Boolean(draftType && curType && draftType !== curType) &&
+    opts.activeTask === "selling";
+
   const switchingAwayFromShop =
     opts.freshSellStart ||
     (opts.activeTask === "selling" && (prior === "shopping" || prior === "help"));
+  const switchingAwayFromSell =
+    opts.activeTask === "shopping" && prior === "selling";
+  const sellDomainShift =
+    opts.activeTask === "selling" &&
+    (opts.freshSellStart || typeMismatch) &&
+    (prior === "selling" || prior === "shopping" || prior === "help" || prior === "none");
 
-  if (!switchingAwayFromShop) return stale;
+  if (!switchingAwayFromShop && !switchingAwayFromSell && !sellDomainShift && !opts.freshSellStart) {
+    return stale;
+  }
 
   const f = opts.searchFilters;
-  if (f?.make) stale.push(`search.make=${f.make}`);
-  if (f?.model) stale.push(`search.model=${f.model}`);
-  if (f?.year) stale.push(`search.year=${f.year}`);
-  if (f?.maxPrice) stale.push(`search.maxPrice=${f.maxPrice}`);
-  if (f?.minPrice) stale.push(`search.minPrice=${f.minPrice}`);
-  if (f?.query && opts.currentEntities.item) {
-    const q = f.query.toLowerCase();
-    const item = opts.currentEntities.item.toLowerCase();
-    if (!q.includes(item) && !item.includes(q.slice(0, 8))) {
-      stale.push(`search.query=${f.query}`);
-    }
+  if (switchingAwayFromShop || opts.freshSellStart || (switchingAwayFromSell && f)) {
+    pushStaleEntity(stale, "search.make", f?.make, cur, currentBlob);
+    pushStaleEntity(stale, "search.model", f?.model, cur, currentBlob);
+    pushStaleEntity(stale, "search.year", f?.year, cur, currentBlob);
+    pushStaleEntity(stale, "search.maxPrice", f?.maxPrice, cur, currentBlob);
+    pushStaleEntity(stale, "search.minPrice", f?.minPrice, cur, currentBlob);
+    pushStaleEntity(stale, "search.location", f?.location, cur, currentBlob);
+    pushStaleEntity(stale, "search.query", f?.query, cur, currentBlob);
+    pushStaleEntity(stale, "search.condition", f?.condition, cur, currentBlob);
   }
 
-  const draft = opts.listingContext;
-  if (draft && hasActiveListingDraft(draft)) {
-    const draftMake = String(draft.vehicleMake || "").toLowerCase();
-    const curItem = (opts.currentEntities.item || "").toLowerCase();
-    const curMake = (opts.currentEntities.make || "").toLowerCase();
-    if (draftMake && curItem && !curMake && !curItem.includes(draftMake)) {
-      stale.push(`draft.vehicleMake=${draft.vehicleMake}`);
-      if (draft.vehicleModel) stale.push(`draft.vehicleModel=${draft.vehicleModel}`);
-      if (draft.vehicleYear) stale.push(`draft.vehicleYear=${draft.vehicleYear}`);
-      if (draft.price) stale.push(`draft.price=${draft.price}`);
-      if (draft.title) stale.push(`draft.title=${draft.title}`);
+  if (draft && hasActiveListingDraft(draft) && (switchingAwayFromShop || switchingAwayFromSell || sellDomainShift || opts.freshSellStart)) {
+    pushStaleEntity(stale, "draft.title", draft.title, cur, currentBlob);
+    pushStaleEntity(stale, "draft.price", draft.price, cur, currentBlob);
+    pushStaleEntity(stale, "draft.location", draft.location, cur, currentBlob);
+    pushStaleEntity(stale, "draft.condition", draft.condition, cur, currentBlob);
+    pushStaleEntity(stale, "draft.listingType", draft.listingType, cur, currentBlob);
+    pushStaleEntity(stale, "draft.vehicleMake", draft.vehicleMake, cur, currentBlob);
+    pushStaleEntity(stale, "draft.vehicleModel", draft.vehicleModel, cur, currentBlob);
+    pushStaleEntity(stale, "draft.vehicleYear", draft.vehicleYear, cur, currentBlob);
+    pushStaleEntity(stale, "draft.category", draft.category, cur, currentBlob);
+    pushStaleEntity(stale, "draft.rentalSubType", draft.rentalSubType, cur, currentBlob);
+    pushStaleEntity(stale, "draft.rentalPriceWeekly", draft.rentalPriceWeekly, cur, currentBlob);
+    pushStaleEntity(stale, "draft.rentalPriceMonthly", draft.rentalPriceMonthly, cur, currentBlob);
+    pushStaleEntity(stale, "draft.serviceDuration", draft.serviceDuration, cur, currentBlob);
+    // Rental period / service pricing semantics from description
+    const desc = String(draft.description || "");
+    for (const period of desc.match(/\b(?:\/\s*day|per\s*day|daily|weekly|hourly|\/\s*hr|per\s*hour)\b/gi) || []) {
+      pushStaleEntity(stale, "draft.rentalPeriod", period, cur, currentBlob);
     }
-  }
-
-  // Explicit BMW/2007/15k → PS5 style markers when current sell has no vehicle year
-  if (
-    opts.activeTask === "selling" &&
-    opts.currentEntities.item &&
-    !opts.currentEntities.year &&
-    (opts.currentEntities.price || opts.currentEntities.condition)
-  ) {
-    for (const marker of ["2007", "15k", "15000", "bmw", "335i"]) {
-      const inSearch =
-        JSON.stringify(f || {})
-          .toLowerCase()
-          .includes(marker) ||
-        JSON.stringify(draft || {})
-          .toLowerCase()
-          .includes(marker);
-      if (inSearch && !stale.some((s) => s.toLowerCase().includes(marker))) {
-        stale.push(`stale.${marker}`);
-      }
+    // Storage sizes in prior draft title/description (e.g. 128GB)
+    for (const storage of `${draft.title || ""} ${desc}`.match(/\b\d+\s*(?:gb|tb)\b/gi) || []) {
+      pushStaleEntity(stale, "draft.storage", storage.replace(/\s+/g, ""), cur, currentBlob);
     }
   }
 
@@ -413,9 +481,20 @@ export function buildAwhinaDecision(input: BuildAwhinaDecisionInput): AwhinaDeci
     hasSearchIntent: searchLang || stickyShopping,
   });
 
+  const priorDraftType = String(input.listingContext?.listingType || "").toLowerCase();
+  const domainShiftSell =
+    activeTask === "selling" &&
+    priorTask === "selling" &&
+    Boolean(entities.listingType) &&
+    Boolean(priorDraftType) &&
+    entities.listingType !== priorDraftType;
   const freshSellStart =
-    Boolean(explicitSell || (sellIntent && (priorTask === "shopping" || priorTask === "help"))) &&
-    activeTask === "selling";
+    activeTask === "selling" &&
+    Boolean(
+      ((explicitSell || sellIntent) && (priorTask === "shopping" || priorTask === "help")) ||
+        (isExplicitNewSellListingMessage(trimmed) && priorTask === "selling") ||
+        domainShiftSell
+    );
 
   let intent: AwhinaDecisionIntent = input.intentHint || "unknown";
   if (!input.intentHint) {
@@ -548,18 +627,41 @@ export type SelfCheckInput = {
   listingFill?: Record<string, unknown> | null;
   navigateTo?: string;
   reply?: string;
+  /** Profile mutation payload — must not carry unrelated prior-task entities. */
+  profileFill?: Record<string, unknown> | null;
+  /** Raw tool arguments (search filters, draft updates, etc.). */
+  toolArgs?: unknown;
 };
+
+function staleMarkerValue(marker: string): string {
+  const eq = marker.indexOf("=");
+  if (eq >= 0) return marker.slice(eq + 1).trim();
+  return marker.replace(/^(stale|search|draft)\./i, "").trim();
+}
+
+function blobHasStaleToken(blob: string, token: string): boolean {
+  const v = token.toLowerCase();
+  if (!v || v.length < 2) return false;
+  if (/^\d+$/.test(v)) {
+    return new RegExp(`(^|[^\\d])${v}([^\\d]|$)`).test(blob);
+  }
+  if (/^\d+(gb|tb)$/i.test(v)) {
+    return blob.includes(v) || blob.includes(v.replace(/(gb|tb)$/i, " $1"));
+  }
+  return blob.includes(v);
+}
 
 /**
  * Lightweight internal self-check before emitting a tool-backed response.
  * Returns ok=false when stale context leaked or tools violate the decision.
+ * Checks listingFill, search/nav, profile changes, tool args, and reply copy.
  */
 export function selfCheckBeforeToolResponse(input: SelfCheckInput): {
   ok: boolean;
   reasons: string[];
 } {
   const reasons: string[] = [];
-  const { decision, tool, listingFill, navigateTo, reply } = input;
+  const { decision, tool, listingFill, navigateTo, reply, profileFill, toolArgs } = input;
 
   if (tool && !isToolAllowedByDecision(tool, decision)) {
     reasons.push(`blocked_tool:${tool}`);
@@ -573,36 +675,48 @@ export function selfCheckBeforeToolResponse(input: SelfCheckInput): {
     reasons.push("education_nav_messages");
   }
 
-  if (listingFill && decision.ignoredStaleContext.length) {
-    const blob = JSON.stringify(listingFill).toLowerCase();
+  if (decision.ignoredStaleContext.length) {
+    const surfaces: Array<{ name: string; blob: string }> = [];
+    if (listingFill) surfaces.push({ name: "listingFill", blob: JSON.stringify(listingFill).toLowerCase() });
+    if (navigateTo) surfaces.push({ name: "navigate", blob: navigateTo.toLowerCase() });
+    if (reply) surfaces.push({ name: "reply", blob: reply.toLowerCase() });
+    if (profileFill) surfaces.push({ name: "profile", blob: JSON.stringify(profileFill).toLowerCase() });
+    if (toolArgs != null) surfaces.push({ name: "toolArgs", blob: JSON.stringify(toolArgs).toLowerCase() });
+
+    const allowed = currentTurnValueSet(decision.currentTurnEntities);
     for (const marker of decision.ignoredStaleContext) {
-      const val = marker.split("=")[1] || marker.replace(/^stale\./, "");
+      const val = staleMarkerValue(marker);
       if (!val || val.length < 2) continue;
-      // Current-turn price/year may legitimately equal a prior number — skip those
+      const lower = val.toLowerCase();
+      if (allowed.has(lower) || allowed.has(lower.replace(/\s+/g, ""))) continue;
       if (decision.currentTurnEntities.price === val) continue;
       if (
         decision.currentTurnEntities.year === val &&
-        decision.currentTurnEntities.make
+        (decision.currentTurnEntities.make || decision.activeTask === "shopping")
       ) {
         continue;
       }
-      if (blob.includes(val.toLowerCase())) {
-        // Only fail hard on vehicle/search bleed into non-vehicle sell
-        if (
-          /bmw|335i|toyota|mazda|vehicleMake|vehicleYear|2007|15000/i.test(val) &&
-          decision.currentTurnEntities.item &&
-          !decision.currentTurnEntities.make
-        ) {
-          reasons.push(`stale_leak:${marker}`);
-        }
+      for (const surface of surfaces) {
+        if (!blobHasStaleToken(surface.blob, val)) continue;
+        // Skip ultra-short fragments that commonly appear in unrelated words
+        if (val.length < 3 && !/^\d+$/.test(val)) continue;
+        reasons.push(`stale_leak:${surface.name}:${marker}`);
+        break;
       }
     }
-    // BMW year-as-price classic
+
+    // Prior year used as listing price while current turn has a different price
     if (
-      decision.currentTurnEntities.price === "200" &&
-      String(listingFill.price || "") === "2007"
+      listingFill &&
+      decision.currentTurnEntities.price &&
+      String(listingFill.price || "") !== decision.currentTurnEntities.price
     ) {
-      reasons.push("stale_price_2007");
+      const fillPrice = String(listingFill.price || "");
+      const yearStale = decision.ignoredStaleContext.some((m) => {
+        const v = staleMarkerValue(m);
+        return v === fillPrice && /^20[0-2]\d|19[89]\d$/.test(v);
+      });
+      if (yearStale) reasons.push("stale_price_as_year");
     }
   }
 
