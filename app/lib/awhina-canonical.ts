@@ -267,7 +267,10 @@ function naturalPendingSlotAck(
       ? `${n.toLocaleString("en-NZ")} ${unit}`
       : `${partial.vehicleOdometer} ${unit}`;
   }
-  if (slot === "condition" && partial.condition) return partial.condition;
+  if (slot === "condition" && partial.condition) {
+    if (/^new$/i.test(String(partial.condition).trim())) return "brand new";
+    return partial.condition;
+  }
   if (slot === "location" && partial.location) return partial.location;
   if (slot === "colour" && partial.vehicleColour) return partial.vehicleColour;
   if (slot === "transmission" && partial.vehicleTransmission) {
@@ -380,11 +383,19 @@ function applyPendingSlotFill(opts: {
     pendingClarification: pending || undefined,
   });
 
-  const primary = filledSlots[0];
-  const ack = primary
-    ? naturalPendingSlotAck(primary, { ...partial, ...validated.fill, extras: merged.extras }, message)
-    : null;
-  const lead = ack ? `Got it — ${ack}.` : undefined;
+  const ackBits = filledSlots
+    .map((s) =>
+      naturalPendingSlotAck(s, { ...partial, ...validated.fill, extras: merged.extras }, message)
+    )
+    .filter((bit) => Boolean(bit && String(bit).trim()));
+  // De-dupe identical echo fragments
+  const uniqueAck = [...new Set(ackBits)];
+  const lead =
+    uniqueAck.length === 1
+      ? `Got it — ${uniqueAck[0]}.`
+      : uniqueAck.length > 1
+        ? `Got it — ${uniqueAck.join(", ")}.`
+        : undefined;
   const reply = buildReadinessFollowUpReply(validated.fill, { lead });
   void pathname;
   return { fill: validated.fill, reply, pendingClarification: pending };
@@ -1116,29 +1127,41 @@ export function processCanonicalAwhina(
       }
 
       if (slotResult.matched) {
-        let partial: SkyAiListingFill = { ...slotResult.partial };
-        if (partial.extras) {
-          partial.extras = mergeExtras(baseDraft.extras, partial.extras);
-        }
-        if (slotResult.filledSlot === "generation" && baseDraft.vehicleMake) {
-          const fromCompound = extractCompoundListingFacts(trimmed, {
-            activeSlot: "generation",
-            baseDraft,
-          });
-          Object.assign(partial, fromCompound.partial);
-          if (fromCompound.partial.extras) {
-            partial.extras = mergeExtras(baseDraft.extras, fromCompound.partial.extras);
-          }
+        // Pending slot is a HINT — harvest ALL high-confidence facts from the same message.
+        // Do NOT return after filling only the active slot (e.g. "new auckland 200").
+        const fromCompound = extractCompoundListingFacts(trimmed, {
+          activeSlot,
+          baseDraft,
+        });
+        let partial: SkyAiListingFill = {
+          ...fromCompound.partial,
+          ...slotResult.partial,
+        };
+        if (fromCompound.partial.extras || slotResult.partial.extras || baseDraft.extras) {
+          partial.extras = mergeExtras(
+            mergeExtras(baseDraft.extras, fromCompound.partial.extras),
+            slotResult.partial.extras
+          );
         }
         // Tag odometer unit from message / km question context (no new regex)
-        if (slotResult.filledSlot === "odometer" && partial.vehicleOdometer) {
+        if (
+          (slotResult.filledSlot === "odometer" || fromCompound.filledSlots.includes("odometer")) &&
+          (partial.vehicleOdometer || fromCompound.partial.vehicleOdometer)
+        ) {
           const unit = /\b(miles?|mi)\b/i.test(trimmed) ? "mi" : "km";
           partial.extras = mergeExtras(partial.extras, [`odometerUnit:${unit}`]);
+        }
+        const filledSlots: ListingMissingSlot[] = [];
+        for (const s of [
+          ...(slotResult.filledSlot ? [slotResult.filledSlot] : [activeSlot]),
+          ...fromCompound.filledSlots,
+        ]) {
+          if (!filledSlots.includes(s)) filledSlots.push(s);
         }
         const applied = applyPendingSlotFill({
           base: baseDraft,
           partial,
-          filledSlots: slotResult.filledSlot ? [slotResult.filledSlot] : [activeSlot],
+          filledSlots,
           message: trimmed,
           sessionKey,
           scopeKey,
@@ -1181,18 +1204,9 @@ export function processCanonicalAwhina(
             pathname,
           });
           if (applied) {
-            const primary = extracted.filledSlots[0];
-            const ackBits = extracted.filledSlots.map((s) =>
-              naturalPendingSlotAck(s, extracted.partial, trimmed)
-            );
-            const lead =
-              ackBits.length === 1
-                ? `Got it — ${ackBits[0]}.`
-                : `Got it — ${ackBits.join(", ")}.`;
-            const reply = buildReadinessFollowUpReply(applied.fill, { lead });
             return finish({
               handled: true,
-              reply,
+              reply: applied.reply,
               listingFill: applied.fill,
               navigateTo: onSellPage ? undefined : "/post/ai",
               source: "tool",

@@ -172,6 +172,177 @@ describe("compound sell turns — generalized domains", () => {
   });
 });
 
+describe("compound multi-field pending-slot replies", () => {
+  it("PS5 exact: 200 new auckland fills price + condition + location", () => {
+    const id = "compound-ps5-e2e";
+    wipe(id);
+    const t1 = processCanonicalAwhina("sell my ps5", {
+      conversationId: id,
+      pathname: "/post/ai",
+    });
+    expect(t1.handled).toBe(true);
+    expect(String(t1.listingFill?.title || "")).toMatch(/ps5|playstation/i);
+    expect(String(t1.reply || "")).toMatch(/price|condition|location/i);
+
+    const t2 = processCanonicalAwhina("200 new auckland", {
+      conversationId: id,
+      pathname: "/post/ai",
+      listingContext: t1.listingFill as never,
+    });
+    expect(t2.handled).toBe(true);
+    expect(String(t2.listingFill?.price || "")).toBe("200");
+    expect(String(t2.listingFill?.condition || "")).toMatch(/^New$/i);
+    expect(String(t2.listingFill?.location || "")).toMatch(/Auckland/i);
+    expect(String(t2.reply || "")).toMatch(/\$200/);
+    expect(String(t2.reply || "")).toMatch(/brand new/i);
+    expect(String(t2.reply || "")).toMatch(/Auckland/i);
+    expect(String(t2.reply || "")).not.toMatch(/What condition|asking price|Where is it located/i);
+    expect(t2.sessionState?.pendingSlot).not.toBe("price");
+    expect(t2.sessionState?.pendingSlot).not.toBe("condition");
+    expect(t2.sessionState?.pendingSlot).not.toBe("location");
+  });
+
+  it("new auckland 200 still merges all three when condition is active", () => {
+    const id = "compound-ps5-reorder";
+    wipe(id);
+    const t1 = processCanonicalAwhina("sell my ps5", {
+      conversationId: id,
+      pathname: "/post/ai",
+    });
+    const t2 = processCanonicalAwhina("new auckland 200", {
+      conversationId: id,
+      pathname: "/post/ai",
+      listingContext: t1.listingFill as never,
+    });
+    expect(String(t2.listingFill?.price || "")).toBe("200");
+    expect(String(t2.listingFill?.condition || "")).toMatch(/^New$/i);
+    expect(String(t2.listingFill?.location || "")).toMatch(/Auckland/i);
+  });
+
+  it("phone: 256gb used 900 hamilton", () => {
+    const id = "compound-phone-multi";
+    wipe(id);
+    const t1 = processCanonicalAwhina("sell iPhone 14", {
+      conversationId: id,
+      pathname: "/post/ai",
+    });
+    const t2 = processCanonicalAwhina("256gb used 900 hamilton", {
+      conversationId: id,
+      pathname: "/post/ai",
+      listingContext: t1.listingFill as never,
+    });
+    expect(t2.listingFill?.price).toBe("900");
+    expect(String(t2.listingFill?.condition || "")).toMatch(/used|good/i);
+    expect(String(t2.listingFill?.location || "")).toMatch(/Hamilton/i);
+    expect((t2.listingFill?.extras || []).join(" ")).toMatch(/256\s*GB/i);
+  });
+
+  it("vehicle: 1999 190k manual black 50k auckland", () => {
+    const id = "compound-vehicle-multi";
+    wipe(id);
+    const t1 = processCanonicalAwhina("sell my toyota corolla", {
+      conversationId: id,
+      pathname: "/post/ai",
+    });
+    const t2 = processCanonicalAwhina("1999 190k manual black 50k auckland", {
+      conversationId: id,
+      pathname: "/post/ai",
+      listingContext: t1.listingFill as never,
+    });
+    expect(String(t2.listingFill?.vehicleYear || "")).toBe("1999");
+    expect(String(t2.listingFill?.vehicleOdometer || "")).toBe("190000");
+    expect(String(t2.listingFill?.vehicleTransmission || "")).toMatch(/Manual/i);
+    expect(String(t2.listingFill?.vehicleColour || "")).toMatch(/Black/i);
+    expect(String(t2.listingFill?.price || "")).toBe("50000");
+    expect(String(t2.listingFill?.location || "")).toMatch(/Auckland/i);
+  });
+
+  it("card: psa 10 numbered 25 300", () => {
+    const id = "compound-card-multi";
+    wipe(id);
+    const t1 = processCanonicalAwhina("sell pokemon charizard card", {
+      conversationId: id,
+      pathname: "/post/ai",
+    });
+    const t2 = processCanonicalAwhina("psa 10 numbered 25 300", {
+      conversationId: id,
+      pathname: "/post/ai",
+      listingContext: t1.listingFill as never,
+    });
+    expect((t2.listingFill?.extras || []).join(" ")).toMatch(/PSA\s*10/i);
+    expect((t2.listingFill?.extras || []).join(" ")).toMatch(/numbered:25/i);
+    expect(String(t2.listingFill?.price || "")).toBe("300");
+  });
+
+  it("service: 50 an hour auckland", () => {
+    const id = "compound-service-hourly";
+    wipe(id);
+    const t1 = processCanonicalAwhina("I offer handyman services", {
+      conversationId: id,
+      pathname: "/post/ai",
+    });
+    const t2 = processCanonicalAwhina("50 an hour auckland", {
+      conversationId: id,
+      pathname: "/post/ai",
+      listingContext: (t1.listingFill || {
+        title: "Handyman",
+        listingType: "service",
+      }) as never,
+    });
+    expect(String(t2.listingFill?.price || "")).toBe("50");
+    expect(String(t2.listingFill?.location || "")).toMatch(/Auckland/i);
+  });
+
+  it("rental: 60 a day henderson", () => {
+    const id = "compound-rental-henderson";
+    wipe(id);
+    const t1 = processCanonicalAwhina("rent my trailer for hire", {
+      conversationId: id,
+      pathname: "/post/ai",
+    });
+    const t2 = processCanonicalAwhina("60 a day henderson", {
+      conversationId: id,
+      pathname: "/post/ai",
+      listingContext: (t1.listingFill || {
+        title: "Trailer",
+        listingType: "rental",
+      }) as never,
+    });
+    expect(
+      t2.listingFill?.price === "60" || t2.listingFill?.rentalPriceDaily === "60"
+    ).toBe(true);
+    expect(String(t2.listingFill?.location || "")).toMatch(/Henderson/i);
+  });
+
+  it("write a better description is edit command, not listing data", () => {
+    const id = "compound-desc-edit";
+    wipe(id);
+    const t1 = processCanonicalAwhina("sell my ps5", {
+      conversationId: id,
+      pathname: "/post/ai",
+    });
+    const t2 = processCanonicalAwhina("200 new auckland", {
+      conversationId: id,
+      pathname: "/post/ai",
+      listingContext: t1.listingFill as never,
+    });
+    const before = {
+      price: t2.listingFill?.price,
+      condition: t2.listingFill?.condition,
+      location: t2.listingFill?.location,
+    };
+    const t3 = processCanonicalAwhina("write a better description", {
+      conversationId: id,
+      pathname: "/post/ai",
+      listingContext: t2.listingFill as never,
+    });
+    expect(t3.listingFill?.price).toBe(before.price);
+    expect(t3.listingFill?.condition).toBe(before.condition);
+    expect(t3.listingFill?.location).toBe(before.location);
+    expect(String(t3.listingFill?.description || "").trim().length).toBeGreaterThan(10);
+  });
+});
+
 describe("active-draft command grammar", () => {
   it("strips write description and keeps residual facts", () => {
     const r = detectActiveDraftCommands("r34 gtr write a good description");

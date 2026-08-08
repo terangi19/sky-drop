@@ -892,20 +892,20 @@ export function processListingFillMessage(
           };
         }
         if (slotResult.matched) {
-          const partial = { ...slotResult.partial };
-          if (partial.extras) {
-            partial.extras = mergeExtras(baseDraftEarly.extras, partial.extras);
-          }
-          // Generation short answers need base identity
-          if (slotResult.filledSlot === "generation" && baseDraftEarly.vehicleMake) {
-            const fromCompound = extractCompoundListingFacts(trimmed, {
-              activeSlot: "generation",
-              baseDraft: baseDraftEarly,
-            });
-            Object.assign(partial, fromCompound.partial);
-            if (fromCompound.partial.extras) {
-              partial.extras = mergeExtras(baseDraftEarly.extras, fromCompound.partial.extras);
-            }
+          // Pending slot is a HINT — also harvest sibling facts from the same message.
+          const fromCompound = extractCompoundListingFacts(trimmed, {
+            activeSlot: activeSlotEarly,
+            baseDraft: baseDraftEarly,
+          });
+          const partial: SkyAiListingFill = {
+            ...fromCompound.partial,
+            ...slotResult.partial,
+          };
+          if (fromCompound.partial.extras || slotResult.partial.extras || baseDraftEarly.extras) {
+            partial.extras = mergeExtras(
+              mergeExtras(baseDraftEarly.extras, fromCompound.partial.extras),
+              slotResult.partial.extras
+            );
           }
           let merged: SkyAiListingFill = {
             ...hydrateVehicleGeneration(baseDraftEarly),
@@ -914,6 +914,13 @@ export function processListingFillMessage(
           if (partial.extras) merged.extras = partial.extras;
           if (baseDraftEarly.vehicleGeneration && !partial.vehicleGeneration) {
             merged.vehicleGeneration = baseDraftEarly.vehicleGeneration;
+          }
+          if (baseDraftEarly.price && !partial.price) merged.price = baseDraftEarly.price;
+          if (baseDraftEarly.condition && !partial.condition) {
+            merged.condition = baseDraftEarly.condition;
+          }
+          if ((baseDraftEarly.location || baseDraftEarly.pickupArea) && !partial.location) {
+            merged.location = baseDraftEarly.location || baseDraftEarly.pickupArea;
           }
           merged = hydrateVehicleGeneration(merged) as SkyAiListingFill;
           delete merged.replaceDraft;
@@ -945,9 +952,46 @@ export function processListingFillMessage(
           }
           rememberListingDraft(sessionKeyEarly, validated.fill);
           const pending = buildListingSlotPending(validated.fill, trimmed);
-          const reply = buildReadinessFollowUpReply(validated.fill, {
-            lead: `Got it — ${slotResult.filledSlot?.replace(/_/g, " ")} updated.`,
-          });
+          const filledSlots = [
+            ...(slotResult.filledSlot ? [slotResult.filledSlot] : [activeSlotEarly]),
+            ...fromCompound.filledSlots,
+          ].filter((s, i, arr) => s && arr.indexOf(s) === i);
+          const ackBits = filledSlots
+            .map((s) => {
+              if (s === "price" && (partial.price || validated.fill.price)) {
+                const n = Number(String(partial.price || validated.fill.price).replace(/[^\d.]/g, ""));
+                return Number.isFinite(n) ? `$${Math.round(n).toLocaleString("en-NZ")}` : null;
+              }
+              if (s === "condition" && (partial.condition || validated.fill.condition)) {
+                const c = partial.condition || validated.fill.condition || "";
+                return /^new$/i.test(c) ? "brand new" : c;
+              }
+              if (s === "location" && (partial.location || validated.fill.location)) {
+                return partial.location || validated.fill.location;
+              }
+              if (s === "odometer" && (partial.vehicleOdometer || validated.fill.vehicleOdometer)) {
+                return String(partial.vehicleOdometer || validated.fill.vehicleOdometer);
+              }
+              if (s === "year" && (partial.vehicleYear || validated.fill.vehicleYear)) {
+                return String(partial.vehicleYear || validated.fill.vehicleYear);
+              }
+              if (s === "storage" || s === "grade" || s === "size" || s === "variant") {
+                const e = (partial.extras || validated.fill.extras || []).find((x) =>
+                  x.toLowerCase().startsWith(`${s}:`)
+                );
+                return e ? e.slice(e.indexOf(":") + 1).trim() : null;
+              }
+              return null;
+            })
+            .filter(Boolean) as string[];
+          const uniqueAck = [...new Set(ackBits)];
+          const lead =
+            uniqueAck.length === 1
+              ? `Got it — ${uniqueAck[0]}.`
+              : uniqueAck.length > 1
+                ? `Got it — ${uniqueAck.join(", ")}.`
+                : `Got it — updated.`;
+          const reply = buildReadinessFollowUpReply(validated.fill, { lead });
           return finishFill(reply, validated.fill, "listing_update", pending || undefined);
         }
       }

@@ -868,16 +868,21 @@ export function extractCompoundListingFacts(
     residual = residual.replace(sizeMatch[0], " ").replace(/\s+/g, " ").trim();
   }
 
-  // Condition
-  if (
+  // Condition — including bare "new" / "used" in compound replies ("200 new auckland")
+  const conditionHit =
     /\bbrand\s*new\b|\blike\s*new\b|\b(new|used|good|fair|mint|excellent)\s+condition\b|\bcondition\s*(?:is\s*)?(new|used|good|fair|mint)/i.test(
       residual
     ) ||
-    /\b(brand\s*new|like\s*new|excellent|mint)\b/i.test(residual)
-  ) {
+    /\b(brand\s*new|like\s*new|excellent|mint)\b/i.test(residual) ||
+    (/\b(new|used|good|fair|mint|excellent|sealed|unopened)\b/i.test(residual) &&
+      !/\bnew\s+zealand\b/i.test(residual));
+  if (conditionHit) {
     const raw = residual.toLowerCase();
     let condition = "Used - Good";
-    if (/brand\s*new|sealed|unopened|(?:^|[^\w])new(?:\s+condition)?\b/.test(raw) && !/new\s+zealand/.test(raw)) {
+    if (
+      /brand\s*new|sealed|unopened|(?:^|[^\w])new(?:\s+condition)?\b/.test(raw) &&
+      !/new\s+zealand/.test(raw)
+    ) {
       condition = "New";
     } else if (/like\s*new|mint|excellent/.test(raw)) {
       condition = "Used - Like New";
@@ -888,92 +893,87 @@ export function extractCompoundListingFacts(
     }
     partial.condition = condition;
     filledSlots.push("condition");
-    notes.push(`condition ${condition}`);
+    notes.push(condition === "New" ? "brand new" : condition);
     residual = residual
       .replace(/\bbrand\s*new\b/gi, " ")
       .replace(/\blike\s*new\b/gi, " ")
       .replace(/\b(good|fair|mint|excellent|used|new)\s+condition\b/gi, " ")
       .replace(/\bcondition\s*(?:is\s*)?(new|used|good|fair|mint|excellent)\b/gi, " ")
       .replace(/\b(brand\s*new|like\s*new|excellent|mint)\b/gi, " ")
+      // Bare condition tokens in compound turns (do not strip "new" from New Zealand — already guarded)
+      .replace(/\b(new|used|good|fair|mint|excellent|sealed|unopened)\b/gi, " ")
       .replace(/\s+/g, " ")
       .trim();
   }
 
-  // Price $900 / 900 bucks / 60 a day / 50 per lawn / bare 50k when price slot pending
+  // Missing-slot awareness: pendingSlot is a hint — still harvest other missing facts
+  const missingFromBase = computeMissingListingSlots({
+    ...base,
+    ...partial,
+    extras: mergeExtras(base.extras, partial.extras),
+  } as Partial<SkyAiListingFill>);
+
+  // Colour (vehicles / explicit colour words in compound replies)
+  const colourMatch = residual.match(
+    /\b(black|white|silver|grey|gray|blue|red|green|yellow|orange|brown|gold|beige|purple|pink|bronze|maroon|navy)\b/i
+  );
+  if (
+    colourMatch &&
+    (opts?.activeSlot === "colour" ||
+      domain === "vehicle" ||
+      missingFromBase.includes("colour"))
+  ) {
+    const c = colourMatch[1];
+    partial.vehicleColour = c.charAt(0).toUpperCase() + c.slice(1).toLowerCase();
+    filledSlots.push("colour");
+    notes.push(`colour ${partial.vehicleColour}`);
+    residual = residual.replace(colourMatch[0], " ").replace(/\s+/g, " ").trim();
+  }
+
   const priceSlotPending =
     opts?.activeSlot === "price" ||
     opts?.activeSlot === "rental_rate" ||
     opts?.activeSlot === "service_rate";
-  const priceMatch =
-    residual.match(/\$\s*([\d,]+(?:\.\d{1,2})?)\s*(k)?/i) ||
-    residual.match(
-      /\b([\d,]+(?:\.\d{1,2})?)\s*(k)?\s*(?:bucks|nzd|dollars?)\b/i
-    ) ||
-    residual.match(
-      /\b([\d,]+(?:\.\d{1,2})?)\s*(?:\/\s*day|a\s+day|per\s+day|\/day|per\s+lawn|\/lawn)\b/i
-    ) ||
-    residual.match(/\bmake\s+(?:it\s+)?\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(k)?\b/i) ||
-    residual.match(/\b(?:for|at)\s+\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(k)?\b/i) ||
-    // Pending price slot: bare "50k" / "15k" is asking price, not odometer
-    (priceSlotPending
-      ? residual.match(/^\s*([\d,]+(?:\.\d{1,2})?)\s*(k)\s*$/i)
-      : null);
-  if (priceMatch) {
-    let n = Number(String(priceMatch[1]).replace(/,/g, ""));
-    const kFlag = priceMatch[2];
-    if (kFlag && /^k$/i.test(String(kFlag))) n *= 1000;
-    if (Number.isFinite(n) && n >= 1 && n <= 10_000_000) {
-      const rateLike =
-        domain === "rental" ||
-        /\b(?:\/\s*day|a\s+day|per\s+day|\/day)\b/i.test(message);
-      const serviceLike =
-        domain === "service" || /\bper\s+lawn|\/lawn\b/i.test(message);
-      if (rateLike) {
-        partial.rentalPriceDaily = String(Math.round(n));
-        partial.price = String(Math.round(n));
-        filledSlots.push("rental_rate");
-      } else if (serviceLike) {
-        partial.price = String(Math.round(n));
-        filledSlots.push("service_rate");
-      } else {
-        partial.price = String(Math.round(n));
-        filledSlots.push("price");
-      }
-      notes.push(`price $${Math.round(n)}`);
-      residual = residual.replace(priceMatch[0], " ").replace(/\s+/g, " ").trim();
-    }
+  const priceNeeded =
+    priceSlotPending ||
+    missingFromBase.includes("price") ||
+    missingFromBase.includes("rental_rate") ||
+    missingFromBase.includes("service_rate") ||
+    (!base.price && !partial.price);
+
+  // Card "numbered 25" — consume before bare price so 300 remains the price
+  const numberedMatch = residual.match(/\bnumbered\s+(\d{1,4})\b/i);
+  if (numberedMatch) {
+    partial.extras = mergeExtras(partial.extras || base.extras, [
+      `numbered:${numberedMatch[1]}`,
+    ]);
+    notes.push(`numbered ${numberedMatch[1]}`);
+    residual = residual.replace(numberedMatch[0], " ").replace(/\s+/g, " ").trim();
   }
 
-  // Location
-  const locMatch = residual.match(
-    /\b(auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston\s+north|rotorua|queenstown|nelson|whangarei)\b/i
-  );
-  if (locMatch) {
-    const city = locMatch[1]
-      .split(/\s+/)
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-      .join(" ");
-    partial.location = city;
-    filledSlots.push("location");
-    notes.push(`location ${city}`);
-    residual = residual.replace(locMatch[0], " ").replace(/\s+/g, " ").trim();
-  }
-
-  // Year
+  // Year before price/odo so "1999 190k … 50k" keeps year out of price
   const yearMatch = residual.match(/\b((?:19|20)\d{2})\b/);
-  if (yearMatch) {
+  if (
+    yearMatch &&
+    (domain === "vehicle" ||
+      opts?.activeSlot === "year" ||
+      missingFromBase.includes("year"))
+  ) {
     partial.vehicleYear = yearMatch[1];
     filledSlots.push("year");
     notes.push(`year ${yearMatch[1]}`);
     residual = residual.replace(yearMatch[0], " ").replace(/\s+/g, " ").trim();
   }
 
-  // Odometer — never steal bare "50k" while asking price.
-  // Accept: explicit distance units, odometer slot, or "140k miles"
+  // Odometer before bare price — first "190k" is odo when vehicle / odo missing
+  const odoNeeded =
+    opts?.activeSlot === "odometer" ||
+    missingFromBase.includes("odometer") ||
+    (domain === "vehicle" && !base.vehicleOdometer && !partial.vehicleOdometer);
   const odoMiles = residual.match(
-    /^\s*([\d,]+)\s*k\s*(?:miles?|mi|km|kms|kilometers|kilometres)\s*$/i
+    /\b([\d,]+)\s*k\s*(?:miles?|mi|km|kms|kilometers|kilometres)\b/i
   );
-  if (odoMiles) {
+  if (odoMiles && (odoNeeded || opts?.activeSlot === "odometer")) {
     const n = Number(odoMiles[1].replace(/,/g, "")) * 1000;
     if (n >= 100 && n < 2_000_000) {
       partial.vehicleOdometer = String(Math.round(n));
@@ -981,15 +981,16 @@ export function extractCompoundListingFacts(
       notes.push(`odometer ${partial.vehicleOdometer}`);
       residual = residual.replace(odoMiles[0], " ").replace(/\s+/g, " ").trim();
     }
-  } else {
+  } else if (odoNeeded && !priceSlotPending) {
+    // Prefer the first k-token as odometer when multiple remain (190k … 50k → odo then price)
     const odoMatch = residual.match(
       /\b([\d,]+)\s*(k|km|kms|kilometers|kilometres|miles?|mi)\b/i
     );
-    if (odoMatch && !priceSlotPending) {
+    if (odoMatch) {
       const unit = String(odoMatch[2]);
       const bareK = /^k$/i.test(unit);
       const distanceUnit = /^(km|kms|kilometers|kilometres|miles?|mi)$/i.test(unit);
-      if (!bareK || distanceUnit || opts?.activeSlot === "odometer") {
+      if (!bareK || distanceUnit || opts?.activeSlot === "odometer" || odoNeeded) {
         let n = Number(odoMatch[1].replace(/,/g, ""));
         if (bareK) n *= 1000;
         if (n >= 100 && n < 2_000_000) {
@@ -1000,6 +1001,80 @@ export function extractCompoundListingFacts(
         }
       }
     }
+  }
+
+  // Price $900 / 900 bucks / 60 a day / 50 an hour / bare 200 in compound turns
+  const priceMatch =
+    residual.match(/\$\s*([\d,]+(?:\.\d{1,2})?)\s*(k)?/i) ||
+    residual.match(
+      /\b([\d,]+(?:\.\d{1,2})?)\s*(k)?\s*(?:bucks|nzd|dollars?)\b/i
+    ) ||
+    residual.match(
+      /\b([\d,]+(?:\.\d{1,2})?)\s*(?:\/\s*day|a\s+day|per\s+day|\/day|per\s+lawn|\/lawn|an?\s+hour|per\s+hour|\/\s*hr|\/hr)\b/i
+    ) ||
+    residual.match(/\bmake\s+(?:it\s+)?\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(k)?\b/i) ||
+    residual.match(/\b(?:for|at)\s+\$?\s*([\d,]+(?:\.\d{1,2})?)\s*(k)?\b/i) ||
+    // Price needed: bare "50k" / "15k" is asking price (after odo already consumed)
+    (priceNeeded
+      ? residual.match(/\b([\d,]+(?:\.\d{1,2})?)\s*(k)\b/i)
+      : null) ||
+    // Compound / missing-price: bare "200" / "900" (not year-like alone)
+    (priceNeeded
+      ? residual.match(/\b([\d,]+(?:\.\d{1,2})?)\b(?!\s*(?:gb|tb|k\b|km|miles?|mi)\b)/i)
+      : null);
+  if (priceMatch) {
+    let n = Number(String(priceMatch[1]).replace(/,/g, ""));
+    const kFlag = priceMatch[2];
+    if (kFlag && /^k$/i.test(String(kFlag))) n *= 1000;
+    // Don't treat a lone year as price when year slot just filled or still pending
+    const yearLike =
+      !kFlag &&
+      n >= 1980 &&
+      n <= new Date().getFullYear() + 1 &&
+      (filledSlots.includes("year") ||
+        missingFromBase.includes("year") ||
+        opts?.activeSlot === "year");
+    if (!yearLike && Number.isFinite(n) && n >= 1 && n <= 10_000_000) {
+      const rateLike =
+        domain === "rental" ||
+        /\b(?:\/\s*day|a\s+day|per\s+day|\/day)\b/i.test(message);
+      const serviceLike =
+        domain === "service" ||
+        /\bper\s+lawn|\/lawn|an?\s+hour|per\s+hour|\/\s*hr|\/hr\b/i.test(message);
+      if (rateLike) {
+        partial.rentalPriceDaily = String(Math.round(n));
+        partial.price = String(Math.round(n));
+        filledSlots.push("rental_rate");
+      } else if (serviceLike) {
+        partial.price = String(Math.round(n));
+        if (!partial.servicePricingType) {
+          partial.servicePricingType = /hour|\/\s*hr|\/hr/i.test(message)
+            ? "Hourly Rate"
+            : "Fixed Price";
+        }
+        filledSlots.push("service_rate");
+      } else {
+        partial.price = String(Math.round(n));
+        filledSlots.push("price");
+      }
+      notes.push(`$${Math.round(n)}`);
+      residual = residual.replace(priceMatch[0], " ").replace(/\s+/g, " ").trim();
+    }
+  }
+
+  // Location
+  const locMatch = residual.match(
+    /\b(auckland|wellington|christchurch|hamilton|tauranga|dunedin|napier|palmerston\s+north|rotorua|queenstown|nelson|whangarei|henderson|manukau|albany|newmarket|takapuna|ponsonby|remuera|howick|botany|papakura|waitakere|north\s+shore)\b/i
+  );
+  if (locMatch) {
+    const city = locMatch[1]
+      .split(/\s+/)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(" ");
+    partial.location = city;
+    filledSlots.push("location");
+    notes.push(city);
+    residual = residual.replace(locMatch[0], " ").replace(/\s+/g, " ").trim();
   }
 
   // Transmission / fuel
