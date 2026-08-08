@@ -76,6 +76,7 @@ import {
   offersDisabledForService,
   normalizeServicePricingType,
 } from "../../lib/service-pricing";
+import { formatListingPriceDisplay } from "../../lib/listing-price-display";
 import { compressImage, generateThumbnail, type CompressedImage, type Thumbnail } from "../../lib/image-optimization";
 import { withTimeout } from "../../lib/with-timeout";
 import { getClientCsrfToken } from "../../lib/csrf-client";
@@ -217,6 +218,8 @@ export default function AIPostPage() {
   /** Mobile workspace: conversation is primary; listing is the draft pane */
   const [mobileWorkspaceTab, setMobileWorkspaceTab] = useState<"chat" | "listing">("chat");
   const [liveFieldNotes, setLiveFieldNotes] = useState<string[]>([]);
+  /** Manual form opens via Edit details — default clean preview when draft exists */
+  const [showManualEditor, setShowManualEditor] = useState(false);
   const awhinaConversation = useAwhinaConversation();
   const handoffBootstrapped = useRef(false);
   const [draftExtras, setDraftExtras] = useState<string[]>([]);
@@ -352,11 +355,16 @@ export default function AIPostPage() {
   );
 
   const openManualEditor = () => {
+    setShowManualEditor(true);
     setMobileWorkspaceTab("listing");
     setTimeout(() => {
       document.getElementById("manual-listing-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
       document.getElementById("listing-title")?.focus();
     }, 50);
+  };
+
+  const closeManualEditor = () => {
+    setShowManualEditor(false);
   };
 
   const photoSubject = useMemo(() => {
@@ -440,17 +448,21 @@ export default function AIPostPage() {
     "";
 
   const marketplacePrice = (() => {
-    if (listingType === "service" && servicePricingType === "request_quote") return "Quote required";
-    if (!String(price || "").trim()) return "";
-    const n = Number(price);
-    if (!Number.isFinite(n)) return `${price}`;
-    const suffix =
-      listingType === "service" && servicePricingType === "hourly"
-        ? "/hr"
-        : listingType === "rental"
-          ? "/day"
-          : "";
-    return `${n.toLocaleString()}${suffix}`;
+    const hasPrice = String(price || "").trim() !== "";
+    const isQuoteService =
+      listingType === "service" &&
+      normalizeServicePricingType(servicePricingType, price) === "request_quote";
+    if (!hasPrice && !isQuoteService) return "";
+    return formatListingPriceDisplay({
+      type: listingType,
+      price,
+      servicePricingType,
+      rentalSubType,
+      rentalPriceWeekly,
+      rentalPriceMonthly,
+      rentalDeposit,
+      rentalAvailableDate,
+    });
   })();
 
   const marketplaceMeta = (() => {
@@ -1923,7 +1935,7 @@ export default function AIPostPage() {
           <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-zinc-500">
             {editId
               ? "Update details, photos, and publish when you're ready."
-              : "Tell Āwhina what you're selling and we'll build it together."}
+              : "Tell Āwhina what you're selling — or tap Edit details to fill the form yourself."}
           </p>
         </header>
 
@@ -2043,6 +2055,25 @@ export default function AIPostPage() {
                     Review listing
                   </button>
                 ) : null}
+                {!showManualEditor ? (
+                  <button
+                    type="button"
+                    onClick={openManualEditor}
+                    data-testid={hasDraftContent ? "edit-details-listing" : "edit-details-empty"}
+                    className="text-sm font-medium text-zinc-400 underline-offset-4 transition hover:text-white hover:underline"
+                  >
+                    Edit details
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={closeManualEditor}
+                    data-testid="done-editing"
+                    className="text-sm font-medium text-zinc-500 transition hover:text-zinc-300"
+                  >
+                    Done editing
+                  </button>
+                )}
                 {awhinaIsAsking ? (
                   <button
                     type="button"
@@ -2056,17 +2087,29 @@ export default function AIPostPage() {
             </div>
           )}
 
-        {/* Full manual form — always visible */}
+        {/* Full manual form — opens via Edit details (same draft state) */}
         <div
           id="manual-listing-form"
-          className="mt-2 block"
+          className={`${!editId && !showManualEditor ? "hidden" : "mt-2 block"}`}
         >
         <div className="rounded-2xl border border-white/[0.08] bg-zinc-900/45 p-4 sm:p-5">
-        {!editId && (
+        {!editId && showManualEditor && (
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">Listing details</p>
+            <button
+              type="button"
+              onClick={closeManualEditor}
+              className="text-[11px] font-medium text-zinc-500 transition hover:text-zinc-300"
+            >
+              Done editing
+            </button>
+          </div>
+        )}
+        {editId ? (
           <div className="mb-5">
             <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">Listing details</p>
           </div>
-        )}
+        ) : null}
 
         <div className="space-y-6">
           <div className="space-y-2.5">

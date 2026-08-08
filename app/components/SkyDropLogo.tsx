@@ -141,8 +141,8 @@ export function SkyDropWordmark({
         <span className="sky-drop-logo-drop sky-drop-logo-drop-glow font-bold">DROP</span>
       </span>
       {showMicroTag && (
-        <span className="sky-drop-logo-tag mt-1.5 flex items-center gap-1.5 text-[8px] font-semibold uppercase tracking-[0.28em] text-sky-400/55">
-          <span className="h-px w-3 bg-gradient-to-r from-sky-400/70 to-sky-400/40" aria-hidden />
+        <span className="sky-drop-logo-tag mt-1.5 flex items-center gap-1.5 text-[8px] font-semibold uppercase tracking-[0.28em]">
+          <span className="sky-drop-logo-tag-rule h-px w-3" aria-hidden />
           NZ
         </span>
       )}
@@ -183,7 +183,7 @@ export default function SkyDropLogo({
     </div>
   ) : (
     <div
-      className={`relative flex-shrink-0 border border-white/[0.07] bg-gradient-to-b from-white/[0.07] to-white/[0.02] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_1px_2px_rgba(0,0,0,0.2)] ${s.frame} ${s.badge}`}
+      className={`sky-drop-logo-mark-frame relative flex-shrink-0 border shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_1px_2px_rgba(0,0,0,0.12)] light:shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_1px_2px_rgba(15,23,42,0.08)] ${s.frame} ${s.badge}`}
     >
       {interactive && (
         <div
