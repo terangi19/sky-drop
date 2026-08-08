@@ -1,33 +1,53 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`category-aware description snapshots > clothing snapshot 1`] = `"North Face Jacket available, like-new. Pickup is available in Hamilton, and I'm asking $120. Happy to chat — just send a message. Get in touch if you'd like more information. Message to arrange collection. Happy to chat if you have any questions."`;
+exports[`category-aware description snapshots > clothing snapshot 1`] = `"North Face Jacket, like-new. Pickup is available in Hamilton for $120. Happy to answer questions — just message me."`;
 
-exports[`category-aware description snapshots > furniture snapshot 1`] = `"3 Seater Couch in good used condition, collection in Christchurch. Pickup is available in Christchurch, and I'm asking $250. Happy to arrange collection — just get in touch. Available for pickup when it suits. Message to arrange collection. Get in touch if you'd like more information."`;
+exports[`category-aware description snapshots > furniture snapshot 1`] = `"3 Seater Couch, good used condition available. Pickup is available in Christchurch, and I'm asking $250. Happy to answer questions — just message me."`;
 
-exports[`category-aware description snapshots > gaming electronics snapshot 1`] = `"Brand new PlayStation 5 Console up for grabs. Pickup is available in Auckland, and I'm asking $650. If you're interested, feel free to send me a message. Happy to sort a time that works for both of us. Message to arrange collection."`;
+exports[`category-aware description snapshots > gaming electronics snapshot 1`] = `"Brand new PlayStation 5 Console up for grabs. Pickup is available in Auckland, asking $650. Message if you have any questions."`;
 
-exports[`category-aware description snapshots > home and garden snapshot 1`] = `"Lawn Mower available, good used condition. Pickup is available in Palmerston North, and I'm asking $180. Happy to arrange pickup — just message me. Available for pickup once we arrange a time. Happy to time collection around what works for both of us."`;
+exports[`category-aware description snapshots > home and garden snapshot 1`] = `"Lawn Mower, good used condition. Pickup is available in Palmerston North, and I'm asking $180. Message if you're keen."`;
 
-exports[`category-aware description snapshots > phones / electronics snapshot 1`] = `"Like-new iPhone 15 Pro. Pickup is available in Wellington, or shipping can be arranged, and I'm asking $950. Happy to answer questions — just send me a message. Get in touch if you'd like more information. Available for pickup once we arrange a time."`;
+exports[`category-aware description snapshots > phones / electronics snapshot 1`] = `"Like-new iPhone 15 Pro. Pickup is available in Wellington, or shipping can be arranged — asking $950. Message if you're keen."`;
 
-exports[`category-aware description snapshots > property rental snapshot 1`] = `"Renting out 2 bedroom apartment in Auckland. 2 bedrooms, 1 bathroom, unfurnished, $520/week, $2080 bond. Message if you would like to take a look. Happy to arrange a viewing at a time that suits. Message with practical questions about the place before you visit."`;
+exports[`category-aware description snapshots > property rental snapshot 1`] = `"2 Bedroom Apartment in Auckland is available to rent. 2 bedrooms, 1 bathroom, unfurnished, $520/week, $2080 bond. Happy to arrange a viewing — just message me."`;
 
-exports[`category-aware description snapshots > services snapshot 1`] = `"Looking for lawn mowing? Available in Hamilton for $60 per hour. Happy to talk through the size of the job and find a time that works for both of us. Message with a few job details and I'll get back to you."`;
+exports[`category-aware description snapshots > services snapshot 1`] = `"Lawn Mowing available in Hamilton for $60 per hour. Whether it's a one-off tidy-up or regular lawn maintenance, happy to talk through what you need. Message with a few job details and I'll get back to you."`;
 
-exports[`category-aware description snapshots > sports snapshot 1`] = `"Mountain Bike, good used condition. Pickup is available in Dunedin, and I'm asking $400. Message if you have any questions. Available for pickup once we arrange a time. Happy to arrange a time once you are keen. Get in touch if you'd like more information."`;
+exports[`category-aware description snapshots > sports snapshot 1`] = `"Mountain Bike in good used condition. Pickup is available in Dunedin for $400. Happy to answer questions — just message me."`;
 
-exports[`category-aware description snapshots > vehicles snapshot 1`] = `"2018 BMW 320i in blue, available in Auckland. 85,000 km on the clock, automatic transmission, good used condition. Asking $18500. If you're interested or would like more information, feel free to send me a message. Happy to arrange a viewing so you can inspect it properly."`;
+exports[`category-aware description snapshots > vehicles snapshot 1`] = `"Blue 2018 BMW 320i, available in Auckland. 85,000 km on the clock, automatic transmission, good used condition. Asking $18500. Message to arrange a viewing."`;
 
-exports[`iPhone Hamilton natural seller copy > produces pickup-in-city copy without meta commentary 1`] = `"Apple iPhone 15 Pro 128GB, good used condition. Pickup is available in Hamilton, and I'm asking $900. Message me if you'd like to know more. Get in touch if you'd like more information. Available for pickup once we arrange a time."`;
+exports[`description quality suite — golden reference cases > BMW: ≤1 CTA, grounded, type-aware 1`] = `"Blue 2018 BMW 320i, available in Auckland. 85,000 km on the clock, automatic transmission, good used condition. Asking $18500. Message to arrange a viewing."`;
 
-exports[`one-shot sell uses Premium Plus description path > PS5 one-shot is natural marketplace copy 1`] = `"Brand new PlayStation 5 Console up for grabs. Pickup is available in Auckland, and I'm asking $200. Happy to sort a pickup time — just message me. Happy to sort a time that works for both of us. Message to arrange collection."`;
+exports[`description quality suite — golden reference cases > PS5: ≤1 CTA, grounded, type-aware 1`] = `"Brand new PlayStation 5 Console up for grabs. Pickup is available in Auckland for $200. Happy to answer questions — just message me."`;
 
-exports[`one-shot sell uses Premium Plus description path > vehicle one-shot description is category-styled 1`] = `"2018 BMW 320i available in Auckland. Pickup is available in Auckland, and I'm asking $18500. Happy to arrange a viewing — just message me. Happy to arrange a viewing so you can inspect it properly. Worth a look if the numbers and location already sound right for you."`;
+exports[`description quality suite — golden reference cases > couch: ≤1 CTA, grounded, type-aware 1`] = `"3 Seater Couch, good used condition available. Pickup is available in Christchurch, and I'm asking $250. Happy to answer questions — just message me."`;
 
-exports[`service listing description snapshots > fixed price lawn mowing snapshot 1`] = `"Lawn Mowing available in Hamilton for $50 per job. Whether it's a one-off tidy-up or regular lawn maintenance, I'm happy to discuss what you need and arrange a suitable time. Message with a few job details and I'll get back to you."`;
+exports[`description quality suite — golden reference cases > house cleaner: ≤1 CTA, grounded, type-aware 1`] = `"Looking for house cleaning? Available in Wellington. Happy to discuss the scope and put a quote together once I know a bit more about the job. Message with a few job details and I'll get back to you."`;
 
-exports[`service listing description snapshots > hourly handyman snapshot 1`] = `"Handyman available in Auckland for $65 per hour. I'm happy to discuss what you need and work out the details from there. Drop me a message when you're ready to chat about the job. Happy to work around a time that suits once we've sorted the details."`;
+exports[`description quality suite — golden reference cases > iPhone: ≤1 CTA, grounded, type-aware 1`] = `"Apple iPhone 15 Pro 128GB, good used condition. Pickup is available in Hamilton for $900. Happy to answer questions — just message me."`;
 
-exports[`service listing description snapshots > quote required cleaning snapshot 1`] = `"House Cleaning available in Wellington. Happy to discuss the scope and put a quote together once I know a bit more about the job. Message with a few job details and I'll get back to you. Happy to work around a time that suits once we've sorted the details."`;
+exports[`description quality suite — golden reference cases > lawn mowing: ≤1 CTA, grounded, type-aware 1`] = `"Lawn Mowing in Hamilton for $50 per job. Happy to talk through the size of the job and find a time that works. Send me a message with a few details about the job and I'll get back to you."`;
 
-exports[`service listing description snapshots > tutoring with duration fact snapshot 1`] = `"Maths Tutoring in Christchurch for $40 per hour. Whether it's a one-off session or ongoing lessons, I'm happy to talk through what you need. Typical jobs run about 1 hour. Send me a message with a few details about the job and I'll get back to you."`;
+exports[`description quality suite — golden reference cases > photographer hourly: ≤1 CTA, grounded, type-aware 1`] = `"Looking for photographer? Available in Auckland for $120 per hour. Happy to discuss what you're after and arrange a time that suits. Send me a message with a few details about the job and I'll get back to you."`;
+
+exports[`description quality suite — golden reference cases > pressure washer rental: ≤1 CTA, grounded, type-aware 1`] = `"Renting out pressure washer in Christchurch for $45/day. Message if you'd like to book it."`;
+
+exports[`description quality suite — golden reference cases > trailer rental: ≤1 CTA, grounded, type-aware 1`] = `"Renting out trailer in Auckland for $60/day. Message if you'd like to book it."`;
+
+exports[`description quality suite — golden reference cases > wanted PS5: ≤1 CTA, grounded, type-aware 1`] = `"Looking for playstation 5 in Auckland. Budget around $500. Get in touch if you can help."`;
+
+exports[`iPhone Hamilton natural seller copy > produces pickup-in-city copy without meta commentary 1`] = `"Apple iPhone 15 Pro 128GB, good used condition. Pickup is available in Hamilton for $900. Happy to answer questions — just message me."`;
+
+exports[`one-shot sell uses Premium Plus description path > PS5 one-shot is natural marketplace copy 1`] = `"Brand new PlayStation 5 Console up for grabs. Pickup is available in Auckland for $200. Happy to answer questions — just message me."`;
+
+exports[`one-shot sell uses Premium Plus description path > vehicle one-shot description is category-styled 1`] = `"2018 BMW 320i available in Auckland. I'm asking $18500. Message to arrange a viewing."`;
+
+exports[`service listing description snapshots > fixed price lawn mowing snapshot 1`] = `"Lawn Mowing in Hamilton for $50 per job. Happy to talk through the size of the job and find a time that works. Send me a message with a few details about the job and I'll get back to you."`;
+
+exports[`service listing description snapshots > hourly handyman snapshot 1`] = `"Handyman in Auckland for $65 per hour. Whether it's a one-off job or something more regular, happy to talk through the scope. Drop me a message when you're ready to chat about the job."`;
+
+exports[`service listing description snapshots > quote required cleaning snapshot 1`] = `"Looking for house cleaning? Available in Wellington. Happy to discuss the scope and put a quote together once I know a bit more about the job. Message with a few job details and I'll get back to you."`;
+
+exports[`service listing description snapshots > tutoring with duration fact snapshot 1`] = `"Maths Tutoring available in Christchurch for $40 per hour. Happy to discuss what you're after and arrange a time that suits. Typical jobs run about 1 hour. Drop me a message when you're ready to chat about the job."`;

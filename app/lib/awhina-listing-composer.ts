@@ -1,14 +1,14 @@
 /**
  * Structured listing composer — premium title + category-aware human description.
- * Facts only; Premium Plus = one natural paragraph, never field-label templates.
+ * Description path: facts → type writer → quality pass (awhina-listing-description).
  */
 
 import {
   buildPremiumListingTitle,
-  buildListingDescriptionFromFacts,
   resolveListingDescriptionStyle,
   type ListingDescriptionQuality,
 } from "./awhina-product-ux";
+import { buildListingDescriptionFromFacts } from "./awhina-listing-description";
 import {
   inferPhysicalCategoryFromText,
   type SkyAiListingFill,

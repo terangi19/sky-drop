@@ -1,16 +1,18 @@
 /**
- * Snapshot + quality gates for marketplace description generation.
- * Guards against robotic field-restating copy regressing over time.
+ * Serious buyer-facing description quality suite.
+ * Guards: one CTA, no AI-meta, semantic dedupe, grounding, type tone, caps.
  */
 import { describe, expect, it } from "vitest";
 import {
   buildListingDescriptionFromFacts,
+  extractDescriptionFacts,
   isRoboticListingDescription,
   passesListingDescriptionQualityGate,
   resolveListingDescriptionStyle,
   IMPLY_CLAIMS_RE,
+  CTA_PURPOSE_RE,
   type ListingDescriptionQuality,
-} from "./awhina-product-ux";
+} from "./awhina-listing-description";
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
 import { processCanonicalAwhina } from "./awhina-canonical";
 import { clearSearchSession, searchSessionKey } from "./awhina-search-memory";
@@ -25,43 +27,73 @@ function wipe(id: string) {
   clearListingDraftSession(listingDraftSessionKey({ conversationId: id }));
 }
 
-const ROBOTIC_SMELLS =
-  /\bCondition:\s*|\bLocated in [A-Za-z].*\.\s*Pickup available\.|\bMessage me with any questions\b|\bOdometer:\s*|\bColour:\s*|\bI'm selling this\b|\bIt's based in\b|\bFeel free to get in touch if you'd like more information\b/i;
-
-/** Buyer-facing meta / AI-safety voice — must never appear in descriptions. */
 const META_PHRASE_SMELLS =
   /\bno guesswork\b|\bbased on (the )?(available|provided|supplied) (details|information)\b|\busing only supplied\b|\bfrom the information provided\b|\bbased on what we know\b|\bverified facts only\b|\bI haven'?t assumed\b|\bI didn'?t invent\b|\bStraightforward listing\b|\bdetails we have\b|\bfacts we know\b|\bknown details\b|\bwhat is known\b|\bhere is what we know\b|\bCan do pickup\b|\bAvailable around\b|\bAI\b|\bgenerated\b|\bassumed\b/i;
 
-/** Implied functionality / condition / photo claims without supplied facts. */
 const UNGROUNDED_CLAIM_SMELLS = IMPLY_CLAIMS_RE;
 
-function assertNoDuplicateSentences(desc: string) {
-  const sentences = desc
+const FIELD_LABEL_SMELLS =
+  /^(Condition:|Located in|Odometer:|Colour:|Pickup available\.|Priced at\b)/im;
+
+const ROBOTIC_SMELLS =
+  /\bCondition:\s*|\bLocated in [A-Za-z].*\.\s*Pickup available\.|\bMessage me with any questions\b|\bOdometer:\s*|\bColour:\s*|\bI'm selling this\b|\bIt's based in\b|\bFeel free to get in touch if you'd like more information\b/i;
+
+function splitSentences(desc: string): string[] {
+  return desc
     .split(/(?<=[.!?])\s+/)
-    .map((s) => s.trim().toLowerCase())
+    .map((s) => s.trim())
     .filter(Boolean);
+}
+
+function countCtas(desc: string): number {
+  return splitSentences(desc).filter((s) => CTA_PURPOSE_RE.test(s)).length;
+}
+
+function assertNoDuplicateSentences(desc: string) {
+  const sentences = splitSentences(desc).map((s) => s.toLowerCase());
   for (let i = 1; i < sentences.length; i++) {
     expect(sentences[i]).not.toBe(sentences[i - 1]);
   }
 }
 
-function assertNaturalMarketplaceCopy(desc: string) {
-  expect(desc.trim().length).toBeGreaterThan(40);
+function assertOneCtaMax(desc: string) {
+  expect(countCtas(desc)).toBeLessThanOrEqual(1);
+}
+
+function assertNoSemanticCtaDupes(desc: string) {
+  const ctas = splitSentences(desc).filter((s) => CTA_PURPOSE_RE.test(s));
+  expect(ctas.length).toBeLessThanOrEqual(1);
+}
+
+function assertProperCaps(desc: string) {
+  for (const s of splitSentences(desc)) {
+    expect(s[0]).toMatch(/[A-Z0-9$]/);
+  }
+}
+
+function assertNaturalMarketplaceCopy(desc: string, opts?: { sparse?: boolean }) {
+  expect(desc.trim().length).toBeGreaterThan(20);
   expect(desc).not.toMatch(ROBOTIC_SMELLS);
   expect(desc).not.toMatch(META_PHRASE_SMELLS);
   expect(desc).not.toMatch(UNGROUNDED_CLAIM_SMELLS);
+  expect(desc).not.toMatch(FIELD_LABEL_SMELLS);
   expect(isRoboticListingDescription(desc)).toBe(false);
-  expect(passesListingDescriptionQualityGate(desc)).toBe(true);
+  expect(passesListingDescriptionQualityGate(desc, { sparse: opts?.sparse })).toBe(true);
   expect(desc).not.toContain("\n\n");
   assertNoDuplicateSentences(desc);
+  assertOneCtaMax(desc);
+  assertNoSemanticCtaDupes(desc);
+  assertProperCaps(desc);
   const words = desc.split(/\s+/).filter(Boolean).length;
-  expect(words).toBeGreaterThanOrEqual(35);
+  if (!opts?.sparse) {
+    expect(words).toBeGreaterThanOrEqual(12);
+  }
   expect(words).toBeLessThanOrEqual(100);
-  const labelSentences = desc
-    .split(/(?<=\.)\s+/)
-    .filter((s) =>
-      /^(Condition:|Located in|Odometer:|Colour:|Pickup available\.|Pickup only\.)/i.test(s.trim())
-    );
+  const labelSentences = splitSentences(desc).filter((s) =>
+    /^(Condition:|Located in|Odometer:|Colour:|Pickup available\.|Pickup only\.|Priced at)/i.test(
+      s.trim()
+    )
+  );
   expect(labelSentences.length).toBe(0);
 }
 
@@ -70,6 +102,7 @@ describe("resolveListingDescriptionStyle", () => {
     expect(resolveListingDescriptionStyle({ listingType: "vehicle" })).toBe("vehicle");
     expect(resolveListingDescriptionStyle({ listingType: "service" })).toBe("service");
     expect(resolveListingDescriptionStyle({ listingType: "rental" })).toBe("rental");
+    expect(resolveListingDescriptionStyle({ listingType: "wanted" })).toBe("wanted");
     expect(resolveListingDescriptionStyle({ category: "Gaming", title: "PS5" })).toBe("gaming");
     expect(resolveListingDescriptionStyle({ category: "Tech", title: "iPhone 15" })).toBe(
       "electronics"
@@ -82,6 +115,26 @@ describe("resolveListingDescriptionStyle", () => {
       "clothing"
     );
     expect(resolveListingDescriptionStyle({ category: "Sports", title: "Bike" })).toBe("sports");
+  });
+});
+
+describe("facts extraction separates writing from raw text", () => {
+  it("builds structured facts before writing", () => {
+    const facts = extractDescriptionFacts({
+      title: "Brand New PlayStation 5 Console",
+      price: "200",
+      condition: "New",
+      location: "Auckland",
+      pickupAvailable: true,
+      category: "Gaming",
+      listingType: "physical",
+    });
+    expect(facts.kind).toBe("physical");
+    expect(facts.item).toMatch(/PlayStation/i);
+    expect(facts.money).toBe("$200");
+    expect(facts.location).toBe("Auckland");
+    expect(facts.delivery).toBe("pickup");
+    expect(facts.conditionPhrase).toBe("brand new");
   });
 });
 
@@ -106,14 +159,15 @@ describe("listing description quality levels", () => {
       expect(desc).toMatch(/\$650/);
       expect(desc).not.toMatch(/controller|dualsense|games|SSD|warranty|authentic/i);
       expect(desc).not.toMatch(/Condition:|Message me with any questions|I'm selling this/i);
+      assertOneCtaMax(desc);
     });
   }
 
-  it("Āwhina default is Premium Plus (one paragraph, natural CTA variety)", () => {
+  it("Āwhina default is Premium Plus (one paragraph, one CTA)", () => {
     const desc = buildListingDescriptionFromFacts(base);
     expect(desc).not.toContain("\n\n");
     expect(desc).not.toMatch(/Feel free to get in touch if you'd like more information/i);
-    expect(desc).not.toMatch(/^Happy to answer questions\.$/);
+    expect(countCtas(desc)).toBe(1);
     expect(passesListingDescriptionQualityGate(desc)).toBe(true);
   });
 
@@ -121,6 +175,7 @@ describe("listing description quality levels", () => {
     const desc = buildListingDescriptionFromFacts(base, { quality: "standard" });
     expect(desc).toMatch(/Happy to answer questions/i);
     expect(desc).not.toContain("\n\n");
+    assertOneCtaMax(desc);
   });
 });
 
@@ -268,7 +323,6 @@ describe("category-aware description snapshots", () => {
         /Priced at/i,
         /for local jobs/i,
         /Tell me roughly what you need/i,
-        /Happy to chat about what you need/i,
         META_PHRASE_SMELLS,
         UNGROUNDED_CLAIM_SMELLS,
       ],
@@ -353,16 +407,186 @@ describe("category-aware description snapshots", () => {
       )
     ).toBe(true);
   });
+
+  it("rejects stacked CTAs as robotic", () => {
+    expect(
+      isRoboticListingDescription(
+        "Brand new PS5. Pickup in Auckland, asking $200. Message if keen. Happy to sort a time that works for both of us. Get in touch if you'd like more information."
+      )
+    ).toBe(true);
+  });
+});
+
+describe("description quality suite — golden reference cases", () => {
+  const suite: Array<{
+    name: string;
+    fill: SkyAiListingFill;
+    must: RegExp[];
+    never: RegExp[];
+    tone: RegExp;
+  }> = [
+    {
+      name: "PS5",
+      fill: {
+        title: "Brand New PlayStation 5 Console",
+        price: "200",
+        condition: "New",
+        location: "Auckland",
+        pickupAvailable: true,
+        category: "Gaming",
+        listingType: "physical",
+      },
+      must: [/PlayStation|PS5/i, /Auckland/, /\$200/, /pickup/i],
+      never: [/controller|warranty|games included|no guesswork/i],
+      tone: /message/i,
+    },
+    {
+      name: "iPhone",
+      fill: {
+        title: "Apple iPhone 15 Pro 128GB",
+        price: "900",
+        condition: "Used - Good",
+        location: "Hamilton",
+        pickupAvailable: true,
+        category: "Tech",
+        listingType: "physical",
+      },
+      must: [/iPhone\s*15\s*Pro/i, /128/, /Hamilton/, /\$900/, /good used condition/i],
+      never: [/battery|charger|warranty|box included|no guesswork/i],
+      tone: /message/i,
+    },
+    {
+      name: "BMW",
+      fill: {
+        title: "2018 BMW 320i",
+        listingType: "vehicle",
+        vehicleYear: "2018",
+        vehicleMake: "BMW",
+        vehicleModel: "320i",
+        vehicleOdometer: "85000",
+        vehicleColour: "Blue",
+        vehicleTransmission: "Automatic",
+        price: "18500",
+        location: "Auckland",
+        condition: "Used - Good",
+      },
+      must: [/BMW/, /320i/, /85,?000/, /Auckland/, /\$18500/],
+      never: [/WOF|service history|Condition:/i],
+      tone: /viewing|message|look/i,
+    },
+    {
+      name: "lawn mowing",
+      fill: {
+        title: "Lawn Mowing",
+        listingType: "service",
+        location: "Hamilton",
+        price: "50",
+        servicePricingType: "fixed",
+      },
+      must: [/lawn mowing/i, /\$50 per job/i],
+      never: [/insured|Priced at|years of experience|for local jobs/i],
+      tone: /message/i,
+    },
+    {
+      name: "house cleaner",
+      fill: {
+        title: "House Cleaning",
+        listingType: "service",
+        location: "Wellington",
+        servicePricingType: "request_quote",
+      },
+      must: [/cleaning/i, /Wellington/, /quote/i],
+      never: [/insured|bonded|Priced at/i],
+      tone: /message/i,
+    },
+    {
+      name: "photographer hourly",
+      fill: {
+        title: "Photographer",
+        listingType: "service",
+        category: "Photography",
+        location: "Auckland",
+        price: "120",
+        servicePricingType: "hourly",
+      },
+      must: [/Photograph/i, /Auckland/, /\$120 per hour/i],
+      never: [/insured|portfolio|years of experience|equipment provided/i],
+      tone: /message/i,
+    },
+    {
+      name: "trailer rental",
+      fill: {
+        title: "Trailer",
+        listingType: "rental",
+        rentalSubType: "equipment",
+        location: "Auckland",
+        rentalPriceDaily: "60",
+        price: "60",
+      },
+      must: [/Trailer|trailer/i, /Auckland/, /\$60\/day/],
+      never: [/bedroom|bond|pet friendly/i],
+      tone: /message|book|pickup/i,
+    },
+    {
+      name: "pressure washer rental",
+      fill: {
+        title: "Pressure Washer",
+        listingType: "rental",
+        rentalSubType: "equipment",
+        location: "Christchurch",
+        rentalPriceDaily: "45",
+        price: "45",
+      },
+      must: [/Pressure Washer|pressure washer/i, /Christchurch/, /\$45\/day/],
+      never: [/bedroom|WOF|insured/i],
+      tone: /message|book|pickup/i,
+    },
+    {
+      name: "couch",
+      fill: {
+        title: "3 Seater Couch",
+        price: "250",
+        condition: "Used - Good",
+        location: "Christchurch",
+        pickupAvailable: true,
+        category: "Home",
+        listingType: "physical",
+      },
+      must: [/couch/i, /Christchurch/, /\$250/, /good used condition/i],
+      never: [/leather|stain|recliner/i],
+      tone: /message/i,
+    },
+    {
+      name: "wanted PS5",
+      fill: {
+        title: "PlayStation 5",
+        listingType: "wanted",
+        location: "Auckland",
+        price: "500",
+        category: "Gaming",
+      },
+      must: [/PlayStation|PS5|looking for|wanted|after a/i],
+      never: [/pickup is available|I'm selling|brand new PlayStation 5 Console up for grabs/i],
+      tone: /message|get in touch|help/i,
+    },
+  ];
+
+  for (const c of suite) {
+    it(`${c.name}: ≤1 CTA, grounded, type-aware`, () => {
+      const desc = buildListingDescriptionFromFacts(c.fill);
+      assertNaturalMarketplaceCopy(desc, {
+        sparse: c.name === "wanted PS5",
+      });
+      assertOneCtaMax(desc);
+      for (const re of c.must) expect(desc).toMatch(re);
+      for (const re of c.never) expect(desc).not.toMatch(re);
+      expect(desc).toMatch(c.tone);
+      expect(desc).toMatchSnapshot();
+    });
+  }
 });
 
 describe("service listing description snapshots", () => {
-  function assertOneSoftCta(desc: string) {
-    const invites = desc.match(
-      /\b(send me a message|message with|drop me a message|feel free to send|happy to chat about what you need|tell me roughly)\b/gi
-    );
-    expect((invites || []).length).toBeLessThanOrEqual(1);
-  }
-
   const serviceCases: Array<{ name: string; fill: SkyAiListingFill; must: RegExp[]; never: RegExp[] }> =
     [
       {
@@ -423,7 +647,7 @@ describe("service listing description snapshots", () => {
     it(`${c.name} snapshot`, () => {
       const desc = buildListingDescriptionFromFacts(c.fill);
       assertNaturalMarketplaceCopy(desc);
-      assertOneSoftCta(desc);
+      assertOneCtaMax(desc);
       for (const re of c.must) expect(desc).toMatch(re);
       for (const re of c.never) expect(desc).not.toMatch(re);
       expect(desc).not.toMatch(META_PHRASE_SMELLS);
@@ -434,23 +658,20 @@ describe("service listing description snapshots", () => {
 });
 
 describe("sparse listings stay grounded", () => {
-  it("phrase banks themselves contain no implied-claim strings", () => {
+  it("legacy phrase-bank stacking is gone from composer", () => {
+    const src = readFileSync(join(__dirname, "awhina-listing-description.ts"), "utf8");
+    expect(src).not.toMatch(/const BRIDGE_BANK/);
+    expect(src).not.toMatch(/const CTA_BANK/);
+    expect(src).not.toMatch(/padDescriptionToMinWords/);
+    expect(src).toMatch(/extractDescriptionFacts/);
+    expect(src).toMatch(/runQualityPass|enforceOneCta/);
+  });
+
+  it("product-ux no longer embeds phrase-bank stacking", () => {
     const src = readFileSync(join(__dirname, "awhina-product-ux.ts"), "utf8");
-    const bridgeStart = src.indexOf("const BRIDGE_BANK");
-    const ctaStart = src.indexOf("const CTA_BANK");
-    const ctaEnd = src.indexOf("function locationInText", ctaStart);
-    expect(bridgeStart).toBeGreaterThan(-1);
-    expect(ctaStart).toBeGreaterThan(bridgeStart);
-    expect(ctaEnd).toBeGreaterThan(ctaStart);
-    const banks = src.slice(bridgeStart, ctaEnd);
-    // Strip string contents and assert none match IMPLY_CLAIMS
-    const phrases = [...banks.matchAll(/"([^"\\]|\\.)*"/g)].map((m) =>
-      m[0].slice(1, -1).replace(/\\"/g, '"')
-    );
-    expect(phrases.length).toBeGreaterThan(20);
-    for (const phrase of phrases) {
-      expect(phrase).not.toMatch(IMPLY_CLAIMS_RE);
-    }
+    expect(src).not.toMatch(/const BRIDGE_BANK/);
+    expect(src).not.toMatch(/const CTA_BANK/);
+    expect(src).toMatch(/awhina-listing-description/);
   });
 
   const sparseFills: SkyAiListingFill[] = [
@@ -507,6 +728,7 @@ describe("sparse listings stay grounded", () => {
         /\bworks well\b|\bworks perfectly\b|\bperfect condition\b|\bexcellent condition\b|\bclean upgrade\b|\bwell looked after\b|\bphotos?\b/i
       );
       expect(desc).toMatch(/\$\d+/);
+      assertOneCtaMax(desc);
       expect(isRoboticListingDescription(desc)).toBe(false);
     });
   }
@@ -577,6 +799,7 @@ describe("one-shot sell uses Premium Plus description path", () => {
     expect(desc).toMatch(/Auckland/i);
     expect(desc).toMatch(/\$200/);
     assertNaturalMarketplaceCopy(desc);
+    assertOneCtaMax(desc);
     expect(desc).toMatchSnapshot();
   });
 
@@ -592,7 +815,7 @@ describe("one-shot sell uses Premium Plus description path", () => {
     expect(desc).not.toMatch(ROBOTIC_SMELLS);
     expect(desc).not.toMatch(META_PHRASE_SMELLS);
     expect(desc).not.toMatch(UNGROUNDED_CLAIM_SMELLS);
+    assertOneCtaMax(desc);
     expect(desc).toMatchSnapshot();
   });
 });
-
