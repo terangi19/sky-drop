@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 
 const Spotlight = dynamic(() => import("./Spotlight"), { ssr: false });
-const SkyAiChat = dynamic(() => import("./SkyAiChat"), { ssr: false });
+const SkyAiChat = dynamic(() => import("./AwhinaGlobalAssistant"), { ssr: false });
 const PlatformAnnouncement = dynamic(() => import("./PlatformAnnouncement"), { ssr: false });
 const GuestTourFab = dynamic(() => import("./GuestTourFab"), { ssr: false });
 const PWAProvider = dynamic(() => import("./PWAProvider"), { ssr: false });

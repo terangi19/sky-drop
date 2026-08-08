@@ -202,8 +202,8 @@ export default function AIPostPage() {
   /** Mobile workspace: conversation is primary; listing is the draft pane */
   const [mobileWorkspaceTab, setMobileWorkspaceTab] = useState<"chat" | "listing">("chat");
   const [liveFieldNotes, setLiveFieldNotes] = useState<string[]>([]);
-  /** Restored pre-5bb3f2b: full manual form usable without AI (gated only if user hides it) */
-  const [showManualEditor, setShowManualEditor] = useState(true);
+  /** Manual form opens via Edit details — always discoverable, not always expanded */
+  const [showManualEditor, setShowManualEditor] = useState(false);
   const awhinaConversation = useAwhinaConversation();
   const handoffBootstrapped = useRef(false);
   const [draftExtras, setDraftExtras] = useState<string[]>([]);
@@ -398,6 +398,57 @@ export default function AIPostPage() {
             : listingType === "property"
               ? "Property"
               : "Physical";
+
+
+  const isVehicleListing =
+    listingType === "vehicle" || (listingType === "physical" && category === "Cars");
+
+  const marketplaceTitle =
+    title.trim() ||
+    [vehicleYear, vehicleMake, vehicleModel, vehicleGeneration].filter(Boolean).join(" ") ||
+    "";
+
+  const marketplacePrice = (() => {
+    if (listingType === "service" && servicePricingType === "request_quote") return "Quote required";
+    if (!String(price || "").trim()) return "";
+    const n = Number(price);
+    if (!Number.isFinite(n)) return `${price}`;
+    const suffix =
+      listingType === "service" && servicePricingType === "hourly"
+        ? "/hr"
+        : listingType === "rental"
+          ? "/day"
+          : "";
+    return `${n.toLocaleString()}${suffix}`;
+  })();
+
+  const marketplaceMeta = (() => {
+    const parts = [];
+    if (isVehicleListing) {
+      if (vehicleOdometer) {
+        const n = Number(vehicleOdometer);
+        parts.push(`${Number.isFinite(n) ? n.toLocaleString() : vehicleOdometer} km`);
+      }
+      if (vehicleTransmission) parts.push(vehicleTransmission);
+      if (condition) parts.push(condition.replace(/^Used - /, ""));
+      if (location || pickupArea) parts.push(location || pickupArea);
+    } else if (listingType === "service") {
+      if (category) parts.push(category);
+      if (serviceDuration) parts.push(serviceDuration);
+      if (location || pickupArea) parts.push(location || pickupArea);
+    } else if (listingType === "rental") {
+      if (rentalSubType) parts.push(rentalSubType === "vehicle" ? "Vehicle hire" : "Equipment hire");
+      if (condition) parts.push(condition.replace(/^Used - /, ""));
+      if (location || pickupArea) parts.push(location || pickupArea);
+    } else {
+      if (condition) parts.push(condition.replace(/^Used - /, ""));
+      if (category) parts.push(category);
+      if (location || pickupArea) parts.push(location || pickupArea);
+    }
+    return parts.filter(Boolean).join(" · ");
+  })();
+
+  const detailsRemaining = listingReadiness.missing.length;
 
   const draftFlash = (label: string) =>
     liveFieldNotes.some((n) => n.toLowerCase().includes(label.toLowerCase()));
@@ -1698,153 +1749,71 @@ export default function AIPostPage() {
       <Navbar />
       {imagePreviews.length > 0 && <img ref={imgRef} src={imagePreviews[0]} style={{display:'none'}} />}
 
-        <div className="relative z-10 mx-auto max-w-5xl px-4 py-5 sm:px-6 sm:py-8">
+      <div className="relative z-10 mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-8 lg:px-10">
         {editLoading && (
-          <div className="mb-6 flex items-center justify-center gap-3 rounded-xl bg-white/[0.03] p-4">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-sky-500 border-t-transparent"></div>
-            <span className="text-sm text-[var(--muted)]">Loading listing...</span>
+          <div className="mb-6 flex items-center justify-center gap-3 py-3">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-sky-500/70 border-t-transparent" />
+            <span className="text-sm text-zinc-400">Loading listing…</span>
           </div>
         )}
 
-        {/* Simple header — one job */}
-        <div className="mb-4">
-          <Link href="/" className="mb-2 inline-flex items-center gap-1.5 text-sm text-zinc-400 transition hover:text-white">
+        <header className="mb-5 sm:mb-6">
+          <Link href="/" className="mb-3 inline-flex items-center gap-1.5 text-sm text-zinc-500 transition hover:text-zinc-300">
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
             Back
           </Link>
-          <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-            {editId ? "Edit Your Listing" : "Build your listing"}
+          <h1 className="text-[1.65rem] font-semibold tracking-tight text-white sm:text-3xl">
+            {editId ? "Edit your listing" : "Build your listing"}
           </h1>
-          {!editId && (
-            <p className="mt-1.5 max-w-lg text-sm text-zinc-400">
-              Chat with Āwhina, or tap Edit details to fill the full listing form yourself.
-            </p>
-          )}
-          {editId && (
-            <p className="mt-1.5 max-w-lg text-sm text-zinc-400">
-              Update details, photos, and publish when you&apos;re ready.
-            </p>
-          )}
-        </div>
-
-        {/* Always-visible manual path — no draft/AI required (restores pre-simplify escape) */}
-        {!editId && (
-          <div className="mb-4 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setMobileWorkspaceTab("chat");
-                setSkyChatOpen(true);
-              }}
-              className="rounded-xl border border-sky-500/40 bg-sky-500/15 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-500/25"
-            >
-              Chat with Āwhina
-            </button>
-            <button
-              type="button"
-              onClick={openManualEditor}
-              data-testid="edit-details-empty"
-              className="rounded-xl border border-white/20 bg-white/[0.08] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/[0.14]"
-            >
-              Edit details
-            </button>
-          </div>
-        )}
+          <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-zinc-400">
+            {editId
+              ? "Update details, photos, and publish when you're ready."
+              : "Tell Āwhina what you're selling and we'll build it together."}
+          </p>
+        </header>
 
         {!editId && (
-          <div className="mb-3 flex gap-1 rounded-xl border border-white/[0.08] bg-white/[0.02] p-1 lg:hidden">
+          <div className="mb-4 flex gap-1 rounded-xl bg-white/[0.03] p-1 lg:hidden">
             <button
               type="button"
               onClick={() => { setMobileWorkspaceTab("chat"); setSkyChatOpen(true); }}
-              className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${mobileWorkspaceTab === "chat" ? "bg-white/[0.08] text-white" : "text-zinc-400"}`}
+              className={`flex-1 rounded-lg px-3 py-2.5 text-sm font-medium transition ${mobileWorkspaceTab === "chat" ? "bg-white/[0.08] text-white" : "text-zinc-500 hover:text-zinc-300"}`}
             >
               Chat
             </button>
             <button
               type="button"
-              onClick={() => { setMobileWorkspaceTab("listing"); setShowManualEditor(true); }}
-              className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${mobileWorkspaceTab === "listing" ? "bg-white/[0.08] text-white" : "text-zinc-400"}`}
+              onClick={() => setMobileWorkspaceTab("listing")}
+              className={`flex-1 rounded-lg px-3 py-2.5 text-sm font-medium transition ${mobileWorkspaceTab === "listing" ? "bg-white/[0.08] text-white" : "text-zinc-500 hover:text-zinc-300"}`}
             >
-              Your listing
-              {(hasDraftContent || imagePreviews.length > 0 || showManualEditor) && (
-                <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-sky-400" aria-hidden />
+              Listing
+              {(hasDraftContent || imagePreviews.length > 0) && (
+                <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-sky-400/80" aria-hidden />
               )}
             </button>
           </div>
         )}
 
-        {/* One compact progress line — matches conversation next step */}
-        {!editId && (
-          <div className="mb-4">
-            <div className="flex items-center gap-3">
-              <div className="h-1 flex-1 overflow-hidden rounded-full bg-zinc-800/80">
-                <div
-                  className="h-full rounded-full bg-sky-500/80 transition-all duration-500 ease-out"
-                  style={{
-                    width: `${
-                      listingReadiness.state === "READY_TO_PUBLISH"
-                        ? 100
-                        : listingReadiness.state === "READY_TO_REVIEW"
-                          ? 85
-                          : listingReadiness.state === "IN_PROGRESS"
-                            ? Math.max(formProgress, 45)
-                            : Math.max(formProgress, 12)
-                    }%`,
-                  }}
-                />
-              </div>
-              <p className="shrink-0 text-[11px] font-medium text-zinc-400">
-                {awhinaIsAsking && progressNextLabel
-                  ? `Next: ${progressNextLabel}`
-                  : isReadyToReview
-                    ? imagePreviews.length === 0
-                      ? "Add photos, then review"
-                      : "Ready to review"
-                    : hasDraftContent
-                      ? listingReadiness.label
-                      : "Chat or edit details"}
-              </p>
-            </div>
-          </div>
+        {!editId && detailsRemaining > 0 && hasDraftContent && !isReadyToReview && (
+          <p className="mb-4 text-[11px] text-zinc-500">
+            <span className="mr-2 inline-block h-px w-8 align-middle bg-zinc-700" />
+            {detailsRemaining} detail{detailsRemaining === 1 ? "" : "s"} remaining
+          </p>
         )}
 
-        {/* Desktop: chat primary (left), listing secondary (right). Mobile: chat default. */}
-        <div className="lg:grid lg:grid-cols-[minmax(0,11fr)_minmax(0,9fr)] lg:items-stretch lg:gap-5">
+        {/* Desktop: listing left · Āwhina right. Mobile: tabbed. */}
+        <div className="lg:grid lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-start lg:gap-8">
 
-        {/* CONVERSATION — strongest focus */}
-        {!editId && (
-          <div
-            className={`mb-4 flex min-h-[min(72vh,680px)] min-w-0 flex-col lg:mb-0 lg:h-[min(78vh,760px)] lg:min-h-0 ${
-              mobileWorkspaceTab === "listing" ? "hidden lg:flex" : "flex"
-            }`}
-          >
-            <SkyAiChatPanel
-              mode="inline"
-              open={skyChatOpen}
-              onOpenChange={setSkyChatOpen}
-              autoQuery={skyAutoQuery}
-              onAutoQueryConsumed={() => setSkyAutoQuery(undefined)}
-              onFill={applyFill}
-              quickPrompts={workspaceQuickPrompts}
-              welcomeText="Kia ora — tell me what you're selling. I'll build the listing with you."
-              workspaceChrome
-              className="awhina-listing-workspace-chat min-h-0 flex-1"
-            />
-          </div>
-        )}
-
-        {/* LISTING: photos + quiet live draft */}
+        {/* LISTING COLUMN */}
         <div
-          className={`flex min-w-0 flex-col gap-4 ${
-            !editId && mobileWorkspaceTab === "chat" ? "hidden lg:flex" : "flex"
-          }`}
+          className={`flex min-w-0 flex-col gap-5 ${!editId && mobileWorkspaceTab === "chat" ? "hidden lg:flex" : "flex"}`}
         >
           <SellPhotoUpload
             className="mb-0"
             ctaTitle={photoCtaTitle}
             ctaSubtitle={
               photoSubject
-                ? "Up to 8 photos — first shot is the cover"
+                ? "Up to 8 photos — first is the cover"
                 : "Up to 8 photos — first is the cover"
             }
             imagePreviews={imagePreviews}
@@ -1871,353 +1840,263 @@ export default function AIPostPage() {
           />
 
           {(analyzing || (detected && !analyzing)) && (
-            <div className="space-y-2">
-              {analyzing && (
-                <div className="flex items-center justify-center gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-sky-500 border-t-transparent" />
-                  <span className="text-sm font-medium text-zinc-300">Detecting...</span>
-                </div>
-              )}
-              {detected && !analyzing && (
-                <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-center">
-                  <span className="text-sm font-semibold text-zinc-200">✅ {detected}</span>
-                </div>
-              )}
+            <div className="text-center text-sm text-zinc-400">
+              {analyzing ? "Detecting…" : detected}
             </div>
           )}
 
           {!editId && (
-            <div
-              id="live-listing-draft"
-              className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4"
-            >
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Your listing</p>
-                <p className="mt-1 truncate text-base font-semibold text-white">
-                  {hasDraftContent ? liveDraftTitle : "No details yet"}
-                </p>
-                <p className="mt-0.5 text-xs text-zinc-500">
-                  {hasDraftContent ? liveDraftTypeLabel : "Talk with Āwhina, or edit details yourself"}
-                </p>
-              </div>
-              {hasDraftContent && (
-              <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-3">
-                {[
-                  {
-                    key: "year",
-                    label: "Year",
-                    value: vehicleYear ? String(vehicleYear) : null,
-                    flash: draftFlash("year"),
-                  },
-                  {
-                    key: "price",
-                    label: "Price",
-                    value: price
-                      ? `$${Number.isFinite(Number(price)) ? Number(price).toLocaleString() : price}`
-                      : null,
-                    flash: draftFlash("price"),
-                  },
-                  {
-                    key: "mileage",
-                    label: "Mileage",
-                    value: vehicleOdometer
-                      ? `${Number.isFinite(Number(vehicleOdometer)) ? Number(vehicleOdometer).toLocaleString() : vehicleOdometer}km`
-                      : null,
-                    flash: draftFlash("mileage") || draftFlash("odometer"),
-                  },
-                  {
-                    key: "condition",
-                    label: "Condition",
-                    value: condition || null,
-                    flash: draftFlash("condition"),
-                  },
-                  {
-                    key: "location",
-                    label: "Location",
-                    value: location || null,
-                    flash: draftFlash("location"),
-                  },
-                  {
-                    key: "photos",
-                    label: "Photos",
-                    value: `${imagePreviews.length}/8`,
-                    flash: draftFlash("photo"),
-                    alwaysFilled: imagePreviews.length > 0,
-                  },
-                ].map((row) => {
-                  const filled = row.alwaysFilled || !!row.value;
-                  const showCheck = filled && row.key !== "photos" ? true : imagePreviews.length > 0 && row.key === "photos";
-                  return (
-                    <div
-                      key={row.key}
-                      className={`rounded-lg border px-2.5 py-2 transition ${
-                        row.flash
-                          ? "border-emerald-500/40 bg-emerald-500/10"
-                          : "border-white/[0.06] bg-white/[0.02]"
-                      }`}
+            <div id="live-listing-draft" className="space-y-4">
+              {hasDraftContent || imagePreviews.length > 0 ? (
+                <div className="space-y-2">
+                  <h2
+                    className={`text-xl font-semibold tracking-tight text-white sm:text-2xl ${draftFlash("title") || draftFlash("make") || draftFlash("model") ? "text-emerald-300 transition-colors duration-500" : ""}`}
+                  >
+                    {marketplaceTitle || "Your listing"}
+                  </h2>
+                  {marketplacePrice ? (
+                    <p
+                      className={`text-lg font-medium text-white sm:text-xl ${draftFlash("price") ? "text-emerald-300 transition-colors duration-500" : ""}`}
                     >
-                      <p className="text-[10px] uppercase tracking-wide text-zinc-500">{row.label}</p>
-                      <p className={`mt-0.5 font-medium ${filled ? "text-zinc-100" : "text-zinc-600"}`}>
-                        {filled ? (
-                          <>
-                            {row.value}
-                            {showCheck ? <span className="ml-1 text-emerald-400">✓</span> : null}
-                          </>
-                        ) : (
-                          "—"
-                        )}
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
+                      {marketplacePrice}
+                      {draftFlash("price") ? <span className="ml-1.5 text-sm font-normal text-emerald-400/80">✓</span> : null}
+                    </p>
+                  ) : null}
+                  {marketplaceMeta ? (
+                    <p className="text-sm leading-relaxed text-zinc-400">{marketplaceMeta}</p>
+                  ) : null}
+                  {description.trim() ? (
+                    <p className="line-clamp-3 text-sm leading-relaxed text-zinc-500">{description}</p>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="space-y-1.5 py-1">
+                  <p className="text-base font-medium text-zinc-300">No details yet</p>
+                  <p className="text-sm text-zinc-500">Chat with Āwhina, or edit the listing yourself.</p>
+                </div>
               )}
-              {/* Primary action + always-available Edit details escape hatch */}
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                {awhinaIsAsking ? (
-                  <button
-                    type="button"
-                    onClick={() => { setMobileWorkspaceTab("chat"); setSkyChatOpen(true); }}
-                    className="rounded-lg bg-sky-500/90 px-3 py-2 text-xs font-semibold text-white transition hover:bg-sky-400 lg:hidden"
-                  >
-                    Answer Āwhina
-                  </button>
-                ) : isReadyToReview && imagePreviews.length === 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="rounded-lg bg-sky-500/90 px-3 py-2 text-xs font-semibold text-white transition hover:bg-sky-400"
-                  >
-                    {photoCtaTitle}
-                  </button>
-                ) : isReadyToReview ? (
+
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                {isReadyToReview ? (
                   <button
                     type="button"
                     onClick={openManualEditor}
-                    className="rounded-lg bg-sky-500/90 px-3 py-2 text-xs font-semibold text-white transition hover:bg-sky-400"
+                    className="rounded-lg bg-sky-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-400"
                   >
                     Review listing
                   </button>
                 ) : null}
-                {!showManualEditor && (
+                {!showManualEditor ? (
                   <button
                     type="button"
                     onClick={openManualEditor}
-                    data-testid="edit-details-listing"
-                    className={`rounded-lg px-3 py-2.5 text-xs font-semibold transition ${
-                      isReadyToReview || awhinaIsAsking
-                        ? "border border-white/10 text-zinc-300 hover:border-white/20 hover:text-white"
-                        : "w-full border border-white/15 bg-white/[0.08] text-white hover:bg-white/[0.12] sm:w-auto"
-                    }`}
+                    data-testid={hasDraftContent ? "edit-details-listing" : "edit-details-empty"}
+                    className="text-sm font-medium text-zinc-400 underline-offset-4 transition hover:text-white hover:underline"
                   >
                     Edit details
                   </button>
-                )}
-                {showManualEditor && (
+                ) : (
                   <button
                     type="button"
                     onClick={() => setShowManualEditor(false)}
-                    className="rounded-lg px-3 py-2 text-xs font-semibold text-zinc-400 transition hover:text-zinc-200"
+                    className="text-sm font-medium text-zinc-500 transition hover:text-zinc-300"
                   >
                     Hide form
                   </button>
                 )}
+                {awhinaIsAsking ? (
+                  <button
+                    type="button"
+                    onClick={() => { setMobileWorkspaceTab("chat"); setSkyChatOpen(true); }}
+                    className="text-sm font-medium text-sky-400/90 transition hover:text-sky-300 lg:hidden"
+                  >
+                    Answer Āwhina
+                  </button>
+                ) : null}
               </div>
             </div>
           )}
 
-        {/* Full manual form — always available after Edit details / default open (pre-5bb3f2b Form Card) */}
+        {/* Full manual form — opens via Edit details */}
         <div
           id="manual-listing-form"
-          className={`${!editId && !showManualEditor ? "hidden" : "mt-4 block"}`}
+          className={`${!editId && !showManualEditor ? "hidden" : "mt-2 block"}`}
         >
-        <div className="relative">
-          <div className="absolute -inset-1 rounded-3xl bg-gradient-to-b from-sky-500/10 via-transparent to-transparent blur-xl pointer-events-none" />
-          <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[var(--card)] p-4 sm:p-6 md:p-8">
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-
+        <div className="rounded-2xl border border-white/[0.08] bg-zinc-950/40 p-4 sm:p-5">
         {!editId && showManualEditor && (
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <p className="text-sm font-semibold text-white">Edit listing details</p>
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">Listing details</p>
             <button
               type="button"
               onClick={() => setShowManualEditor(false)}
-              className="rounded-lg border border-white/[0.08] px-2.5 py-1 text-[11px] font-semibold text-zinc-400 hover:text-white"
+              className="text-[11px] font-medium text-zinc-500 transition hover:text-zinc-300"
             >
-              Hide form
+              Hide
             </button>
           </div>
         )}
 
-        <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-500">
-          {/* Listing Type - Premium Redesign */}
-          <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="text-lg font-black text-white tracking-tight">What are you selling?</label>
-                <p className="mt-1 text-sm text-[var(--muted)]">Choose the option that best matches what you're offering.</p>
-              </div>
-              <button type="button" onClick={() => setShowTypeGuideModal(true)} className="group relative inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-sky-500/10 to-sky-400/10 px-4 py-2 text-sm font-bold text-sky-400 border border-sky-500/20 hover:border-sky-500/40 hover:bg-gradient-to-r hover:from-sky-500/20 hover:to-sky-400/20 transition-all duration-200 shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:shadow-[0_0_30px_rgba(14,165,233,0.2)]">
-                <span className="text-lg">✨</span>
-                <span>Let Āwhina choose</span>
+        <div className="space-y-6">
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">Type</label>
+              <button
+                type="button"
+                onClick={() => setShowTypeGuideModal(true)}
+                className="text-[11px] text-zinc-500 transition hover:text-zinc-300"
+              >
+                Help choosing
               </button>
             </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="flex flex-wrap gap-1.5">
               {[
-                { key: "physical", icon: "📦", label: "Physical", desc: "Sell items for pickup or shipping.", tags: ["Phones", "Furniture", "Tools"], action: () => setAcceptOffers(false) },
-                { key: "vehicle", icon: "🚗", label: "Vehicle", desc: "Motor vehicles for sale.", tags: ["Cars", "Bikes", "Boats"], action: () => { setCategory("Cars"); setSaleType("buy_now"); setAcceptOffers(false); } },
-                { key: "service", icon: "🛠️", label: "Service", desc: "Offer local or online services.", tags: ["Cleaning", "Tutoring", "Photography"], action: () => { setCategory("Other Services"); setServicePricingType("fixed"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(true); setSaleType("buy_now"); } },
-                { key: "rental", icon: "🔑", label: "Rental", desc: "Rent equipment, vehicles or tools.", tags: ["Equipment", "Vehicles", "Tools"], action: () => { setCategory(""); markField("category"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); setLocation(""); setCondition(""); markField("condition"); } },
-                { key: "wanted", icon: "📋", label: "Wanted", desc: "Tell sellers what you're looking for.", tags: ["Items", "Services", "Rentals"], action: () => { setCategory("Items"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); } },
+                { key: "physical", label: "Physical", action: () => setAcceptOffers(false) },
+                { key: "vehicle", label: "Vehicle", action: () => { setCategory("Cars"); setSaleType("buy_now"); setAcceptOffers(false); } },
+                { key: "service", label: "Service", action: () => { setCategory("Other Services"); setServicePricingType("fixed"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(true); setSaleType("buy_now"); } },
+                { key: "rental", label: "Rental", action: () => { setCategory(""); markField("category"); setPickupAvailable(true); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); setLocation(""); setCondition(""); markField("condition"); } },
+                { key: "wanted", label: "Wanted", action: () => { setCategory("Items"); setPickupAvailable(false); setShippingAvailable(false); setAcceptOffers(false); setSaleType("buy_now"); } },
               ].map((t) => (
-                <button key={t.key} type="button" onClick={() => handleTypeChange(t.key, t.action)}
-                  className={`group relative overflow-hidden rounded-2xl border p-5 text-left transition-all duration-200 ${
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => handleTypeChange(t.key, t.action)}
+                  className={`rounded-lg px-3 py-2 text-xs font-medium transition ${
                     listingType === t.key
-                      ? "border-sky-400/60 bg-gradient-to-br from-sky-500/[0.15] to-sky-400/[0.08] shadow-[0_0_50px_rgba(14,165,233,0.2)] scale-[1.02]"
-                      : "border-white/[0.08] bg-white/[0.02] hover:border-white/[0.15] hover:bg-white/[0.05] hover:-translate-y-1 hover:shadow-[0_0_30px_rgba(0,0,0,0.3)]"
-                  }`}>
-                  <div className="flex flex-col items-center text-center sm:items-start sm:text-left">
-                    <div className={`relative mb-3 flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-3xl transition-all duration-200 ${
-                      listingType === t.key
-                        ? "bg-sky-500/30 shadow-[0_0_30px_rgba(14,165,233,0.4)] scale-110"
-                        : "bg-white/[0.05] group-hover:bg-white/[0.08] group-hover:scale-105"
-                    }`}>
-                      {t.icon}
-                      {listingType === t.key && (
-                        <div className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-sky-500 shadow-lg animate-in zoom-in duration-200">
-                          <svg className="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                        </div>
-                      )}
-                    </div>
-                    <h3 className={`text-base font-bold tracking-tight transition-colors ${listingType === t.key ? "text-sky-400" : "text-white"}`}>{t.label}</h3>
-                    <p className="mt-1.5 text-sm text-[var(--muted)] leading-snug">{t.desc}</p>
-                    <div className="mt-3 flex flex-wrap gap-2 justify-center sm:justify-start">
-                      {t.tags.map((tag, i) => (
-                        <span key={i} className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold transition-colors ${
-                          listingType === t.key
-                            ? "bg-sky-500/25 text-sky-300 border border-sky-500/30"
-                            : "bg-white/[0.08] text-[var(--muted)] border border-white/[0.05]"
-                        }`}>
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
+                      ? "bg-sky-500/15 text-sky-300 ring-1 ring-sky-500/35"
+                      : "bg-white/[0.03] text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-200"
+                  }`}
+                >
+                  {t.label}
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="space-y-1.5 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150">
-            <label htmlFor="listing-title" className="text-sm font-bold text-white tracking-wide">Title</label>
-            <div className="relative">
-              <input id="listing-title" type="text" value={title} onChange={(e) => handleTitleChange(e.target.value)} aria-label="Listing title" aria-describedby={validationErrors.title ? "title-error" : "title-count"} className={`w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:bg-white/[0.05] focus:ring-2 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-white/[0.04] focus:border-sky-500/60 placeholder="What are you selling?" ${validationErrors.title ? 'bg-red-500/10 focus:ring-red-500/20' : 'focus:ring-sky-500/20'}`} placeholder="What are you selling?" />
-              {isFieldValid(title, validateTitle) && (
-                <div className="absolute right-12 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400" aria-hidden="true">
-                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-              )}
-            </div>
-            <div className="flex items-center justify-between">
-              <p id="title-count" className="text-[10px] text-[var(--muted)]">{title.length}/100 characters</p>
-              {validationErrors.title && (
-                <p id="title-error" className="text-[10px] text-red-400 animate-in fade-in slide-in-from-top-2" role="alert">{validationErrors.title}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-1.5 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150">
-            <label htmlFor="listing-description" className="text-sm font-bold text-white tracking-wide">Description</label>
-            <div className="relative">
-              <textarea id="listing-description" value={description} onChange={(e) => handleDescriptionChange(e.target.value)} rows={4} aria-label="Listing description" aria-describedby={validationErrors.description ? "description-error" : "description-count"} className={`w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:bg-white/[0.05] focus:ring-2 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-white/[0.04] focus:border-sky-500/60 resize-none placeholder="Describe your item in detail..." ${validationErrors.description ? 'bg-red-500/10 focus:ring-red-500/20' : 'focus:ring-sky-500/20'}`} placeholder="Describe your item in detail..." />
-              {isFieldValid(description, validateDescription) && (
-                <div className="absolute right-4 top-4 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400" aria-hidden="true">
-                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-              )}
-            </div>
-            <div className="flex items-center justify-between">
-              <p id="description-count" className="text-[10px] text-[var(--muted)]">{description.length} characters</p>
-              {validationErrors.description && (
-                <p id="description-error" className="text-[10px] text-red-400 animate-in fade-in slide-in-from-top-2" role="alert">{validationErrors.description}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-200">
+          <div className="space-y-4">
+            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">Basics</p>
             <div className="space-y-1.5">
-              <label className="text-sm font-semibold text-white">
-                {listingType === "service" ? "Service Category" : "Category"}
-              </label>
-              <select value={category} onChange={(e) => { setCategory(e.target.value); markField("category"); }} className="w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-[var(--card-hover)] focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-[var(--card-hover)] appearance-none cursor-pointer">
-                <option value="" className="bg-[var(--card)] text-[var(--muted)]">Select category</option>
-                {listingType === "service" ? (
-                  <>{SERVICE_LISTING_CATEGORY_LIST.map((c) => <option key={c} className="bg-[var(--card)] text-[var(--foreground)]">{c}</option>)}</>
-                ) : listingType === "rental" ? (
-                  <>{RENTAL_LISTING_CATEGORY_LIST.map((c) => <option key={c} className="bg-[var(--card)] text-[var(--foreground)]">{c}</option>)}</>
-                ) : listingType === "wanted" ? (
-                  <>{WANTED_LISTING_CATEGORIES.map((c) => <option key={c} className="bg-[var(--card)] text-[var(--foreground)]">{c}</option>)}</>
-                ) : (
-                  <>{PHYSICAL_LISTING_CATEGORIES.map((c) => <option key={c} className="bg-[var(--card)] text-[var(--foreground)]">{c}</option>)}</>
+              <label htmlFor="listing-title" className="block text-xs font-medium text-zinc-400">Title</label>
+              <input
+                id="listing-title"
+                type="text"
+                value={title}
+                onChange={(e) => handleTitleChange(e.target.value)}
+                aria-label="Listing title"
+                aria-describedby={validationErrors.title ? "title-error" : "title-count"}
+                className={`w-full rounded-xl border px-3.5 py-2.5 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-sky-500/45 ${
+                  validationErrors.title ? "border-red-500/40 bg-red-500/5" : "border-white/10 bg-zinc-900/60"
+                }`}
+                placeholder="What are you selling?"
+              />
+              <div className="flex items-center justify-between">
+                <p id="title-count" className="text-[10px] text-zinc-600">{title.length}/100</p>
+                {validationErrors.title && (
+                  <p id="title-error" className="text-[10px] text-red-400" role="alert">{validationErrors.title}</p>
                 )}
-              </select>
+              </div>
             </div>
-            {listingType === "physical" && (
+
             <div className="space-y-1.5">
-              <label className="text-sm font-semibold text-white">Condition</label>
-              <select value={condition} onChange={(e) => { setCondition(e.target.value); markField("condition"); }} className="w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-[var(--card-hover)] focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-[var(--card-hover)] appearance-none cursor-pointer">
-                <option value="" className="bg-[var(--card)] text-[var(--muted)]">Select condition</option>
-                <option className="bg-[var(--card)] text-[var(--foreground)]">New</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Like New</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Good</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Fair</option>
-              </select>
+              <label htmlFor="listing-description" className="block text-xs font-medium text-zinc-400">Description</label>
+              <textarea
+                id="listing-description"
+                value={description}
+                onChange={(e) => handleDescriptionChange(e.target.value)}
+                rows={4}
+                aria-label="Listing description"
+                aria-describedby={validationErrors.description ? "description-error" : "description-count"}
+                className={`w-full resize-none rounded-xl border px-3.5 py-2.5 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-sky-500/45 ${
+                  validationErrors.description ? "border-red-500/40 bg-red-500/5" : "border-white/10 bg-zinc-900/60"
+                }`}
+                placeholder="Describe your item…"
+              />
+              <div className="flex items-center justify-between">
+                <p id="description-count" className="text-[10px] text-zinc-600">{description.length}</p>
+                {validationErrors.description && (
+                  <p id="description-error" className="text-[10px] text-red-400" role="alert">{validationErrors.description}</p>
+                )}
+              </div>
             </div>
-            )}
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-zinc-400">
+                  {listingType === "service" ? "Service category" : "Category"}
+                </label>
+                <select
+                  value={category}
+                  onChange={(e) => { setCategory(e.target.value); markField("category"); }}
+                  className="w-full cursor-pointer appearance-none rounded-xl border border-white/10 bg-zinc-900/60 px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-sky-500/45"
+                >
+                  <option value="" className="bg-zinc-900 text-zinc-500">Select category</option>
+                  {listingType === "service" ? (
+                    <>{SERVICE_LISTING_CATEGORY_LIST.map((c) => <option key={c} className="bg-zinc-900 text-white">{c}</option>)}</>
+                  ) : listingType === "rental" ? (
+                    <>{RENTAL_LISTING_CATEGORY_LIST.map((c) => <option key={c} className="bg-zinc-900 text-white">{c}</option>)}</>
+                  ) : listingType === "wanted" ? (
+                    <>{WANTED_LISTING_CATEGORIES.map((c) => <option key={c} className="bg-zinc-900 text-white">{c}</option>)}</>
+                  ) : (
+                    <>{PHYSICAL_LISTING_CATEGORIES.map((c) => <option key={c} className="bg-zinc-900 text-white">{c}</option>)}</>
+                  )}
+                </select>
+              </div>
+              {listingType === "physical" && (
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-medium text-zinc-400">Condition</label>
+                  <select
+                    value={condition}
+                    onChange={(e) => { setCondition(e.target.value); markField("condition"); }}
+                    className="w-full cursor-pointer appearance-none rounded-xl border border-white/10 bg-zinc-900/60 px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-sky-500/45"
+                  >
+                    <option value="" className="bg-zinc-900 text-zinc-500">Select condition</option>
+                    <option className="bg-zinc-900 text-white">New</option>
+                    <option className="bg-zinc-900 text-white">Used - Like New</option>
+                    <option className="bg-zinc-900 text-white">Used - Good</option>
+                    <option className="bg-zinc-900 text-white">Used - Fair</option>
+                  </select>
+                </div>
+              )}
+            </div>
           </div>
 
           {(listingType === "vehicle" || (listingType === "physical" && category === "Cars")) && (
-            <div className="space-y-3 rounded-xl bg-white/[0.03] p-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div>
-                <label className="text-sm font-bold text-[var(--foreground)]">Vehicle details</label>
-                <p className="mt-1 text-[10px] text-[var(--muted)]">Cars and motor vehicles listed under Physical Items.</p>
-              </div>
+            <div className="space-y-3 border-t border-white/[0.06] pt-5">
+              <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">Vehicle</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Make *</label>
                   <input type="text" value={vehicleMake} onChange={(e) => { setVehicleMake(e.target.value); markField("vehicleMake"); }} placeholder="e.g. Mazda"
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                    className="w-full rounded-xl border border-white/10 bg-zinc-900/60 px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-sky-500/45" />
                 </div>
                 <div>
                   <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Model *</label>
                   <input type="text" value={vehicleModel} onChange={(e) => { setVehicleModel(e.target.value); markField("vehicleModel"); }} placeholder="e.g. Axela"
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                    className="w-full rounded-xl border border-white/10 bg-zinc-900/60 px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-sky-500/45" />
                 </div>
                 <div>
                   <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Generation / variant</label>
                   <input type="text" value={vehicleGeneration} onChange={(e) => { setVehicleGeneration(e.target.value); markField("vehicleGeneration"); }} placeholder="e.g. R34"
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                    className="w-full rounded-xl border border-white/10 bg-zinc-900/60 px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-sky-500/45" />
                 </div>
                 <div>
                   <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Year</label>
                   <input type="number" value={vehicleYear} onChange={(e) => { setVehicleYear(e.target.value); markField("vehicleYear"); }} placeholder="e.g. 2015"
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                    className="w-full rounded-xl border border-white/10 bg-zinc-900/60 px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-sky-500/45" />
                 </div>
                 <div>
                   <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Odometer (km)</label>
                   <input type="number" value={vehicleOdometer} onChange={(e) => { setVehicleOdometer(e.target.value); markField("vehicleOdometer"); }} placeholder="e.g. 128000"
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                    className="w-full rounded-xl border border-white/10 bg-zinc-900/60 px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-sky-500/45" />
                 </div>
                 <div>
                   <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Colour</label>
                   <input type="text" value={vehicleColour} onChange={(e) => { setVehicleColour(e.target.value); markField("vehicleColour"); }} placeholder="e.g. Blue"
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                    className="w-full rounded-xl border border-white/10 bg-zinc-900/60 px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-sky-500/45" />
                 </div>
                 <div>
                   <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Body type</label>
                   <select value={vehicleBodyType} onChange={(e) => { setVehicleBodyType(e.target.value); markField("vehicleBodyType"); }}
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                    className="w-full rounded-xl border border-white/10 bg-zinc-900/60 px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-sky-500/45">
                     <option value="" className="bg-[var(--card)] text-[var(--muted)]">Select body type</option>
                     {["SUV", "Sedan", "Hatchback", "Wagon", "Coupe", "Convertible", "Ute", "Van", "Truck", "Motorcycle", "Other"].map((opt) => (
                       <option key={opt} className="bg-[var(--card)] text-[var(--foreground)]">{opt}</option>
@@ -2227,7 +2106,7 @@ export default function AIPostPage() {
                 <div>
                   <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Fuel</label>
                   <select value={vehicleFuelType} onChange={(e) => { setVehicleFuelType(e.target.value); markField("vehicleFuelType"); }}
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                    className="w-full rounded-xl border border-white/10 bg-zinc-900/60 px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-sky-500/45">
                     <option value="" className="bg-[var(--card)] text-[var(--muted)]">Select fuel</option>
                     {["Petrol", "Diesel", "Electric", "Hybrid", "Plug-in Hybrid", "Other"].map((opt) => (
                       <option key={opt} className="bg-[var(--card)] text-[var(--foreground)]">{opt}</option>
@@ -2237,7 +2116,7 @@ export default function AIPostPage() {
                 <div>
                   <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Transmission</label>
                   <select value={vehicleTransmission} onChange={(e) => { setVehicleTransmission(e.target.value); markField("vehicleTransmission"); }}
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                    className="w-full rounded-xl border border-white/10 bg-zinc-900/60 px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-sky-500/45">
                     <option value="" className="bg-[var(--card)] text-[var(--muted)]">Select transmission</option>
                     {["Automatic", "Manual", "Other"].map((opt) => (
                       <option key={opt} className="bg-[var(--card)] text-[var(--foreground)]">{opt}</option>
@@ -2255,7 +2134,7 @@ export default function AIPostPage() {
                 <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Salary / Price *</label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                  <input type="number" value={price} onChange={(e) => handlePriceChange(e.target.value)} placeholder="0" className="w-full rounded-xl bg-white/[0.03] pl-8 pr-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-white/[0.04]" />
+                  <input type="number" value={price} onChange={(e) => handlePriceChange(e.target.value)} placeholder="0" className="w-full rounded-xl bg-white/[0.03] pl-8 pr-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/20 hover:bg-white/[0.04]" />
                 </div>
                 <p className="text-[10px] text-[var(--muted)]">Set the salary range or fixed price for this position.</p>
               </div>
@@ -2272,7 +2151,7 @@ export default function AIPostPage() {
                 </label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                  <input type="number" value={price} onChange={(e) => handlePriceChange(e.target.value)} placeholder="0" className={`w-full rounded-xl pl-8 pr-20 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:bg-white/[0.05] focus:ring-2 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-white/[0.04] focus:border-sky-500/60 ${validationErrors.price ? 'bg-red-500/10 focus:ring-red-500/20' : 'bg-white/[0.03] focus:ring-sky-500/20'}`} />
+                  <input type="number" value={price} onChange={(e) => handlePriceChange(e.target.value)} placeholder="0" className={`w-full rounded-xl pl-8 pr-20 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:bg-white/[0.05] focus:ring-2 hover:bg-white/[0.04] focus:border-sky-500/60 ${validationErrors.price ? 'bg-red-500/10 focus:ring-red-500/20' : 'bg-white/[0.03] focus:ring-sky-500/20'}`} />
                   <button
                     type="button"
                     onClick={fetchPriceSuggestion}
@@ -2284,7 +2163,7 @@ export default function AIPostPage() {
                   </button>
                 </div>
                 {validationErrors.price && (
-                  <p className="mt-1 text-[10px] text-red-400 animate-in fade-in slide-in-from-top-2">{validationErrors.price}</p>
+                  <p className="mt-1 text-[10px] text-red-400">{validationErrors.price}</p>
                 )}
                 {listingType === "wanted" && <p className="text-[10px] text-[var(--muted)]">Set your budget for this item.</p>}
                 {listingType === "service" && servicePricingType === "hourly" && <p className="text-[10px] text-[var(--muted)]">Charge per hour for your service.</p>}
@@ -2303,13 +2182,13 @@ export default function AIPostPage() {
                     <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--foreground)]">Starting Bid *</label>
                     <div className="relative">
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
-                      <input type="number" value={startingBid} onChange={(e) => setStartingBid(e.target.value)} placeholder="0" className="w-full rounded-xl border border-[var(--border)] bg-[var(--card)] pl-8 pr-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-150 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
+                      <input type="number" value={startingBid} onChange={(e) => setStartingBid(e.target.value)} placeholder="0" className="w-full rounded-xl border border-[var(--border)] bg-[var(--card)] pl-8 pr-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-150 focus:border-sky-500" />
                     </div>
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--foreground)]">Duration *</label>
                     <select value={auctionDuration} onChange={(e) => setAuctionDuration(e.target.value)}
-                      className="w-full rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-sm text-[var(--foreground)] outline-none transition-all duration-150 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]">
+                      className="w-full rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-sm text-[var(--foreground)] outline-none transition-all duration-150 focus:border-sky-500">
                       <option value="1" className="bg-[var(--card)] text-[var(--foreground)]">24 hours</option>
                       <option value="3" className="bg-[var(--card)] text-[var(--foreground)]">3 days</option>
                       <option value="7" className="bg-[var(--card)] text-[var(--foreground)]">7 days</option>
@@ -2322,7 +2201,7 @@ export default function AIPostPage() {
             {(listingType === "physical" || listingType === "wanted") && (
             <div className="space-y-1.5">
               <label className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">Location</label>
-              <input type="text" value={location} onChange={(e) => handleLocationChange(e.target.value)} placeholder="e.g., Auckland, Wellington, Christchurch" className="w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/20 focus:shadow-[0_0_20px_rgba(14,165,233,0.1)] hover:bg-white/[0.04]" />
+              <input type="text" value={location} onChange={(e) => handleLocationChange(e.target.value)} placeholder="e.g., Auckland, Wellington, Christchurch" className="w-full rounded-xl bg-white/[0.03] px-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] outline-none transition-all duration-200 focus:border-sky-500/60 focus:bg-white/[0.05] focus:ring-2 focus:ring-sky-500/20 hover:bg-white/[0.04]" />
               <p className="text-[10px] text-[var(--muted)]">City or region helps buyers find your item</p>
             </div>
             )}
@@ -2340,7 +2219,7 @@ export default function AIPostPage() {
               ].map((opt) => (
                 <button key={opt.id} type="button" onClick={() => setSaleType(opt.id)}
                   className={`rounded-xl border px-4 py-4 text-left transition-all duration-150 active:scale-[0.98] ${
-                    saleType === opt.id ? "border-sky-400/60 bg-gradient-to-b from-sky-500/[0.15] to-sky-500/[0.08] text-sky-400 shadow-[0_0_25px_rgba(14,165,233,0.2)] scale-[1.02]" : "border-white/[0.08] bg-white/[0.02] text-[var(--muted)] hover:border-white/[0.15] hover:bg-white/[0.05] hover:-translate-y-0.5"
+                    saleType === opt.id ? "border-sky-400/60 bg-gradient-to-b from-sky-500/[0.15] to-sky-500/[0.08] text-sky-400" : "border-white/[0.08] bg-white/[0.02] text-[var(--muted)] hover:border-white/[0.15] hover:bg-white/[0.05]"
                   }`}>
                   <div className="font-bold text-sm">{opt.label}</div>
                   <div className="mt-1 text-[10px] leading-relaxed">{opt.desc}</div>
@@ -2386,7 +2265,7 @@ export default function AIPostPage() {
                 <div className="grid grid-cols-2 gap-2">
                   <button type="button" onClick={() => choosePaymentType("contact")}
                     className={`rounded-xl border px-4 py-3 text-xs font-bold text-left transition-all duration-200 active:scale-[0.97] ${
-                      paymentType === "contact" ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.06)]" : "bg-white/[0.02] text-[var(--muted)] hover:bg-white/[0.04]"
+                      paymentType === "contact" ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400" : "bg-white/[0.02] text-[var(--muted)] hover:bg-white/[0.04]"
                     }`}>
                     <span className="flex items-center gap-1.5">🤝 Arrange Purchase</span>
                     <span className="ml-1 rounded bg-sky-500/20 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-sky-300">Default</span>
@@ -2402,7 +2281,7 @@ export default function AIPostPage() {
                       !stripeConnected
                         ? "cursor-not-allowed border-white/[0.06] bg-white/[0.02] text-[var(--muted)] opacity-60"
                         : paymentType === "stripe"
-                          ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.06)]"
+                          ? "border-sky-500/40 bg-gradient-to-b from-sky-500/10 to-sky-500/5 text-sky-400"
                           : "bg-white/[0.02] text-[var(--muted)] hover:bg-white/[0.04]"
                     }`}>
                     <span className="flex items-center gap-1.5">
@@ -2453,29 +2332,29 @@ export default function AIPostPage() {
                 <div>
                   <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Event date *</label>
                   <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)}
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                    className="w-full rounded-xl border border-white/10 bg-zinc-900/60 px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-sky-500/45" />
                 </div>
                 <div>
                   <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Event time</label>
                   <input type="time" value={eventTime} onChange={(e) => setEventTime(e.target.value)}
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                    className="w-full rounded-xl border border-white/10 bg-zinc-900/60 px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-sky-500/45" />
                 </div>
               </div>
               <div>
                 <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Venue *</label>
                 <input type="text" value={venue} onChange={(e) => setVenue(e.target.value)} placeholder="e.g. Spark Arena, Auckland"
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                  className="w-full rounded-xl border border-white/10 bg-zinc-900/60 px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-sky-500/45" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Ticket quantity</label>
                   <input type="number" value={ticketQuantity} onChange={(e) => setTicketQuantity(e.target.value)} placeholder="e.g. 100"
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                    className="w-full rounded-xl border border-white/10 bg-zinc-900/60 px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-sky-500/45" />
                 </div>
                 <div>
                   <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Ticket type</label>
                   <select value={ticketType} onChange={(e) => setTicketType(e.target.value)}
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                    className="w-full rounded-xl border border-white/10 bg-zinc-900/60 px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-sky-500/45">
                     <option value="" className="bg-[var(--card)] text-[var(--muted)]">Select ticket type</option>
                     <option className="bg-[var(--card)] text-[var(--foreground)]">General Admission</option>
                     <option className="bg-[var(--card)] text-[var(--foreground)]">VIP</option>
@@ -2495,13 +2374,13 @@ export default function AIPostPage() {
               <div>
                 <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Company *</label>
                 <input type="text" value={jobCompany} onChange={(e) => setJobCompany(e.target.value)} placeholder="e.g. Sky Drop Ltd"
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                  className="w-full rounded-xl border border-white/10 bg-zinc-900/60 px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-sky-500/45" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Employment type</label>
                   <select value={jobEmploymentType} onChange={(e) => setJobEmploymentType(e.target.value)}
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500">
+                    className="w-full rounded-xl border border-white/10 bg-zinc-900/60 px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-sky-500/45">
                     <option value="" className="bg-[var(--card)] text-[var(--muted)]">Select employment type</option>
                     <option className="bg-[var(--card)] text-[var(--foreground)]">Full-time</option><option className="bg-[var(--card)] text-[var(--foreground)]">Part-time</option><option className="bg-[var(--card)] text-[var(--foreground)]">Contract</option><option className="bg-[var(--card)] text-[var(--foreground)]">Casual</option><option className="bg-[var(--card)] text-[var(--foreground)]">Fixed-term</option>
                   </select>
@@ -2509,7 +2388,7 @@ export default function AIPostPage() {
                 <div>
                   <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Location</label>
                   <input type="text" value={location} onChange={(e) => handleLocationChange(e.target.value)} placeholder="e.g. Auckland"
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                    className="w-full rounded-xl border border-white/10 bg-zinc-900/60 px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-sky-500/45" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -2583,7 +2462,7 @@ export default function AIPostPage() {
                   value={serviceDuration}
                   onChange={(e) => setServiceDuration(e.target.value)}
                   placeholder="e.g. Same day, 1-2 days, 3-5 days, 1 week"
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500"
+                  className="w-full rounded-xl border border-white/10 bg-zinc-900/60 px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-sky-500/45"
                 />
               </div>
             </div>
@@ -2604,8 +2483,8 @@ export default function AIPostPage() {
                       onClick={() => setRentalSubType(opt.id)}
                       className={`flex flex-col items-center gap-2 rounded-xl border px-4 py-4 text-center transition-all duration-150 active:scale-[0.98] ${
                         rentalSubType === opt.id
-                          ? "border-sky-400/60 bg-gradient-to-b from-sky-500/[0.15] to-sky-500/[0.08] text-sky-400 shadow-[0_0_25px_rgba(14,165,233,0.2)] scale-[1.02]"
-                          : "border-white/[0.08] bg-white/[0.02] text-[var(--muted)] hover:border-white/[0.15] hover:bg-white/[0.05] hover:-translate-y-0.5"
+                          ? "border-sky-400/60 bg-gradient-to-b from-sky-500/[0.15] to-sky-500/[0.08] text-sky-400"
+                          : "border-white/[0.08] bg-white/[0.02] text-[var(--muted)] hover:border-white/[0.15] hover:bg-white/[0.05]"
                     }`}>
                       <span className="text-2xl transition-transform duration-150">{opt.icon}</span>
                       <span className="text-sm font-bold">{opt.label}</span>
@@ -2619,7 +2498,7 @@ export default function AIPostPage() {
                 <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Where can this be collected?</label>
                 <input type="text" value={location} onChange={(e) => handleLocationChange(e.target.value)}
                   placeholder="City or suburb"
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition duration-150 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
+                  className="w-full rounded-xl border border-white/10 bg-zinc-900/60 px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-sky-500/45" />
               </div>
 
               {/* Rental Pricing Section */}
@@ -2646,7 +2525,7 @@ export default function AIPostPage() {
                           }
                         }}
                           placeholder="Day"
-                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition duration-150 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
+                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition duration-150 focus:border-sky-500" />
                       </div>
                     </div>
                     <div className="col-span-1">
@@ -2655,7 +2534,7 @@ export default function AIPostPage() {
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
                         <input type="number" value={rentalPriceWeekly} onChange={(e) => { setRentalPriceWeekly(e.target.value); manualEdit.current.add("weekly"); }}
                           placeholder="Week"
-                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition duration-150 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
+                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition duration-150 focus:border-sky-500" />
                       </div>
                     </div>
                     <div className="col-span-1">
@@ -2664,7 +2543,7 @@ export default function AIPostPage() {
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
                         <input type="number" value={rentalPriceMonthly} onChange={(e) => { setRentalPriceMonthly(e.target.value); manualEdit.current.add("monthly"); }}
                           placeholder="Month"
-                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition duration-150 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
+                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition duration-150 focus:border-sky-500" />
                       </div>
                     </div>
                   </div>
@@ -2676,13 +2555,13 @@ export default function AIPostPage() {
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">$</span>
                         <input type="number" value={rentalDeposit} onChange={(e) => setRentalDeposit(e.target.value)}
                           placeholder={rentalSubType === "vehicle" ? "e.g. 500" : "e.g. 200"}
-                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition duration-150 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
+                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] py-2 pl-7 pr-3.5 text-sm text-[var(--foreground)] outline-none transition duration-150 focus:border-sky-500" />
                       </div>
                     </div>
                     <div>
                       <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Condition</label>
                       <select value={condition} onChange={(e) => { setCondition(e.target.value); markField("condition"); }}
-                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition duration-150 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]">
+                        className="w-full rounded-xl border border-white/10 bg-zinc-900/60 px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-sky-500/45">
                         <option value="" className="bg-[var(--card)] text-[var(--muted)]">Select condition</option>
                         <option className="bg-[var(--card)] text-[var(--foreground)]">New</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Like New</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Good</option><option className="bg-[var(--card)] text-[var(--foreground)]">Used - Fair</option>
                       </select>
@@ -2696,13 +2575,13 @@ export default function AIPostPage() {
                         <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Make</label>
                         <input type="text" value={vehicleMake} onChange={(e) => { setVehicleMake(e.target.value); markField("vehicleMake"); }}
                           placeholder="e.g. Toyota"
-                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition duration-150 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
+                          className="w-full rounded-xl border border-white/10 bg-zinc-900/60 px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-sky-500/45" />
                       </div>
                       <div>
                         <label className="mb-1 block text-[10px] font-medium text-[var(--muted)]">Model</label>
                         <input type="text" value={vehicleModel} onChange={(e) => { setVehicleModel(e.target.value); markField("vehicleModel"); }}
                           placeholder="e.g. HiAce"
-                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition duration-150 focus:border-sky-500 focus:shadow-[0_0_0_3px_rgba(14,165,233,0.1)]" />
+                          className="w-full rounded-xl border border-white/10 bg-zinc-900/60 px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-sky-500/45" />
                       </div>
                     </div>
                   )}
@@ -2728,7 +2607,7 @@ export default function AIPostPage() {
                 <div className="ml-7">
                   <input type="text" value={pickupArea} onChange={(e) => setPickupArea(e.target.value)}
                     placeholder="Pickup location"
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3.5 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-sky-500" />
+                    className="w-full rounded-xl border border-white/10 bg-zinc-900/60 px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-sky-500/45" />
                   <p className="mt-1 text-[10px] text-[var(--muted)]">Buyers will pick up the item from your location.</p>
                 </div>
               )}
@@ -2763,48 +2642,63 @@ export default function AIPostPage() {
           </div>
           )}
 
-          <div className="mt-4 flex items-center gap-2">
-            <label className="flex cursor-pointer items-center gap-2">
+
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <label className="inline-flex items-center gap-2 text-[11px] text-zinc-500">
               <input type="checkbox" checked={autoPublish} onChange={(e) => setAutoPublish(e.target.checked)}
-                className="h-4 w-4 rounded border-[var(--border)] bg-[var(--card)] text-sky-500 focus:ring-sky-500/30" />
-              <span className="text-xs text-[var(--muted)]">Auto-publish after AI fills form</span>
+                className="h-3.5 w-3.5 rounded border-white/20 bg-zinc-900 text-sky-500 focus:ring-sky-500/30" />
+              Auto-publish after AI fills
             </label>
-            <span className="text-[9px] text-sky-400/70">• Save time, but review before it goes live</span>
+            <label className="inline-flex items-center gap-1.5 text-[11px] text-zinc-500">
+              Expires
+              <select value={expiresIn} onChange={(e) => setExpiresIn(e.target.value)}
+                className="rounded-md border border-white/10 bg-zinc-900 px-2 py-1 text-[11px] text-zinc-300 outline-none focus:border-sky-500/45">
+                <option value="7">7 days</option>
+                <option value="14">14 days</option>
+                <option value="30">30 days</option>
+              </select>
+            </label>
           </div>
 
           <button
             id="listing-submit-btn"
             onClick={createListing}
             disabled={loading || editLoading}
-            className="w-full rounded-2xl bg-gradient-to-r from-sky-500 to-sky-400 py-4 text-lg font-bold text-white shadow-2xl shadow-sky-500/30 transition-all duration-200 hover:shadow-[0_0_30px_rgba(56,189,248,0.35)] hover:brightness-110 hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 disabled:opacity-40 disabled:shadow-none disabled:hover:brightness-100 disabled:hover:translate-y-0">
-            {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                Saving...
-              </span>
-            ) : autoPublish && !editId ? "Generate with AI" : editId ? "Save Changes" : "Post Now"}
+            className="mt-2 w-full rounded-xl bg-sky-500 py-3.5 text-sm font-semibold text-white transition hover:bg-sky-400 disabled:opacity-40"
+          >
+            {loading ? "Saving…" : autoPublish && !editId ? "Generate with AI" : editId ? "Save changes" : "Post now"}
           </button>
+        </div>
+        </div>
+        </div>
+        </div>
 
-          <div className="mt-3 text-center">
-            <label className="inline-flex items-center gap-2 text-[10px] text-[var(--muted)]">
-              Listing expires in
-              <select value={expiresIn} onChange={(e) => setExpiresIn(e.target.value)}
-                className="rounded border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-[10px] text-[var(--foreground)] outline-none transition focus:border-sky-500">
-                <option value="7" className="bg-[var(--card)] text-[var(--foreground)]">7 days</option>
-                <option value="14" className="bg-[var(--card)] text-[var(--foreground)]">14 days</option>
-                <option value="30" className="bg-[var(--card)] text-[var(--foreground)]">30 days</option>
-              </select>
-            </label>
+        {/* CONVERSATION COLUMN */}
+        {!editId && (
+          <div
+            className={`mb-4 flex min-h-[min(68vh,640px)] min-w-0 flex-col lg:mb-0 lg:sticky lg:top-20 lg:h-[min(78vh,760px)] lg:min-h-0 ${
+              mobileWorkspaceTab === "listing" ? "hidden lg:flex" : "flex"
+            }`}
+          >
+            <div className="mb-2 flex items-center gap-2 px-0.5">
+              <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">Āwhina</span>
+            </div>
+            <SkyAiChatPanel
+              mode="inline"
+              open={skyChatOpen}
+              onOpenChange={setSkyChatOpen}
+              autoQuery={skyAutoQuery}
+              onAutoQueryConsumed={() => setSkyAutoQuery(undefined)}
+              onFill={applyFill}
+              quickPrompts={[]}
+              welcomeText="Kia ora — tell me what you're selling. I'll build the listing with you."
+              workspaceChrome
+              className="awhina-listing-workspace-chat min-h-0 flex-1"
+            />
           </div>
+        )}
+
         </div>
-          </div>
-        </div>
-        </div>
-        </div>
-      </div>
       </div>
 
       {/* SCAM ALERT MODAL - INSIDE MAIN CONTAINER */}

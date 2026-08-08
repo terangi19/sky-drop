@@ -1060,7 +1060,7 @@ export default function SkyAiChatPanel({
     </div>
   );
 
-  /** Workspace: no second header / History / New — page owns chrome; conversation is the focus. */
+  /** Workspace: quiet single identity — page owns the Āwhina label above. */
   const header = isWorkspace ? null : (
     <div
       className={`flex items-center justify-between border-b border-sky-500/15 bg-gradient-to-r from-sky-500/[0.06] to-sky-500/[0.06] px-4 py-3 ${
@@ -1118,14 +1118,14 @@ export default function SkyAiChatPanel({
 
       <div
         ref={listRef}
-        className={`overflow-y-auto px-3 py-3 space-y-3 scrollbar-thin ${
+        className={`overflow-y-auto scrollbar-thin ${
           isSheet
-            ? "flex-1"
+            ? "flex-1 px-3 py-3 space-y-3"
             : isWorkspace
-              ? "min-h-0 flex-1"
+              ? "min-h-0 flex-1 space-y-4 px-4 py-5"
               : className.includes("awhina-listing-workspace-chat")
-                ? "min-h-[280px] max-h-[min(560px,62vh)]"
-                : "min-h-[200px] max-h-[min(360px,45vh)]"
+                ? "min-h-[280px] max-h-[min(560px,62vh)] px-3 py-3 space-y-3"
+                : "min-h-[200px] max-h-[min(360px,45vh)] px-3 py-3 space-y-3"
         }`}
       >
         {messages.map((m) => {
@@ -1136,10 +1136,14 @@ export default function SkyAiChatPanel({
               className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[92%] rounded-2xl px-3 py-2.5 text-[12px] leading-relaxed whitespace-pre-line ${
+                className={`max-w-[92%] px-3 py-2.5 text-[13px] leading-relaxed whitespace-pre-line ${
                   m.role === "user"
-                    ? "bg-gradient-to-br from-sky-500/25 to-sky-600/15 text-sky-50 ring-1 ring-sky-500/20"
-                    : "border border-sky-500/15 bg-sky-500/[0.04] text-always-white/90 shadow-[0_0_24px_rgba(139,92,246,0.06)]"
+                    ? isWorkspace
+                      ? "rounded-2xl bg-white/[0.07] text-zinc-100"
+                      : "rounded-2xl bg-gradient-to-br from-sky-500/25 to-sky-600/15 text-sky-50 ring-1 ring-sky-500/20"
+                    : isWorkspace
+                      ? "rounded-2xl text-zinc-200"
+                      : "rounded-2xl border border-sky-500/15 bg-sky-500/[0.04] text-always-white/90 shadow-[0_0_24px_rgba(139,92,246,0.06)]"
                 }`}
               >
                 {m.images && m.images.length > 0 && (
@@ -1172,7 +1176,7 @@ export default function SkyAiChatPanel({
         })}
         {showThinking && (
           <div className="flex justify-start">
-            <div className="rounded-2xl border border-sky-500/20 bg-sky-500/[0.05] px-3 py-2 text-[11px] text-sky-300/70">
+            <div className={`px-3 py-2 text-[12px] ${isWorkspace ? "text-zinc-500" : "rounded-2xl border border-sky-500/20 bg-sky-500/[0.05] text-sky-300/70"}`}>
               {AWHINA_THINKING}
             </div>
           </div>
@@ -1343,11 +1347,15 @@ export default function SkyAiChatPanel({
       }} />
 
       <div
-        className={`border-t border-white/[0.08] awhina-chat-surface relative z-10 shrink-0 bg-[rgba(6,8,12,0.98)] px-3 py-2.5 ${
-          isSheet ? "max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]" : isWorkspace ? "" : "rounded-b-xl"
+        className={`border-t border-white/[0.06] relative z-10 shrink-0 px-3 py-2.5 ${
+          isSheet
+            ? "awhina-chat-surface max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] bg-[rgba(6,8,12,0.98)]"
+            : isWorkspace
+              ? "bg-transparent"
+              : "awhina-chat-surface rounded-b-xl bg-[rgba(6,8,12,0.98)]"
         }`}
       >
-        {!listingPreviewFill && quickPrompts.length > 0 && (
+        {!listingPreviewFill && !isWorkspace && quickPrompts.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-1.5">
             {quickPrompts.map((p) => (
               <button
@@ -1369,7 +1377,7 @@ export default function SkyAiChatPanel({
                 <img
                   src={img.dataUrl}
                   alt=""
-                  className="h-14 w-14 rounded-lg object-cover ring-1 ring-sky-500/30"
+                  className="h-14 w-14 rounded-lg object-cover ring-1 ring-white/10"
                 />
                 <button
                   type="button"
@@ -1392,7 +1400,23 @@ export default function SkyAiChatPanel({
           onChange={handleImagePick}
         />
         <form onSubmit={handleSubmit} className="space-y-2">
-          <div className="overflow-hidden rounded-xl border border-sky-500/20 bg-white/[0.03] focus-within:border-sky-400/50 focus-within:shadow-[0_0_20px_rgba(14,165,233,0.1)]">
+          <div
+            className={`flex items-end gap-2 rounded-2xl border px-2 py-2 focus-within:border-sky-500/40 ${
+              isWorkspace
+                ? "border-white/[0.1] bg-white/[0.03]"
+                : "overflow-hidden border-sky-500/20 bg-white/[0.03] focus-within:shadow-[0_0_20px_rgba(14,165,233,0.1)]"
+            }`}
+          >
+            <button
+              type="button"
+              disabled={busy || imageBusy || pendingImages.length >= SKY_AI_MAX_IMAGES_PER_MESSAGE}
+              onClick={() => imageInputRef.current?.click()}
+              className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-lg text-zinc-400 transition hover:bg-white/[0.06] hover:text-zinc-200 disabled:opacity-40"
+              title="Add photos"
+              aria-label="Add photos"
+            >
+              +
+            </button>
             <textarea
               ref={chatInputRef}
               value={input}
@@ -1409,55 +1433,40 @@ export default function SkyAiChatPanel({
                   : "Describe what you're selling, or attach a photo…"
               }
               disabled={busy}
-              rows={2}
-              className="block w-full min-h-[52px] max-h-32 resize-none border-0 bg-transparent px-3 pt-2.5 pb-1 text-[12px] leading-relaxed text-always-white outline-none placeholder:text-zinc-500"
+              rows={isWorkspace ? 1 : 2}
+              className={`block min-h-[36px] max-h-32 flex-1 resize-none border-0 bg-transparent px-1 py-2 text-[13px] leading-relaxed text-always-white outline-none placeholder:text-zinc-500 ${
+                isWorkspace ? "" : "w-full px-3 pt-2.5 pb-1 text-[12px]"
+              }`}
             />
-            <div className="flex items-center justify-between gap-2 border-t border-white/[0.04] px-2 py-1.5">
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  disabled={busy || imageBusy || pendingImages.length >= SKY_AI_MAX_IMAGES_PER_MESSAGE}
-                  onClick={() => imageInputRef.current?.click()}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-sky-500/25 bg-sky-500/10 text-base text-sky-300 hover:bg-sky-500/20 disabled:opacity-40"
-                  title="Add photos"
-                  aria-label="Add photos"
-                >
-                  📷
-                </button>
-                {voiceSupported && (
-                  <button
-                    type="button"
-                    disabled={busy || imageBusy}
-                    onClick={toggleListening}
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border text-base transition disabled:opacity-40 ${
-                      listening
-                        ? "border-red-400/50 bg-red-500/20 text-red-300 animate-pulse shadow-[0_0_16px_rgba(248,113,113,0.35)]"
-                        : "border-sky-500/25 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20"
-                    }`}
-                    title={
-                      listening
-                        ? "Stop listening"
-                        : 'Voice input — speak naturally, e.g. "take me to services"'
-                    }
-                    aria-label={listening ? "Stop voice input" : "Start voice input"}
-                    aria-pressed={listening}
-                  >
-                    🎤
-                  </button>
-                )}
-              </div>
+            {voiceSupported && (
               <button
-                type="submit"
-                disabled={!canSend}
-                className="shrink-0 rounded-lg bg-gradient-to-r from-sky-500 to-sky-500 px-4 py-2 text-[11px] font-bold text-always-white shadow-[0_0_20px_rgba(14,165,233,0.25)] hover:brightness-110 disabled:opacity-40"
+                type="button"
+                disabled={busy || imageBusy}
+                onClick={toggleListening}
+                className={`mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm transition disabled:opacity-40 ${
+                  listening
+                    ? "bg-red-500/15 text-red-300"
+                    : "text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-200"
+                }`}
+                title={listening ? "Stop listening" : "Voice input"}
+                aria-label={listening ? "Stop voice input" : "Start voice input"}
+                aria-pressed={listening}
               >
-                Send
+                {listening ? "●" : "♪"}
               </button>
-            </div>
+            )}
+            <button
+              type="submit"
+              disabled={!canSend}
+              className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-500 text-sm font-semibold text-white transition hover:bg-sky-400 disabled:opacity-35"
+              aria-label="Send"
+            >
+              ↑
+            </button>
           </div>
         </form>
         {voiceStatus && (
-          <p className="mt-1.5 text-[10px] leading-snug text-sky-400/90" role="status">
+          <p className="mt-1.5 text-[10px] leading-snug text-zinc-500" role="status">
             {voiceStatus}
           </p>
         )}
@@ -1475,7 +1484,7 @@ export default function SkyAiChatPanel({
       <div
         className={`${
           isWorkspace
-            ? "flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-white/[0.08] awhina-chat awhina-chat-shell"
+            ? "flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.015] awhina-chat awhina-chat-shell"
             : "mt-4 flex flex-col overflow-hidden rounded-xl border border-sky-500/25 awhina-chat awhina-chat-shell shadow-[0_0_30px_rgba(14,165,233,0.08)] animate-fade-in-panel"
         } ${className}`}
       >
