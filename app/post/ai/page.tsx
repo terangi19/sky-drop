@@ -214,8 +214,6 @@ export default function AIPostPage() {
   /** Mobile workspace: conversation is primary; listing is the draft pane */
   const [mobileWorkspaceTab, setMobileWorkspaceTab] = useState<"chat" | "listing">("chat");
   const [liveFieldNotes, setLiveFieldNotes] = useState<string[]>([]);
-  /** Manual form visible by default; Hide form / Edit details still optional */
-  const [showManualEditor, setShowManualEditor] = useState(true);
   const awhinaConversation = useAwhinaConversation();
   const handoffBootstrapped = useRef(false);
   const [draftExtras, setDraftExtras] = useState<string[]>([]);
@@ -342,7 +340,6 @@ export default function AIPostPage() {
   );
 
   const openManualEditor = () => {
-    setShowManualEditor(true);
     setMobileWorkspaceTab("listing");
     setTimeout(() => {
       document.getElementById("manual-listing-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -2032,24 +2029,6 @@ export default function AIPostPage() {
                     Review listing
                   </button>
                 ) : null}
-                {!showManualEditor ? (
-                  <button
-                    type="button"
-                    onClick={openManualEditor}
-                    data-testid={hasDraftContent ? "edit-details-listing" : "edit-details-empty"}
-                    className="text-sm font-medium text-zinc-400 underline-offset-4 transition hover:text-white hover:underline"
-                  >
-                    Edit details
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setShowManualEditor(false)}
-                    className="text-sm font-medium text-zinc-500 transition hover:text-zinc-300"
-                  >
-                    Hide form
-                  </button>
-                )}
                 {awhinaIsAsking ? (
                   <button
                     type="button"
@@ -2063,22 +2042,15 @@ export default function AIPostPage() {
             </div>
           )}
 
-        {/* Full manual form — opens via Edit details */}
+        {/* Full manual form — always visible */}
         <div
           id="manual-listing-form"
-          className={`${!editId && !showManualEditor ? "hidden" : "mt-2 block"}`}
+          className="mt-2 block"
         >
         <div className="rounded-2xl border border-white/[0.08] bg-zinc-900/45 p-4 sm:p-5">
-        {!editId && showManualEditor && (
-          <div className="mb-5 flex items-center justify-between gap-3">
+        {!editId && (
+          <div className="mb-5">
             <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-500">Listing details</p>
-            <button
-              type="button"
-              onClick={() => setShowManualEditor(false)}
-              className="text-[11px] font-medium text-zinc-500 transition hover:text-zinc-300"
-            >
-              Hide
-            </button>
           </div>
         )}
 
