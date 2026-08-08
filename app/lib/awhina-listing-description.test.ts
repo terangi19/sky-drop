@@ -8,6 +8,7 @@ import {
   isRoboticListingDescription,
   passesListingDescriptionQualityGate,
   resolveListingDescriptionStyle,
+  IMPLY_CLAIMS_RE,
   type ListingDescriptionQuality,
 } from "./awhina-product-ux";
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
@@ -15,6 +16,8 @@ import { processCanonicalAwhina } from "./awhina-canonical";
 import { clearSearchSession, searchSessionKey } from "./awhina-search-memory";
 import { clearTaskScope, taskScopeKey } from "./awhina-task-scope";
 import { clearListingDraftSession, listingDraftSessionKey } from "./awhina-listing-fill-tools";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 function wipe(id: string) {
   clearSearchSession(searchSessionKey({ conversationId: id }));
@@ -30,8 +33,7 @@ const META_PHRASE_SMELLS =
   /\bno guesswork\b|\bbased on (the )?(available|provided|supplied) (details|information)\b|\busing only supplied\b|\bfrom the information provided\b|\bbased on what we know\b|\bverified facts only\b|\bI haven'?t assumed\b|\bI didn'?t invent\b|\bStraightforward listing\b|\bdetails we have\b|\bfacts we know\b|\bknown details\b|\bwhat is known\b|\bhere is what we know\b|\bCan do pickup\b|\bAvailable around\b|\bAI\b|\bgenerated\b|\bassumed\b/i;
 
 /** Implied functionality / condition / photo claims without supplied facts. */
-const UNGROUNDED_CLAIM_SMELLS =
-  /\bready for use\b|\bworks well\b|\bclean upgrade\b|\bready to go\b|\bwell looked after\b|\bready for its next owner\b|\bready for its next home\b|\bready for a new wardrobe\b|\ba clean piece\b|\bclearer photos\b|\banother look at the photos\b|\bcheck the photos\b|\bmore photos\b|\banother photo\b|\bsend another photo\b|\bworks perfectly\b/i;
+const UNGROUNDED_CLAIM_SMELLS = IMPLY_CLAIMS_RE;
 
 function assertNoDuplicateSentences(desc: string) {
   const sentences = desc
@@ -332,6 +334,25 @@ describe("category-aware description snapshots", () => {
 });
 
 describe("sparse listings stay grounded", () => {
+  it("phrase banks themselves contain no implied-claim strings", () => {
+    const src = readFileSync(join(__dirname, "awhina-product-ux.ts"), "utf8");
+    const bridgeStart = src.indexOf("const BRIDGE_BANK");
+    const ctaStart = src.indexOf("const CTA_BANK");
+    const ctaEnd = src.indexOf("function locationInText", ctaStart);
+    expect(bridgeStart).toBeGreaterThan(-1);
+    expect(ctaStart).toBeGreaterThan(bridgeStart);
+    expect(ctaEnd).toBeGreaterThan(ctaStart);
+    const banks = src.slice(bridgeStart, ctaEnd);
+    // Strip string contents and assert none match IMPLY_CLAIMS
+    const phrases = [...banks.matchAll(/"([^"\\]|\\.)*"/g)].map((m) =>
+      m[0].slice(1, -1).replace(/\\"/g, '"')
+    );
+    expect(phrases.length).toBeGreaterThan(20);
+    for (const phrase of phrases) {
+      expect(phrase).not.toMatch(IMPLY_CLAIMS_RE);
+    }
+  });
+
   const sparseFills: SkyAiListingFill[] = [
     {
       title: "Samsung TV",

@@ -587,7 +587,7 @@ const IMPLEMENTATION_LEAK_RE =
   /\bno guesswork\b|\bbased on (the )?(available|provided|supplied) (details|information)\b|\busing only supplied\b|\bfrom the information provided\b|\bbased on what we know\b|\bverified facts only\b|\bI haven'?t assumed\b|\bI didn'?t invent\b|\bStraightforward listing with the details we have\b|\bdetails we have\b|\bfacts we know\b|\bknown details\b|\bwhat is known\b|\bhere is what we know\b|\bonly the facts\b|\bAI\b|\bgenerated\b|\bassumed\b/i;
 
 /** Implied quality / functionality / photo claims without supplied facts. */
-const UNGROUNDED_CLAIM_RE =
+export const IMPLY_CLAIMS_RE =
   /\bready for use\b|\bworks well\b|\bclean upgrade\b|\bready to go\b|\bwell looked after\b|\bready for its next owner\b|\bready for its next home\b|\bready for a new wardrobe\b|\ba clean piece\b|\bclearer photos\b|\banother look at the photos\b|\bcheck the photos\b|\bmore photos\b|\banother photo\b|\bsend another photo\b|\bworks perfectly\b/i;
 
 function wordCount(text: string): number {
@@ -618,7 +618,7 @@ export function isRoboticListingDescription(text: string | undefined | null): bo
   if (FIELD_LABEL_RE.test(t)) return true;
   if (BANNED_TEMPLATE_RE.test(t)) return true;
   if (IMPLEMENTATION_LEAK_RE.test(t)) return true;
-  if (UNGROUNDED_CLAIM_RE.test(t)) return true;
+  if (IMPLY_CLAIMS_RE.test(t)) return true;
   if (/\bOdometer:\s*/i.test(t) && /\bColour:\s*/i.test(t)) return true;
   if (/^Selling .+\.\s*Condition:/i.test(t)) return true;
   if (/^selling my .{1,40}$/i.test(t) && !/\n/.test(t)) return true;
@@ -649,7 +649,7 @@ export function passesListingDescriptionQualityGate(text: string | undefined | n
     FIELD_LABEL_RE.test(t) ||
     BANNED_TEMPLATE_RE.test(t) ||
     IMPLEMENTATION_LEAK_RE.test(t) ||
-    UNGROUNDED_CLAIM_RE.test(t)
+    IMPLY_CLAIMS_RE.test(t)
   ) {
     return false;
   }
