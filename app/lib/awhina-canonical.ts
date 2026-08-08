@@ -33,7 +33,21 @@ import {
   clearListingDraftSession,
   processListingFillMessage,
   isListingFollowUp,
+  rememberListingDraft,
+  reconstructListingDraftBase,
+  validateListingFillFields,
 } from "./awhina-listing-fill-tools";
+import {
+  getActiveListingSlot,
+  parseShortReplyForPendingSlot,
+  extractCompoundListingFacts,
+  buildListingSlotPending,
+  mergeExtras,
+  SLOT_QUESTIONS,
+  type ListingMissingSlot,
+} from "./awhina-pending-slots";
+import { buildReadinessFollowUpReply } from "./awhina-listing-readiness";
+import type { SkyAiListingFill } from "./sky-ai-listing-fill";
 import {
   profileDraftSessionKey,
   processProfileMessage,
@@ -51,7 +65,10 @@ import {
   hasExplicitSellSwitch,
   hasSearchIntentLanguage,
 } from "./sky-ai-intent";
-import { isListPublishActionMessage } from "./awhina-active-draft-commands";
+import {
+  isListPublishActionMessage,
+  detectActiveDraftCommands,
+} from "./awhina-active-draft-commands";
 import { hasActiveListingDraft } from "./sky-ai-draft-merge";
 import type { SkyAiListingContext } from "./sky-ai-types";
 import type { SkyAiProfileContext } from "./sky-ai-profile-context";
@@ -95,6 +112,9 @@ import {
   polishAwhinaReplyStyle,
   maybeOneProactiveSuggestion,
   buildPremiumSearchSummary,
+  buildPremiumListingTitle,
+  buildListingDescriptionFromFacts,
+  isVehicleListingFill,
   type ListingFacts,
 } from "./awhina-product-ux";
 import {
@@ -216,6 +236,114 @@ function searchToolCall(merged: SearchSessionFilters, confidence = 0.9): AwhinaT
     },
     confidence,
   };
+}
+
+/** Natural "Got it — …" ack for a filled pending slot (no "year 1999" / "price $50000"). */
+function naturalPendingSlotAck(
+  slot: ListingMissingSlot,
+  partial: Partial<SkyAiListingFill>,
+  message: string
+): string {
+  if (slot === "year" && partial.vehicleYear) return String(partial.vehicleYear);
+  if (slot === "price" && partial.price) {
+    const n = Number(String(partial.price).replace(/[^\d.]/g, ""));
+    return Number.isFinite(n)
+      ? `$${Math.round(n).toLocaleString("en-NZ")}`
+      : `$${partial.price}`;
+  }
+  if (slot === "odometer" && partial.vehicleOdometer) {
+    const n = Number(String(partial.vehicleOdometer).replace(/[^\d]/g, ""));
+    const unit = /\b(miles?|mi)\b/i.test(message) ? "mi" : "km";
+    return Number.isFinite(n) && n > 0
+      ? `${n.toLocaleString("en-NZ")} ${unit}`
+      : `${partial.vehicleOdometer} ${unit}`;
+  }
+  if (slot === "condition" && partial.condition) return partial.condition;
+  if (slot === "location" && partial.location) return partial.location;
+  if (slot === "colour" && partial.vehicleColour) return partial.vehicleColour;
+  if (slot === "transmission" && partial.vehicleTransmission) {
+    return partial.vehicleTransmission;
+  }
+  if (slot === "rental_rate" || slot === "service_rate") {
+    const p = partial.price || partial.rentalPriceDaily;
+    if (p) {
+      const n = Number(String(p).replace(/[^\d.]/g, ""));
+      return Number.isFinite(n) ? `$${Math.round(n).toLocaleString("en-NZ")}` : `$${p}`;
+    }
+  }
+  if (partial.extras?.length) {
+    const e = partial.extras[partial.extras.length - 1];
+    const colon = e.indexOf(":");
+    if (colon > 0) return e.slice(colon + 1).trim();
+  }
+  return slot.replace(/_/g, " ");
+}
+
+/**
+ * Apply a matched pending-slot partial onto the authoritative draft and advance
+ * the listing_slots clarification. Shared by short-reply + compound paths.
+ */
+function applyPendingSlotFill(opts: {
+  base: SkyAiListingFill;
+  partial: SkyAiListingFill;
+  filledSlots: ListingMissingSlot[];
+  message: string;
+  sessionKey: string;
+  scopeKey: string;
+  pathname: string;
+}): {
+  fill: SkyAiListingFill;
+  reply: string;
+  pendingClarification: ReturnType<typeof buildListingSlotPending>;
+} | null {
+  const { base, partial, filledSlots, message, sessionKey, scopeKey, pathname } = opts;
+  let merged: SkyAiListingFill = { ...base, ...partial };
+  if (partial.extras || base.extras) {
+    merged.extras = mergeExtras(base.extras, partial.extras);
+  }
+  // Sticky identity — never drop established make/model/title facts
+  if (base.vehicleMake && !partial.vehicleMake) merged.vehicleMake = base.vehicleMake;
+  if (base.vehicleModel && !partial.vehicleModel) merged.vehicleModel = base.vehicleModel;
+  if (base.title && !partial.title) merged.title = base.title;
+  if (base.price && !partial.price) merged.price = base.price;
+  if (base.vehicleYear && !partial.vehicleYear) merged.vehicleYear = base.vehicleYear;
+
+  if (base.descriptionSource === "user" && base.description) {
+    merged.description = base.description;
+    merged.descriptionSource = "user";
+  } else if (isVehicleListingFill(merged)) {
+    const titleCore = [merged.vehicleYear, merged.vehicleMake, merged.vehicleModel]
+      .filter(Boolean)
+      .join(" ");
+    if (titleCore) {
+      merged.title = buildPremiumListingTitle({
+        item: titleCore,
+        condition: merged.condition,
+        listingType: "vehicle",
+        vehicleYear: merged.vehicleYear,
+      });
+    }
+    merged.description = buildListingDescriptionFromFacts(merged);
+    merged.descriptionSource = "ai";
+  }
+
+  const validated = validateListingFillFields(merged);
+  if (!validated.ok) return null;
+
+  rememberListingDraft(sessionKey, validated.fill);
+  const pending = buildListingSlotPending(validated.fill, message);
+  setActiveTask(scopeKey, "selling", {
+    pendingClarification: pending || undefined,
+  });
+
+  const primary = filledSlots[0];
+  const ack = primary
+    ? naturalPendingSlotAck(primary, { ...partial, extras: merged.extras }, message)
+    : null;
+  const lead = ack ? `Got it — ${ack}.` : undefined;
+  const reply = buildReadinessFollowUpReply(validated.fill, { lead });
+  void pathname;
+  return { fill: validated.fill, reply, pendingClarification: pending };
 }
 
 /** Avoid redundant Navigating when already on the same search destination. */
@@ -898,6 +1026,146 @@ export function processCanonicalAwhina(
         clearSearchSession(memKey);
       }
       taskSession = getTaskScope(scopeKey);
+    }
+  }
+
+  // ── Pending listing-slot resolution (BEFORE broader intent / free-form) ──
+  // Canonical must consume short answers via getActiveListingSlot +
+  // parseShortReplyForPendingSlot — echoing pendingSlot alone is not enough.
+  // Skip when draft commands or explicit search language — those own the turn.
+  {
+    const pendingListing = getTaskScope(scopeKey)?.pendingClarification;
+    const activeSlot = getActiveListingSlot(pendingListing);
+    const draftCmdsEarly = detectActiveDraftCommands(trimmed);
+    if (
+      activeSlot &&
+      isClarificationOpen(pendingListing) &&
+      pendingListing?.kind === "listing_slots" &&
+      trimmed.length > 0 &&
+      trimmed.length <= 120 &&
+      !explicitSell &&
+      !searchLang &&
+      draftCmdsEarly.commands.length === 0
+    ) {
+      const sessionKey = listKeyEarly;
+      const baseDraft = reconstructListingDraftBase({
+        listingContext: context.listingContext,
+        sessionKey,
+        freshStart: false,
+      });
+
+      const slotResult = parseShortReplyForPendingSlot(trimmed, activeSlot);
+      if (slotResult.rejectedCorruption) {
+        setActiveTask(scopeKey, "selling", {
+          pendingClarification: pendingListing,
+        });
+        return finish({
+          handled: true,
+          reply: `${SLOT_QUESTIONS[activeSlot]} (that didn't look like a ${activeSlot.replace(/_/g, " ")} — try again?)`,
+          source: "clarify",
+          intent: "listing_update",
+          confidence: 0.7,
+          usedLocalExecution: true,
+          avoidedAi: true,
+          clarificationQuestion: SLOT_QUESTIONS[activeSlot],
+        });
+      }
+
+      if (slotResult.matched) {
+        let partial: SkyAiListingFill = { ...slotResult.partial };
+        if (partial.extras) {
+          partial.extras = mergeExtras(baseDraft.extras, partial.extras);
+        }
+        if (slotResult.filledSlot === "generation" && baseDraft.vehicleMake) {
+          const fromCompound = extractCompoundListingFacts(trimmed, {
+            activeSlot: "generation",
+            baseDraft,
+          });
+          Object.assign(partial, fromCompound.partial);
+          if (fromCompound.partial.extras) {
+            partial.extras = mergeExtras(baseDraft.extras, fromCompound.partial.extras);
+          }
+        }
+        // Tag odometer unit from message / km question context (no new regex)
+        if (slotResult.filledSlot === "odometer" && partial.vehicleOdometer) {
+          const unit = /\b(miles?|mi)\b/i.test(trimmed) ? "mi" : "km";
+          partial.extras = mergeExtras(partial.extras, [`odometerUnit:${unit}`]);
+        }
+        const applied = applyPendingSlotFill({
+          base: baseDraft,
+          partial,
+          filledSlots: slotResult.filledSlot ? [slotResult.filledSlot] : [activeSlot],
+          message: trimmed,
+          sessionKey,
+          scopeKey,
+          pathname,
+        });
+        if (applied) {
+          return finish({
+            handled: true,
+            reply: applied.reply,
+            listingFill: applied.fill,
+            navigateTo: onSellPage ? undefined : "/post/ai",
+            source: "tool",
+            intent: "listing_update",
+            tool: "updateListingDraft",
+            confidence: 0.95,
+            usedLocalExecution: true,
+            avoidedAi: true,
+            toolCall: {
+              tool: "updateListingDraft",
+              args: { updateListingDraft: applied.fill },
+              confidence: 0.95,
+            },
+          });
+        }
+      } else {
+        // Compound short answers ("190k good condition", "190k kilometres") —
+        // reuse existing extractCompoundListingFacts, not a new odometer regex.
+        const extracted = extractCompoundListingFacts(trimmed, {
+          activeSlot,
+          baseDraft,
+        });
+        if (extracted.filledSlots.length > 0) {
+          const applied = applyPendingSlotFill({
+            base: baseDraft,
+            partial: extracted.partial,
+            filledSlots: extracted.filledSlots,
+            message: trimmed,
+            sessionKey,
+            scopeKey,
+            pathname,
+          });
+          if (applied) {
+            const primary = extracted.filledSlots[0];
+            const ackBits = extracted.filledSlots.map((s) =>
+              naturalPendingSlotAck(s, extracted.partial, trimmed)
+            );
+            const lead =
+              ackBits.length === 1
+                ? `Got it — ${ackBits[0]}.`
+                : `Got it — ${ackBits.join(", ")}.`;
+            const reply = buildReadinessFollowUpReply(applied.fill, { lead });
+            return finish({
+              handled: true,
+              reply,
+              listingFill: applied.fill,
+              navigateTo: onSellPage ? undefined : "/post/ai",
+              source: "tool",
+              intent: "listing_update",
+              tool: "updateListingDraft",
+              confidence: 0.95,
+              usedLocalExecution: true,
+              avoidedAi: true,
+              toolCall: {
+                tool: "updateListingDraft",
+                args: { updateListingDraft: applied.fill },
+                confidence: 0.95,
+              },
+            });
+          }
+        }
+      }
     }
   }
 

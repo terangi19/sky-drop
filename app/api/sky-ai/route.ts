@@ -29,6 +29,10 @@ import { logAwhinaQualityIfNeeded } from "../../lib/sky-ai-quality-log";
 import { processCanonicalAwhina } from "../../lib/awhina-canonical";
 import { recordAwhinaObs } from "../../lib/awhina-observability";
 import {
+  buildOpenListingSlotClarification,
+  isClarificationOpen,
+} from "../../lib/awhina-task-scope";
+import {
   hasProfileFillContent,
   type SkyAiProfileFill,
 } from "../../lib/sky-ai-profile-fill";
@@ -580,6 +584,53 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Ensure top-level pendingSlot reaches canonical as open listing_slots clarification
+    let clientTask = (awhinaSession?.task || null) as
+      | import("../../lib/awhina-task-scope").ClientTaskScopeContext
+      | null;
+    const topSlot =
+      typeof awhinaSession?.pendingSlot === "string" && awhinaSession.pendingSlot.trim()
+        ? awhinaSession.pendingSlot.trim()
+        : null;
+    if (topSlot) {
+      const open = isClarificationOpen(clientTask?.pendingClarification);
+      const hasSlot =
+        open &&
+        (clientTask?.pendingClarification?.pendingSlot ||
+          clientTask?.pendingClarification?.knownEntities?.activeSlot);
+      if (!hasSlot) {
+        clientTask = {
+          task: clientTask?.task || "selling",
+          pendingItem: clientTask?.pendingItem,
+          compareCandidates: clientTask?.compareCandidates,
+          entityLockKey: clientTask?.entityLockKey,
+          entityLocked: clientTask?.entityLocked,
+          updatedAt: clientTask?.updatedAt || Date.now(),
+          pendingClarification: buildOpenListingSlotClarification({
+            priorMessage: message.slice(0, 160),
+            missingSlots: [topSlot],
+            activeSlot: topSlot,
+          }),
+        };
+      } else if (
+        open &&
+        clientTask?.pendingClarification &&
+        !clientTask.pendingClarification.pendingSlot
+      ) {
+        clientTask = {
+          ...clientTask,
+          pendingClarification: {
+            ...clientTask.pendingClarification,
+            pendingSlot: topSlot,
+            knownEntities: {
+              ...clientTask.pendingClarification.knownEntities,
+              activeSlot: topSlot,
+            },
+          },
+        };
+      }
+    }
+
     const canonical = processCanonicalAwhina(message, {
       pathname,
       uid,
@@ -588,7 +639,7 @@ export async function POST(req: NextRequest) {
       history,
       listingContext: contextualListingContext,
       profileContext,
-      clientTask: awhinaSession?.task || null,
+      clientTask,
       clientSearch: awhinaSession?.search
         ? {
             filters: awhinaSession.search.filters as import("../../lib/awhina-search-memory").SearchSessionFilters,

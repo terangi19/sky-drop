@@ -330,9 +330,11 @@ export function parseShortReplyForPendingSlot(
       };
     }
   }
-  // "140k miles" as two-token odometer answer
+  // "140k miles" / "190k kilometres" as odometer + unit
   if (activeSlot === "odometer") {
-    const miles = t.match(/^\s*([\d,]+)\s*k\s*(?:miles?|mi|km|kms)\s*$/i);
+    const miles = t.match(
+      /^\s*([\d,]+)\s*k\s*(?:miles?|mi|km|kms|kilometers|kilometres)\s*$/i
+    );
     if (miles) {
       const n = Number(miles[1].replace(/,/g, "")) * 1000;
       if (n >= 100 && n < 2_000_000) {
@@ -423,6 +425,24 @@ export function parseShortReplyForPendingSlot(
       matched: true,
       filledSlot: "transmission",
       partial: { vehicleTransmission: auto ? "Automatic" : "Manual" },
+    };
+  }
+
+  if (
+    activeSlot === "colour" &&
+    /^(black|white|silver|grey|gray|blue|red|green|yellow|orange|brown|gold|beige|purple|pink|bronze|maroon|navy)\b/i.test(
+      t
+    )
+  ) {
+    const c = t.match(
+      /^(black|white|silver|grey|gray|blue|red|green|yellow|orange|brown|gold|beige|purple|pink|bronze|maroon|navy)\b/i
+    )![1];
+    return {
+      matched: true,
+      filledSlot: "colour",
+      partial: {
+        vehicleColour: c.charAt(0).toUpperCase() + c.slice(1).toLowerCase(),
+      },
     };
   }
 
