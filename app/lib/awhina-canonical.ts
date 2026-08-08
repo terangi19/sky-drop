@@ -936,7 +936,10 @@ export function processCanonicalAwhina(
       // Soft yes / sure → ask only for still-missing slots (do not restart intent / never search "yes")
       if (isSearchClarificationAffirmation(trimmed)) {
         const missing = pendingSearch.missingSlots || ["budget", "location"];
-        const reply = buildPendingSearchSlotAsk(pendingItem, missing);
+        const reply = buildPendingSearchSlotAsk(pendingItem, missing, {
+          message: pendingSearch.priorMessage,
+          searchType: pendingSearch.knownEntities?.searchType,
+        });
         setActiveTask(scopeKey, "shopping", {
           pendingItem,
           pendingClarification: {
@@ -1020,7 +1023,10 @@ export function processCanonicalAwhina(
       // Partial / short answer that didn't fill a tracked slot — keep asking once
       if (isShoppingClarifyAnswer(trimmed, pendingItem)) {
         const missing = pendingSearch.missingSlots || ["budget", "location"];
-        const reply = buildPendingSearchSlotAsk(pendingItem, missing);
+        const reply = buildPendingSearchSlotAsk(pendingItem, missing, {
+          message: pendingSearch.priorMessage,
+          searchType: pendingSearch.knownEntities?.searchType,
+        });
         return finish({
           handled: true,
           reply,
@@ -1053,12 +1059,13 @@ export function processCanonicalAwhina(
         clearPendingItem: true,
       });
     }
-    const { reply, item, missingSlots } = buildProactiveShoppingClarify(trimmed);
+    const { reply, item, missingSlots, searchType } = buildProactiveShoppingClarify(trimmed);
     const clarification = buildOpenSearchSlotClarification({
       priorMessage: trimmed,
       item,
       missingSlots,
       originatingTask: "shopping",
+      searchType,
     });
     setActiveTask(scopeKey, "shopping", {
       pendingItem: item,

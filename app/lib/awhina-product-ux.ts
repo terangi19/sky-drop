@@ -17,6 +17,11 @@ import {
   hasSearchIntentLanguage,
   hasServiceOfferingIntent,
 } from "./sky-ai-intent";
+import {
+  buildClarificationCopy,
+  inferClarificationSearchType,
+  type ClarificationSearchType,
+} from "./awhina-clarification-copy";
 
 const NEED_RE =
   /\b(i\s+need\s+(?:a|an|some|someone)|looking for|want to buy|wanna buy|want a|want an|i want a|i want an|need a|need an|need someone|hunting for|anyone selling)\b/i;
@@ -111,33 +116,63 @@ export function extractShoppingItem(message: string): string {
 
 /**
  * One concise clarifying question — material only, not an interrogation.
+ * Wording comes from awhina-clarification-copy (type × slots), never hardcoded pickup for services.
  */
 export function buildProactiveShoppingClarify(message: string): {
   reply: string;
   item: string;
   missingSlots: SearchMissingSlot[];
+  searchType: ClarificationSearchType;
 } {
   const item = extractShoppingItem(message);
   const lower = item.toLowerCase();
+  const searchType = inferClarificationSearchType(message, item);
 
   if (CONSOLE_RE.test(lower) || CONSOLE_RE.test(message)) {
+    const missingSlots: SearchMissingSlot[] = ["edition", "budget"];
     return {
       item,
-      missingSlots: ["edition", "budget"],
-      reply: `Happy to help find a **${item}**. Disc or digital — and roughly what budget?`,
+      missingSlots,
+      searchType,
+      reply: buildClarificationCopy({
+        activeTask: "shopping",
+        searchType,
+        message,
+        item,
+        missingSlots,
+        phase: "proactive",
+      }),
     };
   }
   if (PHONE_RE.test(lower) || PHONE_RE.test(message)) {
+    const missingSlots: SearchMissingSlot[] = ["budget", "condition"];
     return {
       item,
-      missingSlots: ["budget", "condition"],
-      reply: `I can search for **${item}**. Rough budget, and new or used?`,
+      missingSlots,
+      searchType,
+      reply: buildClarificationCopy({
+        activeTask: "shopping",
+        searchType,
+        message,
+        item,
+        missingSlots,
+        phase: "proactive",
+      }),
     };
   }
+  const missingSlots: SearchMissingSlot[] = ["budget", "location"];
   return {
     item,
-    missingSlots: ["budget", "location"],
-    reply: `I can search for **${item}**. Rough budget, or a city for pickup?`,
+    missingSlots,
+    searchType,
+    reply: buildClarificationCopy({
+      activeTask: "shopping",
+      searchType,
+      message,
+      item,
+      missingSlots,
+      phase: "proactive",
+    }),
   };
 }
 
@@ -316,32 +351,25 @@ export function hasEnoughSearchSlotInfo(
 /** One follow-up for still-missing slots after an affirmation. */
 export function buildPendingSearchSlotAsk(
   item: string,
-  missing: SearchMissingSlot[] | undefined
+  missing: SearchMissingSlot[] | undefined,
+  opts?: {
+    message?: string;
+    searchType?: ClarificationSearchType | string;
+  }
 ): string {
   const slots = missing?.length ? missing : (["budget", "location"] as SearchMissingSlot[]);
   const label = item || "that";
-  if (slots.includes("edition") && slots.includes("budget")) {
-    return `Sure — disc or digital for the **${label}**, and roughly what budget?`;
-  }
-  if (slots.includes("budget") && slots.includes("condition")) {
-    return `Sure — what's your budget for the **${label}**, and new or used?`;
-  }
-  if (slots.includes("budget") && slots.includes("location")) {
-    return `Sure — what's your budget, or which city do you want to pick up from?`;
-  }
-  if (slots.includes("budget")) {
-    return `Sure — roughly what budget for the **${label}**?`;
-  }
-  if (slots.includes("location")) {
-    return `Sure — which city for pickup?`;
-  }
-  if (slots.includes("edition")) {
-    return `Sure — disc or digital?`;
-  }
-  if (slots.includes("condition")) {
-    return `Sure — new or used?`;
-  }
-  return `Sure — any budget or city for the **${label}**?`;
+  const searchType =
+    (opts?.searchType as ClarificationSearchType | undefined) ||
+    inferClarificationSearchType(opts?.message || "", label);
+  return buildClarificationCopy({
+    activeTask: "shopping",
+    searchType,
+    message: opts?.message,
+    item: label,
+    missingSlots: slots,
+    phase: "followup",
+  });
 }
 
 /**

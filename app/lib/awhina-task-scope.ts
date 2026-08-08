@@ -198,8 +198,12 @@ export function buildOpenSearchSlotClarification(opts: {
   item: string;
   missingSlots: SearchMissingSlot[];
   originatingTask?: AwhinaActiveTask;
+  /** Clarification copy flavour — stored for type-aware follow-ups */
+  searchType?: string;
 }): PendingClarification {
   const now = Date.now();
+  const knownEntities: Record<string, string> = { item: opts.item };
+  if (opts.searchType) knownEntities.searchType = opts.searchType;
   return {
     kind: "search_slots",
     status: "open",
@@ -210,7 +214,7 @@ export function buildOpenSearchSlotClarification(opts: {
     originatingTask: opts.originatingTask || "shopping",
     originatingIntent: "marketplace_search",
     pendingTool: "searchListings",
-    knownEntities: { item: opts.item },
+    knownEntities,
     missingSlots: opts.missingSlots,
     intent: "marketplace_search",
     tool: "searchListings",

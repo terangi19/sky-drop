@@ -337,7 +337,8 @@ describe("clarification state-machine regressions A–E", () => {
     const blob = JSON.stringify(need).toLowerCase();
     expect(blob).not.toMatch(/create listing.*lawn mowing.*\$50/);
     if (need.source === "clarify") {
-      expect(need.reply?.toLowerCase()).toMatch(/budget|city|pickup|mow|lawn/);
+      expect(need.reply?.toLowerCase()).toMatch(/budget|city|area|mow|lawn/);
+      expect(need.reply?.toLowerCase()).not.toMatch(/\bpick[\s-]?up\b/);
     } else if (need.tool === "searchListings") {
       expect(need.navigateTo?.toLowerCase() || "").toMatch(/mow|lawn/);
     }
