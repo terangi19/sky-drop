@@ -13,6 +13,7 @@ import {
 } from "./awhina-task-scope";
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
 import { isVehicleListingFill } from "./awhina-listing-description";
+import { composeListingIdentity } from "./awhina-listing-identity";
 
 export type ListingMissingSlot =
   | "price"
@@ -690,18 +691,13 @@ export function composeVehicleIdentityTitle(
     .replace(/\s+/g, " ")
     .trim();
   const variant = getVariantExtra(d);
-  const parts = [
-    d.vehicleYear,
-    d.vehicleMake,
-    model,
-    d.vehicleGeneration,
-    variant &&
-    !model.toLowerCase().includes(variant.toLowerCase()) &&
-    !(d.vehicleGeneration || "").toLowerCase().includes(variant.toLowerCase())
-      ? variant
-      : undefined,
-  ].filter(Boolean);
-  return parts.join(" ").replace(/\s+/g, " ").trim();
+  return composeListingIdentity({
+    year: d.vehicleYear,
+    brand: d.vehicleMake,
+    product: model,
+    generation: d.vehicleGeneration,
+    variant,
+  });
 }
 
 /**
@@ -807,7 +803,12 @@ export function extractCompoundListingFacts(
       if (partial.vehicleModel || base.vehicleModel) {
         const model = partial.vehicleModel || base.vehicleModel || "";
         const make = partial.vehicleMake || base.vehicleMake || "";
-        partial.title = [make, model, variant].filter(Boolean).join(" ");
+        partial.title = composeListingIdentity({
+          brand: make,
+          product: model,
+          generation: partial.vehicleGeneration || base.vehicleGeneration,
+          variant,
+        });
       }
       filledSlots.push("variant");
       notes.push("variant GT-R");
@@ -821,7 +822,12 @@ export function extractCompoundListingFacts(
       if (partial.vehicleModel || base.vehicleModel) {
         const model = partial.vehicleModel || base.vehicleModel || "";
         const make = partial.vehicleMake || base.vehicleMake || "";
-        partial.title = [make, model, variant].filter(Boolean).join(" ");
+        partial.title = composeListingIdentity({
+          brand: make,
+          product: model,
+          generation: partial.vehicleGeneration || base.vehicleGeneration,
+          variant,
+        });
       }
       filledSlots.push("variant");
       notes.push("variant GTT");

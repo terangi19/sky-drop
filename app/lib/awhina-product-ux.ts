@@ -9,6 +9,10 @@ import { parseConditionFilter } from "./awhina-search-memory";
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
 import type { PendingClarification, SearchMissingSlot } from "./awhina-task-scope";
 import {
+  composeListingIdentityFromSeed,
+  guardAdjacentIdentityDuplication,
+} from "./awhina-listing-identity";
+import {
   buildListingDescriptionFromFacts,
   isRoboticListingDescription,
   passesListingDescriptionQualityGate,
@@ -822,7 +826,8 @@ export function normalizeProductName(raw: string): string {
   s = s.replace(/\biphone\b/gi, "iPhone");
   s = s.replace(/\bairpods\b/gi, "AirPods");
   s = s.replace(/\bbmw\b/gi, "BMW");
-  return s;
+  // Expand can surface prior model-fragment concat ("PS5 5" → "PlayStation 5 5")
+  return guardAdjacentIdentityDuplication(s);
 }
 
 function titleCaseProduct(s: string): string {
@@ -852,17 +857,31 @@ function titleCaseProduct(s: string): string {
 /**
  * Premium listing title from known item + condition only.
  * Target ~40–70 chars. Never invent editions/accessories.
+ * Identity is canonicalized once before casing / condition prefix.
  */
 export function buildPremiumListingTitle(opts: {
   item: string;
   condition?: string;
   listingType?: string;
   vehicleYear?: string;
+  brand?: string;
+  model?: string;
+  generation?: string;
+  variant?: string;
 }): string {
-  let core = normalizeProductName(opts.item)
-    .replace(/\b(brand\s+new|its|it's|my|the|a|an)\b/gi, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  let core = composeListingIdentityFromSeed(
+    normalizeProductName(opts.item)
+      .replace(/\b(brand\s+new|its|it's|my|the|a|an)\b/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim() || normalizeProductName(opts.item),
+    {
+      year: opts.listingType === "vehicle" ? opts.vehicleYear : undefined,
+      brand: opts.brand,
+      model: opts.model,
+      generation: opts.generation,
+      variant: opts.variant,
+    }
+  );
   if (!core) core = normalizeProductName(opts.item);
 
   if (opts.listingType === "rental") {
@@ -872,11 +891,7 @@ export function buildPremiumListingTitle(opts: {
   if (/^playstation\s*5$/i.test(core)) core = "PlayStation 5 Console";
   if (/^playstation\s*4$/i.test(core)) core = "PlayStation 4 Console";
 
-  core = titleCaseProduct(core);
-
-  if (opts.listingType === "vehicle" && opts.vehicleYear && !core.startsWith(opts.vehicleYear)) {
-    core = `${opts.vehicleYear} ${core}`;
-  }
+  core = titleCaseProduct(guardAdjacentIdentityDuplication(core));
 
   let prefix = "";
   if (opts.condition === "New" && !/\bbrand\s+new\b/i.test(core)) {

@@ -11,6 +11,10 @@
 
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
 import { normalizeServicePricingType } from "./service-pricing";
+import {
+  composeListingIdentity,
+  guardAdjacentIdentityDuplication,
+} from "./awhina-listing-identity";
 
 export type ListingDescriptionQuality = "standard" | "premium" | "premium_plus";
 
@@ -618,10 +622,21 @@ export function extractDescriptionFacts(
 
   if (kind === "wanted" && money) priceMode = "asking";
 
+  // ONE canonical identity — never blind year/make/model concat; collapse overlap
+  const variantExtra = (fill.extras || [])
+    .find((e) => /^variant:/i.test(e))
+    ?.replace(/^variant:/i, "")
+    .trim();
   const item =
     kind === "vehicle" && vehicle
-      ? [vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(" ") || bare
-      : bare;
+      ? composeListingIdentity({
+          year: vehicle.year,
+          brand: vehicle.make,
+          product: vehicle.model,
+          generation: fill.vehicleGeneration?.trim() || null,
+          variant: variantExtra || null,
+        }) || guardAdjacentIdentityDuplication(bare)
+      : guardAdjacentIdentityDuplication(bare);
 
   const conditionPhrase = conditionShort(fill.condition);
 

@@ -8,6 +8,7 @@ import type { KnowledgeProvenance } from "./marketplace-knowledge/types";
 import { mayOverwrite, PROVENANCE_RANK } from "./marketplace-knowledge/provenance";
 import type { SkyAiListingFill } from "./sky-ai-listing-fill";
 import type { AwhinaConfidenceLevel } from "./awhina-confidence-levels";
+import { composeListingIdentity } from "./awhina-listing-identity";
 
 export type FactProvenance = KnowledgeProvenance | "IMAGE";
 
@@ -279,13 +280,14 @@ export function factsToListingFill(
 
   if (g("title")) fill.title = g("title");
   else {
-    const parts = [
-      g("brand") || g("vehicleMake"),
-      g("model") || g("vehicleModel"),
-      g("variant"),
-      g("vehicleYear"),
-    ].filter(Boolean);
-    if (parts.length) fill.title = parts.join(" ");
+    const composed = composeListingIdentity({
+      brand: g("brand") || g("vehicleMake"),
+      product: g("itemIdentity") || undefined,
+      model: g("model") || g("vehicleModel"),
+      variant: g("variant"),
+      year: g("vehicleYear"),
+    });
+    if (composed) fill.title = composed;
     else if (g("itemIdentity")) fill.title = g("itemIdentity");
   }
 

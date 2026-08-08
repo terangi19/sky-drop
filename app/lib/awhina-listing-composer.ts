@@ -9,6 +9,7 @@ import {
   type ListingDescriptionQuality,
 } from "./awhina-product-ux";
 import { buildListingDescriptionFromFacts } from "./awhina-listing-description";
+import { composeListingIdentity } from "./awhina-listing-identity";
 import {
   inferPhysicalCategoryFromText,
   type SkyAiListingFill,
@@ -120,7 +121,11 @@ export function composeListingTitleAndDescription(
 
   const titleCore =
     vehicle && (make || model)
-      ? [year, make, model].filter(Boolean).join(" ") || item
+      ? composeListingIdentity({
+          year,
+          brand: make,
+          product: model,
+        }) || item
       : extractServiceOfferingTitle(item) || item;
 
   const title = buildPremiumListingTitle({
@@ -128,6 +133,8 @@ export function composeListingTitleAndDescription(
     condition: seed.condition,
     listingType,
     vehicleYear: year,
+    brand: make,
+    model: vehicle ? undefined : model,
   });
 
   const category =

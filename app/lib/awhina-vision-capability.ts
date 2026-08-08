@@ -23,6 +23,7 @@ import {
 import { awhinaPersonalityPromptBlock } from "./awhina-personality";
 import { openaiErrorResponse } from "./openai-errors";
 import { recordAwhinaObs } from "./awhina-observability";
+import { composeListingIdentity } from "./awhina-listing-identity";
 
 export type VisionFieldValue = {
   value: string | string[] | boolean;
@@ -285,7 +286,9 @@ export function visionFieldsToListingFill(
 
   if (!correctionOnly || title) {
     if (title) fill.title = title;
-    else if (brand || model) fill.title = [brand, model].filter(Boolean).join(" ");
+    else if (brand || model) {
+      fill.title = composeListingIdentity({ brand, model }) || [brand, model].filter(Boolean).join(" ");
+    }
   }
 
   if (category) fill.category = category;
